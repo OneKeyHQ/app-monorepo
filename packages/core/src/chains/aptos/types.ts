@@ -27,12 +27,12 @@ export type IEncodedTxAptos = {
   gas_unit_price?: string;
   expiration_timestamp_secs?: string;
   chain_id?: number;
-  bscTxn?: string;
+  bcsTxn?: string;
   forcePendingTx?: boolean;
   payload?: ITxPayload;
 
   // From dApp, not edit tx
-  notEditTx?: boolean;
+  disableEditTx?: boolean;
 } & ITxPayload;
 
 export interface ISignMessagePayload {

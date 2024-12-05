@@ -9,6 +9,9 @@ import {
   SimpleTransaction,
   TransactionAuthenticatorEd25519,
   TransactionResponseType,
+  findFirstNonSignerArg,
+  getFunctionParts,
+  parseTypeTag,
 } from '@aptos-labs/ts-sdk';
 import { get, isEmpty } from 'lodash';
 
@@ -33,10 +36,12 @@ import type { IBuildUnsignedTxParams } from '../../types';
 import type {
   AccountAddressInput,
   AnyNumber,
+  EntryFunctionABI,
   EntryFunctionPayloadResponse,
-  MoveFunction,
+  InputGenerateTransactionPayloadData,
   MoveResource,
   TransactionResponse,
+  TypeTag,
 } from '@aptos-labs/ts-sdk';
 
 export const APTOS_SIGN_MESSAGE_PREFIX = 'APTOS';
@@ -74,6 +79,12 @@ const MAX_U64_BIG_INT = BigInt(9_007_199_254_740_991);
 
 const POLL_INTERVAL = 2000;
 type IPollFn<T> = (time?: number, index?: number) => T;
+
+interface AptosSignAndSubmitTransactionInput {
+  gasUnitPrice?: number;
+  maxGasAmount?: number;
+  payload: InputGenerateTransactionPayloadData;
+}
 
 export function getTransactionTypeByPayload({
   type,
@@ -154,60 +165,6 @@ export async function buildSignedTx(
     txid: '',
     rawTx: signRawTx.toStringWithoutPrefix(),
   });
-}
-
-export async function generateUnsignedTransaction(
-  client: AptosClient,
-  unsignedTx: IBuildUnsignedTxParams,
-): Promise<SimpleTransaction> {
-  const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
-
-  const { sender } = encodedTx;
-  if (!sender) {
-    throw new OneKeyHardwareError(Error('sender is required'));
-  }
-
-  let rawTxn: SimpleTransaction;
-  if (encodedTx.bscTxn && !isEmpty(encodedTx.bscTxn)) {
-    const deserializer = new Deserializer(
-      bufferUtils.hexToBytes(encodedTx.bscTxn),
-    );
-    rawTxn = SimpleTransaction.deserialize(deserializer);
-  } else {
-    const {
-      sequence_number,
-      max_gas_amount,
-      gas_unit_price,
-      expiration_timestamp_secs,
-      function: func,
-      arguments: args,
-      type_arguments,
-    } = encodedTx;
-
-    if (!func) {
-      throw new OneKeyError('generate transaction error: function is empty');
-    }
-
-    rawTxn = await client.aptos.transaction.build.simple({
-      sender,
-      data: {
-        function: func as `${string}::${string}::${string}`,
-        functionArguments: args || [],
-        typeArguments: type_arguments || [],
-      },
-      options: {
-        accountSequenceNumber: sequence_number
-          ? BigInt(sequence_number)
-          : undefined,
-        maxGasAmount: max_gas_amount ? Number(max_gas_amount) : undefined,
-        gasUnitPrice: gas_unit_price ? Number(gas_unit_price) : undefined,
-        expireTimestamp: expiration_timestamp_secs
-          ? Number(expiration_timestamp_secs)
-          : undefined,
-      },
-    });
-  }
-  return rawTxn;
 }
 
 export function convertRpcError(error: string): OneKeyError {
@@ -327,27 +284,48 @@ export async function getAccountCoinResource(
   return Promise.resolve(accountResource);
 }
 
-export async function getModuleAbiMap(aptosClient: AptosClient, addr: string) {
-  const modules = await aptosClient.getAccountModules(addr);
-  const abis = modules
-    .map((module) => module.abi)
-    .flatMap((abi) =>
-      abi?.exposed_functions
-        .filter((ef) => ef.is_entry)
-        .map((ef) => ({
-          fullName: `${abi.address}::${abi.name}::${ef.name}`,
-          ...ef,
-        })),
+export function getExpirationTimestampSecs(): bigint {
+  return BigInt(Math.floor(Date.now() / 1000) + 3 * 60);
+}
+
+export async function fetchEntryFunctionAbi(
+  aptosClient: AptosClient,
+  moduleAddress: string,
+  moduleName: string,
+  functionName: string,
+): Promise<EntryFunctionABI> {
+  const module = await aptosClient.getAccountModule(moduleAddress, moduleName);
+
+  const functionAbi = module.abi?.exposed_functions.find(
+    (func) => func.name === functionName,
+  );
+
+  // If there's no ABI, then the function is invalid
+  if (!functionAbi) {
+    throw new Error(
+      `Could not find entry function ABI for '${moduleAddress}::${moduleName}::${functionName}'`,
     );
+  }
 
-  const abiMap = new Map<string, MoveFunction & { fullName: string }>();
-  abis.forEach((abi) => {
-    if (abi) {
-      abiMap.set(abi.fullName, abi);
-    }
-  });
+  // Non-entry functions also can't be used
+  if (!functionAbi.is_entry) {
+    throw new Error(
+      `'${moduleAddress}::${moduleName}::${functionName}' is not an entry function`,
+    );
+  }
 
-  return abiMap;
+  // Remove the signer arguments
+  const numSigners = findFirstNonSignerArg(functionAbi);
+  const params: TypeTag[] = [];
+  for (let i = numSigners; i < functionAbi.params.length; i += 1) {
+    params.push(parseTypeTag(functionAbi.params[i], { allowGenerics: true }));
+  }
+
+  return {
+    signers: numSigners,
+    typeParameters: functionAbi.generic_type_params,
+    parameters: params,
+  };
 }
 
 export function formatFullMessage(message: ISignMessageRequest): string {
@@ -495,6 +473,137 @@ export function generateTransferCreateNft(
   };
 }
 
-export function getExpirationTimestampSecs(): bigint {
-  return BigInt(Math.floor(Date.now() / 1000) + 3 * 60);
+export async function generateUnsignedTransaction(
+  client: AptosClient,
+  unsignedTx: IBuildUnsignedTxParams,
+): Promise<SimpleTransaction> {
+  const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
+
+  const { sender } = encodedTx;
+  if (!sender) {
+    throw new OneKeyHardwareError(Error('sender is required'));
+  }
+
+  let rawTxn: SimpleTransaction;
+  if (encodedTx.bcsTxn && !isEmpty(encodedTx.bcsTxn)) {
+    const deserializer = new Deserializer(
+      bufferUtils.hexToBytes(encodedTx.bcsTxn),
+    );
+    rawTxn = SimpleTransaction.deserialize(deserializer);
+  } else {
+    const {
+      max_gas_amount,
+      expiration_timestamp_secs,
+      function: func,
+      arguments: args,
+      type_arguments,
+    } = encodedTx;
+
+    let sequenceNumber: string | undefined = encodedTx.sequence_number;
+    let gasUnitPrice: string | undefined = encodedTx.gas_unit_price;
+    let expireTimestamp: string | undefined = expiration_timestamp_secs;
+
+    if (!func) {
+      throw new OneKeyError('generate transaction error: function is empty');
+    }
+
+    const { moduleAddress, moduleName, functionName } = getFunctionParts(
+      func as `${string}::${string}::${string}`,
+    );
+
+    const abi: EntryFunctionABI = await fetchEntryFunctionAbi(
+      client,
+      moduleAddress,
+      moduleName,
+      functionName,
+    );
+
+    if (!sequenceNumber) {
+      const { sequence_number } = await client.getAccount(sender);
+      sequenceNumber = sequence_number;
+    }
+
+    if (!gasUnitPrice) {
+      const { gas_estimate } = await client.getGasPriceEstimation();
+      gasUnitPrice = gas_estimate.toString();
+    }
+
+    if (!expireTimestamp) {
+      expireTimestamp = getExpirationTimestampSecs().toString();
+    }
+
+    rawTxn = await client.aptos.transaction.build.simple({
+      sender,
+      data: {
+        function: func as `${string}::${string}::${string}`,
+        functionArguments: args || [],
+        typeArguments: type_arguments || [],
+        abi,
+      },
+      options: {
+        accountSequenceNumber: sequenceNumber
+          ? BigInt(sequenceNumber)
+          : undefined,
+        maxGasAmount: max_gas_amount ? Number(max_gas_amount) : undefined,
+        gasUnitPrice: gasUnitPrice ? Number(gasUnitPrice) : undefined,
+        expireTimestamp: expireTimestamp ? Number(expireTimestamp) : undefined,
+      },
+    });
+  }
+  return rawTxn;
+}
+
+export async function buildSimpleTransaction(
+  aptosClient: AptosClient,
+  sender: string,
+  input: AptosSignAndSubmitTransactionInput,
+) {
+  const payload = input.payload;
+
+  if (!('function' in payload)) {
+    throw new Error('Not support transaction type');
+  }
+
+  let gasUnitPrice: number | undefined = input.gasUnitPrice;
+
+  const { sequence_number: sequenceNumber } = await aptosClient.getAccount(
+    sender,
+  );
+
+  let abi: EntryFunctionABI | undefined = get(payload, 'abi', undefined);
+  if (!abi) {
+    const { moduleAddress, moduleName, functionName } = getFunctionParts(
+      payload.function,
+    );
+
+    abi = await fetchEntryFunctionAbi(
+      aptosClient,
+      moduleAddress,
+      moduleName,
+      functionName,
+    );
+  }
+
+  if (!gasUnitPrice) {
+    const { gas_estimate } = await aptosClient.getGasPriceEstimation();
+    gasUnitPrice = Number(gas_estimate);
+  }
+
+  const expireTimestamp = getExpirationTimestampSecs();
+
+  return aptosClient.aptos.transaction.build.simple({
+    sender,
+    data: {
+      ...input.payload,
+      abi,
+    },
+    options: {
+      maxGasAmount: input?.maxGasAmount
+        ? Number(input.maxGasAmount)
+        : Number(DEFAULT_GAS_LIMIT_TRANSFER),
+      gasUnitPrice: gasUnitPrice ? Number(gasUnitPrice) : undefined,
+      accountSequenceNumber: BigInt(sequenceNumber),
+      expireTimestamp: Number(expireTimestamp),
+    },
+  });
 }

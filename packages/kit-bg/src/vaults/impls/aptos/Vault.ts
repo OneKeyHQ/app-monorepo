@@ -157,15 +157,14 @@ export default class VaultAptos extends VaultBase {
     encodedTx: IEncodedTxAptos,
   ): Promise<IUnsignedTxPro> {
     const expect = getExpirationTimestampSecs();
-    if (!isNil(encodedTx.bscTxn) && !isEmpty(encodedTx.bscTxn)) {
-      const deserializer = new Deserializer(
-        bufferUtils.hexToBytes(encodedTx.bscTxn),
-      );
+    const { bcsTxn, disableEditTx } = encodedTx;
+    if (!isNil(bcsTxn) && !isEmpty(bcsTxn)) {
+      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       const rawTx = simpleTxn.rawTransaction;
 
       let expirationTimestampSecs = rawTx.expiration_timestamp_secs;
-      if (!encodedTx.notEditTx && rawTx.expiration_timestamp_secs < expect) {
+      if (!disableEditTx && rawTx.expiration_timestamp_secs < expect) {
         expirationTimestampSecs = expect;
       }
 
@@ -185,7 +184,7 @@ export default class VaultAptos extends VaultBase {
       );
       const serializer = new Serializer();
       newSimpleTxn.serialize(serializer);
-      encodedTx.bscTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
+      encodedTx.bcsTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
     } else if (
       !encodedTx.expiration_timestamp_secs ||
       BigInt(encodedTx.expiration_timestamp_secs) < expect
@@ -407,10 +406,6 @@ export default class VaultAptos extends VaultBase {
     let action: IDecodedTxAction | null = null;
     const [toAddress] = encodedTx.arguments || [];
 
-    if (encodedTx.bscTxn) {
-      await this._decodeTxByBcsTxn(encodedTx.bscTxn, network);
-    }
-
     if (swapInfo) {
       action = await this.buildInternalSwapAction({
         swapInfo,
@@ -423,9 +418,9 @@ export default class VaultAptos extends VaultBase {
         stakingInfo,
         stakingToAddress: toAddress,
       });
-    } else if (encodedTx.bscTxn) {
+    } else if (encodedTx.bcsTxn) {
       const { actions, rawTxn } = await this._decodeTxByBcsTxn(
-        encodedTx.bscTxn,
+        encodedTx.bcsTxn,
         network,
       );
       action = actions[0];
@@ -606,17 +601,27 @@ export default class VaultAptos extends VaultBase {
       .shiftedBy(common.feeDecimals)
       .toFixed();
 
-    let { bscTxn, notEditTx: isStandardWalletDApp } = params.encodedTx;
+    let {
+      bcsTxn,
+      disableEditTx,
+      max_gas_amount: maxGasAmount,
+    } = params.encodedTx;
     // Standard wallet dApp interface not edit fee
-    if (!isStandardWalletDApp && !isNil(bscTxn) && !isEmpty(bscTxn)) {
-      const deserializer = new Deserializer(bufferUtils.hexToBytes(bscTxn));
+    if (!disableEditTx && !isNil(bcsTxn) && !isEmpty(bcsTxn)) {
+      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       const rawTx = simpleTxn.rawTransaction;
+
+      const newMaxGasAmount =
+        rawTx.max_gas_amount < BigInt(maxGasAmount ?? '0')
+          ? BigInt(maxGasAmount ?? '0')
+          : rawTx.max_gas_amount;
+
       const newRawTx = new RawTransaction(
         rawTx.sender,
         rawTx.sequence_number,
         rawTx.payload,
-        BigInt(gas.gasLimit),
+        newMaxGasAmount,
         BigInt(gasPrice),
         rawTx.expiration_timestamp_secs,
         rawTx.chain_id,
@@ -627,23 +632,23 @@ export default class VaultAptos extends VaultBase {
         simpleTxn.feePayerAddress,
       );
       newSimpleTxn.serialize(serializer);
-      bscTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
+      bcsTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
     }
 
     const encodedTxWithFee = {
       ...params.encodedTx,
       gas_unit_price: gasPrice,
       max_gas_amount: gas.gasLimit,
-      bscTxn,
+      bcsTxn,
     };
     return Promise.resolve(encodedTxWithFee);
   }
 
   private _updateExpirationTimestampSecs(encodedTx: IEncodedTxAptos) {
     const expirationTimestampSecs = getExpirationTimestampSecs();
-    const { bscTxn, notEditTx: isStandardWalletDApp } = encodedTx;
-    if (!isStandardWalletDApp && !isNil(bscTxn) && !isEmpty(bscTxn)) {
-      const deserializer = new Deserializer(bufferUtils.hexToBytes(bscTxn));
+    const { bcsTxn, disableEditTx } = encodedTx;
+    if (!disableEditTx && !isNil(bcsTxn) && !isEmpty(bcsTxn)) {
+      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
       const simpleTxn = SimpleTransaction.deserialize(deserializer);
       const rawTx = simpleTxn.rawTransaction;
       const newRawTx = new RawTransaction(
@@ -663,7 +668,7 @@ export default class VaultAptos extends VaultBase {
         simpleTxn.feePayerAddress,
       );
       newSimpleTxn.serialize(serializer);
-      encodedTx.bscTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
+      encodedTx.bcsTxn = bufferUtils.bytesToHex(serializer.toUint8Array());
     } else {
       encodedTx.expiration_timestamp_secs = expirationTimestampSecs.toString();
     }
@@ -764,10 +769,9 @@ export default class VaultAptos extends VaultBase {
 
     let rawTx: SimpleTransaction;
     const unSignedEncodedTx = encodedTx as IEncodedTxAptos;
-    if (unSignedEncodedTx.bscTxn && unSignedEncodedTx.bscTxn?.length > 0) {
-      const deserializer = new Deserializer(
-        bufferUtils.hexToBytes(unSignedEncodedTx.bscTxn),
-      );
+    const { bcsTxn } = unSignedEncodedTx;
+    if (bcsTxn && !isEmpty(bcsTxn)) {
+      const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
       rawTx = SimpleTransaction.deserialize(deserializer);
     } else {
       rawTx = await generateUnsignedTransaction(this.client, {
@@ -813,7 +817,7 @@ export default class VaultAptos extends VaultBase {
   }): Promise<IEncodedTx> {
     // Standard wallet dApp interface not edit fee
     const unSignedEncodedTx = params.encodedTx as IEncodedTxAptos;
-    if (unSignedEncodedTx.notEditTx && unSignedEncodedTx.bscTxn) {
+    if (unSignedEncodedTx.disableEditTx && unSignedEncodedTx.bcsTxn) {
       return Promise.resolve('');
     }
     return unSignedEncodedTx;
@@ -842,17 +846,26 @@ export default class VaultAptos extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('Invalid rpc url');
     }
-    const config = new AptosConfig({ fullnode: rpcUrl });
+
+    const rpcUrlWithoutSeparator = rpcUrl.replace(/\/$/, '');
+    const hasVersion = /\/v\d+$/.test(rpcUrlWithoutSeparator);
+    const rpcUrlFull = hasVersion
+      ? rpcUrlWithoutSeparator
+      : `${rpcUrlWithoutSeparator}/v1`;
+
+    const config = new AptosConfig({ fullnode: rpcUrlFull });
     const deserializer = new Deserializer(
       bufferUtils.hexToBytes(signedTx.rawTx),
     );
-    const signedTransaction = SignedTransaction.deserialize(deserializer);
+    const signedTransactionBscHex = SignedTransaction.deserialize(deserializer)
+      .bcsToHex()
+      .toUint8Array();
     const { data } = await postAptosFullNode<
       Uint8Array,
       PendingTransactionResponse
     >({
       aptosConfig: config,
-      body: signedTransaction,
+      body: signedTransactionBscHex,
       path: 'transactions',
       originMethod: 'submitTransaction',
       contentType: MimeType.BCS_SIGNED_TRANSACTION,
