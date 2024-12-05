@@ -477,8 +477,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getCredential(credentialId: string): Promise<IDBCredentialBase> {
-    const db = await this.readyDb;
-    const credential = await db.getRecordById({
+    const credential = await this.getRecordById({
       name: ELocalDBStoreNames.Credential,
       id: credentialId,
     });
@@ -661,8 +660,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     walletId: string;
   }): Promise<IDBWallet> {
-    const db = await this.readyDb;
-    const wallet = await db.getRecordById({
+    const wallet = await this.getRecordById({
       name: ELocalDBStoreNames.Wallet,
       id: walletId,
     });
@@ -889,12 +887,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name: EPerformanceTimerLogNames.localDB__getIndexedAccount,
     });
 
-    perf.markStart('readyDb');
-    const db = await this.readyDb;
-    perf.markEnd('readyDb');
-
     perf.markStart('getRecordById');
-    const indexedAccount = await db.getRecordById({
+    const indexedAccount = await this.getRecordById({
       name: ELocalDBStoreNames.IndexedAccount,
       id,
     });
@@ -2703,12 +2697,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       params: { accountId },
     });
 
-    perf.markStart('readyDb');
-    const db = await this.readyDb;
-    perf.markEnd('readyDb');
-
     perf.markStart('getRecordById');
-    const account = await db.getRecordById({
+    const account = await this.getRecordById({
       name: ELocalDBStoreNames.Account,
       id: accountId,
     });
