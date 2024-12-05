@@ -3,6 +3,7 @@
 
 import qs from 'querystring';
 
+import { Semaphore } from 'async-mutex';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, omit, omitBy } from 'lodash';
 
@@ -58,6 +59,7 @@ import type {
 } from '@onekeyhq/shared/types/fee';
 import type {
   IAccountHistoryTx,
+  IAllNetworkHistoryExtraItem,
   IFetchHistoryTxDetailsResp,
   IOnChainHistoryTx,
   IOnChainHistoryTxApprove,
@@ -462,6 +464,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }
 
   async buildHistoryTx(params: {
+    dbAccount?: IDBAccount;
     historyTxToMerge?: IAccountHistoryTx;
     decodedTx: IDecodedTx;
     signedTx?: ISignedTxPro;
@@ -470,8 +473,14 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     accountAddress?: string;
     xpub?: string;
   }): Promise<IAccountHistoryTx> {
-    const { historyTxToMerge, decodedTx, signedTx, isSigner, isLocalCreated } =
-      params;
+    const {
+      historyTxToMerge,
+      decodedTx,
+      signedTx,
+      isSigner,
+      isLocalCreated,
+      dbAccount,
+    } = params;
 
     let accountAddress = params.accountAddress || '';
     let xpub = params.xpub;
@@ -486,10 +495,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     try {
       const [a, x] = await Promise.all([
         this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          dbAccount,
           accountId,
           networkId,
         }),
         this.backgroundApi.serviceAccount.getAccountXpub({
+          dbAccount,
           accountId,
           networkId,
         }),
@@ -526,17 +537,20 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(historyTx);
   }
 
-  async buildOnChainHistoryTx(
-    params: IBuildHistoryTxParams,
-  ): Promise<IAccountHistoryTx | null> {
+  fixOnChainHistoryAccountData(params: {
+    accountId: string;
+    networkId: string;
+    accountAddress: string;
+    xpub: string | undefined;
+    onChainHistoryTx: IOnChainHistoryTx;
+    allNetworkHistoryExtraItems?: IAllNetworkHistoryExtraItem[];
+  }) {
     const {
       accountId: originAccountId,
       networkId: originNetworkId,
-      onChainHistoryTx,
-      tokens,
-      nfts,
       accountAddress: originAccountAddress,
       xpub: originXpub,
+      onChainHistoryTx,
       allNetworkHistoryExtraItems,
     } = params;
     let accountId = originAccountId;
@@ -560,6 +574,63 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         accountAddress = allNetworkAccount.accountAddress;
         xpub = allNetworkAccount.accountXpub;
       }
+    }
+    return {
+      accountId,
+      networkId,
+      accountAddress,
+      xpub,
+    };
+  }
+
+  mutexBuildOnChainHistoryTxGetDBAccount = new Semaphore(1);
+
+  async buildOnChainHistoryTx(
+    params: IBuildHistoryTxParams,
+  ): Promise<IAccountHistoryTx | null> {
+    const {
+      onChainHistoryTx,
+      tokens,
+      nfts,
+      allNetworkHistoryExtraItems,
+      dbAccountCache,
+    } = params;
+
+    const { accountId, networkId, accountAddress, xpub } =
+      this.fixOnChainHistoryAccountData({
+        accountId: params.accountId,
+        networkId: params.networkId,
+        accountAddress: params.accountAddress,
+        xpub: params.xpub,
+        onChainHistoryTx,
+        allNetworkHistoryExtraItems,
+      });
+
+    if (params.accountId !== accountId) {
+      console.log(
+        'buildOnChainHistoryTx accountId mismatch',
+        params.accountId,
+        accountId,
+      );
+    }
+
+    const key = `${accountId}`;
+    let dbAccount: IDBAccount | undefined;
+    if (dbAccountCache) {
+      await this.mutexBuildOnChainHistoryTxGetDBAccount.runExclusive(
+        async () => {
+          dbAccount = dbAccountCache?.[key];
+          if (!dbAccount) {
+            dbAccount =
+              await this.backgroundApi.serviceAccount.getDBAccountSafe({
+                accountId,
+              });
+            if (dbAccount) {
+              dbAccountCache[key] = dbAccount;
+            }
+          }
+        },
+      );
     }
 
     const vaultSettings =
@@ -610,6 +681,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       decodedTx.isFinal = true;
 
       return await this.buildHistoryTx({
+        dbAccount,
         decodedTx,
         accountAddress,
         xpub,

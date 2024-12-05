@@ -1,3 +1,4 @@
+import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -38,6 +39,12 @@ export function useAccountData<T extends IUseAccountDataResult>({
 }) {
   const intl = useIntl();
   const { serviceAccount, serviceNetwork } = backgroundApiProxy;
+
+  if (accountId && networkId) {
+    const info = { accountId, networkId, walletId };
+    noop(info);
+  }
+
   const { result, isLoading, run } = usePromiseResult<IUseAccountDataResult>(
     async () => {
       let deriveType: IAccountDeriveTypes | undefined;

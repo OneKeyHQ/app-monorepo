@@ -1,5 +1,5 @@
-import { useCallback, useMemo } from 'react';
 import type { ReactElement } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
@@ -105,10 +105,14 @@ function TxHistoryListView(props: IProps) {
 
   const [searchKey] = useSearchKeyAtom();
 
-  const filteredHistory = getFilteredHistoryBySearchKey({
-    history: data,
-    searchKey,
-  });
+  const filteredHistory = useMemo(
+    () =>
+      getFilteredHistoryBySearchKey({
+        history: data,
+        searchKey,
+      }),
+    [data, searchKey],
+  );
 
   const { bottom, top } = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();

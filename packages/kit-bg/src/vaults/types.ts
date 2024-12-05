@@ -613,6 +613,9 @@ export interface IBuildHistoryTxParams {
   localHistoryPendingTxs?: IAccountHistoryTx[];
   index?: number;
   allNetworkHistoryExtraItems?: IAllNetworkHistoryExtraItem[];
+  dbAccountCache?: {
+    [accountId: string]: IDBAccount;
+  };
 }
 
 export type IGetPrivateKeyFromImportedParams = {
