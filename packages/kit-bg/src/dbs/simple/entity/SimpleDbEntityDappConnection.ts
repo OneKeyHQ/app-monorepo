@@ -66,7 +66,7 @@ function generateMaps(connectionMap: Record<number, IConnectionAccountInfo>): {
 export class SimpleDbEntityDappConnection extends SimpleDbEntityBase<IDappConnectionData> {
   entityName = 'dappConnection';
 
-  override enableCache = false;
+  override enableCache = true;
 
   @backgroundMethod()
   async upsertConnection({

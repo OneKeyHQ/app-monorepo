@@ -68,12 +68,14 @@ function useAllNetworkRequests<T>(params: {
     customTokensRawData: ICustomTokenDBStruct | undefined;
   }) => Promise<T | undefined>;
   allNetworkCacheRequests?: ({
+    dbAccount,
     accountId,
     networkId,
     accountAddress,
     xpub,
     simpleDbLocalTokensRawData,
   }: {
+    dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
     accountAddress: string;
@@ -233,9 +235,15 @@ function useAllNetworkRequests<T>(params: {
             await Promise.all(
               Array.from(accountsInfo).map(
                 async (networkDataString: IAllNetworkAccountInfo) => {
-                  const { accountId, networkId, accountXpub, apiAddress } =
-                    networkDataString;
+                  const {
+                    accountId,
+                    networkId,
+                    accountXpub,
+                    apiAddress,
+                    dbAccount,
+                  } = networkDataString;
                   const cachedDataResult = await allNetworkCacheRequests?.({
+                    dbAccount,
                     accountId,
                     networkId,
                     xpub: accountXpub,
