@@ -574,3 +574,5 @@ export enum ESwapSlippageCustomStatus {
   ERROR = 'error',
   WRONG = 'wrong',
 }
+
+export const SwapPercentageInputStage = [25, 50, 100];
