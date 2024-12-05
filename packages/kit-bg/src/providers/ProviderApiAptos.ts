@@ -7,13 +7,7 @@ import {
   Serializer,
   SignedTransaction,
   SimpleTransaction,
-  getFunctionParts,
-  EntryFunctionABI,
 } from '@aptos-labs/ts-sdk';
-import type {
-  AptosSignAndSubmitTransactionInput,
-  AptosSignAndSubmitTransactionOutput,
-} from '@aptos-labs/wallet-standard';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { get, isArray } from 'lodash';
@@ -37,18 +31,19 @@ import { vaultFactory } from '../vaults/factory';
 import {
   APTOS_SIGN_MESSAGE_PREFIX,
   buildSimpleTransaction,
-  fetchEntryFunctionAbi,
   formatSignMessageRequest,
   generateTransferCreateCollection,
   generateTransferCreateNft,
-  getExpirationTimestampSecs,
-  getModuleAbiMap,
 } from '../vaults/impls/aptos/utils';
 
 import ProviderApiBase from './ProviderApiBase';
 
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type VaultAptos from '../vaults/impls/aptos/Vault';
+import type {
+  AptosSignAndSubmitTransactionInput,
+  AptosSignAndSubmitTransactionOutput,
+} from '@aptos-labs/wallet-standard';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 type IAccountInfo =
