@@ -85,7 +85,7 @@ export function coinSelectAccumulativeDesc(
     feeRate,
   });
 
-  return coinSelectAccumulative(utxos, outputs, feeRate);
+  return coinSelectAccumulative(utxos, outputs, feeRate) as ICoinSelectResult;
 }
 
 export const coinSelect = ({
