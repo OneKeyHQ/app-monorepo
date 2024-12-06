@@ -27,6 +27,8 @@ export function WebView({
     }, 500);
   }, [onLoadEnd]);
 
+  // onMessage handler is required for injectedJavaScript to execute properly
+  // Without onMessage, the injected JavaScript code will not run
   const onMessage = useCallback(() => {
   }, []);
   const onShouldStartLoadWithRequest = useCallback((event: ShouldStartLoadRequestEvent) => {
