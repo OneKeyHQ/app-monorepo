@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Divider,
-  Image,
   SizableText,
   Stack,
   XStack,
@@ -37,6 +36,7 @@ import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
 import { Token } from '../Token';
 
 import { TxActionCommonListView } from './TxActionCommon';
+import { TxActionSwapInfo } from './TxActionSwapInfo';
 
 import type { ITxActionCommonListViewProps, ITxActionProps } from './types';
 import type { IntlShape } from 'react-intl';
@@ -525,10 +525,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
     intl,
   });
 
-  const { network: swapReceiveNetwork } = useAccountData({
-    networkId: swapInfo?.receiver?.token?.networkId,
-  });
-
   const { vaultSettings } = useAccountData({ networkId });
 
   const isUTXO = vaultSettings?.isUtxo;
@@ -584,7 +580,12 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
           transferChangeElements.push(
             <ListItem key={`${approve.tokenIdOnNetwork}-approve`}>
-              <Token isNFT={false} tokenImageUri={approve.icon} />
+              <Token
+                isNFT={false}
+                showNetworkIcon
+                networkId={swapInfo.sender.accountInfo.networkId}
+                tokenImageUri={approve.icon}
+              />
               <Stack flex={1}>
                 <SizableText size="$bodyLgMedium">{approveContent}</SizableText>
               </Stack>
@@ -597,7 +598,12 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         transfersInfo.forEach((transfer) =>
           transferChangeElements.push(
             <ListItem key={transfer.tokenIdOnNetwork}>
-              <Token isNFT={transfer.isNFT} tokenImageUri={transfer.icon} />
+              <Token
+                isNFT={transfer.isNFT}
+                tokenImageUri={transfer.icon}
+                showNetworkIcon
+                networkId={transfer.networkId}
+              />
               <Stack flex={1}>
                 <SizableText size="$bodyLgMedium">{`${
                   block.direction === EDecodedTxDirection.OUT ? '-' : '+'
@@ -746,41 +752,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
       let networkInfo: React.ReactElement | null = null;
 
-      if (
-        swapInfo &&
-        swapReceiveNetwork?.id &&
-        swapReceiveNetwork?.id !== network?.id
-      ) {
-        networkInfo = (
-          <InfoItem
-            compact
-            label={intl.formatMessage({ id: ETranslations.network__network })}
-            renderContent={
-              <XStack alignItems="center" gap="$2">
-                <XStack alignItems="center">
-                  <NetworkAvatar networkId={network?.id} size="$5" />
-
-                  <Stack
-                    p="$0.5"
-                    m="$-0.5"
-                    ml="$-1"
-                    borderRadius="$full"
-                    bg="$bgApp"
-                  >
-                    <NetworkAvatar
-                      networkId={swapReceiveNetwork?.id}
-                      size="$5"
-                    />
-                  </Stack>
-                </XStack>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {network?.name} → {swapReceiveNetwork?.name}
-                </SizableText>
-              </XStack>
-            }
-          />
-        );
-      } else {
+      if (!swapInfo) {
         networkInfo = (
           <InfoItem
             compact
@@ -797,34 +769,8 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         );
       }
 
-      transferExtraElements.push(networkInfo);
-
-      if (application) {
-        transferExtraElements.push(
-          <InfoItem
-            compact
-            label={intl.formatMessage({
-              id: ETranslations.transaction_application,
-            })}
-            renderContent={
-              <XStack alignItems="center" gap="$2">
-                <Image
-                  borderRadius="$1"
-                  w="$5"
-                  h="$5"
-                  source={{ uri: application.icon }}
-                />
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  textTransform="capitalize"
-                >
-                  {application.name}
-                </SizableText>
-              </XStack>
-            }
-          />,
-        );
+      if (networkInfo) {
+        transferExtraElements.push(networkInfo);
       }
 
       return (
@@ -834,6 +780,12 @@ function TxActionTransferDetailView(props: ITxActionProps) {
           <InfoItemGroup testID="transfer-tx-action">
             {transferExtraElements}
           </InfoItemGroup>
+          {swapInfo ? (
+            <>
+              <Divider mx="$5" />
+              <TxActionSwapInfo swapInfo={swapInfo} />
+            </>
+          ) : null}
         </>
       );
     },
@@ -850,8 +802,6 @@ function TxActionTransferDetailView(props: ITxActionProps) {
       network?.id,
       network?.name,
       swapInfo,
-      swapReceiveNetwork?.id,
-      swapReceiveNetwork?.name,
       to,
     ],
   );
