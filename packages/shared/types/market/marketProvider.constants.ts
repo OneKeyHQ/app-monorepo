@@ -3,7 +3,29 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { getNetworkIdsMap } from '../../src/config/networkIds';
 import { ESwapTabSwitchType } from '../swap/types';
 
-const getSwapTokenMap = memoizee(() => {
+const getSwapTokenMap = memoizee((): Record<string, {
+  switchType: ESwapTabSwitchType;
+  contractAddress: string;
+  default: {
+    contractAddress: string;
+    networkId: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    isNative: boolean;
+    networkLogoURI?: string;
+  };
+  target: {
+    networkId: string;
+    contractAddress: string;
+    name: string;
+    symbol: string;
+    decimals: number;
+    isNative: boolean;
+    networkLogoURI: string;
+    isPopular?: boolean;
+  };
+}> => {
   const networkIdsMap = getNetworkIdsMap();
   return {
     [networkIdsMap.btc]: {
@@ -59,7 +81,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'Solana',
         'symbol': 'SOL',
         'decimals': 9,
-        'riskLevel': 1,
         'isNative': true,
       },
       target: {
@@ -81,7 +102,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'BNB',
         'symbol': 'BNB',
         'decimals': 18,
-        'riskLevel': 1,
         'isNative': true,
       },
       target: {
@@ -102,7 +122,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'Polygon',
         'symbol': 'POL',
         'decimals': 18,
-        'riskLevel': 1,
         'isNative': true,
       },
       target: {
@@ -113,7 +132,6 @@ const getSwapTokenMap = memoizee(() => {
         'decimals': 6,
         'networkLogoURI':
           'https://uni.onekey-asset.com/static/chain/polygon.png',
-        'riskLevel': 1,
         'isNative': false,
       },
     },
@@ -125,7 +143,6 @@ const getSwapTokenMap = memoizee(() => {
         'name': 'Aptos Coin',
         'symbol': 'APT',
         'decimals': 8,
-        'riskLevel': 0,
         'isNative': true,
       },
       target: {
