@@ -959,6 +959,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         amount: swapInfo.sender.amount,
         isNFT: false,
         isNative: swapSendToken.isNative,
+        networkId: swapInfo.sender.accountInfo.networkId,
       },
       {
         from: '',
@@ -970,6 +971,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         amount: swapInfo.receiver.amount,
         isNFT: false,
         isNative: swapReceiveToken.isNative,
+        networkId: swapInfo.receiver.accountInfo.networkId,
       },
     ];
 
@@ -990,6 +992,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
             amount: feeInfo.amount,
             isNFT: false,
             isNative: feeInfo.token.isNative,
+            networkId: swapInfo.sender.accountInfo.networkId,
           });
         }
       });
