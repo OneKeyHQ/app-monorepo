@@ -580,7 +580,11 @@ function TxActionTransferDetailView(props: ITxActionProps) {
 
           transferChangeElements.push(
             <ListItem key={`${approve.tokenIdOnNetwork}-approve`}>
-              <Token isNFT={false} tokenImageUri={approve.icon} />
+              <Token
+                isNFT={false}
+                showNetworkIcon
+                tokenImageUri={approve.icon}
+              />
               <Stack flex={1}>
                 <SizableText size="$bodyLgMedium">{approveContent}</SizableText>
               </Stack>
@@ -593,7 +597,12 @@ function TxActionTransferDetailView(props: ITxActionProps) {
         transfersInfo.forEach((transfer) =>
           transferChangeElements.push(
             <ListItem key={transfer.tokenIdOnNetwork}>
-              <Token isNFT={transfer.isNFT} tokenImageUri={transfer.icon} />
+              <Token
+                isNFT={transfer.isNFT}
+                tokenImageUri={transfer.icon}
+                showNetworkIcon
+                networkId={transfer.networkId}
+              />
               <Stack flex={1}>
                 <SizableText size="$bodyLgMedium">{`${
                   block.direction === EDecodedTxDirection.OUT ? '-' : '+'

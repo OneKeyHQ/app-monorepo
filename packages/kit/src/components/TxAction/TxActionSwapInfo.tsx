@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
 import {
+  Divider,
   IconButton,
   Image,
   NumberSizeableText,
@@ -20,12 +21,13 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 
+import { useAccountData } from '../../hooks/useAccountData';
 import {
   InfoItem,
   InfoItemGroup,
 } from '../../views/AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import { SwapServiceFeeOverview } from '../../views/Swap/components/SwapServiceFeeOverview';
 import { NetworkAvatar } from '../NetworkAvatar';
-import { useAccountData } from '../../hooks/useAccountData';
 
 interface IProps {
   swapInfo: ISwapTxInfo;
@@ -39,7 +41,7 @@ const FROM_TOKEN_RATE_BASE_NUMBER = 1;
 
 function TxActionSwapInfo(props: IProps) {
   const { swapInfo } = props;
-  const { sender, receiver, swapBuildResData } = swapInfo;
+  const { sender, receiver, swapBuildResData, swapRequiredApproves } = swapInfo;
   const {
     info: provider,
     instantRate,
@@ -106,11 +108,7 @@ function TxActionSwapInfo(props: IProps) {
       return (
         <XStack alignItems="center" gap="$1">
           <SizableText {...textStyle}>{fee.percentageFee}%</SizableText>
-          <IconButton
-            icon="InfoCircleOutline"
-            size="small"
-            variant="tertiary"
-          />
+          <SwapServiceFeeOverview onekeyFee={fee.percentageFee} />
         </XStack>
       );
     }
@@ -123,7 +121,7 @@ function TxActionSwapInfo(props: IProps) {
         <SizableText textDecorationLine="line-through" {...textStyle}>
           {swapServiceFeeDefault}%
         </SizableText>
-        <IconButton icon="InfoCircleOutline" size="small" variant="tertiary" />
+        <SwapServiceFeeOverview onekeyFee={fee.percentageFee} />
       </XStack>
     );
   }, [fee]);
@@ -231,6 +229,31 @@ function TxActionSwapInfo(props: IProps) {
           />
         )}
       </InfoItemGroup>
+      <Divider mx="$5" />
+      <Stack p="$5">
+        <SizableText size="$bodySm" color="$textSubdued">
+          {swapRequiredApproves
+            ? intl.formatMessage(
+                {
+                  id: ETranslations.transaction_confirm_batch_swap_tip,
+                },
+                {
+                  token: sender.token.symbol,
+                  chain: senderNetwork?.name,
+                  provider: provider.providerName,
+                },
+              )
+            : intl.formatMessage(
+                {
+                  id: ETranslations.transaction_confirm_single_swap_tip,
+                },
+                {
+                  chain: senderNetwork?.name,
+                  provider: provider.providerName,
+                },
+              )}
+        </SizableText>
+      </Stack>
     </Stack>
   );
 }
