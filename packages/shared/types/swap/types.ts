@@ -266,6 +266,7 @@ export interface IFetchQuoteResult {
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   gasLimit?: number;
+  slippage?: number;
 }
 
 export interface IAllowanceResult {
