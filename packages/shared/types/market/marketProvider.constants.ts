@@ -111,6 +111,7 @@ const getSwapTokenMap = memoizee((): Record<string, {
         'symbol': 'USDC',
         'decimals': 18,
         'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
+        'isNative': false,
       },
     },
     [networkIdsMap.polygon]: {
@@ -139,6 +140,7 @@ const getSwapTokenMap = memoizee((): Record<string, {
       switchType: ESwapTabSwitchType.BRIDGE,
       contractAddress: '0x1::aptos_coin::AptosCoin',
       default: {
+        'contractAddress': '',
         'networkId': 'aptos--1',
         'name': 'Aptos Coin',
         'symbol': 'APT',
