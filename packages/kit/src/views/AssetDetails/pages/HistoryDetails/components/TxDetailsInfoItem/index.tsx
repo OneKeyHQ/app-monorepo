@@ -25,6 +25,7 @@ export function InfoItem({
   renderContent,
   description,
   compact = false,
+  compactAll = false,
   showCopy = false,
   openWithUrl,
   disabledCopy = false,
@@ -34,6 +35,7 @@ export function InfoItem({
   renderContent?: ReactNode;
   description?: ReactNode;
   compact?: boolean;
+  compactAll?: boolean;
   disabledCopy?: boolean;
   showCopy?: boolean;
   openWithUrl?: () => void;
@@ -51,6 +53,9 @@ export function InfoItem({
         $gtMd: {
           flexBasis: '50%',
         },
+      })}
+      {...(compactAll && {
+        flexBasis: '50%',
       })}
       {...rest}
     >
