@@ -44,7 +44,7 @@ export const useTradingViewProps = ({
   targetToken: string;
 }) => {
   const theme = useThemeVariant();
-  const bgAppColor = useThemeValue('$bgApp', undefined, true);
+  const [bgAppColor, textColor, textSubduedColor] = useThemeValue(['$bgApp', '$text', "$textSubdued"], undefined, true);
   const systemLocale = useLocaleVariant();
   const locale = useMemo(
     () => localeMap[systemLocale as ILocaleJSONSymbol] || 'en',
@@ -94,8 +94,11 @@ export const useTradingViewProps = ({
       const text = await res.text();
       const style = `
               :root {
+                 --tv-color-toolbar-button-text-active: ${textColor} !important;
+                --tv-color-toolbar-button-text-active-hover: ${textColor} !important;
                 --tv-color-pane-background: ${bgAppColor} !important;
                 --tv-color-platform-background: ${bgAppColor} !important;
+                --tv-color-toolbar-button-text: ${textSubduedColor} !important;
               }
               body {
                 border-width: 0px !important;
