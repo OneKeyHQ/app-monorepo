@@ -33,6 +33,8 @@ const SwapPercentageInput = ({
             key={`swap-percentage-input-stage-${stage}`}
             size="small"
             onPress={() => onSelectStage?.(stage)}
+            bg="$bgSubdued"
+            px="$1.5"
           >
             <SizableText size="$bodySmMedium" color="$textSubdued">
               {stage}%
