@@ -583,6 +583,7 @@ function TxActionTransferDetailView(props: ITxActionProps) {
               <Token
                 isNFT={false}
                 showNetworkIcon
+                networkId={swapInfo.sender.accountInfo.networkId}
                 tokenImageUri={approve.icon}
               />
               <Stack flex={1}>
