@@ -44,7 +44,11 @@ export const useTradingViewProps = ({
   targetToken: string;
 }) => {
   const theme = useThemeVariant();
-  const [bgAppColor, textColor, textSubduedColor, iconColor] = useThemeValue(['$bgApp', '$text', "$textSubdued", "$icon"], undefined, true);
+  const [bgAppColor, textColor, textSubduedColor, iconColor] = useThemeValue(
+    ['$bgApp', '$text', '$textSubdued', '$icon'],
+    undefined,
+    true,
+  );
   const systemLocale = useLocaleVariant();
   const locale = useMemo(
     () => localeMap[systemLocale as ILocaleJSONSymbol] || 'en',
@@ -119,8 +123,8 @@ export const useTradingViewProps = ({
         uri: platformEnv.isNative
           ? uri
           : `${URL.createObjectURL(
-            new Blob([htmlCode], { type: 'text/html' }),
-          )}${hash}`,
+              new Blob([htmlCode], { type: 'text/html' }),
+            )}${hash}`,
         injectedJavaScript: platformEnv.isNative
           ? ` const styleNode = document.createElement('style'); 
         styleNode.type = 'text/css'; 

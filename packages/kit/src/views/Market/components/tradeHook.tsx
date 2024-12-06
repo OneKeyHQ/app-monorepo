@@ -25,10 +25,7 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, symbol = '', name } = token || {};
   const network = useMemo(
-    () =>
-      detailPlatforms
-        ? Object.values(detailPlatforms)[0]
-        : null,
+    () => (detailPlatforms ? Object.values(detailPlatforms)[0] : null),
     [detailPlatforms],
   );
 
