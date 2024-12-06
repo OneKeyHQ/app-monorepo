@@ -251,6 +251,7 @@ export default class VaultBtc extends VaultBase {
             amount: swapInfo.sender.amount,
             isNFT: false,
             isNative: swapSendToken.isNative,
+            networkId: swapInfo.sender.accountInfo.networkId,
           },
           {
             from: '',
@@ -262,6 +263,7 @@ export default class VaultBtc extends VaultBase {
             amount: swapInfo.receiver.amount,
             isNFT: false,
             isNative: swapReceiveToken.isNative,
+            networkId: swapInfo.receiver.accountInfo.networkId,
           },
         ],
         isInternalSwap: true,
