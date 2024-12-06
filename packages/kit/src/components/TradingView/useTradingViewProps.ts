@@ -133,7 +133,7 @@ export const useTradingViewProps = ({
           : '',
       };
     },
-    [baseToken, bgAppColor, identifier, locale, targetToken, theme, timezone],
+    [baseToken, bgAppColor, identifier, locale, targetToken, theme, timezone, iconColor, textColor, textSubduedColor],
     {
       initResult: {
         uri: '',
