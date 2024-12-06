@@ -7,6 +7,7 @@ import {
   Stack,
   renderNestedScrollView,
 } from '@onekeyhq/components';
+import { SEARCH_KEY_MIN_LENGTH } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -93,17 +94,22 @@ function TokenListViewCmp(props: IProps) {
   const [searchKey] = useSearchKeyAtom();
   const [tokenSelectorSearchKey] = useTokenSelectorSearchKeyAtom();
 
-  const tokens = useMemo(
-    () =>
-      isTokenSelector
-        ? tokenList.tokens.concat(smallBalanceTokenList.smallBalanceTokens)
-        : tokenList.tokens,
-    [
-      isTokenSelector,
-      tokenList.tokens,
-      smallBalanceTokenList.smallBalanceTokens,
-    ],
-  );
+  const tokens = useMemo(() => {
+    if (isTokenSelector) {
+      return tokenList.tokens.concat(smallBalanceTokenList.smallBalanceTokens);
+    }
+
+    if (searchKey && searchKey.length >= SEARCH_KEY_MIN_LENGTH) {
+      return tokenList.tokens.concat(smallBalanceTokenList.smallBalanceTokens);
+    }
+
+    return tokenList.tokens;
+  }, [
+    isTokenSelector,
+    searchKey,
+    tokenList.tokens,
+    smallBalanceTokenList.smallBalanceTokens,
+  ]);
   const [searchTokenState] = useSearchTokenStateAtom();
 
   const [tokenSelectorSearchTokenState] =
