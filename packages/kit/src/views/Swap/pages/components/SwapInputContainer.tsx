@@ -112,8 +112,10 @@ const SwapInputContainer = ({
   };
 
   const showPercentageInput = useMemo(
-    () => direction === ESwapDirectionType.FROM && percentageInputStageShow,
-    [direction, percentageInputStageShow],
+    () =>
+      direction === ESwapDirectionType.FROM &&
+      (percentageInputStageShow || !!amountValue),
+    [direction, percentageInputStageShow, amountValue],
   );
 
   return (
