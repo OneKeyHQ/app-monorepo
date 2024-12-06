@@ -150,7 +150,7 @@ function TxActionSwapInfo(props: IProps) {
               <SizableText {...textStyle}>{provider.providerName}</SizableText>
             </XStack>
           }
-          compact
+          compactAll
         />
         {tokenRate ? (
           <InfoItem
@@ -158,7 +158,7 @@ function TxActionSwapInfo(props: IProps) {
               id: ETranslations.swap_history_detail_rate,
             })}
             renderContent={tokenRate}
-            compact
+            compactAll
           />
         ) : null}
 
@@ -170,7 +170,7 @@ function TxActionSwapInfo(props: IProps) {
             renderContent={
               <SizableText {...textStyle}>{displaySlippage}%</SizableText>
             }
-            compact
+            compactAll
           />
         )}
         {serviceFee ? (
@@ -179,12 +179,12 @@ function TxActionSwapInfo(props: IProps) {
               id: ETranslations.swap_history_detail_service_fee,
             })}
             renderContent={serviceFee}
-            compact
+            compactAll
           />
         ) : null}
         {sender.accountInfo.networkId !== receiver.accountInfo.networkId ? (
           <InfoItem
-            compact
+            compactAll
             label={intl.formatMessage({ id: ETranslations.network__network })}
             renderContent={
               <XStack alignItems="center" gap="$2">
@@ -215,7 +215,7 @@ function TxActionSwapInfo(props: IProps) {
           />
         ) : (
           <InfoItem
-            compact
+            compactAll
             label={intl.formatMessage({ id: ETranslations.network__network })}
             renderContent={
               <XStack alignItems="center" gap="$2">
