@@ -382,8 +382,11 @@ const SwapHeaderRightActionContainer = ({
         </SwapProviderMirror>
       ),
       showConfirmButton: false,
-      showCancelButton: false,
-      showFooter: false,
+      showCancelButton: true,
+      onCancelText: intl.formatMessage({
+        id: ETranslations.global_close,
+      }),
+      showFooter: true,
     });
   }, [intl, pageType]);
 

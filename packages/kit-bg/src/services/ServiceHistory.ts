@@ -53,9 +53,14 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
-    const dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
-      accountId,
-    });
+    let dbAccount;
+    try {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId,
+      });
+    } catch (error) {
+      dbAccount = undefined;
+    }
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
         dbAccount,
