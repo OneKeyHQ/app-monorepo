@@ -42,7 +42,7 @@ export function WebView({
         title="TradingView"
         sandbox="allow-orientation-lock allow-scripts	allow-top-navigation allow-top-navigation-by-user-activation allow-same-origin allow-popups"
       />
-      <Stack position="absolute" width={30} height={15} bottom={42} left={12} bg="$bgApp" />
+      <Stack position="absolute" width={42} height={20} bottom={40} left={10} bg="$bgApp" />
     </div>
   );
 }
