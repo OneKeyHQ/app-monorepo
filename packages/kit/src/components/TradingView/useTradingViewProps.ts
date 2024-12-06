@@ -99,6 +99,7 @@ export const useTradingViewProps = ({
                 --tv-color-pane-background: ${bgAppColor} !important;
                 --tv-color-platform-background: ${bgAppColor} !important;
                 --tv-color-toolbar-button-text: ${textSubduedColor} !important;
+                --tv-spinner-color: red !important;
               }
               body {
                 border-width: 0px !important;
