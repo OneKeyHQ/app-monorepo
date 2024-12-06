@@ -1,4 +1,5 @@
-declare module 'coinselect' {
+// TODO: remove this file to @onekeyfe/coinselect
+declare module '@onekeyfe/coinselect' {
   export interface ICoinSelectInput {
     txId: string;
     vout: number;
@@ -29,7 +30,7 @@ declare module 'coinselect' {
   ): ICoinSelectResult;
 }
 
-declare module 'coinselect/split' {
+declare module '@onekeyfe/coinselect/split' {
   import type {
     ICoinSelectInput,
     ICoinSelectOutput,
@@ -43,7 +44,7 @@ declare module 'coinselect/split' {
   ): ICoinSelectResult;
 }
 
-declare module 'coinselect/accumulative' {
+declare module '@onekeyfe/coinselect/accumulative' {
   import type {
     ICoinSelectInput,
     ICoinSelectOutput,
@@ -57,7 +58,7 @@ declare module 'coinselect/accumulative' {
   ): ICoinSelectResult;
 }
 
-declare module 'coinselect/break' {
+declare module '@onekeyfe/coinselect/break' {
   import type {
     ICoinSelectInput,
     ICoinSelectOutput,
@@ -71,7 +72,7 @@ declare module 'coinselect/break' {
   ): ICoinSelectResult;
 }
 
-declare module 'coinselect/blackjack' {
+declare module '@onekeyfe/coinselect/blackjack' {
   import type {
     ICoinSelectInput,
     ICoinSelectOutput,
@@ -85,7 +86,7 @@ declare module 'coinselect/blackjack' {
   ): ICoinSelectResult;
 }
 
-declare module 'coinselect/utils' {
+declare module '@onekeyfe/coinselect/utils' {
   import type {
     ICoinSelectInput,
     ICoinSelectOutput,

@@ -15,11 +15,12 @@ import {
   formatPsbtHex,
   toPsbtNetwork,
 } from '@onekeyhq/core/src/chains/btc/sdkBtc/providerUtils';
-import type {
-  IBtcInput,
-  ICoinSelectUTXO,
-  IEncodedTxBtc,
-  IOutputsForCoinSelect,
+import {
+  EOutputsTypeForCoinSelect,
+  type IBtcInput,
+  type ICoinSelectUTXO,
+  type IEncodedTxBtc,
+  type IOutputsForCoinSelect,
 } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
@@ -29,7 +30,6 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
-  IEncodedTx,
   ISignedTxPro,
   ITxInput,
   ITxInputToSign,
@@ -38,8 +38,10 @@ import type {
 } from '@onekeyhq/core/src/types';
 import { EAddressEncodings } from '@onekeyhq/core/src/types';
 import { estimateTxSize, getBIP44Path } from '@onekeyhq/core/src/utils';
-import type { ICoinSelectAlgorithm } from '@onekeyhq/core/src/utils/coinSelectUtils';
-import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
+import {
+  coinSelectWithWitness,
+  getCoinSelectTxType,
+} from '@onekeyhq/core/src/utils/coinSelectUtils';
 import { BTC_TX_PLACEHOLDER_VSIZE } from '@onekeyhq/shared/src/consts/chainConsts';
 import {
   InsufficientBalance,
@@ -64,7 +66,6 @@ import type {
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IStakeTxBtcBabylon } from '@onekeyhq/shared/types/staking';
-import { IStakeTxResponse } from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxActionType,
@@ -668,6 +669,14 @@ export default class VaultBtc extends VaultBase {
     ).then((results) => results.map((i) => i.encoding));
   }
 
+  private async getCoinSelectTxType(address: string) {
+    const encoding = (await this.parseAddressEncodings([address]))[0];
+    if (encoding) {
+      return getCoinSelectTxType(encoding);
+    }
+    throw new Error('getCoinSelectTxType ERROR: Invalid encoding');
+  }
+
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
     qr: KeyringQr,
@@ -698,8 +707,14 @@ export default class VaultBtc extends VaultBase {
     const { transfersInfo } = params;
     const transferInfo = transfersInfo[0];
     const account = (await this.getAccount()) as IDBUtxoAccount;
-    const { inputs, outputs, fee, inputsForCoinSelect, outputsForCoinSelect } =
-      await this._buildTransferParamsWithCoinSelector(params);
+    const {
+      inputs,
+      outputs,
+      fee,
+      txSize,
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+    } = await this._buildTransferParamsWithCoinSelector(params);
 
     if (!inputs || !outputs || isNil(fee)) {
       const insufficientBalance = appLocale.intl.formatMessage({
@@ -714,18 +729,19 @@ export default class VaultBtc extends VaultBase {
     }
 
     return {
-      inputs: inputs.map(({ txId, value, ...keep }) => ({
+      inputs: inputs.map(({ txid, amount, ...keep }) => ({
         address: account.address,
         path: '',
         ...keep,
-        txid: txId,
-        value: value.toString(),
+        txid,
+        value: amount,
       })),
-      outputs: outputs.map(({ value, address, script }) => {
-        const valueText = value?.toString();
+      outputs: outputs.map(({ type, amount, address, path, script }) => {
+        const valueText = amount;
 
         // OP_RETURN output
         if (
+          type === 'opreturn' &&
           valueText &&
           new BigNumber(valueText).eq(0) &&
           !address &&
@@ -740,32 +756,49 @@ export default class VaultBtc extends VaultBase {
           };
         }
 
-        // If there is no address, it should be set to the change address.
-        const addressOrChangeAddress = address || account.address;
-        if (!addressOrChangeAddress) {
-          throw new Error(
-            'buildEncodedTxFromBatchTransfer ERROR: Invalid change address',
-          );
-        }
         if (!valueText || new BigNumber(valueText).lte(0)) {
           throw new Error(
             'buildEncodedTxFromBatchTransfer ERROR: Invalid value',
           );
         }
-        return {
-          address: addressOrChangeAddress,
-          value: valueText,
-          payload: address
-            ? undefined
-            : {
-                isChange: true,
-                bip44Path: getBIP44Path(account, account.address),
-              },
-        };
+
+        if (!address) {
+          throw new Error(
+            'buildEncodedTxFromBatchTransfer ERROR: Invalid output address',
+          );
+        }
+
+        if (type === 'payment') {
+          return {
+            address,
+            value: valueText,
+          };
+        }
+
+        if (type === 'change') {
+          if (!path) {
+            throw new Error(
+              'buildEncodedTxFromBatchTransfer ERROR: Invalid change path',
+            );
+          }
+          return {
+            address,
+            value: valueText,
+            payload: {
+              isChange: true,
+              bip44Path: path,
+            },
+          };
+        }
+
+        throw new Error(
+          'buildEncodedTxFromBatchTransfer ERROR: Invalid output type',
+        );
       }),
       inputsForCoinSelect,
       outputsForCoinSelect,
       fee: fee.toString(),
+      txSize,
     };
   }
 
@@ -785,8 +818,6 @@ export default class VaultBtc extends VaultBase {
 
     const isBatchTransfer = transfersInfo.length > 1;
 
-    // TODO: inscription transfer
-
     const { utxoList: utxosInfo } = await this._collectUTXOsInfoByApi();
 
     // Select the slowest fee rate as default, otherwise the UTXO selection
@@ -800,12 +831,14 @@ export default class VaultBtc extends VaultBase {
         : (await this._getFeeRate())[1];
 
     const inputsForCoinSelect: ICoinSelectUTXO[] = utxosInfo.map(
-      ({ txid, vout, value, address, path }) => ({
+      ({ txid, vout, value, address, path, confirmations }) => ({
         txId: txid,
         vout,
         value: parseInt(value, 10),
+        amount: new BigNumber(parseInt(value, 10)).toFixed(),
         address,
         path,
+        confirmations,
       }),
     );
 
@@ -813,11 +846,13 @@ export default class VaultBtc extends VaultBase {
 
     if (isBatchTransfer) {
       outputsForCoinSelect = transfersInfo.map(({ to, amount }) => ({
+        type: EOutputsTypeForCoinSelect.Payment,
         address: to,
         value: parseInt(
           new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
           10,
         ),
+        amount: new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
       }));
     } else {
       const transferInfo = transfersInfo[0];
@@ -837,17 +872,16 @@ export default class VaultBtc extends VaultBase {
 
       const max = allUtxoAmount.lte(amount);
 
-      const value = parseInt(
-        new BigNumber(amount).shiftedBy(network.decimals).toFixed(),
-        10,
-      );
+      const value = new BigNumber(amount).shiftedBy(network.decimals).toFixed();
 
       outputsForCoinSelect = [
         max
-          ? { address: to, isMax: true }
+          ? { address: to, type: EOutputsTypeForCoinSelect.SendMax }
           : {
+              type: EOutputsTypeForCoinSelect.Payment,
               address: to,
-              value,
+              value: parseInt(value, 10),
+              amount: value,
             },
       ];
 
@@ -859,23 +893,31 @@ export default class VaultBtc extends VaultBase {
         outputsForCoinSelect.push({
           address: '',
           value: 0,
+          amount: '0',
           script: transferInfo.opReturn,
+          type: EOutputsTypeForCoinSelect.OpReturn,
+          dataHex: Buffer.from(transferInfo.opReturn, 'ascii').toString('hex'),
         });
       }
     }
 
-    const algorithm: ICoinSelectAlgorithm | undefined = !isBatchTransfer
-      ? transfersInfo[0].coinSelectAlgorithm
-      : undefined;
     // transfer output + maybe opReturn output
     if (!isBatchTransfer && outputsForCoinSelect.length > 2) {
       throw new Error('single transfer should only have one output');
     }
-    const { inputs, outputs, fee } = coinSelect({
+    const btcForkNetwork = await this.getBtcForkNetwork();
+    const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
+    const txType = await this.getCoinSelectTxType(dbAccount.address);
+    const { inputs, outputs, fee, bytes } = coinSelectWithWitness({
       inputsForCoinSelect,
       outputsForCoinSelect,
       feeRate,
-      algorithm,
+      network: btcForkNetwork,
+      changeAddress: {
+        address: dbAccount.address,
+        path: getBIP44Path(dbAccount, dbAccount.address),
+      },
+      txType,
     });
 
     return {
@@ -885,6 +927,7 @@ export default class VaultBtc extends VaultBase {
       inputsForCoinSelect,
       outputsForCoinSelect,
       feeRate,
+      txSize: bytes,
     };
   }
 
@@ -895,32 +938,42 @@ export default class VaultBtc extends VaultBase {
     encodedTx: IEncodedTxBtc;
     transfersInfo: ITransferInfo[];
   }): Promise<IUnsignedTxPro> {
-    const { inputs, outputs, inputsForCoinSelect } = encodedTx;
+    const {
+      inputs,
+      outputs,
+      inputsForCoinSelect,
+      txSize: encodedTxTxSize,
+    } = encodedTx;
 
-    let txSize = BTC_TX_PLACEHOLDER_VSIZE;
-    const inputsInUnsignedTx: ITxInput[] = [];
-    for (const input of inputs) {
-      const value = new BigNumber(input.value);
-      inputsInUnsignedTx.push({
-        address: input.address,
-        value,
-        utxo: { txid: input.txid, vout: input.vout, value },
-      });
-    }
-    const selectedInputs = inputsForCoinSelect?.filter((input) =>
-      inputsInUnsignedTx.some(
-        (i) => i.utxo?.txid === input.txId && i.utxo.vout === input.vout,
-      ),
-    );
-    if (Number(selectedInputs?.length) > 0 && outputs.length > 0) {
-      txSize = estimateTxSize(
-        selectedInputs ?? [],
-        outputs.map((o) => ({
-          address: o.address,
-          value: parseInt(o.value, 10),
-        })) ?? [],
+    let txSize = encodedTxTxSize;
+    if (!txSize) {
+      txSize = BTC_TX_PLACEHOLDER_VSIZE;
+      const inputsInUnsignedTx: ITxInput[] = [];
+      for (const input of inputs) {
+        const value = new BigNumber(input.value);
+        inputsInUnsignedTx.push({
+          address: input.address,
+          value,
+          utxo: { txid: input.txid, vout: input.vout, value },
+        });
+      }
+      const selectedInputs = inputsForCoinSelect?.filter((input) =>
+        inputsInUnsignedTx.some(
+          (i) => i.utxo?.txid === input.txId && i.utxo.vout === input.vout,
+        ),
       );
+      if (Number(selectedInputs?.length) > 0 && outputs.length > 0) {
+        txSize = estimateTxSize(
+          selectedInputs ?? [],
+          outputs.map((o) => ({
+            type: EOutputsTypeForCoinSelect.Payment,
+            address: o.address,
+            value: parseInt(o.value, 10),
+          })) ?? [],
+        );
+      }
     }
+
     const ret: IUnsignedTxPro = {
       txSize,
       encodedTx,
@@ -1386,6 +1439,7 @@ export default class VaultBtc extends VaultBase {
       inputsToSign,
       psbtHex: psbt.toHex(),
       disabledCoinSelect: true,
+      txSize: undefined,
     };
 
     return encodedTx;
