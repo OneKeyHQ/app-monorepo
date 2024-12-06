@@ -27,10 +27,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
   const network = useMemo(
     () =>
       detailPlatforms
-        ? detailPlatforms.ethereum ||
-          detailPlatforms.solana ||
-          detailPlatforms.base ||
-          Object.values(detailPlatforms)[0]
+        ? Object.values(detailPlatforms)[0]
         : null,
     [detailPlatforms],
   );
