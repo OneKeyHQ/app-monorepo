@@ -592,6 +592,7 @@ class ProviderApiBtc extends ProviderApiBase {
           inputsToSign,
           psbtHex: psbt.toHex(),
           disabledCoinSelect: true,
+          txSize: undefined,
         },
         signOnly: true,
       });

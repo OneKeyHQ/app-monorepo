@@ -1,10 +1,15 @@
-import coinSelectAuto from 'coinselect';
-import coinSelectAccumulative from 'coinselect/accumulative';
-import coinSelectBlackjack from 'coinselect/blackjack';
-import coinSelectBreak from 'coinselect/break';
-import coinSelectSplit from 'coinselect/split';
-import coinSelectUtils from 'coinselect/utils';
+import coinSelectAuto from '@onekeyfe/coinselect';
+import coinSelectAccumulative from '@onekeyfe/coinselect/accumulative';
+import coinSelectBlackjack from '@onekeyfe/coinselect/blackjack';
+import coinSelectBreak from '@onekeyfe/coinselect/break';
+import coinSelectSplit from '@onekeyfe/coinselect/split';
+import coinSelectUtils from '@onekeyfe/coinselect/utils';
+import coinSelectWitness from '@onekeyfe/coinselect/witness';
 import { isNil } from 'lodash';
+
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
+import { EAddressEncodings } from '../types';
 
 import type {
   IInputsForCoinSelect,
@@ -14,7 +19,12 @@ import type {
   ICoinSelectInput,
   ICoinSelectOutput,
   ICoinSelectResult,
-} from 'coinselect';
+} from '@onekeyfe/coinselect';
+import type {
+  ICoinSelectResult as ICoinSelectResultWitness,
+  IUtxo,
+} from '@onekeyfe/coinselect/witness';
+import type { Network } from 'bitcoinjs-lib';
 
 export type ICoinSelectAlgorithm =
   | 'auto'
@@ -30,97 +40,20 @@ export type ICoinSelectOptions = {
   algorithm?: ICoinSelectAlgorithm;
 };
 
+export type ICoinSelectWithWitnessOptions = {
+  inputsForCoinSelect: IInputsForCoinSelect;
+  outputsForCoinSelect: IOutputsForCoinSelect;
+  feeRate: string;
+  network: Network;
+  changeAddress: {
+    address: string;
+    path: string;
+  };
+  txType: ICoinSelectPaymentType;
+};
+
 function utxoScore(x: ICoinSelectInput, feeRate: number) {
   return x.value - feeRate * coinSelectUtils.inputBytes(x);
-}
-
-// TODO move to standalone npm package, and adding full fixture tests
-export function blackjackPro(
-  utxos: ICoinSelectInput[],
-  outputs: ICoinSelectOutput[],
-  feeRateNum: number,
-): ICoinSelectResult {
-  if (!Number.isFinite(coinSelectUtils.uintOrNaN(feeRateNum))) return {};
-
-  let bytesAccum = coinSelectUtils.transactionBytes([], outputs);
-
-  let inAccum = 0;
-  const inputs = [];
-  const outAccum = coinSelectUtils.sumOrNaN(outputs);
-  const threshold = coinSelectUtils.dustThreshold({}, feeRateNum);
-
-  for (let i = 0; i < utxos.length; i += 1) {
-    const input = utxos[i];
-    const inputBytes = coinSelectUtils.inputBytes(input);
-    const fee = feeRateNum * (bytesAccum + inputBytes);
-    const inputValue = coinSelectUtils.uintOrNaN(input.value);
-
-    if (!input.forceSelect) {
-      // would it waste value?
-      if (inAccum + inputValue > outAccum + fee + threshold)
-        // eslint-disable-next-line no-continue
-        continue;
-    }
-
-    bytesAccum += inputBytes;
-    inAccum += inputValue;
-    inputs.push(input);
-
-    // go again?
-    if (inAccum < outAccum + fee)
-      // eslint-disable-next-line no-continue
-      continue;
-
-    return coinSelectUtils.finalize(inputs, outputs, feeRateNum);
-  }
-
-  return { fee: feeRateNum * bytesAccum };
-}
-
-export function accumulativePro(
-  utxos: ICoinSelectInput[],
-  outputs: ICoinSelectOutput[],
-  feeRate: number,
-): ICoinSelectResult {
-  if (!Number.isFinite(coinSelectUtils.uintOrNaN(feeRate))) return {};
-  let bytesAccum = coinSelectUtils.transactionBytes([], outputs);
-
-  let inAccum = 0;
-  const inputs = [];
-  const outAccum = coinSelectUtils.sumOrNaN(outputs);
-
-  for (let i = 0; i < utxos.length; i += 1) {
-    const utxo = utxos[i];
-    const utxoBytes = coinSelectUtils.inputBytes(utxo);
-    const utxoFee = feeRate * utxoBytes;
-    const utxoValue = coinSelectUtils.uintOrNaN(utxo.value);
-
-    // skip detrimental input
-    if (utxoFee > utxo.value) {
-      if (i === utxos.length - 1)
-        return { fee: feeRate * (bytesAccum + utxoBytes) };
-
-      if (!utxo.forceSelect) {
-        // **** dust utxo 546 sats won't select in default,
-        //      it may cost more tx fee, but supply less value
-        // eslint-disable-next-line no-continue
-        continue;
-      }
-    }
-
-    bytesAccum += utxoBytes;
-    inAccum += utxoValue;
-    inputs.push(utxo);
-
-    const fee = feeRate * bytesAccum;
-
-    // eslint-disable-next-line no-continue
-    if (inAccum < outAccum + fee) continue;
-
-    return coinSelectUtils.finalize(inputs, outputs, feeRate);
-  }
-
-  return { fee: feeRate * bytesAccum };
 }
 
 function sortUtxo({
@@ -141,28 +74,6 @@ function sortUtxo({
   });
 }
 
-export function coinSelectAutoPro(
-  utxos: ICoinSelectInput[],
-  outputs: ICoinSelectOutput[],
-  feeRate: number,
-  useBlackjack = true,
-): ICoinSelectResult {
-  // eslint-disable-next-line no-param-reassign
-  utxos = sortUtxo({
-    utxos,
-    feeRate,
-  });
-
-  if (useBlackjack) {
-    // attempt to use the blackjack strategy first (no change output)
-    const base = blackjackPro(utxos, outputs, feeRate);
-    if (base.inputs) return base;
-  }
-
-  // else, try the accumulative strategy
-  return accumulativePro(utxos, outputs, feeRate);
-}
-
 export function coinSelectAccumulativeDesc(
   utxos: ICoinSelectInput[],
   outputs: ICoinSelectOutput[],
@@ -174,7 +85,7 @@ export function coinSelectAccumulativeDesc(
     feeRate,
   });
 
-  return coinSelectAccumulative(utxos, outputs, feeRate);
+  return coinSelectAccumulative(utxos, outputs, feeRate) as ICoinSelectResult;
 }
 
 export const coinSelect = ({
@@ -183,11 +94,11 @@ export const coinSelect = ({
   feeRate,
   algorithm = 'auto',
 }: ICoinSelectOptions): ICoinSelectResult => {
-  const max = outputsForCoinSelect.some((o) => o.isMax);
+  const max = outputsForCoinSelect.some((o) => o.type === 'send-max');
 
   // valid amount
   const validAmount = outputsForCoinSelect.every((o) => {
-    if (o.isMax) {
+    if (o.type === 'send-max') {
       return typeof o.value === 'undefined';
     }
     return typeof o.value === 'number' && !Number.isNaN(o.value);
@@ -198,10 +109,9 @@ export const coinSelect = ({
     );
   }
 
-  // remove isMax field
   const finalOutputs = outputsForCoinSelect.map((o) => ({
     address: o.address,
-    value: o.isMax ? undefined : o.value,
+    value: o.type === 'send-max' ? undefined : o.value,
     script: o.script,
   }));
 
@@ -232,3 +142,73 @@ export const coinSelect = ({
   }
   return { inputs, outputs, fee };
 };
+
+export type ICoinSelectPaymentType =
+  | 'p2pkh'
+  | 'p2sh'
+  | 'p2tr'
+  | 'p2wpkh'
+  | 'p2wsh';
+
+export const getCoinSelectTxType = (
+  encoding: EAddressEncodings,
+): ICoinSelectPaymentType => {
+  switch (encoding) {
+    case EAddressEncodings.P2PKH:
+      return 'p2pkh';
+    case EAddressEncodings.P2SH_P2WPKH:
+      return 'p2sh';
+    case EAddressEncodings.P2WPKH:
+      return 'p2wpkh';
+    case EAddressEncodings.P2TR:
+      return 'p2tr';
+    case EAddressEncodings.P2WSH:
+      return 'p2wsh';
+    default:
+      throw new Error('coinSelect ERROR: Invalid encoding');
+  }
+};
+
+export interface ICoinSelectFailedResult {
+  inputs: undefined;
+  outputs: undefined;
+  fee: undefined;
+  bytes: undefined;
+}
+
+export function coinSelectWithWitness(
+  params: ICoinSelectWithWitnessOptions,
+): ICoinSelectResultWitness | ICoinSelectFailedResult {
+  const {
+    inputsForCoinSelect,
+    outputsForCoinSelect,
+    feeRate,
+    network,
+    changeAddress,
+    txType,
+  } = params;
+  const coinselectParams = {
+    utxos: inputsForCoinSelect.map((u) => ({
+      ...u,
+      own: true,
+      coinbase: false,
+      txid: u.txId,
+    })) as IUtxo[],
+    outputs: outputsForCoinSelect,
+    feeRate,
+    network,
+    changeAddress,
+    txType,
+  };
+  try {
+    return coinSelectWitness(coinselectParams);
+  } catch (error) {
+    defaultLogger.transaction.coinSelect.coinSelectFailed(coinselectParams);
+    return {
+      inputs: undefined,
+      outputs: undefined,
+      fee: undefined,
+      bytes: undefined,
+    };
+  }
+}

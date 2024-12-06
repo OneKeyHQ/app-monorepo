@@ -33,6 +33,7 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
+  SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -569,7 +570,10 @@ export function useSwapBuildTx() {
                 }) ||
                 accountUtils.isOthersAccount({
                   accountId: swapFromAddressInfo.accountInfo.account.id,
-                })
+                }) ||
+                SwapBuildUseMultiplePopoversNetworkIds.includes(
+                  fromToken.networkId,
+                )
               ) {
                 await navigationToSendConfirm({
                   approvesInfo: [approvesInfo[0]],
@@ -578,7 +582,13 @@ export function useSwapBuildTx() {
                     if (approvesInfo.length > 1) {
                       await navigationToSendConfirm({
                         approvesInfo: [approvesInfo[1]],
-                        feeInfo: data?.[0]?.feeInfo,
+                        // tron network does not support use pre fee info
+                        feeInfo:
+                          SwapBuildUseMultiplePopoversNetworkIds.includes(
+                            fromToken.networkId,
+                          )
+                            ? undefined
+                            : data?.[0]?.feeInfo,
                         isInternalSwap: true,
                         onSuccess: async (dataRes: ISendTxOnSuccessData[]) => {
                           await navigationToSendConfirm({
@@ -586,7 +596,12 @@ export function useSwapBuildTx() {
                               ? [createBuildTxRes.transferInfo]
                               : undefined,
                             encodedTx: createBuildTxRes.encodedTx,
-                            feeInfo: dataRes?.[0]?.feeInfo,
+                            feeInfo:
+                              SwapBuildUseMultiplePopoversNetworkIds.includes(
+                                fromToken.networkId,
+                              )
+                                ? undefined
+                                : dataRes?.[0]?.feeInfo,
                             swapInfo: createBuildTxRes.swapInfo,
                             isInternalSwap: true,
                             onSuccess: handleBuildTxSuccess,
@@ -602,7 +617,12 @@ export function useSwapBuildTx() {
                           : undefined,
                         encodedTx: createBuildTxRes.encodedTx,
                         swapInfo: createBuildTxRes.swapInfo,
-                        feeInfo: data?.[0]?.feeInfo,
+                        feeInfo:
+                          SwapBuildUseMultiplePopoversNetworkIds.includes(
+                            fromToken.networkId,
+                          )
+                            ? undefined
+                            : data?.[0]?.feeInfo,
                         isInternalSwap: true,
                         onSuccess: handleBuildTxSuccess,
                         onCancel: cancelBuildTx,

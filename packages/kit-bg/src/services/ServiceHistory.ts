@@ -15,7 +15,6 @@ import {
 } from '@onekeyhq/shared/src/utils/historyUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import type {
   IAccountHistoryTx,
   IAllNetworkHistoryExtraItem,
@@ -29,12 +28,13 @@ import type {
   IOnChainHistoryTxToken,
   IServerFetchAccountHistoryDetailParams,
 } from '@onekeyhq/shared/types/history';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
-import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 import type {
   IReplaceTxInfo,
   ISendTxOnSuccessData,
 } from '@onekeyhq/shared/types/tx';
+import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
@@ -42,6 +42,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IAllNetworkAccountInfo } from './ServiceAllNetwork/ServiceAllNetwork';
+import type { IDBAccount } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceHistory extends ServiceBase {
@@ -52,12 +53,22 @@ class ServiceHistory extends ServiceBase {
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
+    let dbAccount;
+    try {
+      dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
+        accountId,
+      });
+    } catch (error) {
+      dbAccount = undefined;
+    }
     const [accountAddress, xpub] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        dbAccount,
         accountId,
         networkId,
       }),
       this.backgroundApi.serviceAccount.getAccountXpub({
+        dbAccount,
         accountId,
         networkId,
       }),
@@ -238,38 +249,24 @@ class ServiceHistory extends ServiceBase {
         ),
       }));
 
-      for (let i = 0; i < allNetworksParams.length; i += 1) {
-        const pendingTxsResp = await this.updateAccountLocalPendingTxs(
-          allNetworksParams[i],
-        );
-        const confirmedTxsResp = await this.updateAccountLocalConfirmedTxs(
-          allNetworksParams[i],
-        );
-        finalPendingTxs = finalPendingTxs.concat(
-          pendingTxsResp.finalPendingTxs,
-        );
-        confirmedTxsToSave = confirmedTxsToSave.concat(
-          confirmedTxsResp.confirmedTxsToSave,
-        );
-      }
+      const updateResult = await this.batchUpdateLocalHistoryTxs(
+        allNetworksParams,
+      );
+      finalPendingTxs = updateResult.allFinalPendingTxs;
+      confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
     } else {
-      const pendingTxsResp = await this.updateAccountLocalPendingTxs({
-        accountAddress,
-        xpub,
-        networkId,
-        pendingTxs,
-        confirmedTxs: mergedConfirmedTxs,
-        onChainHistoryTxs,
-      });
-      const confirmedTxsResp = await this.updateAccountLocalConfirmedTxs({
-        accountAddress,
-        xpub,
-        networkId,
-        confirmedTxs: mergedConfirmedTxs,
-        onChainHistoryTxs,
-      });
-      finalPendingTxs = pendingTxsResp.finalPendingTxs;
-      confirmedTxsToSave = confirmedTxsResp.confirmedTxsToSave;
+      const updateResult = await this.batchUpdateLocalHistoryTxs([
+        {
+          accountAddress,
+          xpub,
+          networkId,
+          pendingTxs,
+          confirmedTxs: mergedConfirmedTxs,
+          onChainHistoryTxs,
+        },
+      ]);
+      finalPendingTxs = updateResult.allFinalPendingTxs;
+      confirmedTxsToSave = updateResult.allConfirmedTxsToSave;
     }
 
     // Merge the locally pending transactions, confirmed transactions, and on-chain history to return
@@ -454,122 +451,122 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async updateAccountLocalConfirmedTxs({
-    accountAddress,
-    xpub,
-    networkId,
-    confirmedTxs,
-    onChainHistoryTxs,
-  }: {
-    accountAddress: string;
-    xpub?: string;
-    networkId: string;
-    onChainHistoryTxs: IAccountHistoryTx[];
-    confirmedTxs: IAccountHistoryTx[];
-  }) {
-    // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
-    let confirmedTxsToSave: IAccountHistoryTx[] = [];
+  async batchUpdateLocalHistoryTxs(
+    params: {
+      accountAddress: string;
+      xpub?: string;
+      networkId: string;
+      onChainHistoryTxs: IAccountHistoryTx[];
+      confirmedTxs: IAccountHistoryTx[];
+      pendingTxs: IAccountHistoryTx[];
+    }[],
+  ) {
+    const allConfirmedTxsToSave: IAccountHistoryTx[] = [];
+    const allNonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
+    const allFinalPendingTxs: IAccountHistoryTx[] = [];
 
-    confirmedTxsToSave = confirmedTxs
-      .map((tx) => {
-        const onChainHistoryTx = onChainHistoryTxs.find(
-          (item) => item.id === tx.id,
-        );
-        if (onChainHistoryTx) {
-          return onChainHistoryTx;
-        }
-        return tx;
-      })
-      .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
+    const updateQuery: {
+      accountAddress: string;
+      xpub?: string;
+      networkId: string;
+      confirmedTxs?: IAccountHistoryTx[];
+      confirmedTxsToSave?: IAccountHistoryTx[];
+      confirmedTxsToRemove?: IAccountHistoryTx[];
+    }[] = [];
 
-    const resp = unionBy(
-      [...onChainHistoryTxs, ...confirmedTxsToSave],
-      (tx) => tx.id,
-    );
-
-    const finalConfirmedTxs = [];
-    const confirmedTxsToRemove = [];
-
-    for (let i = 0; i < resp.length; i += 1) {
-      const tx = resp[i];
-      if (
-        tx.decodedTx.status === EDecodedTxStatus.Pending ||
-        (!isNil(xpub) &&
-          !isNil(tx.decodedTx.xpub) &&
-          xpub !== tx.decodedTx.xpub)
-      ) {
-        confirmedTxsToRemove.push(tx);
-      } else {
-        finalConfirmedTxs.push(tx);
-      }
-    }
-
-    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryConfirmedTxs(
-      {
-        networkId,
+    for (const param of params) {
+      const {
         accountAddress,
         xpub,
-        confirmedTxsToSave: finalConfirmedTxs,
-        confirmedTxsToRemove,
-      },
-    );
+        networkId,
+        onChainHistoryTxs,
+        confirmedTxs,
+        pendingTxs,
+      } = param;
 
-    return {
-      confirmedTxsToSave,
-    };
-  }
+      // Find transactions confirmed through history details query but not in on-chain history, these need to be saved
+      let confirmedTxsToSave: IAccountHistoryTx[] = [];
 
-  @backgroundMethod()
-  public async updateAccountLocalPendingTxs({
-    accountAddress,
-    xpub,
-    networkId,
-    pendingTxs,
-    confirmedTxs,
-    onChainHistoryTxs,
-  }: {
-    accountAddress: string;
-    xpub?: string;
-    networkId: string;
-    confirmedTxs: IAccountHistoryTx[];
-    onChainHistoryTxs: IAccountHistoryTx[];
-    pendingTxs: IAccountHistoryTx[];
-  }) {
-    const vaultSettings =
-      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+      confirmedTxsToSave = confirmedTxs
+        .map((tx) => {
+          const onChainHistoryTx = onChainHistoryTxs.find(
+            (item) => item.id === tx.id,
+          );
+          if (onChainHistoryTx) {
+            return onChainHistoryTx;
+          }
+          return tx;
+        })
+        .filter((tx) => tx.decodedTx.status !== EDecodedTxStatus.Pending);
 
-    const nonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
-    let finalPendingTxs: IAccountHistoryTx[] = [];
-    if (vaultSettings.nonceRequired) {
-      pendingTxs.forEach((tx) => {
+      const resp = unionBy(
+        [...onChainHistoryTxs, ...confirmedTxsToSave],
+        (tx) => tx.id,
+      );
+
+      const finalConfirmedTxs = [];
+      const confirmedTxsToRemove = [];
+
+      for (let i = 0; i < resp.length; i += 1) {
+        const tx = resp[i];
         if (
-          onChainHistoryTxs.find(
-            (onChainHistoryTx) =>
-              !isNil(onChainHistoryTx.decodedTx.nonce) &&
-              !isNil(tx.decodedTx.nonce) &&
-              onChainHistoryTx.decodedTx.nonce === tx.decodedTx.nonce,
-          )
+          tx.decodedTx.status === EDecodedTxStatus.Pending ||
+          (!isNil(xpub) &&
+            !isNil(tx.decodedTx.xpub) &&
+            xpub !== tx.decodedTx.xpub)
         ) {
-          nonceHasBeenUsedTxs.push(tx);
+          confirmedTxsToRemove.push(tx);
         } else {
-          finalPendingTxs.push(tx);
+          finalConfirmedTxs.push(tx);
         }
-      });
-    } else {
-      finalPendingTxs = pendingTxs;
-    }
+      }
 
-    await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
-      {
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+
+      const nonceHasBeenUsedTxs: IAccountHistoryTx[] = [];
+      let finalPendingTxs: IAccountHistoryTx[] = [];
+      if (vaultSettings.nonceRequired) {
+        pendingTxs.forEach((tx) => {
+          if (
+            onChainHistoryTxs.find(
+              (onChainHistoryTx) =>
+                !isNil(onChainHistoryTx.decodedTx.nonce) &&
+                !isNil(tx.decodedTx.nonce) &&
+                onChainHistoryTx.decodedTx.nonce === tx.decodedTx.nonce,
+            )
+          ) {
+            nonceHasBeenUsedTxs.push(tx);
+          } else {
+            finalPendingTxs.push(tx);
+          }
+        });
+      } else {
+        finalPendingTxs = pendingTxs;
+      }
+
+      allNonceHasBeenUsedTxs.push(...nonceHasBeenUsedTxs);
+      allFinalPendingTxs.push(...finalPendingTxs);
+      allConfirmedTxsToSave.push(...confirmedTxsToSave);
+
+      updateQuery.push({
         networkId,
         accountAddress,
         xpub,
         confirmedTxs: [...confirmedTxs, ...nonceHasBeenUsedTxs],
-      },
+        confirmedTxsToSave: finalConfirmedTxs,
+        confirmedTxsToRemove,
+      });
+    }
+
+    await this.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs(
+      updateQuery,
     );
+
     return {
-      finalPendingTxs,
-      nonceHasBeenUsedTxs,
+      allConfirmedTxsToSave,
+      allNonceHasBeenUsedTxs,
+      allFinalPendingTxs,
     };
   }
 
@@ -669,10 +666,15 @@ class ServiceHistory extends ServiceBase {
 
     const { data: onChainHistoryTxs, tokens, nfts } = resp.data.data;
 
+    const dbAccountCache: {
+      [accountId: string]: IDBAccount;
+    } = {};
+
     const txs = (
       await Promise.all(
         onChainHistoryTxs.map((tx, index) =>
           vault.buildOnChainHistoryTx({
+            dbAccountCache,
             accountId,
             networkId,
             accountAddress,
@@ -1086,13 +1088,15 @@ class ServiceHistory extends ServiceBase {
     }
 
     if (prevTx) {
-      await this.backgroundApi.simpleDb.localHistory.updateLocalHistoryPendingTxs(
-        {
-          networkId,
-          accountAddress,
-          xpub,
-          confirmedTxs: [prevTx],
-        },
+      await this.backgroundApi.simpleDb.localHistory.batchUpdateLocalHistoryTxs(
+        [
+          {
+            networkId,
+            accountAddress,
+            xpub,
+            confirmedTxs: [prevTx],
+          },
+        ],
       );
     }
 

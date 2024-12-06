@@ -1,4 +1,5 @@
-import { type ComponentType, type FC, type ReactElement, useRef } from 'react';
+import type { ComponentType, FC, ReactNode } from 'react';
+import { useRef } from 'react';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
@@ -7,8 +8,11 @@ import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 const css1 = 'debug-render-tracker-animated-bg';
 const css2 = 'debug-render-tracker-animated-bg0';
 
-function DebugRenderTracker(props: { children: ReactElement }): ReactElement {
-  const { children } = props;
+function DebugRenderTracker(props: {
+  children: ReactNode;
+  timesBadgePosition?: 'top-right' | 'top-left';
+}): ReactNode {
+  const { children, timesBadgePosition = 'top-left' } = props;
   const classRef = useRef<typeof css1 | typeof css2>(css1);
   const renderTimesRef = useRef(0);
   if (process.env.NODE_ENV !== 'production') {
@@ -22,7 +26,9 @@ function DebugRenderTracker(props: { children: ReactElement }): ReactElement {
 
         const divElement = (
           <div className={classRef.current}>
-            <div className="debug-render-tracker-times-badge">
+            <div
+              className={`debug-render-tracker-times-badge ${timesBadgePosition}`}
+            >
               {renderTimesRef.current}
             </div>
             {children}

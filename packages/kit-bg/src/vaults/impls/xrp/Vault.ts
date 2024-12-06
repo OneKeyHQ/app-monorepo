@@ -329,6 +329,10 @@ export default class Vault extends VaultBase {
         await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
           success: boolean;
           error: string;
+          result?: {
+            error?: string;
+            error_message?: string;
+          };
         }>({
           networkId: this.networkId,
           body: [
@@ -350,6 +354,11 @@ export default class Vault extends VaultBase {
         });
       if (accountInfo.success === false) {
         throw new Error(accountInfo.error);
+      }
+      if (accountInfo.result?.error || accountInfo.result?.error_message) {
+        throw new Error(
+          accountInfo.result.error_message || accountInfo.result.error,
+        );
       }
       return accountInfo;
     },
@@ -376,11 +385,11 @@ export default class Vault extends VaultBase {
     } catch (e) {
       const error = (e as Error).message ?? '';
       if (error.includes('Account not found')) {
-        if (amountBN.lt(10)) {
+        if (amountBN.lt(1)) {
           throw new InvalidTransferValue({
             key: ETranslations.form_amount_recipient_activate,
             info: {
-              amount: '10',
+              amount: '1',
               unit: 'XRP',
             },
           });
