@@ -1,8 +1,8 @@
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 
-import { SizableText, YStack } from '@onekeyhq/components';
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import {
   useRateDifferenceAtom,
@@ -21,6 +21,7 @@ import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
+import SwapPercentageInput from './SwapPercentageInput';
 
 interface ISwapInputContainerProps {
   direction: ESwapDirectionType;
@@ -33,6 +34,7 @@ interface ISwapInputContainerProps {
   inputLoading?: boolean;
   selectTokenLoading?: boolean;
   onBalanceMaxPress?: () => void;
+  onSelectPercentageStage?: (stage: number) => void;
 }
 
 const SwapInputContainer = ({
@@ -44,6 +46,7 @@ const SwapInputContainer = ({
   inputLoading,
   onSelectToken,
   onBalanceMaxPress,
+  onSelectPercentageStage,
   balance,
 }: ISwapInputContainerProps) => {
   useSwapSelectedTokenInfo({
@@ -97,15 +100,39 @@ const SwapInputContainer = ({
     return null;
   }, [direction, inputLoading, rateDifference]);
 
+  const [percentageInputStageShow, setPercentageInputStageShow] =
+    useState(false);
+
+  const onFromInputFocus = () => {
+    setPercentageInputStageShow(true);
+  };
+
+  const onFromInputBlur = () => {
+    setPercentageInputStageShow(false);
+  };
+
+  const showPercentageInput = useMemo(
+    () => direction === ESwapDirectionType.FROM && percentageInputStageShow,
+    [direction, percentageInputStageShow],
+  );
+
   return (
     <YStack>
-      <SwapAccountAddressContainer
-        type={direction}
-        onClickNetwork={onSelectToken}
-      />
+      <XStack justifyContent="space-between">
+        <SwapAccountAddressContainer
+          type={direction}
+          onClickNetwork={onSelectToken}
+        />
+        <SwapPercentageInput
+          show={showPercentageInput}
+          onSelectStage={onSelectPercentageStage}
+        />
+      </XStack>
       <AmountInput
         onChange={onAmountChange}
         value={amountValue}
+        onFocus={onFromInputFocus}
+        onBlur={onFromInputBlur}
         hasError={fromInputHasError}
         balanceProps={{
           value: balance,
