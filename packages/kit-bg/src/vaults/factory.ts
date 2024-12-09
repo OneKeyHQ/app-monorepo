@@ -12,6 +12,7 @@ import {
   IMPL_ALPH,
   IMPL_APTOS,
   IMPL_BCH,
+  IMPL_BFC,
   IMPL_BTC,
   IMPL_CFX,
   IMPL_CKB,
@@ -152,6 +153,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_ALLNETWORKS]: () => import('./impls/all/Vault') as any,
     [IMPL_SCDO]: () => import('./impls/scdo/Vault') as any,
     [IMPL_ALPH]: () => import('./impls/alph/Vault') as any,
+    [IMPL_BFC]: () => import('./impls/bfc/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

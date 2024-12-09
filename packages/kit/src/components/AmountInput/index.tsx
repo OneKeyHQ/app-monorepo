@@ -336,16 +336,16 @@ export function AmountInput({
               {balanceProps.value ?? 0}
             </NumberSizeableText>
           </SizableText>
-          {enableMaxAmount ? (
+          {/* {enableMaxAmount ? (
             <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
               {intl.formatMessage({ id: ETranslations.send_max })}
             </SizableText>
-          ) : null}
+          ) : null} */}
         </XStack>
       );
     }
     return null;
-  }, [balanceHelperProps, balanceProps, enableMaxAmount, intl]);
+  }, [balanceHelperProps, balanceProps, enableMaxAmount]);
 
   const balanceHelper = useMemo(() => {
     if (!balanceHelperProps) {

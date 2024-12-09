@@ -3,9 +3,8 @@ import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import TonWeb from 'tonweb';
 
 import {
+  ETonSendMode,
   genAddressFromPublicKey,
-  getStateInitFromEncodedTx,
-  serializeSignedTx,
 } from '@onekeyhq/core/src/chains/ton/sdkTon';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -26,11 +25,14 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
 import {
+  createSignedExternalMessage,
   decodePayload,
   getAccountVersion,
+  getWalletContractInstance,
   serializeUnsignedTransaction,
 } from './sdkTon/utils';
 
+import type { IWallet } from './sdkTon/utils';
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
@@ -149,12 +151,25 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { dbDevice, deviceCommonParams } = checkIsDefined(deviceParams);
     const encodedTx = unsignedTx.encodedTx as IEncodedTxTon;
     const version = getAccountVersion(account.id);
-    const serializeUnsignedTx = await serializeUnsignedTransaction({
+    const contract = getWalletContractInstance({
       version,
-      encodedTx,
+      publicKey: account.pub ?? '',
       backgroundApi: this.vault.backgroundApi,
       networkId: this.vault.networkId,
+    }) as unknown as IWallet;
+
+    const serializeUnsignedTx = await serializeUnsignedTransaction({
+      contract,
+      encodedTx,
     });
+
+    encodedTx.messages.forEach((msg) => {
+      if (msg.sendMode === null || msg.sendMode === undefined) {
+        msg.sendMode =
+          ETonSendMode.PAY_GAS_SEPARATELY + ETonSendMode.IGNORE_ERRORS;
+      }
+    });
+
     const msg = encodedTx.messages[0];
     const versionMap = {
       v4R2: TonWalletVersion.V4R2,
@@ -250,15 +265,19 @@ export class KeyringHardware extends KeyringHardwareBase {
         }),
       );
     }
-    const signedTx = serializeSignedTx({
-      fromAddress: encodedTx.from,
+
+    const externalMessage = await createSignedExternalMessage({
+      contract,
+      encodedTx,
+      signature: Buffer.from(signature).toString('hex'),
       signingMessage,
-      signature,
-      stateInit: getStateInitFromEncodedTx(encodedTx),
     });
+
     return {
       txid: '',
-      rawTx: Buffer.from(await signedTx.toBoc(false)).toString('base64'),
+      rawTx: Buffer.from(await externalMessage.message.toBoc(false)).toString(
+        'base64',
+      ),
       encodedTx,
     };
   }

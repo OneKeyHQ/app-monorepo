@@ -634,7 +634,7 @@ function BasicEarnHome() {
             .then(actions.current.updateAvailableAssets);
         });
       }
-      const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
+
       const fetchAndUpdateAction = async () => {
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
@@ -642,17 +642,40 @@ function BasicEarnHome() {
             accountId: account?.id ?? '',
             networkId: network?.id ?? '',
           });
+        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
         actions.current.updateEarnAccounts({
           key: totalFiatMapKey,
-          earnAccount,
+          earnAccount: {
+            ...earnAccountData,
+            ...earnAccount,
+          },
         });
       };
+      const fetchAndUpdateOverview = async () => {
+        const overviewData =
+          await backgroundApiProxy.serviceStaking.fetchAccountOverview({
+            assets,
+            accountId: account?.id ?? '',
+            networkId: network?.id ?? '',
+          });
+        const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
+        actions.current.updateEarnAccounts({
+          key: totalFiatMapKey,
+          earnAccount: {
+            accounts: earnAccountData?.accounts || [],
+            ...overviewData,
+          },
+        });
+      };
+      const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
       if (earnAccountData) {
         setTimeout(() => {
+          void fetchAndUpdateOverview();
           void fetchAndUpdateAction();
         });
       } else {
         await fetchAndUpdateAction();
+        void fetchAndUpdateOverview();
       }
       return { loaded: true };
     },

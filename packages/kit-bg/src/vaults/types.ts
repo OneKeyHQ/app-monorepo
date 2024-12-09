@@ -527,6 +527,7 @@ export interface IBuildDecodedTxParams {
   unsignedTx: IUnsignedTxPro;
   feeInfo?: ISendSelectedFeeInfo;
   transferPayload?: ITransferPayload;
+  saveToLocalHistory?: boolean;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -614,6 +615,9 @@ export interface IBuildHistoryTxParams {
   localHistoryPendingTxs?: IAccountHistoryTx[];
   index?: number;
   allNetworkHistoryExtraItems?: IAllNetworkHistoryExtraItem[];
+  dbAccountCache?: {
+    [accountId: string]: IDBAccount;
+  };
 }
 
 export type IGetPrivateKeyFromImportedParams = {

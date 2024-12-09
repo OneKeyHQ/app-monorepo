@@ -307,8 +307,8 @@ export type IEarnAccount = {
 };
 
 export type IEarnAccountTokenResponse = {
-  totalFiatValue: string;
-  earnings24h: string;
+  totalFiatValue?: string;
+  earnings24h?: string;
   accounts: IEarnAccount[];
 };
 

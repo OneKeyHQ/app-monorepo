@@ -112,14 +112,21 @@ textarea {
 
 .debug-render-tracker-times-badge {
   position: absolute;
-  top: 0;
-  left: 2px;
+
   /* left: 50%; */
   /* transform: translateX(-50%); */
   z-index: 999999;
   font-size: 12px;
   color: #a17b83;
   font-weight: bold;
+}
+.debug-render-tracker-times-badge.top-right {
+  top: 0;
+  right: 2px;
+}
+.debug-render-tracker-times-badge.top-left {
+  top: 0;
+  left: 2px;
 }
 
 .debug-render-tracker-animated-bg {

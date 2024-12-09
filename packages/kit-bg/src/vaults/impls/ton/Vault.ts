@@ -2,7 +2,10 @@
 import BigNumber from 'bignumber.js';
 import TonWeb from 'tonweb';
 
-import { genAddressFromAddress } from '@onekeyhq/core/src/chains/ton/sdkTon';
+import {
+  ETonSendMode,
+  genAddressFromAddress,
+} from '@onekeyhq/core/src/chains/ton/sdkTon';
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -56,6 +59,7 @@ import {
 } from './sdkTon/utils';
 import settings from './settings';
 
+import type { IWallet } from './sdkTon/utils';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -119,7 +123,8 @@ export default class Vault extends VaultBase {
         const msg: IEncodedTxTon['messages'][0] = {
           address: transfer.to,
           amount,
-          sendMode: 3,
+          sendMode:
+            ETonSendMode.PAY_GAS_SEPARATELY + ETonSendMode.IGNORE_ERRORS,
         };
         if (transfer.memo) {
           msg.payload = await encodeComment(transfer.memo);
@@ -301,20 +306,6 @@ export default class Vault extends VaultBase {
       encodedTx.sequenceNo = params.nonceInfo.nonce;
     }
 
-    if (encodedTx.sequenceNo === 0 && !encodedTx.messages[0].stateInit) {
-      const account = await this.getAccount();
-      const wallet = getWalletContractInstance({
-        version: getAccountVersion(account.id),
-        publicKey: account.pub ?? '',
-        backgroundApi: this.backgroundApi,
-        networkId: this.networkId,
-      });
-      const stateInit = await wallet.createStateInit();
-      encodedTx.messages[0].stateInit = Buffer.from(
-        await stateInit.stateInit.toBoc(),
-      ).toString('base64');
-    }
-
     const validUntil = Math.floor(Date.now() / 1000) + 60 * 3;
     if (!encodedTx.validUntil) {
       encodedTx.validUntil = validUntil;
@@ -404,12 +395,16 @@ export default class Vault extends VaultBase {
   }> {
     const encodedTx = params.encodedTx as IEncodedTxTon;
     const account = await this.getAccount();
-    const version = getAccountVersion(account.id);
-    const serializeUnsignedTx = await serializeUnsignedTransaction({
-      version,
-      encodedTx,
+    const wallet = getWalletContractInstance({
+      version: getAccountVersion(account.id),
+      publicKey: account.pub ?? '',
       backgroundApi: this.backgroundApi,
       networkId: this.networkId,
+    }) as unknown as IWallet;
+
+    const serializeUnsignedTx = await serializeUnsignedTransaction({
+      contract: wallet,
+      encodedTx,
     });
     return {
       encodedTx: {

@@ -22,6 +22,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import ServiceBase from './ServiceBase';
 
+import type { IDBAccount } from '../dbs/local/types';
 import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 
 @backgroundClass()
@@ -64,6 +65,7 @@ class ServiceNFT extends ServiceBase {
   @backgroundMethod()
   public async fetchAccountNFTs(params: IFetchAccountNFTsParams) {
     const {
+      dbAccount,
       accountId,
       networkId,
       isAllNetworks,
@@ -73,6 +75,8 @@ class ServiceNFT extends ServiceBase {
       saveToLocal,
       ...rest
     } = params;
+
+    // console.log('fetchAccountNFTs', params);
 
     if (
       isAllNetworks &&
@@ -89,10 +93,12 @@ class ServiceNFT extends ServiceBase {
 
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
+        dbAccount,
         accountId,
         networkId,
       }),
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        dbAccount,
         accountId,
         networkId,
       }),
@@ -143,6 +149,7 @@ class ServiceNFT extends ServiceBase {
 
     if (saveToLocal) {
       await this.updateAccountLocalNFTs({
+        dbAccount,
         accountId,
         networkId,
         nfts: resp.data.data.data,
@@ -236,17 +243,20 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async updateAccountLocalNFTs(params: {
+    dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
     nfts: IAccountNFT[];
   }) {
-    const { accountId, networkId, nfts } = params;
+    const { dbAccount, accountId, networkId, nfts } = params;
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
+        dbAccount,
         accountId,
         networkId,
       }),
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        dbAccount,
         accountId,
         networkId,
       }),
@@ -261,16 +271,19 @@ class ServiceNFT extends ServiceBase {
 
   @backgroundMethod()
   public async getAccountLocalNFTs(params: {
+    dbAccount?: IDBAccount;
     accountId: string;
     networkId: string;
   }) {
-    const { accountId, networkId } = params;
+    const { dbAccount, accountId, networkId } = params;
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
+        dbAccount,
         accountId,
         networkId,
       }),
       this.backgroundApi.serviceAccount.getAccountAddressForApi({
+        dbAccount,
         accountId,
         networkId,
       }),
