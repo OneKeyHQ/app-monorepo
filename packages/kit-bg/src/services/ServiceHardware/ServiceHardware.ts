@@ -76,6 +76,7 @@ import type {
   Features,
   IDeviceType,
   KnownDevice,
+  OnekeyFeatures,
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
@@ -901,11 +902,16 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async verifyFirmwareHash({
-    features,
+    deviceType,
+    onekeyFeatures,
   }: {
-    features: IOneKeyDeviceFeatures | undefined;
+    deviceType: IDeviceType;
+    onekeyFeatures: OnekeyFeatures | undefined;
   }): Promise<IDeviceVerifyVersionCompareResult> {
-    return this.hardwareVerifyManager.verifyFirmwareHash({ features });
+    return this.hardwareVerifyManager.verifyFirmwareHash({
+      deviceType,
+      onekeyFeatures,
+    });
   }
 
   @backgroundMethod()
@@ -927,6 +933,14 @@ class ServiceHardware extends ServiceBase {
       // ignore
     }
     return logs;
+  }
+
+  @backgroundMethod()
+  async getOneKeyFeatures({ connectId }: { connectId: string }) {
+    const hardwareSDK = await this.getSDKInstance();
+    return convertDeviceResponse(() =>
+      hardwareSDK?.getOnekeyFeatures(connectId),
+    );
   }
 }
 

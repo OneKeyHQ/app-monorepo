@@ -213,13 +213,6 @@ function useNewFirmwareVerifyBase({
   }, []);
   const verify = useCallback(async () => {
     try {
-      // setHashInfo({
-      //   certificate: 'PRB09B0088A',
-      //   firmware: '4.0.0 (2c4d945-ff9efe5)',
-      //   bluetooth: '2.1.0 (deaf294-5206e9d)',
-      //   bootloader: '2.2.0 (8a5b950-2bbd01c)',
-      //   securityElement: '',
-      // });
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
           device,
@@ -231,15 +224,6 @@ function useNewFirmwareVerifyBase({
         setContentType(
           EFirmwareAuthenticationDialogContentType.verification_verify,
         );
-        // setTimeout(() => {
-        //   setRemoteHashInfo({
-        //     certificate: 'PRB09B0088A',
-        //     firmware: '4.0.0 (2c4d945-ff9efe5)',
-        //     bluetooth: '2.1.0 (deaf294-5206e9d)',
-        //     bootloader: '2.2.0 (8a5b950-2bbd01c)',
-        //     securityElement: '',
-        //   });
-        // }, 3000);
       } else {
         setResult('unofficial');
         setErrorObj({ code: authResult.result?.code || -99_999 });
@@ -250,12 +234,13 @@ function useNewFirmwareVerifyBase({
 
       // verify firmware hash
       const latestFeatures =
-        await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+        await backgroundApiProxy.serviceHardware.getOneKeyFeatures({
           connectId: device?.connectId ?? '',
         });
       const verifyResult =
         await backgroundApiProxy.serviceHardware.verifyFirmwareHash({
-          features: latestFeatures,
+          deviceType: device.deviceType,
+          onekeyFeatures: latestFeatures,
         });
       console.log('=====>>>> verifyResult: ', verifyResult);
       setVersionCompareResult(verifyResult);

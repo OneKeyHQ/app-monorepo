@@ -31,6 +31,7 @@ import type {
 import type {
   DeviceVerifySignature,
   IDeviceType,
+  OnekeyFeatures,
   SearchDevice,
 } from '@onekeyfe/hd-core';
 
@@ -289,9 +290,11 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
 
   @backgroundMethod()
   async verifyFirmwareHash({
-    features,
+    deviceType,
+    onekeyFeatures,
   }: {
-    features: IOneKeyDeviceFeatures | undefined;
+    deviceType: IDeviceType;
+    onekeyFeatures: OnekeyFeatures | undefined;
   }): Promise<IDeviceVerifyVersionCompareResult> {
     const defaultResult = {
       firmware: { isMatch: false, format: '' },
@@ -299,13 +302,14 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       bootloader: { isMatch: false, format: '' },
     };
 
-    if (!features) {
+    if (!onekeyFeatures) {
       return defaultResult;
     }
 
     const verifyVersions =
       await deviceUtils.getDeviceVerifyVersionsFromFeatures({
-        features,
+        features: onekeyFeatures,
+        deviceType,
       });
     if (!verifyVersions) {
       return defaultResult;
@@ -319,43 +323,31 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       serverVerifyInfos: result,
     });
     const localVerifyInfos = deviceUtils.parseLocalDeviceVersions({
-      features,
+      onekeyFeatures,
     });
 
     return {
       firmware: {
-        isMatch: true,
-        format: '1.0.0',
-      },
-      bluetooth: {
-        isMatch: true,
-        format: '1.0.0',
-      },
-      bootloader: {
-        isMatch: true,
-        format: '1.0.0',
-      },
-      firmware1: {
         isMatch: deviceUtils.compareDeviceVersions({
           local: localVerifyInfos.firmware.raw,
           remote: serverVerifyInfos.firmware.raw,
         }),
         format: serverVerifyInfos.firmware.formatted,
       },
-      bluetooth2: {
+      bluetooth: {
         isMatch: deviceUtils.compareDeviceVersions({
           local: localVerifyInfos.bluetooth.raw,
           remote: serverVerifyInfos.bluetooth.raw,
         }),
         format: serverVerifyInfos.bluetooth.formatted,
       },
-      bootloader3: {
+      bootloader: {
         isMatch: deviceUtils.compareDeviceVersions({
           local: localVerifyInfos.bootloader.raw,
           remote: serverVerifyInfos.bootloader.raw,
         }),
         format: serverVerifyInfos.bootloader.formatted,
       },
-    } as unknown as IDeviceVerifyVersionCompareResult;
+    };
   }
 }

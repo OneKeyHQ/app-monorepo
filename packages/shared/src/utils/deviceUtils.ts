@@ -24,7 +24,12 @@ import type {
   IOneKeyDeviceFeatures,
   IOneKeyDeviceType,
 } from '../../types/device';
-import type { IDeviceType, KnownDevice, SearchDevice } from '@onekeyfe/hd-core';
+import type {
+  IDeviceType,
+  KnownDevice,
+  OnekeyFeatures,
+  SearchDevice,
+} from '@onekeyfe/hd-core';
 
 type IGetDeviceVersionParams = {
   device: SearchDevice | undefined;
@@ -239,12 +244,19 @@ async function buildDeviceName({
 }
 
 async function getDeviceVerifyVersionsFromFeatures({
+  deviceType,
   features,
 }: {
-  features: IOneKeyDeviceFeatures;
+  deviceType?: IDeviceType;
+  features: OnekeyFeatures | IOneKeyDeviceFeatures;
 }): Promise<IFetchFirmwareVerifyHashParams | null> {
-  const deviceType = await getDeviceTypeFromFeatures({ features });
-  if (!deviceType || deviceType === 'unknown') {
+  let finalDeviceType = deviceType;
+  if (!deviceType) {
+    finalDeviceType = await getDeviceTypeFromFeatures({
+      features: features as IOneKeyDeviceFeatures,
+    });
+  }
+  if (!finalDeviceType || finalDeviceType === 'unknown') {
     return null;
   }
 
@@ -258,7 +270,7 @@ async function getDeviceVerifyVersionsFromFeatures({
   }
 
   return {
-    deviceType,
+    deviceType: finalDeviceType,
     firmwareVersion: onekeyFirmwareVersion,
     bluetoothVersion: onekeyBleVersion,
     bootloaderVersion: onekeyBootVersion,
@@ -286,30 +298,30 @@ function formatVersionWithHash(
 
   return {
     raw: { version, checksum, commitId },
-    formatted: `${version} (${checksum}-${commitId})`,
+    formatted: `${version} (${checksum}-${commitId.slice(0, 7)})`,
   };
 }
 
 export function parseLocalDeviceVersions({
-  features,
+  onekeyFeatures,
 }: {
-  features: IOneKeyDeviceFeatures;
+  onekeyFeatures: OnekeyFeatures;
 }): IAllDeviceVerifyVersions {
   return {
     firmware: formatVersionWithHash({
-      version: features.onekey_firmware_version,
-      checksum: features.onekey_firmware_build_id,
-      commitId: features.onekey_firmware_hash,
+      version: onekeyFeatures.onekey_firmware_version,
+      checksum: onekeyFeatures.onekey_firmware_build_id,
+      commitId: onekeyFeatures.onekey_firmware_hash,
     }),
     bluetooth: formatVersionWithHash({
-      version: features.onekey_ble_version,
-      checksum: features.onekey_ble_build_id,
-      commitId: features.onekey_ble_hash,
+      version: onekeyFeatures.onekey_ble_version,
+      checksum: onekeyFeatures.onekey_ble_build_id,
+      commitId: onekeyFeatures.onekey_ble_hash,
     }),
     bootloader: formatVersionWithHash({
-      version: features.onekey_boot_version,
-      checksum: features.onekey_boot_build_id,
-      commitId: features.onekey_boot_hash,
+      version: onekeyFeatures.onekey_boot_version,
+      checksum: onekeyFeatures.onekey_boot_build_id,
+      commitId: onekeyFeatures.onekey_boot_hash,
     }),
   };
 }
@@ -324,14 +336,13 @@ export function parseServerVersionInfos({
     formatted: '',
   };
 
-  // 初始化结果对象
   const result: IAllDeviceVerifyVersions = {
     firmware: defaultVersion,
     bluetooth: defaultVersion,
     bootloader: defaultVersion,
   };
 
-  // 遍历服务端数据，根据 type 填充对应的版本信息
+  // loop through server verify infos
   serverVerifyInfos.forEach((item) => {
     switch (item.type) {
       case EFirmwareVerifyType.System:
