@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 
+import { Stack } from '@onekeyhq/components';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { ViewStyle } from 'react-native';
@@ -24,12 +25,12 @@ export function WebView({
       frame.onload = () => {
         setTimeout(() => {
           onLoadEnd();
-        }, 1200);
+        }, 800);
       };
     }
   }, [iframeId, onLoadEnd, tradingViewProps.uri]);
   return (
-    <div style={style as any}>
+    <div style={{ ...(style as any), position: 'relative' }}>
       <iframe
         id={iframeId}
         src={tradingViewProps.uri}
@@ -41,6 +42,14 @@ export function WebView({
         frameBorder="0"
         title="TradingView"
         sandbox="allow-orientation-lock allow-scripts	allow-top-navigation allow-top-navigation-by-user-activation allow-same-origin allow-popups"
+      />
+      <Stack
+        position="absolute"
+        width={42}
+        height={20}
+        bottom={40}
+        left={10}
+        bg="$bgApp"
       />
     </div>
   );
