@@ -56,6 +56,7 @@ import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
   IFeeSelectorItem,
+  IMultiTxsFeeSelectorItem,
 } from '@onekeyhq/shared/types/fee';
 
 import { FeeEditor, FeeSelectorTrigger } from '../../components/SendFee';
@@ -141,6 +142,36 @@ function TxFeeContainer(props: IProps) {
           status: ESendFeeStatus.Loading,
         });
 
+        if (isMultiTxs) {
+          const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+          if (vs?.supportBatchEstimateFee?.[networkId]) {
+            try {
+              const encodedTxList = unsignedTxs.map((tx) => tx.encodedTx);
+              const multiTxsFeeResult =
+                await backgroundApiProxy.serviceGas.batchEstimateFee({
+                  accountId,
+                  networkId,
+                  encodedTxs: encodedTxList,
+                });
+              updateSendFeeStatus({
+                status: ESendFeeStatus.Success,
+                errMessage: '',
+              });
+              setTxFeeInit(true);
+              return {
+                r: undefined,
+                e: undefined,
+                m: multiTxsFeeResult,
+              };
+            } catch (e) {
+              console.error(e);
+              // fallback to single tx estimate fee
+            }
+          }
+        }
+
         const accountAddress =
           await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
             networkId,
@@ -204,6 +235,7 @@ function TxFeeContainer(props: IProps) {
         return {
           r,
           e,
+          m: undefined,
         };
       } catch (e) {
         setTxFeeInit(true);
@@ -221,6 +253,7 @@ function TxFeeContainer(props: IProps) {
     [
       accountId,
       isLastSwapTxWithFeeInfo,
+      isMultiTxs,
       isSecondApproveTxWithFeeInfo,
       networkId,
       unsignedTxs,
@@ -241,7 +274,9 @@ function TxFeeContainer(props: IProps) {
     },
   );
 
-  const { r: txFee, e: estimateFeeParams } = result ?? {};
+  const { r: txFee, e: estimateFeeParams, m: multiTxsFee } = result ?? {};
+
+  const txFeeCommon = txFee?.common ?? multiTxsFee?.common;
 
   const openFeeEditorEnabled =
     !isLastSwapTxWithFeeInfo &&
@@ -564,20 +599,78 @@ function TxFeeContainer(props: IProps) {
     updateCustomFee,
   ]);
 
+  const multiTxsFeeSelectorItems: IMultiTxsFeeSelectorItem[] = useMemo(() => {
+    const items = [];
+
+    if (multiTxsFee) {
+      const feeItem = multiTxsFee.txFees[0];
+      const feeLength = feeItem.gasEIP1559?.length || feeItem.gas?.length || 0;
+
+      for (let i = 0; i < feeLength; i += 1) {
+        const feeInfos: IFeeInfoUnit[] = multiTxsFee.txFees.map((fee) => ({
+          common: multiTxsFee.common,
+          gas: fee.gas?.[i],
+          gasEIP1559: fee.gasEIP1559?.[i],
+        }));
+
+        items.push({
+          label: intl.formatMessage({
+            id: getFeeLabel({
+              feeType: EFeeType.Standard,
+              presetIndex: i,
+              isSinglePreset,
+            }),
+          }),
+          icon: getFeeIcon({
+            feeType: EFeeType.Standard,
+            presetIndex: i,
+            isSinglePreset,
+          }),
+          value: i,
+          feeInfos,
+          type: EFeeType.Standard,
+        });
+      }
+
+      updateIsSinglePreset(items.length === 1);
+
+      return items;
+    }
+
+    return [];
+  }, [multiTxsFee, updateIsSinglePreset, intl, isSinglePreset]);
+
   const { selectedFee } = useMemo(() => {
-    let selectedFeeInfo;
+    let selectedFeeInfos: IFeeInfoUnit[] = [];
 
-    if (isEmpty(feeSelectorItems)) return {};
+    if (isEmpty(feeSelectorItems) && isEmpty(multiTxsFeeSelectorItems))
+      return {};
 
-    if (sendSelectedFee.feeType === EFeeType.Custom) {
-      selectedFeeInfo = feeSelectorItems[feeSelectorItems.length - 1].feeInfo;
+    if (!isEmpty(multiTxsFeeSelectorItems)) {
+      if (sendSelectedFee.feeType === EFeeType.Custom) {
+        selectedFeeInfos =
+          multiTxsFeeSelectorItems[multiTxsFeeSelectorItems.length - 1]
+            .feeInfos;
+      } else {
+        let feeSelectorItem =
+          multiTxsFeeSelectorItems[sendSelectedFee.presetIndex] ??
+          multiTxsFeeSelectorItems[0];
+        if (feeSelectorItem.type === EFeeType.Custom) {
+          feeSelectorItem = multiTxsFeeSelectorItems[0];
+        }
+        selectedFeeInfos = feeSelectorItem.feeInfos;
+      }
+    } else if (sendSelectedFee.feeType === EFeeType.Custom) {
+      selectedFeeInfos = [
+        feeSelectorItems[feeSelectorItems.length - 1].feeInfo,
+      ];
     } else {
       let feeSelectorItem =
         feeSelectorItems[sendSelectedFee.presetIndex] ?? feeSelectorItems[0];
       if (feeSelectorItem.type === EFeeType.Custom) {
         feeSelectorItem = feeSelectorItems[0];
       }
-      selectedFeeInfo = feeSelectorItem.feeInfo;
+      selectedFeeInfos = [feeSelectorItem.feeInfo];
     }
 
     const feeInfos: {
@@ -590,7 +683,8 @@ function TxFeeContainer(props: IProps) {
     }[] = [];
 
     let baseGasLimit =
-      selectedFeeInfo.gas?.gasLimit ?? selectedFeeInfo.gasEIP1559?.gasLimit;
+      selectedFeeInfos[0].gas?.gasLimit ??
+      selectedFeeInfos[0].gasEIP1559?.gasLimit;
 
     let total = new BigNumber(0);
     let totalNative = new BigNumber(0);
@@ -599,13 +693,16 @@ function TxFeeContainer(props: IProps) {
     let totalFiatForDisplay = new BigNumber(0);
 
     for (let i = 0; i < unsignedTxs.length; i += 1) {
+      const selectedFeeInfo = selectedFeeInfos[i];
+
       const unsignedTx = unsignedTxs[i];
       let specialGasLimit: string | undefined;
 
       // build second approve tx fee info base on first approve fee info
       if (
-        (isMultiTxs && unsignedTx.approveInfo && i !== 0) ||
-        isSecondApproveTxWithFeeInfo
+        !selectedFeeInfo &&
+        ((isMultiTxs && unsignedTx.approveInfo && i !== 0) ||
+          isSecondApproveTxWithFeeInfo)
       ) {
         specialGasLimit = new BigNumber(baseGasLimit ?? 0)
           .times(BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE)
@@ -614,9 +711,10 @@ function TxFeeContainer(props: IProps) {
       }
       // build swap tx fee info base on first approve fee info
       else if (
+        !selectedFeeInfo &&
         (isMultiTxs || isLastSwapTxWithFeeInfo) &&
         unsignedTx.swapInfo &&
-        (selectedFeeInfo.gas || selectedFeeInfo.gasEIP1559)
+        (selectedFeeInfos[0].gas || selectedFeeInfos[0].gasEIP1559)
       ) {
         const swapInfo = unsignedTx.swapInfo;
         const internalSwapGasLimit = swapInfo.swapBuildResData.result.gasLimit;
@@ -639,30 +737,33 @@ function TxFeeContainer(props: IProps) {
         }
       }
 
+      const baseSelectedFeeInfo = selectedFeeInfo ?? selectedFeeInfos[0];
+
       const txFeeInfo = {
-        ...selectedFeeInfo,
-        gas: selectedFeeInfo.gas
+        ...baseSelectedFeeInfo,
+        gas: baseSelectedFeeInfo.gas
           ? {
-              ...selectedFeeInfo.gas,
-              gasLimit: specialGasLimit ?? selectedFeeInfo.gas?.gasLimit,
+              ...baseSelectedFeeInfo.gas,
+              gasLimit: specialGasLimit ?? baseSelectedFeeInfo.gas?.gasLimit,
               gasLimitForDisplay:
-                specialGasLimit ?? selectedFeeInfo.gas?.gasLimitForDisplay,
+                specialGasLimit ?? baseSelectedFeeInfo.gas?.gasLimitForDisplay,
             }
           : undefined,
-        gasEIP1559: selectedFeeInfo.gasEIP1559
+        gasEIP1559: baseSelectedFeeInfo.gasEIP1559
           ? {
-              ...selectedFeeInfo.gasEIP1559,
-              gasLimit: specialGasLimit ?? selectedFeeInfo.gasEIP1559?.gasLimit,
+              ...baseSelectedFeeInfo.gasEIP1559,
+              gasLimit:
+                specialGasLimit ?? baseSelectedFeeInfo.gasEIP1559?.gasLimit,
               gasLimitForDisplay:
                 specialGasLimit ??
-                selectedFeeInfo.gasEIP1559?.gasLimitForDisplay,
+                baseSelectedFeeInfo.gasEIP1559?.gasLimitForDisplay,
             }
           : undefined,
       };
 
       const feeResult = calculateFeeForSend({
         feeInfo: txFeeInfo,
-        nativeTokenPrice: txFee?.common.nativeTokenPrice ?? 0,
+        nativeTokenPrice: txFeeCommon?.nativeTokenPrice ?? 0,
         txSize: unsignedTx.txSize,
         estimateFeeParams,
       });
@@ -690,6 +791,7 @@ function TxFeeContainer(props: IProps) {
     // Due to the tendency to use higher fee estimates for approve&swap multi-txs to ensure success,
     // we adjust the displayed fee to be closer to the actual on-chain cost for the user
     if (
+      isEmpty(multiTxsFeeSelectorItems) &&
       isMultiTxs &&
       unsignedTxs.some((tx) => tx.approveInfo) &&
       unsignedTxs.some((tx) => tx.swapInfo)
@@ -718,9 +820,10 @@ function TxFeeContainer(props: IProps) {
     isLastSwapTxWithFeeInfo,
     isMultiTxs,
     isSecondApproveTxWithFeeInfo,
+    multiTxsFeeSelectorItems,
     sendSelectedFee.feeType,
     sendSelectedFee.presetIndex,
-    txFee?.common.nativeTokenPrice,
+    txFeeCommon?.nativeTokenPrice,
     unsignedTxs,
   ]);
 
@@ -815,7 +918,14 @@ function TxFeeContainer(props: IProps) {
       renderContent: (
         <FeeEditor
           networkId={networkId}
-          feeSelectorItems={feeSelectorItems}
+          feeSelectorItems={
+            isEmpty(feeSelectorItems)
+              ? multiTxsFeeSelectorItems.map((item) => ({
+                  ...item,
+                  feeInfo: item.feeInfos[0],
+                }))
+              : feeSelectorItems
+          }
           selectedFee={selectedFee?.feeInfos?.[0]}
           sendSelectedFee={sendSelectedFee}
           unsignedTxs={unsignedTxs}
@@ -831,8 +941,9 @@ function TxFeeContainer(props: IProps) {
     feeSelectorItems,
     handleApplyFeeInfo,
     intl,
+    multiTxsFeeSelectorItems,
     networkId,
-    selectedFee,
+    selectedFee?.feeInfos,
     sendSelectedFee,
     unsignedTxs,
   ]);
