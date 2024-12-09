@@ -30,6 +30,14 @@ export function MarketListTradeButton({
       >
         {intl.formatMessage({ id: ETranslations.global_trade })}
       </Button>
+      <Button
+        loading={loadingIndicators.onBuy}
+        variant="secondary"
+        size="small"
+        onPress={onBuy}
+      >
+        {intl.formatMessage({ id: ETranslations.global_buy })}
+      </Button>
       {canStaking ? (
         <Button
           loading={loadingIndicators.onStaking}
@@ -40,14 +48,6 @@ export function MarketListTradeButton({
           {intl.formatMessage({ id: ETranslations.earn_stake })}
         </Button>
       ) : null}
-      <Button
-        loading={loadingIndicators.onBuy}
-        variant="secondary"
-        size="small"
-        onPress={onBuy}
-      >
-        {intl.formatMessage({ id: ETranslations.global_buy })}
-      </Button>
     </XStack>
   );
 }
