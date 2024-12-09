@@ -136,38 +136,39 @@ function TxFeeContainer(props: IProps) {
   const { result, run } = usePromiseResult(
     async () => {
       try {
-        if (isNil(vaultSettings)) {
-          return;
-        }
-
         await backgroundApiProxy.serviceGas.abortEstimateFee();
 
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
 
-        if (isMultiTxs && vaultSettings?.supportBatchEstimateFee?.[networkId]) {
-          try {
-            const encodedTxList = unsignedTxs.map((tx) => tx.encodedTx);
-            const multiTxsFeeResult =
-              await backgroundApiProxy.serviceGas.batchEstimateFee({
-                accountId,
-                networkId,
-                encodedTxs: encodedTxList,
+        if (isMultiTxs) {
+          const vs = await backgroundApiProxy.serviceNetwork.getVaultSettings({
+            networkId,
+          });
+          if (vs?.supportBatchEstimateFee?.[networkId]) {
+            try {
+              const encodedTxList = unsignedTxs.map((tx) => tx.encodedTx);
+              const multiTxsFeeResult =
+                await backgroundApiProxy.serviceGas.batchEstimateFee({
+                  accountId,
+                  networkId,
+                  encodedTxs: encodedTxList,
+                });
+              updateSendFeeStatus({
+                status: ESendFeeStatus.Success,
+                errMessage: '',
               });
-            updateSendFeeStatus({
-              status: ESendFeeStatus.Success,
-              errMessage: '',
-            });
-            setTxFeeInit(true);
-            return {
-              r: undefined,
-              e: undefined,
-              m: multiTxsFeeResult,
-            };
-          } catch (e) {
-            console.error(e);
-            // fallback to single tx estimate fee
+              setTxFeeInit(true);
+              return {
+                r: undefined,
+                e: undefined,
+                m: multiTxsFeeResult,
+              };
+            } catch (e) {
+              console.error(e);
+              // fallback to single tx estimate fee
+            }
           }
         }
 
@@ -258,7 +259,6 @@ function TxFeeContainer(props: IProps) {
       unsignedTxs,
       updateSendFeeStatus,
       updateTxAdvancedSettings,
-      vaultSettings,
     ],
     {
       watchLoading: true,
@@ -275,11 +275,6 @@ function TxFeeContainer(props: IProps) {
   );
 
   const { r: txFee, e: estimateFeeParams, m: multiTxsFee } = result ?? {};
-
-  const isMultiTxsFeeMatchTxs = useMemo(
-    () => multiTxsFee && multiTxsFee.txFees.length === unsignedTxs.length,
-    [multiTxsFee, unsignedTxs],
-  );
 
   const txFeeCommon = txFee?.common ?? multiTxsFee?.common;
 
@@ -946,8 +941,9 @@ function TxFeeContainer(props: IProps) {
     feeSelectorItems,
     handleApplyFeeInfo,
     intl,
+    multiTxsFeeSelectorItems,
     networkId,
-    selectedFee,
+    selectedFee?.feeInfos,
     sendSelectedFee,
     unsignedTxs,
   ]);

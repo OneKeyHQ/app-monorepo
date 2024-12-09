@@ -7,6 +7,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IBatchEstimateFeeParams,
   IEstimateGasParams,
@@ -17,7 +18,6 @@ import { vaultFactory } from '../vaults/factory';
 import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
 
 import ServiceBase from './ServiceBase';
-import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 @backgroundClass()
 class ServiceGas extends ServiceBase {
