@@ -32,6 +32,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBleFirmwareReleasePayload,
+  IDeviceVerifyVersionCompareResult,
   IFirmwareReleasePayload,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -889,6 +890,22 @@ class ServiceHardware extends ServiceBase {
   @backgroundMethod()
   async firmwareAuthenticate(p: IFirmwareAuthenticateParams) {
     return this.hardwareVerifyManager.firmwareAuthenticate(p);
+  }
+
+  @backgroundMethod()
+  async shouldAuthenticateFirmwareByHash(params: {
+    features: IOneKeyDeviceFeatures | undefined;
+  }) {
+    return this.hardwareVerifyManager.shouldAuthenticateFirmwareByHash(params);
+  }
+
+  @backgroundMethod()
+  async verifyFirmwareHash({
+    features,
+  }: {
+    features: IOneKeyDeviceFeatures | undefined;
+  }): Promise<IDeviceVerifyVersionCompareResult> {
+    return this.hardwareVerifyManager.verifyFirmwareHash({ features });
   }
 
   @backgroundMethod()

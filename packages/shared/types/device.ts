@@ -275,3 +275,57 @@ export enum EFirmwareUpdateTipMessages {
 11. ConfirmOnDevice
 12. InstallingFirmware
 */
+
+export enum EFirmwareVerifyType {
+  System = 'system',
+  Bluetooth = 'bluetooth',
+  Bootloader = 'bootloader',
+}
+
+export interface IFirmwareVerifyInfo {
+  deviceType: IDeviceType;
+  type: EFirmwareVerifyType;
+  version: string;
+  checksum: string;
+  commitId: string;
+  releaseUrl: string;
+}
+
+export interface IFetchFirmwareVerifyHashParams {
+  deviceType: IDeviceType;
+  firmwareVersion: string;
+  bluetoothVersion: string;
+  bootloaderVersion: string;
+}
+
+export interface IDeviceVerifyRawVersions {
+  version?: string;
+  checksum?: string;
+  commitId?: string;
+}
+
+export interface IDeviceVerifyVersions {
+  raw: IDeviceVerifyRawVersions;
+  formatted: string;
+}
+
+export interface IAllDeviceVerifyVersions {
+  firmware: IDeviceVerifyVersions;
+  bluetooth: IDeviceVerifyVersions;
+  bootloader: IDeviceVerifyVersions;
+}
+
+export interface IDeviceVerifyVersionCompareResult {
+  firmware: {
+    isMatch: boolean;
+    format: string;
+  };
+  bluetooth: {
+    isMatch: boolean;
+    format: string;
+  };
+  bootloader: {
+    isMatch: boolean;
+    format: string;
+  };
+}

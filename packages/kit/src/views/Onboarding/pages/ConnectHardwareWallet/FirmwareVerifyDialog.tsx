@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
-import { get } from 'lodash';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
@@ -12,7 +11,6 @@ import {
   SizableText,
   Spinner,
   Stack,
-  Toast,
   XStack,
   YStack,
   useDialogInstance,
@@ -23,7 +21,6 @@ import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   type OneKeyError,
-  OneKeyHardwareError,
   type OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -33,11 +30,12 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type {
+  IDeviceVerifyVersionCompareResult,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
-import type { Features } from '@onekeyfe/hd-transport';
 
 type IFirmwareAuthenticationState =
   | 'unknown'
@@ -186,15 +184,11 @@ function useNewFirmwareVerifyBase({
   device: SearchDevice | IDBDevice;
   skipDeviceCancel?: boolean;
 }) {
+  const [versionCompareResult, setVersionCompareResult] =
+    useState<IDeviceVerifyVersionCompareResult>(
+      {} as unknown as IDeviceVerifyVersionCompareResult,
+    );
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
-  const [hashInfo, setHashInfo] = useState<IHashInfo>({});
-  const [remoteHashInfo, setRemoteHashInfo] = useState({
-    certificate: 'PRB09B0088A',
-    firmware: '4.0.0 (2c4d945-ff9efe5)',
-    bluetooth: '2.1.0 (deaf294-5206e9d)',
-    bootloader: '2.2.0 (8a5b950-2bbd01c)',
-    securityElement: '',
-  });
   const [errorObj, setErrorObj] = useState<{ code: number; message?: string }>({
     code: 0,
   });
@@ -217,42 +211,15 @@ function useNewFirmwareVerifyBase({
       );
     };
   }, []);
-  const connectDevice = useCallback(async (deviceInfo: SearchDevice) => {
-    try {
-      return await backgroundApiProxy.serviceHardware.connect({
-        device: deviceInfo,
-        awaitBonded: true,
-      });
-    } catch (error: any) {
-      if (error instanceof OneKeyHardwareError) {
-        const { code, message } = error;
-        // ui prop window handler
-        if (
-          code === HardwareErrorCode.CallMethodNeedUpgradeFirmware ||
-          code === HardwareErrorCode.BlePermissionError ||
-          code === HardwareErrorCode.BleLocationError
-        ) {
-          return;
-        }
-        Toast.error({
-          title: message || 'DeviceConnectError',
-        });
-      } else {
-        console.error('connectDevice error:', get(error, 'message', ''));
-      }
-    }
-  }, []);
   const verify = useCallback(async () => {
     try {
-      const features = await connectDevice(device);
-      // data from features
-      setHashInfo({
-        certificate: 'PRB09B0088A',
-        firmware: '4.0.0 (2c4d945-ff9efe5)',
-        bluetooth: '2.1.0 (deaf294-5206e9d)',
-        bootloader: '2.2.0 (8a5b950-2bbd01c)',
-        securityElement: '',
-      });
+      // setHashInfo({
+      //   certificate: 'PRB09B0088A',
+      //   firmware: '4.0.0 (2c4d945-ff9efe5)',
+      //   bluetooth: '2.1.0 (deaf294-5206e9d)',
+      //   bootloader: '2.2.0 (8a5b950-2bbd01c)',
+      //   securityElement: '',
+      // });
       const authResult =
         await backgroundApiProxy.serviceHardware.firmwareAuthenticate({
           device,
@@ -264,13 +231,15 @@ function useNewFirmwareVerifyBase({
         setContentType(
           EFirmwareAuthenticationDialogContentType.verification_verify,
         );
-        setRemoteHashInfo({
-          certificate: 'PRB09B0088A',
-          firmware: '4.0.0 (2c4d945-ff9efe5)',
-          bluetooth: '2.1.0 (deaf294-5206e9d)',
-          bootloader: '2.2.0 (8a5b950-2bbd01c)',
-          securityElement: '',
-        });
+        // setTimeout(() => {
+        //   setRemoteHashInfo({
+        //     certificate: 'PRB09B0088A',
+        //     firmware: '4.0.0 (2c4d945-ff9efe5)',
+        //     bluetooth: '2.1.0 (deaf294-5206e9d)',
+        //     bootloader: '2.2.0 (8a5b950-2bbd01c)',
+        //     securityElement: '',
+        //   });
+        // }, 3000);
       } else {
         setResult('unofficial');
         setErrorObj({ code: authResult.result?.code || -99_999 });
@@ -278,6 +247,18 @@ function useNewFirmwareVerifyBase({
           EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
         );
       }
+
+      // verify firmware hash
+      const latestFeatures =
+        await backgroundApiProxy.serviceHardware.getFeaturesWithoutCache({
+          connectId: device?.connectId ?? '',
+        });
+      const verifyResult =
+        await backgroundApiProxy.serviceHardware.verifyFirmwareHash({
+          features: latestFeatures,
+        });
+      console.log('=====>>>> verifyResult: ', verifyResult);
+      setVersionCompareResult(verifyResult);
     } catch (error) {
       setResult('error');
 
@@ -330,7 +311,7 @@ function useNewFirmwareVerifyBase({
         skipDeviceCancel,
       });
     }
-  }, [connectDevice, device, dialogInstance, skipDeviceCancel]);
+  }, [device, dialogInstance, skipDeviceCancel]);
 
   useEffect(() => {
     setTimeout(async () => {
@@ -349,8 +330,7 @@ function useNewFirmwareVerifyBase({
     contentType,
     setContentType,
     errorObj,
-    hashInfo,
-    remoteHashInfo,
+    versionCompareResult,
   };
 }
 
@@ -426,67 +406,66 @@ function VerifyHashRow({
   );
 }
 
-const keys = [
-  'certificate',
-  'firmware',
-  'bluetooth',
-  'bootloader',
-  'securityElement',
-];
+const keys = ['certificate', 'firmware', 'bluetooth', 'bootloader'];
 function VerifyHash({
-  hashInfo,
-  remoteHashInfo,
+  certificateResult,
   onActionPress,
   initStatuses = {
     certificate: 'loading',
     firmware: 'init',
     bluetooth: 'init',
     bootloader: 'init',
-    securityElement: 'init',
   },
+  versionCompareResult,
 }: {
-  hashInfo: IHashInfo;
-  remoteHashInfo: IHashInfo;
+  certificateResult?: IFirmwareAuthenticationState;
+  versionCompareResult?: IDeviceVerifyVersionCompareResult;
   onActionPress?: () => void;
   initStatuses?: {
     certificate: IVerifyHashRowStatus;
     firmware: IVerifyHashRowStatus;
     bluetooth: IVerifyHashRowStatus;
     bootloader: IVerifyHashRowStatus;
-    securityElement: IVerifyHashRowStatus;
   };
 }) {
   const [statues, setStatues] = useState(initStatuses);
   const intl = useIntl();
-  const checkHash = useCallback(
-    async (index = 0) => {
-      if (index === keys.length) {
-        return;
+  const verifiedKeys = useRef(new Set<string>());
+
+  useEffect(() => {
+    keys.forEach((key) => {
+      if (
+        key !== 'certificate' &&
+        !verifiedKeys.current.has(key) &&
+        versionCompareResult?.[key as keyof IDeviceVerifyVersionCompareResult]
+      ) {
+        verifiedKeys.current.add(key);
+        setStatues((prev) => ({
+          ...prev,
+          [key]: versionCompareResult[
+            key as keyof IDeviceVerifyVersionCompareResult
+          ].isMatch
+            ? 'success'
+            : 'error',
+        }));
       }
-      const key = keys[index] as keyof typeof hashInfo;
+    });
+  }, [versionCompareResult]);
+
+  useEffect(() => {
+    if (
+      certificateResult === 'official' ||
+      certificateResult === 'unofficial'
+    ) {
+      verifiedKeys.current.add('certificate');
       setStatues((prev) => ({
         ...prev,
-        [key]: 'loading',
+        certificate: certificateResult === 'official' ? 'success' : 'error',
+        ...(certificateResult === 'official' ? { firmware: 'loading' } : {}),
       }));
-      await timerUtils.wait(1200);
-      if (hashInfo[key] === remoteHashInfo[key]) {
-        setStatues((prev) => ({
-          ...prev,
-          [key]: 'success',
-        }));
-        await checkHash(index + 1);
-      } else {
-        setStatues((prev) => ({
-          ...prev,
-          [key]: 'error',
-        }));
-      }
-    },
-    [hashInfo, remoteHashInfo],
-  );
-  useEffect(() => {
-    void checkHash();
-  }, [checkHash]);
+    }
+  }, [certificateResult]);
+
   const titles = useMemo(
     () => [
       'Certificate',
@@ -516,8 +495,12 @@ function VerifyHash({
           <VerifyHashRow
             key={key}
             title={titles[index]}
-            status={statues[key as keyof typeof hashInfo]}
-            result={hashInfo[key as keyof typeof hashInfo]}
+            status={statues[key as keyof typeof statues]}
+            result={
+              versionCompareResult?.[
+                key as keyof IDeviceVerifyVersionCompareResult
+              ]?.format ?? ''
+            }
           />
         ))}
       </YStack>
@@ -544,18 +527,18 @@ export function EnumBasicDialogContentContainer({
   onActionPress,
   onContinuePress,
   errorObj,
-  hashInfo,
-  remoteHashInfo,
+  certificateResult,
+  versionCompareResult,
 }: {
   contentType: EFirmwareAuthenticationDialogContentType;
   errorObj: {
     code: number;
     message?: string;
   };
-  hashInfo: IHashInfo;
-  remoteHashInfo: IHashInfo;
   onActionPress?: () => void;
   onContinuePress?: () => void;
+  certificateResult?: IFirmwareAuthenticationState;
+  versionCompareResult?: IDeviceVerifyVersionCompareResult;
 }) {
   const intl = useIntl();
 
@@ -664,8 +647,8 @@ export function EnumBasicDialogContentContainer({
               <Dialog.Title>Verifying device</Dialog.Title>
             </Dialog.Header>
             <VerifyHash
-              hashInfo={hashInfo}
-              remoteHashInfo={remoteHashInfo}
+              certificateResult={certificateResult}
+              versionCompareResult={versionCompareResult}
               onActionPress={onActionPress}
             />
           </>
@@ -840,12 +823,12 @@ export function EnumBasicDialogContentContainer({
     contentType,
     errorObj.code,
     errorObj.message,
-    hashInfo,
     intl,
     onActionPress,
     onContinuePress,
-    remoteHashInfo,
     renderFooter,
+    certificateResult,
+    versionCompareResult,
   ]);
   return <YStack>{content}</YStack>;
 }
@@ -901,20 +884,6 @@ export function FirmwareAuthenticationDialogContent({
     return (
       <EnumBasicDialogContentContainer
         errorObj={errorObj}
-        hashInfo={{
-          certificate: '',
-          firmware: '',
-          bluetooth: '',
-          bootloader: '',
-          securityElement: '',
-        }}
-        newHashINfo={{
-          certificate: '',
-          firmware: '',
-          bluetooth: '',
-          bootloader: '',
-          securityElement: '',
-        }}
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
         onContinuePress={handleContinuePress}
@@ -951,8 +920,7 @@ function NewFirmwareAuthenticationDialogContent({
     contentType,
     setContentType,
     errorObj,
-    hashInfo,
-    remoteHashInfo,
+    versionCompareResult,
   } = useNewFirmwareVerifyBase({
     device,
     skipDeviceCancel,
@@ -993,17 +961,15 @@ function NewFirmwareAuthenticationDialogContent({
 
     return (
       <EnumBasicDialogContentContainer
-        hashInfo={hashInfo}
-        remoteHashInfo={remoteHashInfo}
+        certificateResult={result}
         errorObj={errorObj}
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
         onContinuePress={handleContinuePress}
+        versionCompareResult={versionCompareResult}
       />
     );
   }, [
-    hashInfo,
-    remoteHashInfo,
     errorObj,
     contentType,
     result,
@@ -1013,23 +979,33 @@ function NewFirmwareAuthenticationDialogContent({
     reset,
     setContentType,
     verify,
+    versionCompareResult,
   ]);
 
   return <Stack gap="$5">{content}</Stack>;
 }
 
-const NEW_PROGRESS_VERSION = '3.1.1';
 export function useFirmwareVerifyDialog() {
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
+      features,
       onContinue,
     }: {
       device: SearchDevice | IDBDevice;
+      features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
     }) => {
-      const isNewVersion = true;
-      const Component = isNewVersion
+      console.log('====> features: ', features);
+      // use old features to quick check if need new version
+      const shouldUseNewAuthenticateVersion =
+        await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmwareByHash(
+          {
+            features,
+          },
+        );
+      console.log('hashInfo: ====>>>: ', shouldUseNewAuthenticateVersion);
+      const Component = shouldUseNewAuthenticateVersion
         ? NewFirmwareAuthenticationDialogContent
         : FirmwareAuthenticationDialogContent;
       const firmwareAuthenticationDialog = Dialog.show({

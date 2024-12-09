@@ -6,6 +6,7 @@ import { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 
 import {
   EFirmwareUpdateTipMessages,
+  EFirmwareVerifyType,
   EOneKeyDeviceMode,
 } from '../../types/device';
 import bleManagerInstance from '../hardware/bleManager';
@@ -15,6 +16,11 @@ import platformEnv from '../platformEnv';
 import { DeviceScannerUtils } from './DeviceScannerUtils';
 
 import type {
+  IAllDeviceVerifyVersions,
+  IDeviceVerifyRawVersions,
+  IDeviceVerifyVersions,
+  IFetchFirmwareVerifyHashParams,
+  IFirmwareVerifyInfo,
   IOneKeyDeviceFeatures,
   IOneKeyDeviceType,
 } from '../../types/device';
@@ -232,6 +238,133 @@ async function buildDeviceName({
   );
 }
 
+async function getDeviceVerifyVersionsFromFeatures({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}): Promise<IFetchFirmwareVerifyHashParams | null> {
+  const deviceType = await getDeviceTypeFromFeatures({ features });
+  if (!deviceType || deviceType === 'unknown') {
+    return null;
+  }
+
+  const {
+    onekey_firmware_version: onekeyFirmwareVersion,
+    onekey_ble_version: onekeyBleVersion,
+    onekey_boot_version: onekeyBootVersion,
+  } = features;
+  if (!onekeyFirmwareVersion || !onekeyBleVersion || !onekeyBootVersion) {
+    return null;
+  }
+
+  return {
+    deviceType,
+    firmwareVersion: onekeyFirmwareVersion,
+    bluetoothVersion: onekeyBleVersion,
+    bootloaderVersion: onekeyBootVersion,
+  };
+}
+
+function formatVersionWithHash(
+  rawVersion: IDeviceVerifyRawVersions,
+): IDeviceVerifyVersions {
+  const { version, checksum, commitId } = rawVersion;
+
+  if (!version) {
+    return {
+      raw: { version, checksum, commitId },
+      formatted: '',
+    };
+  }
+
+  if (!checksum || !commitId) {
+    return {
+      raw: { version, checksum, commitId },
+      formatted: '-',
+    };
+  }
+
+  return {
+    raw: { version, checksum, commitId },
+    formatted: `${version} (${checksum}-${commitId})`,
+  };
+}
+
+export function parseLocalDeviceVersions({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures;
+}): IAllDeviceVerifyVersions {
+  return {
+    firmware: formatVersionWithHash({
+      version: features.onekey_firmware_version,
+      checksum: features.onekey_firmware_build_id,
+      commitId: features.onekey_firmware_hash,
+    }),
+    bluetooth: formatVersionWithHash({
+      version: features.onekey_ble_version,
+      checksum: features.onekey_ble_build_id,
+      commitId: features.onekey_ble_hash,
+    }),
+    bootloader: formatVersionWithHash({
+      version: features.onekey_boot_version,
+      checksum: features.onekey_boot_build_id,
+      commitId: features.onekey_boot_hash,
+    }),
+  };
+}
+
+export function parseServerVersionInfos({
+  serverVerifyInfos,
+}: {
+  serverVerifyInfos: IFirmwareVerifyInfo[];
+}): IAllDeviceVerifyVersions {
+  const defaultVersion: IDeviceVerifyVersions = {
+    raw: { version: '', checksum: '', commitId: '' },
+    formatted: '',
+  };
+
+  // 初始化结果对象
+  const result: IAllDeviceVerifyVersions = {
+    firmware: defaultVersion,
+    bluetooth: defaultVersion,
+    bootloader: defaultVersion,
+  };
+
+  // 遍历服务端数据，根据 type 填充对应的版本信息
+  serverVerifyInfos.forEach((item) => {
+    switch (item.type) {
+      case EFirmwareVerifyType.System:
+        result.firmware = formatVersionWithHash(item);
+        break;
+      case EFirmwareVerifyType.Bluetooth:
+        result.bluetooth = formatVersionWithHash(item);
+        break;
+      case EFirmwareVerifyType.Bootloader:
+        result.bootloader = formatVersionWithHash(item);
+        break;
+      default:
+        break;
+    }
+  });
+
+  return result;
+}
+
+export function compareDeviceVersions({
+  local,
+  remote,
+}: {
+  local: IDeviceVerifyRawVersions;
+  remote: IDeviceVerifyRawVersions;
+}): boolean {
+  return (
+    local.version === remote.version &&
+    local.checksum === remote.checksum &&
+    local.commitId === remote.commitId
+  );
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -248,4 +381,9 @@ export default {
   checkDeviceBonded,
   buildDeviceLabel,
   buildDeviceName,
+  getDeviceVerifyVersionsFromFeatures,
+  formatVersionWithHash,
+  parseLocalDeviceVersions,
+  parseServerVersionInfos,
+  compareDeviceVersions,
 };

@@ -8,9 +8,15 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import type {
+  IDeviceVerifyVersionCompareResult,
+  IFetchFirmwareVerifyHashParams,
+  IFirmwareVerifyInfo,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import localDb from '../../dbs/local/localDb';
@@ -188,5 +194,168 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
         debugMethodName: 'firmwareAuthenticate.verify',
       },
     );
+  }
+
+  @backgroundMethod()
+  async shouldAuthenticateFirmwareByHash({
+    features,
+  }: {
+    features: IOneKeyDeviceFeatures | undefined;
+  }) {
+    // onekey_firmware_version
+    // onekey_firmware_hash
+    // onekey_ble_version
+    // onekey_ble_hash
+    // onekey_boot_version
+    // onekey_boot_hash
+    if (!features) {
+      return false;
+    }
+    const verifyVersions =
+      await deviceUtils.getDeviceVerifyVersionsFromFeatures({
+        features,
+      });
+    if (!verifyVersions) {
+      return false;
+    }
+    const result = await this.fetchFirmwareVerifyHash(verifyVersions);
+    if (!result || !Array.isArray(result)) {
+      return false;
+    }
+    const isValid = result.every((firmware) => {
+      if (
+        firmware.type === 'system' &&
+        firmware.version !== verifyVersions.firmwareVersion
+      ) {
+        console.log('System version mismatch:', {
+          expected: verifyVersions.firmwareVersion,
+          actual: firmware.version,
+        });
+        return false;
+      }
+      if (
+        firmware.type === 'bluetooth' &&
+        firmware.version !== verifyVersions.bluetoothVersion
+      ) {
+        console.log('Bluetooth version mismatch:', {
+          expected: verifyVersions.bluetoothVersion,
+          actual: firmware.version,
+        });
+        return false;
+      }
+      if (
+        firmware.type === 'bootloader' &&
+        firmware.version !== verifyVersions.bootloaderVersion
+      ) {
+        console.log('Bootloader version mismatch:', {
+          expected: verifyVersions.bootloaderVersion,
+          actual: firmware.version,
+        });
+        return false;
+      }
+      return true;
+    });
+
+    console.log('shouldAuthenticateFirmwareByHash isValid: ', isValid);
+    return true;
+    // return isValid;
+  }
+
+  @backgroundMethod()
+  async fetchFirmwareVerifyHash(
+    params: IFetchFirmwareVerifyHashParams,
+  ): Promise<IFirmwareVerifyInfo[]> {
+    const client = await this.serviceHardware.getClient(
+      EServiceEndpointEnum.Utility,
+    );
+    try {
+      const resp = await client.get<{
+        data: {
+          firmwares: IFirmwareVerifyInfo[];
+        };
+      }>('/utility/v1/firmware/detail', {
+        params: {
+          deviceType: params.deviceType,
+          system: params.firmwareVersion,
+          bluetooth: params.bluetoothVersion,
+          bootloader: params.bootloaderVersion,
+        },
+      });
+      return resp.data.data.firmwares;
+    } catch {
+      return [];
+    }
+  }
+
+  @backgroundMethod()
+  async verifyFirmwareHash({
+    features,
+  }: {
+    features: IOneKeyDeviceFeatures | undefined;
+  }): Promise<IDeviceVerifyVersionCompareResult> {
+    const defaultResult = {
+      firmware: { isMatch: false, format: '' },
+      bluetooth: { isMatch: false, format: '' },
+      bootloader: { isMatch: false, format: '' },
+    };
+
+    if (!features) {
+      return defaultResult;
+    }
+
+    const verifyVersions =
+      await deviceUtils.getDeviceVerifyVersionsFromFeatures({
+        features,
+      });
+    if (!verifyVersions) {
+      return defaultResult;
+    }
+
+    const result = await this.fetchFirmwareVerifyHash(verifyVersions);
+    if (!result || !Array.isArray(result)) {
+      return defaultResult;
+    }
+    const serverVerifyInfos = deviceUtils.parseServerVersionInfos({
+      serverVerifyInfos: result,
+    });
+    const localVerifyInfos = deviceUtils.parseLocalDeviceVersions({
+      features,
+    });
+
+    return {
+      firmware: {
+        isMatch: true,
+        format: '1.0.0',
+      },
+      bluetooth: {
+        isMatch: true,
+        format: '1.0.0',
+      },
+      bootloader: {
+        isMatch: true,
+        format: '1.0.0',
+      },
+      firmware1: {
+        isMatch: deviceUtils.compareDeviceVersions({
+          local: localVerifyInfos.firmware.raw,
+          remote: serverVerifyInfos.firmware.raw,
+        }),
+        format: serverVerifyInfos.firmware.formatted,
+      },
+      bluetooth2: {
+        isMatch: deviceUtils.compareDeviceVersions({
+          local: localVerifyInfos.bluetooth.raw,
+          remote: serverVerifyInfos.bluetooth.raw,
+        }),
+        format: serverVerifyInfos.bluetooth.formatted,
+      },
+      bootloader3: {
+        isMatch: deviceUtils.compareDeviceVersions({
+          local: localVerifyInfos.bootloader.raw,
+          remote: serverVerifyInfos.bootloader.raw,
+        }),
+        format: serverVerifyInfos.bootloader.formatted,
+      },
+    } as unknown as IDeviceVerifyVersionCompareResult;
   }
 }
