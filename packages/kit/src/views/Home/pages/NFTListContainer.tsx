@@ -5,6 +5,7 @@ import { isEmpty, uniqBy } from 'lodash';
 import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -99,12 +100,15 @@ function NFTListContainer(props: ITabPageProps) {
       accountId,
       networkId,
       allNetworkDataInit,
+      dbAccount,
     }: {
       accountId: string;
       networkId: string;
       allNetworkDataInit?: boolean;
+      dbAccount?: IDBAccount;
     }) => {
       const r = await backgroundApiProxy.serviceNFT.fetchAccountNFTs({
+        dbAccount,
         accountId,
         networkId,
         isAllNetworks: true,
@@ -164,14 +168,17 @@ function NFTListContainer(props: ITabPageProps) {
 
   const handleAllNetworkCacheRequests = useCallback(
     async ({
+      dbAccount,
       accountId,
       networkId,
     }: {
+      dbAccount?: IDBAccount;
       accountId: string;
       networkId: string;
     }) => {
       const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
         {
+          dbAccount,
           accountId,
           networkId,
         },

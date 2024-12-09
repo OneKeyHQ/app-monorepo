@@ -266,6 +266,7 @@ export interface IFetchQuoteResult {
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   gasLimit?: number;
+  slippage?: number;
 }
 
 export interface IAllowanceResult {
@@ -399,6 +400,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
+  slippage?: number;
 }
 
 export interface IThorSwapCallData {
@@ -574,3 +576,6 @@ export enum ESwapSlippageCustomStatus {
   ERROR = 'error',
   WRONG = 'wrong',
 }
+
+export const SwapPercentageInputStage = [25, 50, 100];
+export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];

@@ -1,4 +1,5 @@
-import { useCallback, useMemo } from 'react';
+/* eslint-disable react/no-unstable-nested-components */
+import { memo, useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -62,7 +63,7 @@ export type IProps = {
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
 };
 
-function TokenDetails() {
+function TokenDetailsView() {
   const intl = useIntl();
 
   const route =
@@ -163,6 +164,7 @@ function TokenDetails() {
     [fontColor],
   );
 
+  const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
   const tabs = useMemo(() => {
     if (accountId && networkId && walletId) {
       return result?.networkAccounts.map((item) => ({
@@ -178,7 +180,7 @@ function TokenDetails() {
             deriveType={item.deriveType}
             tokenInfo={tokenInfo}
             isAllNetworks={isAllNetworks}
-            listViewContentContainerStyle={{ pt: '$5' }}
+            listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={account?.indexedAccountId}
           />
         ),
@@ -194,6 +196,7 @@ function TokenDetails() {
     intl,
     tokenInfo,
     isAllNetworks,
+    listViewContentContainerStyle,
     account?.indexedAccountId,
   ]);
 
@@ -237,10 +240,11 @@ function TokenDetails() {
         tokenInfo={tokenInfo}
         isAllNetworks={isAllNetworks}
         indexedAccountId={account?.indexedAccountId}
-        listViewContentContainerStyle={{ pt: '$5' }}
+        listViewContentContainerStyle={listViewContentContainerStyle}
       />
     );
   }, [
+    listViewContentContainerStyle,
     accountId,
     deriveInfo,
     deriveType,
@@ -265,6 +269,8 @@ function TokenDetails() {
     </Page>
   );
 }
+
+const TokenDetails = memo(TokenDetailsView);
 
 export default function TokenDetailsModal() {
   return (

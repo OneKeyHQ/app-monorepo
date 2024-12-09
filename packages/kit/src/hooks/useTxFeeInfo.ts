@@ -11,6 +11,8 @@ export function useFeeInfoInDecodedTx({
 }) {
   const { accountId, networkId } = decodedTx;
 
+  // console.log('useFeeInfoInDecodedTx', decodedTx);
+
   const { nativeToken, vaultSettings } =
     usePromiseResult(async () => {
       const [n, v] = await Promise.all([

@@ -2,6 +2,7 @@
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
+import { EOutputsTypeForCoinSelect } from '@onekeyhq/core/src/chains/btc/types';
 import type {
   IEncodedTxDnx,
   IUnspentOutput,
@@ -220,10 +221,12 @@ export default class Vault extends VaultBase {
       address: '',
       path: '',
       ...output,
+      amount: new BigNumber(output.amount).toFixed(),
     }));
 
     const outputsForCoinSelect = [
       {
+        type: EOutputsTypeForCoinSelect.Payment,
         address: '',
         value: finalAmount.plus(fee).toNumber(),
       },

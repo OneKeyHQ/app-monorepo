@@ -5,6 +5,7 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
 import type {
   AccountAddressInput,
+  LedgerVersionArg,
   MoveModuleBytecode,
   MoveResource,
   PaginationArgs,
@@ -31,15 +32,16 @@ export class AptosClient {
     this.networkId = networkId;
   }
 
-  async getAccountModules(
+  getAccountModule(
     accountAddress: string,
-    query?: any,
-  ): Promise<MoveModuleBytecode[]> {
-    const out = await this.proxyRequest<MoveModuleBytecode[]>(
-      'getAccountModules',
-      [accountAddress, query],
-    );
-    return out;
+    moduleName: string,
+    options?: LedgerVersionArg,
+  ): Promise<MoveModuleBytecode> {
+    return this.aptos.account.getAccountModule({
+      accountAddress,
+      moduleName,
+      options,
+    });
   }
 
   getChainId(): Promise<number> {
@@ -79,6 +81,10 @@ export class AptosClient {
     query?: { ledgerVersion?: (number | bigint) | undefined } | undefined,
   ): Promise<MoveResource[]> {
     return this.proxyRequest('getAccountResources', [accountAddress, query]);
+  }
+
+  getGasPriceEstimation(): Promise<{ gas_estimate: number }> {
+    return this.aptos.getGasPriceEstimation();
   }
 
   getLedgerInfo(): Promise<{

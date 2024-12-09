@@ -1,3 +1,5 @@
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+
 export enum ENFTType {
   ERC721 = 'ERC-721',
   ERC1155 = 'ERC-1155',
@@ -38,6 +40,8 @@ export type IAccountNFT = {
 };
 
 export type IFetchAccountNFTsParams = {
+  dbAccount?: IDBAccount;
+
   accountId: string;
   networkId: string;
   cursor?: string;

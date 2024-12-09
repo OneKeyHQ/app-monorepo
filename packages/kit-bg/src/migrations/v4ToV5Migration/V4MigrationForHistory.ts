@@ -1,6 +1,10 @@
+import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 
-import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
+import {
+  EOutputsTypeForCoinSelect,
+  type IEncodedTxBtc,
+} from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
@@ -72,11 +76,31 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
     const v5EncodedTx: IEncodedTxBtc = {
       inputs: v4EncodedTxBtc.inputs,
       outputs: v4EncodedTxBtc.outputs,
-      inputsForCoinSelect: v4EncodedTxBtc.inputsForCoinSelect,
-      outputsForCoinSelect: v4EncodedTxBtc.outputsForCoinSelect,
+      inputsForCoinSelect: v4EncodedTxBtc.inputsForCoinSelect.map((i) => ({
+        ...i,
+        amount: new BigNumber(i.value).toFixed(),
+      })),
+      outputsForCoinSelect: v4EncodedTxBtc.outputsForCoinSelect.map((o) => {
+        let type = EOutputsTypeForCoinSelect.Payment;
+        if (o.isMax) {
+          type = EOutputsTypeForCoinSelect.SendMax;
+        } else if (o.script) {
+          type = EOutputsTypeForCoinSelect.OpReturn;
+        }
+
+        return {
+          ...o,
+          type,
+          amount:
+            o.value && !Number.isNaN(Number(o.value))
+              ? new BigNumber(o.value).toFixed()
+              : undefined,
+        };
+      }),
       fee: v4EncodedTxBtc.totalFee,
       psbtHex: v4EncodedTxBtc.psbtHex,
       inputsToSign: v4EncodedTxBtc.inputsToSign,
+      txSize: undefined,
     };
     return v5EncodedTx;
   }
@@ -86,7 +110,7 @@ export class V4MigrationForHistory extends V4MigrationManagerBase {
   }: {
     v4pendingTxs: IV4HistoryTx[];
   }) {
-    const { serviceSend, serviceNetwork, serviceToken } = this.backgroundApi;
+    const { serviceSend, serviceNetwork } = this.backgroundApi;
     const v5pendingTxs: Record<
       string,
       {

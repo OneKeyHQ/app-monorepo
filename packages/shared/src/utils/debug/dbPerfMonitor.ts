@@ -38,6 +38,11 @@ const shouldLocalDbDebuggerRule: Record<string, number> = {
   'localDb.txGetAllRecords__IndexedAccount': 999,
   'localDb.txGetAllRecords__Account': 999,
   'localDb.txGetRecordById__Wallet': 999,
+  'localDb.txGetRecordById__Account': 999,
+  'appStorage.getItem__simple_db_v5:localHistory': 999,
+  'appStorage.getItem__simple_db_v5:LocalNFTs': 999,
+  'appStorage.getItem__simple_db_v5:localTokens': 999,
+  'appStorage.getItem__simple_db_v5:dappConnection': 999,
 };
 
 const IS_ENABLED =
@@ -250,17 +255,36 @@ function resetAllData() {
   logResult();
 }
 
+let atomInitChecked = false;
+
 function toastWarningAndReset(key: string) {
   if (!IS_ENABLED) {
     return;
   }
   if (settings?.toastWarningEnabled) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    appGlobals?.$Toast?.error({
-      title: 'IndexedDB is being accessed too frequently',
-      message: JSON.stringify(sortMapData(indexedDBResult)),
-      // TODO copy message button by pass down onToast callback
-    });
+    let shouldShowToast = true;
+    if (!atomInitChecked) {
+      const atomInitCalls = globalRecentCalls.filter((item) =>
+        item?.[1]?.startsWith('appStorage.getItem__g_states_v5:'),
+      );
+      if (
+        key === 'OneKeyStorage_readonly' &&
+        atomInitCalls &&
+        atomInitCalls?.length >= 30
+      ) {
+        atomInitChecked = true;
+        shouldShowToast = false;
+      }
+    }
+
+    if (shouldShowToast) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+      appGlobals?.$Toast?.error({
+        title: 'IndexedDB is being accessed too frequently',
+        message: JSON.stringify(sortMapData(indexedDBResult)),
+        // TODO copy message button by pass down onToast callback
+      });
+    }
     logResult({ isWarning: true });
 
     if (shouldDbTxCreatedDebuggerRule[key]) {
@@ -348,6 +372,17 @@ function logAppStorageCall(method: string, key: string) {
     appStorageCallDetails[method].total += 1;
 
     globalRecentCalls.push([getNowString(), `${method}__${key}`]);
+
+    if (
+      shouldLocalDbDebuggerRule[`${method}__${key}`] &&
+      appStorageCallDetails[method].details[key] >=
+        shouldLocalDbDebuggerRule[`${method}__${key}`]
+    ) {
+      logResult();
+      if (settings?.debuggerEnabled) {
+        debugger;
+      }
+    }
   }
 }
 
