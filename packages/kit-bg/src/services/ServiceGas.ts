@@ -59,7 +59,7 @@ class ServiceGas extends ServiceBase {
 
     this._estimateFeeController = null;
 
-    const feeInfo = resp.data.data.data;
+    const feeInfo = resp.data.data;
 
     const batchFeeResult = {
       common: {

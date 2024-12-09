@@ -143,23 +143,21 @@ export type IEstimateGasResp = {
 
 export type IServerBatchEstimateFeeResponse = {
   data: {
-    data: {
-      isEIP1559: true;
-      feeDecimals: number;
-      feeSymbol: string;
-      nativeDecimals: number;
-      nativeSymbol: string;
-      baseFee?: string;
-      computeUnitPrice?: string;
-      nativeTokenPrice?: {
-        price: number;
-        price24h: number;
-      };
-      result: {
-        gas: IGasLegacy[];
-        gasEIP1559: IGasEIP1559[];
-      }[];
+    isEIP1559: true;
+    feeDecimals: number;
+    feeSymbol: string;
+    nativeDecimals: number;
+    nativeSymbol: string;
+    baseFee?: string;
+    computeUnitPrice?: string;
+    nativeTokenPrice?: {
+      price: number;
+      price24h: number;
     };
+    result: {
+      gas: IGasLegacy[];
+      gasEIP1559: IGasEIP1559[];
+    }[];
   };
 };
 

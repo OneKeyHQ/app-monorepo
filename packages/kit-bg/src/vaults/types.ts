@@ -250,7 +250,7 @@ export type IVaultSettings = {
 
   fixConfirmedTxEnabled?: boolean;
 
-  supportBatchEstimateFee?: boolean;
+  supportBatchEstimateFee?: Record<string, boolean>;
 };
 
 export type IVaultFactoryOptions = {

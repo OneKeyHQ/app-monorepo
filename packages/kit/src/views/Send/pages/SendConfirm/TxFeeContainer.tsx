@@ -136,13 +136,17 @@ function TxFeeContainer(props: IProps) {
   const { result, run } = usePromiseResult(
     async () => {
       try {
+        if (isNil(vaultSettings)) {
+          return;
+        }
+
         await backgroundApiProxy.serviceGas.abortEstimateFee();
 
         updateSendFeeStatus({
           status: ESendFeeStatus.Loading,
         });
 
-        if (isMultiTxs && vaultSettings?.supportBatchEstimateFee) {
+        if (isMultiTxs && vaultSettings?.supportBatchEstimateFee?.[networkId]) {
           try {
             const encodedTxList = unsignedTxs.map((tx) => tx.encodedTx);
             const multiTxsFeeResult =
@@ -254,7 +258,7 @@ function TxFeeContainer(props: IProps) {
       unsignedTxs,
       updateSendFeeStatus,
       updateTxAdvancedSettings,
-      vaultSettings?.supportBatchEstimateFee,
+      vaultSettings,
     ],
     {
       watchLoading: true,
@@ -694,7 +698,7 @@ function TxFeeContainer(props: IProps) {
     let totalFiatForDisplay = new BigNumber(0);
 
     for (let i = 0; i < unsignedTxs.length; i += 1) {
-      const selectedFeeInfo = selectedFeeInfos[i] ?? selectedFeeInfos[0];
+      const selectedFeeInfo = selectedFeeInfos[i];
 
       const unsignedTx = unsignedTxs[i];
       let specialGasLimit: string | undefined;
@@ -738,23 +742,26 @@ function TxFeeContainer(props: IProps) {
         }
       }
 
+      const baseSelectedFeeInfo = selectedFeeInfo ?? selectedFeeInfos[0];
+
       const txFeeInfo = {
-        ...selectedFeeInfo,
-        gas: selectedFeeInfo.gas
+        ...baseSelectedFeeInfo,
+        gas: baseSelectedFeeInfo.gas
           ? {
-              ...selectedFeeInfo.gas,
-              gasLimit: specialGasLimit ?? selectedFeeInfo.gas?.gasLimit,
+              ...baseSelectedFeeInfo.gas,
+              gasLimit: specialGasLimit ?? baseSelectedFeeInfo.gas?.gasLimit,
               gasLimitForDisplay:
-                specialGasLimit ?? selectedFeeInfo.gas?.gasLimitForDisplay,
+                specialGasLimit ?? baseSelectedFeeInfo.gas?.gasLimitForDisplay,
             }
           : undefined,
-        gasEIP1559: selectedFeeInfo.gasEIP1559
+        gasEIP1559: baseSelectedFeeInfo.gasEIP1559
           ? {
-              ...selectedFeeInfo.gasEIP1559,
-              gasLimit: specialGasLimit ?? selectedFeeInfo.gasEIP1559?.gasLimit,
+              ...baseSelectedFeeInfo.gasEIP1559,
+              gasLimit:
+                specialGasLimit ?? baseSelectedFeeInfo.gasEIP1559?.gasLimit,
               gasLimitForDisplay:
                 specialGasLimit ??
-                selectedFeeInfo.gasEIP1559?.gasLimitForDisplay,
+                baseSelectedFeeInfo.gasEIP1559?.gasLimitForDisplay,
             }
           : undefined,
       };
@@ -916,7 +923,14 @@ function TxFeeContainer(props: IProps) {
       renderContent: (
         <FeeEditor
           networkId={networkId}
-          feeSelectorItems={feeSelectorItems}
+          feeSelectorItems={
+            isEmpty(feeSelectorItems)
+              ? multiTxsFeeSelectorItems.map((item) => ({
+                  ...item,
+                  feeInfo: item.feeInfos[0],
+                }))
+              : feeSelectorItems
+          }
           selectedFee={selectedFee?.feeInfos?.[0]}
           sendSelectedFee={sendSelectedFee}
           unsignedTxs={unsignedTxs}
