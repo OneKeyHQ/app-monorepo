@@ -1,8 +1,7 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isNil } from 'lodash';
-import { type SignedTransaction } from 'tronweb';
-import TronWeb from 'tronweb';
+import { TronWeb } from 'tronweb';
 
 import {
   backgroundClass,
@@ -24,6 +23,7 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import type { Types } from 'tronweb';
 
 const TRON_SCAN_REQUESTED_URL = {
   main: 'https://api.trongrid.io',
@@ -188,7 +188,7 @@ class ProviderApiTron extends ProviderApiBase {
   async tron_signTransaction(
     request: IJsBridgeMessagePayload,
     transaction: any,
-  ): Promise<SignedTransaction> {
+  ): Promise<Types.SignedTransaction> {
     defaultLogger.discovery.dapp.dappRequest({ request });
     console.log('tron_signTransaction', request, transaction);
 
@@ -207,7 +207,7 @@ class ProviderApiTron extends ProviderApiBase {
 
     console.log('tron_signTransaction DONE', result, request, transaction);
 
-    return JSON.parse(result.rawTx) as SignedTransaction;
+    return JSON.parse(result.rawTx) as Types.SignedTransaction;
   }
 
   @providerApiMethod()
