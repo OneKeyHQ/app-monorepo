@@ -44,8 +44,8 @@ export const useTradingViewProps = ({
   targetToken: string;
 }) => {
   const theme = useThemeVariant();
-  const [bgAppColor, textColor, textSubduedColor, iconColor] = useThemeValue(
-    ['$bgApp', '$text', '$textSubdued', '$icon'],
+  const [bgAppColor, textColor, textDisabled, iconColor] = useThemeValue(
+    ['$bgApp', '$text', '$textDisabled', '$icon'],
     undefined,
     true,
   );
@@ -102,7 +102,7 @@ export const useTradingViewProps = ({
                 --tv-color-toolbar-button-text-active-hover: ${textColor} !important;
                 --tv-color-pane-background: ${bgAppColor} !important;
                 --tv-color-platform-background: ${bgAppColor} !important;
-                --tv-color-toolbar-button-text: ${textSubduedColor} !important;
+                --tv-color-toolbar-button-text: ${textDisabled} !important;
                 --tv-spinner-color: ${iconColor} !important;
               }
               body {
@@ -143,7 +143,7 @@ export const useTradingViewProps = ({
       timezone,
       iconColor,
       textColor,
-      textSubduedColor,
+      textDisabled,
     ],
     {
       initResult: {
