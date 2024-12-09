@@ -3,7 +3,7 @@ import { defaultAbiCoder } from '@ethersproject/abi';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil } from 'lodash';
 import TronWeb from 'tronweb';
-import type { Types } from 'tronweb';
+
 import type {
   IDecodedTxExtraTron,
   IEncodedTxTron,
@@ -71,6 +71,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { Types } from 'tronweb';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';

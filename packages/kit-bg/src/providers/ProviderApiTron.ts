@@ -1,7 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isNil } from 'lodash';
-import type { Types } from 'tronweb';
 import { TronWeb } from 'tronweb';
 
 import {
@@ -24,6 +23,7 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import type { Types } from 'tronweb';
 
 const TRON_SCAN_REQUESTED_URL = {
   main: 'https://api.trongrid.io',
