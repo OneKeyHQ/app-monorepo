@@ -133,6 +133,7 @@ function TradingViewChart({
 }) {
   const { height } = useWindowDimensions();
   const { top } = useSafeAreaInsets();
+  const { gtMd } = useMedia();
 
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
@@ -147,8 +148,8 @@ function TradingViewChart({
     return 300;
   }, []);
   const viewHeight = useMemo(
-    () => height - top - tabHeight - fixedHeight,
-    [fixedHeight, height, tabHeight, top],
+    () => (gtMd ? 450 : height - top - tabHeight - fixedHeight),
+    [fixedHeight, gtMd, height, tabHeight, top],
   );
   useEffect(() => {
     defer.resolve(null);
