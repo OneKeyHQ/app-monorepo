@@ -4,27 +4,11 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { ITabPageProps } from '@onekeyhq/components';
-import {
-  RefreshControl,
-  Skeleton,
-  Stack,
-  Tab,
-  XStack,
-  YStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { RefreshControl, Stack, Tab, useMedia } from '@onekeyhq/components';
 import type { ITabInstance } from '@onekeyhq/components/src/layouts/TabView/StickyTabComponent/types';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IMarketDetailPool,
-  IMarketTokenDetail,
-} from '@onekeyhq/shared/types/market';
+import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import { MarketDetailLinks } from './MarketDetailLinks';
 import { MarketDetailOverview } from './MarketDetailOverview';
@@ -52,9 +36,11 @@ function BasicTokenDetailTabs({
   const intl = useIntl();
   const { md } = useMedia();
 
-  setTimeout(() => {
-    defer.resolve(null);
-  }, 100);
+  useEffect(() => {
+    setTimeout(() => {
+      defer.resolve(null);
+    }, 100);
+  }, [defer]);
 
   const tabConfig = useMemo(
     () =>
