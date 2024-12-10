@@ -9,8 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IDeviceVerifyVersionCompareResult,
   IFetchFirmwareVerifyHashParams,
@@ -266,27 +268,37 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async fetchFirmwareVerifyHash(
     params: IFetchFirmwareVerifyHashParams,
   ): Promise<IFirmwareVerifyInfo[]> {
-    const client = await this.serviceHardware.getClient(
-      EServiceEndpointEnum.Utility,
-    );
-    try {
-      const resp = await client.get<{
-        data: {
-          firmwares: IFirmwareVerifyInfo[];
-        };
-      }>('/utility/v1/firmware/detail', {
-        params: {
-          deviceType: params.deviceType,
-          system: params.firmwareVersion,
-          bluetooth: params.bluetoothVersion,
-          bootloader: params.bootloaderVersion,
-        },
-      });
-      return resp.data.data.firmwares;
-    } catch {
-      return [];
-    }
+    return this.fetchFirmwareVerifyHashWithCache(params);
   }
+
+  fetchFirmwareVerifyHashWithCache = memoizee(
+    async (params: IFetchFirmwareVerifyHashParams) => {
+      const client = await this.serviceHardware.getClient(
+        EServiceEndpointEnum.Utility,
+      );
+      try {
+        const resp = await client.get<{
+          data: {
+            firmwares: IFirmwareVerifyInfo[];
+          };
+        }>('/utility/v1/firmware/detail', {
+          params: {
+            deviceType: params.deviceType,
+            system: params.firmwareVersion,
+            bluetooth: params.bluetoothVersion,
+            bootloader: params.bootloaderVersion,
+          },
+        });
+        return resp.data.data.firmwares;
+      } catch {
+        return [];
+      }
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 2 }),
+    },
+  );
 
   @backgroundMethod()
   async verifyFirmwareHash({
