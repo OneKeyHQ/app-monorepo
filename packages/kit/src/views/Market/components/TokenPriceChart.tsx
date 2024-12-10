@@ -189,6 +189,20 @@ const resolveIdentifierName = (name: string) => {
   }
   return name;
 };
+
+const TICKER_MAP = {
+  'tether': {
+    identifier: 'COINBASE',
+    baseToken: 'USDT',
+    targetToken: 'USD',
+  },
+  'usd-coin': {
+    identifier: 'KRAKEN',
+    baseToken: 'USDC',
+    targetToken: 'USD',
+  },
+};
+
 function BasicTokenPriceChart({
   coinGeckoId,
   defer,
@@ -199,20 +213,10 @@ function BasicTokenPriceChart({
     if (!tickers?.length) {
       return null;
     }
-    if (coinGeckoId === 'tether') {
-      return {
-        identifier: 'COINBASE',
-        baseToken: 'USDT',
-        targetToken: 'USD',
-      };
-    }
 
-    if (coinGeckoId === 'usd-coin') {
-      return {
-        identifier: 'KRAKEN',
-        baseToken: 'USDC',
-        targetToken: 'USD',
-      };
+    const item = TICKER_MAP[coinGeckoId as keyof typeof TICKER_MAP];
+    if (item) {
+      return item;
     }
 
     for (let i = 0; i < tickers.length; i += 1) {
