@@ -194,7 +194,7 @@ function BasicTokenPriceChart({
   defer,
   tickers,
   isFetching,
-}: IChartProps) {
+}: Omit<IChartProps, 'height'>) {
   const ticker = useMemo(() => {
     if (!tickers?.length) {
       return null;
@@ -235,7 +235,7 @@ function BasicTokenPriceChart({
         }
       }
     }
-  }, [tickers]);
+  }, [coinGeckoId, tickers]);
 
   const viewHeight = useHeight();
 
