@@ -287,13 +287,14 @@ function MarketDetail({
   const tokenPriceChart = useMemo(
     () => (
       <TokenPriceChart
+        isFetching={!TokenDetailTabs}
         tickers={tokenDetail?.tickers}
         coinGeckoId={coinGeckoId}
         defer={defer}
         symbol={tokenDetail?.symbol}
       />
     ),
-    [coinGeckoId, defer, tokenDetail?.symbol, tokenDetail?.tickers],
+    [coinGeckoId, defer, tokenDetail],
   );
 
   return (

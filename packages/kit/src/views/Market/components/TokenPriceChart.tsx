@@ -5,6 +5,8 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   SegmentControl,
+  Spinner,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -32,6 +34,7 @@ interface IChartProps {
   symbol?: string;
   defer: IDeferredPromise<unknown>;
   tickers?: IMarketDetailTicker[];
+  isFetching: boolean;
 }
 
 function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
@@ -123,14 +126,7 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
   );
 }
 
-function TradingViewChart({
-  targetToken,
-  identifier,
-  baseToken,
-  defer,
-}: Omit<ITradingViewProps, 'mode'> & {
-  defer: IDeferredPromise<unknown>;
-}) {
+const useHeight = () => {
   const { height } = useWindowDimensions();
   const { top } = useSafeAreaInsets();
   const { gtMd } = useMedia();
@@ -147,10 +143,20 @@ function TradingViewChart({
 
     return 300;
   }, []);
-  const viewHeight = useMemo(
+  return useMemo(
     () => (gtMd ? 450 : height - top - tabHeight - fixedHeight),
     [fixedHeight, gtMd, height, tabHeight, top],
   );
+};
+function TradingViewChart({
+  targetToken,
+  identifier,
+  baseToken,
+  defer,
+}: Omit<ITradingViewProps, 'mode'> & {
+  defer: IDeferredPromise<unknown>;
+}) {
+  const viewHeight = useHeight();
   useEffect(() => {
     defer.resolve(null);
   }, [defer]);
@@ -187,7 +193,12 @@ const resolveIdentifierName = (name: string) => {
   }
   return name;
 };
-function BasicTokenPriceChart({ coinGeckoId, defer, tickers }: IChartProps) {
+function BasicTokenPriceChart({
+  coinGeckoId,
+  defer,
+  tickers,
+  isFetching,
+}: IChartProps) {
   const ticker = useMemo(() => {
     if (!tickers?.length) {
       return null;
@@ -214,6 +225,21 @@ function BasicTokenPriceChart({ coinGeckoId, defer, tickers }: IChartProps) {
     }
   }, [tickers]);
 
+  const viewHeight = useHeight();
+
+  if (isFetching) {
+    return (
+      <Stack
+        h={viewHeight}
+        w="100%"
+        alignContent="center"
+        justifyContent="center"
+      >
+        <Spinner size="large" />
+      </Stack>
+    );
+  }
+
   return ticker ? (
     <TradingViewChart
       defer={defer}
@@ -222,7 +248,11 @@ function BasicTokenPriceChart({ coinGeckoId, defer, tickers }: IChartProps) {
       targetToken={ticker?.targetToken}
     />
   ) : (
-    <NativeTokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />
+    <NativeTokenPriceChart
+      isFetching={isFetching}
+      coinGeckoId={coinGeckoId}
+      defer={defer}
+    />
   );
 }
 

@@ -54,6 +54,7 @@ function BasicTokenDetailTabs({
               page: (props: ITabPageProps) => (
                 <TokenPriceChart
                   {...props}
+                  isFetching={!token}
                   tickers={token?.tickers}
                   coinGeckoId={coinGeckoId}
                   defer={defer}
@@ -148,7 +149,7 @@ function BasicTokenDetailTabs({
       data={tabConfig}
       disableRefresh
       ListHeaderComponent={
-        <Stack mb="$5" onLayout={handleMount}>
+        <Stack mb="$5" onLayout={handleMount} h={150} $gtMd={{ h: 450 }}>
           {listHeaderComponent}
           {/* {pools ? null : (
             <YStack $gtMd={{ px: '$5' }}>{renderPoolSkeleton}</YStack>
