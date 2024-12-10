@@ -217,6 +217,24 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        name="disableSolanaPriorityFee"
+        title="禁用 Solana 交易优先费"
+        subtitle={
+          devSettings.settings?.disableSolanaPriorityFee ? '禁用' : '启用'
+        }
+      >
+        <Switch
+          size={ESwitchSize.small}
+          onChange={() => {
+            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'disableSolanaPriorityFee',
+              !devSettings.settings?.disableSolanaPriorityFee,
+            );
+          }}
+          value={devSettings.settings?.disableSolanaPriorityFee}
+        />
+      </SectionFieldItem>
       <SectionPressItem
         title="force RTL"
         subtitle="强制启用 RTL 布局"
