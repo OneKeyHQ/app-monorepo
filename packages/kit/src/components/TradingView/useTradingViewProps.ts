@@ -174,6 +174,7 @@ export const useTradingViewProps = ({
       textColor,
       textDisabled,
       iconColor,
+      bgSubduedColor,
       md,
     ],
     {
