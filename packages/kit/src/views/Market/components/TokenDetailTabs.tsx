@@ -109,6 +109,7 @@ function BasicTokenDetailTabs({
     [],
   );
 
+  const prevSelectedPageIndex = useRef(0);
   const onSelectedPageIndex = useCallback(
     (index: number) => {
       if (index === 0) {
@@ -116,9 +117,10 @@ function BasicTokenDetailTabs({
         setTimeout(() => {
           changeTabVerticalScrollEnabled({ enabled: false });
         }, 50);
-      } else {
+      } else if (prevSelectedPageIndex.current === 0) {
         changeTabVerticalScrollEnabled({ enabled: true });
       }
+      prevSelectedPageIndex.current = index;
     },
     [changeTabVerticalScrollEnabled],
   );
