@@ -268,7 +268,11 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
   async fetchFirmwareVerifyHash(
     params: IFetchFirmwareVerifyHashParams,
   ): Promise<IFirmwareVerifyInfo[]> {
-    return this.fetchFirmwareVerifyHashWithCache(params);
+    try {
+      return await this.fetchFirmwareVerifyHashWithCache(params);
+    } catch {
+      return [];
+    }
   }
 
   fetchFirmwareVerifyHashWithCache = memoizee(
@@ -276,23 +280,19 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       const client = await this.serviceHardware.getClient(
         EServiceEndpointEnum.Utility,
       );
-      try {
-        const resp = await client.get<{
-          data: {
-            firmwares: IFirmwareVerifyInfo[];
-          };
-        }>('/utility/v1/firmware/detail', {
-          params: {
-            deviceType: params.deviceType,
-            system: params.firmwareVersion,
-            bluetooth: params.bluetoothVersion,
-            bootloader: params.bootloaderVersion,
-          },
-        });
-        return resp.data.data.firmwares;
-      } catch {
-        return [];
-      }
+      const resp = await client.get<{
+        data: {
+          firmwares: IFirmwareVerifyInfo[];
+        };
+      }>('/utility/v1/firmware/detail', {
+        params: {
+          deviceType: params.deviceType,
+          system: params.firmwareVersion,
+          bluetooth: params.bluetoothVersion,
+          bootloader: params.bootloaderVersion,
+        },
+      });
+      return resp.data.data.firmwares;
     },
     {
       promise: true,
