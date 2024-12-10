@@ -232,6 +232,7 @@ function VerifyHashRow({
   status: IVerifyHashRowStatus;
   result: string;
 }) {
+  const intl = useIntl();
   const icon = useMemo(() => {
     if (status === 'loading') {
       return (
@@ -249,14 +250,11 @@ function VerifyHashRow({
           <Stack
             w="$5"
             h="$5"
-            bg="$icon"
+            borderWidth={2}
+            borderColor="$icon"
             opacity={0.2}
             borderRadius="$full"
-            ai="center"
-            jc="center"
-          >
-            <Stack w="$4" h="$4" borderRadius="$full" bg="$bgApp" />
-          </Stack>
+          />
         </Stack>
       );
     }
@@ -264,7 +262,13 @@ function VerifyHashRow({
   }, [status]);
   const resultInfo = useMemo(() => {
     if (status === 'loading') {
-      return <SizableText size="$bodyMd">In progress</SizableText>;
+      return (
+        <SizableText size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.device_auth_verifying_component_label,
+          })}
+        </SizableText>
+      );
     }
     if (status === 'success') {
       return (
@@ -276,13 +280,13 @@ function VerifyHashRow({
     if (status === 'error') {
       return (
         <SizableText size="$bodyMd" color="$textCritical">
-          Failed
+          {intl.formatMessage({ id: ETranslations.global_failed })}
         </SizableText>
       );
     }
 
     return null;
-  }, [result, status]);
+  }, [intl, result, status]);
   return (
     <XStack jc="space-between" ai="center">
       <XStack gap="$2" ai="center">
@@ -356,13 +360,13 @@ function VerifyHash({
 
   const titles = useMemo(
     () => [
-      'Certificate',
-      'Firmware',
-      'Bluetooth',
+      intl.formatMessage({ id: ETranslations.device_auth_certificate }),
+      intl.formatMessage({ id: ETranslations.global_firmware }),
+      intl.formatMessage({ id: ETranslations.global_bluetooth }),
       'Bootloader',
       'Security Element',
     ],
-    [],
+    [intl],
   );
 
   const isShowContinue =
@@ -373,9 +377,15 @@ function VerifyHash({
       {isShowContinue ? (
         <Dialog.Header>
           <Dialog.Icon icon="BadgeVerifiedSolid" tone="success" />
-          <Dialog.Title>Verification successful</Dialog.Title>
+          <Dialog.Title>
+            {intl.formatMessage({
+              id: ETranslations.device_auth_successful_title,
+            })}
+          </Dialog.Title>
           <Dialog.Description>
-            Your device is now officially verified!
+            {intl.formatMessage({
+              id: ETranslations.device_auth_successful_desc,
+            })}
           </Dialog.Description>
         </Dialog.Header>
       ) : null}
@@ -508,7 +518,11 @@ export function EnumBasicDialogContentContainer({
             <>
               <Dialog.Header>
                 <Dialog.Icon icon="DocumentSearch2Outline" tone="success" />
-                <Dialog.Title>Verifying device</Dialog.Title>
+                <Dialog.Title>
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_verifying_title,
+                  })}
+                </Dialog.Title>
               </Dialog.Header>
               <VerifyHash
                 certificateResult={certificateResult}
@@ -550,7 +564,11 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="DocumentSearch2Outline" tone="success" />
-              <Dialog.Title>Verifying device</Dialog.Title>
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_verifying_title,
+                })}
+              </Dialog.Title>
             </Dialog.Header>
             <VerifyHash
               certificateResult={certificateResult}
@@ -666,10 +684,15 @@ export function EnumBasicDialogContentContainer({
           <>
             <Dialog.Header>
               <Dialog.Icon icon="ErrorOutline" tone="destructive" />
-              <Dialog.Title>Unofficial device detected</Dialog.Title>
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_unofficial_device_detected,
+                })}
+              </Dialog.Title>
               <Dialog.Description>
-                Your device could not be verified as official. Please contact us
-                immediately.
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_unofficial_device_detected_help_text,
+                })}
               </Dialog.Description>
             </Dialog.Header>
             <VerifyHash
