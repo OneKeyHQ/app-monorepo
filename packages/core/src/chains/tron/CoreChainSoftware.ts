@@ -32,7 +32,7 @@ function publicKeyToAddress(publicKey: string): string {
     curve,
     Buffer.from(publicKey, 'hex'),
   );
-  return TronWeb.address.fromHex(
+  return TronWeb.utils.address.fromHex(
     `41${keccak256(uncompressed.slice(-64)).slice(-40)}`,
   );
 }

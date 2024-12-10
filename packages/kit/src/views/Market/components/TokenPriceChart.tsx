@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { TouchableWithoutFeedback } from 'react-native';
@@ -147,20 +147,24 @@ function TradingViewChart({
       defer.resolve(null);
     }
   }, [defer]);
+  const timerId = useRef<ReturnType<typeof setTimeout>>();
   const handlePressIn = useCallback(() => {
     if (!platformEnv.isNative) {
       return;
     }
-    appEventBus.emit(
-      EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
-      { enabled: false },
-    );
+    timerId.current = setTimeout(() => {
+      appEventBus.emit(
+        EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
+        { enabled: false },
+      );
+    }, 50);
   }, []);
 
   const handlePressOut = useCallback(() => {
     if (!platformEnv.isNative) {
       return;
     }
+    clearTimeout(timerId.current);
     setTimeout(() => {
       appEventBus.emit(
         EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,

@@ -226,7 +226,7 @@
   },
   "resolutions": {
     "expo-modules-core": "1.11.13",
-    "tronweb@^5.1.0": "5.1.0",
+    "tronweb@^6.0.0": "6.0.0",
     "@babel/core": "7.23.5",
     "@babel/code-frame": "7.23.5",
     "@babel/generator": "7.23.5",
