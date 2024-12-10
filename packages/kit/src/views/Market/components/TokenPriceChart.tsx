@@ -35,9 +35,10 @@ interface IChartProps {
   defer: IDeferredPromise<unknown>;
   tickers?: IMarketDetailTicker[];
   isFetching: boolean;
+  height: number;
 }
 
-function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
+function NativeTokenPriceChart({ coinGeckoId, height, defer }: IChartProps) {
   const intl = useIntl();
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -94,7 +95,7 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
     <>
       <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
         <YStack>
-          <PriceChart isFetching={isLoading} data={points}>
+          <PriceChart height={height} isFetching={isLoading} data={points}>
             {gtLg && !isLoading ? (
               <SegmentControl
                 value={days}
@@ -106,13 +107,7 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
         </YStack>
       </YStack>
       {gtLg ? null : (
-        <XStack
-          gap="$3"
-          ai="center"
-          px="$1"
-          pr="$5"
-          $platform-web={{ zIndex: 30 }}
-        >
+        <XStack gap="$3" ai="center" px="$5" $platform-web={{ zIndex: 30 }}>
           <SegmentControl
             value={days}
             jc="space-between"
@@ -153,10 +148,10 @@ function TradingViewChart({
   identifier,
   baseToken,
   defer,
+  height,
 }: Omit<ITradingViewProps, 'mode'> & {
   defer: IDeferredPromise<unknown>;
 }) {
-  const viewHeight = useHeight();
   useEffect(() => {
     defer.resolve(null);
   }, [defer]);
@@ -164,7 +159,7 @@ function TradingViewChart({
   return (
     <TradingView
       mode="overview"
-      h={viewHeight}
+      h={height}
       $gtMd={{ pl: '$5' }}
       $md={{ pt: '$6' }}
       targetToken={targetToken}
@@ -243,12 +238,14 @@ function BasicTokenPriceChart({
   return ticker ? (
     <TradingViewChart
       defer={defer}
+      height={viewHeight}
       identifier={ticker?.identifier}
       baseToken={ticker?.baseToken}
       targetToken={ticker?.targetToken}
     />
   ) : (
     <NativeTokenPriceChart
+      height={viewHeight}
       isFetching={isFetching}
       coinGeckoId={coinGeckoId}
       defer={defer}
