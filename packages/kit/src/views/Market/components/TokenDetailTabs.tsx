@@ -121,25 +121,6 @@ function BasicTokenDetailTabs({
     },
     [],
   );
-  useEffect(() => {
-    // if (!platformEnv.isNative) {
-    //   return;
-    // }
-    // setTimeout(() => {
-    //   tabRef.current?.scrollToTop();
-    //   changeTabVerticalScrollEnabled({ enabled: false });
-    // }, 100);
-    // appEventBus.on(
-    //   EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
-    //   changeTabVerticalScrollEnabled,
-    // );
-    // return () => {
-    //   appEventBus.off(
-    //     EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
-    //     changeTabVerticalScrollEnabled,
-    //   );
-    // };
-  }, [changeTabVerticalScrollEnabled]);
 
   const onSelectedPageIndex = useCallback(
     (index: number) => {
