@@ -25,7 +25,6 @@ export type IShowToasterProps = PropsWithChildren<{
   disableSwipeGesture?: boolean;
   open?: boolean;
   onOpenChange?: (visible: boolean) => void;
-  name?: string;
 }>;
 
 export interface IShowToasterInstance {
@@ -38,7 +37,7 @@ export type IContextType = {
 
 const CustomToasterContext = createContext({} as IContextType);
 const SHOW_TOAST_VIEWPORT_NAME = 'SHOW_TOAST_VIEWPORT_NAME';
-let toastNameIndex = 0;
+
 function BasicShowToaster(
   {
     children,
@@ -47,17 +46,9 @@ function BasicShowToaster(
     dismissOnOverlayPress = true,
     open,
     onOpenChange,
-    name,
   }: IShowToasterProps,
   ref: ForwardedRef<IShowToasterInstance>,
 ) {
-  const containerName = useMemo(() => {
-    if (name) {
-      return name;
-    }
-    toastNameIndex += 1;
-    return `${SHOW_TOAST_VIEWPORT_NAME}:${toastNameIndex}`;
-  }, [name]);
   const [isOpenState, setIsOpenState] = useState(true);
   const isControlled = !isNil(open);
   const isOpen = isControlled ? open : isOpenState;
@@ -109,7 +100,7 @@ function BasicShowToaster(
   return (
     <>
       <ToastViewport
-        name={containerName}
+        name={SHOW_TOAST_VIEWPORT_NAME}
         width="100%"
         alignContent="center"
         multipleToasts={false}
