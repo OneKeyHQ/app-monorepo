@@ -32,6 +32,7 @@ import { MarketDetailPools } from './MarketDetailPools';
 import { TokenPriceChart } from './TokenPriceChart';
 
 import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
+import type { LayoutChangeEvent } from 'react-native';
 
 function SkeletonRow() {
   return (
@@ -203,12 +204,13 @@ function BasicTokenDetailTabs({
     [],
   );
   useEffect(() => {
-    if (!platformEnv.isNative) {
-      return;
-    }
-    setTimeout(() => {
-      changeTabVerticalScrollEnabled({ enabled: false });
-    }, 100);
+    // if (!platformEnv.isNative) {
+    //   return;
+    // }
+    // setTimeout(() => {
+    //   tabRef.current?.scrollToTop();
+    //   changeTabVerticalScrollEnabled({ enabled: false });
+    // }, 100);
     // appEventBus.on(
     //   EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
     //   changeTabVerticalScrollEnabled,
@@ -235,6 +237,21 @@ function BasicTokenDetailTabs({
     [changeTabVerticalScrollEnabled],
   );
 
+  const handleMount = useCallback(
+    (e: LayoutChangeEvent) => {
+      if (!platformEnv.isNative) {
+        return;
+      }
+      if (e.nativeEvent.layout.height > 0) {
+        setTimeout(() => {
+          tabRef.current?.scrollToTop();
+          changeTabVerticalScrollEnabled({ enabled: false });
+        }, 100);
+      }
+    },
+    [changeTabVerticalScrollEnabled],
+  );
+
   return (
     <Tab
       ref={tabRef}
@@ -246,7 +263,7 @@ function BasicTokenDetailTabs({
       data={tabConfig}
       disableRefresh
       ListHeaderComponent={
-        <Stack mb="$5">
+        <Stack mb="$5" onLayout={handleMount}>
           {listHeaderComponent}
           {/* {pools ? null : (
             <YStack $gtMd={{ px: '$5' }}>{renderPoolSkeleton}</YStack>
