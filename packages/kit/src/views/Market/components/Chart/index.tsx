@@ -26,6 +26,7 @@ type IPriceChartProps = {
   data?: IMarketTokenChart;
   children: ReactNode;
   isFetching: boolean;
+  height: number;
 };
 
 type IOnHoverFunction = ({
@@ -36,7 +37,12 @@ type IOnHoverFunction = ({
   price?: number | string;
 }) => void;
 
-export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
+export function PriceChart({
+  data,
+  isFetching,
+  height,
+  children,
+}: IPriceChartProps) {
   const { formatDate } = useFormatDate();
   const intl = useIntl();
 
@@ -102,11 +108,24 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
     );
   }, [intl, isFetching]);
 
+  const viewHeight = useMemo(() => {
+    if (gtMd) {
+      return height;
+    }
+    if (platformEnv.isNative) {
+      return height * 0.9;
+    }
+    return height * 0.45;
+  }, [gtMd, height]);
+  const mdViewHeight = useMemo(
+    () => (platformEnv.isNative ? height * 0.65 : height * 0.7),
+    [height],
+  );
   const chartView =
     data && data.length > 0 ? (
       <ChartView
         isFetching={isFetching}
-        height={450}
+        height={viewHeight}
         data={data}
         onHover={onHover}
       />
@@ -129,7 +148,6 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
         {children}
       </XStack>
       <Stack
-        h={406}
         mt={32}
         $gtMd={{ mt: '$1' }}
         justifyContent="center"
@@ -141,7 +159,7 @@ export function PriceChart({ data, isFetching, children }: IPriceChartProps) {
   ) : (
     <>
       {priceLabel}
-      <Stack h={410} justifyContent="center" alignItems="center">
+      <Stack h={mdViewHeight} justifyContent="center" alignItems="center">
         {platformEnv.isNative ? chartView : chartViewWithSpinner}
       </Stack>
       <Stack>{children}</Stack>
