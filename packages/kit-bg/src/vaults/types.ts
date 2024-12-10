@@ -249,6 +249,8 @@ export type IVaultSettings = {
   withTxMessage?: boolean;
 
   fixConfirmedTxEnabled?: boolean;
+
+  supportBatchEstimateFee?: Record<string, boolean>;
 };
 
 export type IVaultFactoryOptions = {

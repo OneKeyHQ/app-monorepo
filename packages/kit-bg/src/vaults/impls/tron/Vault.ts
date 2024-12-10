@@ -71,6 +71,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { Types } from 'tronweb';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
@@ -145,7 +146,7 @@ export default class Vault extends VaultBase {
       },
     ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
       result: { result: boolean };
-      transaction: IUnsignedTransaction;
+      transaction: Types.Transaction;
     }>({
       networkId: this.networkId,
       body: [
@@ -204,7 +205,7 @@ export default class Vault extends VaultBase {
           },
         ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
           result: { result: boolean };
-          transaction: IUnsignedTransaction;
+          transaction: Types.Transaction;
         }>({
           networkId: this.networkId,
           body: [
@@ -241,7 +242,7 @@ export default class Vault extends VaultBase {
 
       try {
         const [transaction] =
-          await this.backgroundApi.serviceAccountProfile.sendProxyRequest<IUnsignedTransaction>(
+          await this.backgroundApi.serviceAccountProfile.sendProxyRequest<Types.Transaction>(
             {
               networkId: this.networkId,
               body: [
@@ -283,7 +284,7 @@ export default class Vault extends VaultBase {
   }
 
   async _buildEncodedTxFromBatchTransfer(transfersInfo: ITransferInfo[]) {
-    return {} as IUnsignedTransaction;
+    return {} as Types.Transaction;
   }
 
   override async buildDecodedTx(
@@ -357,7 +358,8 @@ export default class Vault extends VaultBase {
       amount,
       owner_address: fromAddressHex,
       to_address: toAddressHex,
-    } = (encodedTx.raw_data.contract[0] as ISendTrxCall).parameter.value;
+    } = encodedTx.raw_data.contract[0].parameter
+      .value as Types.TransferContract;
 
     const accountAddress = await this.getAccountAddress();
     const nativeToken = await this.backgroundApi.serviceToken.getToken({
@@ -368,8 +370,9 @@ export default class Vault extends VaultBase {
 
     if (!nativeToken) return;
 
-    const from = TronWeb.address.fromHex(fromAddressHex) ?? accountAddress;
-    const to = TronWeb.address.fromHex(toAddressHex);
+    const from =
+      TronWeb.utils.address.fromHex(fromAddressHex) ?? accountAddress;
+    const to = TronWeb.utils.address.fromHex(toAddressHex);
     const transfer: IDecodedTxTransferInfo = {
       from,
       to,
@@ -401,16 +404,16 @@ export default class Vault extends VaultBase {
   }) {
     const {
       contract_address: contractAddressHex,
-      data,
+      data = '',
       owner_address: fromAddressHex,
-    } = (encodedTx.raw_data.contract[0] as ITriggerSmartContractCall).parameter
-      .value;
+    } = encodedTx.raw_data.contract[0].parameter
+      .value as Types.TriggerSmartContract;
 
     let action;
 
     try {
-      const fromAddress = TronWeb.address.fromHex(fromAddressHex);
-      const tokenAddress = TronWeb.address.fromHex(contractAddressHex);
+      const fromAddress = TronWeb.utils.address.fromHex(fromAddressHex);
+      const tokenAddress = TronWeb.utils.address.fromHex(contractAddressHex);
 
       const token = await this.backgroundApi.serviceToken.getToken({
         accountId: this.accountId,
@@ -434,7 +437,7 @@ export default class Vault extends VaultBase {
 
         const transfer: IDecodedTxTransferInfo = {
           from: fromAddress,
-          to: TronWeb.address.fromHex(toAddressHex),
+          to: TronWeb.utils.address.fromHex(toAddressHex),
           tokenIdOnNetwork: token.address,
           icon: token.logoURI ?? '',
           name: token.name,
@@ -445,7 +448,7 @@ export default class Vault extends VaultBase {
 
         action = await this.buildTxTransferAssetAction({
           from: fromAddress,
-          to: TronWeb.address.fromHex(toAddressHex),
+          to: TronWeb.utils.address.fromHex(toAddressHex),
           transfers: [transfer],
         });
       }
@@ -462,7 +465,7 @@ export default class Vault extends VaultBase {
           tokenApprove: {
             from: fromAddress,
             to: tokenAddress,
-            spender: TronWeb.address.fromHex(spenderAddressHex),
+            spender: TronWeb.utils.address.fromHex(spenderAddressHex),
             amount: amountBN.shiftedBy(-token.decimals).toFixed(),
             icon: token.logoURI ?? '',
             name: token.name,
@@ -555,7 +558,7 @@ export default class Vault extends VaultBase {
           },
         ] = await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
           result: { result: boolean };
-          transaction: IUnsignedTransaction;
+          transaction: Types.Transaction;
         }>({
           networkId: this.networkId,
           body: [
@@ -606,10 +609,11 @@ export default class Vault extends VaultBase {
       !isNil(nativeAmountInfo.maxSendAmount)
     ) {
       const { owner_address: fromAddressHex, to_address: toAddressHex } =
-        encodedTx.raw_data.contract[0].parameter.value;
+        encodedTx.raw_data.contract[0].parameter
+          .value as Types.TransferContract;
 
       const [transaction] =
-        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<IUnsignedTransaction>(
+        await this.backgroundApi.serviceAccountProfile.sendProxyRequest<Types.Transaction>(
           {
             networkId: this.networkId,
             body: [
@@ -618,11 +622,11 @@ export default class Vault extends VaultBase {
                 params: {
                   method: 'transactionBuilder.sendTrx',
                   params: [
-                    TronWeb.address.fromHex(toAddressHex),
+                    TronWeb.utils.address.fromHex(toAddressHex),
                     new BigNumber(nativeAmountInfo.maxSendAmount)
                       .shiftedBy(network.decimals)
                       .toNumber(),
-                    TronWeb.address.fromHex(fromAddressHex),
+                    TronWeb.utils.address.fromHex(fromAddressHex),
                   ],
                 },
               },
@@ -636,8 +640,8 @@ export default class Vault extends VaultBase {
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {
-    if (TronWeb.isAddress(address)) {
-      const resolvedAddress = TronWeb.address.fromHex(address);
+    if (TronWeb.utils.address.isAddress(address)) {
+      const resolvedAddress = TronWeb.utils.address.fromHex(address);
       return Promise.resolve({
         isValid: true,
         normalizedAddress: resolvedAddress,
@@ -700,11 +704,13 @@ export default class Vault extends VaultBase {
   override async getCustomRpcEndpointStatus(
     params: IMeasureRpcStatusParams,
   ): Promise<IMeasureRpcStatusResult> {
-    const tronWeb = new TronWeb({ fullHost: params.rpcUrl });
+    const tronWeb = new TronWeb.TronWeb({ fullHost: params.rpcUrl });
     const start = performance.now();
     const {
       result: { number: blockNumber },
-    } = await tronWeb.fullNode.request(
+    } = await tronWeb.fullNode.request<{
+      result: { number: string };
+    }>(
       'jsonrpc',
       {
         jsonrpc: '2.0',
@@ -729,7 +735,7 @@ export default class Vault extends VaultBase {
     if (!rpcUrl) {
       throw new OneKeyInternalError('Invalid rpc url');
     }
-    const tronWeb = new TronWeb({ fullHost: rpcUrl });
+    const tronWeb = new TronWeb.TronWeb({ fullHost: rpcUrl });
     const ret = await tronWeb.trx.sendRawTransaction(
       JSON.parse(signedTx.rawTx),
     );
@@ -771,7 +777,7 @@ export default class Vault extends VaultBase {
     const [{ result, transaction }] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
         result: { result: boolean };
-        transaction: IUnsignedTransaction;
+        transaction: Types.Transaction;
       }>({
         networkId: this.networkId,
         body: [
@@ -809,6 +815,20 @@ export default class Vault extends VaultBase {
         'Unable to build token transfer transaction',
       );
     }
+
+    (
+      transaction.raw_data.contract[0].parameter
+        .value as Types.TriggerSmartContract
+    ).data = data.slice(2);
+
+    const txPb = TronWeb.utils.transaction.txJsonToPb(transaction);
+
+    const txRawDataHex = TronWeb.utils.transaction.txPbToRawDataHex(txPb);
+    const txID = TronWeb.utils.transaction.txPbToTxID(txPb);
+
+    transaction.raw_data_hex = txRawDataHex;
+    transaction.txID = txID.slice(2);
+
     return transaction;
   }
 }
