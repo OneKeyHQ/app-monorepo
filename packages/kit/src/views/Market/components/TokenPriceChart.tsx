@@ -179,6 +179,7 @@ const identifiers = [
   'kraken',
   'okx',
   'gate',
+  'kucoin',
 ];
 
 const targets = ['USD', 'USDT', 'USDC'];
