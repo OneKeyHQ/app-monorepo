@@ -298,7 +298,7 @@ function formatVersionWithHash(
 
   return {
     raw: { version, checksum, commitId },
-    formatted: `${version} (${checksum}-${commitId.slice(0, 7)})`,
+    formatted: `${version} (${commitId}-${checksum.slice(0, 7)})`,
   };
 }
 
@@ -310,18 +310,18 @@ export function parseLocalDeviceVersions({
   return {
     firmware: formatVersionWithHash({
       version: onekeyFeatures.onekey_firmware_version,
-      checksum: onekeyFeatures.onekey_firmware_build_id,
-      commitId: onekeyFeatures.onekey_firmware_hash,
+      checksum: onekeyFeatures.onekey_firmware_hash,
+      commitId: onekeyFeatures.onekey_firmware_build_id,
     }),
     bluetooth: formatVersionWithHash({
       version: onekeyFeatures.onekey_ble_version,
-      checksum: onekeyFeatures.onekey_ble_build_id,
-      commitId: onekeyFeatures.onekey_ble_hash,
+      checksum: onekeyFeatures.onekey_ble_hash,
+      commitId: onekeyFeatures.onekey_ble_build_id,
     }),
     bootloader: formatVersionWithHash({
       version: onekeyFeatures.onekey_boot_version,
-      checksum: onekeyFeatures.onekey_boot_build_id,
-      commitId: onekeyFeatures.onekey_boot_hash,
+      checksum: onekeyFeatures.onekey_boot_hash,
+      commitId: onekeyFeatures.onekey_boot_build_id,
     }),
   };
 }
