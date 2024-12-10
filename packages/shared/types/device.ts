@@ -316,6 +316,10 @@ export interface IAllDeviceVerifyVersions {
 }
 
 export interface IDeviceVerifyVersionCompareResult {
+  certificate: {
+    isMatch: boolean;
+    format: string;
+  };
   firmware: {
     isMatch: boolean;
     format: string;

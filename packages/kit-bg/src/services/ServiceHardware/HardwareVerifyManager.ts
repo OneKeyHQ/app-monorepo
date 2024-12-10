@@ -309,6 +309,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     onekeyFeatures: OnekeyFeatures | undefined;
   }): Promise<IDeviceVerifyVersionCompareResult> {
     const defaultResult = {
+      certificate: {
+        isMatch: true,
+        format: onekeyFeatures?.onekey_serial_no ?? '',
+      },
       firmware: { isMatch: false, format: '' },
       bluetooth: { isMatch: false, format: '' },
       bootloader: { isMatch: false, format: '' },
@@ -339,6 +343,10 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     });
 
     return {
+      certificate: {
+        isMatch: true,
+        format: onekeyFeatures?.onekey_serial_no ?? '',
+      },
       firmware: {
         isMatch: deviceUtils.compareDeviceVersions({
           local: localVerifyInfos.firmware.raw,

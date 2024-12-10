@@ -52,6 +52,7 @@ export enum EFirmwareAuthenticationDialogContentType {
   unofficial_device_detected = 'unofficial_device_detected',
   verification_temporarily_unavailable = 'verification_temporarily_unavailable',
   error_fallback = 'error_fallback',
+  unofficial_firmware_detected = 'unofficial_firmware_detected',
 }
 
 function useFirmwareVerifyBase({
@@ -99,6 +100,10 @@ function useFirmwareVerifyBase({
       console.log('firmwareAuthenticate >>>> ', authResult);
       if (authResult.verified) {
         setResult('official');
+        // Set certificate to success first
+        setVersionCompareResult({
+          certificate: { isMatch: true, format: authResult.result?.data ?? '' },
+        } as unknown as IDeviceVerifyVersionCompareResult);
         setContentType(
           useNewProcess
             ? EFirmwareAuthenticationDialogContentType.verification_verify
@@ -125,6 +130,14 @@ function useFirmwareVerifyBase({
           });
         console.log('=====>>>> verifyResult: ', verifyResult);
         setVersionCompareResult(verifyResult);
+        const hasUnverifiedFirmware = Object.entries(verifyResult).some(
+          ([, value]: [string, { isMatch: boolean }]) => !value.isMatch,
+        );
+        if (hasUnverifiedFirmware) {
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected,
+          );
+        }
       }
     } catch (error) {
       setResult('error');
@@ -260,6 +273,14 @@ function VerifyHashRow({
         </SizableText>
       );
     }
+    if (status === 'error') {
+      return (
+        <SizableText size="$bodyMd" color="$textCritical">
+          Failed
+        </SizableText>
+      );
+    }
+
     return null;
   }, [result, status]);
   return (
@@ -346,6 +367,7 @@ function VerifyHash({
 
   const isShowContinue =
     Object.values(statues).filter((s) => s !== 'success').length === 0;
+
   return (
     <YStack>
       {isShowContinue ? (
@@ -627,6 +649,49 @@ export function EnumBasicDialogContentContainer({
             </Button>
             {platformEnv.isDev ? (
               <Button
+                $md={
+                  {
+                    size: 'large',
+                  } as any
+                }
+                onPress={onContinuePress}
+              >
+                Skip it And Create Wallet(Only in Dev)
+              </Button>
+            ) : null}
+          </>
+        );
+      case EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="ErrorOutline" tone="destructive" />
+              <Dialog.Title>Unofficial device detected</Dialog.Title>
+              <Dialog.Description>
+                Your device could not be verified as official. Please contact us
+                immediately.
+              </Dialog.Description>
+            </Dialog.Header>
+            <VerifyHash
+              certificateResult={certificateResult}
+              versionCompareResult={versionCompareResult}
+              onActionPress={onActionPress}
+            />
+            <Button
+              mt="$5"
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              variant="primary"
+              onPress={() => Linking.openURL(FIRMWARE_CONTACT_US_URL)}
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
+            {platformEnv.isDev ? (
+              <Button
+                mt="$5"
                 $md={
                   {
                     size: 'large',
