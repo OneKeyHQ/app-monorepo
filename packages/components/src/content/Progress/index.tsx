@@ -15,6 +15,7 @@ export type IProgressProps = {
 
 const DEFAULT_MAX = 100;
 
+const INDICATOR_DELAY = 300;
 const useLazyShowIndicator: (value: number) => [boolean, number] =
   platformEnv.isNative
     ? (value: number) => [true, value]
@@ -26,8 +27,8 @@ const useLazyShowIndicator: (value: number) => [boolean, number] =
             setIsShowIndicator(true);
             setTimeout(() => {
               setRawValue(value);
-            }, 300);
-          }, 300);
+            }, INDICATOR_DELAY);
+          }, INDICATOR_DELAY);
         }, [value]);
         return [showIndicator, rawValue];
       };
