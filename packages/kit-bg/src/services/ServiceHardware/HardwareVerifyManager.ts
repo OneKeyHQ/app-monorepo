@@ -260,8 +260,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     });
 
     console.log('shouldAuthenticateFirmwareByHash isValid: ', isValid);
-    return true;
-    // return isValid;
+    return isValid;
   }
 
   @backgroundMethod()
