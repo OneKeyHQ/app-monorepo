@@ -48,7 +48,7 @@ function BasicTokenDetailTabs({
         md && token
           ? {
               title: intl.formatMessage({
-                id: ETranslations.global_overview,
+                id: ETranslations.market_chart,
               }),
               // eslint-disable-next-line react/no-unstable-nested-components
               page: (props: ITabPageProps) => (
