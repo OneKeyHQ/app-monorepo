@@ -146,7 +146,6 @@ function TradingViewChart({
 
     return 300;
   }, []);
-  console.log('aaaa', height, top, tabHeight, fixedHeight)
   const viewHeight = useMemo(
     () => height - top - tabHeight - fixedHeight,
     [fixedHeight, height, tabHeight, top],
