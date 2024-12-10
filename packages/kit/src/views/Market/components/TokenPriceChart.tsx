@@ -199,6 +199,22 @@ function BasicTokenPriceChart({
     if (!tickers?.length) {
       return null;
     }
+    if (coinGeckoId === 'tether') {
+      return {
+        identifier: 'COINBASE',
+        baseToken: 'USDT',
+        targetToken: 'USD',
+      };
+    }
+
+    if (coinGeckoId === 'usd-coin') {
+      return {
+        identifier: 'KRAKEN',
+        baseToken: 'USDC',
+        targetToken: 'USD',
+      };
+    }
+
     for (let i = 0; i < tickers.length; i += 1) {
       const t = tickers[i];
       if (targets.includes(t.target)) {
