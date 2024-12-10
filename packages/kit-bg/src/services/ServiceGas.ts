@@ -7,7 +7,12 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IEstimateGasParams } from '@onekeyhq/shared/types/fee';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
+import type {
+  IBatchEstimateFeeParams,
+  IEstimateGasParams,
+  IServerBatchEstimateFeeResponse,
+} from '@onekeyhq/shared/types/fee';
 
 import { vaultFactory } from '../vaults/factory';
 import { FIL_MIN_BASE_FEE } from '../vaults/impls/fil/utils';
@@ -28,6 +33,47 @@ class ServiceGas extends ServiceBase {
       this._estimateFeeController.abort();
       this._estimateFeeController = null;
     }
+  }
+
+  @backgroundMethod()
+  async batchEstimateFee(params: IBatchEstimateFeeParams) {
+    const controller = new AbortController();
+    this._estimateFeeController = controller;
+
+    const { accountId, networkId, encodedTxs } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+
+    const resp = await client.post<IServerBatchEstimateFeeResponse>(
+      '/wallet/v1/account/estimate-fee-batch',
+      {
+        networkId,
+        encodedTxList: encodedTxs,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+
+    this._estimateFeeController = null;
+
+    const feeInfo = resp.data.data;
+
+    const batchFeeResult = {
+      common: {
+        baseFee: feeInfo.baseFee,
+        feeDecimals: feeInfo.feeDecimals,
+        feeSymbol: feeInfo.feeSymbol,
+        nativeDecimals: feeInfo.nativeDecimals,
+        nativeSymbol: feeInfo.nativeSymbol,
+        nativeTokenPrice: feeInfo.nativeTokenPrice?.price,
+      },
+      txFees: feeInfo.result,
+    };
+
+    return batchFeeResult;
   }
 
   @backgroundMethod()

@@ -230,8 +230,13 @@ function TokenListContainer(props: ITabPageProps) {
         });
 
         refreshTokenList({ keys: r.tokens.keys, tokens: r.tokens.data });
+        // can search all tokens in token list
         refreshTokenListMap({
-          tokens: r.tokens.map,
+          tokens: {
+            ...r.tokens.map,
+            ...r.smallBalanceTokens.map,
+            ...r.riskTokens.map,
+          },
         });
         refreshRiskyTokenList({
           keys: r.riskTokens.keys,

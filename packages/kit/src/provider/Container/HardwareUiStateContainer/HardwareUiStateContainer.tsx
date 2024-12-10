@@ -278,6 +278,8 @@ const hasConfirmAction = (localState: IHardwareUiState | undefined) => {
 
 const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
 
+const SHOW_HARDWARE_TOAST_VIEWPORT_NAME = 'SHOW_HARDWARE_TOAST_VIEWPORT_NAME';
+
 function HardwareUiStateContainerCmpControlled() {
   const [state] = useHardwareUiStateAtom();
   const stateRef = useRef(state);
@@ -502,6 +504,7 @@ function HardwareUiStateContainerCmpControlled() {
   const toastElement = (
     <ShowCustom
       ref={toastInstanceRef}
+      name={SHOW_HARDWARE_TOAST_VIEWPORT_NAME}
       open={actionStatus.isToastAction}
       dismissOnOverlayPress={false}
       disableSwipeGesture
