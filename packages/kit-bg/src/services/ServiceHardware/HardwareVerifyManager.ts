@@ -370,14 +370,17 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       firmware: {
         isMatch: firmwareMatch,
         format: serverVerifyInfos.firmware.formatted,
+        releaseUrl: serverVerifyInfos.firmware.releaseUrl,
       },
       bluetooth: {
         isMatch: bluetoothMatch,
         format: serverVerifyInfos.bluetooth.formatted,
+        releaseUrl: serverVerifyInfos.bluetooth.releaseUrl,
       },
       bootloader: {
         isMatch: bootloaderMatch,
         format: serverVerifyInfos.bootloader.formatted,
+        releaseUrl: serverVerifyInfos.bootloader.releaseUrl,
       },
     };
   }

@@ -280,7 +280,7 @@ async function getDeviceVerifyVersionsFromFeatures({
 function formatVersionWithHash(
   rawVersion: IDeviceVerifyRawVersions,
 ): IDeviceVerifyVersions {
-  const { version, checksum, commitId } = rawVersion;
+  const { version, checksum, commitId, releaseUrl } = rawVersion;
 
   if (!version) {
     return {
@@ -296,8 +296,21 @@ function formatVersionWithHash(
     };
   }
 
+  let validatedReleaseUrl: string | undefined;
+
+  try {
+    if (releaseUrl) {
+      // eslint-disable-next-line no-new
+      new URL(releaseUrl);
+      validatedReleaseUrl = releaseUrl;
+    }
+  } catch {
+    // ignore
+  }
+
   return {
     raw: { version, checksum, commitId },
+    releaseUrl: validatedReleaseUrl,
     formatted: `${version} (${commitId}-${checksum.slice(0, 7)})`,
   };
 }
