@@ -128,12 +128,8 @@ const useHeight = () => {
 
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
-    if (platformEnv.isNativeIOS) {
-      return 280;
-    }
-
-    if (platformEnv.isNativeAndroid) {
-      return 280;
+    if (platformEnv.isNative) {
+      return 268;
     }
 
     return 300;
@@ -161,7 +157,7 @@ function TradingViewChart({
       mode="overview"
       h={height}
       $gtMd={{ pl: '$5' }}
-      $md={{ pt: '$6' }}
+      $md={{ pt: '$3' }}
       targetToken={targetToken}
       baseToken={baseToken}
       identifier={identifier}
