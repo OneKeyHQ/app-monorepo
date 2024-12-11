@@ -27,23 +27,39 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
-export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, symbol = '', name } = token || {};
-  const intl = useIntl();
+export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
+  const { detailPlatforms } = token || {};
   const network = useMemo(
     () => (detailPlatforms ? Object.values(detailPlatforms)[0] : null),
     [detailPlatforms],
   );
+  return network;
+};
+
+export const useMarketTradeNetworkId = (
+  network: {
+    contract_address: string;
+    onekeyNetworkId?: string;
+    hideContractAddress?: boolean;
+    coingeckoNetworkId?: string;
+  } | null,
+  symbol: string,
+) =>
+  useMemo(() => {
+    const { onekeyNetworkId } = network || {};
+    return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
+  }, [network, symbol]);
+
+export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
+  const { symbol = '', name } = token || {};
+  const intl = useIntl();
+  const network = useMarketTradeNetwork(token);
+  const networkId = useMarketTradeNetworkId(network, symbol);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-
-  const networkId = useMemo(() => {
-    const { onekeyNetworkId } = network || {};
-    return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
-  }, [network, symbol]);
 
   const contractAddress = useMemo(
     () => network?.contract_address ?? '',
