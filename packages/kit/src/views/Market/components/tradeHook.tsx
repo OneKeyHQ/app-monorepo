@@ -22,6 +22,20 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
+const remindUnsupportedToken = () => {
+  Dialog.confirm({
+    title: 'Unsupported token',
+    tone: 'warning',
+    icon: 'ErrorOutline',
+    renderContent: (
+      <SizableText size="$bodyLg">
+        Unfortunately, this token is not currently supported for Buy service.
+      </SizableText>
+    ),
+    onConfirmText: 'Got it!',
+  });
+};
+
 export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, symbol = '', name } = token || {};
   const network = useMemo(
@@ -69,18 +83,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           type,
         });
       if (!url || !build) {
-        Dialog.confirm({
-          title: 'Unsupported token',
-          tone: 'warning',
-          icon: 'ErrorOutline',
-          renderContent: (
-            <SizableText size="$bodyLg">
-              Unfortunately, this token is not currently supported for Buy
-              service.
-            </SizableText>
-          ),
-          onConfirmText: 'Got it!',
-        });
+        remindUnsupportedToken();
         return;
       }
       openUrlExternal(url);
@@ -101,6 +104,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         networkId,
         contractAddress,
       });
+
+    if (!isSupportSwap) {
+      remindUnsupportedToken();
+      return;
+    }
     const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
       networkId,
     });
@@ -110,12 +118,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       tokenSymbol: symbol,
       contractAddress,
     });
-    const { importFromToken, swapTabSwitchType, isNative } =
-      importFromTokenResponse || {};
+    const { swapTabSwitchType, isNative } = importFromTokenResponse || {};
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        importToToken: {
+        importFromToken: {
           ...onekeyNetwork,
           contractAddress: isNative ? '' : contractAddress,
           networkId,
@@ -123,7 +130,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           symbol: symbol.toUpperCase(),
           name,
         },
-        importFromToken,
         swapTabSwitchType,
       },
     });
