@@ -56,7 +56,7 @@ const SwapInputActions = ({
               <XStack
                 alignItems="center"
                 gap="$1"
-                pt={platformEnv.isNative ? '$1' : '$0'}
+                pt={platformEnv.isNativeIOS ? '$1' : '$0'}
               >
                 <Icon name="CreditCardCvvOutline" size="$4" />
                 <SizableText size="$bodySmMedium" color="$textSubdued">
