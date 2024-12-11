@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 
 import { Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { ViewStyle } from 'react-native';
@@ -43,14 +44,16 @@ export function WebView({
         title="TradingView"
         sandbox="allow-orientation-lock allow-scripts	allow-top-navigation allow-top-navigation-by-user-activation allow-same-origin allow-popups"
       />
-      <Stack
-        position="absolute"
-        width={42}
-        height={20}
-        bottom={40}
-        left={10}
-        bg="$bgApp"
-      />
+      {platformEnv.isDesktop ? (
+        <Stack
+          position="absolute"
+          width={42}
+          height={28}
+          bottom={30}
+          left={10}
+          bg="$bgApp"
+        />
+      ) : null}
     </div>
   );
 }

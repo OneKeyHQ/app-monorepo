@@ -414,7 +414,9 @@ export function DeriveTypeSelectorFormInput(
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
           });
-        let fixedValue = viewItems?.[0].value as IAccountDeriveTypes;
+        let fixedValue = viewItems?.[0]?.value as
+          | IAccountDeriveTypes
+          | undefined;
         if (
           defaultDeriveType &&
           viewItems?.length &&
@@ -423,7 +425,7 @@ export function DeriveTypeSelectorFormInput(
           fixedValue = defaultDeriveType;
         }
         shouldResetDeriveTypeWhenNetworkChanged.current = false;
-        onDeriveTypeChange?.(fixedValue);
+        onDeriveTypeChange?.(fixedValue || 'default');
       }
     })();
   }, [deriveType, networkId, onDeriveTypeChange, viewItems]);

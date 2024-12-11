@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Progress as TMProgress } from 'tamagui';
 
@@ -14,6 +14,25 @@ export type IProgressProps = {
 } & Omit<TMProgressProps, 'size'>;
 
 const DEFAULT_MAX = 100;
+
+const INDICATOR_DELAY = 300;
+const useLazyShowIndicator: (value: number) => [boolean, number] =
+  platformEnv.isNative
+    ? (value: number) => [true, value]
+    : (value: number) => {
+        const [showIndicator, setIsShowIndicator] = useState(false);
+        const [rawValue, setRawValue] = useState(0);
+        useEffect(() => {
+          setTimeout(() => {
+            setIsShowIndicator(true);
+            setTimeout(() => {
+              setRawValue(value);
+            }, INDICATOR_DELAY);
+          }, INDICATOR_DELAY);
+        }, [value]);
+        return [showIndicator, rawValue];
+      };
+
 export function Progress({
   size,
   value,
@@ -29,27 +48,35 @@ export function Progress({
     () => (Number(value) > DEFAULT_MAX ? DEFAULT_MAX : value || 0),
     [value],
   );
+  const [showIndicator, progressValue] = useLazyShowIndicator(val);
   const [width, setWidth] = useState(0);
-  const onLayout = useCallback((event: LayoutChangeEvent) => {
-    setWidth(event.nativeEvent.layout.width);
-  }, []);
+  const onLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      if (gap) {
+        setWidth(event.nativeEvent.layout.width);
+      }
+    },
+    [gap],
+  );
   return (
     <TMProgress
       backgroundColor={colors[0] || '$neutral5'}
       h={h}
-      value={val}
+      value={progressValue}
       onLayout={onLayout}
       max={DEFAULT_MAX}
       {...props}
     >
-      <TMProgress.Indicator
-        // https://github.com/tamagui/tamagui/issues/2753
-        // https://github.com/tamagui/tamagui/issues/2847
-        // Enabling animation on Native platforms causes the progress bar to fail initial rendering
-        animation={platformEnv.isNative ? null : 'quick'}
-        backgroundColor={colors[1] || '$bgPrimary'}
-        borderRadius="$full"
-      />
+      {showIndicator ? (
+        <TMProgress.Indicator
+          // https://github.com/tamagui/tamagui/issues/2753
+          // https://github.com/tamagui/tamagui/issues/2847
+          // Enabling animation on Native platforms causes the progress bar to fail initial rendering
+          animation={platformEnv.isNative ? null : 'quick'}
+          backgroundColor={colors[1] || '$bgPrimary'}
+          borderRadius="$full"
+        />
+      ) : null}
       {gap ? (
         <View
           h={h}
