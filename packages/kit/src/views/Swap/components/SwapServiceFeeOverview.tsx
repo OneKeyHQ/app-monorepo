@@ -81,9 +81,12 @@ export function SwapServiceFeeOverview({
       renderContent={
         <Stack gap="$5" p="$4">
           <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.provider_ios_popover_onekey_fee_content,
-            })}
+            {intl.formatMessage(
+              {
+                id: ETranslations.provider_ios_popover_onekey_fee_content,
+              },
+              { num: `${serviceFee}%` },
+            )}
           </SizableText>
           <Stack gap="$2">
             {protocolFeeInfoList.map((item) => renderProtocolFeeListItem(item))}
