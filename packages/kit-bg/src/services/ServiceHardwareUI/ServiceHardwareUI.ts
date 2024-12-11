@@ -26,7 +26,6 @@ import { HardwareProcessingManager } from './HardwareProcessingManager';
 
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { UiResponseEvent } from '@onekeyfe/hd-core';
-import { ECustomOneKeyHardwareError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 
 export type IWithHardwareProcessingControlParams = {
   hideCheckingDeviceLoading?: boolean;
