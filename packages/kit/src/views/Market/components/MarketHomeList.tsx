@@ -52,11 +52,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IMarketCategory,
   IMarketToken,
 } from '@onekeyhq/shared/types/market';
 
+import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePrevious } from '../../../hooks/usePrevious';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -183,6 +185,11 @@ function MarketMdColumn({
   }, [item.coingeckoId, navigation]);
 
   const tradeActions = useLazyMarketTradeActions(item.coingeckoId);
+  const show = useReviewControl();
+  const canStaking = useMemo(
+    () => isSupportStaking(item.symbol),
+    [item.symbol],
+  );
   const handleMdItemAction = useCallback(async () => {
     const { coingeckoId, symbol } = item;
     const isInWatchList = actions.isInWatchList(coingeckoId);
@@ -239,38 +246,40 @@ function MarketMdColumn({
         {
           items: [
             {
-              icon: 'SwitchHorOutline',
+              icon: 'SwitchHorOutline' as const,
               label: intl.formatMessage({ id: ETranslations.global_swap }),
-              onPress: tradeActions.onSwap,
+              onPress: tradeActions.onSwapLazyModal,
             },
-            {
-              icon: 'CoinsOutline',
+            canStaking && {
+              icon: 'CoinsOutline' as const,
               label: intl.formatMessage({ id: ETranslations.earn_stake }),
               onPress: tradeActions.onStaking,
             },
-            {
-              icon: 'PlusLargeSolid',
+            show && {
+              icon: 'PlusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_buy }),
               onPress: tradeActions.onBuy,
             },
-            {
-              icon: 'MinusLargeSolid',
+            show && {
+              icon: 'MinusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_sell }),
               onPress: tradeActions.onSell,
             },
-          ],
+          ].filter(Boolean),
         },
       ],
     });
   }, [
     actions,
+    canStaking,
     intl,
     item,
+    show,
     showMoreAction,
     tradeActions.onBuy,
     tradeActions.onSell,
     tradeActions.onStaking,
-    tradeActions.onSwap,
+    tradeActions.onSwapLazyModal,
   ]);
   const pressEvents = useMemo(
     () => ({

@@ -6,6 +6,8 @@ import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
 import { ActionList, IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import { useReviewControl } from '../../../components/ReviewControl';
+
 import { useLazyMarketTradeActions } from './tradeHook';
 import { useWatchListAction } from './wachListHooks';
 
@@ -25,6 +27,7 @@ function BasicMarketMore({
     actions.MoveToTop(coingeckoId);
   }, [actions, coingeckoId]);
   const tradeActions = useLazyMarketTradeActions(coingeckoId);
+  const show = useReviewControl();
   const sections = useMemo(
     () =>
       [
@@ -39,7 +42,7 @@ function BasicMarketMore({
             },
           ] as IActionListItemProps[],
         },
-        {
+        show && {
           items: [
             {
               icon: 'MinusLargeSolid',
@@ -49,9 +52,9 @@ function BasicMarketMore({
           ] as IActionListItemProps[],
         },
       ].filter(Boolean),
-    [MoveToTop, intl, showMoreAction, tradeActions.onSell],
+    [MoveToTop, intl, show, showMoreAction, tradeActions.onSell],
   );
-  return (
+  return sections.length ? (
     <ActionList
       title=""
       renderTrigger={
@@ -65,7 +68,7 @@ function BasicMarketMore({
       }
       sections={sections}
     />
-  );
+  ) : null;
 }
 
 export const MarketMore = memo(BasicMarketMore);
