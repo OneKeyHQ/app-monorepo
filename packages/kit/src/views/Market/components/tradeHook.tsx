@@ -1,7 +1,10 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Dialog, SizableText } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalStakingRoutes,
   type IModalSwapParamList,
@@ -23,22 +26,9 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
-const remindUnsupportedToken = () => {
-  Dialog.confirm({
-    title: 'Unsupported token',
-    tone: 'warning',
-    icon: 'ErrorOutline',
-    renderContent: (
-      <SizableText size="$bodyLg">
-        Unfortunately, this token is not currently supported for Buy service.
-      </SizableText>
-    ),
-    onConfirmText: 'Got it!',
-  });
-};
-
 export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, symbol = '', name } = token || {};
+  const intl = useIntl();
   const network = useMemo(
     () => (detailPlatforms ? Object.values(detailPlatforms)[0] : null),
     [detailPlatforms],
@@ -58,6 +48,20 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     () => network?.contract_address ?? '',
     [network],
   );
+
+  const remindUnsupportedToken = useCallback(() => {
+    Dialog.confirm({
+      title: intl.formatMessage({ id: ETranslations.earn_unsupported_token }),
+      tone: 'warning',
+      icon: 'ErrorOutline',
+      renderContent: (
+        <SizableText size="$bodyLg">
+          {ETranslations.earn_unsupported_token_desc}
+        </SizableText>
+      ),
+      onConfirmText: 'Got it!',
+    });
+  }, [intl]);
 
   const handleBuyOrSell = useCallback(
     async (type: IFiatCryptoType) => {
@@ -89,7 +93,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       }
       openUrlExternal(url);
     },
-    [activeAccount.account, networkId],
+    [activeAccount.account, networkId, remindUnsupportedToken],
   );
 
   const handleSwap = useCallback(async () => {
@@ -136,7 +140,14 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           : ESwapTabSwitchType.BRIDGE,
       },
     });
-  }, [contractAddress, name, navigation, networkId, symbol]);
+  }, [
+    contractAddress,
+    name,
+    navigation,
+    networkId,
+    remindUnsupportedToken,
+    symbol,
+  ]);
 
   const handleStaking = useCallback(() => {
     if (networkId && activeAccount.account) {
