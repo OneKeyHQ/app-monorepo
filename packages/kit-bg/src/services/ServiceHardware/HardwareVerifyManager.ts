@@ -223,7 +223,8 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       return false;
     }
     const result = await this.fetchFirmwareVerifyHash(verifyVersions);
-    if (!result || !Array.isArray(result)) {
+    // server should return 3 firmware config
+    if (!result || !Array.isArray(result) || result.length !== 3) {
       return false;
     }
     const isValid = result.every((firmware) => {

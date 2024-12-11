@@ -123,6 +123,7 @@ function useFirmwareVerifyBase({
         const latestFeatures =
           await backgroundApiProxy.serviceHardware.getOneKeyFeatures({
             connectId: device?.connectId ?? '',
+            deviceType: device.deviceType,
           });
         const verifyResult =
           await backgroundApiProxy.serviceHardware.verifyFirmwareHash({

@@ -32,6 +32,7 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBleFirmwareReleasePayload,
+  IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
   IFirmwareReleasePayload,
   IOneKeyDeviceFeatures,
@@ -77,6 +78,7 @@ import type {
   IDeviceType,
   KnownDevice,
   OnekeyFeatures,
+  Response,
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
@@ -936,11 +938,23 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getOneKeyFeatures({ connectId }: { connectId: string }) {
+  async getOneKeyFeatures({
+    connectId,
+    deviceType,
+  }: {
+    connectId: string;
+    deviceType: IDeviceType;
+  }): Promise<OnekeyFeatures> {
     const hardwareSDK = await this.getSDKInstance();
-    return convertDeviceResponse(() =>
-      hardwareSDK?.getOnekeyFeatures(connectId),
-    );
+    return convertDeviceResponse(() => {
+      // classic1s does not support getOnekeyFeatures method
+      if (deviceType === 'classic1s') {
+        return hardwareSDK?.getFeatures(
+          connectId,
+        ) as unknown as Response<OnekeyFeatures>;
+      }
+      return hardwareSDK?.getOnekeyFeatures(connectId);
+    });
   }
 }
 
