@@ -243,7 +243,9 @@ const SwapQuoteResult = ({
                   }
                 />
               ) : null}
-              {quoteResult?.toAmount && !quoteResult?.unSupportSlippage ? (
+              {quoteResult?.toAmount &&
+              !quoteResult?.unSupportSlippage &&
+              !quoteResult.isWrapped ? (
                 <SwapSlippageTriggerContainer
                   isLoading={swapQuoteLoading}
                   onPress={onSlippageHandleClick}
