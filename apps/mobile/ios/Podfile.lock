@@ -111,9 +111,6 @@ PODS:
     - MMKVCore (~> 1.3.1)
   - MMKVCore (1.3.1)
   - MultiplatformBleAdapter (0.1.9)
-  - PromisesObjC (2.3.1)
-  - PromisesSwift (2.3.1):
-    - PromisesObjC (= 2.3.1)
   - RCT-Folly (2022.05.16.00):
     - boost
     - DoubleConversion
@@ -1026,11 +1023,14 @@ PODS:
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
     - React-Core
-  - react-native-video (6.0.0-beta.6):
+  - react-native-video (6.2.0):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
     - React-Core
-    - react-native-video/Video (= 6.0.0-beta.6)
-  - react-native-video/Video (6.0.0-beta.6):
-    - PromisesSwift
+    - react-native-video/Video (= 6.2.0)
+  - react-native-video/Video (6.2.0):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
     - React-Core
   - react-native-view-shot (3.1.2):
     - React
@@ -1437,8 +1437,6 @@ SPEC REPOS:
     - MMKV
     - MMKVCore
     - MultiplatformBleAdapter
-    - PromisesObjC
-    - PromisesSwift
     - ScreenshotPreventing
     - SDWebImage
     - SDWebImageWebPCoder
@@ -1730,8 +1728,6 @@ SPEC CHECKSUMS:
   MMKV: 5a07930c70c70b86cd87761a42c8f3836fb681d7
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
-  PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
-  PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
   RCTRequired: 77f73950d15b8c1a2b48ba5b79020c3003d1c9b5
   RCTTypeSafety: ede1e2576424d89471ef553b2aed09fbbcc038e3
@@ -1768,7 +1764,7 @@ SPEC CHECKSUMS:
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
   react-native-tab-page-view: 85c179e539d8a096f13a057ffe97aa3995479dc2
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
-  react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
+  react-native-video: 12a68a3e9a6d93e8bdfa8e352917261c49ac35f7
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
   react-native-webview: ab8587e1e43e274471ec8dc9342ec1711fa8bf61
   react-native-webview-cleaner: 93c8c73a302c90fcd83a227438b2a53bdb47f7cc
