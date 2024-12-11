@@ -62,7 +62,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         </SizableText>
       ),
       onConfirmText: intl.formatMessage({
-        id: ETranslations.global_got_it,
+        id: ETranslations.explore_got_it,
       }),
     });
   }, [intl]);
