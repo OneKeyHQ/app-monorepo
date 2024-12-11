@@ -429,7 +429,7 @@ function BasicMarketHomeList({
     void fetchCategory();
   }, [fetchCategory]);
 
-  const { md, gtMd, gtLg, gtXl, gt2xl } = useMedia();
+  const { md, gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
 
   const filterCoingeckoIdsListData = useMemo(() => {
     const filterListData = category.coingeckoIds?.length
@@ -736,23 +736,25 @@ function BasicMarketHomeList({
                   renderSkeleton: () => <Skeleton w="$10" h="$3" />,
                 }
               : undefined,
-            {
-              title: intl.formatMessage({
-                id: ETranslations.market_twenty_four_hour_percentage,
-              }),
-              columnProps: {
-                flexGrow: 1,
-                flexBasis: 0,
-              },
-              align: 'right',
-              dataIndex: 'priceChangePercentage24H',
-              render: (priceChangePercentage24H: string) => (
-                <PriceChangePercentage>
-                  {priceChangePercentage24H}
-                </PriceChangePercentage>
-              ),
-              renderSkeleton: () => <Skeleton w="$10" h="$3" />,
-            },
+            gt2Md
+              ? {
+                  title: intl.formatMessage({
+                    id: ETranslations.market_twenty_four_hour_percentage,
+                  }),
+                  columnProps: {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                  },
+                  align: 'right',
+                  dataIndex: 'priceChangePercentage24H',
+                  render: (priceChangePercentage24H: string) => (
+                    <PriceChangePercentage>
+                      {priceChangePercentage24H}
+                    </PriceChangePercentage>
+                  ),
+                  renderSkeleton: () => <Skeleton w="$10" h="$3" />,
+                }
+              : undefined,
             gt2xl
               ? {
                   title: intl.formatMessage({
@@ -904,6 +906,7 @@ function BasicMarketHomeList({
     [
       colors,
       currency,
+      gt2Md,
       gt2xl,
       gtLg,
       gtMd,
