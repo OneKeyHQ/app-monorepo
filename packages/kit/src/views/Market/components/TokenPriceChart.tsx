@@ -1,24 +1,19 @@
-import type { ReactElement } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { TouchableWithoutFeedback } from 'react-native';
+import { useWindowDimensions } from 'react-native';
 
 import {
-  Icon,
   SegmentControl,
-  Select,
-  SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
   useMedia,
+  useSafeAreaInsets,
+  useTabBarHeight,
 } from '@onekeyhq/components';
 import type { ISegmentControlProps } from '@onekeyhq/components';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -39,12 +34,15 @@ interface IChartProps {
   symbol?: string;
   defer: IDeferredPromise<unknown>;
   tickers?: IMarketDetailTicker[];
+  isFetching: boolean;
+  height: number;
 }
 
-function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
+function NativeTokenPriceChart({ coinGeckoId, height, defer }: IChartProps) {
   const intl = useIntl();
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const { md } = useMedia();
   const options = useMemo(
     () => [
       {
@@ -78,7 +76,7 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
       coinGeckoId,
       days,
     );
-    if (platformEnv.isNativeAndroid) {
+    if (md) {
       setTimeout(() => {
         defer.resolve(null);
       }, 100);
@@ -87,7 +85,7 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
     }
     setPoints(response);
     setIsLoading(false);
-  }, [coinGeckoId, days, defer]);
+  }, [coinGeckoId, days, defer, md]);
 
   useEffect(() => {
     void init();
@@ -97,7 +95,7 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
     <>
       <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
         <YStack>
-          <PriceChart isFetching={isLoading} data={points}>
+          <PriceChart height={height} isFetching={isLoading} data={points}>
             {gtLg && !isLoading ? (
               <SegmentControl
                 value={days}
@@ -109,13 +107,7 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
         </YStack>
       </YStack>
       {gtLg ? null : (
-        <XStack
-          gap="$3"
-          ai="center"
-          px="$1"
-          pr="$5"
-          $platform-web={{ zIndex: 30 }}
-        >
+        <XStack gap="$3" ai="center" px="$5" $platform-web={{ zIndex: 30 }}>
           <SegmentControl
             value={days}
             jc="space-between"
@@ -129,61 +121,50 @@ function NativeTokenPriceChart({ coinGeckoId, defer }: IChartProps) {
   );
 }
 
+const useHeight = () => {
+  const { height } = useWindowDimensions();
+  const { top } = useSafeAreaInsets();
+  const { gtMd } = useMedia();
+
+  const tabHeight = useTabBarHeight();
+  const fixedHeight = useMemo(() => {
+    if (platformEnv.isNativeIOS) {
+      return 280;
+    }
+
+    if (platformEnv.isNativeAndroid) {
+      return 280;
+    }
+
+    return 300;
+  }, []);
+  return useMemo(
+    () => (gtMd ? 450 : height - top - tabHeight - fixedHeight),
+    [fixedHeight, gtMd, height, tabHeight, top],
+  );
+};
 function TradingViewChart({
   targetToken,
   identifier,
   baseToken,
   defer,
+  height,
 }: Omit<ITradingViewProps, 'mode'> & {
   defer: IDeferredPromise<unknown>;
 }) {
-  const { gtMd } = useMedia();
   useEffect(() => {
-    if (platformEnv.isNativeAndroid) {
-      setTimeout(() => {
-        defer.resolve(null);
-      }, 450);
-    } else {
-      defer.resolve(null);
-    }
+    defer.resolve(null);
   }, [defer]);
-  const timerId = useRef<ReturnType<typeof setTimeout>>();
-  const handlePressIn = useCallback(() => {
-    if (!platformEnv.isNative) {
-      return;
-    }
-    timerId.current = setTimeout(() => {
-      appEventBus.emit(
-        EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
-        { enabled: false },
-      );
-    }, 50);
-  }, []);
-
-  const handlePressOut = useCallback(() => {
-    if (!platformEnv.isNative) {
-      return;
-    }
-    clearTimeout(timerId.current);
-    setTimeout(() => {
-      appEventBus.emit(
-        EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled,
-        { enabled: true },
-      );
-    }, 50);
-  }, []);
 
   return (
     <TradingView
       mode="overview"
-      h={450}
+      h={height}
       $gtMd={{ pl: '$5' }}
       $md={{ pt: '$6' }}
       targetToken={targetToken}
       baseToken={baseToken}
       identifier={identifier}
-      onTouchStart={handlePressIn}
-      onTouchEnd={handlePressOut}
     />
   );
 }
@@ -198,6 +179,7 @@ const identifiers = [
   'kraken',
   'okx',
   'gate',
+  'kucoin',
 ];
 
 const targets = ['USD', 'USDT', 'USDC'];
@@ -207,11 +189,36 @@ const resolveIdentifierName = (name: string) => {
   }
   return name;
 };
-function BasicTokenPriceChart({ coinGeckoId, defer, tickers }: IChartProps) {
+
+const TICKER_MAP = {
+  'tether': {
+    identifier: 'COINBASE',
+    baseToken: 'USDT',
+    targetToken: 'USD',
+  },
+  'usd-coin': {
+    identifier: 'KRAKEN',
+    baseToken: 'USDC',
+    targetToken: 'USD',
+  },
+};
+
+function BasicTokenPriceChart({
+  coinGeckoId,
+  defer,
+  tickers,
+  isFetching,
+}: Omit<IChartProps, 'height'>) {
   const ticker = useMemo(() => {
     if (!tickers?.length) {
       return null;
     }
+
+    const item = TICKER_MAP[coinGeckoId as keyof typeof TICKER_MAP];
+    if (item) {
+      return item;
+    }
+
     for (let i = 0; i < tickers.length; i += 1) {
       const t = tickers[i];
       if (targets.includes(t.target)) {
@@ -232,17 +239,38 @@ function BasicTokenPriceChart({ coinGeckoId, defer, tickers }: IChartProps) {
         }
       }
     }
-  }, [tickers]);
+  }, [coinGeckoId, tickers]);
+
+  const viewHeight = useHeight();
+
+  if (isFetching) {
+    return (
+      <Stack
+        h={viewHeight}
+        w="100%"
+        alignContent="center"
+        justifyContent="center"
+      >
+        <Spinner size="large" />
+      </Stack>
+    );
+  }
 
   return ticker ? (
     <TradingViewChart
       defer={defer}
+      height={viewHeight}
       identifier={ticker?.identifier}
       baseToken={ticker?.baseToken}
       targetToken={ticker?.targetToken}
     />
   ) : (
-    <NativeTokenPriceChart coinGeckoId={coinGeckoId} defer={defer} />
+    <NativeTokenPriceChart
+      height={viewHeight}
+      isFetching={isFetching}
+      coinGeckoId={coinGeckoId}
+      defer={defer}
+    />
   );
 }
 

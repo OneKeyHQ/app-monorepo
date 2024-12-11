@@ -28,4 +28,5 @@ export interface ITabProps extends IScrollViewProps {
 
 export interface ITabInstance {
   setVerticalScrollEnabled: (enabled: boolean) => void;
+  scrollToTop: () => void;
 }
