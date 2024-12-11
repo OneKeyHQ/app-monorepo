@@ -321,6 +321,7 @@ export interface IDeviceVerifyVersionCompareResult {
   certificate: {
     isMatch: boolean;
     format: string;
+    releaseUrl?: string;
   };
   firmware: {
     isMatch: boolean;
