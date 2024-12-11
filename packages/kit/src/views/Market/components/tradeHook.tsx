@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalStakingRoutes,
   type IModalSwapParamList,
@@ -49,23 +50,27 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     [network],
   );
 
-  const remindUnsupportedToken = useCallback(() => {
-    Dialog.confirm({
-      title: intl.formatMessage({ id: ETranslations.earn_unsupported_token }),
-      tone: 'warning',
-      icon: 'ErrorOutline',
-      renderContent: (
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: ETranslations.earn_unsupported_token_desc,
-          })}
-        </SizableText>
-      ),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.explore_got_it,
-      }),
-    });
-  }, [intl]);
+  const remindUnsupportedToken = useCallback(
+    (action: 'buy' | 'sell' | 'trade') => {
+      defaultLogger.market.token.unsupportedToken({ name, action });
+      Dialog.confirm({
+        title: intl.formatMessage({ id: ETranslations.earn_unsupported_token }),
+        tone: 'warning',
+        icon: 'ErrorOutline',
+        renderContent: (
+          <SizableText size="$bodyLg">
+            {intl.formatMessage({
+              id: ETranslations.earn_unsupported_token_desc,
+            })}
+          </SizableText>
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.explore_got_it,
+        }),
+      });
+    },
+    [intl, name],
+  );
 
   const handleBuyOrSell = useCallback(
     async (type: IFiatCryptoType) => {
@@ -92,7 +97,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           type,
         });
       if (!url || !build) {
-        remindUnsupportedToken();
+        remindUnsupportedToken(type);
         return;
       }
       openUrlExternal(url);
@@ -102,10 +107,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
   const handleSwap = useCallback(async () => {
     if (!networkId) {
-      navigation.pushModal(EModalRoutes.SwapModal, {
-        screen: EModalSwapRoutes.SwapMainLand,
-        params: {},
-      });
+      remindUnsupportedToken('trade');
       return;
     }
     const { isSupportSwap, isSupportCrossChain } =
@@ -115,7 +117,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       });
 
     if (!isSupportSwap && !isSupportCrossChain) {
-      remindUnsupportedToken();
+      remindUnsupportedToken('trade');
       return;
     }
     const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
