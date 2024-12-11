@@ -133,7 +133,10 @@ const SwapInputContainer = ({
   };
 
   const onFromInputBlur = () => {
-    setPercentageInputStageShow(false);
+    // delay to avoid blur when select percentage stage
+    setTimeout(() => {
+      setPercentageInputStageShow(false);
+    }, 200);
   };
 
   const showPercentageInput = useMemo(
