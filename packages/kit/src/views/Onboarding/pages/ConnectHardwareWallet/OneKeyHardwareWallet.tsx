@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet, useWindowDimensions } from 'react-native';
@@ -18,7 +18,6 @@ import {
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
 
