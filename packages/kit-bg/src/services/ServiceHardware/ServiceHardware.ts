@@ -32,6 +32,8 @@ import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IBleFirmwareReleasePayload,
+  IDeviceResponseResult,
+  IDeviceVerifyVersionCompareResult,
   IFirmwareReleasePayload,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -75,6 +77,8 @@ import type {
   Features,
   IDeviceType,
   KnownDevice,
+  OnekeyFeatures,
+  Response,
   SearchDevice,
   UiEvent,
 } from '@onekeyfe/hd-core';
@@ -892,6 +896,27 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
+  async shouldAuthenticateFirmwareByHash(params: {
+    features: IOneKeyDeviceFeatures | undefined;
+  }) {
+    return this.hardwareVerifyManager.shouldAuthenticateFirmwareByHash(params);
+  }
+
+  @backgroundMethod()
+  async verifyFirmwareHash({
+    deviceType,
+    onekeyFeatures,
+  }: {
+    deviceType: IDeviceType;
+    onekeyFeatures: OnekeyFeatures | undefined;
+  }): Promise<IDeviceVerifyVersionCompareResult> {
+    return this.hardwareVerifyManager.verifyFirmwareHash({
+      deviceType,
+      onekeyFeatures,
+    });
+  }
+
+  @backgroundMethod()
   async uploadResource(connectId: string, params: DeviceUploadResourceParams) {
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() =>
@@ -910,6 +935,26 @@ class ServiceHardware extends ServiceBase {
       // ignore
     }
     return logs;
+  }
+
+  @backgroundMethod()
+  async getOneKeyFeatures({
+    connectId,
+    deviceType,
+  }: {
+    connectId: string;
+    deviceType: IDeviceType;
+  }): Promise<OnekeyFeatures> {
+    const hardwareSDK = await this.getSDKInstance();
+    return convertDeviceResponse(() => {
+      // classic1s does not support getOnekeyFeatures method
+      if (deviceType === 'classic1s') {
+        return hardwareSDK?.getFeatures(
+          connectId,
+        ) as unknown as Response<OnekeyFeatures>;
+      }
+      return hardwareSDK?.getOnekeyFeatures(connectId);
+    });
   }
 }
 
