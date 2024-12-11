@@ -9,6 +9,7 @@ import {
 } from '@onekeyhq/components';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
@@ -46,12 +47,17 @@ const SwapInputActions = ({
           <ActionBuy
             hiddenIfDisabled
             showButtonStyle
-            h="$5"
+            height="$5"
             px="$1.5"
+            py="$0"
             bg="$bgSubdued"
             size="small"
             label={
-              <XStack alignItems="center" gap="$1">
+              <XStack
+                alignItems="center"
+                gap="$1"
+                pt={platformEnv.isNative ? '$1' : '$0'}
+              >
                 <Icon name="CreditCardCvvOutline" size="$4" />
                 <SizableText size="$bodySmMedium" color="$textSubdued">
                   {intl.formatMessage({ id: ETranslations.global_buy })}
@@ -74,6 +80,7 @@ const SwapInputActions = ({
                 onPress={() => onSelectStage?.(stage)}
                 bg="$bgSubdued"
                 px="$1.5"
+                py="$0"
               >
                 <SizableText size="$bodySmMedium" color="$textSubdued">
                   {stage}%

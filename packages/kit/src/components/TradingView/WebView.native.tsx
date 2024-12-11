@@ -42,6 +42,7 @@ export function WebView({
       <NativeWebView
         javaScriptEnabled
         domStorageEnabled
+        nestedScrollEnabled
         onMessage={onMessage}
         webviewDebuggingEnabled={platformEnv.isDev}
         injectedJavaScript={injectedJavaScript}
