@@ -19,8 +19,6 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
-
 export function OneKeyHardwareWallet() {
   const { bottom } = useSafeAreaInsets();
   const intl = useIntl();
@@ -51,7 +49,9 @@ export function OneKeyHardwareWallet() {
         <Video
           muted
           repeat
-          source={source}
+          source={{
+            uri: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/static/media/onekey-all-products.05e87080767d0733c1f4.mp4',
+          }}
           flex={1}
           resizeMode={EVideoResizeMode.COVER}
           controls={false}
