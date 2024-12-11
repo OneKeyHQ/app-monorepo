@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
@@ -341,31 +342,45 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
       onekeyFeatures,
     });
 
+    const firmwareMatch = deviceUtils.compareDeviceVersions({
+      local: localVerifyInfos.firmware.raw,
+      remote: serverVerifyInfos.firmware.raw,
+    });
+    const bluetoothMatch = deviceUtils.compareDeviceVersions({
+      local: localVerifyInfos.bluetooth.raw,
+      remote: serverVerifyInfos.bluetooth.raw,
+    });
+    const bootloaderMatch = deviceUtils.compareDeviceVersions({
+      local: localVerifyInfos.bootloader.raw,
+      remote: serverVerifyInfos.bootloader.raw,
+    });
+
+    if (!firmwareMatch || !bluetoothMatch || !bootloaderMatch) {
+      defaultLogger.hardware.verify.verifyFailed({
+        local: localVerifyInfos,
+        server: serverVerifyInfos,
+      });
+    }
+
     return {
       certificate: {
         isMatch: true,
         format: onekeyFeatures?.onekey_serial_no ?? '',
       },
       firmware: {
-        isMatch: deviceUtils.compareDeviceVersions({
-          local: localVerifyInfos.firmware.raw,
-          remote: serverVerifyInfos.firmware.raw,
-        }),
+        isMatch: firmwareMatch,
         format: serverVerifyInfos.firmware.formatted,
+        releaseUrl: serverVerifyInfos.firmware.releaseUrl,
       },
       bluetooth: {
-        isMatch: deviceUtils.compareDeviceVersions({
-          local: localVerifyInfos.bluetooth.raw,
-          remote: serverVerifyInfos.bluetooth.raw,
-        }),
+        isMatch: bluetoothMatch,
         format: serverVerifyInfos.bluetooth.formatted,
+        releaseUrl: serverVerifyInfos.bluetooth.releaseUrl,
       },
       bootloader: {
-        isMatch: deviceUtils.compareDeviceVersions({
-          local: localVerifyInfos.bootloader.raw,
-          remote: serverVerifyInfos.bootloader.raw,
-        }),
+        isMatch: bootloaderMatch,
         format: serverVerifyInfos.bootloader.formatted,
+        releaseUrl: serverVerifyInfos.bootloader.releaseUrl,
       },
     };
   }

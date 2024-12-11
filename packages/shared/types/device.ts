@@ -302,11 +302,13 @@ export interface IDeviceVerifyRawVersions {
   version?: string;
   checksum?: string;
   commitId?: string;
+  releaseUrl?: string;
 }
 
 export interface IDeviceVerifyVersions {
   raw: IDeviceVerifyRawVersions;
   formatted: string;
+  releaseUrl?: string;
 }
 
 export interface IAllDeviceVerifyVersions {
@@ -323,13 +325,16 @@ export interface IDeviceVerifyVersionCompareResult {
   firmware: {
     isMatch: boolean;
     format: string;
+    releaseUrl?: string;
   };
   bluetooth: {
     isMatch: boolean;
     format: string;
+    releaseUrl?: string;
   };
   bootloader: {
     isMatch: boolean;
     format: string;
+    releaseUrl?: string;
   };
 }

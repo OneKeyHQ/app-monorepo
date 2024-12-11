@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
 import {
+  Anchor,
   Button,
   Dialog,
   Icon,
@@ -227,10 +228,12 @@ function VerifyHashRow({
   title,
   status,
   result,
+  releaseUrl,
 }: {
   title: string;
   status: IVerifyHashRowStatus;
   result: string;
+  releaseUrl?: string;
 }) {
   const intl = useIntl();
   const icon = useMemo(() => {
@@ -271,6 +274,19 @@ function VerifyHashRow({
       );
     }
     if (status === 'success') {
+      if (releaseUrl) {
+        return (
+          <Anchor
+            href={releaseUrl}
+            color="$textSuccess"
+            size="$bodyMd"
+            target="_blank"
+            textDecorationLine="underline"
+          >
+            {result}
+          </Anchor>
+        );
+      }
       return (
         <SizableText size="$bodyMd" color="$textSuccess">
           {result}
@@ -286,7 +302,7 @@ function VerifyHashRow({
     }
 
     return null;
-  }, [intl, result, status]);
+  }, [intl, result, status, releaseUrl]);
   return (
     <XStack jc="space-between" ai="center">
       <XStack gap="$2" ai="center">
@@ -399,6 +415,11 @@ function VerifyHash({
               versionCompareResult?.[
                 key as keyof IDeviceVerifyVersionCompareResult
               ]?.format ?? ''
+            }
+            releaseUrl={
+              versionCompareResult?.[
+                key as keyof IDeviceVerifyVersionCompareResult
+              ]?.releaseUrl
             }
           />
         ))}
