@@ -29,6 +29,10 @@ export function WebView({
         }, 800);
       };
     }
+    // Fallback to dismiss loading screen
+    setTimeout(() => {
+      onLoadEnd();
+    }, 3500);
   }, [iframeId, onLoadEnd, tradingViewProps.uri]);
   return (
     <div style={{ ...(style as any), position: 'relative' }}>
