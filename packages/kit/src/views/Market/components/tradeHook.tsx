@@ -17,6 +17,7 @@ import {
   getImportFromToken,
   getNetworkIdBySymbol,
 } from '@onekeyhq/shared/types/market/marketProvider.constants';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -99,13 +100,13 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       });
       return;
     }
-    const { isSupportSwap } =
+    const { isSupportSwap, isSupportCrossChain } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
         networkId,
         contractAddress,
       });
 
-    if (!isSupportSwap) {
+    if (!isSupportSwap && !isSupportCrossChain) {
       remindUnsupportedToken();
       return;
     }
@@ -118,7 +119,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       tokenSymbol: symbol,
       contractAddress,
     });
-    const { swapTabSwitchType, isNative } = importFromTokenResponse || {};
+    const { isNative } = importFromTokenResponse || {};
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
@@ -130,7 +131,9 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           symbol: symbol.toUpperCase(),
           name,
         },
-        swapTabSwitchType,
+        swapTabSwitchType: isSupportSwap
+          ? ESwapTabSwitchType.SWAP
+          : ESwapTabSwitchType.BRIDGE,
       },
     });
   }, [contractAddress, name, navigation, networkId, symbol]);
