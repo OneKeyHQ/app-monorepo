@@ -1,13 +1,14 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Linking, StyleSheet } from 'react-native';
+import { Linking, StyleSheet, useWindowDimensions } from 'react-native';
 
 import {
   EVideoResizeMode,
   Heading,
   Icon,
   LinearGradient,
+  NavBackButton,
   Page,
   SizableText,
   Stack,
@@ -15,7 +16,9 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 const source = require('@onekeyhq/kit/assets/onboarding/onekey-all-products.mp4');
 
@@ -35,12 +38,16 @@ export function OneKeyHardwareWallet() {
     }
   }, []);
 
+  const { width } = useWindowDimensions();
+
+  const navigation = useAppNavigation();
+
+  const popPage = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+
   return (
     <Page safeAreaEnabled={false}>
-      <Page.Header
-        title={intl.formatMessage({ id: ETranslations.onboarding_onekey_hw })}
-        headerTransparent
-      />
       <Page.Body>
         <Video
           muted
@@ -60,6 +67,29 @@ export function OneKeyHardwareWallet() {
           zIndex={1}
           justifyContent="flex-end"
         >
+          <XStack
+            position="absolute"
+            h={64}
+            w={width}
+            top={0}
+            px={16}
+            ai="center"
+            $platform-ios={{
+              jc: 'center',
+            }}
+          >
+            <NavBackButton
+              iconProps={{ color: '$whiteA12' }}
+              onPress={popPage}
+              $platform-ios={{
+                position: 'absolute',
+                left: 16,
+              }}
+            />
+            <SizableText size="$headingLg" mx={14} color="$whiteA12">
+              {intl.formatMessage({ id: ETranslations.onboarding_onekey_hw })}
+            </SizableText>
+          </XStack>
           <Stack p="$5" pt="$10">
             <LinearGradient
               colors={['transparent', '$blackA11']}
