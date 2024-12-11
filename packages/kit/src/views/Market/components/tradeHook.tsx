@@ -52,7 +52,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
   const remindUnsupportedToken = useCallback(
     (action: 'buy' | 'sell' | 'trade') => {
-      defaultLogger.market.token.unsupportedToken({ name, action });
+      defaultLogger.market.token.unsupportedToken({ name: symbol, action });
       Dialog.confirm({
         title: intl.formatMessage({ id: ETranslations.earn_unsupported_token }),
         tone: 'warning',
@@ -69,12 +69,31 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         }),
       });
     },
-    [intl, name],
+    [intl, symbol],
   );
 
   const handleBuyOrSell = useCallback(
     async (type: IFiatCryptoType) => {
       if (!activeAccount.account || !networkId) {
+        return;
+      }
+
+      const importFromTokenResponse = getImportFromToken({
+        networkId,
+        isSupportSwap: true,
+        tokenSymbol: symbol,
+        contractAddress,
+      });
+      const isSupported =
+        await backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
+          networkId,
+          tokenAddress:
+            importFromTokenResponse?.importFromToken.contractAddress || '',
+          type,
+        });
+
+      if (!isSupported) {
+        remindUnsupportedToken(type);
         return;
       }
 
@@ -102,7 +121,13 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       }
       openUrlExternal(url);
     },
-    [activeAccount.account, networkId, remindUnsupportedToken],
+    [
+      activeAccount.account,
+      contractAddress,
+      networkId,
+      remindUnsupportedToken,
+      symbol,
+    ],
   );
 
   const handleSwap = useCallback(
