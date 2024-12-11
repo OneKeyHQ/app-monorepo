@@ -105,34 +105,40 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     [activeAccount.account, networkId, remindUnsupportedToken],
   );
 
-  const handleSwap = useCallback(async () => {
-    if (!networkId) {
-      remindUnsupportedToken('trade');
-      return;
-    }
-    const { isSupportSwap, isSupportCrossChain } =
-      await backgroundApiProxy.serviceSwap.checkSupportSwap({
+  const handleSwap = useCallback(
+    async (mode?: 'modal' | 'button') => {
+      const popPage = () => {
+        if (mode === 'modal') {
+          navigation.pop();
+        }
+      };
+      if (!networkId) {
+        remindUnsupportedToken('trade');
+        popPage();
+        return;
+      }
+      const { isSupportSwap, isSupportCrossChain } =
+        await backgroundApiProxy.serviceSwap.checkSupportSwap({
+          networkId,
+          contractAddress,
+        });
+
+      if (!isSupportSwap && !isSupportCrossChain) {
+        remindUnsupportedToken('trade');
+        popPage();
+        return;
+      }
+      const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
+      });
+      const importFromTokenResponse = getImportFromToken({
+        networkId,
+        isSupportSwap,
+        tokenSymbol: symbol,
         contractAddress,
       });
-
-    if (!isSupportSwap && !isSupportCrossChain) {
-      remindUnsupportedToken('trade');
-      return;
-    }
-    const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
-      networkId,
-    });
-    const importFromTokenResponse = getImportFromToken({
-      networkId,
-      isSupportSwap,
-      tokenSymbol: symbol,
-      contractAddress,
-    });
-    const { isNative } = importFromTokenResponse || {};
-    navigation.pushModal(EModalRoutes.SwapModal, {
-      screen: EModalSwapRoutes.SwapMainLand,
-      params: {
+      const { isNative } = importFromTokenResponse || {};
+      const params = {
         importFromToken: {
           ...onekeyNetwork,
           contractAddress: isNative ? '' : contractAddress,
@@ -144,16 +150,27 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         swapTabSwitchType: isSupportSwap
           ? ESwapTabSwitchType.SWAP
           : ESwapTabSwitchType.BRIDGE,
-      },
-    });
-  }, [
-    contractAddress,
-    name,
-    navigation,
-    networkId,
-    remindUnsupportedToken,
-    symbol,
-  ]);
+      };
+      if (mode === 'modal') {
+        navigation.replace(EModalSwapRoutes.SwapMainLand, {
+          params,
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SwapModal, {
+          screen: EModalSwapRoutes.SwapMainLand,
+          params,
+        });
+      }
+    },
+    [
+      contractAddress,
+      name,
+      navigation,
+      networkId,
+      remindUnsupportedToken,
+      symbol,
+    ],
+  );
 
   const handleStaking = useCallback(() => {
     if (networkId && activeAccount.account) {
@@ -207,17 +224,30 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
       await fetchMarketTokenDetail();
       // wait for token detail loaded and actionsRef updated
       await timerUtils.wait(80);
-      await actionsRef.current[actionName]();
+      await actionsRef.current[actionName]('modal');
     },
     [fetchMarketTokenDetail],
   );
+
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+  const handleSwapLazyModal = useCallback(() => {
+    navigation.pushModal(EModalRoutes.SwapModal, {
+      screen: EModalSwapRoutes.SwapLazyMarketModal,
+      params: {
+        coinGeckoId,
+      },
+    });
+  }, [coinGeckoId, navigation]);
+
   return useMemo(
     () => ({
       onSwap: () => compose('onSwap'),
+      onSwapLazyModal: handleSwapLazyModal,
       onStaking: () => compose('onStaking'),
       onBuy: () => compose('onBuy'),
       onSell: () => compose('onSell'),
     }),
-    [compose],
+    [compose, handleSwapLazyModal],
   );
 };
