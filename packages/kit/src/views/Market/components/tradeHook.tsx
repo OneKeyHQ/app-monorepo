@@ -56,10 +56,14 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       icon: 'ErrorOutline',
       renderContent: (
         <SizableText size="$bodyLg">
-          {ETranslations.earn_unsupported_token_desc}
+          {intl.formatMessage({
+            id: ETranslations.earn_unsupported_token_desc,
+          })}
         </SizableText>
       ),
-      onConfirmText: 'Got it!',
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_got_it,
+      }),
     });
   }, [intl]);
 
