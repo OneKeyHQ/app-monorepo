@@ -46,11 +46,11 @@ const getSwapTokenMap = memoizee(
       },
       [networkIdsMap.ton]: {
         contractAddress: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c',
-        symbol: 'KAS',
+        symbol: 'TON',
       },
       [networkIdsMap.sui]: {
         contractAddress: '0x2::sui::SUI',
-        symbol: 'KAS',
+        symbol: 'SUI',
       },
     };
   },
