@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import type { ISizableTextProps } from '@onekeyhq/components';
 import {
   Divider,
-  IconButton,
   Image,
   NumberSizeableText,
   SizableText,
@@ -207,7 +206,7 @@ function TxActionSwapInfo(props: IProps) {
                     />
                   </Stack>
                 </XStack>
-                <SizableText size="$bodyMd" color="$textSubdued">
+                <SizableText size="$bodyMd" color="$text">
                   {senderNetwork?.name} → {receiverNetwork?.name}
                 </SizableText>
               </XStack>
@@ -223,7 +222,9 @@ function TxActionSwapInfo(props: IProps) {
                   networkId={sender.accountInfo.networkId}
                   size="$5"
                 />
-                <SizableText {...textStyle}>{senderNetwork?.name}</SizableText>
+                <SizableText {...textStyle} color="$text">
+                  {senderNetwork?.name}
+                </SizableText>
               </XStack>
             }
           />
