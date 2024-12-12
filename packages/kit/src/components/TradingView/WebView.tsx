@@ -52,7 +52,7 @@ export function WebView({
         <Stack
           position="absolute"
           width={42}
-          height={28}
+          height={30}
           bottom={30}
           left={10}
           bg="$bgApp"
