@@ -1456,6 +1456,7 @@
   provider_ios_popover_approval_require_title = 'provider.ios_popover.approval_require_title',
   provider_ios_popover_onekey_fee = 'provider.ios_popover.onekey_fee',
   provider_ios_popover_onekey_fee_content = 'provider.ios_popover.onekey_fee_content',
+  provider_ios_popover_onekey_fee_content_sub = 'provider.ios_popover.onekey_fee_content_sub',
   provider_ios_popover_order_info_title = 'provider.ios_popover.order_info_title',
   provider_ios_popover_title = 'provider.ios_popover.title',
   provider_label_anti_mev = 'provider.label_anti_mev',
