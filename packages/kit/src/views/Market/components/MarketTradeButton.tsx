@@ -52,14 +52,14 @@ export function MarketTradeButton({
 
   const checkDisabled = useCallback(async () => {
     if (networkId) {
-      const importFromTokenResponse = getImportFromToken({
-        networkId,
-        isSupportSwap: true,
-        tokenSymbol: token.symbol,
-        contractAddress: network?.contract_address || '',
-      });
-      const contractAddress =
-        importFromTokenResponse?.importFromToken?.contractAddress || '';
+      const { isNative } =
+        getImportFromToken({
+          networkId,
+          isSupportSwap: true,
+          tokenSymbol: token.symbol,
+          contractAddress: network?.contract_address || '',
+        }) || {};
+      const contractAddress = isNative ? '' : network?.contract_address || '';
 
       const [swapResult, buyResult, sellResult] = await Promise.all([
         backgroundApiProxy.serviceSwap.checkSupportSwap({
