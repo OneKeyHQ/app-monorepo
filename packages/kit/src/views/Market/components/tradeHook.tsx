@@ -184,6 +184,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           ...onekeyNetwork,
           contractAddress: isNative ? '' : contractAddress,
           networkId,
+          isNative,
           networkLogoURI: onekeyNetwork.logoURI,
           symbol: symbol.toUpperCase(),
           name,
