@@ -147,8 +147,6 @@ export function convertDeviceError(
         return new HardwareErrors.StringOverflowError({ payload });
       }
       return new HardwareErrors.UnknownHardwareError({ payload });
-    case HardwareErrorCode.CallMethodNotResponse:
-      return new HardwareErrors.UnknownMethod({ payload });
     case HardwareErrorCode.PinInvalid:
       return new HardwareErrors.InvalidPIN({
         payload,
