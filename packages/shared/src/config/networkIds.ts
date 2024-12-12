@@ -57,7 +57,11 @@ export type INetworkShortCode =
   | 'holesky'
   | 'flare'
   | 'base'
-  | 'ton';
+  | 'ton'
+  | 'bob'
+  | 'mode'
+  | 'taiko'
+  | 'metis';
 
 const checkErrors: string[] = [];
 // TODO generate getNetworkIdsMap in build time

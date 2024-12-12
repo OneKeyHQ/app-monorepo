@@ -1,16 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { Linking, StyleSheet } from 'react-native';
 
-import type { IButtonProps } from '@onekeyhq/components';
 import {
+  Anchor,
   Button,
   Dialog,
+  Icon,
   SizableText,
   Spinner,
   Stack,
+  XStack,
   YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
@@ -18,9 +20,9 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
-import type {
-  OneKeyError,
-  OneKeyServerApiError,
+import {
+  type OneKeyError,
+  type OneKeyServerApiError,
 } from '@onekeyhq/shared/src/errors';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
@@ -29,6 +31,10 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IDeviceVerifyVersionCompareResult,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 
 import type { SearchDevice } from '@onekeyfe/hd-core';
 
@@ -41,19 +47,23 @@ type IFirmwareAuthenticationState =
 export enum EFirmwareAuthenticationDialogContentType {
   default = 'default',
   verifying = 'verifying',
+  verification_verify = 'verification_verify',
   verification_successful = 'verification_successful',
   network_error = 'network_error',
   unofficial_device_detected = 'unofficial_device_detected',
   verification_temporarily_unavailable = 'verification_temporarily_unavailable',
   error_fallback = 'error_fallback',
+  unofficial_firmware_detected = 'unofficial_firmware_detected',
 }
 
 function useFirmwareVerifyBase({
   device,
   skipDeviceCancel,
+  useNewProcess,
 }: {
   device: SearchDevice | IDBDevice;
   skipDeviceCancel?: boolean;
+  useNewProcess?: boolean;
 }) {
   const [result, setResult] = useState<IFirmwareAuthenticationState>('unknown'); // unknown, official, unofficial, error
   const [errorObj, setErrorObj] = useState<{ code: number; message?: string }>({
@@ -62,6 +72,9 @@ function useFirmwareVerifyBase({
   const [contentType, setContentType] = useState(
     EFirmwareAuthenticationDialogContentType.default,
   );
+  const [versionCompareResult, setVersionCompareResult] = useState<
+    IDeviceVerifyVersionCompareResult | undefined
+  >(undefined);
   const dialogInstance = useDialogInstance();
   useEffect(() => {
     const callback = () => {
@@ -88,8 +101,14 @@ function useFirmwareVerifyBase({
       console.log('firmwareAuthenticate >>>> ', authResult);
       if (authResult.verified) {
         setResult('official');
+        // Set certificate to success first
+        setVersionCompareResult({
+          certificate: { isMatch: true, format: authResult.result?.data ?? '' },
+        } as unknown as IDeviceVerifyVersionCompareResult);
         setContentType(
-          EFirmwareAuthenticationDialogContentType.verification_successful,
+          useNewProcess
+            ? EFirmwareAuthenticationDialogContentType.verification_verify
+            : EFirmwareAuthenticationDialogContentType.verification_successful,
         );
       } else {
         setResult('unofficial');
@@ -97,6 +116,30 @@ function useFirmwareVerifyBase({
         setContentType(
           EFirmwareAuthenticationDialogContentType.unofficial_device_detected,
         );
+      }
+
+      if (useNewProcess) {
+        // verify firmware hash
+        const latestFeatures =
+          await backgroundApiProxy.serviceHardware.getOneKeyFeatures({
+            connectId: device?.connectId ?? '',
+            deviceType: device.deviceType,
+          });
+        const verifyResult =
+          await backgroundApiProxy.serviceHardware.verifyFirmwareHash({
+            deviceType: device.deviceType,
+            onekeyFeatures: latestFeatures,
+          });
+        console.log('=====>>>> verifyResult: ', verifyResult);
+        setVersionCompareResult(verifyResult);
+        const hasUnverifiedFirmware = Object.entries(verifyResult).some(
+          ([, value]: [string, { isMatch: boolean }]) => !value.isMatch,
+        );
+        if (hasUnverifiedFirmware) {
+          setContentType(
+            EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected,
+          );
+        }
       }
     } catch (error) {
       setResult('error');
@@ -150,25 +193,254 @@ function useFirmwareVerifyBase({
         skipDeviceCancel,
       });
     }
-  }, [device, dialogInstance, skipDeviceCancel]);
+  }, [device, dialogInstance, skipDeviceCancel, useNewProcess]);
 
   useEffect(() => {
     setTimeout(async () => {
       await verify();
     }, 50);
-    // setTimeout(() => {
-    //   setIsConfirmOnDevice(true);
-    //   setTimeout(() => {
-    //     setResult('official');
-    //   }, 3000);
-    // }, 3000);
   }, [verify]);
 
   const reset = useCallback(() => {
     setResult('unknown');
   }, []);
 
-  return { result, reset, verify, contentType, setContentType, errorObj };
+  return {
+    result,
+    reset,
+    verify,
+    contentType,
+    setContentType,
+    errorObj,
+    versionCompareResult,
+  };
+}
+
+export type IHashInfo = {
+  certificate: string;
+  firmware: string;
+  bluetooth: string;
+  bootloader: string;
+  securityElement: string;
+};
+
+type IVerifyHashRowStatus = 'error' | 'success' | 'loading' | 'init';
+function VerifyHashRow({
+  title,
+  status,
+  result,
+  releaseUrl,
+}: {
+  title: string;
+  status: IVerifyHashRowStatus;
+  result: string;
+  releaseUrl?: string;
+}) {
+  const intl = useIntl();
+  const icon = useMemo(() => {
+    if (status === 'loading') {
+      return (
+        <Stack width="$6" height="$6" ai="center" jc="center">
+          <Spinner size="small" />
+        </Stack>
+      );
+    }
+    if (status === 'success') {
+      return <Icon name="CheckRadioSolid" size="$6" color="$iconSuccess" />;
+    }
+    if (status === 'init') {
+      return (
+        <Stack width="$6" height="$6" ai="center" jc="center">
+          <Stack
+            w="$5"
+            h="$5"
+            borderWidth={2}
+            borderColor="$icon"
+            opacity={0.2}
+            borderRadius="$full"
+          />
+        </Stack>
+      );
+    }
+    return <Icon name="XCircleSolid" size="$6" color="$iconCritical" />;
+  }, [status]);
+  const resultInfo = useMemo(() => {
+    if (status === 'loading') {
+      return (
+        <SizableText size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.device_auth_verifying_component_label,
+          })}
+        </SizableText>
+      );
+    }
+    if (status === 'success') {
+      if (releaseUrl) {
+        return (
+          <Anchor
+            href={releaseUrl}
+            color="$textSuccess"
+            size="$bodyMd"
+            target="_blank"
+            textDecorationLine="underline"
+          >
+            {result}
+          </Anchor>
+        );
+      }
+      return (
+        <SizableText size="$bodyMd" color="$textSuccess">
+          {result}
+        </SizableText>
+      );
+    }
+    if (status === 'error') {
+      return (
+        <SizableText size="$bodyMd" color="$textCritical">
+          {intl.formatMessage({ id: ETranslations.global_failed })}
+        </SizableText>
+      );
+    }
+
+    return null;
+  }, [intl, result, status, releaseUrl]);
+  return (
+    <XStack jc="space-between" ai="center">
+      <XStack gap="$2" ai="center">
+        {icon}
+        <SizableText size="$bodyMd">{title}</SizableText>
+      </XStack>
+      {resultInfo}
+    </XStack>
+  );
+}
+
+const keys = ['certificate', 'firmware', 'bluetooth', 'bootloader'];
+function VerifyHash({
+  certificateResult,
+  onActionPress,
+  initStatuses = {
+    certificate: 'loading',
+    firmware: 'init',
+    bluetooth: 'init',
+    bootloader: 'init',
+  },
+  versionCompareResult,
+}: {
+  certificateResult?: IFirmwareAuthenticationState;
+  versionCompareResult?: IDeviceVerifyVersionCompareResult;
+  onActionPress?: () => void;
+  initStatuses?: {
+    certificate: IVerifyHashRowStatus;
+    firmware: IVerifyHashRowStatus;
+    bluetooth: IVerifyHashRowStatus;
+    bootloader: IVerifyHashRowStatus;
+  };
+}) {
+  const [statues, setStatues] = useState(initStatuses);
+  const intl = useIntl();
+  const verifiedKeys = useRef(new Set<string>());
+
+  useEffect(() => {
+    keys.forEach((key) => {
+      if (
+        key !== 'certificate' &&
+        !verifiedKeys.current.has(key) &&
+        versionCompareResult?.[key as keyof IDeviceVerifyVersionCompareResult]
+      ) {
+        verifiedKeys.current.add(key);
+        setStatues((prev) => ({
+          ...prev,
+          [key]: versionCompareResult[
+            key as keyof IDeviceVerifyVersionCompareResult
+          ].isMatch
+            ? 'success'
+            : 'error',
+        }));
+      }
+    });
+  }, [versionCompareResult]);
+
+  useEffect(() => {
+    if (
+      certificateResult === 'official' ||
+      certificateResult === 'unofficial'
+    ) {
+      verifiedKeys.current.add('certificate');
+      setStatues((prev) => ({
+        ...prev,
+        certificate: certificateResult === 'official' ? 'success' : 'error',
+        ...(certificateResult === 'official' ? { firmware: 'loading' } : {}),
+      }));
+    }
+  }, [certificateResult]);
+
+  const titles = useMemo(
+    () => [
+      intl.formatMessage({ id: ETranslations.device_auth_certificate }),
+      intl.formatMessage({ id: ETranslations.global_firmware }),
+      intl.formatMessage({ id: ETranslations.global_bluetooth }),
+      'Bootloader',
+      'Security Element',
+    ],
+    [intl],
+  );
+
+  const isShowContinue =
+    Object.values(statues).filter((s) => s !== 'success').length === 0;
+
+  return (
+    <YStack>
+      {isShowContinue ? (
+        <Dialog.Header>
+          <Dialog.Icon icon="BadgeVerifiedSolid" tone="success" />
+          <Dialog.Title>
+            {intl.formatMessage({
+              id: ETranslations.device_auth_successful_title,
+            })}
+          </Dialog.Title>
+          <Dialog.Description>
+            {intl.formatMessage({
+              id: ETranslations.device_auth_successful_desc,
+            })}
+          </Dialog.Description>
+        </Dialog.Header>
+      ) : null}
+      <YStack gap="$2">
+        {keys.map((key, index) => (
+          <VerifyHashRow
+            key={key}
+            title={titles[index]}
+            status={statues[key as keyof typeof statues]}
+            result={
+              versionCompareResult?.[
+                key as keyof IDeviceVerifyVersionCompareResult
+              ]?.format ?? ''
+            }
+            releaseUrl={
+              versionCompareResult?.[
+                key as keyof IDeviceVerifyVersionCompareResult
+              ]?.releaseUrl
+            }
+          />
+        ))}
+      </YStack>
+      {isShowContinue ? (
+        <Button
+          mt="$5"
+          $md={
+            {
+              size: 'large',
+            } as any
+          }
+          variant="primary"
+          onPress={onActionPress}
+        >
+          {intl.formatMessage({ id: ETranslations.global_continue })}
+        </Button>
+      ) : null}
+    </YStack>
+  );
 }
 
 export function EnumBasicDialogContentContainer({
@@ -176,6 +448,9 @@ export function EnumBasicDialogContentContainer({
   onActionPress,
   onContinuePress,
   errorObj,
+  certificateResult,
+  versionCompareResult,
+  useNewProcess,
 }: {
   contentType: EFirmwareAuthenticationDialogContentType;
   errorObj: {
@@ -184,6 +459,9 @@ export function EnumBasicDialogContentContainer({
   };
   onActionPress?: () => void;
   onContinuePress?: () => void;
+  certificateResult?: IFirmwareAuthenticationState;
+  versionCompareResult?: IDeviceVerifyVersionCompareResult;
+  useNewProcess?: boolean;
 }) {
   const intl = useIntl();
 
@@ -257,10 +535,29 @@ export function EnumBasicDialogContentContainer({
           </Dialog.Header>
         );
       case EFirmwareAuthenticationDialogContentType.verifying:
+        if (useNewProcess) {
+          return (
+            <>
+              <Dialog.Header>
+                <Dialog.Icon icon="DocumentSearch2Outline" tone="success" />
+                <Dialog.Title>
+                  {intl.formatMessage({
+                    id: ETranslations.device_auth_verifying_title,
+                  })}
+                </Dialog.Title>
+              </Dialog.Header>
+              <VerifyHash
+                certificateResult={certificateResult}
+                versionCompareResult={versionCompareResult}
+                onActionPress={onActionPress}
+              />
+            </>
+          );
+        }
         return (
           <>
             <Dialog.Header>
-              <Dialog.Icon icon="DotHorOutline" tone="success" />
+              <Dialog.Icon icon="DocumentSearch2Outline" tone="success" />
               <Dialog.Title>
                 {intl.formatMessage({
                   id: ETranslations.device_auth_verifying_title,
@@ -282,6 +579,24 @@ export function EnumBasicDialogContentContainer({
             >
               <Spinner size="large" />
             </Stack>
+          </>
+        );
+      case EFirmwareAuthenticationDialogContentType.verification_verify:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="DocumentSearch2Outline" tone="success" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_verifying_title,
+                })}
+              </Dialog.Title>
+            </Dialog.Header>
+            <VerifyHash
+              certificateResult={certificateResult}
+              versionCompareResult={versionCompareResult}
+              onActionPress={onActionPress}
+            />
           </>
         );
       case EFirmwareAuthenticationDialogContentType.verification_successful:
@@ -386,6 +701,54 @@ export function EnumBasicDialogContentContainer({
             ) : null}
           </>
         );
+      case EFirmwareAuthenticationDialogContentType.unofficial_firmware_detected:
+        return (
+          <>
+            <Dialog.Header>
+              <Dialog.Icon icon="ErrorOutline" tone="destructive" />
+              <Dialog.Title>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_unofficial_device_detected,
+                })}
+              </Dialog.Title>
+              <Dialog.Description>
+                {intl.formatMessage({
+                  id: ETranslations.device_auth_unofficial_device_detected_help_text,
+                })}
+              </Dialog.Description>
+            </Dialog.Header>
+            <VerifyHash
+              certificateResult={certificateResult}
+              versionCompareResult={versionCompareResult}
+              onActionPress={onActionPress}
+            />
+            <Button
+              mt="$5"
+              $md={
+                {
+                  size: 'large',
+                } as any
+              }
+              variant="primary"
+              onPress={() => Linking.openURL(FIRMWARE_CONTACT_US_URL)}
+            >
+              {intl.formatMessage({ id: ETranslations.global_contact_us })}
+            </Button>
+            {platformEnv.isDev ? (
+              <Button
+                mt="$5"
+                $md={
+                  {
+                    size: 'large',
+                  } as any
+                }
+                onPress={onContinuePress}
+              >
+                Skip it And Create Wallet(Only in Dev)
+              </Button>
+            ) : null}
+          </>
+        );
       case EFirmwareAuthenticationDialogContentType.verification_temporarily_unavailable:
         return (
           <>
@@ -458,6 +821,9 @@ export function EnumBasicDialogContentContainer({
     onActionPress,
     onContinuePress,
     renderFooter,
+    certificateResult,
+    versionCompareResult,
+    useNewProcess,
   ]);
   return <YStack>{content}</YStack>;
 }
@@ -466,16 +832,26 @@ export function FirmwareAuthenticationDialogContent({
   onContinue,
   device,
   skipDeviceCancel,
+  useNewProcess,
 }: {
   onContinue: (params: { checked: boolean }) => void;
   device: SearchDevice | IDBDevice;
   skipDeviceCancel?: boolean;
+  useNewProcess?: boolean;
 }) {
-  const { result, reset, verify, contentType, setContentType, errorObj } =
-    useFirmwareVerifyBase({
-      device,
-      skipDeviceCancel,
-    });
+  const {
+    result,
+    reset,
+    verify,
+    contentType,
+    setContentType,
+    errorObj,
+    versionCompareResult,
+  } = useFirmwareVerifyBase({
+    device,
+    skipDeviceCancel,
+    useNewProcess,
+  });
 
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
@@ -512,10 +888,13 @@ export function FirmwareAuthenticationDialogContent({
 
     return (
       <EnumBasicDialogContentContainer
+        useNewProcess={useNewProcess}
         errorObj={errorObj}
         contentType={contentType}
         onActionPress={propsMap[result].onPress}
         onContinuePress={handleContinuePress}
+        certificateResult={result}
+        versionCompareResult={versionCompareResult}
       />
     );
   }, [
@@ -528,6 +907,8 @@ export function FirmwareAuthenticationDialogContent({
     reset,
     setContentType,
     verify,
+    versionCompareResult,
+    useNewProcess,
   ]);
 
   return <Stack gap="$5">{content}</Stack>;
@@ -537,11 +918,25 @@ export function useFirmwareVerifyDialog() {
   const showFirmwareVerifyDialog = useCallback(
     async ({
       device,
+      features,
       onContinue,
     }: {
       device: SearchDevice | IDBDevice;
+      features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
     }) => {
+      console.log('====> features: ', features);
+      // use old features to quick check if need new version
+      const shouldUseNewAuthenticateVersion =
+        await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmwareByHash(
+          {
+            features,
+          },
+        );
+      console.log(
+        'shouldUseNewAuthenticateVersion: ====>>>: ',
+        shouldUseNewAuthenticateVersion,
+      );
       const firmwareAuthenticationDialog = Dialog.show({
         tone: 'success',
         icon: 'DocumentSearch2Outline',
@@ -551,14 +946,13 @@ export function useFirmwareVerifyDialog() {
         showFooter: false,
         renderContent: (
           <FirmwareAuthenticationDialogContent
+            skipDeviceCancel
             device={device}
             onContinue={async ({ checked }) => {
               await firmwareAuthenticationDialog.close();
               await onContinue({ checked });
             }}
-            {...{
-              skipDeviceCancel: true, // FirmwareAuthenticationDialogContent
-            }}
+            useNewProcess={shouldUseNewAuthenticateVersion}
           />
         ),
         async onClose() {

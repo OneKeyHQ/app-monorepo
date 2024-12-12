@@ -213,6 +213,14 @@ const settings: IVaultSettings = {
     [networkIdMap.arbitrum]: true,
     [networkIdMap.avalanche]: true,
     [networkIdMap.base]: true,
+    [networkIdMap.optimism]: true,
+    [networkIdMap.polygon]: true,
+    [networkIdMap.blast]: true,
+    [networkIdMap.bob]: true,
+    [networkIdMap.metis]: true,
+    [networkIdMap.mode]: true,
+    [networkIdMap.taiko]: true,
+    [networkIdMap.mantle]: true,
   },
 };
 

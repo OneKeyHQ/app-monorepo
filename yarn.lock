@@ -7050,7 +7050,7 @@ __metadata:
     react-native-spotlight-tour: "npm:^3.0.1"
     react-native-svg: "npm:^13.9.0"
     react-native-tcp-socket: "npm:^6.0.6"
-    react-native-video: "npm:6.0.0-beta.6"
+    react-native-video: "npm:6.2.0"
     react-native-view-shot: "npm:3.1.2"
     react-native-webview: "npm:@onekeyfe/react-native-webview@13.8.2"
     react-native-webview-cleaner: "npm:@onekeyfe/react-native-webview-cleaner@1.0.0"
@@ -34284,13 +34284,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-video@npm:6.0.0-beta.6":
-  version: 6.0.0-beta.6
-  resolution: "react-native-video@npm:6.0.0-beta.6"
+"react-native-video@npm:6.2.0":
+  version: 6.2.0
+  resolution: "react-native-video@npm:6.2.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/f8a53a428907b00f8ca74e7f81988b5603a6383943a9b5883c642d99845f04e5340f2254aa573dbde630e5668ac7cee8345bf0f37812de7d7e3a4db925216cd1
+  checksum: 10/5a8d6d5b778b9eb432dc0b3994c7ade44fde343778a3aca1e5b2f38daae834625824249fe4185def6d75a8fd0da89886264284de392a10396e91bdd8920d7549
   languageName: node
   linkType: hard
 

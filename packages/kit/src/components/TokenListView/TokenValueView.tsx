@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
@@ -18,6 +20,11 @@ function TokenValueView(props: IProps) {
 
   const token = tokenListMap[$key];
 
+  const fiatValue = useMemo(
+    () => new BigNumber(token?.fiatValue ?? 0),
+    [token?.fiatValue],
+  );
+
   const content = useMemo(
     () => (
       <NumberSizeableTextWrapper
@@ -25,10 +32,10 @@ function TokenValueView(props: IProps) {
         formatterOptions={{ currency: settings.currencyInfo.symbol }}
         {...rest}
       >
-        {token?.fiatValue ?? 0}
+        {fiatValue.isNaN() ? 0 : fiatValue.toFixed()}
       </NumberSizeableTextWrapper>
     ),
-    [rest, settings.currencyInfo.symbol, token?.fiatValue],
+    [fiatValue, rest, settings.currencyInfo.symbol],
   );
 
   if (!token) {

@@ -56,7 +56,7 @@ const SwapInputActions = ({
               <XStack
                 alignItems="center"
                 gap="$1"
-                pt={platformEnv.isNative ? '$1' : '$0'}
+                pt={platformEnv.isNativeIOS ? '$1' : '$0'}
               >
                 <Icon name="CreditCardCvvOutline" size="$4" />
                 <SizableText size="$bodySmMedium" color="$textSubdued">
@@ -77,7 +77,9 @@ const SwapInputActions = ({
                 height="$5"
                 key={`swap-percentage-input-stage-${stage}`}
                 size="small"
-                onPress={() => onSelectStage?.(stage)}
+                onPress={() => {
+                  onSelectStage?.(stage);
+                }}
                 bg="$bgSubdued"
                 px="$1.5"
                 py="$0"
