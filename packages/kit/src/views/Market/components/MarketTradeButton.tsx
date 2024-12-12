@@ -55,7 +55,6 @@ export function MarketTradeButton({
       const { isNative } =
         getImportFromToken({
           networkId,
-          isSupportSwap: true,
           tokenSymbol: token.symbol,
           contractAddress: network?.contract_address || '',
         }) || {};
