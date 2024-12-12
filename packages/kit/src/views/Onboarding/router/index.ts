@@ -111,6 +111,9 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.OneKeyHardwareWallet,
     component: OneKeyHardwareWallet,
+    options: {
+      headerShown: false,
+    },
   },
   {
     name: EOnboardingPages.ActivateDevice,
