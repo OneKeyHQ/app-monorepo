@@ -52,10 +52,6 @@ const getSwapTokenMap = memoizee(
         contractAddress: '0x2::sui::SUI',
         symbol: 'SUI',
       },
-      [networkIdsMap.fantom]: {
-        contractAddress: 'EQDCBwiUEeeBLHhqIW161yObGvO7_BqZeD3XR5E2y_fwfiMG',
-        symbol: 'FTM',
-      },
     };
   },
 );
