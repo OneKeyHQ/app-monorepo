@@ -568,7 +568,7 @@ export function useSwapBuildTx() {
                 accountUtils.isHwAccount({
                   accountId: swapFromAddressInfo.accountInfo.account.id,
                 }) ||
-                accountUtils.isOthersAccount({
+                accountUtils.isExternalAccount({
                   accountId: swapFromAddressInfo.accountInfo.account.id,
                 }) ||
                 SwapBuildUseMultiplePopoversNetworkIds.includes(
