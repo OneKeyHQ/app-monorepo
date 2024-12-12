@@ -168,7 +168,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const { isSupportSwap, isSupportCrossChain } =
         await backgroundApiProxy.serviceSwap.checkSupportSwap({
           networkId,
-          contractAddress: isNative ? contractAddress : '',
+          contractAddress: isNative ? '' : contractAddress,
         });
 
       if (!isSupportSwap && !isSupportCrossChain) {
