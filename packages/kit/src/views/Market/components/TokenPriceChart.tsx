@@ -107,7 +107,15 @@ function NativeTokenPriceChart({ coinGeckoId, height, defer }: IChartProps) {
         </YStack>
       </YStack>
       {gtLg ? null : (
-        <XStack gap="$3" ai="center" px="$5" $platform-web={{ zIndex: 30 }}>
+        <XStack
+          gap="$3"
+          ai="center"
+          px="$5"
+          $platform-web={{ zIndex: 30 }}
+          position="absolute"
+          top={height - 48}
+          width="100%"
+        >
           <SegmentControl
             value={days}
             jc="space-between"
@@ -252,7 +260,7 @@ function BasicTokenPriceChart({
     );
   }
 
-  return ticker ? (
+  return false ? (
     <TradingViewChart
       defer={defer}
       height={viewHeight}
