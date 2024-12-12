@@ -52,7 +52,7 @@ export function MarketTradeButton({
 
   const checkDisabled = useCallback(async () => {
     if (networkId) {
-      const { isNative, realContractAddress } =
+      const { isNative, realContractAddress = '' } =
         getImportFromToken({
           networkId,
           tokenSymbol: token.symbol,
