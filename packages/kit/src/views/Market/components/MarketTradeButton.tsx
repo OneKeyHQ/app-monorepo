@@ -52,7 +52,7 @@ export function MarketTradeButton({
 
   const checkDisabled = useCallback(async () => {
     if (networkId) {
-      const { isNative } =
+      const { isNative, realContractAddress } =
         getImportFromToken({
           networkId,
           tokenSymbol: token.symbol,
@@ -63,7 +63,7 @@ export function MarketTradeButton({
       const [swapResult, buyResult, sellResult] = await Promise.all([
         backgroundApiProxy.serviceSwap.checkSupportSwap({
           networkId,
-          contractAddress: isNative ? '' : contractAddress,
+          contractAddress: isNative ? realContractAddress : contractAddress,
         }),
         backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
           networkId,
