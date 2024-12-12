@@ -94,17 +94,17 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         return;
       }
 
-      const importFromTokenResponse = getImportFromToken({
-        networkId,
-        isSupportSwap: true,
-        tokenSymbol: symbol,
-        contractAddress,
-      });
+      const { isNative } =
+        getImportFromToken({
+          networkId,
+          isSupportSwap: true,
+          tokenSymbol: symbol,
+          contractAddress,
+        }) || {};
       const isSupported =
         await backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
           networkId,
-          tokenAddress:
-            importFromTokenResponse?.importFromToken.contractAddress || '',
+          tokenAddress: isNative ? '' : contractAddress,
           type,
         });
 
@@ -172,13 +172,13 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
-      const importFromTokenResponse = getImportFromToken({
-        networkId,
-        isSupportSwap,
-        tokenSymbol: symbol,
-        contractAddress,
-      });
-      const { isNative } = importFromTokenResponse || {};
+      const { isNative } =
+        getImportFromToken({
+          networkId,
+          isSupportSwap,
+          tokenSymbol: symbol,
+          contractAddress,
+        }) || {};
       const params = {
         importFromToken: {
           ...onekeyNetwork,
