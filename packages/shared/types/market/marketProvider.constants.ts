@@ -183,7 +183,6 @@ export function getImportFromToken({
   networkId: string;
   tokenSymbol: string;
   contractAddress: string;
-  isSupportSwap: boolean;
 }) {
   const map = getSwapTokenMap();
   const item = map[networkId];
