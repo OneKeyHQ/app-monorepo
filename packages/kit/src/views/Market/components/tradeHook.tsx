@@ -28,11 +28,13 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms } = token || {};
-  const network = useMemo(
-    () => (detailPlatforms ? Object.values(detailPlatforms)[0] : null),
-    [detailPlatforms],
-  );
+  const { detailPlatforms, name } = token || {};
+  const network = useMemo(() => {
+    if (detailPlatforms && name === 'Toncoin') {
+      return detailPlatforms['the-open-network'];
+    }
+    return detailPlatforms ? Object.values(detailPlatforms)[0] : null;
+  }, [detailPlatforms, name]);
   return network;
 };
 
@@ -157,10 +159,16 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         popPage();
         return;
       }
+      const { isNative } =
+        getImportFromToken({
+          networkId,
+          tokenSymbol: symbol,
+          contractAddress,
+        }) || {};
       const { isSupportSwap, isSupportCrossChain } =
         await backgroundApiProxy.serviceSwap.checkSupportSwap({
           networkId,
-          contractAddress,
+          contractAddress: isNative ? contractAddress : '',
         });
 
       if (!isSupportSwap && !isSupportCrossChain) {
@@ -171,12 +179,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
-      const { isNative } =
-        getImportFromToken({
-          networkId,
-          tokenSymbol: symbol,
-          contractAddress,
-        }) || {};
       const params = {
         importFromToken: {
           ...onekeyNetwork,

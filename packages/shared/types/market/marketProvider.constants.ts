@@ -42,7 +42,11 @@ const getSwapTokenMap = memoizee(
       },
       [networkIdsMap.kaspa]: {
         contractAddress: '',
-        symbol: 'APT',
+        symbol: 'KAS',
+      },
+      [networkIdsMap.ton]: {
+        contractAddress: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c',
+        symbol: 'KAS',
       },
     };
   },
