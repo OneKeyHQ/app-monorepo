@@ -193,9 +193,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           : ESwapTabSwitchType.BRIDGE,
       };
       if (mode === 'modal') {
-        navigation.replace(EModalSwapRoutes.SwapMainLand, {
-          params,
-        });
+        navigation.replace(EModalSwapRoutes.SwapMainLand, params);
       } else {
         navigation.pushModal(EModalRoutes.SwapModal, {
           screen: EModalSwapRoutes.SwapMainLand,
