@@ -117,6 +117,7 @@ function NativeTokenPriceChart({ coinGeckoId, height, defer }: IChartProps) {
           width="100%"
         >
           <SegmentControl
+            fullWidth
             value={days}
             jc="space-between"
             flex={1}
