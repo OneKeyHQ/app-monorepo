@@ -180,6 +180,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const params = {
         importFromToken: {
           ...onekeyNetwork,
+          logoURI: isNative ? onekeyNetwork.logoURI : undefined,
           contractAddress: isNative ? '' : contractAddress,
           networkId,
           isNative,
