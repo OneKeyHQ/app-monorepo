@@ -261,7 +261,7 @@ function BasicTokenPriceChart({
     );
   }
 
-  return false ? (
+  return ticker ? (
     <TradingViewChart
       defer={defer}
       height={viewHeight}
