@@ -45,6 +45,16 @@ export class SimpleDbEntityLocalNFTs extends SimpleDbEntityBase<ILocalNFTs> {
   }
 
   @backgroundMethod()
+  async updateAccountNFTsByCache(nfts: Record<string, IAccountNFT[]>) {
+    await this.setRawData((rawData) => ({
+      list: {
+        ...rawData?.list,
+        ...nfts,
+      },
+    }));
+  }
+
+  @backgroundMethod()
   async getAccountNFTs({
     networkId,
     accountAddress,
