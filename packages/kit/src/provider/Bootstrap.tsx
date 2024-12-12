@@ -8,6 +8,7 @@ import {
   Image,
   SizableText,
   YStack,
+  getCurrentVisibilityState,
   rootNavigationRef,
   useShortcuts,
 } from '@onekeyhq/components';
@@ -45,7 +46,7 @@ const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
     reachabilityLongTimeout: 60 * 1000,
     reachabilityShortTimeout: 5 * 1000,
     reachabilityRequestTimeout: 10 * 1000,
-    reachabilityShouldRun: () => true,
+    reachabilityShouldRun: () => getCurrentVisibilityState(),
     // met iOS requirements to get SSID. Will leak memory if set to true without meeting requirements.
     shouldFetchWiFiSSID: true,
     useNativeReachability: false,
