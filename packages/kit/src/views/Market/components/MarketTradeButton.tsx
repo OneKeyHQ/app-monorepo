@@ -63,7 +63,7 @@ export function MarketTradeButton({
       const [swapResult, buyResult, sellResult] = await Promise.all([
         backgroundApiProxy.serviceSwap.checkSupportSwap({
           networkId,
-          contractAddress: isNative ? contractAddress : '',
+          contractAddress: isNative ? '' : contractAddress,
         }),
         backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
           networkId,
