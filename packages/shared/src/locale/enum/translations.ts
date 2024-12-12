@@ -467,6 +467,8 @@
   earn_unstaking_period_tooltip = 'earn.unstaking_period_tooltip',
   earn_unsupported_path_desc = 'earn.unsupported_path_desc',
   earn_unsupported_path_title = 'earn.unsupported_path_title',
+  earn_unsupported_token = 'earn.unsupported_token',
+  earn_unsupported_token_desc = 'earn.unsupported_token_desc',
   earn_until_next_launch = 'earn.until_next_launch',
   earn_until_next_launch_tooltip = 'earn.until_next_launch_tooltip',
   earn_up_to_number_days = 'earn.up_to_number_days',

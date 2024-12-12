@@ -29,6 +29,10 @@ export function WebView({
         }, 800);
       };
     }
+    // Fallback to dismiss loading screen
+    setTimeout(() => {
+      onLoadEnd();
+    }, 3500);
   }, [iframeId, onLoadEnd, tradingViewProps.uri]);
   return (
     <div style={{ ...(style as any), position: 'relative' }}>
@@ -48,7 +52,7 @@ export function WebView({
         <Stack
           position="absolute"
           width={42}
-          height={28}
+          height={30}
           bottom={30}
           left={10}
           bg="$bgApp"

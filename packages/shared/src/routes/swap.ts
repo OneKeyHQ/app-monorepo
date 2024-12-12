@@ -16,6 +16,7 @@ export enum EModalSwapRoutes {
   SwapHistoryDetail = 'SwapHistoryDetail',
   SwapToAnotherAddress = 'SwapToAnotherAddress',
   TokenRiskReminder = 'TokenRiskReminder',
+  SwapLazyMarketModal = 'SwapLazyMarketModal',
 }
 
 export type IModalSwapParamList = {
@@ -47,5 +48,8 @@ export type IModalSwapParamList = {
     storeName: EJotaiContextStoreNames;
     token: ISwapToken;
     onConfirm: () => void;
+  };
+  [EModalSwapRoutes.SwapLazyMarketModal]: {
+    coinGeckoId: string;
   };
 };
