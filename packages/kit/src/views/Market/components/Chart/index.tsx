@@ -162,7 +162,6 @@ export function PriceChart({
       <Stack h={mdViewHeight} justifyContent="center" alignItems="center">
         {platformEnv.isNative ? chartView : chartViewWithSpinner}
       </Stack>
-      <Stack>{children}</Stack>
     </>
   );
 }
