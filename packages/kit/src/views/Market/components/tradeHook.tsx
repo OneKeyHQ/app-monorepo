@@ -159,7 +159,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         popPage();
         return;
       }
-      const { isNative, realContractAddress } =
+      const { isNative, realContractAddress = '' } =
         getImportFromToken({
           networkId,
           tokenSymbol: symbol,
