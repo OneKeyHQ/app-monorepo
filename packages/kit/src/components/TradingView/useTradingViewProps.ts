@@ -45,12 +45,27 @@ export const useTradingViewProps = ({
 }) => {
   const { md } = useMedia();
   const theme = useThemeVariant();
-  const [bgAppColor, bgSubduedColor, textColor, textDisabled, iconColor] =
-    useThemeValue(
-      ['$bgApp', '$bgSubdued', '$text', '$textDisabled', '$icon'],
-      undefined,
-      true,
-    );
+  const [
+    bgAppColor,
+    bgSubduedColor,
+    textColor,
+    textDisabled,
+    iconColor,
+    bgBackdropColor,
+    bgHoverColor,
+  ] = useThemeValue(
+    [
+      '$bgApp',
+      '$bgSubdued',
+      '$text',
+      '$textDisabled',
+      '$icon',
+      '$bgBackdrop',
+      '$bgHover',
+    ],
+    undefined,
+    true,
+  );
   const systemLocale = useLocaleVariant();
   const locale = useMemo(
     () => localeMap[systemLocale as ILocaleJSONSymbol] || 'en',
@@ -100,13 +115,14 @@ export const useTradingViewProps = ({
       const text = await res.text();
       const style = `
               :root {
-                 --tv-color-toolbar-button-text-active: ${textColor} !important;
+                --tv-color-toolbar-button-text-active: ${textColor} !important;
                 --tv-color-toolbar-button-text-active-hover: ${textColor} !important;
                 --tv-color-pane-background: ${bgAppColor} !important;
                 --tv-color-platform-background: ${bgAppColor} !important;
                 --tv-color-toolbar-button-text: ${textDisabled} !important;
                 --tv-spinner-color: ${iconColor} !important;
                 --tv-color-popup-background: ${bgSubduedColor} !important;
+                --tv-color-popup-element-background-hover: ${bgHoverColor} !important;
               }
               html .chart-page .chart-container-border {
                 background-color: ${bgAppColor} !important;
@@ -140,6 +156,10 @@ export const useTradingViewProps = ({
               }
               html.theme-dark .chart-page {
                 background: ${bgAppColor} !important;
+              }
+
+              #overlap-manager-root [class*="backdrop-"] {
+                background-color: ${bgBackdropColor} !important;
               }
       `;
       const htmlCode = text.replace(
@@ -175,7 +195,9 @@ export const useTradingViewProps = ({
       textDisabled,
       iconColor,
       bgSubduedColor,
+      bgHoverColor,
       md,
+      bgBackdropColor,
     ],
     {
       initResult: {

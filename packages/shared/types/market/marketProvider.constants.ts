@@ -1,165 +1,68 @@
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import { getNetworkIdsMap } from '../../src/config/networkIds';
-import { ESwapTabSwitchType } from '../swap/types';
 
+// TODO: This token configuration list should be moved to backend service
 const getSwapTokenMap = memoizee(
   (): Record<
     string,
     {
-      switchType: ESwapTabSwitchType;
       contractAddress: string;
-      default: {
-        contractAddress: string;
-        networkId: string;
-        name: string;
-        symbol: string;
-        decimals: number;
-        isNative: boolean;
-        networkLogoURI?: string;
-      };
-      target: {
-        networkId: string;
-        contractAddress: string;
-        name: string;
-        symbol: string;
-        decimals: number;
-        isNative: boolean;
-        networkLogoURI: string;
-        isPopular?: boolean;
-      };
+      symbol: string;
+      realContractAddress: string;
     }
   > => {
     const networkIdsMap = getNetworkIdsMap();
     return {
       [networkIdsMap.btc]: {
-        switchType: ESwapTabSwitchType.BRIDGE,
         contractAddress: '',
-        default: {
-          'contractAddress': '',
-          'networkId': 'btc--0',
-          'name': 'Bitcoin',
-          'symbol': 'BTC',
-          'decimals': 8,
-          'isNative': true,
-        },
-        target: {
-          'networkId': 'evm--1',
-          'contractAddress': '',
-          'name': 'Ethereum',
-          'symbol': 'ETH',
-          'decimals': 18,
-          'isNative': true,
-          'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
-        },
+        symbol: 'BTC',
+        realContractAddress: '',
       },
       [networkIdsMap.eth]: {
-        switchType: ESwapTabSwitchType.SWAP,
         contractAddress: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
-        default: {
-          'networkId': 'evm--1',
-          'contractAddress': '',
-          'name': 'Ethereum',
-          'symbol': 'ETH',
-          'decimals': 18,
-          'isNative': true,
-          'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
-        },
-        target: {
-          'networkId': 'evm--1',
-          'contractAddress': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
-          'name': 'USD Coin',
-          'symbol': 'USDC',
-          'decimals': 6,
-          'isNative': false,
-          'isPopular': true,
-          'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
-        },
+        symbol: 'ETH',
+        realContractAddress: '',
       },
       [networkIdsMap.sol]: {
-        switchType: ESwapTabSwitchType.SWAP,
         contractAddress: 'So11111111111111111111111111111111111111112',
-        default: {
-          'networkId': 'sol--101',
-          'contractAddress': '',
-          'name': 'Solana',
-          'symbol': 'SOL',
-          'decimals': 9,
-          'isNative': true,
-        },
-        target: {
-          'networkId': 'sol--101',
-          'contractAddress': 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
-          'name': 'USDC',
-          'symbol': 'USDC',
-          'decimals': 6,
-          'isNative': false,
-          'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/sol.png',
-        },
+        symbol: 'SOL',
+        realContractAddress: '',
       },
       [networkIdsMap.bsc]: {
-        switchType: ESwapTabSwitchType.SWAP,
         contractAddress: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
-        default: {
-          'networkId': 'evm--56',
-          'contractAddress': '',
-          'name': 'BNB',
-          'symbol': 'BNB',
-          'decimals': 18,
-          'isNative': true,
-        },
-        target: {
-          'networkId': 'evm--56',
-          'contractAddress': '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
-          'name': 'USD Coin',
-          'symbol': 'USDC',
-          'decimals': 18,
-          'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/bsc.png',
-          'isNative': false,
-        },
+        symbol: 'BNB',
+        realContractAddress: '',
       },
       [networkIdsMap.polygon]: {
-        switchType: ESwapTabSwitchType.SWAP,
         contractAddress: '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',
-        default: {
-          'contractAddress': '',
-          'networkId': 'evm--137',
-          'name': 'Polygon',
-          'symbol': 'POL',
-          'decimals': 18,
-          'isNative': true,
-        },
-        target: {
-          'contractAddress': '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
-          'networkId': 'evm--137',
-          'name': 'USD Coin',
-          'symbol': 'USDC',
-          'decimals': 6,
-          'networkLogoURI':
-            'https://uni.onekey-asset.com/static/chain/polygon.png',
-          'isNative': false,
-        },
+        symbol: 'POL',
+        realContractAddress: '',
+      },
+      [networkIdsMap.avalanche]: {
+        contractAddress: '0x0000000000000000000000000000000000000000',
+        symbol: 'AVAX',
+        realContractAddress: '',
       },
       [networkIdsMap.apt]: {
-        switchType: ESwapTabSwitchType.BRIDGE,
         contractAddress: '0x1::aptos_coin::AptosCoin',
-        default: {
-          'contractAddress': '',
-          'networkId': 'aptos--1',
-          'name': 'Aptos Coin',
-          'symbol': 'APT',
-          'decimals': 8,
-          'isNative': true,
-        },
-        target: {
-          'networkId': 'evm--1',
-          'contractAddress': '',
-          'name': 'Ethereum',
-          'symbol': 'ETH',
-          'decimals': 18,
-          'isNative': true,
-          'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
-        },
+        symbol: 'APT',
+        realContractAddress: '',
+      },
+      [networkIdsMap.kaspa]: {
+        contractAddress: '',
+        symbol: 'KAS',
+        realContractAddress: '',
+      },
+      [networkIdsMap.ton]: {
+        contractAddress: 'EQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM9c',
+        symbol: 'TON',
+        realContractAddress: '',
+      },
+      [networkIdsMap.sui]: {
+        contractAddress: '0x2::sui::SUI',
+        symbol: 'SUI',
+        realContractAddress: '0x2::sui::SUI',
       },
     };
   },
@@ -183,18 +86,16 @@ export function getImportFromToken({
   networkId: string;
   tokenSymbol: string;
   contractAddress: string;
-  isSupportSwap: boolean;
 }) {
   const map = getSwapTokenMap();
   const item = map[networkId];
   if (item) {
     const isNative =
-      tokenSymbol.toUpperCase() === item.default.symbol &&
+      tokenSymbol.toUpperCase() === item.symbol &&
       item.contractAddress === contractAddress;
     return {
       isNative,
-      importFromToken: isNative ? item.target : item.default,
-      swapTabSwitchType: item.switchType,
+      realContractAddress: item.realContractAddress,
     };
   }
   return undefined;
