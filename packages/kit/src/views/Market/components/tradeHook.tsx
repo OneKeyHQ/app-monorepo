@@ -97,7 +97,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const { isNative } =
         getImportFromToken({
           networkId,
-          isSupportSwap: true,
           tokenSymbol: symbol,
           contractAddress,
         }) || {};
@@ -175,7 +174,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const { isNative } =
         getImportFromToken({
           networkId,
-          isSupportSwap,
           tokenSymbol: symbol,
           contractAddress,
         }) || {};
