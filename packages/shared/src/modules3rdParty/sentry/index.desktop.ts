@@ -23,7 +23,7 @@ export const withSentryHOC = (
 ): ComponentType<any> =>
   withErrorBoundary(withProfiler(Component), {
     onError: (error, info) => {
-      console.log('error', error, info);
+      console.error('error', error, info);
     },
   });
 
