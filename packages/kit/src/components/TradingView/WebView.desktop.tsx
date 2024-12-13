@@ -32,17 +32,15 @@ export function WebView({
           }
         ).executeJavaScript(injectedJavaScript, true);
       });
-      webview.addEventListener('dom-ready', () => {
-        onLoadEnd();
+      webview.addEventListener('did-finish-load', () => {
+        setTimeout(() => {
+          onLoadEnd();
+        }, 100);
       });
       webview.addEventListener('will-navigate', (event) => {
         event.preventDefault();
       });
     }
-
-    setTimeout(() => {
-      onLoadEnd();
-    }, 5500);
   }, [injectedJavaScript, onLoadEnd, uri]);
 
   return uri ? (
