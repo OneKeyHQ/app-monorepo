@@ -58,6 +58,7 @@ export type IProps = {
   isBlocked?: boolean;
   riskyTokens?: string[];
   isAllNetworks?: boolean;
+  isTabView?: boolean;
   listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   indexedAccountId?: string;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
@@ -182,6 +183,7 @@ function TokenDetailsView() {
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={account?.indexedAccountId}
+            isTabView
           />
         ),
       }));
@@ -223,7 +225,9 @@ function TokenDetailsView() {
             data={tabs}
             contentItemWidth={platformEnv.isNative ? undefined : (640 as any)}
             initialScrollIndex={0}
+            focusable
             showsVerticalScrollIndicator={false}
+            windowSize={tabs.length}
           />
         );
       }

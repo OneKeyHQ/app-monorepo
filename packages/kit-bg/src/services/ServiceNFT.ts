@@ -1,12 +1,13 @@
 import qs from 'querystring';
 
-import { isArray, isNil, isObject, omitBy } from 'lodash';
+import { debounce, isArray, isNil, isObject, omitBy } from 'lodash';
 
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import { buildAccountLocalAssetsKey } from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -32,6 +33,8 @@ class ServiceNFT extends ServiceBase {
   }
 
   _fetchAccountNFTsControllers: AbortController[] = [];
+
+  _localAccountNFTsCache: Record<string, IAccountNFT[]> = {};
 
   @backgroundMethod()
   public async uploadNFTImageToDevice(params: {
@@ -261,13 +264,30 @@ class ServiceNFT extends ServiceBase {
         networkId,
       }),
     ]);
-    await this.backgroundApi.simpleDb.localNFTs.updateAccountNFTs({
+
+    const key = buildAccountLocalAssetsKey({
       networkId,
       accountAddress,
       xpub,
-      nfts,
     });
+
+    this._localAccountNFTsCache[key] = nfts;
+    await this._updateAccountLocalNFTsDebounced();
   }
+
+  _updateAccountLocalNFTsDebounced = debounce(
+    async () => {
+      await this.backgroundApi.simpleDb.localNFTs.updateAccountNFTsByCache(
+        this._localAccountNFTsCache,
+      );
+      this._localAccountNFTsCache = {};
+    },
+    3000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
 
   @backgroundMethod()
   public async getAccountLocalNFTs(params: {
