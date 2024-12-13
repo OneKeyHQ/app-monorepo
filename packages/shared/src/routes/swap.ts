@@ -1,4 +1,5 @@
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   ESwapDirectionType,
   ESwapTabSwitchType,
@@ -25,6 +26,7 @@ export type IModalSwapParamList = {
     importToToken?: ISwapToken;
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;
+    importDeriveType?: IAccountDeriveTypes;
   };
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;

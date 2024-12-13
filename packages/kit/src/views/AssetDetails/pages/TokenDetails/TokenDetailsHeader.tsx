@@ -110,6 +110,7 @@ function TokenDetailsHeader(props: IProps) {
             logoURI: tokenInfo.logoURI,
             networkLogoURI: network?.logoURI,
           },
+          importDeriveType: deriveType,
           ...(actionType && {
             swapTabSwitchType: actionType,
           }),
@@ -126,6 +127,7 @@ function TokenDetailsHeader(props: IProps) {
       tokenInfo.logoURI,
       tokenInfo.name,
       tokenInfo.symbol,
+      deriveType,
     ],
   );
 
