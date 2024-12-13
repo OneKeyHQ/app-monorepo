@@ -170,17 +170,11 @@ export const useTradingViewProps = ({
         </style>`,
       );
       return {
-        uri: platformEnv.isNative
-          ? uri
-          : `${URL.createObjectURL(
-              new Blob([htmlCode], { type: 'text/html' }),
-            )}${hash}`,
-        injectedJavaScript: platformEnv.isNative
-          ? ` const styleNode = document.createElement('style'); 
+        uri,
+        injectedJavaScript: ` const styleNode = document.createElement('style'); 
         styleNode.type = 'text/css'; 
         styleNode.textContent = \`${style}\`;
-        document.documentElement.appendChild(styleNode);`
-          : '',
+        document.documentElement.appendChild(styleNode);`,
       };
     },
     [
