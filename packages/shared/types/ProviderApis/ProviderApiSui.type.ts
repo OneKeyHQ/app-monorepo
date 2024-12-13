@@ -48,20 +48,6 @@ export type ISignMessageInput = {
 export type IPushTxParams = {
   rawTx: string;
 };
-export type ISignPsbtParams = {
-  psbtHex: string;
-  options: { autoFinalized: boolean; isBtcWalletProvider: boolean };
-};
-
-export type ISignPsbtsParams = {
-  psbtHexs: string[];
-  options: { autoFinalized: boolean; isBtcWalletProvider: boolean };
-};
-
-export type IPushPsbtParams = {
-  psbtHex: string;
-};
-
 export type ITxInscription = {
   inscriptionId: string;
   inscriptionNumber: number;

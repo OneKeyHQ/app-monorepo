@@ -77,3 +77,32 @@ export type ISignMessageParams = {
   message: string;
   type: EMessageTypesBtc;
 };
+
+export interface IToSignInput {
+  index: number;
+  address?: string;
+  publicKey?: string;
+  sighashTypes?: number[];
+  disableTweakSigner?: boolean;
+  useTweakedSigner?: boolean;
+}
+
+export interface ISignPsbtOptions {
+  autoFinalized?: boolean;
+  toSignInputs?: IToSignInput[];
+  isBtcWalletProvider?: boolean;
+}
+
+export interface ISignPsbtParams {
+  psbtHex: string;
+  options?: ISignPsbtOptions;
+}
+
+export type ISignPsbtsParams = {
+  psbtHexs: string[];
+  options: ISignPsbtOptions;
+};
+
+export type IPushPsbtParams = {
+  psbtHex: string;
+};
