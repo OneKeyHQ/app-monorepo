@@ -66,18 +66,10 @@ export const useTradingViewProps = ({
     true,
   );
   const systemLocale = useLocaleVariant();
-  const locale = useMemo(
-    () => localeMap[systemLocale as ILocaleJSONSymbol] || 'en',
-    [systemLocale],
-  );
   const calendars = useCalendars();
-
-  const timezone = useMemo(
-    () => calendars[0].timeZone || 'Etc/UTC',
-    [calendars],
-  );
-
   return useMemo(() => {
+    const locale = localeMap[systemLocale as ILocaleJSONSymbol] || 'en';
+    const timezone = calendars[0].timeZone || 'Etc/UTC';
     const params: Record<string, string> = {
       'show_popup_button': 'false',
       'autosize': 'true',
@@ -166,19 +158,19 @@ export const useTradingViewProps = ({
       document.documentElement.appendChild(styleNode);`,
     };
   }, [
-    bgAppColor,
-    bgBackdropColor,
-    bgHoverColor,
-    bgSubduedColor,
-    iconColor,
-    textColor,
-    textDisabled,
-    locale,
-    timezone,
-    theme,
-    md,
+    systemLocale,
+    calendars,
     identifier,
     baseToken,
     targetToken,
+    theme,
+    bgAppColor,
+    textColor,
+    textDisabled,
+    iconColor,
+    bgSubduedColor,
+    bgHoverColor,
+    md,
+    bgBackdropColor,
   ]);
 };
