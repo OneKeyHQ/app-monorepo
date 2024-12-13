@@ -3,7 +3,6 @@ import { useEffect, useRef } from 'react';
 import { Stack } from '@onekeyhq/components';
 
 import type { ViewStyle } from 'react-native';
-import type { ShouldStartLoadRequestEvent } from 'react-native-webview/lib/RNCWebViewNativeComponent';
 
 interface ITradingViewProps {
   uri: string;
