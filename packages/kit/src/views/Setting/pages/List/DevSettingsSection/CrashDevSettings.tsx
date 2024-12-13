@@ -1,9 +1,6 @@
-import { useState } from 'react';
-
 import { SectionPressItem } from './SectionPressItem';
 
 export function CrashDevSettings() {
-  const [text, setText] = useState({ a: { b: { c: 'text' } } });
   return (
     <>
       <SectionPressItem
