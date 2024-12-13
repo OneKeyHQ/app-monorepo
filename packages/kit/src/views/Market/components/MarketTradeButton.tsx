@@ -30,7 +30,6 @@ export function MarketTradeButton({
   const network = useMarketTradeNetwork(token);
   const networkId = useMarketTradeNetworkId(network, token.symbol);
   const [disabled, setDisabled] = useState({
-    trade: true,
     buy: true,
     sell: true,
   });
@@ -60,11 +59,7 @@ export function MarketTradeButton({
         }) || {};
       const contractAddress = isNative ? '' : network?.contract_address || '';
 
-      const [swapResult, buyResult, sellResult] = await Promise.all([
-        backgroundApiProxy.serviceSwap.checkSupportSwap({
-          networkId,
-          contractAddress: isNative ? realContractAddress : contractAddress,
-        }),
+      const [buyResult, sellResult] = await Promise.all([
         backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
           networkId,
           tokenAddress: contractAddress,
@@ -77,7 +72,6 @@ export function MarketTradeButton({
         }),
       ]);
       setDisabled({
-        trade: !swapResult.isSupportCrossChain && !swapResult.isSupportSwap,
         buy: !buyResult,
         sell: !sellResult,
       });
@@ -99,7 +93,6 @@ export function MarketTradeButton({
           flex={1}
           variant="primary"
           onPress={handleSwap}
-          disabled={disabled.trade}
         >
           {intl.formatMessage({ id: ETranslations.global_trade })}
         </Button>
