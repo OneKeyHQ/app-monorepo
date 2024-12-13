@@ -537,6 +537,19 @@ function createMainWindow() {
   });
 
   ipcMain.on(
+    ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS,
+    (
+      event,
+      params: {
+        disableNumberShortcuts: boolean;
+        disableSearchAndAccountSelectorShortcuts: boolean;
+      },
+    ) => {
+      store.setDisableKeyboardShortcuts(params);
+    },
+  );
+
+  ipcMain.on(
     ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS,
     (event, prefType: IMediaType) => {
       const result = systemPreferences?.getMediaAccessStatus?.(prefType);

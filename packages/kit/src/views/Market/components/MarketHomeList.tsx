@@ -247,7 +247,7 @@ function MarketMdColumn({
           items: [
             {
               icon: 'SwitchHorOutline' as const,
-              label: intl.formatMessage({ id: ETranslations.global_swap }),
+              label: intl.formatMessage({ id: ETranslations.global_trade }),
               onPress: tradeActions.onSwapLazyModal,
             },
             canStaking && {

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useLayoutEffect, useRef } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 
@@ -22,28 +22,26 @@ export function WebView({
 }: IWebViewProps): JSX.Element | null {
   const ref = useRef<HTMLWebViewElement | null>(null);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const webview = ref.current;
     if (webview) {
-      webview.addEventListener('dom-ready', () => {
+      webview.addEventListener('did-attach', () => {
         (
           webview as unknown as {
             executeJavaScript: (code: string, userGesture: boolean) => void;
           }
         ).executeJavaScript(injectedJavaScript, true);
+      });
+      webview.addEventListener('did-finish-load', () => {
         setTimeout(() => {
           onLoadEnd();
-        }, 200);
+        }, 100);
       });
       webview.addEventListener('will-navigate', (event) => {
         event.preventDefault();
       });
     }
-
-    setTimeout(() => {
-      onLoadEnd();
-    }, 5500);
-  }, [injectedJavaScript, onLoadEnd]);
+  }, [injectedJavaScript, onLoadEnd, uri]);
 
   return uri ? (
     <Stack style={style}>
