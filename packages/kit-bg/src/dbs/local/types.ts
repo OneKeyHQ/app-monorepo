@@ -200,10 +200,12 @@ export type IDBGetWalletsParams = {
   nestedHiddenWallets?: boolean | undefined;
   ignoreEmptySingletonWalletAccounts?: boolean | undefined;
   includingAccounts?: boolean | undefined;
+
+  allIndexedAccounts?: IDBIndexedAccount[] | undefined;
+  allWallets?: IDBWallet[] | undefined;
+  allDevices?: IDBDevice[] | undefined;
 };
-export type IDBGetAllWalletsParams = {
-  refillWalletInfo?: boolean;
-};
+
 // ---------------------------------------------- account
 export type IDBAvatar = string; // stringify(IAvatarInfo)
 // IAvatar;

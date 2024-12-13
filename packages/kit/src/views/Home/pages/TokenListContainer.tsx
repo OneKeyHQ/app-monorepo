@@ -3,10 +3,12 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CanceledError } from 'axios';
 import BigNumber from 'bignumber.js';
 import { isEmpty, isNil, uniqBy } from 'lodash';
+import { useIntl } from 'react-intl';
 import { useThrottledCallback } from 'use-debounce';
 
 import type { ITabPageProps } from '@onekeyhq/components';
 import {
+  Stack,
   useMedia,
   useOnRouterChange,
   useTabIsRefreshingFocused,
@@ -55,6 +57,7 @@ import type {
   ITokenFiat,
 } from '@onekeyhq/shared/types/token';
 
+import { EmptyAccount } from '../../../components/Empty';
 import { TokenListView } from '../../../components/TokenListView';
 import { perfTokenListView } from '../../../components/TokenListView/perfTokenListView';
 import { useAccountData } from '../../../hooks/useAccountData';
@@ -63,7 +66,10 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useManageToken } from '../../../hooks/useManageToken';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useReceiveToken } from '../../../hooks/useReceiveToken';
-import { useAccountOverviewActions } from '../../../states/jotai/contexts/accountOverview';
+import {
+  useAccountOverviewActions,
+  useAllNetworksStateStateAtom,
+} from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import { useTokenListActions } from '../../../states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListProvider';
@@ -77,6 +83,7 @@ function TokenListContainer(props: ITabPageProps) {
   const {
     activeAccount: {
       account,
+      accountName,
       network,
       wallet,
       indexedAccount,
@@ -89,6 +96,7 @@ function TokenListContainer(props: ITabPageProps) {
   const [allNetworkAccounts, setAllNetworkAccounts] = useState<
     IAllNetworkAccountInfo[] | undefined
   >(undefined);
+  const intl = useIntl();
 
   const tokenListRef = useRef<{
     keys: string;
@@ -1238,6 +1246,18 @@ function TokenListContainer(props: ITabPageProps) {
     void runAllNetworksRequests({ alwaysSetState: true });
   }, [runAllNetworksRequests]);
 
+  useEffect(() => {
+    const fn = () => {
+      if (network?.isAllNetworks) {
+        void runAllNetworksRequests({ alwaysSetState: true });
+      }
+    };
+    appEventBus.on(EAppEventBusNames.AddDBAccountsToWallet, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddDBAccountsToWallet, fn);
+    };
+  }, [network?.isAllNetworks, runAllNetworksRequests]);
+
   const handleRefreshAllNetworkDataByAccounts = useCallback(
     async (accounts: { accountId: string; networkId: string }[]) => {
       for (const { accountId, networkId } of accounts) {
@@ -1347,6 +1367,14 @@ function TokenListContainer(props: ITabPageProps) {
     }
   }, [isEmptyAccount, updateAccountOverviewState, updateTokenListState]);
 
+  const [allNetworksState] = useAllNetworksStateStateAtom();
+  const isAllNetworkEmptyAccount = useMemo(() => {
+    if (network?.isAllNetworks) {
+      return allNetworksState.visibleCount === 0;
+    }
+    return false;
+  }, [allNetworksState.visibleCount, network?.isAllNetworks]);
+
   return (
     <TokenListView
       withHeader
@@ -1365,6 +1393,24 @@ function TokenListContainer(props: ITabPageProps) {
       {...(media.gtLg && {
         tableLayout: true,
       })}
+      emptyAccountView={
+        isAllNetworkEmptyAccount ? (
+          <Stack py="$20">
+            <EmptyAccount
+              autoCreateAddress={false}
+              name={accountName}
+              chain={network?.name ?? ''}
+              type={
+                (deriveInfo?.labelKey
+                  ? intl.formatMessage({
+                      id: deriveInfo?.labelKey,
+                    })
+                  : deriveInfo?.label) ?? ''
+              }
+            />
+          </Stack>
+        ) : null
+      }
     />
   );
 }

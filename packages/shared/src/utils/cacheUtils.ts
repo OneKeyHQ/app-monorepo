@@ -1,4 +1,5 @@
 import stringify from 'fast-json-stable-stringify';
+import { LRUCache } from 'lru-cache';
 import cache from 'memoizee';
 
 export type IMemoizeeOptions = cache.Options<any>;
@@ -25,4 +26,5 @@ export function memoFn<T>(fn: () => T) {
 export default {
   memoizee,
   memoFn,
+  LRUCache,
 };
