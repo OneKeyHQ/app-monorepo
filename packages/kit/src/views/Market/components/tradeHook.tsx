@@ -184,10 +184,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
       if (!isSupportSwap && !isSupportCrossChain) {
         remindUnsupportedToken('trade', false);
-        navigateToSwapPage({
-          importFromToken: {},
-          importToToken: {},
-        });
+        navigateToSwapPage({});
         return;
       }
       const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
