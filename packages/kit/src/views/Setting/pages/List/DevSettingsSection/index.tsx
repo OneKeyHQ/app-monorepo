@@ -247,6 +247,34 @@ export const DevSettingsSection = () => {
         />
       </SectionPressItem>
       <SectionFieldItem
+        name="disableNumberShortcuts"
+        title="禁止数字快捷键"
+        onValueChange={(value: boolean) => {
+          globalThis.desktopApi.disableShortcuts({
+            disableNumberShortcuts: value,
+          });
+          setTimeout(() => {
+            backgroundApiProxy.serviceApp.restartApp();
+          }, 300);
+        }}
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        name="disableSearchAndAccountSelectorShortcuts"
+        title="禁止搜索及账户选择器快捷键"
+        onValueChange={(value: boolean) => {
+          globalThis.desktopApi.disableShortcuts({
+            disableSearchAndAccountSelectorShortcuts: value,
+          });
+          setTimeout(() => {
+            backgroundApiProxy.serviceApp.restartApp();
+          }, 300);
+        }}
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
         name="showDevOverlayWindow"
         title="开发者悬浮窗"
         subtitle="始终悬浮于全局的开发调试工具栏"
