@@ -167,7 +167,9 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       };
       if (!networkId) {
         remindUnsupportedToken('trade', false);
-        navigateToSwapPage({});
+        navigateToSwapPage({
+          importNetworkId: 'unknown',
+        });
         return;
       }
       const { isNative, realContractAddress = '' } =
@@ -184,7 +186,9 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
       if (!isSupportSwap && !isSupportCrossChain) {
         remindUnsupportedToken('trade', false);
-        navigateToSwapPage({});
+        navigateToSwapPage({
+          importNetworkId: networkId,
+        });
         return;
       }
       const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
