@@ -89,11 +89,7 @@ export function MarketTradeButton({
   return (
     <XStack $gtMd={{ mt: '$6' }} ai="center" gap="$4">
       <XStack gap="$2.5" flex={1}>
-        <Button
-          flex={1}
-          variant="primary"
-          onPress={handleSwap}
-        >
+        <Button flex={1} variant="primary" onPress={handleSwap}>
           {intl.formatMessage({ id: ETranslations.global_trade })}
         </Button>
         {canStaking ? (
