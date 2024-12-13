@@ -8,3 +8,4 @@ export * from './usePreventRemove';
 export * from './useShare';
 export * from './useShortcuts';
 export * from './useStyle';
+export * from './useVisibilityChange';
