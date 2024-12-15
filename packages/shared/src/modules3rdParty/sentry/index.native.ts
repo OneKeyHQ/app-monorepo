@@ -1,22 +1,20 @@
 import type { ComponentType } from 'react';
 
 import {
+  hermesProfilingIntegration,
   init,
   reactNativeTracingIntegration,
-  reactNavigationIntegration,
   nativeCrash as sentryNativeCrash,
   withErrorBoundary,
   withProfiler,
   wrap,
 } from '@sentry/react-native';
 
-import { basicOptions } from './basicOptions';
+import { basicOptions, navigationIntegration } from './basicOptions';
 
 export * from '@sentry/react-native';
 
-export const navigationIntegration = reactNavigationIntegration({
-  enableTimeToInitialDisplay: true,
-});
+export * from './basicOptions';
 
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
@@ -28,7 +26,13 @@ export const initSentry = () => {
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
-    integrations: [navigationIntegration, reactNativeTracingIntegration()],
+    integrations: [
+      navigationIntegration,
+      reactNativeTracingIntegration(),
+      hermesProfilingIntegration({
+        platformProfilers: true,
+      }),
+    ],
     enableAutoPerformanceTracing: true,
   });
 };
