@@ -5,7 +5,6 @@ import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/ato
 import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
 import { configure as configureNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
-import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 
 const REACHABILITY_LONG_TIMEOUT = 60 * 1000;
 const REACHABILITY_SHORT_TIMEOUT = 5 * 1000;
@@ -13,7 +12,6 @@ const REACHABILITY_REQUEST_TIMEOUT = 10 * 1000;
 
 const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
   const endpoints = getEndpointsMapByDevSettings(devSettings);
-  const headers = await getRequestHeaders();
   configureNetInfo({
     reachabilityUrl: `${endpoints.wallet}/wallet/v1/health`,
     reachabilityMethod: 'GET',
