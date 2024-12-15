@@ -7,22 +7,21 @@ import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpoi
 import { configure as configureNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 
+const REACHABILITY_LONG_TIMEOUT = 60 * 1000;
+const REACHABILITY_SHORT_TIMEOUT = 5 * 1000;
+const REACHABILITY_REQUEST_TIMEOUT = 10 * 1000;
+
 const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
   const endpoints = getEndpointsMapByDevSettings(devSettings);
-  console.log(`${endpoints.wallet}/wallet/v1/health`);
   const headers = await getRequestHeaders();
-  console.log('headers---', headers);
   configureNetInfo({
     reachabilityUrl: `${endpoints.wallet}/wallet/v1/health`,
     reachabilityMethod: 'GET',
     reachabilityHeaders: headers,
-    reachabilityTest: async (response) => {
-      console.log('---response.status === 200', response.status === 200);
-      return response.status === 200;
-    },
-    reachabilityLongTimeout: 60 * 1000,
-    reachabilityShortTimeout: 5 * 1000,
-    reachabilityRequestTimeout: 10 * 1000,
+    reachabilityTest: async (response) => response.status === 200,
+    reachabilityLongTimeout: REACHABILITY_LONG_TIMEOUT,
+    reachabilityShortTimeout: REACHABILITY_SHORT_TIMEOUT,
+    reachabilityRequestTimeout: REACHABILITY_REQUEST_TIMEOUT,
     reachabilityShouldRun: () => getCurrentVisibilityState(),
     // met iOS requirements to get SSID. Will leak memory if set to true without meeting requirements.
     shouldFetchWiFiSSID: false,
