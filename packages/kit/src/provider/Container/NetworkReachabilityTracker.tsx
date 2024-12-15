@@ -17,7 +17,6 @@ const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
   configureNetInfo({
     reachabilityUrl: `${endpoints.wallet}/wallet/v1/health`,
     reachabilityMethod: 'GET',
-    reachabilityHeaders: headers,
     reachabilityTest: async (response) => response.status === 200,
     reachabilityLongTimeout: REACHABILITY_LONG_TIMEOUT,
     reachabilityShortTimeout: REACHABILITY_SHORT_TIMEOUT,
