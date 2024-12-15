@@ -1,4 +1,7 @@
-import { init, reactNavigationIntegration } from '@sentry/react-native';
+import {
+  reactNativeTracingIntegration,
+  reactNavigationIntegration,
+} from '@sentry/react-native';
 import wordLists from 'bip39/src/wordlists/english.json';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -88,6 +91,7 @@ export const buildOptions = (Sentry: typeof import('@sentry/react')) => ({
 
 export const buildIntegrations = (Sentry: typeof import('@sentry/react')) => [
   navigationIntegration,
+  reactNativeTracingIntegration(),
   Sentry.browserProfilingIntegration(),
   Sentry.browserTracingIntegration(),
   Sentry.breadcrumbsIntegration({
