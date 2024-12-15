@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 
 import {
   init,
+  reactNativeTracingIntegration,
   reactNavigationIntegration,
   nativeCrash as sentryNativeCrash,
   withErrorBoundary,
@@ -27,7 +28,8 @@ export const initSentry = () => {
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
-    integrations: [navigationIntegration],
+    integrations: [navigationIntegration, reactNativeTracingIntegration()],
+    enableAutoPerformanceTracing: true,
   });
 };
 
