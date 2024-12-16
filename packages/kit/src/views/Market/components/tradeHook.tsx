@@ -28,17 +28,22 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms } = token || {};
+  const { detailPlatforms, platforms } = token || {};
   const network = useMemo(() => {
     if (detailPlatforms) {
-      const platforms = Object.values(detailPlatforms);
-      const nativePlatform = platforms.find((i) => i.isNative);
+      const values = Object.values(detailPlatforms);
+      const nativePlatform = values.find((i) => i.isNative);
       if (nativePlatform) {
         return nativePlatform;
       }
-      return platforms[0];
+
+      const tokenAddress = Object.values(platforms)[0];
+      const tokenAddressPlatform = values.find(
+        (i) => i.tokenAddress === tokenAddress,
+      );
+      return tokenAddressPlatform ?? values[0];
     }
-  }, [detailPlatforms]);
+  }, [detailPlatforms, platforms]);
   return network;
 };
 
