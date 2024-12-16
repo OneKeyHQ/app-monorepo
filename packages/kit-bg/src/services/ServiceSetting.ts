@@ -397,6 +397,22 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async isShowFloatingButton() {
+    const { isFloatingIconAlwaysDisplay } = await settingsPersistAtom.get();
+    return (
+      isFloatingIconAlwaysDisplay === undefined || isFloatingIconAlwaysDisplay
+    );
+  }
+
+  @backgroundMethod()
+  public async setIsShowFloatingButton(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isFloatingIconAlwaysDisplay: value,
+    }));
+  }
+
+  @backgroundMethod()
   public async checkInscriptionProtectionEnabled({
     networkId,
     accountId,
