@@ -6,6 +6,8 @@ import { basicOptions, buildIntegrations, buildOptions } from './basicOptions';
 
 export * from '@sentry/react';
 
+export * from './basicOptions';
+
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
     return;
@@ -28,7 +30,3 @@ export const withSentryHOC = (
       console.error('error', error, info);
     },
   });
-
-export const navigationIntegration = {
-  registerNavigationContainer: (ref: any) => {},
-};

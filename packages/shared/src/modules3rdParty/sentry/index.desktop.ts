@@ -7,11 +7,15 @@ import { buildIntegrations } from './basicOptions';
 
 export * from '@sentry/electron/renderer';
 
+export * from './basicOptions';
+
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
     return;
   }
   Sentry.init({
+    tracesSampleRate: 1.0,
+    profilesSampleRate: 1.0,
     integrations: buildIntegrations(Sentry as any),
   });
 };
@@ -26,7 +30,3 @@ export const withSentryHOC = (
       console.error('error', error, info);
     },
   });
-
-export const navigationIntegration = {
-  registerNavigationContainer: (ref: any) => {},
-};
