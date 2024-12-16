@@ -98,7 +98,7 @@ const SwapAccountAddressContainer = ({
         })}
       </SizableText>
       {networkComponent}
-      {type === ESwapDirectionType.FROM ? (
+      {type === ESwapDirectionType.FROM && !!fromToken ? (
         <DeriveTypeSelectorTriggerForSwap num={0} />
       ) : null}
     </XStack>
