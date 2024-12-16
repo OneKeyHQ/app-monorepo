@@ -355,28 +355,39 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     network,
     signer,
     input,
+    disableTweakSigner,
+    useTweakedSigner,
   }: {
     network: IBtcForkNetwork;
     signer: ISigner;
     input: PsbtInput;
+    disableTweakSigner?: boolean;
+    useTweakedSigner?: boolean;
   }): Promise<Signer> {
     const publicKey = await signer.getPubkey(true);
 
     // P2TR taproot
     if (isTaprootInput(input)) {
-      let needTweak = true;
-      // script path spend
-      if (
-        input.tapLeafScript &&
-        input.tapLeafScript?.length > 0 &&
-        !input.tapMerkleRoot
-      ) {
-        input.tapLeafScript.forEach((e) => {
-          if (e.controlBlock && e.script) {
-            needTweak = false;
-          }
-        });
+      let needTweak =
+        typeof useTweakedSigner === 'boolean' ? useTweakedSigner : true;
+
+      if (!disableTweakSigner) {
+        // script path spend
+        if (
+          input.tapLeafScript &&
+          input.tapLeafScript?.length > 0 &&
+          !input.tapMerkleRoot
+        ) {
+          input.tapLeafScript.forEach((e) => {
+            if (e.controlBlock && e.script) {
+              needTweak = false;
+            }
+          });
+        }
+      } else {
+        needTweak = false;
       }
+
       if (input.tapInternalKey) {
         const privateKey = await signer.getPrvkey();
         const tweakedSigner = tweakSigner(privateKey, publicKey, {
@@ -645,17 +656,28 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         network,
         signer,
         input: psbt.data.inputs[input.index],
+        disableTweakSigner: input.disableTweakSigner,
+        useTweakedSigner: input.useTweakedSigner,
       });
       await psbt.signInputAsync(input.index, bitcoinSigner, input.sighashTypes);
     }
 
     let rawTx = '';
-    const finalizedPsbt = Psbt.fromHex(psbt.toHex(), { network });
-    inputsToSign.forEach((v) => {
-      finalizedPsbt.finalizeInput(v.index);
-    });
-    if (!signOnly) {
-      rawTx = finalizedPsbt.extractTransaction().toHex();
+    let finalizedPsbtHex = '';
+    try {
+      const finalizedPsbt = Psbt.fromHex(psbt.toHex(), { network });
+      inputsToSign.forEach((v) => {
+        finalizedPsbt.finalizeInput(v.index);
+      });
+
+      if (!signOnly) {
+        rawTx = finalizedPsbt.extractTransaction().toHex();
+      }
+      finalizedPsbtHex = finalizedPsbt.toHex();
+    } catch (error) {
+      console.error('Failed to finalize PSBT:', error);
+      // if can't finalize, use original psbt
+      finalizedPsbtHex = psbt.toHex();
     }
 
     return {
@@ -663,7 +685,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       txid: '',
       rawTx,
       psbtHex: psbt.toHex(),
-      finalizedPsbtHex: finalizedPsbt.toHex(),
+      finalizedPsbtHex,
     };
   }
 

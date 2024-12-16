@@ -284,14 +284,24 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const signedPsbt = response.psbt;
 
     let rawTx = '';
-    const finalizedPsbt = BitcoinJS.Psbt.fromHex(signedPsbt, {
-      network: btcNetwork,
-    });
-    inputsToSign.forEach((v) => {
-      finalizedPsbt.finalizeInput(v.index);
-    });
-    if (!signOnly) {
-      rawTx = finalizedPsbt.extractTransaction().toHex();
+    let finalizedPsbtHex = '';
+
+    try {
+      const finalizedPsbt = BitcoinJS.Psbt.fromHex(signedPsbt, {
+        network: btcNetwork,
+      });
+      inputsToSign.forEach((v) => {
+        finalizedPsbt.finalizeInput(v.index);
+      });
+
+      if (!signOnly) {
+        rawTx = finalizedPsbt.extractTransaction().toHex();
+      }
+      finalizedPsbtHex = finalizedPsbt.toHex();
+    } catch (error) {
+      console.error('Failed to finalize hardware PSBT:', error);
+      // if can't finalize, use original signedPsbt
+      finalizedPsbtHex = signedPsbt;
     }
 
     return {
@@ -299,7 +309,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       txid: '',
       rawTx,
       psbtHex: signedPsbt,
-      finalizedPsbtHex: finalizedPsbt.toHex(),
+      finalizedPsbtHex,
     };
   }
 
