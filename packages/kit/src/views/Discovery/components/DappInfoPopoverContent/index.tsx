@@ -19,6 +19,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 
+import { DAppRequestedDappList } from '../../../DAppConnection/components/DAppRequestContent/DAppRequestedDappList';
 import { DAppRiskyAlertDetail } from '../../../DAppConnection/components/DAppRequestLayout/DAppRiskyAlertDetail';
 
 export function DappInfoPopoverContent({
@@ -247,47 +248,10 @@ export function DappInfoPopoverContent({
           )}
         </XStack>
       </YStack>
-      {hostSecurity?.dapp?.origins.length ? (
-        <YStack>
-          <SizableText size="$headingMd">
-            {intl.formatMessage({
-              id: ETranslations.browser_dapp_listed_by,
-            })}
-          </SizableText>
-          <XStack gap="$2" pt="$3" flexWrap="wrap">
-            {hostSecurity?.dapp?.origins.map((item) => (
-              <XStack
-                key={item.name}
-                px="$2"
-                py="$1"
-                bg="$bgSubdued"
-                borderRadius="$2"
-                borderColor="$borderSubdued"
-                borderWidth={StyleSheet.hairlineWidth}
-              >
-                <Image w="$5" h="$5" bg="$bgSubdued" borderRadius="$1">
-                  <Image.Source
-                    source={{
-                      uri: item.logo,
-                    }}
-                  />
-                  <Image.Fallback>
-                    <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />
-                  </Image.Fallback>
-                  <Image.Loading>
-                    <Skeleton width="100%" height="100%" />
-                  </Image.Loading>
-                </Image>
-              </XStack>
-            ))}
-          </XStack>
-          {hostSecurity.updatedAt ? (
-            <SizableText mt="$2" color="$textSubdued" size="$bodyMd">
-              {`Last verified at ${hostSecurity.updatedAt}`}
-            </SizableText>
-          ) : null}
-        </YStack>
-      ) : null}
+      <DAppRequestedDappList
+        origins={hostSecurity?.dapp?.origins}
+        updatedAt={hostSecurity?.updatedAt}
+      />
     </YStack>
   );
 }
