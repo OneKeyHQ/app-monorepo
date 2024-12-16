@@ -206,9 +206,9 @@ export function SecuritySection() {
       <AppAutoLockItem />
       <PasswordItem />
       {!platformEnv.isWebDappMode ? <ConnectedSitesItem /> : null}
+      {platformEnv.isExtension ? <FloatingIcon /> : null}
       <SignatureRecordItem />
       <ProtectionItem />
-      {platformEnv.isExtension ? <FloatingIcon /> : null}
       <CleanDataItem />
     </Section>
   );
