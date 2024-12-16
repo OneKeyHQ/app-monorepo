@@ -73,6 +73,10 @@ export type IDesktopAPI = {
 
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
+  disableShortcuts: (params: {
+    disableNumberShortcuts?: boolean;
+    disableSearchAndAccountSelectorShortcuts?: boolean;
+  }) => void;
   downloadUpdate: () => void;
   verifyUpdate: (event: IVerifyUpdateParams) => void;
   installUpdate: (event: IInstallUpdateParams) => void;
@@ -168,6 +172,7 @@ const validChannels = [
   ipcMessageKeys.TOUCH_UPDATE_RES_SUCCESS,
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
+  ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS,
 ];
 
 const getChannel = () => {
@@ -302,6 +307,10 @@ const desktopApi = Object.freeze({
   // Updater
   checkForUpdates: (isManual?: boolean) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
+  disableShortcuts: (params: {
+    disableNumberShortcuts?: boolean;
+    disableSearchAndAccountSelectorShortcuts?: boolean;
+  }) => ipcRenderer.send(ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS, params),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
   verifyUpdate: (params: IVerifyUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),

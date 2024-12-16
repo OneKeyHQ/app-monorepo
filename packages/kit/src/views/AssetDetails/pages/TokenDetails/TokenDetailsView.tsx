@@ -16,8 +16,14 @@ import type { IProps } from '.';
 const num = 0;
 
 function TokenDetailsViews(props: IProps) {
-  const { accountId, networkId, walletId, deriveType, indexedAccountId } =
-    props;
+  const {
+    accountId,
+    networkId,
+    walletId,
+    deriveType,
+    indexedAccountId,
+    isTabView,
+  } = props;
 
   const depsChecker =
     debugUtils.useDebugHooksDepsChangedChecker('TokenDetailsViews');
@@ -26,8 +32,6 @@ function TokenDetailsViews(props: IProps) {
   }, [props, depsChecker]);
 
   const intl = useIntl();
-  const [overviewInit, setOverviewInit] = useState(false);
-  const [historyInit, setHistoryInit] = useState(false);
 
   const [currentAccountId, setCurrentAccountId] = useState(accountId);
 
@@ -67,22 +71,19 @@ function TokenDetailsViews(props: IProps) {
       </Stack>
     );
   }
-  return (
+  return isTabView ? (
     <TokenDetailsHistory
       {...props}
       accountId={currentAccountId}
-      setHistoryInit={setHistoryInit}
-      historyInit={historyInit}
       ListHeaderComponent={
-        <TokenDetailsHeader
-          {...props}
-          accountId={currentAccountId}
-          setOverviewInit={setOverviewInit}
-          overviewInit={overviewInit}
-          historyInit={historyInit}
-        />
+        <TokenDetailsHeader {...props} accountId={currentAccountId} />
       }
     />
+  ) : (
+    <>
+      <TokenDetailsHeader {...props} accountId={currentAccountId} />
+      <TokenDetailsHistory {...props} accountId={currentAccountId} />
+    </>
   );
 }
 

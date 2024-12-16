@@ -11,6 +11,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
@@ -1281,16 +1282,21 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       let accountId: string | undefined;
       if (type === ESwapDirectionType.TO) {
         // fetch to Token balance use FromAccount id
-        const toAccountInfos =
-          await backgroundApiProxy.serviceStaking.getEarnAccount({
-            accountId: swapAddressInfo.accountInfo?.account?.id ?? '',
-            networkId: token?.networkId ?? '',
-            indexedAccountId: swapAddressInfo.accountInfo?.indexedAccount?.id,
-          });
-        if (toAccountInfos) {
-          accountAddress = toAccountInfos.accountAddress;
-          accountNetworkId = toAccountInfos.networkId;
-          accountId = toAccountInfos.accountId;
+        if (
+          token?.networkId &&
+          !networkUtils.isAllNetwork({ networkId: token?.networkId })
+        ) {
+          const toAccountInfos =
+            await backgroundApiProxy.serviceStaking.getEarnAccount({
+              accountId: swapAddressInfo.accountInfo?.account?.id ?? '',
+              networkId: token.networkId,
+              indexedAccountId: swapAddressInfo.accountInfo?.indexedAccount?.id,
+            });
+          if (toAccountInfos) {
+            accountAddress = toAccountInfos.accountAddress;
+            accountNetworkId = toAccountInfos.networkId;
+            accountId = toAccountInfos.accountId;
+          }
         }
       } else {
         accountAddress = swapAddressInfo.address;

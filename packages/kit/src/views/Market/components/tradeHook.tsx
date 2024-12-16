@@ -69,23 +69,27 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
   );
 
   const remindUnsupportedToken = useCallback(
-    (action: 'buy' | 'sell' | 'trade') => {
+    (action: 'buy' | 'sell' | 'trade', showDialog = true) => {
       defaultLogger.market.token.unsupportedToken({ name: symbol, action });
-      Dialog.confirm({
-        title: intl.formatMessage({ id: ETranslations.earn_unsupported_token }),
-        tone: 'warning',
-        icon: 'ErrorOutline',
-        renderContent: (
-          <SizableText size="$bodyLg">
-            {intl.formatMessage({
-              id: ETranslations.earn_unsupported_token_desc,
-            })}
-          </SizableText>
-        ),
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.explore_got_it,
-        }),
-      });
+      if (showDialog) {
+        Dialog.confirm({
+          title: intl.formatMessage({
+            id: ETranslations.earn_unsupported_token,
+          }),
+          tone: 'warning',
+          icon: 'ErrorOutline',
+          renderContent: (
+            <SizableText size="$bodyLg">
+              {intl.formatMessage({
+                id: ETranslations.earn_unsupported_token_desc,
+              })}
+            </SizableText>
+          ),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.explore_got_it,
+          }),
+        });
+      }
     },
     [intl, symbol],
   );
@@ -149,14 +153,23 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
   const handleSwap = useCallback(
     async (mode?: 'modal' | 'button') => {
-      const popPage = () => {
+      const navigateToSwapPage = (
+        params: IModalSwapParamList[EModalSwapRoutes.SwapMainLand],
+      ) => {
         if (mode === 'modal') {
-          navigation.pop();
+          navigation.replace(EModalSwapRoutes.SwapMainLand, params);
+        } else {
+          navigation.pushModal(EModalRoutes.SwapModal, {
+            screen: EModalSwapRoutes.SwapMainLand,
+            params,
+          });
         }
       };
       if (!networkId) {
-        remindUnsupportedToken('trade');
-        popPage();
+        remindUnsupportedToken('trade', false);
+        navigateToSwapPage({
+          importNetworkId: 'unknown',
+        });
         return;
       }
       const { isNative, realContractAddress = '' } =
@@ -172,14 +185,16 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         });
 
       if (!isSupportSwap && !isSupportCrossChain) {
-        remindUnsupportedToken('trade');
-        popPage();
+        remindUnsupportedToken('trade', false);
+        navigateToSwapPage({
+          importNetworkId: networkId,
+        });
         return;
       }
       const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
       });
-      const params = {
+      navigateToSwapPage({
         importFromToken: {
           ...onekeyNetwork,
           logoURI: isNative ? onekeyNetwork.logoURI : undefined,
@@ -193,15 +208,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         swapTabSwitchType: isSupportSwap
           ? ESwapTabSwitchType.SWAP
           : ESwapTabSwitchType.BRIDGE,
-      };
-      if (mode === 'modal') {
-        navigation.replace(EModalSwapRoutes.SwapMainLand, params);
-      } else {
-        navigation.pushModal(EModalRoutes.SwapModal, {
-          screen: EModalSwapRoutes.SwapMainLand,
-          params,
-        });
-      }
+      });
     },
     [
       contractAddress,
