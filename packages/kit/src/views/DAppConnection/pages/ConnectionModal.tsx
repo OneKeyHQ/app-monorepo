@@ -17,6 +17,7 @@ import useDappApproveAction from '../../../hooks/useDappApproveAction';
 import useDappQuery from '../../../hooks/useDappQuery';
 import { DAppAccountListStandAloneItem } from '../components/DAppAccountList';
 import { DAppRequestedPermissionContent } from '../components/DAppRequestContent';
+import { DAppRequestedDappList } from '../components/DAppRequestContent/DAppRequestedDappList';
 import {
   DAppRequestFooter,
   DAppRequestLayout,
@@ -208,6 +209,7 @@ function ConnectionModal() {
               onConnectedAccountInfoChanged={setConnectedAccountInfo}
             />
             <DAppRequestedPermissionContent />
+            <DAppRequestedDappList origins={urlSecurityInfo?.dapp?.origins} />
           </DAppRequestLayout>
         </Page.Body>
         <Page.Footer>
