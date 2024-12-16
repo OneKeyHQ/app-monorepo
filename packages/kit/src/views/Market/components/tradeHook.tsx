@@ -28,7 +28,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, platforms } = token || {};
+  const { detailPlatforms, platforms = {} } = token || {};
   const network = useMemo(() => {
     if (detailPlatforms) {
       const values = Object.values(detailPlatforms);
