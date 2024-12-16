@@ -13,6 +13,7 @@ import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
 
 import { ColdStartByNotification, Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
+import { NetworkReachabilityTracker } from './Container/NetworkReachabilityTracker';
 import { StateActiveContainer } from './Container/StateActiveContainer';
 import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
@@ -45,6 +46,7 @@ export function KitProvider(props: any = {}) {
     <GlobalJotaiReady>
       <GestureHandlerRootView style={flexStyle}>
         <ThemeProvider>
+          <NetworkReachabilityTracker />
           <SplashProvider>
             <Container />
           </SplashProvider>
