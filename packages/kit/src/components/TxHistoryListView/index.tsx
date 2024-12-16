@@ -164,7 +164,7 @@ function TxHistoryListView(props: IProps) {
 
   if (!initialized && isLoading) {
     return (
-      <Stack py="$3" {...contentContainerStyle}>
+      <Stack {...contentContainerStyle}>
         {ListHeaderComponent}
         <HistoryLoadingView tableLayout={tableLayout} />
       </Stack>

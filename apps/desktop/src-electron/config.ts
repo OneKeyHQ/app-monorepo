@@ -55,6 +55,7 @@ export const ipcMessageKeys = {
   APP_GET_BUNDLE_INFO: 'app/getBundleInfo',
   APP_OPEN_LOGGER_FILE: 'app/openLoggerFile',
   APP_TEST_CRASH: 'app/testCrash',
+  APP_UPDATE_DISABLE_SHORTCUTS: 'app/updateDisableShortcuts',
 
   // Theme
   THEME_UPDATE: 'theme/update',

@@ -35,4 +35,9 @@ export const nativeCrash = sentryNativeCrash;
 
 export const withSentryHOC = (
   Component: ComponentType<any>,
-): ComponentType<any> => withErrorBoundary(withProfiler(wrap(Component)), {});
+): ComponentType<any> =>
+  withErrorBoundary(withProfiler(wrap(Component)), {
+    onError: (error, info) => {
+      console.error('error', error, info);
+    },
+  });

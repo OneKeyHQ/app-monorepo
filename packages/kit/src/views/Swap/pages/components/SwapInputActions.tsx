@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
@@ -6,6 +8,7 @@ import {
   Icon,
   SizableText,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -29,6 +32,11 @@ const SwapInputActions = ({
   accountInfo?: IAccountSelectorActiveAccountInfo;
 }) => {
   const intl = useIntl();
+  const { gtSm } = useMedia();
+  const needSwapPercentageInputStage = useMemo(
+    () => (gtSm ? SwapPercentageInputStage : SwapPercentageInputStage.slice(1)),
+    [gtSm],
+  );
   return (
     <AnimatePresence>
       <XStack
@@ -72,7 +80,7 @@ const SwapInputActions = ({
         ) : null}
         {showPercentageInput ? (
           <>
-            {SwapPercentageInputStage.map((stage) => (
+            {needSwapPercentageInputStage.map((stage) => (
               <Button
                 height="$5"
                 key={`swap-percentage-input-stage-${stage}`}

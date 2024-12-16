@@ -1,5 +1,7 @@
 import { useLayoutEffect, useMemo, useState } from 'react';
 
+import { throttle } from 'lodash';
+
 import type { ISizableTextProps } from '@onekeyhq/components';
 import { NumberSizeableText } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -53,13 +55,14 @@ class MarketTokenPriceEvent {
   ) {
     const cacheKey = this.buildKey(tokenName, tokenSymbol);
     const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
-    listeners.push(callback);
+    const throttleCallback = throttle(callback, 200);
+    listeners.push(throttleCallback);
     this.priceChangedListenerMap.set(cacheKey, listeners);
     return () => {
       const callbacks = this.priceChangedListenerMap.get(cacheKey) || [];
       this.priceChangedListenerMap.set(
         cacheKey,
-        callbacks.filter((i) => i !== callback),
+        callbacks.filter((i) => i !== throttleCallback),
       );
     };
   }

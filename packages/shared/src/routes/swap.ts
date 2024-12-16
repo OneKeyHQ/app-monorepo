@@ -1,4 +1,5 @@
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   ESwapDirectionType,
   ESwapTabSwitchType,
@@ -16,6 +17,7 @@ export enum EModalSwapRoutes {
   SwapHistoryDetail = 'SwapHistoryDetail',
   SwapToAnotherAddress = 'SwapToAnotherAddress',
   TokenRiskReminder = 'TokenRiskReminder',
+  SwapLazyMarketModal = 'SwapLazyMarketModal',
 }
 
 export type IModalSwapParamList = {
@@ -24,6 +26,7 @@ export type IModalSwapParamList = {
     importToToken?: ISwapToken;
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;
+    importDeriveType?: IAccountDeriveTypes;
   };
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;
@@ -47,5 +50,8 @@ export type IModalSwapParamList = {
     storeName: EJotaiContextStoreNames;
     token: ISwapToken;
     onConfirm: () => void;
+  };
+  [EModalSwapRoutes.SwapLazyMarketModal]: {
+    coinGeckoId: string;
   };
 };

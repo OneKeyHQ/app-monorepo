@@ -217,6 +217,24 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        name="disableSolanaPriorityFee"
+        title="禁用 Solana 交易优先费"
+        subtitle={
+          devSettings.settings?.disableSolanaPriorityFee ? '禁用' : '启用'
+        }
+      >
+        <Switch
+          size={ESwitchSize.small}
+          onChange={() => {
+            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'disableSolanaPriorityFee',
+              !devSettings.settings?.disableSolanaPriorityFee,
+            );
+          }}
+          value={devSettings.settings?.disableSolanaPriorityFee}
+        />
+      </SectionFieldItem>
       <SectionPressItem
         title="force RTL"
         subtitle="强制启用 RTL 布局"
@@ -228,7 +246,32 @@ export const DevSettingsSection = () => {
           value={I18nManager.isRTL}
         />
       </SectionPressItem>
-      <SectionFieldItem name="showTradingView" title="显示 Trading View">
+      <SectionFieldItem
+        name="disableNumberShortcuts"
+        title="禁止数字快捷键"
+        onValueChange={(value: boolean) => {
+          globalThis.desktopApi.disableShortcuts({
+            disableNumberShortcuts: value,
+          });
+          setTimeout(() => {
+            backgroundApiProxy.serviceApp.restartApp();
+          }, 300);
+        }}
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        name="disableSearchAndAccountSelectorShortcuts"
+        title="禁止搜索及账户选择器快捷键"
+        onValueChange={(value: boolean) => {
+          globalThis.desktopApi.disableShortcuts({
+            disableSearchAndAccountSelectorShortcuts: value,
+          });
+          setTimeout(() => {
+            backgroundApiProxy.serviceApp.restartApp();
+          }, 300);
+        }}
+      >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
       <SectionFieldItem

@@ -176,7 +176,7 @@ export class NeedFirmwareUpgradeFromWeb extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedFirmwareUpgradeFromWeb',
-        defaultKey: ETranslations.update_update_in_official_web_tool,
+        defaultKey: ETranslations.update_update_in_official_web_tool_desc,
       }),
     );
   }

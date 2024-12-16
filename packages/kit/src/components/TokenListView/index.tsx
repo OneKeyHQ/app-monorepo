@@ -13,9 +13,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import perfUtils, {
-  EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { getFilteredTokenBySearchKey } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
@@ -27,9 +24,6 @@ import {
   useSmallBalanceTokenListAtom,
   useTokenListAtom,
   useTokenListStateAtom,
-  useTokenSelectorSearchKeyAtom,
-  useTokenSelectorSearchTokenListAtom,
-  useTokenSelectorSearchTokenStateAtom,
 } from '../../states/jotai/contexts/tokenList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
 import { EmptySearch } from '../Empty';
@@ -60,9 +54,16 @@ type IProps = {
   manageTokenEnabled?: boolean;
   isAllNetworks?: boolean;
   searchAll?: boolean;
-  isTokenSelector?: boolean;
   footerTipText?: string;
   hideValue?: boolean;
+  isTokenSelector?: boolean;
+  tokenSelectorSearchKey?: string;
+  tokenSelectorSearchTokenState?: {
+    isSearching: boolean;
+  };
+  tokenSelectorSearchTokenList?: {
+    tokens: IAccountToken[];
+  };
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -86,13 +87,15 @@ function TokenListViewCmp(props: IProps) {
     isTokenSelector,
     footerTipText,
     hideValue,
+    tokenSelectorSearchKey = '',
+    tokenSelectorSearchTokenState = { isSearching: false },
+    tokenSelectorSearchTokenList = { tokens: [] },
   } = props;
 
   const [tokenList] = useTokenListAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
-  const [tokenSelectorSearchKey] = useTokenSelectorSearchKeyAtom();
 
   const tokens = useMemo(() => {
     if (isTokenSelector) {
@@ -112,12 +115,7 @@ function TokenListViewCmp(props: IProps) {
   ]);
   const [searchTokenState] = useSearchTokenStateAtom();
 
-  const [tokenSelectorSearchTokenState] =
-    useTokenSelectorSearchTokenStateAtom();
-
   const [searchTokenList] = useSearchTokenListAtom();
-
-  const [tokenSelectorSearchTokenList] = useTokenSelectorSearchTokenListAtom();
 
   const filteredTokens = useMemo(
     () =>

@@ -95,6 +95,8 @@ export type ITxInputToSign = {
   publicKey: string;
   address: string;
   sighashTypes?: number[];
+  disableTweakSigner?: boolean;
+  useTweakedSigner?: boolean;
 };
 // TODO remove
 export type IUnsignedTx = {
