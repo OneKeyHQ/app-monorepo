@@ -29,15 +29,21 @@ import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms } = token || {};
-  const network = useMemo(
-    () => (detailPlatforms ? Object.values(detailPlatforms)[0] : null),
-    [detailPlatforms],
-  );
+  const network = useMemo(() => {
+    if (detailPlatforms) {
+      const platforms = Object.values(detailPlatforms);
+      const nativePlatform = platforms.find((i) => i.isNative);
+      if (nativePlatform) {
+        return nativePlatform;
+      }
+      return platforms[0];
+    }
+  }, [detailPlatforms]);
   return network;
 };
 
 export const useMarketTradeNetworkId = (
-  network: IMarketDetailPlatformNetwork | null,
+  network: IMarketDetailPlatformNetwork | null | undefined,
   symbol: string,
 ) =>
   useMemo(() => {
@@ -122,7 +128,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const { url, build } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId,
-          tokenAddress: '',
+          tokenAddress: realContractAddress,
           accountId: dbAccount.id,
           type,
         });
