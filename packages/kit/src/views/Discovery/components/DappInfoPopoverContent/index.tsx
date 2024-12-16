@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
+import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Badge,
   Dialog,
@@ -28,10 +30,118 @@ export function DappInfoPopoverContent({
   closePopover: () => void;
   iconConfig: {
     iconName: IKeyOfIcons;
-    iconColor: string;
+    iconColor: IIconProps['color'];
   };
 }) {
   const intl = useIntl();
+  const { securityElement, securityStatus } = useMemo(() => {
+    const security =
+      hostSecurity?.checkSources
+        .filter((item) => item.riskLevel === EHostSecurityLevel.Security)
+        .map((item) => item.name)
+        .join(' & ') || '';
+    if (security) {
+      return {
+        securityStatus: EHostSecurityLevel.Security,
+        securityElement: (
+          <>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.dapp_connect_verified_site,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.global_from_provider,
+                },
+                {
+                  provider: security,
+                },
+              )}
+            </SizableText>
+          </>
+        ),
+      };
+    }
+
+    const highSecurity =
+      hostSecurity?.checkSources
+        .filter((item) => item.riskLevel === EHostSecurityLevel.High)
+        .map((item) => item.name)
+        .join(' & ') || '';
+
+    if (highSecurity) {
+      return {
+        securityStatus: EHostSecurityLevel.High,
+        securityElement: (
+          <>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.dapp_connect_malicious_site_warning,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.global_from_provider,
+                },
+                {
+                  provider: highSecurity,
+                },
+              )}
+            </SizableText>
+          </>
+        ),
+      };
+    }
+
+    const mediumSecurity =
+      hostSecurity?.checkSources
+        .filter((item) =>
+          [EHostSecurityLevel.Medium, EHostSecurityLevel.Low].includes(
+            item.riskLevel,
+          ),
+        )
+        .map((item) => item.name)
+        .join(' & ') || '';
+
+    if (mediumSecurity) {
+      return {
+        securityStatus: EHostSecurityLevel.Medium,
+        securityElement: (
+          <>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage({
+                id: ETranslations.dapp_connect_suspected_malicious_behavior,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.global_from_provider,
+                },
+                {
+                  provider: mediumSecurity,
+                },
+              )}
+            </SizableText>
+          </>
+        ),
+      };
+    }
+
+    return {
+      securityStatus: 'unknown',
+      securityElement: (
+        <SizableText size="$bodyMdMedium">
+          {intl.formatMessage({
+            id: ETranslations.global_unknown,
+          })}
+        </SizableText>
+      ),
+    };
+  }, [hostSecurity?.checkSources, intl]);
   return (
     <YStack
       gap="$5"
@@ -109,53 +219,32 @@ export function DappInfoPopoverContent({
           })}
         </SizableText>
         <XStack ai="center">
-          <Icon {...iconConfig} />
+          <Icon name={iconConfig.iconName} color={iconConfig.iconColor} />
           <Stack ml="$3" flex={1}>
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.dapp_connect_verified_site,
-              })}
-            </SizableText>
-            {hostSecurity?.checkSources?.length ? (
-              <SizableText size="$bodyMd">
-                {intl.formatMessage(
-                  {
-                    id: ETranslations.global_from_provider,
-                  },
-                  {
-                    provider:
-                      hostSecurity?.checkSources
-                        .filter(
-                          (item) =>
-                            item.riskLevel === EHostSecurityLevel.Security,
-                        )
-                        .map((item) => item.name)
-                        .join(' & ') || '',
-                  },
-                )}
-              </SizableText>
-            ) : null}
+            {securityElement}
           </Stack>
-          <XStack
-            ai="center"
-            onPress={() => {
-              closePopover();
-              Dialog.show({
-                title: hostSecurity?.host,
-                renderContent: (
-                  <DAppRiskyAlertDetail urlSecurityInfo={hostSecurity} />
-                ),
-                showFooter: false,
-              });
-            }}
-          >
-            <SizableText size="$bodyMdMedium">
-              {intl.formatMessage({
-                id: ETranslations.global_details,
-              })}
-            </SizableText>
-            <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
-          </XStack>
+          {securityStatus === 'unknown' ? null : (
+            <XStack
+              ai="center"
+              onPress={() => {
+                closePopover();
+                Dialog.show({
+                  title: hostSecurity?.host,
+                  renderContent: (
+                    <DAppRiskyAlertDetail urlSecurityInfo={hostSecurity} />
+                  ),
+                  showFooter: false,
+                });
+              }}
+            >
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.global_details,
+                })}
+              </SizableText>
+              <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+            </XStack>
+          )}
         </XStack>
       </YStack>
       {hostSecurity?.dapp?.origins.length ? (
