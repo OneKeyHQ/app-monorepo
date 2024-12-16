@@ -63,6 +63,18 @@ jest.mock('react-native-device-info', () => ({
   getUsedMemorySync: jest.fn(),
 }));
 
+jest.mock('@sentry/electron/renderer', () => ({
+  init: () => jest.fn(),
+}));
+
+jest.mock('@sentry/react', () => ({
+  init: () => jest.fn(),
+}));
+
+jest.mock('@sentry/react-native', () => ({
+  init: () => jest.fn(),
+}));
+
 jest.mock('expo-localization', () => ({
   locale: '',
 }));
