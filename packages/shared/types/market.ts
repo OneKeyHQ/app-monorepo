@@ -132,6 +132,7 @@ export interface IMarketTokenDetail {
   links: IMarketDetailLinks;
   stats: IMarketDetailStats;
   detailPlatforms: IMarketDetailPlatform;
+  platforms: Record<string, string>;
   tickers?: IMarketDetailTicker[];
 }
 
