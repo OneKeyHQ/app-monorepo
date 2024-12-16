@@ -147,7 +147,7 @@ function IconButton({
               {
                 style: textStyle,
               },
-              'Fetching dApp info...',
+              isExpanded ? 'Fetching dApp info...' : '',
             )
           : null,
         h('div', {
@@ -858,7 +858,6 @@ function App() {
 async function injectFloatingIcon() {
   const isShowFloatingButton =
     await backgroundApiProxy.serviceSetting.isShowFloatingButton();
-
   if (!isShowFloatingButton) {
     return;
   }
