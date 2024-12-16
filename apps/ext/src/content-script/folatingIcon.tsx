@@ -855,7 +855,14 @@ function App() {
   );
 }
 
-function injectFloatingIcon() {
+async function injectFloatingIcon() {
+  const isShowFloatingButton =
+    await backgroundApiProxy.serviceSetting.isShowFloatingButton();
+
+  if (!isShowFloatingButton) {
+    return;
+  }
+
   if (isInjected) {
     return;
   }
@@ -883,8 +890,8 @@ export function inject() {
       return;
     }
     globalThis.addEventListener('DOMContentLoaded', () => {
-      injectFloatingIcon();
+      void injectFloatingIcon();
     });
-    injectFloatingIcon();
+    void injectFloatingIcon();
   }, 2000);
 }
