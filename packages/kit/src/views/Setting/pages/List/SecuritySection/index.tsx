@@ -208,7 +208,7 @@ export function SecuritySection() {
       {!platformEnv.isWebDappMode ? <ConnectedSitesItem /> : null}
       <SignatureRecordItem />
       <ProtectionItem />
-      {!platformEnv.isExtension ? <FloatingIcon /> : null}
+      {platformEnv.isExtension ? <FloatingIcon /> : null}
       <CleanDataItem />
     </Section>
   );
