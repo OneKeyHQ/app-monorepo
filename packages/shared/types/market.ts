@@ -52,13 +52,17 @@ export interface IMarketPerformance {
   priceChangePercentage1y: number;
 }
 
+export interface IMarketDetailPlatformNetwork {
+  contract_address: string;
+  onekeyNetworkId?: string;
+  hideContractAddress?: boolean;
+  coingeckoNetworkId?: string;
+  isNative?: true;
+  tokenAddress?: string;
+}
+
 export interface IMarketDetailPlatform {
-  [key: string]: {
-    contract_address: string;
-    onekeyNetworkId?: string;
-    hideContractAddress?: boolean;
-    coingeckoNetworkId?: string;
-  };
+  [key: string]: IMarketDetailPlatformNetwork;
 }
 
 export interface IMarketResponsePool {

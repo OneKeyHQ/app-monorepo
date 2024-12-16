@@ -16,11 +16,11 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
-import {
-  getImportFromToken,
-  getNetworkIdBySymbol,
-} from '@onekeyhq/shared/types/market/marketProvider.constants';
+import type {
+  IMarketDetailPlatformNetwork,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
+import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -28,23 +28,16 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, name } = token || {};
-  const network = useMemo(() => {
-    if (detailPlatforms && name === 'Toncoin') {
-      return detailPlatforms['the-open-network'];
-    }
-    return detailPlatforms ? Object.values(detailPlatforms)[0] : null;
-  }, [detailPlatforms, name]);
+  const { detailPlatforms } = token || {};
+  const network = useMemo(
+    () => (detailPlatforms ? Object.values(detailPlatforms)[0] : null),
+    [detailPlatforms],
+  );
   return network;
 };
 
 export const useMarketTradeNetworkId = (
-  network: {
-    contract_address: string;
-    onekeyNetworkId?: string;
-    hideContractAddress?: boolean;
-    coingeckoNetworkId?: string;
-  } | null,
+  network: IMarketDetailPlatformNetwork | null,
   symbol: string,
 ) =>
   useMemo(() => {
@@ -67,6 +60,9 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     () => network?.contract_address ?? '',
     [network],
   );
+
+  const { isNative = false, tokenAddress: realContractAddress = '' } =
+    network || {};
 
   const remindUnsupportedToken = useCallback(
     (action: 'buy' | 'sell' | 'trade', showDialog = true) => {
@@ -100,16 +96,10 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         return;
       }
 
-      const { isNative } =
-        getImportFromToken({
-          networkId,
-          tokenSymbol: symbol,
-          contractAddress,
-        }) || {};
       const isSupported =
         await backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
           networkId,
-          tokenAddress: isNative ? '' : contractAddress,
+          tokenAddress: realContractAddress,
           type,
         });
 
@@ -144,10 +134,9 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     },
     [
       activeAccount.account,
-      contractAddress,
       networkId,
+      realContractAddress,
       remindUnsupportedToken,
-      symbol,
     ],
   );
 
@@ -172,12 +161,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         });
         return;
       }
-      const { isNative, realContractAddress = '' } =
-        getImportFromToken({
-          networkId,
-          tokenSymbol: symbol,
-          contractAddress,
-        }) || {};
       const { isSupportSwap, isSupportCrossChain } =
         await backgroundApiProxy.serviceSwap.checkSupportSwap({
           networkId,
@@ -198,7 +181,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         importFromToken: {
           ...onekeyNetwork,
           logoURI: isNative ? onekeyNetwork.logoURI : undefined,
-          contractAddress: isNative ? '' : contractAddress,
+          contractAddress: realContractAddress,
           networkId,
           isNative,
           networkLogoURI: onekeyNetwork.logoURI,
@@ -212,9 +195,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     },
     [
       contractAddress,
+      isNative,
       name,
       navigation,
       networkId,
+      realContractAddress,
       remindUnsupportedToken,
       symbol,
     ],
