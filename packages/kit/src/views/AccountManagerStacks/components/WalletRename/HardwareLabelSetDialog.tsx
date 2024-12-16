@@ -109,6 +109,12 @@ function DeviceLabelDialogContent(props: {
             validate: (value: string) => {
               if (!value.length) return true;
 
+              if (Buffer.from(value, 'utf-8').length > maxLength) {
+                return intl.formatMessage({
+                  id: ETranslations.global_hardware_name_input_max,
+                });
+              }
+
               const regexRule = emojiRegex();
               if (regexRule.test(value)) {
                 return intl.formatMessage({
