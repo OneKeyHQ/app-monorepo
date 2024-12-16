@@ -205,8 +205,10 @@ function SecurityInfoRow({
     {
       style: {
         display: 'flex',
+        height: '16px',
         flexDirection: 'row',
         justifyContent: 'space-between',
+        alignItems: 'center',
         padding: '0 8px',
       },
     },
@@ -482,10 +484,11 @@ function SecurityInfo({
                 [
                   securityInfo?.dapp.logo
                     ? h('img', {
-                        src: 'https://asset.onekey-asset.com/app-monorepo/bb7a4e71aba56b405faf9278776d57d73b829708/favicon.png',
+                        src: securityInfo?.dapp.logo,
                         style: {
                           height: '24px',
                           width: '24px',
+                          borderRadius: '4px',
                         },
                       })
                     : h(
@@ -559,6 +562,7 @@ function SecurityInfo({
                       style: {
                         display: 'flex',
                         alignItems: 'center',
+                        gap: '2px',
                       },
                     },
                     securityInfo?.dapp?.origins.map((item) =>
@@ -702,88 +706,91 @@ function App() {
       // };
 
       const testData = {
-        "host": "app.uniswap.org",
-        "projectName": "Uniswap",
-        "phishingSite": false,
-        "level": "security",
-        "isWhiteList": false,
-        "isBlackList": false,
-        "createdAt": "2024-03-08",
-        "updatedAt": "2024-12-16",
-        "checkSources": [
+        'host': 'app.uniswap.org',
+        'projectName': 'Uniswap',
+        'phishingSite': false,
+        'level': 'security',
+        'isWhiteList': false,
+        'isBlackList': false,
+        'createdAt': '2024-03-08',
+        'updatedAt': '2024-12-16',
+        'checkSources': [
           {
-            "name": "scam-sniffer",
-            "riskLevel": "unknown"
+            'name': 'scam-sniffer',
+            'riskLevel': 'unknown',
           },
           {
-            "name": "goplus",
-            "riskLevel": "security"
+            'name': 'goplus',
+            'riskLevel': 'security',
           },
           {
-            "name": "blockaid",
-            "riskLevel": "unknown"
-          }
+            'name': 'blockaid',
+            'riskLevel': 'unknown',
+          },
         ],
-        "alert": "已认证的网站",
-        "detail": {
-          "title": "已认证的网站",
-          "content": "通过多个可信源认证的 Web3 网站，可以放心使用。"
+        'alert': '已认证的网站',
+        'detail': {
+          'title': '已认证的网站',
+          'content': '通过多个可信源认证的 Web3 网站，可以放心使用。',
         },
-        "attackTypes": [],
-        "dapp": {
-          "name": "Uniswap V1",
-          "logo": "https://dev.onekey-asset.com/discover/dapp/Uniswap%20V1.png",
-          "categories": [
+        'attackTypes': [],
+        'dapp': {
+          'name': 'Uniswap V1',
+          'logo': 'https://dev.onekey-asset.com/discover/dapp/Uniswap%20V1.png',
+          'categories': [
             {
-              "name": {
-                "text": "exchanges",
-                "lokaliseKey": "438062876",
-                "deleted": false
+              'name': {
+                'text': 'exchanges',
+                'lokaliseKey': '438062876',
+                'deleted': false,
               },
-              "recommendIndex": 0,
-              "origin": "dappradar",
-              "categoryId": "bf95c0de-fd9d-498b-8695-f9bca97fdc53"
-            }
+              'recommendIndex': 0,
+              'origin': 'dappradar',
+              'categoryId': 'bf95c0de-fd9d-498b-8695-f9bca97fdc53',
+            },
           ],
-          "tags": [
+          'tags': [
             {
-              "name": {
-                "text": " 🔥 Hot",
-                "lokaliseKey": "438074961",
-                "deleted": false
+              'name': {
+                'text': ' 🔥 Hot',
+                'lokaliseKey': '438074961',
+                'deleted': false,
               },
-              "tagId": "25be6bf0-6f93-4ef2-a0a6-500fcafca0e5",
-              "type": "critical"
-            }
+              'tagId': '25be6bf0-6f93-4ef2-a0a6-500fcafca0e5',
+              'type': 'critical',
+            },
           ],
-          "origins": [
+          'origins': [
             {
-              "name": "okx",
-              "logo": "https://uni.onekey-asset.com/static/logo/dapp_okx.png"
+              'name': 'okx',
+              'logo': 'https://uni.onekey-asset.com/static/logo/dapp_okx.png',
             },
             {
-              "name": "bitget",
-              "logo": "https://uni.onekey-asset.com/static/logo/dapp_bitget.png"
+              'name': 'bitget',
+              'logo':
+                'https://uni.onekey-asset.com/static/logo/dapp_bitget.png',
             },
             {
-              "name": "defillama",
-              "logo": "https://uni.onekey-asset.com/static/logo/dapp_defillama.png"
+              'name': 'defillama',
+              'logo':
+                'https://uni.onekey-asset.com/static/logo/dapp_defillama.png',
             },
             {
-              "name": "tp",
-              "logo": "https://uni.onekey-asset.com/static/logo/dapp_tp.png"
+              'name': 'tp',
+              'logo': 'https://uni.onekey-asset.com/static/logo/dapp_tp.png',
             },
             {
-              "name": "dappradar",
-              "logo": "https://uni.onekey-asset.com/static/logo/dapp_dappradar.png"
-            }
+              'name': 'dappradar',
+              'logo':
+                'https://uni.onekey-asset.com/static/logo/dapp_dappradar.png',
+            },
           ],
-          "description": {
-            "text": "Decentralized protocol for automated liquidity",
-            "lokaliseKey": "438065900",
-            "deleted": false
-          }
-        }
+          'description': {
+            'text': 'Decentralized protocol for automated liquidity',
+            'lokaliseKey': '438065900',
+            'deleted': false,
+          },
+        },
       };
       setSecurityInfo(testData);
     }
