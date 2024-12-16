@@ -293,7 +293,7 @@ export function DeriveTypeSelectorTriggerForSwap({ num }: { num: number }) {
       renderTrigger={({ label, onPress }) => (
         <DeriveTypeSelectorTriggerIconRenderer
           label={label}
-          autoShowLabel
+          autoShowLabel={false}
           onPress={onPress}
           iconProps={{
             size: '$4',
