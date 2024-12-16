@@ -2,11 +2,6 @@
 import '@onekeyhq/shared/src/polyfills';
 
 import { KitProvider } from '@onekeyhq/kit';
-import {
-  initSentry,
-  withSentryHOC,
-} from '@onekeyhq/shared/src/modules3rdParty/sentry';
-
-initSentry();
+import { withSentryHOC } from '@onekeyhq/shared/src/modules3rdParty/sentry';
 
 export default withSentryHOC(KitProvider);

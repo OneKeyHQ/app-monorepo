@@ -28,6 +28,10 @@ build({
       __dirname,
       '../../desktop/src-electron/libs/react-native-mock',
     ),
+    '@sentry/react-native': path.join(
+      __dirname,
+      '../../desktop/src-electron/libs/sentry-react-native-mock',
+    ),
     'react-native-uuid': path.join(
       __dirname,
       '../../../node_modules/react-native-uuid/dist',
