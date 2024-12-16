@@ -11,4 +11,3 @@ export const getNetworkIdBySymbol = memoizee((symbol: string) => {
       return undefined;
   }
 });
-
