@@ -18,6 +18,8 @@ export const initSentry = () => {
 
 export * from '@sentry/react';
 
+export * from './basicOptions';
+
 export const nativeCrash = () => {};
 
 export const withSentryHOC = (
@@ -28,7 +30,3 @@ export const withSentryHOC = (
       console.error('error', error, info);
     },
   });
-
-export const navigationIntegration = {
-  registerNavigationContainer: (ref: any) => {},
-};

@@ -43,7 +43,7 @@
     "@react-native-community/netinfo": "^11.4.1",
     "@react-native-community/slider": "4.4.3",
     "@react-native-google-signin/google-signin": "^9.1.0",
-    "@sentry/react-native": "^6.2.0",
+    "@sentry/react-native": "6.4.0",
     "@shopify/flash-list": "^1.6.3",
     "@types/react-native-canvas": "^0.1.13",
     "@walletconnect/modal-react-native": "1.1.0",
