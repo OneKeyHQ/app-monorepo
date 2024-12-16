@@ -19,7 +19,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
-import type { ISignPsbtParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiSui.type';
+import type { ISignPsbtOptions } from '@onekeyhq/shared/types/ProviderApis/ProviderApiBtc.type';
 
 import {
   CKDPub,
@@ -104,20 +104,20 @@ export function tweakSigner(
     throw new Error('Private key is required for tweaking signer!');
   }
 
-  const tweakedPrivateKey = ecc.privateAdd(
-    privateKey,
-    tapTweakHash(toXOnly(publicKey), opts.tweakHash),
-  );
-  if (!tweakedPrivateKey) {
-    throw new Error('Invalid tweaked private key!');
+  if (opts.needTweak) {
+    const tweakedPrivateKey = ecc.privateAdd(
+      privateKey,
+      tapTweakHash(toXOnly(publicKey), opts.tweakHash),
+    );
+    if (!tweakedPrivateKey) {
+      throw new Error('Invalid tweaked private key!');
+    }
+    privateKey = tweakedPrivateKey;
   }
 
-  return getBitcoinECPair().fromPrivateKey(
-    Buffer.from(opts.needTweak ? tweakedPrivateKey : privateKey),
-    {
-      network: opts.network,
-    },
-  );
+  return getBitcoinECPair().fromPrivateKey(Buffer.from(privateKey), {
+    network: opts.network,
+  });
 }
 
 const TX_OP_RETURN_SIZE_LIMIT = 80;
@@ -174,7 +174,7 @@ export function getInputsToSignFromPsbt({
   account: ICoreApiSignAccount;
   psbt: Psbt;
   psbtNetwork: networks.Network;
-  isBtcWalletProvider: ISignPsbtParams['options']['isBtcWalletProvider'];
+  isBtcWalletProvider: ISignPsbtOptions['isBtcWalletProvider'];
 }) {
   const inputsToSign: ITxInputToSign[] = [];
   psbt.data.inputs.forEach((v, index) => {
