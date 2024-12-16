@@ -33,8 +33,7 @@ export function MarketTradeButton({
     sell: true,
   });
 
-  const { isNative = false, tokenAddress: realContractAddress = '' } =
-    network || {};
+  const { tokenAddress: realContractAddress = '' } = network || {};
 
   const sections = useMemo(
     () => [
@@ -72,7 +71,7 @@ export function MarketTradeButton({
         sell: !sellResult,
       });
     }
-  }, [isNative, networkId, realContractAddress]);
+  }, [networkId, realContractAddress]);
 
   useEffect(() => {
     void checkDisabled();
