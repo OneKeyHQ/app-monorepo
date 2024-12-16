@@ -132,7 +132,7 @@ export function DappInfoPopoverContent({
     }
 
     return {
-      securityStatus: 'unknown',
+      securityStatus: EHostSecurityLevel.Unknown,
       securityElement: (
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({
@@ -223,7 +223,7 @@ export function DappInfoPopoverContent({
           <Stack ml="$3" flex={1}>
             {securityElement}
           </Stack>
-          {securityStatus === 'unknown' ? null : (
+          {securityStatus === EHostSecurityLevel.Unknown ? null : (
             <XStack
               ai="center"
               onPress={() => {
