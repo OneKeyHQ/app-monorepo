@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
+  Badge,
   Button,
   Icon,
   SizableText,
@@ -50,6 +51,8 @@ const SwapInputActions = ({
           x: 4,
         }}
         gap="$1"
+        alignItems="center"
+        pb="$2"
       >
         {showActionBuy ? (
           <ActionBuy
@@ -61,11 +64,7 @@ const SwapInputActions = ({
             bg="$bgSubdued"
             size="small"
             label={
-              <XStack
-                alignItems="center"
-                gap="$1"
-                pt={platformEnv.isNativeIOS ? '$1' : '$0'}
-              >
+              <XStack alignItems="center" gap="$1">
                 <Icon name="CreditCardCvvOutline" size="$4" />
                 <SizableText size="$bodySmMedium" color="$textSubdued">
                   {intl.formatMessage({ id: ETranslations.global_buy })}
@@ -81,21 +80,26 @@ const SwapInputActions = ({
         {showPercentageInput ? (
           <>
             {needSwapPercentageInputStage.map((stage) => (
-              <Button
-                height="$5"
+              <Badge
                 key={`swap-percentage-input-stage-${stage}`}
-                size="small"
+                role="button"
+                badgeSize="sm"
                 onPress={() => {
                   onSelectStage?.(stage);
                 }}
-                bg="$bgSubdued"
                 px="$1.5"
-                py="$0"
+                bg="$bgSubdued"
+                borderRadius="$2"
+                userSelect="none"
+                hoverStyle={{
+                  bg: '$bgStrongHover',
+                }}
+                pressStyle={{
+                  bg: '$bgStrongActive',
+                }}
               >
-                <SizableText size="$bodySmMedium" color="$textSubdued">
-                  {stage}%
-                </SizableText>
-              </Button>
+                <Badge.Text>{stage}%</Badge.Text>
+              </Badge>
             ))}
           </>
         ) : null}
