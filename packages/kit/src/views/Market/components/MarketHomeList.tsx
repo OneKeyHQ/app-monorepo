@@ -618,7 +618,6 @@ function BasicMarketHomeList({
       if (listData) {
         for (let i = 0; i < listData.length; i += 1) {
           const item = listData[i] as unknown as IMarketToken;
-          console.log('===item', item);
           if (!isItemSupportStaking) {
             const stakingItem = isSupportStaking(item.symbol);
             if (stakingItem) {
