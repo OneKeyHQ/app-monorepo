@@ -10,12 +10,15 @@ module.exports = {
   plugins: [
     sentryWebpackPlugin({
       org: 'onekey-bb',
+      debug: true,
       project: process.env.SENTRY_PROJECT,
       authToken: process.env.SENTRY_TOKEN,
       release: {
         name: `${process.env.VERSION} (${process.env.BUILD_NUMBER})`,
       },
-      filesToDeleteAfterUpload: ['*.js.map', '*.css.map', '*.LICENSE.txt'],
+      sourcemaps: {
+        filesToDeleteAfterUpload: ['*.js.map', '*.css.map', '*.LICENSE.txt'],
+      },
     }),
   ],
   optimization: {
