@@ -17,8 +17,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 // import { startKeepAlivePolling } from '../background/keepAlive';
 import devToolsButton from '../content-script/devToolsButton';
 
-import { inject as injectFloatingIcon } from '../content-script/folatingIcon';
-
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { shouldInject } from '../content-script/shouldInject';
 
@@ -111,7 +109,6 @@ if (process.env.NODE_ENV !== 'production') {
   }
 }
 
-injectFloatingIcon();
 if (process.env.NODE_ENV !== 'production') {
   console.log('==== injected script tag done >>>>>>>', performance.now());
 }
