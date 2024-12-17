@@ -123,7 +123,7 @@ function DesktopCustomTabBarItem({
             },
             testID: `action-list-item-disconnect`,
           },
-          {
+          !tab?.isPinned && {
             shortcutKeys: EShortcutEvents.CloseTab,
             label: intl.formatMessage({
               id: ETranslations.explore_close_tab,
