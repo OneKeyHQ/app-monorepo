@@ -9,6 +9,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -58,6 +59,7 @@ function TokenDetailsHeader(props: IProps) {
     tokenInfo,
     isAllNetworks,
     indexedAccountId,
+    isTabView,
   } = props;
   const navigation = useAppNavigation();
 
@@ -77,6 +79,8 @@ function TokenDetailsHeader(props: IProps) {
     deriveType,
   });
 
+  const { isFocused } = useTabIsRefreshingFocused();
+
   const { result: tokenDetails, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
       async () => {
@@ -91,6 +95,8 @@ function TokenDetailsHeader(props: IProps) {
       [accountId, networkId, tokenInfo.address],
       {
         watchLoading: true,
+        overrideIsFocused: (isPageFocused) =>
+          isPageFocused && (isTabView ? isFocused : true),
       },
     );
 
