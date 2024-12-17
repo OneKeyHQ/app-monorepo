@@ -272,7 +272,47 @@ class ProviderApiPrivate extends ProviderApiBase {
   */
   @providerApiMethod()
   async wallet_isShowFloatingButton() {
-    return this.backgroundApi.serviceSetting.isShowFloatingButton();
+    const isShow =
+      await this.backgroundApi.serviceSetting.isShowFloatingButton();
+    return {
+      isShow,
+      i18n: {
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.explore_malicious_dapp,
+        }),
+        description: appLocale.intl.formatMessage({
+          id: ETranslations.explore_malicious_dapp_warning_description,
+        }),
+        continueMessage: appLocale.intl.formatMessage({
+          id: ETranslations.explore_malicious_dapp_warning_continueMessage,
+        }),
+        continueLink: appLocale.intl.formatMessage({
+          id: ETranslations.explore_malicious_dapp_warning_continueLink,
+        }),
+        addToWhiteListLink: appLocale.intl.formatMessage({
+          id: ETranslations.explore_malicious_dapp_warning_addToWhiteListLink,
+        }),
+        sourceMessage: appLocale.intl.formatMessage({
+          id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+        }),
+        fetchingDAppInfo: 'Fetching dApp info...',
+        dappListedBy: appLocale.intl.formatMessage({
+          id: ETranslations.browser_dapp_listed_by,
+        }),
+        riskDetection: appLocale.intl.formatMessage({
+          id: ETranslations.browser_risk_detection,
+        }),
+        maliciousDappWarningSourceMessage: appLocale.intl.formatMessage({
+          id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+        }),
+        verifiedSite: appLocale.intl.formatMessage({
+          id: ETranslations.dapp_connect_verified_site,
+        }),
+        unknown: appLocale.intl.formatMessage({
+          id: ETranslations.global_unknown,
+        }),
+      },
+    };
   }
 
   /*
