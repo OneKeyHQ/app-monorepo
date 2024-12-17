@@ -702,6 +702,7 @@ function BasicMarketHomeList({
               renderSkeleton: () => <Skeleton w="100%" h="$3" />,
               render: (_, record: IMarketToken) => (
                 <MarketListTradeButton
+                  isSupportBuy={record.isSupportBuy}
                   coinGeckoId={record.coingeckoId}
                   symbol={record.symbol}
                 />
