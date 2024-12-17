@@ -243,10 +243,36 @@ class ProviderApiPrivate extends ProviderApiBase {
           sourceMessage: appLocale.intl.formatMessage({
             id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
           }),
+          fetchingDAppInfo: 'Fetching dApp info...',
+          dappListedBy: appLocale.intl.formatMessage({
+            id: ETranslations.browser_dapp_listed_by,
+          }),
+          riskDetection: appLocale.intl.formatMessage({
+            id: ETranslations.browser_risk_detection,
+          }),
+          maliciousDappWarningSourceMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+          }),
+          verifiedSite: appLocale.intl.formatMessage({
+            id: ETranslations.dapp_connect_verified_site,
+          }),
+          unknown: appLocale.intl.formatMessage({
+            id: ETranslations.global_unknown,
+          }),
         },
       };
     }
     throw new Error('Invalid request');
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_isShowFloatingButton',
+    });
+  */
+  @providerApiMethod()
+  async wallet_isShowFloatingButton() {
+    return this.backgroundApi.serviceSetting.isShowFloatingButton();
   }
 
   /*
