@@ -4,8 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
-  Badge,
-  Button,
   Icon,
   SizableText,
   XStack,
@@ -18,6 +16,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
 import ActionBuy from '../../../AssetDetails/pages/TokenDetails/ActionBuy';
+import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 
 const SwapInputActions = ({
   showPercentageInput,
@@ -61,6 +60,7 @@ const SwapInputActions = ({
             height="$5"
             px="$1.5"
             py="$0"
+            pt="$1"
             bg="$bgSubdued"
             size="small"
             label={
@@ -77,29 +77,14 @@ const SwapInputActions = ({
             tokenAddress={fromToken?.contractAddress ?? ''}
           />
         ) : null}
-        {showPercentageInput ? (
+        {!platformEnv.isNative && showPercentageInput ? (
           <>
             {needSwapPercentageInputStage.map((stage) => (
-              <Badge
+              <SwapPercentageStageBadge
                 key={`swap-percentage-input-stage-${stage}`}
-                role="button"
-                badgeSize="sm"
-                onPress={() => {
-                  onSelectStage?.(stage);
-                }}
-                px="$1.5"
-                bg="$bgSubdued"
-                borderRadius="$2"
-                userSelect="none"
-                hoverStyle={{
-                  bg: '$bgStrongHover',
-                }}
-                pressStyle={{
-                  bg: '$bgStrongActive',
-                }}
-              >
-                <Badge.Text>{stage}%</Badge.Text>
-              </Badge>
+                stage={stage}
+                onSelectStage={onSelectStage}
+              />
             ))}
           </>
         ) : null}

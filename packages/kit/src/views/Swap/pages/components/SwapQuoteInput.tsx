@@ -1,8 +1,9 @@
-import { memo, useCallback } from 'react';
+import { memo } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { InputAccessoryView } from 'react-native';
 
-import { IconButton, YStack } from '@onekeyhq/components';
+import { IconButton, SizableText, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -13,7 +14,11 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  ESwapDirectionType,
+  SwapAmountInputAccessoryViewID,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapFromAccountNetworkSync } from '../../hooks/useSwapAccount';
 import { useSwapApproving } from '../../hooks/useSwapApproving';
@@ -29,11 +34,13 @@ import SwapInputContainer from './SwapInputContainer';
 interface ISwapQuoteInputProps {
   selectLoading?: boolean;
   onSelectToken: (type: ESwapDirectionType) => void;
+  onSelectPercentageStage?: (stage: number) => void;
 }
 
 const SwapQuoteInput = ({
   onSelectToken,
   selectLoading,
+  onSelectPercentageStage,
 }: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
@@ -45,23 +52,6 @@ const SwapQuoteInput = ({
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  const onSelectPercentageStage = useCallback(
-    (stage: number) => {
-      const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
-      const amountBN = fromTokenBalanceBN.multipliedBy(stage / 100);
-      const amountAfterDecimal = amountBN.decimalPlaces(
-        fromToken?.decimals ?? 6,
-        BigNumber.ROUND_DOWN,
-      );
-      if (
-        !amountAfterDecimal.isNaN() &&
-        validateAmountInput(amountAfterDecimal.toFixed(), fromToken?.decimals)
-      ) {
-        setFromInputAmount(amountAfterDecimal.toFixed());
-      }
-    },
-    [fromTokenBalance, fromToken?.decimals, setFromInputAmount],
-  );
   useSwapQuote();
   useSwapFromAccountNetworkSync();
   useSwapApproving();
@@ -121,6 +111,11 @@ const SwapQuoteInput = ({
           balance={toTokenBalance}
         />
       </YStack>
+      {platformEnv.isNativeIOS ? (
+        <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
+          <SizableText h="$0" />
+        </InputAccessoryView>
+      ) : null}
     </YStack>
   );
 };
