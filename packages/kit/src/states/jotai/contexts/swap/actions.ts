@@ -318,7 +318,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         return;
       }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
-      // let enableInterval = true;
       try {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), true);
@@ -336,13 +335,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), false);
           set(swapQuoteListAtom(), res);
-          set(swapQuoteEventTotalCountAtom(), res.length);
+          set(swapQuoteEventTotalCountAtom(), {
+            count: res.length,
+          });
         } else {
           set(swapSilenceQuoteLoading(), true);
           setTimeout(() => {
             set(swapSilenceQuoteLoading(), false);
             set(swapQuoteListAtom(), res);
-            set(swapQuoteEventTotalCountAtom(), res.length);
+            set(swapQuoteEventTotalCountAtom(), {
+              count: res.length,
+            });
           }, 800);
         }
       } catch (e: any) {
@@ -350,29 +353,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (e?.cause !== ESwapFetchCancelCause.SWAP_QUOTE_CANCEL) {
           set(swapQuoteFetchingAtom(), false);
         }
-        // } else {
-        //   // enableInterval = false;
-        // }
       } finally {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-        // if (enableInterval) {
-        //   const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
-        //   if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
-        //     void this.recoverQuoteInterval.call(
-        //       set,
-        //       {
-        //         key: autoSlippage
-        //           ? ESwapSlippageSegmentKey.AUTO
-        //           : ESwapSlippageSegmentKey.CUSTOM,
-        //         value: slippagePercentage,
-        //       },
-        //       address,
-        //       accountId,
-        //       true,
-        //     );
-        //   }
-        //   set(swapQuoteIntervalCountAtom(), quoteIntervalCount + 1);
-        // }
       }
     },
   );
@@ -391,8 +373,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       switch (event.type) {
         case 'open': {
-          // set(swapQuoteListAtom(), []);
-          // set(swapQuoteEventTotalCountAtom(), 0);
           break;
         }
         case 'message': {
@@ -445,7 +425,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               (dataJson as ISwapQuoteEventInfo).totalQuoteCount === 0
             ) {
               const { totalQuoteCount } = dataJson as ISwapQuoteEventInfo;
-              set(swapQuoteEventTotalCountAtom(), totalQuoteCount);
+              set(swapQuoteEventTotalCountAtom(), {
+                eventId: (dataJson as ISwapQuoteEventInfo).eventId,
+                count: totalQuoteCount,
+              });
               if (totalQuoteCount === 0) {
                 set(swapQuoteListAtom(), [
                   {
@@ -461,7 +444,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               const swapAutoSlippageSuggestedValue = get(
                 swapAutoSlippageSuggestedValueAtom(),
               );
-              if (quoteResultData.data?.length) {
+              const quoteEventTotalCount = get(swapQuoteEventTotalCountAtom());
+              if (
+                quoteResultData.data?.length &&
+                quoteEventTotalCount.eventId === quoteResultData.data[0].eventId
+              ) {
                 const quoteResultsUpdateSlippage = quoteResultData.data.map(
                   (quote) => {
                     if (
@@ -518,9 +505,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   ?.filter(
                     (q) =>
                       !q.eventId ||
-                      (q.eventId &&
+                      (quoteEventTotalCount.eventId &&
                         quoteResultData?.data?.[0]?.eventId &&
-                        q.eventId === quoteResultData.data[0].eventId),
+                        quoteEventTotalCount.eventId ===
+                          quoteResultData.data[0].eventId),
                   );
                 set(swapQuoteListAtom(), [...newQuoteList]);
               }
@@ -531,22 +519,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
         case 'done': {
           set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-          // const quoteIntervalCount = get(swapQuoteIntervalCountAtom());
-          // if (quoteIntervalCount <= swapQuoteIntervalMaxCount) {
-          //   void this.recoverQuoteInterval.call(
-          //     set,
-          //     {
-          //       key: event.params.autoSlippage
-          //         ? ESwapSlippageSegmentKey.AUTO
-          //         : ESwapSlippageSegmentKey.CUSTOM,
-          //       value: event.params.slippagePercentage,
-          //     },
-          //     event.params.userAddress,
-          //     event.accountId,
-          //     true,
-          //   );
-          // }
-          // set(swapQuoteIntervalCountAtom(), quoteIntervalCount + 1);
           this.closeQuoteEvent();
           break;
         }
@@ -647,7 +619,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         );
       } else {
         set(swapQuoteFetchingAtom(), false);
-        set(swapQuoteEventTotalCountAtom(), 0);
+        set(swapQuoteEventTotalCountAtom(), {
+          count: 0,
+        });
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
       }
@@ -896,8 +870,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (
         !networks.length ||
         !swapFromAddressInfo.accountInfo?.ready ||
-        (quoteEventTotalCount > 0 &&
-          quoteResultList.length < quoteEventTotalCount)
+        (quoteEventTotalCount.count > 0 &&
+          quoteResultList.length < quoteEventTotalCount.count)
       ) {
         return;
       }

@@ -75,6 +75,8 @@ jest.mock('@sentry/react-native', () => ({
   init: () => jest.fn(),
   reactNavigationIntegration: () => jest.fn(),
   reactNativeTracingIntegration: () => jest.fn(),
+  TimeToInitialDisplay: () => jest.fn(),
+  TimeToFullDisplay: () => jest.fn(),
 }));
 
 jest.mock('expo-localization', () => ({

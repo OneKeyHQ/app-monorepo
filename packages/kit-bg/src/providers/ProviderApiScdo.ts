@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import { keccak256 } from 'viem';
 
@@ -140,6 +141,12 @@ class ProviderApiScdo extends ProviderApiBase {
       throw web3Errors.rpc.invalidParams(
         '"from" address is invalid for this account',
       );
+    }
+    if (typeof encodedTx.Amount === 'string') {
+      const amount = new BigNumber(encodedTx.Amount);
+      if (amount.isInteger()) {
+        encodedTx.Amount = amount.toNumber();
+      }
     }
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
