@@ -15,6 +15,7 @@ module.exports = {
       release: {
         name: `${process.env.VERSION} (${process.env.BUILD_NUMBER})`,
       },
+      filesToDeleteAfterUpload: ['*.js.map', '*.css.map', '*.LICENSE.txt'],
     }),
   ],
   optimization: {
