@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -13,6 +14,7 @@ import {
   SizableText,
   Stack,
   XStack,
+  useIsKeyboardShown,
   useMedia,
   usePageType,
 } from '@onekeyhq/components';
@@ -26,8 +28,12 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  SwapPercentageInputStageForNative,
+} from '@onekeyhq/shared/types/swap/types';
 
+import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
@@ -46,6 +52,63 @@ interface ISwapActionsStateProps {
     shoutResetApprove?: boolean,
   ) => void;
   onOpenRecipientAddress: () => void;
+  onSelectPercentageStage?: (stage: number) => void;
+}
+
+function PageFooter({
+  onSelectPercentageStage,
+  actionComponent,
+  pageType,
+  md,
+}: {
+  onSelectPercentageStage?: (stage: number) => void;
+  pageType: EPageType;
+  md: boolean;
+  actionComponent: React.JSX.Element;
+}) {
+  const isShow = useIsKeyboardShown();
+  const intl = useIntl();
+  return (
+    <Page.Footer>
+      <Page.FooterActions
+        {...(pageType === EPageType.modal && !md
+          ? { buttonContainerProps: { flex: 1 } }
+          : {})}
+        confirmButton={actionComponent}
+      />
+      {isShow ? (
+        <XStack
+          alignItems="center"
+          gap="$1"
+          justifyContent="space-around"
+          bg="$bgSubdued"
+          h="$10"
+        >
+          <>
+            {SwapPercentageInputStageForNative.map((stage) => (
+              <SwapPercentageStageBadge
+                badgeSize="lg"
+                key={`swap-percentage-input-stage-${stage}`}
+                stage={stage}
+                onSelectStage={onSelectPercentageStage}
+              />
+            ))}
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={() => {
+                Keyboard.dismiss();
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_confirm,
+              })}
+            </Button>
+          </>
+        </XStack>
+      ) : null}
+    </Page.Footer>
+  );
 }
 
 const SwapActionsState = ({
@@ -53,6 +116,7 @@ const SwapActionsState = ({
   onApprove,
   onWrapped,
   onOpenRecipientAddress,
+  onSelectPercentageStage,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -375,11 +439,11 @@ const SwapActionsState = ({
       {pageType !== EPageType.modal && !md ? (
         actionComponent
       ) : (
-        <Page.Footer
-          {...(pageType === EPageType.modal && !md
-            ? { buttonContainerProps: { flex: 1 } }
-            : {})}
-          confirmButton={actionComponent}
+        <PageFooter
+          onSelectPercentageStage={onSelectPercentageStage}
+          actionComponent={actionComponent}
+          pageType={pageType}
+          md={md}
         />
       )}
     </>

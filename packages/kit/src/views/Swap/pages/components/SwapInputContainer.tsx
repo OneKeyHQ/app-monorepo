@@ -18,6 +18,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapRateDifferenceUnit,
+  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
@@ -206,6 +207,13 @@ const SwapInputContainer = ({
                   caretColor: 'transparent',
                 } as any)
               : undefined,
+          inputAccessoryViewID:
+            direction === ESwapDirectionType.FROM && platformEnv.isNativeIOS
+              ? SwapAmountInputAccessoryViewID
+              : undefined,
+          autoCorrect: false,
+          spellCheck: false,
+          autoComplete: 'off',
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,
