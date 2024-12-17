@@ -6,7 +6,6 @@ import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList, Button, IconButton, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
-import { getImportFromToken } from '@onekeyhq/shared/types/market/marketProvider.constants';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { ReviewControl } from '../../../components/ReviewControl';
@@ -33,6 +32,9 @@ export function MarketTradeButton({
     buy: true,
     sell: true,
   });
+
+  const { tokenAddress: realContractAddress = '' } = network || {};
+
   const sections = useMemo(
     () => [
       {
@@ -51,14 +53,7 @@ export function MarketTradeButton({
 
   const checkDisabled = useCallback(async () => {
     if (networkId) {
-      const { isNative, realContractAddress = '' } =
-        getImportFromToken({
-          networkId,
-          tokenSymbol: token.symbol,
-          contractAddress: network?.contract_address || '',
-        }) || {};
-      const contractAddress = isNative ? '' : network?.contract_address || '';
-
+      const contractAddress = realContractAddress;
       const [buyResult, sellResult] = await Promise.all([
         backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
           networkId,
@@ -76,7 +71,7 @@ export function MarketTradeButton({
         sell: !sellResult,
       });
     }
-  }, [network, networkId, token.symbol]);
+  }, [networkId, realContractAddress]);
 
   useEffect(() => {
     void checkDisabled();

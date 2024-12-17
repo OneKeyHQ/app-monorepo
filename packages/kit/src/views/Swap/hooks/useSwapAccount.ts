@@ -292,9 +292,10 @@ export function useSwapRecipientAddressInfo(enable: boolean) {
     swapToAnotherAccountSwitchOn
   ) {
     if (
-      getToNetWorkAddressFromAccountId?.result?.accountAddress &&
-      getToNetWorkAddressFromAccountId?.result?.accountAddress !==
-        swapToAnotherAddressInfo.address &&
+      ((getToNetWorkAddressFromAccountId?.result?.accountAddress &&
+        getToNetWorkAddressFromAccountId?.result?.accountAddress !==
+          swapToAnotherAddressInfo.address) ||
+        !getToNetWorkAddressFromAccountId?.result?.accountAddress) &&
       swapToAnotherAddressInfo.networkId ===
         currentQuoteRes?.toTokenInfo.networkId
     ) {

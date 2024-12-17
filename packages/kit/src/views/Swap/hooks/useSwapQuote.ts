@@ -275,13 +275,15 @@ export function useSwapQuote() {
         } else if (isHiddenModel) {
           if (
             swapQuoteFetchingRef.current ||
-            (swapQuoteEventTotalCountRef.current > 0 &&
+            (swapQuoteEventTotalCountRef.current.count > 0 &&
               swapQuoteResultListRef.current.length <
-                swapQuoteEventTotalCountRef.current)
+                swapQuoteEventTotalCountRef.current.count)
           ) {
             // reset tab quote data when swap modal is open and tab quote data is fetching
             closeQuoteEvent();
-            setSwapQuoteEventTotalCount(0);
+            setSwapQuoteEventTotalCount({
+              count: 0,
+            });
             setSwapQuoteResultList([]);
             setFromTokenAmount('');
           }
