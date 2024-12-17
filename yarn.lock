@@ -6739,7 +6739,6 @@ __metadata:
     node-notifier: "npm:^10.0.1"
     openpgp: "npm:^5.11.2"
     patch-package: "npm:^7.0.0"
-    preact: "npm:^10.25.1"
     prettier: "npm:^2.8.1"
     progress-bar-webpack-plugin: "npm:^2.1.0"
     punycode: "npm:^2.3.1"
@@ -32721,13 +32720,6 @@ __metadata:
   version: 1.1.4
   resolution: "postgres-range@npm:1.1.4"
   checksum: 10/035759f17b44bf9ba7e71a30402ed2ca1e2b7fabb3ad794b08169a5b453d38d06905a6dfb51fe41a3f6d9fac4e183dac9e769b95053053db933be16785edce1f
-  languageName: node
-  linkType: hard
-
-"preact@npm:^10.25.1":
-  version: 10.25.1
-  resolution: "preact@npm:10.25.1"
-  checksum: 10/f9a961b24eed35b52faf95d77f03405975a3a5a005841fb6873d82e47781be9e578c1f666a407c941a19da2efdf15f9c4d66a8df14abcc96e213636e230edecc
   languageName: node
   linkType: hard
 
