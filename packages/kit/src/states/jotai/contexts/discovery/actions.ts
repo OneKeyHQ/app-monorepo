@@ -20,6 +20,7 @@ import {
   crossWebviewLoadUrl,
   injectToPauseWebsocket,
   injectToResumeWebsocket,
+  processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -670,6 +671,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         shouldPopNavigation?: boolean;
       },
     ) => {
+      if (webSite?.url) {
+        webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
+      }
       const isNewWindow = !useCurrentWindow;
 
       if (!useCurrentWindow) {
