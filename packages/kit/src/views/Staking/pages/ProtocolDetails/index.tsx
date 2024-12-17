@@ -28,6 +28,7 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { ProtocolDetails } from '../../components/ProtocolDetails';
+import { AlertSection } from '../../components/ProtocolDetails/AlertSection';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
 import { PortfolioSection } from '../../components/ProtocolDetails/PortfolioSection';
 import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
@@ -295,6 +296,7 @@ const ProtocolDetailsPage = () => {
                   stakeButtonProps={stakeButtonProps}
                   withdrawButtonProps={withdrawButtonProps}
                 />
+                <AlertSection alerts={result?.provider.alerts} />
                 <PortfolioSection
                   details={result}
                   onClaim={onClaim}
