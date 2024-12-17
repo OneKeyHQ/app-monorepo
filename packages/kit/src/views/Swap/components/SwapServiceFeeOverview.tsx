@@ -79,15 +79,25 @@ export function SwapServiceFeeOverview({
         <IconButton variant="tertiary" size="small" icon="InfoCircleOutline" />
       }
       renderContent={
-        <Stack gap="$5" p="$4">
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage(
-              {
-                id: ETranslations.provider_ios_popover_onekey_fee_content,
-              },
-              { num: `${serviceFee}%` },
-            )}
-          </SizableText>
+        <Stack gap="$4" p="$4">
+          <Stack gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.provider_ios_popover_onekey_fee_content,
+                },
+                { num: `${serviceFee}%` },
+              )}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage(
+                {
+                  id: ETranslations.provider_ios_popover_onekey_fee_content_2,
+                },
+                { num: `${serviceFee}%` },
+              )}
+            </SizableText>
+          </Stack>
           <Stack gap="$2">
             {protocolFeeInfoList.map((item) => renderProtocolFeeListItem(item))}
           </Stack>

@@ -156,7 +156,9 @@ export const {
 export const {
   atom: swapQuoteEventTotalCountAtom,
   use: useSwapQuoteEventTotalCountAtom,
-} = contextAtom<number>(0);
+} = contextAtom<{ eventId?: string; count: number }>({
+  count: 0,
+});
 
 export const {
   atom: swapShouldRefreshQuoteAtom,
