@@ -40,5 +40,5 @@ export const PageTypeHOC = (
 
 export const usePageType = () => {
   const pageTypeContext = useContext(PageTypeContext);
-  return pageTypeContext.pageType;
+  return pageTypeContext.pageType as EPageType;
 };

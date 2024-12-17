@@ -1,5 +1,7 @@
 import { useCallback, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { EPageType, ScrollView, YStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -9,6 +11,8 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectedFromTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
@@ -35,6 +39,7 @@ import {
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 import { useSwapInit } from '../../hooks/useSwapTokens';
+import { validateAmountInput } from '../../utils/utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import SwapActionsState from './SwapActionsState';
@@ -61,10 +66,12 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   const quoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [{ swapRecentTokenPairs }] = useInAppNotificationAtom();
-  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapQuoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const { selectFromToken, selectToToken, quoteAction } =
     useSwapActions().current;
+  const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [fromSelectToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
@@ -169,6 +176,27 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     await wrappedTx();
   }, [wrappedTx]);
 
+  const onSelectPercentageStage = useCallback(
+    (stage: number) => {
+      const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
+      const amountBN = fromTokenBalanceBN.multipliedBy(stage / 100);
+      const amountAfterDecimal = amountBN.decimalPlaces(
+        fromSelectToken?.decimals ?? 6,
+        BigNumber.ROUND_DOWN,
+      );
+      if (
+        !amountAfterDecimal.isNaN() &&
+        validateAmountInput(
+          amountAfterDecimal.toFixed(),
+          fromSelectToken?.decimals,
+        )
+      ) {
+        setFromInputAmount(amountAfterDecimal.toFixed());
+      }
+    },
+    [fromTokenBalance, fromSelectToken?.decimals, setFromInputAmount],
+  );
+
   return (
     <ScrollView>
       <YStack
@@ -196,12 +224,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}
+            onSelectPercentageStage={onSelectPercentageStage}
           />
           <SwapActionsState
             onBuildTx={onBuildTx}
             onApprove={onApprove}
             onWrapped={onWrapped}
             onOpenRecipientAddress={onToAnotherAddressModal}
+            onSelectPercentageStage={onSelectPercentageStage}
           />
           <SwapQuoteResult
             refreshAction={refreshAction}
@@ -221,11 +251,6 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             fromTokenAmount={fromTokenAmount}
           />
         </YStack>
-        {/* <SwapActionsState
-          onBuildTx={onBuildTx}
-          onApprove={onApprove}
-          onWrapped={onWrapped}
-        /> */}
       </YStack>
     </ScrollView>
   );
