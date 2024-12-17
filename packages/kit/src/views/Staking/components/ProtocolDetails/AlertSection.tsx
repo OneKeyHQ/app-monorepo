@@ -8,6 +8,8 @@ export function AlertSection({ alerts = [] }: { alerts?: string[] }) {
       bg="$bgSubdued"
       borderColor="$borderSubdued"
       borderWidth={StyleSheet.hairlineWidth}
+      py="$3.5"
+      px="$4"
     >
       {alerts.map((text, index) => (
         <SizableText key={index} size="$bodyMd" color="$textSubdued">
