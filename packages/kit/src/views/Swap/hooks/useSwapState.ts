@@ -107,7 +107,10 @@ export function useSwapQuoteLoading() {
 export function useSwapQuoteEventFetching() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteResult] = useSwapQuoteListAtom();
-  return quoteEventTotalCount > 0 && quoteResult.length < quoteEventTotalCount;
+  return (
+    quoteEventTotalCount.count > 0 &&
+    quoteResult.length < quoteEventTotalCount.count
+  );
 }
 
 export function useSwapActionState() {

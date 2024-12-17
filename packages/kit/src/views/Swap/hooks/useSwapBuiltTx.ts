@@ -102,7 +102,9 @@ export function useSwapBuildTx() {
       if (data?.[0]) {
         setSwapFromTokenAmount(''); // send success, clear from token amount
         setSwapQuoteResultList([]);
-        setSwapQuoteEventTotalCount(0);
+        setSwapQuoteEventTotalCount({
+          count: 0,
+        });
         setSettings((v) => ({
           // reset account switch for reset swap receive address
           ...v,
