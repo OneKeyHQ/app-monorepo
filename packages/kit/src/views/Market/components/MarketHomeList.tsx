@@ -890,6 +890,7 @@ function BasicMarketHomeList({
                   </Stack>
                   <Stack flex={1} ai="center">
                     <MarketMore
+                      isSupportBuy={record.isSupportBuy}
                       showMoreAction={showMoreAction}
                       coingeckoId={record.coingeckoId}
                       symbol={record.symbol}
