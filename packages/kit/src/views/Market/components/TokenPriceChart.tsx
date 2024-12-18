@@ -137,8 +137,12 @@ const useHeight = () => {
 
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
-    if (platformEnv.isNative) {
+    if (platformEnv.isNativeIOS) {
       return 268;
+    }
+
+    if (platformEnv.isNativeAndroid) {
+      return 258;
     }
 
     return 300;
