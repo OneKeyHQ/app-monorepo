@@ -163,29 +163,10 @@ class ServiceDiscovery extends ServiceBase {
       } as IHostSecurity;
     }
     try {
-      const result = await this._checkUrlSecurity(params);
       if (from === 'script') {
-        // Directly accessing the URL might be blocked by browser security policies,
-        //  so it needs to be converted to a base64 image
-        const baseImages = await Promise.allSettled([
-          imageUtils.getBase64ImageFromUrl(result.dapp.logo),
-          ...result.dapp.origins.map((origin) =>
-            imageUtils.getBase64ImageFromUrl(origin.logo),
-          ),
-        ]);
-
-        if (baseImages[0].status === 'fulfilled') {
-          result.dapp.logo = baseImages[0].value as string;
-        }
-        result.dapp.origins.forEach((origin, index) => {
-          const imageResult = baseImages[index + 1];
-          if (imageResult.status === 'fulfilled') {
-            origin.logo = imageResult.value as string;
-          }
-        });
-        return result;
+        return await this._checkUrlSecurityInScript(params);
       }
-      return result;
+      return await this._checkUrlSecurity(params);
     } catch (e) {
       return {
         host: url,
@@ -225,6 +206,35 @@ class ServiceDiscovery extends ServiceBase {
         },
       );
       return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  _checkUrlSecurityInScript = memoizee(
+    async (params: { url: string; from: 'app' | 'script' }) => {
+      const result = await this._checkUrlSecurity(params);
+      // Directly accessing the URL might be blocked by browser security policies,
+      //  so it needs to be converted to a base64 image
+      const baseImages = await Promise.allSettled([
+        imageUtils.getBase64ImageFromUrl(result.dapp.logo),
+        ...result.dapp.origins.map((origin) =>
+          imageUtils.getBase64ImageFromUrl(origin.logo),
+        ),
+      ]);
+
+      if (baseImages[0].status === 'fulfilled') {
+        result.dapp.logo = baseImages[0].value as string;
+      }
+      result.dapp.origins.forEach((origin, index) => {
+        const imageResult = baseImages[index + 1];
+        if (imageResult.status === 'fulfilled') {
+          origin.logo = imageResult.value as string;
+        }
+      });
+      return result;
     },
     {
       promise: true,
