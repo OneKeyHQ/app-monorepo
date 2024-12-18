@@ -23,13 +23,22 @@ export function DAppRequestedDappList({
 }) {
   const intl = useIntl();
   return origins.length ? (
-    <YStack>
-      <SizableText size="$headingMd">
-        {intl.formatMessage({
-          id: ETranslations.browser_dapp_listed_by,
-        })}
-      </SizableText>
-      <XStack gap="$2" pt="$3" flexWrap="wrap">
+    <YStack gap="$2">
+      <YStack>
+        <SizableText size="$headingSm" flex={1}>
+          {intl.formatMessage({
+            id: ETranslations.browser_dapp_listed_by,
+          })}
+        </SizableText>
+        {updatedAt ? (
+          <SizableText color="$textSubdued" size="$bodyMd">
+            {`${intl.formatMessage({
+              id: ETranslations.browser_last_verified_at,
+            })}: ${updatedAt}`}
+          </SizableText>
+        ) : null}
+      </YStack>
+      <XStack gap="$2" flexWrap="wrap">
         {origins.map((item) => (
           <XStack
             key={item.name}
@@ -39,8 +48,9 @@ export function DAppRequestedDappList({
             borderRadius="$2"
             borderColor="$borderSubdued"
             borderWidth={StyleSheet.hairlineWidth}
+            borderCurve="continuous"
           >
-            <Image w="$5" h="$5" bg="$bgSubdued" borderRadius="$1">
+            <Image w="$5" h="$5">
               <Image.Source
                 source={{
                   uri: item.logo,
@@ -56,13 +66,6 @@ export function DAppRequestedDappList({
           </XStack>
         ))}
       </XStack>
-      {updatedAt ? (
-        <SizableText mt="$2" color="$textSubdued" size="$bodyMd">
-          {`${intl.formatMessage({
-            id: ETranslations.browser_last_verified_at,
-          })} ${updatedAt}`}
-        </SizableText>
-      ) : null}
     </YStack>
   ) : null;
 }

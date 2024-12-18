@@ -7,6 +7,7 @@ import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Badge,
   Dialog,
+  Divider,
   Icon,
   Image,
   SizableText,
@@ -46,12 +47,12 @@ export function DappInfoPopoverContent({
         securityStatus: EHostSecurityLevel.Security,
         securityElement: (
           <>
-            <SizableText size="$bodyMdMedium">
+            <SizableText size="$bodyMd" flex={1}>
               {intl.formatMessage({
                 id: ETranslations.dapp_connect_verified_site,
               })}
             </SizableText>
-            <SizableText size="$bodyMd">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage(
                 {
                   id: ETranslations.global_from_provider,
@@ -77,7 +78,7 @@ export function DappInfoPopoverContent({
         securityStatus: EHostSecurityLevel.High,
         securityElement: (
           <>
-            <SizableText size="$bodyMdMedium">
+            <SizableText size="$bodyMd" flex={1}>
               {intl.formatMessage({
                 id: ETranslations.dapp_connect_malicious_site_warning,
               })}
@@ -108,7 +109,7 @@ export function DappInfoPopoverContent({
         securityStatus: EHostSecurityLevel.Medium,
         securityElement: (
           <>
-            <SizableText size="$bodyMdMedium">
+            <SizableText size="$bodyMd" flex={1}>
               {intl.formatMessage({
                 id: ETranslations.dapp_connect_suspected_malicious_behavior,
               })}
@@ -131,7 +132,7 @@ export function DappInfoPopoverContent({
     return {
       securityStatus: EHostSecurityLevel.Unknown,
       securityElement: (
-        <SizableText size="$bodyMdMedium">
+        <SizableText size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.global_unknown,
           })}
@@ -147,7 +148,9 @@ export function DappInfoPopoverContent({
         e.stopPropagation();
       }}
     >
-      <XStack group="card" alignItems="center" userSelect="none">
+      {/* basic info */}
+      <XStack alignItems="center" userSelect="none" gap="$3">
+        {/* logomark */}
         <Image
           w="$10"
           h="$10"
@@ -163,8 +166,12 @@ export function DappInfoPopoverContent({
               }}
             />
           ) : null}
-          <Image.Fallback>
-            <Icon name="GlobusOutline" width="100%" height="100%" />
+          <Image.Fallback
+            alignItems="center"
+            justifyContent="center"
+            bg="$bgSubdued"
+          >
+            <Icon name="GlobusOutline" width="$6" height="$6" />
           </Image.Fallback>
           {hostSecurity?.dapp?.logo ? (
             <Image.Loading>
@@ -172,75 +179,86 @@ export function DappInfoPopoverContent({
             </Image.Loading>
           ) : null}
         </Image>
-        <Stack flex={1} ml="$3">
-          <XStack alignItems="center">
-            <SizableText
-              size="$bodyLgMedium"
-              $gtMd={{
-                size: '$bodyMdMedium',
-              }}
-              numberOfLines={1}
-            >
+        {/* title, badge and description */}
+        <Stack flex={1} gap="$0.5">
+          <XStack alignItems="center" gap="$2">
+            <SizableText size="$headingMd" flexShrink={1} numberOfLines={1}>
               {hostSecurity?.dapp?.name ?? hostSecurity?.host}
             </SizableText>
             {hostSecurity?.dapp?.tags.length ? (
               <Badge
                 badgeSize="sm"
                 badgeType={hostSecurity?.dapp?.tags[0]?.type}
-                ml="$2"
               >
                 {hostSecurity?.dapp?.tags[0]?.name.text}
               </Badge>
             ) : null}
           </XStack>
-          <SizableText
-            size="$bodyMd"
-            color="$textSubdued"
-            numberOfLines={1}
-            $gtMd={
-              {
-                size: '$bodySm',
-                numberOfLines: 2,
-                whiteSpace: 'break-spaces',
-              } as any
-            }
-          >
+          {/* <SizableText size="$bodyMd" color="$textSubdued" numberOfLines={1}>
             {hostSecurity?.dapp?.description.text ?? ''}
-          </SizableText>
+          </SizableText> */}
         </Stack>
       </XStack>
-      <YStack gap="$3">
-        <SizableText size="$headingMd">
+      <Divider />
+      {/* risk detection */}
+      <YStack gap="$2">
+        <SizableText size="$headingSm">
           {intl.formatMessage({
             id: ETranslations.browser_risk_detection,
           })}
         </SizableText>
-        <XStack ai="center">
-          <Icon name={iconConfig.iconName} color={iconConfig.iconColor} />
-          <Stack ml="$3" flex={1}>
+        <XStack
+          ai="center"
+          px="$2"
+          py="$2"
+          borderRadius="$2"
+          borderCurve="continuous"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          bg="$bgSubdued"
+          userSelect="none"
+          {...(securityStatus === EHostSecurityLevel.Unknown
+            ? null
+            : {
+                onPress: () => {
+                  closePopover();
+                  Dialog.show({
+                    title: hostSecurity?.host,
+                    renderContent: (
+                      <DAppRiskyAlertDetail urlSecurityInfo={hostSecurity} />
+                    ),
+                    showFooter: false,
+                  });
+                },
+                hoverStyle: {
+                  bg: '$bgHover',
+                },
+                pressStyle: {
+                  bg: '$bgActive',
+                },
+                focusable: true,
+                focusVisibleStyle: {
+                  outlineWidth: 2,
+                  outlineColor: '$focusRing',
+                  outlineStyle: 'solid',
+                  outlineOffset: 2,
+                },
+              })}
+        >
+          <Icon
+            name={iconConfig.iconName}
+            color={iconConfig.iconColor}
+            size="$5"
+          />
+          <XStack pl="$3" flex={1}>
             {securityElement}
-          </Stack>
+          </XStack>
           {securityStatus === EHostSecurityLevel.Unknown ? null : (
-            <XStack
-              ai="center"
-              onPress={() => {
-                closePopover();
-                Dialog.show({
-                  title: hostSecurity?.host,
-                  renderContent: (
-                    <DAppRiskyAlertDetail urlSecurityInfo={hostSecurity} />
-                  ),
-                  showFooter: false,
-                });
-              }}
-            >
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage({
-                  id: ETranslations.global_details,
-                })}
-              </SizableText>
-              <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
-            </XStack>
+            <Icon
+              name="ChevronRightSmallOutline"
+              color="$iconSubdued"
+              size="$5"
+            />
           )}
         </XStack>
       </YStack>

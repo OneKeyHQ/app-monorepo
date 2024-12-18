@@ -13,7 +13,7 @@ const ICON_CONFIG_LIST = {
     iconColor: '$iconSubdued',
   },
   [EHostSecurityLevel.Security]: {
-    iconName: 'InfoCircleSolid',
+    iconName: 'BadgeVerifiedSolid',
     iconColor: '$iconSuccess',
   },
   [EHostSecurityLevel.Medium]: {
