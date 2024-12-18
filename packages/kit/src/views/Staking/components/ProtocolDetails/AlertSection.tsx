@@ -8,6 +8,7 @@ export function AlertSection({ alerts = [] }: { alerts?: string[] }) {
       bg="$bgSubdued"
       borderColor="$borderSubdued"
       borderWidth={StyleSheet.hairlineWidth}
+      borderRadius="$3"
       py="$3.5"
       px="$4"
     >
