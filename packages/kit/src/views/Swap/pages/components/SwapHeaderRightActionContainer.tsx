@@ -25,6 +25,7 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSwapEnableRecipientAddressAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -225,10 +226,10 @@ const SwapSlippageCustomContent = ({
 const SwapSettingsDialogContent = () => {
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [
-    { swapBatchApproveAndSwap, swapEnableRecipientAddress },
-    setPersistSettings,
-  ] = useSettingsPersistAtom();
+  const [swapEnableRecipientAddress, setSwapEnableRecipientAddress] =
+    useSwapEnableRecipientAddressAtom();
+  const [{ swapBatchApproveAndSwap }, setPersistSettings] =
+    useSettingsPersistAtom();
   const [, setNoPersistSettings] = useSettingsAtom();
   const rightTrigger = useMemo(
     () => (
@@ -309,10 +310,7 @@ const SwapSettingsDialogContent = () => {
         })}
         value={swapEnableRecipientAddress}
         onChange={(v) => {
-          setPersistSettings((s) => ({
-            ...s,
-            swapEnableRecipientAddress: v,
-          }));
+          setSwapEnableRecipientAddress(v);
           if (!v) {
             setNoPersistSettings((s) => ({
               ...s,
