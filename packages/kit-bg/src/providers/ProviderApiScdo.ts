@@ -181,8 +181,9 @@ class ProviderApiScdo extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  public scdo_sendTransaction(request: IJsBridgeMessagePayload) {
-    return this._signAndSendTransaction(request, true);
+  public async scdo_sendTransaction(request: IJsBridgeMessagePayload) {
+    const tx = await this._signAndSendTransaction(request, true);
+    return tx.Hash;
   }
 
   @providerApiMethod()
