@@ -424,7 +424,18 @@ class ServiceSetting extends ServiceBase {
     floatingIconHiddenSites.push(url);
     await settingsPersistAtom.set((prev) => ({
       ...prev,
-      floatingIconHiddenSites: [...floatingIconHiddenSites],
+      floatingIconHiddenSites:
+        floatingIconHiddenSites.length > 100
+          ? floatingIconHiddenSites.slice(0, 100)
+          : [...floatingIconHiddenSites],
+    }));
+  }
+
+  @backgroundMethod()
+  public async clearFloatingIconHiddenSites() {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      floatingIconHiddenSites: [],
     }));
   }
 
