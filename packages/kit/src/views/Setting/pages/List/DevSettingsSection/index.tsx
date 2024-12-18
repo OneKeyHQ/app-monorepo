@@ -544,6 +544,12 @@ export const DevSettingsSection = () => {
         }}
       />
       <SectionPressItem
+        title="Reset Hidden Sites in Floating icon"
+        onPress={() => {
+          void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
+        }}
+      />
+      <SectionPressItem
         title="Check Network info"
         onPress={() => {
           Dialog.confirm({
