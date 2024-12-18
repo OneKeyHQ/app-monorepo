@@ -177,12 +177,13 @@ class ServiceDiscovery extends ServiceBase {
         result.dapp.logo =
           baseImages[0].status === 'fulfilled'
             ? (baseImages[0].value as string)
-            : result.dapp.logo;
+            : '';
         result.dapp.origins.forEach((origin, index) => {
+          const imageResult = baseImages[index + 1];
           origin.logo =
-            baseImages[index + 1].status === 'fulfilled'
-              ? (baseImages[index + 1].value as string)
-              : origin.logo;
+            imageResult.status === 'fulfilled'
+              ? (imageResult.value as string)
+              : '';
         });
         return result;
       }
