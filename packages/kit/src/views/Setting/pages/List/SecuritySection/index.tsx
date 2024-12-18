@@ -190,7 +190,7 @@ function FloatingIcon() {
     <ListItem
       onPress={onPress}
       icon="SidebarLeftArrowCustom"
-      title="Floating icon"
+      title={intl.formatMessage({ id: ETranslations.setting_floating_icon })}
       drillIn
     />
   );
