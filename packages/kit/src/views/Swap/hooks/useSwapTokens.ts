@@ -13,10 +13,7 @@ import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  swapDefaultSetTokens,
-  tokenDetailSwapDefaultToTokens,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
   ISwapNetwork,
@@ -50,7 +47,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
-  const { syncNetworksSort } = useSwapActions().current;
+  const { syncNetworksSort, needChangeToken } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
@@ -206,20 +203,19 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (params?.importFromToken && !params?.importToToken) {
-        const fromNetworkDefault =
-          swapDefaultSetTokens[params?.importFromToken.networkId];
-
-        const defaultToToken = !params?.importFromToken?.isNative
-          ? tokenDetailSwapDefaultToTokens[params?.importFromToken.networkId]
-          : fromNetworkDefault?.toToken;
-        if (defaultToToken) {
+        const needSetToToken = needChangeToken({
+          token: params.importFromToken,
+          swapTypeSwitchValue:
+            params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+        });
+        if (needSetToToken) {
           const defaultTokenSupportTypes =
-            checkSupportTokenSwapType(defaultToToken);
+            checkSupportTokenSwapType(needSetToToken);
           if (
             params?.swapTabSwitchType &&
             defaultTokenSupportTypes.includes(params?.swapTabSwitchType)
           ) {
-            setToToken(defaultToToken);
+            setToToken(needSetToToken);
           }
         }
       }
@@ -297,6 +293,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     checkSupportTokenSwapType,
     setFromToken,
     setToToken,
+    needChangeToken,
   ]);
 
   useEffect(() => {

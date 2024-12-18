@@ -84,6 +84,8 @@ export default class ServiceSwap extends ServiceBase {
   private historyStateIntervals: Record<string, ReturnType<typeof setTimeout>> =
     {};
 
+  private historyCurrentStateIntervalIds: string[] = [];
+
   private historyStateIntervalCountMap: Record<string, number> = {};
 
   private _crossChainReceiveTxBlockNotificationMap: Record<string, boolean> =
@@ -1021,13 +1023,18 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async cleanHistoryStateIntervals(historyId?: string) {
     if (!historyId) {
-      Object.values(this.historyStateIntervals).forEach((interval) => {
-        clearInterval(interval);
-      });
-      this.historyStateIntervals = {};
-      this.historyStateIntervalCountMap = {};
+      this.historyCurrentStateIntervalIds = [];
+      await Promise.all(
+        Object.keys(this.historyStateIntervals).map(async (id) => {
+          clearInterval(this.historyStateIntervals[id]);
+          delete this.historyStateIntervals[id];
+          delete this.historyStateIntervalCountMap[id];
+        }),
+      );
     } else if (this.historyStateIntervals[historyId]) {
       clearInterval(this.historyStateIntervals[historyId]);
+      this.historyCurrentStateIntervalIds =
+        this.historyCurrentStateIntervalIds.filter((id) => id !== historyId);
       delete this.historyStateIntervals[historyId];
       delete this.historyStateIntervalCountMap[historyId];
     }
@@ -1074,7 +1081,10 @@ export default class ServiceSwap extends ServiceBase {
       const error = e as { message?: string };
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
-      if (enableInterval) {
+      if (
+        enableInterval &&
+        this.historyCurrentStateIntervalIds.includes(swapTxHistory.txInfo.txId)
+      ) {
         this.historyStateIntervalCountMap[swapTxHistory.txInfo.txId] =
           (this.historyStateIntervalCountMap[swapTxHistory.txInfo.txId] ?? 0) +
           1;
@@ -1101,10 +1111,16 @@ export default class ServiceSwap extends ServiceBase {
         item.status === ESwapTxHistoryStatus.PENDING ||
         item.status === ESwapTxHistoryStatus.CANCELING,
     );
-    await this.cleanHistoryStateIntervals();
-    if (!statusPendingList.length) return;
+    const newHistoryStatePendingList = statusPendingList.filter(
+      (item) => !this.historyCurrentStateIntervalIds.includes(item.txInfo.txId),
+    );
+    if (!newHistoryStatePendingList.length) return;
     await Promise.all(
-      statusPendingList.map(async (swapTxHistory) => {
+      newHistoryStatePendingList.map(async (swapTxHistory) => {
+        this.historyCurrentStateIntervalIds = [
+          ...this.historyCurrentStateIntervalIds,
+          swapTxHistory.txInfo.txId,
+        ];
         await this.swapHistoryStatusRunFetch(swapTxHistory);
       }),
     );

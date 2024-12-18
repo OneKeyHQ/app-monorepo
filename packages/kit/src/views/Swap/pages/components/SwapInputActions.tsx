@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 
 import {
   AnimatePresence,
-  Button,
   Icon,
   SizableText,
   XStack,
@@ -17,6 +16,7 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import { SwapPercentageInputStage } from '@onekeyhq/shared/types/swap/types';
 
 import ActionBuy from '../../../AssetDetails/pages/TokenDetails/ActionBuy';
+import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 
 const SwapInputActions = ({
   showPercentageInput,
@@ -50,6 +50,8 @@ const SwapInputActions = ({
           x: 4,
         }}
         gap="$1"
+        alignItems="center"
+        pb="$2"
       >
         {showActionBuy ? (
           <ActionBuy
@@ -58,14 +60,11 @@ const SwapInputActions = ({
             height="$5"
             px="$1.5"
             py="$0"
+            pt={platformEnv.isNativeIOS ? '$1' : '$0'}
             bg="$bgSubdued"
             size="small"
             label={
-              <XStack
-                alignItems="center"
-                gap="$1"
-                pt={platformEnv.isNativeIOS ? '$1' : '$0'}
-              >
+              <XStack alignItems="center" gap="$1">
                 <Icon name="CreditCardCvvOutline" size="$4" />
                 <SizableText size="$bodySmMedium" color="$textSubdued">
                   {intl.formatMessage({ id: ETranslations.global_buy })}
@@ -78,24 +77,14 @@ const SwapInputActions = ({
             tokenAddress={fromToken?.contractAddress ?? ''}
           />
         ) : null}
-        {showPercentageInput ? (
+        {!platformEnv.isNative && showPercentageInput ? (
           <>
             {needSwapPercentageInputStage.map((stage) => (
-              <Button
-                height="$5"
+              <SwapPercentageStageBadge
                 key={`swap-percentage-input-stage-${stage}`}
-                size="small"
-                onPress={() => {
-                  onSelectStage?.(stage);
-                }}
-                bg="$bgSubdued"
-                px="$1.5"
-                py="$0"
-              >
-                <SizableText size="$bodySmMedium" color="$textSubdued">
-                  {stage}%
-                </SizableText>
-              </Button>
+                stage={stage}
+                onSelectStage={onSelectStage}
+              />
             ))}
           </>
         ) : null}
