@@ -274,7 +274,10 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async wallet_isShowFloatingButton(request: IJsBridgeMessagePayload) {
     if (request.origin) {
-      const isShow = await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl({ url: request.origin });
+      const isShow =
+        await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl(
+          { url: request.origin },
+        );
       return {
         isShow,
         i18n: {
@@ -318,15 +321,18 @@ class ProviderApiPrivate extends ProviderApiBase {
           unknown: appLocale.intl.formatMessage({
             id: ETranslations.global_unknown,
           }),
+          lastVerifiedAt: appLocale.intl.formatMessage({
+            id: ETranslations.browser_last_verified_at,
+          }),
         },
       };
     }
     return {
       isShow: false,
-      i18n: {}
-    }
+      i18n: {},
+    };
   }
-  
+
   /*
     window.$onekey.$private.request({
       method: 'wallet_disableFloatingButton',
@@ -334,9 +340,8 @@ class ProviderApiPrivate extends ProviderApiBase {
   */
   @providerApiMethod()
   async wallet_disableFloatingButton() {
-    this.backgroundApi.serviceSetting.setIsShowFloatingButton(false);
+    void this.backgroundApi.serviceSetting.setIsShowFloatingButton(false);
   }
-
 
   /*
     window.$onekey.$private.request({
@@ -344,12 +349,14 @@ class ProviderApiPrivate extends ProviderApiBase {
       params: { url: 'https://www.google.com' },
     });
   */
-    @providerApiMethod()
-    async wallet_hideFloatingButtonOnSite(request: IJsBridgeMessagePayload) {
-      if (request.origin) {
-        this.backgroundApi.serviceSetting.hideFloatingButtonOnSite({ url: request.origin });
-      }
+  @providerApiMethod()
+  async wallet_hideFloatingButtonOnSite(request: IJsBridgeMessagePayload) {
+    if (request.origin) {
+      void this.backgroundApi.serviceSetting.hideFloatingButtonOnSite({
+        url: request.origin,
+      });
     }
+  }
 
   /*
     Only use for native and desktop browser

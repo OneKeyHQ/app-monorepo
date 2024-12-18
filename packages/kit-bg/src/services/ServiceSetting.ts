@@ -404,7 +404,7 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async shouldDisplayFloatingButtonInUrl({ url }: { url: string }) {
-    const isShow = await this.isShowFloatingButton()
+    const isShow = await this.isShowFloatingButton();
     const { floatingIconHiddenSites = [] } = await settingsPersistAtom.get();
     const isIncludedInHiddenSites = floatingIconHiddenSites.includes(url);
     return isShow && !isIncludedInHiddenSites;
