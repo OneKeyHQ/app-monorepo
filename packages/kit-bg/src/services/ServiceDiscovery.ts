@@ -165,16 +165,24 @@ class ServiceDiscovery extends ServiceBase {
     try {
       const result = await this._checkUrlSecurity(params);
       if (from === 'script') {
-        const baseImages = await Promise.all([
+        // Directly accessing the URL might be blocked by browser security policies,
+        //  so it needs to be converted to a base64 image
+        const baseImages = await Promise.allSettled([
           imageUtils.getBase64ImageFromUrl(result.dapp.logo),
           ...result.dapp.origins.map((origin) =>
             imageUtils.getBase64ImageFromUrl(origin.logo),
           ),
         ]);
-        console.log(baseImages);
-        result.dapp.logo = baseImages[0] as string;
+
+        result.dapp.logo =
+          baseImages[0].status === 'fulfilled'
+            ? (baseImages[0].value as string)
+            : result.dapp.logo;
         result.dapp.origins.forEach((origin, index) => {
-          origin.logo = baseImages[index + 1] as string;
+          origin.logo =
+            baseImages[index + 1].status === 'fulfilled'
+              ? (baseImages[index + 1].value as string)
+              : origin.logo;
         });
         return result;
       }
