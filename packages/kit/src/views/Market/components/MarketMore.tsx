@@ -3,7 +3,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
-import { ActionList, IconButton } from '@onekeyhq/components';
+import { ActionList, IconButton, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { useReviewControl } from '../../../components/ReviewControl';
@@ -15,10 +15,12 @@ function BasicMarketMore({
   coingeckoId,
   symbol,
   showMoreAction,
+  isSupportBuy,
   ...props
 }: {
   coingeckoId: string;
   symbol: string;
+  isSupportBuy: boolean;
   showMoreAction: boolean;
 } & IStackProps) {
   const intl = useIntl();
@@ -42,17 +44,19 @@ function BasicMarketMore({
             },
           ] as IActionListItemProps[],
         },
-        show && {
-          items: [
-            {
-              icon: 'MinusLargeSolid',
-              label: intl.formatMessage({ id: ETranslations.global_sell }),
-              onPress: tradeActions.onSell,
-            },
-          ] as IActionListItemProps[],
-        },
+        isSupportBuy && show
+          ? {
+              items: [
+                {
+                  icon: 'MinusLargeSolid',
+                  label: intl.formatMessage({ id: ETranslations.global_sell }),
+                  onPress: tradeActions.onSell,
+                },
+              ] as IActionListItemProps[],
+            }
+          : undefined,
       ].filter(Boolean),
-    [MoveToTop, intl, show, showMoreAction, tradeActions.onSell],
+    [MoveToTop, intl, isSupportBuy, show, showMoreAction, tradeActions.onSell],
   );
   return sections.length ? (
     <ActionList
@@ -68,7 +72,9 @@ function BasicMarketMore({
       }
       sections={sections}
     />
-  ) : null;
+  ) : (
+    <Stack w="$5" />
+  );
 }
 
 export const MarketMore = memo(BasicMarketMore);
