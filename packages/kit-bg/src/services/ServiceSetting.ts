@@ -47,6 +47,8 @@ import {
 
 import ServiceBase from './ServiceBase';
 
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
+
 export type IAccountDerivationConfigItem = {
   num: number;
   title: string;
@@ -418,8 +420,17 @@ class ServiceSetting extends ServiceBase {
       isFloatingIconAlwaysDisplay: value,
     }));
     if (platformEnv.isExtensionBackground) {
-      void this.backgroundApi.serviceContextMenu.notifyFloatingIconChanged(
-        value,
+      const privateProvider = this.backgroundApi.providers
+        .$private as ProviderApiPrivate;
+      void privateProvider.notifyFloatingIconChanged(
+        {
+          send: this.backgroundApi.sendForProvider('$private'),
+          // TODO: use consts.ONEKEY_REQUEST_TO_ALL_CS
+          targetOrigin: '$$ONEKEY_REQUEST_TO_ALL_CS',
+        },
+        {
+          showFloatingIcon: value,
+        },
       );
     }
   }

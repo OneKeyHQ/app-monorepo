@@ -307,7 +307,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         EAlignPrimaryAccountMode.AlwaysUsePrimaryAccount
       ) {
         // eslint-disable-next-line no-param-reassign
-        targetOrigin = consts.ONEKEY_ALIGN_PRIMARY_ACCOUNT;
+        targetOrigin = consts.ONEKEY_REQUEST_TO_ALL_CS;
       }
       this.bridgeExtBg?.requestToAllCS(scope, data, targetOrigin);
     } else {
