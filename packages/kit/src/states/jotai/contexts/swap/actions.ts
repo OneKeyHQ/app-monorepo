@@ -1634,8 +1634,12 @@ export const useSwapActions = () => {
   );
   const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
   const swapTypeSwitchAction = actions.swapTypeSwitchAction.use();
-  const { cleanQuoteInterval, cleanApprovingInterval, closeQuoteEvent } =
-    actions;
+  const {
+    cleanQuoteInterval,
+    cleanApprovingInterval,
+    closeQuoteEvent,
+    needChangeToken,
+  } = actions;
 
   return useRef({
     selectFromToken,
@@ -1655,5 +1659,6 @@ export const useSwapActions = () => {
     swapLoadAllNetworkTokenList,
     closeQuoteEvent,
     swapTypeSwitchAction,
+    needChangeToken,
   });
 };

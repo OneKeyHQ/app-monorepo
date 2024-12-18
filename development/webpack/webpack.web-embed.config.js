@@ -13,19 +13,23 @@ module.exports = ({
 }) => {
   switch (NODE_ENV) {
     case 'production':
-      return merge(baseConfig({ platform, basePath }), productionConfig, {
-        optimization: {
-          splitChunks: false,
+      return merge(
+        baseConfig({ platform, basePath }),
+        productionConfig({ platform, basePath }),
+        {
+          optimization: {
+            splitChunks: false,
+          },
+          output: {
+            publicPath: './',
+            path: path.join(basePath, 'web-build'),
+            assetModuleFilename:
+              'static/media/web-embed.[name].[contenthash][ext]',
+            uniqueName: 'web',
+            filename: 'web-embed.[contenthash:10].js',
+          },
         },
-        output: {
-          publicPath: './',
-          path: path.join(basePath, 'web-build'),
-          assetModuleFilename:
-            'static/media/web-embed.[name].[contenthash][ext]',
-          uniqueName: 'web',
-          filename: 'web-embed.[contenthash:10].js',
-        },
-      });
+      );
     case 'development':
     default:
       return merge(
