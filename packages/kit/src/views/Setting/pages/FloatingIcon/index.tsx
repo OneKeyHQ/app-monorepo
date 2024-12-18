@@ -16,11 +16,15 @@ function FloatingIconModal() {
   const [settings, setSettings] = useSettingsPersistAtom();
   return (
     <Page>
-      <Page.Header title="Floating icon" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.setting_floating_icon })}
+      />
       <Page.Body>
         <YStack p="$5">
           <XStack ai="center" jc="space-between">
-            <SizableText size="$bodyLgMedium">Always display</SizableText>
+            <SizableText size="$bodyLgMedium">
+              {intl.formatMessage({ id: ETranslations.setting_floating_icon_always_display })}
+            </SizableText>
             <Switch
               size={ESwitchSize.large}
               value={settings.isFloatingIconAlwaysDisplay}
@@ -33,9 +37,7 @@ function FloatingIconModal() {
             />
           </XStack>
           <SizableText size="$bodySm" color="$textSubdued" mt="$3">
-            When enabled, OneKey will activate a floating icon in the bottom
-            right corner of the webpage, which can help you check the security
-            information of dApps.
+            {intl.formatMessage({ id: ETranslations.setting_floating_icon_always_display_description })}
           </SizableText>
         </YStack>
       </Page.Body>
