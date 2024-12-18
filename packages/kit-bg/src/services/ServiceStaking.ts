@@ -158,6 +158,25 @@ class ServiceStaking extends ServiceBase {
     return resp.data.data;
   }
 
+  private async getFirmwareDeviceTypeParam({
+    accountId,
+  }: {
+    accountId: string;
+  }) {
+    if (!accountUtils.isHwAccount({ accountId })) {
+      return undefined;
+    }
+    const device = await this.backgroundApi.serviceAccount.getAccountDeviceSafe(
+      {
+        accountId,
+      },
+    );
+    if (device?.deviceType) {
+      return device?.deviceType;
+    }
+    return undefined;
+  }
+
   @backgroundMethod()
   async buildStakeTransaction(
     params: IStakeBaseParams,
@@ -184,6 +203,9 @@ class ServiceStaking extends ServiceBase {
       networkId,
       symbol,
       provider,
+      firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
+        accountId,
+      }),
       ...rest,
     });
     return resp.data.data;
@@ -209,6 +231,9 @@ class ServiceStaking extends ServiceBase {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
+      firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
+        accountId,
+      }),
       ...rest,
     });
     return resp.data.data;
@@ -268,6 +293,9 @@ class ServiceStaking extends ServiceBase {
       accountAddress: account.address,
       networkId,
       publicKey: stakingConfig.usePublicKey ? account.pub : undefined,
+      firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
+        accountId,
+      }),
       ...rest,
     });
     return resp.data.data;
