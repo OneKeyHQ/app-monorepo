@@ -610,6 +610,43 @@ function BasicMarketHomeList({
   const lineColors = lineColorMap[theme];
   const colors = colorMap[theme];
 
+  const marketListTradeButtonWidth = useCallback(() => {
+    if (gtMd) {
+      let numberOfButtons = 1;
+      let isItemSupportStaking = false;
+      let isItemSupportBuy = false;
+      if (listData) {
+        for (let i = 0; i < listData.length; i += 1) {
+          const item = listData[i] as unknown as IMarketToken;
+          if (!isItemSupportStaking) {
+            const stakingItem = isSupportStaking(item.symbol);
+            if (stakingItem) {
+              isItemSupportStaking = true;
+              numberOfButtons += 1;
+            }
+          }
+
+          if (!isItemSupportBuy && item.isSupportBuy) {
+            isItemSupportBuy = true;
+            numberOfButtons += 1;
+          }
+          if (isItemSupportStaking && isItemSupportBuy) {
+            break;
+          }
+        }
+        switch (numberOfButtons) {
+          case 3:
+            return 180;
+          case 2:
+            return 120;
+          default:
+            return 60;
+        }
+      }
+    }
+    return 0;
+  }, [gtMd, listData]);
+
   const columns = useMemo(
     () =>
       gtMd
@@ -698,10 +735,11 @@ function BasicMarketHomeList({
             {
               title: '',
               dataIndex: 'trade',
-              columnWidth: 180,
+              columnWidth: marketListTradeButtonWidth(),
               renderSkeleton: () => <Skeleton w="100%" h="$3" />,
               render: (_, record: IMarketToken) => (
                 <MarketListTradeButton
+                  isSupportBuy={record.isSupportBuy}
                   coinGeckoId={record.coingeckoId}
                   symbol={record.symbol}
                 />
@@ -889,6 +927,7 @@ function BasicMarketHomeList({
                   </Stack>
                   <Stack flex={1} ai="center">
                     <MarketMore
+                      isSupportBuy={record.isSupportBuy}
                       showMoreAction={showMoreAction}
                       coingeckoId={record.coingeckoId}
                       symbol={record.symbol}
@@ -922,6 +961,7 @@ function BasicMarketHomeList({
       gtXl,
       intl,
       lineColors,
+      marketListTradeButtonWidth,
       renderMdItem,
       showMoreAction,
       tabIndex,
