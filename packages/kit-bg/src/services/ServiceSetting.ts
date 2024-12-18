@@ -403,10 +403,28 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async shouldDisplayFloatingButtonInUrl({ url }: { url: string }) {
+    const isShow = await this.isShowFloatingButton()
+    const { floatingIconHiddenSites = [] } = await settingsPersistAtom.get();
+    const isIncludedInHiddenSites = floatingIconHiddenSites.includes(url);
+    return isShow && !isIncludedInHiddenSites;
+  }
+
+  @backgroundMethod()
   public async setIsShowFloatingButton(value: boolean) {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       isFloatingIconAlwaysDisplay: value,
+    }));
+  }
+
+  @backgroundMethod()
+  public async hideFloatingButtonOnSite({ url }: { url: string }) {
+    const { floatingIconHiddenSites = [] } = await settingsPersistAtom.get();
+    floatingIconHiddenSites.push(url);
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      floatingIconHiddenSites: [...floatingIconHiddenSites],
     }));
   }
 

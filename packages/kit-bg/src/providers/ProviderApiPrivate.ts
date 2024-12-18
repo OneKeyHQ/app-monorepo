@@ -268,58 +268,88 @@ class ProviderApiPrivate extends ProviderApiBase {
   /*
     window.$onekey.$private.request({
       method: 'wallet_isShowFloatingButton',
+      params: { url: 'https://www.google.com' },
     });
   */
   @providerApiMethod()
-  async wallet_isShowFloatingButton() {
-    const isShow =
-      await this.backgroundApi.serviceSetting.isShowFloatingButton();
+  async wallet_isShowFloatingButton(request: IJsBridgeMessagePayload) {
+    if (request.origin) {
+      const isShow = await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl({ url: request.origin });
+      return {
+        isShow,
+        i18n: {
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp,
+          }),
+          description: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_description,
+          }),
+          continueMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_continueMessage,
+          }),
+          continueLink: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_continueLink,
+          }),
+          addToWhiteListLink: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_addToWhiteListLink,
+          }),
+          sourceMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+          }),
+          fetchingDAppInfo: 'Fetching dApp info...',
+          dappListedBy: appLocale.intl.formatMessage({
+            id: ETranslations.browser_dapp_listed_by,
+          }),
+          riskDetection: appLocale.intl.formatMessage({
+            id: ETranslations.browser_risk_detection,
+          }),
+          maliciousDappWarningSourceMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+          }),
+          maliciousSiteWarning: appLocale.intl.formatMessage({
+            id: ETranslations.dapp_connect_malicious_site_warning,
+          }),
+          suspectedMaliciousBehavior: appLocale.intl.formatMessage({
+            id: ETranslations.dapp_connect_suspected_malicious_behavior,
+          }),
+          verifiedSite: appLocale.intl.formatMessage({
+            id: ETranslations.dapp_connect_verified_site,
+          }),
+          unknown: appLocale.intl.formatMessage({
+            id: ETranslations.global_unknown,
+          }),
+        },
+      };
+    }
     return {
-      isShow,
-      i18n: {
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.explore_malicious_dapp,
-        }),
-        description: appLocale.intl.formatMessage({
-          id: ETranslations.explore_malicious_dapp_warning_description,
-        }),
-        continueMessage: appLocale.intl.formatMessage({
-          id: ETranslations.explore_malicious_dapp_warning_continueMessage,
-        }),
-        continueLink: appLocale.intl.formatMessage({
-          id: ETranslations.explore_malicious_dapp_warning_continueLink,
-        }),
-        addToWhiteListLink: appLocale.intl.formatMessage({
-          id: ETranslations.explore_malicious_dapp_warning_addToWhiteListLink,
-        }),
-        sourceMessage: appLocale.intl.formatMessage({
-          id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
-        }),
-        fetchingDAppInfo: 'Fetching dApp info...',
-        dappListedBy: appLocale.intl.formatMessage({
-          id: ETranslations.browser_dapp_listed_by,
-        }),
-        riskDetection: appLocale.intl.formatMessage({
-          id: ETranslations.browser_risk_detection,
-        }),
-        maliciousDappWarningSourceMessage: appLocale.intl.formatMessage({
-          id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
-        }),
-        maliciousSiteWarning: appLocale.intl.formatMessage({
-          id: ETranslations.dapp_connect_malicious_site_warning,
-        }),
-        suspectedMaliciousBehavior: appLocale.intl.formatMessage({
-          id: ETranslations.dapp_connect_suspected_malicious_behavior,
-        }),
-        verifiedSite: appLocale.intl.formatMessage({
-          id: ETranslations.dapp_connect_verified_site,
-        }),
-        unknown: appLocale.intl.formatMessage({
-          id: ETranslations.global_unknown,
-        }),
-      },
-    };
+      isShow: false,
+      i18n: {}
+    }
   }
+  
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_disableFloatingButton',
+    });
+  */
+  @providerApiMethod()
+  async wallet_disableFloatingButton() {
+    this.backgroundApi.serviceSetting.setIsShowFloatingButton(false);
+  }
+
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_hideFloatingButtonOnSite',
+      params: { url: 'https://www.google.com' },
+    });
+  */
+    @providerApiMethod()
+    async wallet_hideFloatingButtonOnSite(request: IJsBridgeMessagePayload) {
+      if (request.origin) {
+        this.backgroundApi.serviceSetting.hideFloatingButtonOnSite({ url: request.origin });
+      }
+    }
 
   /*
     Only use for native and desktop browser
