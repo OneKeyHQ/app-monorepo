@@ -17,6 +17,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
@@ -138,7 +139,7 @@ class ServiceDiscovery extends ServiceBase {
 
   @backgroundMethod()
   async checkUrlSecurity(params: { url: string; from: 'app' | 'script' }) {
-    const { url } = params;
+    const { url, from } = params;
     const isValidUrl = uriUtils.safeParseURL(url);
     if (!isValidUrl || (await this._isUrlExistInRiskWhiteList(url))) {
       return {
@@ -163,6 +164,20 @@ class ServiceDiscovery extends ServiceBase {
     }
     try {
       const result = await this._checkUrlSecurity(params);
+      if (from === 'script') {
+        const baseImages = await Promise.all([
+          imageUtils.getBase64ImageFromUrl(result.dapp.logo),
+          ...result.dapp.origins.map((origin) =>
+            imageUtils.getBase64ImageFromUrl(origin.logo),
+          ),
+        ]);
+        console.log(baseImages);
+        result.dapp.logo = baseImages[0] as string;
+        result.dapp.origins.forEach((origin, index) => {
+          origin.logo = baseImages[index + 1] as string;
+        });
+        return result;
+      }
       return result;
     } catch (e) {
       return {
