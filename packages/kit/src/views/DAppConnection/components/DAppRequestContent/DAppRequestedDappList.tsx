@@ -6,6 +6,7 @@ import {
   Image,
   SizableText,
   Skeleton,
+  Tooltip,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -40,30 +41,38 @@ export function DAppRequestedDappList({
       </YStack>
       <XStack gap="$2" flexWrap="wrap">
         {origins.map((item) => (
-          <XStack
+          <Tooltip
             key={item.name}
-            px="$2"
-            py="$1"
-            bg="$bgSubdued"
-            borderRadius="$2"
-            borderColor="$borderSubdued"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderCurve="continuous"
-          >
-            <Image w="$5" h="$5">
-              <Image.Source
-                source={{
-                  uri: item.logo,
+            renderContent={item.name}
+            renderTrigger={
+              <XStack
+                px="$2"
+                py="$1"
+                bg="$bgSubdued"
+                borderRadius="$2"
+                borderColor="$borderSubdued"
+                borderWidth={StyleSheet.hairlineWidth}
+                borderCurve="continuous"
+                hoverStyle={{
+                  bg: '$bgHover',
                 }}
-              />
-              <Image.Fallback>
-                <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />
-              </Image.Fallback>
-              <Image.Loading>
-                <Skeleton width="100%" height="100%" />
-              </Image.Loading>
-            </Image>
-          </XStack>
+              >
+                <Image w="$5" h="$5">
+                  <Image.Source
+                    source={{
+                      uri: item.logo,
+                    }}
+                  />
+                  <Image.Fallback>
+                    <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />
+                  </Image.Fallback>
+                  <Image.Loading>
+                    <Skeleton width="100%" height="100%" />
+                  </Image.Loading>
+                </Image>
+              </XStack>
+            }
+          />
         ))}
       </XStack>
     </YStack>
