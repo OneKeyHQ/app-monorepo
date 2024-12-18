@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "Tunjangan tidak boleh kurang dari jumlah swap",
   "approve_edit.title": "Edit tunjangan",
   "approve_edit.unlimited_amount": "Jumlah tak terbatas",
-  "auth.6-Digit_Numeric_Passcode ": "Kode sandi numerik 6 digit",
+  "auth.6_Digit_Numeric_Passcode": "Kode sandi numerik 6 digit",
   "auth.Passcode_protection": "Perlindungan kode sandi",
   "auth.Passcode_protection_description": "Aktifkan proteksi kode sandi: setelah 10 kali gagal memasukkan kode sandi, Aplikasi akan diatur ulang, Anda dapat mengubahnya kapan saja di Pengaturan.",
   "auth.alphanumeric_passcode ": "Kode sandi alfanumerik",

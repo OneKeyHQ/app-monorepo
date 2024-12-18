@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "手当はスワップ金額より少なくすることはできません",
   "approve_edit.title": "編集許可",
   "approve_edit.unlimited_amount": "無制限",
-  "auth.6-Digit_Numeric_Passcode ": "6桁の数字パスコード",
+  "auth.6_Digit_Numeric_Passcode": "6桁の数字パスコード",
   "auth.Passcode_protection": "パスコード保護",
   "auth.Passcode_protection_description": "パスコード保護を有効にする: パスコードの入力に 10 回失敗するとアプリがリセットされます。設定でいつでも変更できます。",
   "auth.alphanumeric_passcode ": "英数字のパスコード",

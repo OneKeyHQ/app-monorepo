@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "Надбавка не може бути меншою за суму обміну",
   "approve_edit.title": "Редагувати допуск",
   "approve_edit.unlimited_amount": "Необмежена кількість",
-  "auth.6-Digit_Numeric_Passcode ": "6-значний цифровий код доступу",
+  "auth.6_Digit_Numeric_Passcode": "6-значний цифровий код доступу",
   "auth.Passcode_protection": "Захист паролем",
   "auth.Passcode_protection_description": "Увімкнути захист паролем: після 10 невдалих спроб пароля додаток буде скинуто, ви можете будь-коли змінити його в налаштуваннях.",
   "auth.alphanumeric_passcode ": "Альфанумеричний код доступу ",

@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "授權額度不能低於兌換金額",
   "approve_edit.title": "編輯授權",
   "approve_edit.unlimited_amount": "無限授權",
-  "auth.6-Digit_Numeric_Passcode ": "6 位數字密碼",
+  "auth.6_Digit_Numeric_Passcode": "6 位數字密碼",
   "auth.Passcode_protection": "設備密碼保護",
   "auth.Passcode_protection_description": "啟用設備密碼保護：在 10 次密碼嘗試失敗後將重置 App，您可以隨時在設定中 更改此選項。",
   "auth.alphanumeric_passcode ": "字母數字密碼",

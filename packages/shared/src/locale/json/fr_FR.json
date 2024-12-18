@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "L'allocation ne peut pas être inférieure au montant du swap",
   "approve_edit.title": "Modifier l'allocation",
   "approve_edit.unlimited_amount": "Montant illimité",
-  "auth.6-Digit_Numeric_Passcode ": "Code d'accès numérique à 6 chiffres",
+  "auth.6_Digit_Numeric_Passcode": "Code d'accès numérique à 6 chiffres",
   "auth.Passcode_protection": "Protection par code d'accès",
   "auth.Passcode_protection_description": "Activer la protection par mot de passe : après 10 tentatives infructueuses de mot de passe, l'application sera réinitialisée. Vous pouvez la modifier à tout moment dans les paramètres.",
   "auth.alphanumeric_passcode ": "Code d'accès alphanumérique ",

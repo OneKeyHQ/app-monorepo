@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "Khoản trợ cấp không được nhỏ hơn số tiền hoán đổi",
   "approve_edit.title": "Chỉnh sửa trợ cấp",
   "approve_edit.unlimited_amount": "Số lượng không giới hạn",
-  "auth.6-Digit_Numeric_Passcode ": "Mã số 6 chữ số",
+  "auth.6_Digit_Numeric_Passcode": "Mã số 6 chữ số",
   "auth.Passcode_protection": "Bảo vệ bằng mã khóa",
   "auth.Passcode_protection_description": "Bật bảo vệ bằng mật mã: sau 10 lần nhập mật mã không thành công, Ứng dụng sẽ được thiết lập lại, bạn có thể thay đổi bất cứ lúc nào trong phần Cài đặt.",
   "auth.alphanumeric_passcode ": "Mật mã chữ và số",

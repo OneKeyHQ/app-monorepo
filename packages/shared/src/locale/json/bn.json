@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "ভাতা অদলবদলের পরিমাণের চেয়ে কম হতে পারে না",
   "approve_edit.title": "ভাতা সম্পাদনা করুন",
   "approve_edit.unlimited_amount": "সীমাহীন পরিমাণ",
-  "auth.6-Digit_Numeric_Passcode ": "৬-সংখ্যার পাসকোড",
+  "auth.6_Digit_Numeric_Passcode": "৬-সংখ্যার পাসকোড",
   "auth.Passcode_protection": "পাসকোড সুরক্ষা",
   "auth.Passcode_protection_description": "পাসওয়ার্ড সুরক্ষা সক্রিয় করুন: ১০ বার ভুল পাসকোড প্রবেশ করানোর পর App রিসেট হবে, আপনি এটি যেকোনো সময় সেটিং-এ পরিবর্তন করতে পারেন।",
   "auth.alphanumeric_passcode ": "আলফানিউমেরিক পাসকোড",

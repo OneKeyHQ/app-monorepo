@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "L'indennità non può essere inferiore all'importo dello swap",
   "approve_edit.title": "Modifica indennità",
   "approve_edit.unlimited_amount": "Quantità illimitata",
-  "auth.6-Digit_Numeric_Passcode ": "Codice numerico a 6 cifre",
+  "auth.6_Digit_Numeric_Passcode": "Codice numerico a 6 cifre",
   "auth.Passcode_protection": "Protezione con codice di accesso",
   "auth.Passcode_protection_description": "Abilita la protezione tramite passcode: dopo 10 tentativi falliti di inserimento del passcode l'app verrà reimpostata. Puoi modificarla in qualsiasi momento nelle Impostazioni.",
   "auth.alphanumeric_passcode ": "Codice alfanumerico",

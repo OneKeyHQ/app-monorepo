@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "भत्ता स्वैप राशि से कम नहीं हो सकता",
   "approve_edit.title": "संपादन भत्ता",
   "approve_edit.unlimited_amount": "असीमित राशि",
-  "auth.6-Digit_Numeric_Passcode ": "6-अंकीय संख्यात्मक पासकोड",
+  "auth.6_Digit_Numeric_Passcode": "6-अंकीय संख्यात्मक पासकोड",
   "auth.Passcode_protection": "पासकोड सुरक्षा",
   "auth.Passcode_protection_description": "पासकोड सुरक्षा सक्षम करें: 10 असफल पासकोड प्रयासों के बाद ऐप रीसेट हो जाएगा, आप इसे सेटिंग पर कभी भी बदल सकते हैं।",
   "auth.alphanumeric_passcode ": "अल्फ़ान्यूमेरिक पासकोड ",

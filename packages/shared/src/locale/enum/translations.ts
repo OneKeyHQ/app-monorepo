@@ -66,6 +66,7 @@
   approve_edit_less_than_swap = 'approve_edit.less_than_swap',
   approve_edit_title = 'approve_edit.title',
   approve_edit_unlimited_amount = 'approve_edit.unlimited_amount',
+  auth_6_Digit_Numeric_Passcode = 'auth.6_Digit_Numeric_Passcode',
   auth_Passcode_protection = 'auth.Passcode_protection',
   auth_Passcode_protection_description = 'auth.Passcode_protection_description',
   auth_alphanumeric_passcode = 'auth.alphanumeric_passcode ',

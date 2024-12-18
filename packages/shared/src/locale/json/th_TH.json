@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "ค่าเผื่อไม่สามารถน้อยกว่าจำนวนเงินสวอปได้",
   "approve_edit.title": "แก้ไขค่าเบี้ยเลี้ยง",
   "approve_edit.unlimited_amount": "จำนวนไม่จำกัด",
-  "auth.6-Digit_Numeric_Passcode ": "รหัสผ่านตัวเลข 6 หลัก",
+  "auth.6_Digit_Numeric_Passcode": "รหัสผ่านตัวเลข 6 หลัก",
   "auth.Passcode_protection": "การป้องกันด้วยรหัสผ่าน",
   "auth.Passcode_protection_description": "เปิดใช้งานการป้องกันด้วยรหัสผ่าน: หลังจากพยายามใส่รหัสผ่านไม่สำเร็จ 10 ครั้ง แอปจะรีเซ็ต คุณสามารถเปลี่ยนได้ตลอดเวลาในการตั้งค่า",
   "auth.alphanumeric_passcode ": "รหัสผ่านตัวอักษรและตัวเลข",

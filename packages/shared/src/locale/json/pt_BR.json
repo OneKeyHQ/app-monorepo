@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "O subsídio não pode ser menor que o valor do swap",
   "approve_edit.title": "Editar subsídio",
   "approve_edit.unlimited_amount": "Quantidade ilimitada",
-  "auth.6-Digit_Numeric_Passcode ": "Senha numérica de 6 dígitos",
+  "auth.6_Digit_Numeric_Passcode": "Senha numérica de 6 dígitos",
   "auth.Passcode_protection": "Proteção por senha",
   "auth.Passcode_protection_description": "Ativar proteção por senha: após 10 tentativas de senha malsucedidas, o aplicativo será reiniciado. Você pode alterá-lo a qualquer momento nas Configurações.",
   "auth.alphanumeric_passcode ": "Senha alfanumérica",

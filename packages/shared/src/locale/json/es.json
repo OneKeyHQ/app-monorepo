@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "La asignación no puede ser menor que el monto del swap",
   "approve_edit.title": "Editar asignación",
   "approve_edit.unlimited_amount": "Cantidad ilimitada",
-  "auth.6-Digit_Numeric_Passcode ": "Código de acceso numérico de 6 dígitos",
+  "auth.6_Digit_Numeric_Passcode": "Código de acceso numérico de 6 dígitos",
   "auth.Passcode_protection": "Protección con código de acceso",
   "auth.Passcode_protection_description": "Habilitar la protección con contraseña: después de 10 intentos fallidos de contraseña, se restablecerá la aplicación; puede cambiarla en cualquier momento en Configuración.",
   "auth.alphanumeric_passcode ": "Código alfanumérico",

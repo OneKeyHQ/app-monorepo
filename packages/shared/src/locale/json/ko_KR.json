@@ -61,7 +61,7 @@
   "approve_edit.less_than_swap": "허용량은 스왑 금액보다 적을 수 없습니다.",
   "approve_edit.title": "수당 수정",
   "approve_edit.unlimited_amount": "무제한 금액",
-  "auth.6-Digit_Numeric_Passcode ": "6자리 숫자 비밀번호",
+  "auth.6_Digit_Numeric_Passcode": "6자리 숫자 비밀번호",
   "auth.Passcode_protection": "암호 보호",
   "auth.Passcode_protection_description": "암호 보호 활성화: 암호 입력이 10번 실패하면 앱이 재설정됩니다. 설정에서 언제든지 변경할 수 있습니다.",
   "auth.alphanumeric_passcode ": "알파벳과 숫자로 구성된 비밀번호",
