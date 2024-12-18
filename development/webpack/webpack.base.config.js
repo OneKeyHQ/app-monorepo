@@ -38,7 +38,7 @@ class BuildDoneNotifyPlugin {
 }
 
 const basePlugins = [
-  new ProgressBarPlugin(),
+  isDev && new ProgressBarPlugin(),
   new webpack.DefinePlugin({
     __DEV__: isDev,
     process: {
@@ -52,8 +52,8 @@ const basePlugins = [
   new webpack.ProvidePlugin({
     Buffer: ['buffer', 'Buffer'],
   }),
-  new BuildDoneNotifyPlugin(),
-];
+  isDev && new BuildDoneNotifyPlugin(),
+].filter(Boolean);
 
 module.exports = ({ platform, basePath, configName }) => ({
   entry: path.join(basePath, 'index.js'),
