@@ -28,9 +28,9 @@ export function MarketTradeButton({
     useMarketTradeActions(token);
   const network = useMarketTradeNetwork(token);
   const networkId = useMarketTradeNetworkId(network, token.symbol);
-  const [disabled, setDisabled] = useState({
-    buy: true,
-    sell: true,
+  const [show, setIsShow] = useState({
+    buy: false,
+    sell: false,
   });
 
   const { tokenAddress: realContractAddress = '' } = network || {};
@@ -43,12 +43,11 @@ export function MarketTradeButton({
             icon: 'MinusLargeSolid',
             label: intl.formatMessage({ id: ETranslations.global_sell }),
             onPress: onSell,
-            disabled: disabled.sell,
           },
         ] as IActionListItemProps[],
       },
     ],
-    [disabled.sell, intl, onSell],
+    [intl, onSell],
   );
 
   const checkDisabled = useCallback(async () => {
@@ -66,9 +65,9 @@ export function MarketTradeButton({
           type: 'sell',
         }),
       ]);
-      setDisabled({
-        buy: !buyResult,
-        sell: !sellResult,
+      setIsShow({
+        buy: !!buyResult,
+        sell: !!sellResult,
       });
     }
   }, [networkId, realContractAddress]);
@@ -92,31 +91,30 @@ export function MarketTradeButton({
             {intl.formatMessage({ id: ETranslations.earn_stake })}
           </Button>
         ) : null}
-        <ReviewControl>
-          <Button
-            flex={1}
-            variant="secondary"
-            onPress={onBuy}
-            disabled={disabled.buy}
-          >
-            {intl.formatMessage({ id: ETranslations.global_buy })}
-          </Button>
-        </ReviewControl>
+        {show.buy ? (
+          <ReviewControl>
+            <Button flex={1} variant="secondary" onPress={onBuy}>
+              {intl.formatMessage({ id: ETranslations.global_buy })}
+            </Button>
+          </ReviewControl>
+        ) : null}
       </XStack>
-      <ReviewControl>
-        <ActionList
-          title={token.symbol.toUpperCase() || ''}
-          renderTrigger={
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_more })}
-              icon="DotVerSolid"
-              variant="tertiary"
-              iconSize="$5"
-            />
-          }
-          sections={sections}
-        />
-      </ReviewControl>
+      {show.sell ? (
+        <ReviewControl>
+          <ActionList
+            title={token.symbol.toUpperCase() || ''}
+            renderTrigger={
+              <IconButton
+                title={intl.formatMessage({ id: ETranslations.global_more })}
+                icon="DotVerSolid"
+                variant="tertiary"
+                iconSize="$5"
+              />
+            }
+            sections={sections}
+          />
+        </ReviewControl>
+      ) : null}
     </XStack>
   );
 }

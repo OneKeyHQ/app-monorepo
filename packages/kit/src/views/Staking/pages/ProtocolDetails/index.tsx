@@ -28,6 +28,7 @@ import {
   isLoadingState,
 } from '../../components/PageFrame';
 import { ProtocolDetails } from '../../components/ProtocolDetails';
+import { AlertSection } from '../../components/ProtocolDetails/AlertSection';
 import { NoAddressWarning } from '../../components/ProtocolDetails/NoAddressWarning';
 import { PortfolioSection } from '../../components/ProtocolDetails/PortfolioSection';
 import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
@@ -231,14 +232,24 @@ const ProtocolDetailsPage = () => {
   const intl = useIntl();
   const media = useMedia();
 
+  const disableStakeButton = useMemo(
+    () => !(result?.provider.buttonStake ?? true),
+    [result?.provider.buttonStake],
+  );
+
+  const disableUnstakeButton = useMemo(
+    () => !(result?.provider.buttonUnstake ?? true),
+    [result?.provider.buttonUnstake],
+  );
+
   const stakeButtonProps = useMemo<ComponentProps<typeof Button>>(
     () => ({
       variant: 'primary',
       loading: stakeLoading,
       onPress: onStake,
-      disabled: !earnAccount?.accountAddress,
+      disabled: !earnAccount?.accountAddress || disableStakeButton,
     }),
-    [stakeLoading, earnAccount?.accountAddress, onStake],
+    [stakeLoading, onStake, earnAccount?.accountAddress, disableStakeButton],
   );
 
   const withdrawButtonProps = useMemo<ComponentProps<typeof Button>>(
@@ -246,9 +257,16 @@ const ProtocolDetailsPage = () => {
       onPress: onWithdraw,
       disabled:
         !earnAccount?.accountAddress ||
-        !(Number(result?.active) > 0 || Number(result?.overflow) > 0),
+        !(Number(result?.active) > 0 || Number(result?.overflow) > 0) ||
+        disableUnstakeButton,
     }),
-    [onWithdraw, earnAccount?.accountAddress, result?.active, result?.overflow],
+    [
+      onWithdraw,
+      earnAccount?.accountAddress,
+      result?.active,
+      result?.overflow,
+      disableUnstakeButton,
+    ],
   );
 
   return (
@@ -278,6 +296,7 @@ const ProtocolDetailsPage = () => {
                   stakeButtonProps={stakeButtonProps}
                   withdrawButtonProps={withdrawButtonProps}
                 />
+                <AlertSection alerts={result?.provider.alerts} />
                 <PortfolioSection
                   details={result}
                   onClaim={onClaim}

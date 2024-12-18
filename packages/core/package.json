@@ -27,7 +27,7 @@
     "@onekeyfe/bitcoinforksjs-lib": "7.0.0-rc.0",
     "@onekeyfe/cardano-coin-selection": "1.0.0",
     "@onekeyfe/cardano-coin-selection-asmjs": "1.1.1",
-    "@onekeyfe/coinselect": "3.1.13",
+    "@onekeyfe/coinselect": "3.1.14",
     "@onekeyfe/kaspa-core-lib": "^1.0.1",
     "@solana/spl-token": "^0.4.8",
     "@solana/web3.js": "^1.87.7",
