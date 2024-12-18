@@ -31,7 +31,6 @@ export type ISettingsPersistAtom = {
   inscriptionProtection: boolean;
   isFirstTimeSwap: boolean;
   swapBatchApproveAndSwap: boolean;
-  swapEnableRecipientAddress: boolean;
 
   hardwareConnectSrc: EOnekeyDomain;
   currencyInfo: {
@@ -59,7 +58,6 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   inscriptionProtection: true,
   isFirstTimeSwap: true,
   swapBatchApproveAndSwap: true,
-  swapEnableRecipientAddress: false,
   hardwareConnectSrc: EOnekeyDomain.ONEKEY_SO,
   currencyInfo: {
     id: 'usd',
