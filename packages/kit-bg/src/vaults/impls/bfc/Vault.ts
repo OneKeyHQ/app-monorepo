@@ -350,12 +350,21 @@ export default class Vault extends VaultBase {
       };
     }
 
-    if (feeInfo?.gas?.gasLimit && feeInfo?.gas?.gasPrice) {
+    // sui and benfen use the same model
+    if (feeInfo?.feeBudget) {
+      const network = await this.getNetwork();
       const newTx = TransactionBlock.from(encodedTx.rawTx);
-      newTx.blockData.gasConfig.price = feeInfo.gas.gasPrice;
-      newTx.blockData.gasConfig.budget = feeInfo.gas.gasLimit;
-      // newTx.setGasPrice(new BigNumber(feeInfo.gas.gasPrice).toNumber());
-      // newTx.setGasBudget(new BigNumber(feeInfo.gas.gasLimit).toNumber());
+      newTx.setGasPrice(
+        Number(
+          new BigNumber(feeInfo.feeBudget.gasPrice)
+            .shiftedBy(network.feeMeta.decimals)
+            .toFixed(),
+        ),
+      );
+
+      // Convert gasLimit to integer by ceiling the value
+      const gasBudget = new BigNumber(feeInfo.feeBudget.budget).toNumber();
+      newTx.setGasBudget(gasBudget);
       const newEncodedTx = {
         ...encodedTx,
         rawTx: newTx.serialize(),
