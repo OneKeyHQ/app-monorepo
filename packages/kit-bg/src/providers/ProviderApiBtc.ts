@@ -15,7 +15,6 @@ import type {
   IBtcInput,
   IBtcOutput,
 } from '@onekeyhq/core/src/chains/btc/types';
-import { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import type { IEncodedTx, ITxInputToSign } from '@onekeyhq/core/src/types';
 import {
   backgroundClass,
@@ -564,8 +563,8 @@ class ProviderApiBtc extends ProviderApiBase {
     ) {
       inputsToSign = options.toSignInputs.map((input) => ({
         index: input.index,
-        publicKey: input.publicKey ?? '',
-        address: input.address ?? '',
+        publicKey: input.publicKey || account.pub || '',
+        address: input.address || account.address || '',
         sighashTypes: input.sighashTypes,
         disableTweakSigner: input.disableTweakSigner,
         useTweakedSigner: input.useTweakedSigner,
