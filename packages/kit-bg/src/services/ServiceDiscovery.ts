@@ -174,16 +174,14 @@ class ServiceDiscovery extends ServiceBase {
           ),
         ]);
 
-        result.dapp.logo =
-          baseImages[0].status === 'fulfilled'
-            ? (baseImages[0].value as string)
-            : '';
+        if (baseImages[0].status === 'fulfilled') {
+          result.dapp.logo = baseImages[0].value as string;
+        }
         result.dapp.origins.forEach((origin, index) => {
           const imageResult = baseImages[index + 1];
-          origin.logo =
-            imageResult.status === 'fulfilled'
-              ? (imageResult.value as string)
-              : '';
+          if (imageResult.status === 'fulfilled') {
+            origin.logo = imageResult.value as string;
+          }
         });
         return result;
       }
