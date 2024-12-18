@@ -58,7 +58,9 @@ export function DAppRequestedDappList({
       </XStack>
       {updatedAt ? (
         <SizableText mt="$2" color="$textSubdued" size="$bodyMd">
-          {`Last verified at ${updatedAt}`}
+          {`${intl.formatMessage({
+            id: ETranslations.browser_last_verified_at,
+          })} ${updatedAt}`}
         </SizableText>
       ) : null}
     </YStack>
