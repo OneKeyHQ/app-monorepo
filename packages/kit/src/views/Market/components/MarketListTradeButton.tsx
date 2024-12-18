@@ -13,9 +13,11 @@ import { useLazyMarketTradeActions } from './tradeHook';
 export function MarketListTradeButton({
   coinGeckoId,
   symbol,
+  isSupportBuy,
 }: {
   coinGeckoId: string;
   symbol: string;
+  isSupportBuy: boolean;
 }) {
   const intl = useIntl();
 
@@ -27,11 +29,13 @@ export function MarketListTradeButton({
       <Button variant="secondary" size="small" onPress={onSwapLazyModal}>
         {intl.formatMessage({ id: ETranslations.global_trade })}
       </Button>
-      <ReviewControl>
-        <Button variant="secondary" size="small" onPress={onBuy}>
-          {intl.formatMessage({ id: ETranslations.global_buy })}
-        </Button>
-      </ReviewControl>
+      {isSupportBuy ? (
+        <ReviewControl>
+          <Button variant="secondary" size="small" onPress={onBuy}>
+            {intl.formatMessage({ id: ETranslations.global_buy })}
+          </Button>
+        </ReviewControl>
+      ) : null}
       {canStaking ? (
         <Button variant="secondary" size="small" onPress={onStaking}>
           {intl.formatMessage({ id: ETranslations.earn_stake })}
