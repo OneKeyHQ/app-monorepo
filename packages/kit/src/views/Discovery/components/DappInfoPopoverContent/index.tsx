@@ -99,11 +99,7 @@ export function DappInfoPopoverContent({
 
     const mediumSecurity =
       hostSecurity?.checkSources
-        .filter((item) =>
-          [EHostSecurityLevel.Medium, EHostSecurityLevel.Low].includes(
-            item.riskLevel,
-          ),
-        )
+        .filter((item) => EHostSecurityLevel.Medium === item.riskLevel)
         .map((item) => item.name)
         .join(' & ') || '';
 
