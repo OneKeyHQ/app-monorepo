@@ -1042,7 +1042,25 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async addEarnOrder(order: IAddEarnOrderParams) {
     defaultLogger.staking.order.addOrder(order);
-    return simpleDb.earnOrders.addOrder(order);
+    await simpleDb.earnOrders.addOrder(order);
+    try {
+      await this.updateEarnOrderStatusToServer({
+        order: order as IEarnOrderItem,
+      });
+    } catch (e) {
+      // ignore error, continue
+      defaultLogger.staking.order.updateOrderStatusError({
+        txId: order.txId,
+        status: order.status,
+      });
+    }
+  }
+
+  @backgroundMethod()
+  async updateSingleEarnOrderStatus({ order }: { order: IEarnOrderItem }) {
+    await this.updateEarnOrderStatusToServer({
+      order,
+    });
   }
 
   @backgroundMethod()
