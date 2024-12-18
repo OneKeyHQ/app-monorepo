@@ -23,7 +23,9 @@ function FloatingIconModal() {
         <YStack p="$5">
           <XStack ai="center" jc="space-between">
             <SizableText size="$bodyLgMedium">
-              {intl.formatMessage({ id: ETranslations.setting_floating_icon_always_display })}
+              {intl.formatMessage({
+                id: ETranslations.setting_floating_icon_always_display,
+              })}
             </SizableText>
             <Switch
               size={ESwitchSize.large}
@@ -37,7 +39,9 @@ function FloatingIconModal() {
             />
           </XStack>
           <SizableText size="$bodySm" color="$textSubdued" mt="$3">
-            {intl.formatMessage({ id: ETranslations.setting_floating_icon_always_display_description })}
+            {intl.formatMessage({
+              id: ETranslations.setting_floating_icon_always_display_description,
+            })}
           </SizableText>
         </YStack>
       </Page.Body>
