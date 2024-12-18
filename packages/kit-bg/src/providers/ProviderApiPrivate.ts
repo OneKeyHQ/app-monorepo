@@ -311,7 +311,9 @@ class ProviderApiPrivate extends ProviderApiBase {
           sourceMessage: appLocale.intl.formatMessage({
             id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
           }),
-          fetchingDAppInfo: 'Fetching dApp info...',
+          fetchingDAppInfo: appLocale.intl.formatMessage({
+            id: ETranslations.browser_fetching_dapp_info,
+          }),
           dappListedBy: appLocale.intl.formatMessage({
             id: ETranslations.browser_dapp_listed_by,
           }),
