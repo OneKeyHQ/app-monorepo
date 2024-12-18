@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { debounce, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -78,17 +78,25 @@ function useSwapWarningCheck() {
     }
   }, [swapFromAddressInfo, swapToAddressInfo]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const checkSwapWarningDeb = useCallback(
+    debounce((fromAddressInfo, toAddressInfo) => {
+      void checkSwapWarning(fromAddressInfo, toAddressInfo);
+    }, 300),
+    [],
+  );
+
   useEffect(() => {
     if (isFocused) {
       asyncRefContainer();
-      void checkSwapWarning(
+      checkSwapWarningDeb(
         refContainer.current.swapFromAddressInfo,
         refContainer.current.swapToAddressInfo,
       );
     }
   }, [
     asyncRefContainer,
-    checkSwapWarning,
+    checkSwapWarningDeb,
     fromToken,
     fromTokenAmount,
     toToken,
