@@ -405,7 +405,8 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async shouldDisplayFloatingButtonInUrl({ url }: { url: string }) {
     const isShow = await this.isShowFloatingButton();
-    const { floatingIconHiddenSites = [] } = await settingsPersistAtom.get();
+    const floatingIconHiddenSites =
+      await this.backgroundApi.simpleDb.floatingIconDomainBlockList.getList();
     const isIncludedInHiddenSites = floatingIconHiddenSites.includes(url);
     return isShow && !isIncludedInHiddenSites;
   }
@@ -425,23 +426,21 @@ class ServiceSetting extends ServiceBase {
 
   @backgroundMethod()
   public async hideFloatingButtonOnSite({ url }: { url: string }) {
-    const { floatingIconHiddenSites = [] } = await settingsPersistAtom.get();
+    const floatingIconHiddenSites =
+      await this.backgroundApi.simpleDb.floatingIconDomainBlockList.getList();
     floatingIconHiddenSites.push(url);
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      floatingIconHiddenSites:
-        floatingIconHiddenSites.length > 100
-          ? floatingIconHiddenSites.slice(0, 100)
-          : [...floatingIconHiddenSites],
-    }));
+    await this.backgroundApi.simpleDb.floatingIconDomainBlockList.setRawData(
+      floatingIconHiddenSites.length > 100
+        ? floatingIconHiddenSites.slice(0, 100)
+        : floatingIconHiddenSites,
+    );
   }
 
   @backgroundMethod()
   public async clearFloatingIconHiddenSites() {
-    await settingsPersistAtom.set((prev) => ({
-      ...prev,
-      floatingIconHiddenSites: [],
-    }));
+    await this.backgroundApi.simpleDb.floatingIconDomainBlockList.setRawData(
+      [],
+    );
   }
 
   @backgroundMethod()
