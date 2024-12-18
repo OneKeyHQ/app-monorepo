@@ -416,6 +416,11 @@ class ServiceSetting extends ServiceBase {
       ...prev,
       isFloatingIconAlwaysDisplay: value,
     }));
+    if (platformEnv.isExtensionBackground) {
+      void this.backgroundApi.serviceContextMenu.notifyFloatingIconChanged(
+        value,
+      );
+    }
   }
 
   @backgroundMethod()

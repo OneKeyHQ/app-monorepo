@@ -8,12 +8,13 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function FloatingIconModal() {
   const intl = useIntl();
-  const [settings, setSettings] = useSettingsPersistAtom();
+  const [settings] = useSettingsPersistAtom();
   return (
     <Page>
       <Page.Header
@@ -30,11 +31,8 @@ function FloatingIconModal() {
             <Switch
               size={ESwitchSize.large}
               value={settings.isFloatingIconAlwaysDisplay}
-              onChange={(value) => {
-                setSettings((prev) => ({
-                  ...prev,
-                  isFloatingIconAlwaysDisplay: value,
-                }));
+              onChange={async (value) => {
+                await backgroundApiProxy.serviceSetting.setIsShowFloatingButton(value);
               }}
             />
           </XStack>

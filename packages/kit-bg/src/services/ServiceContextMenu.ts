@@ -205,6 +205,19 @@ class ServiceContextMenu extends ServiceBase {
     });
   }
 
+  @backgroundMethod()
+  async notifyFloatingIconChanged(showFloatingIcon: boolean) {
+    const privateProvider = this.backgroundApi.providers
+      .$private as ProviderApiPrivate;
+    void privateProvider.notifyFloatingIconChanged(
+      {
+        send: this.backgroundApi.sendForProvider('$private'),
+        targetOrigin: '*',
+      },
+      { showFloatingIcon },
+    );
+  }
+
   // --------------------- Default Wallet Settings --------------------
   @backgroundMethod()
   async setIsDefaultWallet(value: boolean) {

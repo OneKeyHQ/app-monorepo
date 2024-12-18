@@ -82,6 +82,16 @@ class ProviderApiPrivate extends ProviderApiBase {
     );
   }
 
+  public async notifyFloatingIconChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+    params: { showFloatingIcon: boolean },
+  ) {
+    info.send(
+      { method: 'wallet_events_floating_icon_changed', params },
+      info.targetOrigin,
+    );
+  }
+
   // UI Notify
   public async notifyDappSiteOfNetworkChange(
     info: IProviderBaseBackgroundNotifyInfo,
