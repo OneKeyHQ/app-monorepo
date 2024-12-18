@@ -387,23 +387,29 @@ const SwapHeaderRightActionContainer = ({
       showFooter: true,
     });
   }, [intl, pageType]);
-
   return (
     <HeaderButtonGroup>
       {slippageTitle ? (
-        <Button
+        <XStack
           onPress={onOpenSwapSettings}
-          size="medium"
-          variant="tertiary"
           borderRadius="$3"
           bg="$bgSubdued"
           cursor="pointer"
+          px="$2"
+          py="$1"
+          gap="$1"
+          alignItems="center"
+          justifyContent="center"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
         >
-          <XStack alignItems="center" gap="$1">
-            {slippageTitle}
-            <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
-          </XStack>
-        </Button>
+          {slippageTitle}
+          <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
+        </XStack>
       ) : (
         <HeaderIconButton
           icon="SliderHorOutline"
