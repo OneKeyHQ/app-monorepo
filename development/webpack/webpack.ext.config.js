@@ -29,6 +29,8 @@ function getOutputFolder() {
   return isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser;
 }
 
+module.exports.getOutputFolder = getOutputFolder;
+
 module.exports = ({
   basePath,
   platform = babelTools.developmentConsts.platforms.ext,
@@ -237,7 +239,9 @@ module.exports = ({
       })(
         baseConfig({ platform, basePath, configName: config.name }),
         merge(
-          IS_DEV ? developmentConfig({ platform, basePath }) : productionConfig,
+          IS_DEV
+            ? developmentConfig({ platform, basePath })
+            : productionConfig({ platform, basePath }),
           ...extConfigs({ name: config.name }),
           config,
         ),
