@@ -120,16 +120,17 @@ function MobileBrowser() {
 
   const handleSearchBarPress = useCallback(
     (url: string) => {
+      const tab = tabs.find((t) => t.id === activeTabId);
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
         params: {
           url,
           tabId: activeTabId ?? undefined,
-          useCurrentWindow: !!activeTabId,
+          useCurrentWindow: tab?.isPinned ? false : !!activeTabId,
         },
       });
     },
-    [navigation, activeTabId],
+    [tabs, navigation, activeTabId],
   );
 
   const { top, bottom } = useSafeAreaInsets();

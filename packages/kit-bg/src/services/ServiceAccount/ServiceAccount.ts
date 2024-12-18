@@ -228,6 +228,19 @@ class ServiceAccount extends ServiceBase {
     return localDb.getWalletDeviceSafe({ dbWallet, walletId });
   }
 
+  @backgroundMethod()
+  async getAccountDeviceSafe({ accountId }: { accountId: string }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    if (!walletId) {
+      return null;
+    }
+    const device = await this.getWalletDeviceSafe({ walletId });
+    if (!device) {
+      return null;
+    }
+    return device;
+  }
+
   // TODO move to serviceHardware
   @backgroundMethod()
   async getDevice({ dbDeviceId }: { dbDeviceId: string }) {

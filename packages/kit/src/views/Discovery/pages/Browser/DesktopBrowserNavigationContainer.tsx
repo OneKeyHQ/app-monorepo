@@ -127,13 +127,13 @@ function DesktopBrowserNavigationBar({
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
         params: {
-          useCurrentWindow: true,
+          useCurrentWindow: !tab?.isPinned,
           tabId: id,
           url,
         },
       });
     },
-    [id, navigation],
+    [id, navigation, tab?.isPinned],
   );
 
   const onShortcutsBookmark = useCallback(() => {
