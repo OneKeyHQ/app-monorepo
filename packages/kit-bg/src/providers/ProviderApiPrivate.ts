@@ -305,6 +305,12 @@ class ProviderApiPrivate extends ProviderApiBase {
         maliciousDappWarningSourceMessage: appLocale.intl.formatMessage({
           id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
         }),
+        maliciousSiteWarning: appLocale.intl.formatMessage({
+          id: ETranslations.dapp_connect_malicious_site_warning,
+        }),
+        suspectedMaliciousBehavior: appLocale.intl.formatMessage({
+          id: ETranslations.dapp_connect_suspected_malicious_behavior,
+        }),
         verifiedSite: appLocale.intl.formatMessage({
           id: ETranslations.dapp_connect_verified_site,
         }),
