@@ -163,6 +163,7 @@
   "bandwidth_energy.what_is_bandwidth_energy": "트론에서의 대역폭 & 에너지는 무엇인가요?",
   "bip44__standard": "BIP44 표준",
   "browser.bookmark": "북마크",
+  "browser.can_be_re_enabled_in_settings": "Can be re-enabled in settings.",
   "browser.copy_link": "링크 복사",
   "browser.dapp_listed_by": "이 dApp이 포함된 목록",
   "browser.fetching_dapp_info": "dApp 정보를 가져오는 중...",

@@ -326,9 +326,15 @@ class ProviderApiPrivate extends ProviderApiBase {
           lastVerifiedAt: appLocale.intl.formatMessage({
             id: ETranslations.browser_last_verified_at,
           }),
-          disable: 'Disable',
-          hideOnThisSite: 'Hide on this site',
-          canBeReEnabledInSettings: 'Can be re-enabled in settings.',
+          disable: appLocale.intl.formatMessage({
+            id: ETranslations.browser_disable,
+          }),
+          hideOnThisSite: appLocale.intl.formatMessage({
+            id: ETranslations.browser_hide_on_this_site,
+          }),
+          canBeReEnabledInSettings: appLocale.intl.formatMessage({
+            id: ETranslations.browser_can_be_re_enabled_in_settings,
+          }),
         },
       };
     }

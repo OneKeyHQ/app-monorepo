@@ -163,6 +163,7 @@
   "bandwidth_energy.what_is_bandwidth_energy": "Tronの帯域幅とエネルギーとは何ですか？",
   "bip44__standard": "BIP44規格",
   "browser.bookmark": "ブックマーク",
+  "browser.can_be_re_enabled_in_settings": "Can be re-enabled in settings.",
   "browser.copy_link": "リンクをコピーする",
   "browser.dapp_listed_by": "このdAppを含むリスト",
   "browser.fetching_dapp_info": "dApp情報を取得中...",

@@ -163,6 +163,7 @@
   "bandwidth_energy.what_is_bandwidth_energy": "Qu'est-ce que la bande passante et l'énergie sur Tron ?",
   "bip44__standard": "Standard BIP44",
   "browser.bookmark": "Marque-page",
+  "browser.can_be_re_enabled_in_settings": "Can be re-enabled in settings.",
   "browser.copy_link": "Copier le lien",
   "browser.dapp_listed_by": "Listes contenant cette dApp",
   "browser.fetching_dapp_info": "Récupération des informations de l'application décentralisée...",

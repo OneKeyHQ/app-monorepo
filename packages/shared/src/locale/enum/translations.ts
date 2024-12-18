@@ -168,6 +168,7 @@
   bandwidth_energy_what_is_bandwidth_energy = 'bandwidth_energy.what_is_bandwidth_energy',
   bip44__standard = 'bip44__standard',
   browser_bookmark = 'browser.bookmark',
+  browser_can_be_re_enabled_in_settings = 'browser.can_be_re_enabled_in_settings',
   browser_copy_link = 'browser.copy_link',
   browser_dapp_listed_by = 'browser.dapp_listed_by',
   browser_fetching_dapp_info = 'browser.fetching_dapp_info',

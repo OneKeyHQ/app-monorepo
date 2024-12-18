@@ -163,6 +163,7 @@
   "bandwidth_energy.what_is_bandwidth_energy": "คืออะไรคือแบนด์วิดท์และพลังงานบน Tron?",
   "bip44__standard": "มาตรฐาน BIP44",
   "browser.bookmark": "บุ๊กมาร์ค",
+  "browser.can_be_re_enabled_in_settings": "Can be re-enabled in settings.",
   "browser.copy_link": "คัดลอกลิงค์",
   "browser.dapp_listed_by": "รายการที่มี dApp นี้",
   "browser.fetching_dapp_info": "กำลังดึงข้อมูล dApp...",

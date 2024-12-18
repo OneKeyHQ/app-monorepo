@@ -163,6 +163,7 @@
   "bandwidth_energy.what_is_bandwidth_energy": "Что такое пропускная способность и энергия в Tron?",
   "bip44__standard": "Стандарт BIP44",
   "browser.bookmark": "Закладка",
+  "browser.can_be_re_enabled_in_settings": "Can be re-enabled in settings.",
   "browser.copy_link": "Копировать ссылку",
   "browser.dapp_listed_by": "Списки, содержащие это децентрализованное приложение",
   "browser.fetching_dapp_info": "Получение информации о dApp...",
