@@ -44,13 +44,14 @@ function BasicMarketMore({
             },
           ] as IActionListItemProps[],
         },
-        isSupportBuy && show
+        show
           ? {
               items: [
                 {
                   icon: 'MinusLargeSolid',
                   label: intl.formatMessage({ id: ETranslations.global_sell }),
                   onPress: tradeActions.onSell,
+                  disabled: !isSupportBuy,
                 },
               ] as IActionListItemProps[],
             }
@@ -58,7 +59,7 @@ function BasicMarketMore({
       ].filter(Boolean),
     [MoveToTop, intl, isSupportBuy, show, showMoreAction, tradeActions.onSell],
   );
-  return sections.length ? (
+  return (
     <ActionList
       title=""
       renderTrigger={
@@ -67,13 +68,12 @@ function BasicMarketMore({
           icon="DotVerSolid"
           variant="tertiary"
           iconSize="$5"
+          disabled={sections.length === 0}
           {...props}
         />
       }
       sections={sections}
     />
-  ) : (
-    <Stack w="$5" />
   );
 }
 
