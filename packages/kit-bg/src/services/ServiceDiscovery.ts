@@ -149,6 +149,16 @@ class ServiceDiscovery extends ServiceBase {
         alert: '',
         projectName: url,
         checkSources: [],
+        createdAt: '',
+        dapp: {
+          name: '',
+          logo: '',
+          description: {
+            text: '',
+          },
+          tags: [],
+          origins: [],
+        },
       } as IHostSecurity;
     }
     try {
@@ -165,6 +175,16 @@ class ServiceDiscovery extends ServiceBase {
         }),
         projectName: url,
         checkSources: [],
+        createdAt: '',
+        dapp: {
+          name: '',
+          logo: '',
+          description: {
+            text: '',
+          },
+          tags: [],
+          origins: [],
+        },
       } as IHostSecurity;
     }
   }
