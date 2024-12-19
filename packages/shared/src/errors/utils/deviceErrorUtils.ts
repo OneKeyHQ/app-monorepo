@@ -108,6 +108,8 @@ export function convertDeviceError(
       return new HardwareErrors.NewFirmwareUnRelease({ payload });
     case HardwareErrorCode.NewFirmwareForceUpdate:
       return new HardwareErrors.NewFirmwareForceUpdate({ payload });
+    case HardwareErrorCode.DeviceNotSupportMethod:
+      return new HardwareErrors.UnknownMethod({ payload });
     case HardwareErrorCode.NetworkError:
       return new HardwareErrors.NetworkError({ payload });
     case HardwareErrorCode.BlePermissionError:
@@ -189,6 +191,8 @@ export function convertDeviceError(
       return new HardwareErrors.DeviceDataOverload({ payload });
     case HardwareErrorCode.BridgeDeviceDisconnected:
       return new HardwareErrors.DeviceDisconnectedError({ payload });
+    case HardwareErrorCode.BTCPsbtTooManyUtxos:
+      return new HardwareErrors.BTCPsbtTooManyUtxos({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':
