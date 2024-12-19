@@ -1,3 +1,4 @@
+import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { flatten, groupBy, isEqual } from 'lodash';
 import semver from 'semver';
 
@@ -425,8 +426,7 @@ class ServiceSetting extends ServiceBase {
       void privateProvider.notifyFloatingIconChanged(
         {
           send: this.backgroundApi.sendForProvider('$private'),
-          // TODO: use consts.ONEKEY_REQUEST_TO_ALL_CS
-          targetOrigin: '$$ONEKEY_REQUEST_TO_ALL_CS',
+          targetOrigin: consts.ONEKEY_REQUEST_TO_ALL_CS,
         },
         {
           showFloatingIcon: value,
