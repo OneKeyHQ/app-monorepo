@@ -33,7 +33,7 @@ function initBackground() {
   const bridge = bridgeSetup.background.createHostBridge({
     receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
   });
-  backgroundApiProxy.connectBridge(bridge);
+  backgroundApiProxy.connectBridge(bridge as unknown as JsBridgeBase);
   // backgroundApiProxy.serviceNotification.init().catch((e) => {
   //   debugLogger.notification.error(
   //     `extension background init socket failed`,
