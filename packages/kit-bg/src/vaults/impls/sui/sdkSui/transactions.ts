@@ -2,6 +2,8 @@ import { Transaction } from '@mysten/sui/transactions';
 import { SUI_TYPE_ARG } from '@mysten/sui/utils';
 import BigNumber from 'bignumber.js';
 
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { normalizeSuiCoinType } from './utils';
@@ -91,8 +93,13 @@ async function createTokenTransaction({
     new BigNumber(0),
   );
 
-  if (totalBalance.lt(amount)) {
-    throw new Error('Insufficient balance');
+  if (
+    totalBalance.lt(amount) ||
+    (totalBalance.isZero() && allCoins.length === 0)
+  ) {
+    throw new OneKeyInternalError({
+      key: ETranslations.earn_insufficient_balance,
+    });
   }
 
   // Max send native token
