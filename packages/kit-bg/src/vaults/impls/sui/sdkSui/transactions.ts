@@ -93,7 +93,10 @@ async function createTokenTransaction({
     new BigNumber(0),
   );
 
-  if (totalBalance.lt(amount) || totalBalance.isZero()) {
+  if (
+    totalBalance.lt(amount) ||
+    (totalBalance.isZero() && allCoins.length === 0)
+  ) {
     throw new OneKeyInternalError({
       key: ETranslations.earn_insufficient_balance,
     });
