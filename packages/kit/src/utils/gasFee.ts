@@ -66,6 +66,33 @@ export function calculateCkbTotalFee({
   return fee.shiftedBy(-feeInfo.common.feeDecimals).toFixed();
 }
 
+export function calculateSuiTotalFee({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
+  const feeCostBase = feeInfo.feeBudget?.computationCostBase;
+  const GAS_SAFE_OVERHEAD = 1000;
+  const computationCost = new BigNumber(feeCostBase ?? 0).times(
+    new BigNumber(
+      feeInfo.feeBudget?.gasPrice ??
+        nilError('calculateSuiTotalFee ERROR: gasPrice error'),
+    ).shiftedBy(feeInfo.common.feeDecimals),
+  );
+  const storageCost = new BigNumber(feeInfo.feeBudget?.storageCost ?? 0);
+  const storageRebate = new BigNumber(feeInfo.feeBudget?.storageRebate ?? 0);
+  const safeOverhead = new BigNumber(GAS_SAFE_OVERHEAD).multipliedBy(1);
+
+  const baseComputationCostWithOverhead = new BigNumber(computationCost).plus(
+    safeOverhead,
+  );
+
+  const gasBudget = baseComputationCostWithOverhead
+    .plus(storageCost)
+    .minus(storageRebate);
+
+  const gasUsed = gasBudget.gt(baseComputationCostWithOverhead)
+    ? gasBudget
+    : baseComputationCostWithOverhead;
+  return gasUsed.multipliedBy(1.1);
+}
+
 export function calculateTotalFeeRange({
   feeInfo,
   txSize,
@@ -157,6 +184,21 @@ export function calculateTotalFeeRange({
       maxForDisplay: nanToZeroString(fee),
     };
   }
+
+  if (feeInfo.feeBudget) {
+    const expectedFee = calculateSuiTotalFee({
+      feeInfo,
+    })
+      .shiftedBy(-feeInfo.common.feeDecimals)
+      .toFixed();
+    return {
+      min: nanToZeroString(expectedFee),
+      max: nanToZeroString(expectedFee),
+      minForDisplay: nanToZeroString(expectedFee),
+      maxForDisplay: nanToZeroString(expectedFee),
+    };
+  }
+
   if (feeInfo.gas) {
     const gasInfo = gas as IGasLegacy;
     const limit = gasInfo.gasLimit;

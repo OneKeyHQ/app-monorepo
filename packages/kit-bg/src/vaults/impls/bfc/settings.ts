@@ -50,6 +50,7 @@ const settings: IVaultSettings = {
   transferZeroNativeTokenEnabled: true,
   estimatedFeePollingInterval: 120,
   customRpcEnabled: true,
+  gasLimitValidationEnabled: true,
 
   accountDeriveInfo,
   networkInfo: {

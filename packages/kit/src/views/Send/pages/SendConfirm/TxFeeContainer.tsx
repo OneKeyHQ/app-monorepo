@@ -207,6 +207,7 @@ function TxFeeContainer(props: IProps) {
               feeCkb: r.feeCkb ? [r.feeCkb] : undefined,
               feeAlgo: r.feeAlgo ? [r.feeAlgo] : undefined,
               feeDot: r.feeDot ? [r.feeDot] : undefined,
+              feeBudget: r.feeBudget ? [r.feeBudget] : undefined,
             },
             e,
           };
@@ -295,6 +296,7 @@ function TxFeeContainer(props: IProps) {
         txFee.feeCkb?.length ||
         txFee.feeAlgo?.length ||
         txFee.feeDot?.length ||
+        txFee.feeBudget?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -308,6 +310,7 @@ function TxFeeContainer(props: IProps) {
           feeCkb: txFee.feeCkb?.[i],
           feeAlgo: txFee.feeAlgo?.[i],
           feeDot: txFee.feeDot?.[i],
+          feeBudget: txFee.feeBudget?.[i],
         };
 
         const useDappFeeAndNotEditFee =
@@ -438,6 +441,13 @@ function TxFeeContainer(props: IProps) {
           customFeeInfo.feeDot = {
             ...txFee.feeDot[sendSelectedFee.presetIndex],
             ...(customFee?.feeDot ?? { extraTipInDot: '0' }),
+          };
+        }
+
+        if (txFee.feeBudget && !isEmpty(txFee.feeBudget)) {
+          customFeeInfo.feeBudget = {
+            ...txFee.feeBudget[sendSelectedFee.presetIndex],
+            ...(customFee?.feeBudget ?? {}),
           };
         }
 
@@ -594,6 +604,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.feeCkb,
     customFee?.feeAlgo,
     customFee?.feeDot,
+    customFee?.feeBudget,
     unsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,
