@@ -43,6 +43,10 @@ const SettingSignatureRecordModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/SignatureRecord'),
 );
 
+const FloatingIconModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/FloatingIcon'),
+);
+
 const FirmwareUpdateDevSettings = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/FirmwareUpdateDevSettings'),
@@ -150,6 +154,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingCustomTransaction,
     component: CustomTransactionModal,
+  },
+  {
+    name: EModalSettingRoutes.SettingFloatingIconModal,
+    component: FloatingIconModal,
   },
   ...(ModalAddressBookRouter as IModalFlowNavigatorConfig<
     EModalSettingRoutes | EModalAddressBookRoutes,

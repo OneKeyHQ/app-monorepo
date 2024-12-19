@@ -1,4 +1,5 @@
-import { type ReactElement, useMemo } from 'react';
+import { useMemo } from 'react';
+import type { ReactElement } from 'react';
 
 import { Tooltip } from '../../actions/Tooltip';
 import { Icon, SizableText, Spinner, XStack, YStack } from '../../primitives';
@@ -7,13 +8,14 @@ import { getSharedInputStyles } from './sharedStyles';
 
 import type { IInputProps } from '.';
 import type { ITooltipProps } from '../../actions';
-import type { IKeyOfIcons, IXStackProps } from '../../primitives';
+import type { IKeyOfIcons, IXStackProps, SizeTokens } from '../../primitives';
 import type { ColorTokens } from 'tamagui';
 
 type IExtraProps = {
   label?: string | ReactElement;
   iconName?: IKeyOfIcons;
   iconColor?: ColorTokens;
+  iconSize?: SizeTokens;
   size?: IInputProps['size'];
   error?: boolean;
   loading?: boolean;
@@ -30,6 +32,7 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
     loading,
     iconName,
     iconColor,
+    iconSize,
     disabled,
     error,
     onPress,

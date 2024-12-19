@@ -17,6 +17,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
@@ -138,7 +139,7 @@ class ServiceDiscovery extends ServiceBase {
 
   @backgroundMethod()
   async checkUrlSecurity(params: { url: string; from: 'app' | 'script' }) {
-    const { url } = params;
+    const { url, from } = params;
     const isValidUrl = uriUtils.safeParseURL(url);
     if (!isValidUrl || (await this._isUrlExistInRiskWhiteList(url))) {
       return {
@@ -147,11 +148,25 @@ class ServiceDiscovery extends ServiceBase {
         attackTypes: [],
         phishingSite: false,
         alert: '',
+        projectName: url,
+        checkSources: [],
+        createdAt: '',
+        dapp: {
+          name: '',
+          logo: '',
+          description: {
+            text: '',
+          },
+          tags: [],
+          origins: [],
+        },
       } as IHostSecurity;
     }
     try {
-      const result = await this._checkUrlSecurity(params);
-      return result;
+      if (from === 'script') {
+        return await this._checkUrlSecurityInScript(params);
+      }
+      return await this._checkUrlSecurity(params);
     } catch (e) {
       return {
         host: url,
@@ -161,6 +176,18 @@ class ServiceDiscovery extends ServiceBase {
         alert: appLocale.intl.formatMessage({
           id: ETranslations.feedback_risk_detection_timed_out,
         }),
+        projectName: url,
+        checkSources: [],
+        createdAt: '',
+        dapp: {
+          name: '',
+          logo: '',
+          description: {
+            text: '',
+          },
+          tags: [],
+          origins: [],
+        },
       } as IHostSecurity;
     }
   }
@@ -179,6 +206,35 @@ class ServiceDiscovery extends ServiceBase {
         },
       );
       return res.data.data;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 5 }),
+    },
+  );
+
+  _checkUrlSecurityInScript = memoizee(
+    async (params: { url: string; from: 'app' | 'script' }) => {
+      const result = await this._checkUrlSecurity(params);
+      // Directly accessing the URL might be blocked by browser security policies,
+      //  so it needs to be converted to a base64 image
+      const baseImages = await Promise.allSettled([
+        imageUtils.getBase64ImageFromUrl(result.dapp.logo),
+        ...result.dapp.origins.map((origin) =>
+          imageUtils.getBase64ImageFromUrl(origin.logo),
+        ),
+      ]);
+
+      if (baseImages[0].status === 'fulfilled') {
+        result.dapp.logo = baseImages[0].value as string;
+      }
+      result.dapp.origins.forEach((origin, index) => {
+        const imageResult = baseImages[index + 1];
+        if (imageResult.status === 'fulfilled') {
+          origin.logo = imageResult.value as string;
+        }
+      });
+      return result;
     },
     {
       promise: true,

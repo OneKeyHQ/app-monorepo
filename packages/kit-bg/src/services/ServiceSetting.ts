@@ -1,3 +1,4 @@
+import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { flatten, groupBy, isEqual } from 'lodash';
 import semver from 'semver';
 
@@ -46,6 +47,8 @@ import {
 } from '../states/jotai/atoms/settings';
 
 import ServiceBase from './ServiceBase';
+
+import type ProviderApiPrivate from '../providers/ProviderApiPrivate';
 
 export type IAccountDerivationConfigItem = {
   num: number;
@@ -394,6 +397,61 @@ class ServiceSetting extends ServiceBase {
   public async getInscriptionProtection() {
     const { inscriptionProtection } = await settingsPersistAtom.get();
     return inscriptionProtection;
+  }
+
+  @backgroundMethod()
+  public async isShowFloatingButton() {
+    const { isFloatingIconAlwaysDisplay } = await settingsPersistAtom.get();
+    return isFloatingIconAlwaysDisplay ?? true;
+  }
+
+  @backgroundMethod()
+  public async shouldDisplayFloatingButtonInUrl({ url }: { url: string }) {
+    const isShow = await this.isShowFloatingButton();
+    const floatingIconHiddenSites =
+      await this.backgroundApi.simpleDb.floatingIconDomainBlockList.getList();
+    const isIncludedInHiddenSites = floatingIconHiddenSites.includes(url);
+    return isShow && !isIncludedInHiddenSites;
+  }
+
+  @backgroundMethod()
+  public async setIsShowFloatingButton(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      isFloatingIconAlwaysDisplay: value,
+    }));
+    if (platformEnv.isExtensionBackground) {
+      const privateProvider = this.backgroundApi.providers
+        .$private as ProviderApiPrivate;
+      void privateProvider.notifyFloatingIconChanged(
+        {
+          send: this.backgroundApi.sendForProvider('$private'),
+          targetOrigin: consts.ONEKEY_REQUEST_TO_ALL_CS,
+        },
+        {
+          showFloatingIcon: value,
+        },
+      );
+    }
+  }
+
+  @backgroundMethod()
+  public async hideFloatingButtonOnSite({ url }: { url: string }) {
+    const floatingIconHiddenSites =
+      await this.backgroundApi.simpleDb.floatingIconDomainBlockList.getList();
+    floatingIconHiddenSites.push(url);
+    await this.backgroundApi.simpleDb.floatingIconDomainBlockList.setRawData(
+      floatingIconHiddenSites.length > 100
+        ? floatingIconHiddenSites.slice(0, 100)
+        : floatingIconHiddenSites,
+    );
+  }
+
+  @backgroundMethod()
+  public async clearFloatingIconHiddenSites() {
+    await this.backgroundApi.simpleDb.floatingIconDomainBlockList.setRawData(
+      [],
+    );
   }
 
   @backgroundMethod()
