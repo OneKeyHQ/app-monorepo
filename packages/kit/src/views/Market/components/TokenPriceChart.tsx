@@ -142,7 +142,7 @@ const useHeight = () => {
     }
 
     if (platformEnv.isNativeAndroid) {
-      return 258;
+      return 278;
     }
 
     return 300;
