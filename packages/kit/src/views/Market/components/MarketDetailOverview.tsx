@@ -209,6 +209,7 @@ function OverviewMarketVOL({
   ath: IMarketDetailAthOrAtl;
   detailPlatforms: IMarketDetailPlatform;
 }) {
+  const [settings] = useSettingsPersistAtom();
   const intl = useIntl();
   const athPercent = useMemo(
     () =>
@@ -293,7 +294,9 @@ function OverviewMarketVOL({
                 price: (
                   <NumberSizeableText
                     formatter="price"
-                    formatterOptions={{ currency: '$' }}
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
                   >
                     {ath.value}
                   </NumberSizeableText>
@@ -322,7 +325,9 @@ function OverviewMarketVOL({
                 price: (
                   <NumberSizeableText
                     formatter="price"
-                    formatterOptions={{ currency: '$' }}
+                    formatterOptions={{
+                      currency: settings.currencyInfo.symbol,
+                    }}
                   >
                     {atl.value}
                   </NumberSizeableText>
