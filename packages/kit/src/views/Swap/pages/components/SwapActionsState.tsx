@@ -22,6 +22,7 @@ import {
   useSwapActions,
   useSwapEnableRecipientAddressAtom,
   useSwapFromTokenAmountAtom,
+  useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -129,6 +130,8 @@ const SwapActionsState = ({
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
+  const [swapProviderSupportReceiveAddress] =
+    useSwapProviderSupportReceiveAddressAtom();
   const [swapEnableRecipientAddress] = useSwapEnableRecipientAddressAtom();
   const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
@@ -244,12 +247,14 @@ const SwapActionsState = ({
   const shouldShowRecipient = useMemo(
     () =>
       swapEnableRecipientAddress &&
+      swapProviderSupportReceiveAddress &&
       fromToken &&
       toToken &&
       currentQuoteRes?.toTokenInfo.networkId === toToken.networkId,
     [
       swapEnableRecipientAddress,
       currentQuoteRes?.toTokenInfo.networkId,
+      swapProviderSupportReceiveAddress,
       fromToken,
       toToken,
     ],
