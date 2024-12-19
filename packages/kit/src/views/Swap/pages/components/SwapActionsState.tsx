@@ -20,7 +20,9 @@ import {
 } from '@onekeyhq/components';
 import {
   useSwapActions,
+  useSwapEnableRecipientAddressAtom,
   useSwapFromTokenAmountAtom,
+  useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -128,7 +130,9 @@ const SwapActionsState = ({
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
-  const [{ swapEnableRecipientAddress }] = useSettingsPersistAtom();
+  const [swapProviderSupportReceiveAddress] =
+    useSwapProviderSupportReceiveAddressAtom();
+  const [swapEnableRecipientAddress] = useSwapEnableRecipientAddressAtom();
   const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
@@ -243,15 +247,15 @@ const SwapActionsState = ({
   const shouldShowRecipient = useMemo(
     () =>
       swapEnableRecipientAddress &&
-      swapRecipientAddressInfo?.showAddress &&
+      swapProviderSupportReceiveAddress &&
       fromToken &&
       toToken &&
       currentQuoteRes?.toTokenInfo.networkId === toToken.networkId,
     [
       swapEnableRecipientAddress,
       currentQuoteRes?.toTokenInfo.networkId,
+      swapProviderSupportReceiveAddress,
       fromToken,
-      swapRecipientAddressInfo?.showAddress,
       toToken,
     ],
   );
@@ -349,27 +353,31 @@ const SwapActionsState = ({
               textDecorationLine="underline"
               onPress={onOpenRecipientAddress}
             >
-              {swapRecipientAddressInfo?.showAddress}
+              {swapRecipientAddressInfo?.showAddress ??
+                intl.formatMessage({
+                  id: ETranslations.swap_page_recipient_add,
+                })}
             </SizableText>
-
-            <SizableText
-              numberOfLines={1}
-              flexShrink={0}
-              size="$bodyMd"
-              color="$textSubdued"
-            >
-              {`(${
-                !swapRecipientAddressInfo?.isExtAccount
-                  ? `${
-                      swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
-                    }-${
-                      swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
-                    }`
-                  : intl.formatMessage({
-                      id: ETranslations.swap_page_recipient_external_account,
-                    })
-              })`}
-            </SizableText>
+            {swapRecipientAddressInfo?.showAddress ? (
+              <SizableText
+                numberOfLines={1}
+                flexShrink={0}
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                {`(${
+                  !swapRecipientAddressInfo?.isExtAccount
+                    ? `${
+                        swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
+                      }-${
+                        swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
+                      }`
+                    : intl.formatMessage({
+                        id: ETranslations.swap_page_recipient_external_account,
+                      })
+                })`}
+              </SizableText>
+            ) : null}
           </XStack>
         </XStack>
       );

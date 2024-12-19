@@ -323,6 +323,7 @@ const SwapProviderListItem = ({
         {providerResult.isBest ||
         providerResult.receivedBest ||
         providerResult.minGasCost ||
+        providerResult.approvedInfo?.isApproved ||
         providerResult.isAntiMEV ? (
           <XStack flexWrap="wrap" justifyContent="flex-end" m={-3} flex={1}>
             {providerResult.isBest ? (
@@ -357,6 +358,15 @@ const SwapProviderListItem = ({
                 <Badge badgeType="info">
                   {intl.formatMessage({
                     id: ETranslations.provider_label_anti_mev,
+                  })}
+                </Badge>
+              </Stack>
+            ) : null}
+            {providerResult.approvedInfo?.isApproved ? (
+              <Stack p={3}>
+                <Badge badgeType="info">
+                  {intl.formatMessage({
+                    id: ETranslations.provider_label_approved,
                   })}
                 </Badge>
               </Stack>

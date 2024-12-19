@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
+  useSwapEnableRecipientAddressAtom,
   useSwapFromTokenAmountAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapSelectFromTokenAtom,
@@ -58,12 +59,13 @@ const SwapQuoteResult = ({
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
+  const [swapEnableRecipientAddress] = useSwapEnableRecipientAddressAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
 
   const swapRecipientAddress = useSwapRecipientAddressInfo(
-    settingsPersistAtom.swapEnableRecipientAddress,
+    swapEnableRecipientAddress,
   );
 
   const calculateTaxItem = useCallback(
@@ -195,7 +197,7 @@ const SwapQuoteResult = ({
             >
               <Divider mt="$4" />
               {swapProviderSupportReceiveAddress &&
-              settingsPersistAtom.swapEnableRecipientAddress ? (
+              swapEnableRecipientAddress ? (
                 <SwapCommonInfoItem
                   title={intl.formatMessage({
                     id: ETranslations.global_recipient,

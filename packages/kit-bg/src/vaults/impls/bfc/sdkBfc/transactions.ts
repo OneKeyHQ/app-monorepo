@@ -123,15 +123,28 @@ async function createTokenTransaction({
     tx.transferObjects([coin], recipient);
   } else {
     // Token transfer
-    const [primaryCoin, ...mergeCoins] = allCoins.filter(
+    const [primaryCoin, ...otherCoins] = allCoins.filter(
       (coin) =>
         normalizeBfcCoinType(coin.coinType) === normalizeBfcCoinType(coinType),
     );
+    let currentAmount = new BigNumber(primaryCoin.balance);
+    const targetAmount = new BigNumber(amount);
+    const coinsToMerge = [];
+
+    // merge coin from other utxo coins.
+    for (const coin of otherCoins) {
+      if (currentAmount.isGreaterThanOrEqualTo(targetAmount)) {
+        break;
+      }
+      coinsToMerge.push(coin);
+      currentAmount = currentAmount.plus(new BigNumber(coin.balance));
+    }
+
     const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
-    if (mergeCoins.length) {
+    if (coinsToMerge.length > 0) {
       tx.mergeCoins(
         primaryCoinInput,
-        mergeCoins.map((coin) => tx.object(coin.coinObjectId)),
+        coinsToMerge.map((coin) => tx.object(coin.coinObjectId)),
       );
     }
     const coin = tx.splitCoins(primaryCoinInput, [amount]);
