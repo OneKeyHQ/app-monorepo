@@ -33,6 +33,7 @@ import {
   swapQuoteEventTimeout,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ESwapTabSwitchType,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -1277,6 +1278,7 @@ export default class ServiceSwap extends ServiceBase {
     networkId: string;
     okxTx: IOKXTransactionObject;
     fromTokenInfo: ISwapTokenBase;
+    type: ESwapTabSwitchType;
   }) {
     const vault = await vaultFactory.getVault({
       accountId: params.accountId,
@@ -1285,6 +1287,7 @@ export default class ServiceSwap extends ServiceBase {
     return vault.buildOkxSwapEncodedTx({
       okxTx: params.okxTx,
       fromTokenInfo: params.fromTokenInfo,
+      type: params.type,
     });
   }
 }

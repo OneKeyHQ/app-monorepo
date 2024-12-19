@@ -153,7 +153,7 @@ function analyzeTransactionType(tx: Transaction) {
   return ESuiTransactionType.Unknown;
 }
 
-interface ITransferDetail {
+export interface ITransferDetail {
   from: string;
   to: string;
   amount: string;
