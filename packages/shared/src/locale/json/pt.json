@@ -83,6 +83,7 @@
   "auth.error_password_not_match": "As senhas não coincidem",
   "auth.error_password_too_short": "A senha deve ter pelo menos {length} caracteres",
   "auth.new_passcode_form_label": "Novo código de acesso",
+  "auth.new_passcode_same_as_old": "O novo código de acesso deve ser diferente do antigo",
   "auth.new_passwcode_form_placeholder": "Crie um código de acesso forte",
   "auth.new_password_form_label": "Nova senha",
   "auth.new_password_form_placeholder": "Crie uma senha forte",

@@ -83,6 +83,7 @@
   "auth.error_password_not_match": "पासवर्ड मेल नहीं खाते",
   "auth.error_password_too_short": "पासवर्ड कम से कम {length} वर्णों का होना चाहिए",
   "auth.new_passcode_form_label": "नया पासकोड",
+  "auth.new_passcode_same_as_old": "नया पासकोड पुराने से अलग होना चाहिए",
   "auth.new_passwcode_form_placeholder": "मजबूत पासकोड बनाएं",
   "auth.new_password_form_label": "नया पासवर्ड",
   "auth.new_password_form_placeholder": "एक मजबूत पासवर्ड बनाएं",

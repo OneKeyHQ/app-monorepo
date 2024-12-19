@@ -49,7 +49,7 @@ const PasswordUpdateContainer = ({
         console.error(e);
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.auth_new_password_same_as_old,
+            id: ETranslations.auth_new_passcode_same_as_old,
           }),
         });
       }

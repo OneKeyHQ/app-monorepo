@@ -83,6 +83,7 @@
   "auth.error_password_not_match": "密碼不符合",
   "auth.error_password_too_short": "密碼必須至少包含 {length} 個字符",
   "auth.new_passcode_form_label": "新密碼",
+  "auth.new_passcode_same_as_old": "新密碼必須與舊密碼不同",
   "auth.new_passwcode_form_placeholder": "創建一個強密碼",
   "auth.new_password_form_label": "新密碼",
   "auth.new_password_form_placeholder": "建立一個強密碼",

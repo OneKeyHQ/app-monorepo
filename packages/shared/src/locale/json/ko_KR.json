@@ -83,6 +83,7 @@
   "auth.error_password_not_match": "비밀번호가 일치하지 않습니다",
   "auth.error_password_too_short": "비밀번호는 최소 {length}자 이상이어야 합니다",
   "auth.new_passcode_form_label": "새 비밀번호",
+  "auth.new_passcode_same_as_old": "새 비밀번호는 이전 비밀번호와 달라야 합니다",
   "auth.new_passwcode_form_placeholder": "강력한 비밀번호를 생성하세요",
   "auth.new_password_form_label": "새 비밀번호",
   "auth.new_password_form_placeholder": "강력한 비밀번호를 생성하세요",
