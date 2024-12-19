@@ -43,7 +43,7 @@ const PasswordUpdateContainer = ({
           );
         onUpdateRes(updatedPassword);
         Toast.success({
-          title: intl.formatMessage({ id: ETranslations.auth_password_set }),
+          title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
       } catch (e) {
         console.error(e);

@@ -66,7 +66,7 @@ const SetPasswordItem = () => {
         void backgroundApiProxy.servicePassword.promptPasswordVerify();
       }}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: ETranslations.global_set_password })}
+      title={intl.formatMessage({ id: ETranslations.global_set_passcode })}
       drillIn
     />
   );
@@ -80,7 +80,7 @@ const ChangePasswordItem = () => {
         reason: EReasonForNeedPassword.Security,
       });
     const dialog = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_change_password }),
+      title: intl.formatMessage({ id: ETranslations.global_change_passcode }),
       renderContent: (
         <PasswordUpdateContainer
           oldEncodedPassword={oldEncodedPassword.password}
@@ -98,7 +98,7 @@ const ChangePasswordItem = () => {
     <ListItem
       onPress={onPress}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: ETranslations.global_change_password })}
+      title={intl.formatMessage({ id: ETranslations.global_change_passcode })}
       drillIn
     />
   );

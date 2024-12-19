@@ -24,7 +24,7 @@ export class IncorrectPassword extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyError: IncorrectPassword',
-        defaultKey: ETranslations.auth_error_password_incorrect,
+        defaultKey: ETranslations.auth_error_passcode_incorrect,
       }),
     );
   }
@@ -169,7 +169,7 @@ export class WrongPassword extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'WrongPassword',
-        defaultKey: ETranslations.send_engine_incorrect_password,
+        defaultKey: ETranslations.send_engine_incorrect_passcode,
         defaultAutoToast: true,
       }),
     );
@@ -196,7 +196,7 @@ export class PasswordNotSet extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordNotSet',
-        defaultKey: ETranslations.send_engine_password_not_set,
+        defaultKey: ETranslations.send_engine_passcode_not_set,
         defaultAutoToast: true,
       }),
     );
@@ -208,7 +208,7 @@ export class PasswordStrengthValidationFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordStrengthValidationFailed',
-        defaultKey: ETranslations.send_password_validation,
+        defaultKey: ETranslations.send_passcode_validation,
       }),
     );
   }
@@ -219,7 +219,7 @@ export class PasswordUpdateSameFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordUpdateSameFailed',
-        defaultKey: ETranslations.auth_error_password_incorrect,
+        defaultKey: ETranslations.auth_error_passcode_incorrect,
       }),
     );
   }
@@ -241,7 +241,7 @@ export class PasswordAlreadySetFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordAlreadySetFaield',
-        defaultKey: ETranslations.auth_error_password_incorrect,
+        defaultKey: ETranslations.auth_error_passcode_incorrect,
       }),
     );
   }

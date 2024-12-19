@@ -102,11 +102,13 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
             mode,
           );
         Toast.success({
-          title: intl.formatMessage({ id: ETranslations.auth_password_set }),
+          title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
         onSetupRes(setUpPasswordRes);
         Dialog.show({
-          title: 'PassCode Protection',
+          title: intl.formatMessage({
+            id: ETranslations.auth_Passcode_protection,
+          }),
           renderIcon: (
             <XStack
               w="$14"
@@ -135,7 +137,7 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         console.error(e);
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.feedback_password_set_failed,
+            id: ETranslations.feedback_passcode_set_failed,
           }),
         });
       } finally {

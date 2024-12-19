@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const usePasswordProtection = (isLock: boolean) => {
   const [unlockPeriodPasswordArray, setUnlockPeriodPasswordArray] = useState<
     string[]
   >([]);
+  const intl = useIntl();
   const [passwordErrorProtectionTimeOver, setPasswordErrorProtectionTimeOver] =
     useState(false);
   const [
@@ -34,9 +38,14 @@ const usePasswordProtection = (isLock: boolean) => {
       passwordErrorProtectionTimeMinutesSurplus > 0 &&
       !passwordErrorProtectionTimeOver
     ) {
-      return `Try again in ${Math.floor(
-        passwordErrorProtectionTimeMinutesSurplus,
-      )} minutes`;
+      return intl.formatMessage(
+        {
+          id: ETranslations.auth_passcode_cooldown,
+        },
+        {
+          cooldowntime: Math.floor(passwordErrorProtectionTimeMinutesSurplus),
+        },
+      );
     }
     return '';
   }, [
@@ -44,8 +53,9 @@ const usePasswordProtection = (isLock: boolean) => {
     enablePasswordErrorProtection,
     passwordErrorAttempts,
     passwordErrorProtectionTime,
-    passwordErrorProtectionTimeOver,
     passwordErrorProtectionTimeMinutesSurplus,
+    passwordErrorProtectionTimeOver,
+    intl,
   ]);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   useEffect(() => {

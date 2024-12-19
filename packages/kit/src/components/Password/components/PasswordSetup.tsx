@@ -66,7 +66,7 @@ const PasswordSetup = ({
     }
     return (
       confirmBtnText ??
-      intl.formatMessage({ id: ETranslations.auth_set_password })
+      intl.formatMessage({ id: ETranslations.auth_set_passcode })
     );
   }, [confirmBtnText, intl, passCodeFirstStep]);
   const onPassCodeNext = () => {
@@ -79,20 +79,20 @@ const PasswordSetup = ({
         <>
           <Form.Field
             label={intl.formatMessage({
-              id: ETranslations.auth_new_password_form_label,
+              id: ETranslations.auth_new_passcode_form_label,
             })}
             name="password"
             rules={{
               required: {
                 value: true,
                 message: intl.formatMessage({
-                  id: ETranslations.auth_error_password_empty,
+                  id: ETranslations.auth_error_passcode_empty,
                 }),
               },
               minLength: {
                 value: 8,
                 message: intl.formatMessage(
-                  { id: ETranslations.auth_error_password_too_short },
+                  { id: ETranslations.auth_error_passwcode_too_short },
                   {
                     length: 8,
                   },
@@ -102,7 +102,7 @@ const PasswordSetup = ({
                 value: 128,
                 message: intl.formatMessage(
                   {
-                    id: ETranslations.auth_erro_password_too_long,
+                    id: ETranslations.auth_erro_passcode_too_long,
                   },
                   {
                     length: 128,
@@ -120,7 +120,7 @@ const PasswordSetup = ({
                 size: 'medium',
               }}
               placeholder={intl.formatMessage({
-                id: ETranslations.auth_new_password_form_placeholder,
+                id: ETranslations.auth_new_passwcode_form_placeholder,
               })}
               disabled={loading}
               autoFocus
@@ -141,7 +141,7 @@ const PasswordSetup = ({
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
-              id: ETranslations.auth_confirm_password_form_label,
+              id: ETranslations.auth_confirm_passcode_form_label,
             })}
             name="confirmPassword"
             rules={{
@@ -151,7 +151,7 @@ const PasswordSetup = ({
                   if (!state.error) {
                     return v !== values.password
                       ? intl.formatMessage({
-                          id: ETranslations.auth_error_password_not_match,
+                          id: ETranslations.auth_error_passcode_not_match,
                         })
                       : undefined;
                   }
@@ -169,7 +169,7 @@ const PasswordSetup = ({
                 size: 'medium',
               }}
               placeholder={intl.formatMessage({
-                id: ETranslations.auth_confirm_password_form_placeholder,
+                id: ETranslations.auth_confirm_passcode_form_placeholder,
               })}
               disabled={loading}
               keyboardType={getPasswordKeyboardType(!secureReentry)}
@@ -194,7 +194,7 @@ const PasswordSetup = ({
         <>
           <Form.Field
             label={intl.formatMessage({
-              id: ETranslations.auth_new_password_form_label,
+              id: ETranslations.auth_new_passcode_form_label,
             })}
             name="passCode"
             display={passCodeFirstStep ? 'flex' : 'none'}
@@ -204,13 +204,13 @@ const PasswordSetup = ({
                   v
                     ? undefined
                     : intl.formatMessage({
-                        id: ETranslations.auth_error_password_empty,
+                        id: ETranslations.auth_error_passcode_empty,
                       }),
                 minLength: (v: string) =>
                   v.length >= PIN_CELL_COUNT
                     ? undefined
                     : intl.formatMessage(
-                        { id: ETranslations.auth_error_password_too_short },
+                        { id: ETranslations.auth_error_passwcode_too_short },
                         {
                           length: PIN_CELL_COUNT,
                         },
@@ -238,7 +238,7 @@ const PasswordSetup = ({
           </Form.Field>
           <Form.Field
             label={intl.formatMessage({
-              id: ETranslations.auth_confirm_password_form_label,
+              id: ETranslations.auth_confirm_passcode_form_label,
             })}
             display={passCodeFirstStep ? 'none' : 'flex'}
             name="confirmPassCode"
@@ -252,7 +252,7 @@ const PasswordSetup = ({
                   if (!state.error) {
                     return v !== values.passCode
                       ? intl.formatMessage({
-                          id: ETranslations.auth_error_password_not_match,
+                          id: ETranslations.auth_error_passcode_not_match,
                         })
                       : undefined;
                   }
@@ -308,11 +308,11 @@ const PasswordSetup = ({
             form.setValue('passwordMode', newPasswordMode);
           }}
         >
-          {`切换成${
-            currentPasswordMode === EPasswordMode.PASSWORD
-              ? 'Passcode'
-              : 'Password'
-          }`}
+          {currentPasswordMode === EPasswordMode.PASSWORD
+            ? intl.formatMessage({ id: ETranslations.auth_Numeric_Passcode })
+            : intl.formatMessage({
+                id: ETranslations.auth_alphanumeric_passcode,
+              })}
         </Button>
       ) : null}
     </Form>

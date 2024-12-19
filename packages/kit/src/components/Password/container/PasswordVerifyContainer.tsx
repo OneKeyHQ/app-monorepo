@@ -24,6 +24,7 @@ import {
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
@@ -177,7 +178,10 @@ const PasswordVerifyContainer = ({
           passwordVerifyStatus: {
             value: EPasswordVerifyStatus.ERROR,
             message: intl.formatMessage({
-              id: ETranslations.auth_error_password_incorrect,
+              id:
+                verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+                  ? ETranslations.auth_biometric_failed
+                  : ETranslations.auth_error_passcode_incorrect,
             }),
           },
         }));
@@ -238,7 +242,10 @@ const PasswordVerifyContainer = ({
         passwordVerifyStatus: {
           value: EPasswordVerifyStatus.ERROR,
           message: intl.formatMessage({
-            id: ETranslations.auth_error_password_incorrect,
+            id:
+              verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+                ? ETranslations.auth_biometric_failed
+                : ETranslations.auth_error_passcode_incorrect,
           }),
         },
       }));
@@ -313,14 +320,40 @@ const PasswordVerifyContainer = ({
           } else {
             nextAttempts = passwordErrorAttempts;
           }
-          if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX) {
+          if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
+            // reset app
+            try {
+              // disable setInterval on ext popup
+              if (platformEnv.isExtensionUiPopup) {
+                resetUtils.startResetting();
+              }
+              await backgroundApiProxy.serviceApp.resetApp();
+            } catch (error) {
+              console.error('failed to reset app with error', error);
+            } finally {
+              // able setInterval on ext popup
+              if (platformEnv.isExtensionUiPopup) {
+                resetUtils.endResetting();
+              }
+            }
+          } else if (
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX
+          ) {
             const timeMinutes =
               PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
                 nextAttempts.toString()
               ];
-            message = `${
-              PASSCODE_PROTECTION_ATTEMPTS - nextAttempts
-            } more failed attempts will reset the device`;
+            // message = `${
+            //   PASSCODE_PROTECTION_ATTEMPTS - nextAttempts
+            // } more failed attempts will reset the device`;
+            message = intl.formatMessage(
+              {
+                id: ETranslations.auth_passcode_failed_alert,
+              },
+              {
+                count: PASSCODE_PROTECTION_ATTEMPTS - nextAttempts,
+              },
+            );
             setPasswordPersist((v) => ({
               ...v,
               passwordErrorProtectionTime: Date.now() + timeMinutes * 60 * 1000, // 2s for animation

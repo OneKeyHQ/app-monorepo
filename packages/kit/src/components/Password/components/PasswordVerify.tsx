@@ -202,7 +202,7 @@ const PasswordVerify = ({
               required: {
                 value: true,
                 message: intl.formatMessage({
-                  id: ETranslations.auth_error_password_incorrect,
+                  id: ETranslations.auth_error_passcode_incorrect,
                 }),
               },
               onChange: onPasswordChange,
@@ -213,7 +213,7 @@ const PasswordVerify = ({
               size="large"
               editable={status.value !== EPasswordVerifyStatus.VERIFYING}
               placeholder={intl.formatMessage({
-                id: ETranslations.auth_enter_your_password,
+                id: ETranslations.auth_enter_your_passcode,
               })}
               flex={1}
               // onChangeText={(text) => text.replace(PasswordRegex, '')}
@@ -240,7 +240,7 @@ const PasswordVerify = ({
         <>
           <Form.Field
             label={intl.formatMessage({
-              id: ETranslations.auth_confirm_password_form_label,
+              id: ETranslations.auth_confirm_passcode_form_label,
             })}
             name="passCode"
             rules={{
@@ -249,7 +249,7 @@ const PasswordVerify = ({
                   v
                     ? undefined
                     : intl.formatMessage({
-                        id: ETranslations.auth_error_password_empty,
+                        id: ETranslations.auth_error_passcode_empty,
                       }),
               },
               onChange: onPasswordChange,
