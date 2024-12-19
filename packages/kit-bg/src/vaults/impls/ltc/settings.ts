@@ -52,7 +52,10 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Legacy',
-    desc: ETranslations.litecoin_legacy_desc,
+    descI18n: {
+      id: ETranslations.litecoin_legacy_desc,
+      data: {},
+    },
     addressEncoding: EAddressEncodings.P2PKH,
   },
 };
