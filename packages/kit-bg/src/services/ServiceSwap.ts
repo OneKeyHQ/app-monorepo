@@ -1287,6 +1287,7 @@ export default class ServiceSwap extends ServiceBase {
     return vault.buildOkxSwapEncodedTx({
       okxTx: params.okxTx,
       fromTokenInfo: params.fromTokenInfo,
+      type: params.type,
     });
   }
 }
