@@ -176,7 +176,7 @@ export class NeedFirmwareUpgradeFromWeb extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedFirmwareUpgradeFromWeb',
-        defaultKey: ETranslations.update_update_in_official_web_tool_desc,
+        defaultKey: ETranslations.update_update_in_official_web_tool_desc_copy,
       }),
     );
   }
@@ -421,6 +421,25 @@ export class ForbiddenKeyPathError extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.RuntimeError;
+}
+
+export class BTCPsbtTooManyUtxos extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(
+        {
+          info: { 'count': get(props, 'payload.params.count', '') },
+        },
+        {
+          defaultMessage: 'BTCPsbtTooManyUtxos',
+          defaultKey:
+            ETranslations.feedback_device_psbt_signature_utxo_reached_limit_desc,
+        },
+      ),
+    );
+  }
+
+  override code = HardwareErrorCode.BTCPsbtTooManyUtxos;
 }
 
 export class StringOverflowError extends OneKeyHardwareError {
