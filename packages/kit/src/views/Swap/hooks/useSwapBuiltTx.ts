@@ -49,6 +49,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
+  useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -69,6 +70,7 @@ export function useSwapBuildTx() {
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [, setSwapManualSelectQuoteProviders] =
@@ -446,6 +448,7 @@ export function useSwapBuildTx() {
                 networkId: res.result.fromTokenInfo.networkId,
                 okxTx: res.OKXTxObject,
                 fromTokenInfo: res.result.fromTokenInfo,
+                type: swapTypeSwitch,
               });
           } else if (res?.tx) {
             transferInfo = undefined;
@@ -510,6 +513,7 @@ export function useSwapBuildTx() {
     fromToken,
     toToken,
     selectQuote,
+    swapTypeSwitch,
     slippageItem,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
