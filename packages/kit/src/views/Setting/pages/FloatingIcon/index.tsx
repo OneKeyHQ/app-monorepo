@@ -32,7 +32,9 @@ function FloatingIconModal() {
               size={ESwitchSize.large}
               value={settings.isFloatingIconAlwaysDisplay}
               onChange={async (value) => {
-                await backgroundApiProxy.serviceSetting.setIsShowFloatingButton(value);
+                await backgroundApiProxy.serviceSetting.setIsShowFloatingButton(
+                  value,
+                );
               }}
             />
           </XStack>

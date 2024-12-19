@@ -139,11 +139,13 @@ class ServiceGas extends ServiceBase {
         }
         return {
           ...item,
-          computationCostBase: item.computationCost ? new BigNumber(item.computationCost)
-            .dividedBy(
-              new BigNumber(item.gasPrice).shiftedBy(feeInfo.feeDecimals),
-            )
-            .toFixed() : '0',
+          computationCostBase: item.computationCost
+            ? new BigNumber(item.computationCost)
+                .dividedBy(
+                  new BigNumber(item.gasPrice).shiftedBy(feeInfo.feeDecimals),
+                )
+                .toFixed()
+            : '0',
         };
       }),
     };
