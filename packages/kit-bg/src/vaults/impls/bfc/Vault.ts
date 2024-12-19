@@ -41,6 +41,7 @@ import { OneKeyBfcClient } from './sdkBfc/ClientBfc';
 import transactionUtils, { EBfcTransactionType } from './sdkBfc/transactions';
 import { waitPendingTransaction } from './sdkBfc/utils';
 
+import type { ITransferDetail } from './sdkBfc/transactions';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -196,15 +197,19 @@ export default class Vault extends VaultBase {
         });
         actions.push(action);
       } else {
-        // use dry-run result to create action
-        const client = await this.getClient();
-        const buildTx = await tx.build({ client });
-        const dryRunResult = await client.dryRunTransactionBlock({
-          transactionBlock: buildTx,
-        });
-        const transfers = transactionUtils.parseTransferDetails({
-          balanceChanges: dryRunResult.balanceChanges,
-        });
+        let transfers: ITransferDetail[];
+        try {
+          // use dry-run result to create action
+          const client = await this.getClient();
+          const dryRunResult = await client.dryRunTransactionBlock({
+            transactionBlock: await tx.build({ client }),
+          });
+          transfers = transactionUtils.parseTransferDetails({
+            balanceChanges: dryRunResult.balanceChanges,
+          });
+        } catch (error) {
+          transfers = [];
+        }
         if (transfers.length > 0) {
           const action = await this.buildTxTransferAssetAction({
             from: transfers[0].from,
