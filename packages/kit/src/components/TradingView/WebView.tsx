@@ -23,15 +23,7 @@ const MDHiddenBorder = () => (
   </>
 );
 
-const HiddenBorder = () => (
-  <>
-    <Stack h={1} w="100%" bg="$bgApp" top={0} left={0} position="absolute" />
-    <Stack h={1} w="100%" bg="$bgApp" top={39} left={0} position="absolute" />
-    <Stack h={1} w="100%" bg="$bgApp" bottom={0} left={0} position="absolute" />
-    <Stack h="100%" w={1} bg="$bgApp" top={0} left={0} position="absolute" />
-    <Stack h="100%" w={1} bg="$bgApp" top={0} right={0} position="absolute" />
-  </>
-);
+const HiddenBorder = () => null;
 
 export function WebView({
   tradingViewProps,
