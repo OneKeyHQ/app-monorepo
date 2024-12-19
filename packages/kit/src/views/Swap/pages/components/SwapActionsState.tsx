@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
@@ -13,12 +14,15 @@ import {
   SizableText,
   Stack,
   XStack,
+  useIsKeyboardShown,
   useMedia,
   usePageType,
 } from '@onekeyhq/components';
 import {
   useSwapActions,
+  useSwapEnableRecipientAddressAtom,
   useSwapFromTokenAmountAtom,
+  useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -26,8 +30,12 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  SwapPercentageInputStageForNative,
+} from '@onekeyhq/shared/types/swap/types';
 
+import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
@@ -46,6 +54,63 @@ interface ISwapActionsStateProps {
     shoutResetApprove?: boolean,
   ) => void;
   onOpenRecipientAddress: () => void;
+  onSelectPercentageStage?: (stage: number) => void;
+}
+
+function PageFooter({
+  onSelectPercentageStage,
+  actionComponent,
+  pageType,
+  md,
+}: {
+  onSelectPercentageStage?: (stage: number) => void;
+  pageType: EPageType;
+  md: boolean;
+  actionComponent: React.JSX.Element;
+}) {
+  const isShow = useIsKeyboardShown();
+  const intl = useIntl();
+  return (
+    <Page.Footer>
+      <Page.FooterActions
+        {...(pageType === EPageType.modal && !md
+          ? { buttonContainerProps: { flex: 1 } }
+          : {})}
+        confirmButton={actionComponent}
+      />
+      {isShow ? (
+        <XStack
+          alignItems="center"
+          gap="$1"
+          justifyContent="space-around"
+          bg="$bgSubdued"
+          h="$10"
+        >
+          <>
+            {SwapPercentageInputStageForNative.map((stage) => (
+              <SwapPercentageStageBadge
+                badgeSize="lg"
+                key={`swap-percentage-input-stage-${stage}`}
+                stage={stage}
+                onSelectStage={onSelectPercentageStage}
+              />
+            ))}
+            <Button
+              size="small"
+              variant="tertiary"
+              onPress={() => {
+                Keyboard.dismiss();
+              }}
+            >
+              {intl.formatMessage({
+                id: ETranslations.global_confirm,
+              })}
+            </Button>
+          </>
+        </XStack>
+      ) : null}
+    </Page.Footer>
+  );
 }
 
 const SwapActionsState = ({
@@ -53,6 +118,7 @@ const SwapActionsState = ({
   onApprove,
   onWrapped,
   onOpenRecipientAddress,
+  onSelectPercentageStage,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -64,7 +130,9 @@ const SwapActionsState = ({
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
-  const [{ swapEnableRecipientAddress }] = useSettingsPersistAtom();
+  const [swapProviderSupportReceiveAddress] =
+    useSwapProviderSupportReceiveAddressAtom();
+  const [swapEnableRecipientAddress] = useSwapEnableRecipientAddressAtom();
   const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
@@ -179,15 +247,15 @@ const SwapActionsState = ({
   const shouldShowRecipient = useMemo(
     () =>
       swapEnableRecipientAddress &&
-      swapRecipientAddressInfo?.showAddress &&
+      swapProviderSupportReceiveAddress &&
       fromToken &&
       toToken &&
       currentQuoteRes?.toTokenInfo.networkId === toToken.networkId,
     [
       swapEnableRecipientAddress,
       currentQuoteRes?.toTokenInfo.networkId,
+      swapProviderSupportReceiveAddress,
       fromToken,
-      swapRecipientAddressInfo?.showAddress,
       toToken,
     ],
   );
@@ -285,27 +353,31 @@ const SwapActionsState = ({
               textDecorationLine="underline"
               onPress={onOpenRecipientAddress}
             >
-              {swapRecipientAddressInfo?.showAddress}
+              {swapRecipientAddressInfo?.showAddress ??
+                intl.formatMessage({
+                  id: ETranslations.swap_page_recipient_add,
+                })}
             </SizableText>
-
-            <SizableText
-              numberOfLines={1}
-              flexShrink={0}
-              size="$bodyMd"
-              color="$textSubdued"
-            >
-              {`(${
-                !swapRecipientAddressInfo?.isExtAccount
-                  ? `${
-                      swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
-                    }-${
-                      swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
-                    }`
-                  : intl.formatMessage({
-                      id: ETranslations.swap_page_recipient_external_account,
-                    })
-              })`}
-            </SizableText>
+            {swapRecipientAddressInfo?.showAddress ? (
+              <SizableText
+                numberOfLines={1}
+                flexShrink={0}
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                {`(${
+                  !swapRecipientAddressInfo?.isExtAccount
+                    ? `${
+                        swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
+                      }-${
+                        swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
+                      }`
+                    : intl.formatMessage({
+                        id: ETranslations.swap_page_recipient_external_account,
+                      })
+                })`}
+              </SizableText>
+            ) : null}
           </XStack>
         </XStack>
       );
@@ -375,11 +447,11 @@ const SwapActionsState = ({
       {pageType !== EPageType.modal && !md ? (
         actionComponent
       ) : (
-        <Page.Footer
-          {...(pageType === EPageType.modal && !md
-            ? { buttonContainerProps: { flex: 1 } }
-            : {})}
-          confirmButton={actionComponent}
+        <PageFooter
+          onSelectPercentageStage={onSelectPercentageStage}
+          actionComponent={actionComponent}
+          pageType={pageType}
+          md={md}
         />
       )}
     </>

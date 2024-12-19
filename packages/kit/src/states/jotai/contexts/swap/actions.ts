@@ -1,7 +1,6 @@
 import { useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { debounce } from 'lodash';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { useSwapAddressInfo } from '@onekeyhq/kit/src/views/Swap/hooks/useSwapAccount';
@@ -959,19 +958,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
 
-      // if (quoteResult?.toAmount && !quoteResult.isBest) {
-      //   // provider best check
-      //   alertsRes = [
-      //     ...alertsRes,
-      //     {
-      //       message: appLocale.intl.formatMessage({
-      //         id: ETranslations.swap_page_alert_not_best_rate,
-      //       }),
-      //       alertLevel: ESwapAlertLevel.WARNING,
-      //     },
-      //   ];
-      // }
-
       // market rate check
       if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
         const fromTokenPrice = new BigNumber(fromToken.price);
@@ -1620,22 +1606,18 @@ export const useSwapActions = () => {
   const recoverQuoteInterval = actions.recoverQuoteInterval.use();
   const quoteAction = actions.quoteAction.use();
   const approvingStateAction = actions.approvingStateAction.use();
-  const checkSwapWarning = debounce(actions.checkSwapWarning.use(), 300, {
-    leading: true,
-  });
+  const checkSwapWarning = actions.checkSwapWarning.use();
   const tokenListFetchAction = actions.tokenListFetchAction.use();
   const quoteEventHandler = actions.quoteEventHandler.use();
-  const loadSwapSelectTokenDetail = debounce(
-    actions.loadSwapSelectTokenDetail.use(),
-    200,
-    {
-      leading: true,
-    },
-  );
+  const loadSwapSelectTokenDetail = actions.loadSwapSelectTokenDetail.use();
   const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
   const swapTypeSwitchAction = actions.swapTypeSwitchAction.use();
-  const { cleanQuoteInterval, cleanApprovingInterval, closeQuoteEvent } =
-    actions;
+  const {
+    cleanQuoteInterval,
+    cleanApprovingInterval,
+    closeQuoteEvent,
+    needChangeToken,
+  } = actions;
 
   return useRef({
     selectFromToken,
@@ -1655,5 +1637,6 @@ export const useSwapActions = () => {
     swapLoadAllNetworkTokenList,
     closeQuoteEvent,
     swapTypeSwitchAction,
+    needChangeToken,
   });
 };

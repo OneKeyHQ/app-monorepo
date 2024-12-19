@@ -6,7 +6,6 @@ import {
   Button,
   Divider,
   NumberSizeableText,
-  Progress,
   SizableText,
   XStack,
   YStack,
@@ -15,6 +14,8 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+
+import { AlertSection } from './AlertSection';
 
 type IStakedValueInfoProps = {
   value: number;
@@ -85,10 +86,12 @@ export const StakedValueSection = ({
   details,
   stakeButtonProps,
   withdrawButtonProps,
+  alerts = [],
 }: {
   details?: IStakeProtocolDetails;
   stakeButtonProps?: ComponentProps<typeof Button>;
   withdrawButtonProps?: ComponentProps<typeof Button>;
+  alerts?: string[];
 }) => {
   if (!details) {
     return null;
@@ -106,7 +109,7 @@ export const StakedValueSection = ({
         stakeButtonProps={stakeButtonProps}
         withdrawButtonProps={withdrawButtonProps}
       />
-
+      <AlertSection alerts={alerts} />
       <Divider />
     </>
   );

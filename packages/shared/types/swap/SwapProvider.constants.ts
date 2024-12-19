@@ -65,6 +65,8 @@ export const swapRateDifferenceMin = 0.05;
 
 export const maxRecentTokenPairs = 10;
 
+export const swapProviderRecommendApprovedWeights = 1.1;
+
 export const otherWalletFeeData = [
   {
     maxFee: 0.875,

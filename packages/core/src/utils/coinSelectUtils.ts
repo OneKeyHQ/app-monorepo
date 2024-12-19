@@ -203,7 +203,10 @@ export function coinSelectWithWitness(
   try {
     return coinSelectWitness(coinselectParams);
   } catch (error) {
-    defaultLogger.transaction.coinSelect.coinSelectFailed(coinselectParams);
+    defaultLogger.transaction.coinSelect.coinSelectFailed(
+      coinselectParams,
+      error as Error,
+    );
     return {
       inputs: undefined,
       outputs: undefined,

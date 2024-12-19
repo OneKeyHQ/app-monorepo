@@ -2,7 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
-import { ESwapProviderSort } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  ESwapProviderSort,
+  swapProviderRecommendApprovedWeights,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapDirectionType,
   ESwapRateDifferenceUnit,
@@ -79,6 +82,11 @@ export const {
   address: string | undefined;
   accountInfo: IAccountSelectorActiveAccountInfo | undefined;
 }>({ networkId: undefined, address: undefined, accountInfo: undefined });
+
+export const {
+  atom: swapEnableRecipientAddressAtom,
+  use: useSwapEnableRecipientAddressAtom,
+} = contextAtom<boolean>(false);
 
 // swap select token
 export const {
@@ -230,11 +238,50 @@ export const {
     }
     return bVal.comparedTo(aVal);
   });
+  let recommendedSorted = receivedSorted.slice();
+  const recommendedSortedApproved = recommendedSorted.filter(
+    (item) =>
+      !item.allowanceResult && item.toAmount && item.approvedInfo?.isApproved,
+  );
+  // check allowance result
   if (
-    sortType === ESwapProviderSort.RECOMMENDED ||
-    sortType === ESwapProviderSort.RECEIVED
+    receivedSorted.length > 0 &&
+    recommendedSortedApproved.length > 0 &&
+    receivedSorted[0].allowanceResult
   ) {
+    const recommendedSortedApprovedSorted = recommendedSortedApproved
+      .slice()
+      .sort((a, b) => {
+        const aVal = new BigNumber(a.toAmount || 0);
+        const bVal = new BigNumber(b.toAmount || 0);
+        return bVal.comparedTo(aVal);
+      });
+    const recommendedSortedAllowanceSortedBestAmountBN = new BigNumber(
+      recommendedSortedApprovedSorted[0].toAmount || 0,
+    );
+    const receivedSortedBestAmountBN = new BigNumber(
+      receivedSorted[0].toAmount || 0,
+    );
+    if (
+      recommendedSortedAllowanceSortedBestAmountBN
+        .multipliedBy(swapProviderRecommendApprovedWeights)
+        .gt(receivedSortedBestAmountBN)
+    ) {
+      recommendedSorted = recommendedSorted.filter(
+        (item) => item.quoteId !== recommendedSortedApprovedSorted[0].quoteId,
+      );
+      recommendedSorted = [
+        recommendedSortedApprovedSorted[0],
+        ...recommendedSorted,
+      ];
+    }
+  }
+
+  if (sortType === ESwapProviderSort.RECEIVED) {
     sortedList = [...receivedSorted];
+  }
+  if (sortType === ESwapProviderSort.RECOMMENDED) {
+    sortedList = [...recommendedSorted];
   }
   sortedList = sortedList.slice().sort((a, b) => {
     if (a.limit && b.limit) {
@@ -259,19 +306,13 @@ export const {
     return 0;
   });
   return sortedList.map((p) => {
-    if (
-      p.info.provider === receivedSorted?.[0]?.info?.provider &&
-      p.info.providerName === receivedSorted?.[0]?.info?.providerName &&
-      p.toAmount
-    ) {
-      p.receivedBest = true;
+    if (p.quoteId === recommendedSorted?.[0]?.quoteId && p.toAmount) {
       p.isBest = true;
     }
-    if (
-      p.info.provider === gasFeeSorted?.[0]?.info?.provider &&
-      p.info.providerName === gasFeeSorted?.[0]?.info?.providerName &&
-      p.toAmount
-    ) {
+    if (p.quoteId === receivedSorted?.[0]?.quoteId && p.toAmount) {
+      p.receivedBest = true;
+    }
+    if (p.quoteId === gasFeeSorted?.[0]?.quoteId && p.toAmount) {
       p.minGasCost = true;
     }
     return p;

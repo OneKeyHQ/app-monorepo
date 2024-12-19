@@ -61,6 +61,9 @@ export type IStakeProviderInfo = {
   stakingCap?: string;
   earnPoints?: boolean;
   stakeDisable?: boolean;
+  buttonStake: boolean;
+  buttonUnstake: boolean;
+  alerts: string[];
 };
 
 export type IStakeBaseParams = {
