@@ -24,6 +24,8 @@ import { setupSidePanelPortInBg } from '../background/sidePanel';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+
 function initBackground() {
   // TODO use backgroundApiInit
   const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =

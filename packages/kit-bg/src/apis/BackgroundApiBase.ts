@@ -142,7 +142,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
 
   connectBridge(bridge: JsBridgeBase) {
     if (platformEnv.isExtension) {
-      this.bridgeExtBg = bridge as JsBridgeExtBackground;
+      this.bridgeExtBg = bridge as unknown as JsBridgeExtBackground;
     }
     this.bridge = bridge;
   }
