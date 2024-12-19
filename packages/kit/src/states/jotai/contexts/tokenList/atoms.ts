@@ -25,24 +25,6 @@ export const { atom: searchTokenStateAtom, use: useSearchTokenStateAtom } =
     isSearching: false,
   });
 
-export const {
-  atom: tokenSelectorSearchTokenStateAtom,
-  use: useTokenSelectorSearchTokenStateAtom,
-} = contextAtom<{
-  isSearching: boolean;
-}>({
-  isSearching: false,
-});
-
-export const {
-  atom: tokenSelectorSearchTokenListAtom,
-  use: useTokenSelectorSearchTokenListAtom,
-} = contextAtom<{
-  tokens: IAccountToken[];
-}>({
-  tokens: [],
-});
-
 export const { atom: searchTokenListAtom, use: useSearchTokenListAtom } =
   contextAtom<{
     tokens: IAccountToken[];
@@ -113,11 +95,6 @@ export const {
 
 export const { atom: searchKeyAtom, use: useSearchKeyAtom } =
   contextAtom<string>('');
-
-export const {
-  atom: tokenSelectorSearchKeyAtom,
-  use: useTokenSelectorSearchKeyAtom,
-} = contextAtom<string>('');
 
 export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
   contextAtom<{

@@ -46,6 +46,10 @@ export function WebView({
         onMessage={onMessage}
         webviewDebuggingEnabled={platformEnv.isDev}
         injectedJavaScript={injectedJavaScript}
+        // https://github.com/react-native-webview/react-native-webview/issues/2705
+        setSupportMultipleWindows={
+          platformEnv.isNativeAndroid ? false : undefined
+        }
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         source={{
           uri,

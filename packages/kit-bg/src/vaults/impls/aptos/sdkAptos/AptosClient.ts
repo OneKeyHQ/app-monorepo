@@ -37,11 +37,7 @@ export class AptosClient {
     moduleName: string,
     options?: LedgerVersionArg,
   ): Promise<MoveModuleBytecode> {
-    return this.aptos.account.getAccountModule({
-      accountAddress,
-      moduleName,
-      options,
-    });
+    return this.proxyRequest('getAccountModule', [accountAddress, moduleName]);
   }
 
   getChainId(): Promise<number> {
@@ -84,7 +80,7 @@ export class AptosClient {
   }
 
   getGasPriceEstimation(): Promise<{ gas_estimate: number }> {
-    return this.aptos.getGasPriceEstimation();
+    return this.proxyRequest('estimateGasPrice');
   }
 
   getLedgerInfo(): Promise<{

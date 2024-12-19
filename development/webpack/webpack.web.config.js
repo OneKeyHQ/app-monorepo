@@ -24,7 +24,7 @@ module.exports = ({
     case 'production':
       return merge(
         baseConfig({ platform, basePath }),
-        productionConfig,
+        productionConfig({ platform, basePath }),
         ...configs,
         {
           output: {

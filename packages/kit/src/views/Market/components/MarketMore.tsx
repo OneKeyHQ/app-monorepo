@@ -3,8 +3,10 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
-import { ActionList, IconButton } from '@onekeyhq/components';
+import { ActionList, IconButton, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useReviewControl } from '../../../components/ReviewControl';
 
 import { useLazyMarketTradeActions } from './tradeHook';
 import { useWatchListAction } from './wachListHooks';
@@ -13,10 +15,12 @@ function BasicMarketMore({
   coingeckoId,
   symbol,
   showMoreAction,
+  isSupportBuy,
   ...props
 }: {
   coingeckoId: string;
   symbol: string;
+  isSupportBuy: boolean;
   showMoreAction: boolean;
 } & IStackProps) {
   const intl = useIntl();
@@ -25,6 +29,7 @@ function BasicMarketMore({
     actions.MoveToTop(coingeckoId);
   }, [actions, coingeckoId]);
   const tradeActions = useLazyMarketTradeActions(coingeckoId);
+  const show = useReviewControl();
   const sections = useMemo(
     () =>
       [
@@ -39,17 +44,20 @@ function BasicMarketMore({
             },
           ] as IActionListItemProps[],
         },
-        {
-          items: [
-            {
-              icon: 'MinusLargeSolid',
-              label: intl.formatMessage({ id: ETranslations.global_sell }),
-              onPress: tradeActions.onSell,
-            },
-          ] as IActionListItemProps[],
-        },
+        show
+          ? {
+              items: [
+                {
+                  icon: 'MinusLargeSolid',
+                  label: intl.formatMessage({ id: ETranslations.global_sell }),
+                  onPress: tradeActions.onSell,
+                  disabled: !isSupportBuy,
+                },
+              ] as IActionListItemProps[],
+            }
+          : undefined,
       ].filter(Boolean),
-    [MoveToTop, intl, showMoreAction, tradeActions.onSell],
+    [MoveToTop, intl, isSupportBuy, show, showMoreAction, tradeActions.onSell],
   );
   return (
     <ActionList
@@ -60,6 +68,7 @@ function BasicMarketMore({
           icon="DotVerSolid"
           variant="tertiary"
           iconSize="$5"
+          disabled={sections.length === 0}
           {...props}
         />
       }

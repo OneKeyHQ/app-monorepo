@@ -107,8 +107,17 @@ function NativeTokenPriceChart({ coinGeckoId, height, defer }: IChartProps) {
         </YStack>
       </YStack>
       {gtLg ? null : (
-        <XStack gap="$3" ai="center" px="$5" $platform-web={{ zIndex: 30 }}>
+        <XStack
+          gap="$3"
+          ai="center"
+          px="$5"
+          $platform-web={{ zIndex: 30 }}
+          position="absolute"
+          top={height - 48}
+          width="100%"
+        >
           <SegmentControl
+            fullWidth
             value={days}
             jc="space-between"
             flex={1}
@@ -129,11 +138,11 @@ const useHeight = () => {
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
     if (platformEnv.isNativeIOS) {
-      return 280;
+      return 268;
     }
 
     if (platformEnv.isNativeAndroid) {
-      return 280;
+      return 258;
     }
 
     return 300;
@@ -161,7 +170,7 @@ function TradingViewChart({
       mode="overview"
       h={height}
       $gtMd={{ pl: '$5' }}
-      $md={{ pt: '$6' }}
+      $md={{ pt: '$3' }}
       targetToken={targetToken}
       baseToken={baseToken}
       identifier={identifier}

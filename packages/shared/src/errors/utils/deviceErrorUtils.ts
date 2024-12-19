@@ -140,7 +140,10 @@ export function convertDeviceError(
       if (message.indexOf('Forbidden key path') !== -1) {
         return new HardwareErrors.ForbiddenKeyPathError({ payload });
       }
-      if (message.includes('string overflow')) {
+      if (
+        message.toLowerCase().includes('string overflow') ||
+        message.toLowerCase().includes('label is too long')
+      ) {
         return new HardwareErrors.StringOverflowError({ payload });
       }
       return new HardwareErrors.UnknownHardwareError({ payload });

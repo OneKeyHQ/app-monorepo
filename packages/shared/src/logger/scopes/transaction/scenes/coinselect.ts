@@ -5,7 +5,7 @@ import type { ICoinSelectParams } from '@onekeyfe/coinselect/witness';
 
 export class CoinSelectScene extends BaseScene {
   @LogToLocal()
-  public coinSelectFailed(params: ICoinSelectParams) {
+  public coinSelectFailed(params: ICoinSelectParams, error?: Error) {
     return {
       utxos: params.utxos,
       outputs: params.outputs,
@@ -15,6 +15,12 @@ export class CoinSelectScene extends BaseScene {
       txType: params.txType,
       baseFee: params.baseFee,
       dustThreshold: params.dustThreshold,
+      error: error
+        ? {
+            message: error.message,
+            stack: error.stack,
+          }
+        : undefined,
     };
   }
 }

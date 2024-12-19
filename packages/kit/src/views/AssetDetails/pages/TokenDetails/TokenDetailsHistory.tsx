@@ -1,6 +1,6 @@
-import type { ReactElement } from 'react';
 import { memo, useCallback, useEffect, useState } from 'react';
 
+import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListView';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -17,22 +17,14 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import type { IProps } from '.';
 
-function TokenDetailsHistory(
-  props: IProps & {
-    setHistoryInit: (value: boolean) => void;
-    historyInit: boolean;
-  },
-) {
+function TokenDetailsHistory(props: IProps) {
   const navigation = useAppNavigation();
 
-  const {
-    accountId,
-    networkId,
-    tokenInfo,
-    historyInit,
-    setHistoryInit,
-    ListHeaderComponent,
-  } = props;
+  const { accountId, networkId, tokenInfo, ListHeaderComponent, isTabView } =
+    props;
+
+  const [historyInit, setHistoryInit] = useState(false);
+  const { isFocused } = useTabIsRefreshingFocused();
 
   /**
    * since some tokens are slow to load history,
@@ -53,10 +45,12 @@ function TokenDetailsHistory(
       setHistoryInit(true);
       return r.txs;
     },
-    [accountId, networkId, setHistoryInit, tokenInfo.address],
+    [accountId, networkId, tokenInfo.address],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused && (isTabView ? isFocused : true),
     },
   );
 

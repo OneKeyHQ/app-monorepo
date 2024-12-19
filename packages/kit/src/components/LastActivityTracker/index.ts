@@ -38,6 +38,7 @@ const LastActivityTracker = () => {
         }),
       });
       setSentryUser({
+        id: instanceId,
         instanceId,
         platform: platformEnv.appPlatform || '',
         appChannel: platformEnv.appChannel || '',

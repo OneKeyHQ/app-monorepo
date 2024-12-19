@@ -206,10 +206,16 @@ function DeriveTypeSelectorTriggerIconRenderer({
   label,
   autoShowLabel,
   onPress,
+  iconProps,
+  labelProps,
+  containerProps,
 }: {
   label?: string | undefined;
   autoShowLabel?: boolean;
   onPress?: (event: GestureResponderEvent) => void;
+  iconProps?: ComponentProps<typeof Icon>;
+  labelProps?: ComponentProps<typeof SizableText>;
+  containerProps?: ComponentProps<typeof XStack>;
 }) {
   const media = useMedia();
   const hitSlop = platformEnv.isNative
@@ -243,10 +249,22 @@ function DeriveTypeSelectorTriggerIconRenderer({
       hitSlop={hitSlop}
       onPress={onPress}
       focusable
+      {...containerProps}
     >
-      <Icon name="BranchesOutline" color="$iconSubdued" size="$4.5" />
+      <Icon
+        name="BranchesOutline"
+        color="$iconSubdued"
+        size="$4.5"
+        {...iconProps}
+      />
       {media.gtSm && autoShowLabel ? (
-        <SizableText pl="$2" pr="$1" size="$bodyMd" color="$textSubdued">
+        <SizableText
+          pl="$2"
+          pr="$1"
+          size="$bodyMd"
+          color="$textSubdued"
+          {...labelProps}
+        >
           {label}
         </SizableText>
       ) : null}
@@ -262,6 +280,27 @@ export function DeriveTypeSelectorTriggerForHome({ num }: { num: number }) {
           label={label}
           autoShowLabel
           onPress={onPress}
+        />
+      )}
+      num={num}
+    />
+  );
+}
+
+export function DeriveTypeSelectorTriggerForSwap({ num }: { num: number }) {
+  return (
+    <DeriveTypeSelectorTrigger
+      renderTrigger={({ label, onPress }) => (
+        <DeriveTypeSelectorTriggerIconRenderer
+          label={label}
+          autoShowLabel={false}
+          onPress={onPress}
+          iconProps={{
+            size: '$4',
+          }}
+          labelProps={{
+            pl: '$1',
+          }}
         />
       )}
       num={num}

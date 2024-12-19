@@ -1,14 +1,21 @@
+import {
+  reactNativeTracingIntegration,
+  reactNavigationIntegration,
+} from '@sentry/react-native';
 import wordLists from 'bip39/src/wordlists/english.json';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
 import type { BrowserOptions } from '@sentry/browser';
-
 // dirty check for common private key formats
 const checkPrivateKey = (errorText: string) =>
   typeof errorText === 'string' && errorText.length > 26;
 
 const lazyLoadWordSet = memoizee(() => new Set(wordLists));
+
+export const navigationIntegration = reactNavigationIntegration({
+  enableTimeToInitialDisplay: true,
+});
 
 // Check if text contains mnemonic phrases
 const checkAndRedactMnemonicWords = (words: string[]) => {
@@ -43,8 +50,10 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
 };
 
 export const basicOptions: BrowserOptions = {
-  enabled: process.env.NODE_ENV === 'production',
+  enabled: true,
   maxBreadcrumbs: 100,
+  tracesSampleRate: 1.0,
+  profilesSampleRate: 1.0,
   beforeSend: (event) => {
     if (Array.isArray(event.exception?.values)) {
       for (let index = 0; index < event.exception.values.length; index += 1) {
@@ -81,6 +90,8 @@ export const buildOptions = (Sentry: typeof import('@sentry/react')) => ({
 });
 
 export const buildIntegrations = (Sentry: typeof import('@sentry/react')) => [
+  navigationIntegration,
+  reactNativeTracingIntegration(),
   Sentry.browserProfilingIntegration(),
   Sentry.browserTracingIntegration(),
   Sentry.breadcrumbsIntegration({

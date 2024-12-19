@@ -34,7 +34,7 @@
   "dependencies": {
     "@onekeyhq/components": "*",
     "@onekeyhq/kit": "*",
-    "@sentry/electron": "^5.7.0",
+    "@sentry/electron": "5.8.0",
     "adm-zip": "^0.5.10",
     "electron-context-menu": "^3.5.0",
     "electron-is-dev": "^2.0.0",

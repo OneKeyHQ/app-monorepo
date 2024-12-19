@@ -1,7 +1,7 @@
 // require('react-native-reanimated').setUpTests();
 
 // FIX:     ReferenceError: self is not defined
-global.self = global.self || global;
+globalThis.self = globalThis.self || globalThis;
 
 class LocalStorageMock {
   constructor() {
@@ -25,14 +25,14 @@ class LocalStorageMock {
   }
 }
 
-global.localStorage = new LocalStorageMock();
-global.$$onekeyAppStorage = new LocalStorageMock();
-global.addEventListener = jest.fn;
-global.fetch = require('node-fetch');
-global.WebSocket = require('isomorphic-ws');
+globalThis.localStorage = new LocalStorageMock();
+globalThis.$$onekeyAppStorage = new LocalStorageMock();
+globalThis.addEventListener = jest.fn;
+globalThis.fetch = require('node-fetch');
+globalThis.WebSocket = require('isomorphic-ws');
 
 if (typeof structuredClone === 'undefined') {
-  global.structuredClone = require('@ungap/structured-clone').default;
+  globalThis.structuredClone = require('@ungap/structured-clone').default;
 }
 
 jest.mock('react-native-zip-archive', () => ({
@@ -61,6 +61,22 @@ jest.mock('react-native-device-info', () => ({
   getSystemVersion: jest.fn(),
   getTotalMemorySync: jest.fn(),
   getUsedMemorySync: jest.fn(),
+}));
+
+jest.mock('@sentry/electron/renderer', () => ({
+  init: () => jest.fn(),
+}));
+
+jest.mock('@sentry/react', () => ({
+  init: () => jest.fn(),
+}));
+
+jest.mock('@sentry/react-native', () => ({
+  init: () => jest.fn(),
+  reactNavigationIntegration: () => jest.fn(),
+  reactNativeTracingIntegration: () => jest.fn(),
+  TimeToInitialDisplay: () => jest.fn(),
+  TimeToFullDisplay: () => jest.fn(),
 }));
 
 jest.mock('expo-localization', () => ({

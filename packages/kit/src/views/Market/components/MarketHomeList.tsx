@@ -52,11 +52,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
   IMarketCategory,
   IMarketToken,
 } from '@onekeyhq/shared/types/market';
 
+import { useReviewControl } from '../../../components/ReviewControl';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePrevious } from '../../../hooks/usePrevious';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
@@ -183,6 +185,11 @@ function MarketMdColumn({
   }, [item.coingeckoId, navigation]);
 
   const tradeActions = useLazyMarketTradeActions(item.coingeckoId);
+  const show = useReviewControl();
+  const canStaking = useMemo(
+    () => isSupportStaking(item.symbol),
+    [item.symbol],
+  );
   const handleMdItemAction = useCallback(async () => {
     const { coingeckoId, symbol } = item;
     const isInWatchList = actions.isInWatchList(coingeckoId);
@@ -239,38 +246,40 @@ function MarketMdColumn({
         {
           items: [
             {
-              icon: 'SwitchHorOutline',
-              label: intl.formatMessage({ id: ETranslations.global_swap }),
-              onPress: tradeActions.onSwap,
+              icon: 'SwitchHorOutline' as const,
+              label: intl.formatMessage({ id: ETranslations.global_trade }),
+              onPress: tradeActions.onSwapLazyModal,
             },
-            {
-              icon: 'CoinsOutline',
+            canStaking && {
+              icon: 'CoinsOutline' as const,
               label: intl.formatMessage({ id: ETranslations.earn_stake }),
               onPress: tradeActions.onStaking,
             },
-            {
-              icon: 'PlusLargeSolid',
+            show && {
+              icon: 'PlusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_buy }),
               onPress: tradeActions.onBuy,
             },
-            {
-              icon: 'MinusLargeSolid',
+            show && {
+              icon: 'MinusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_sell }),
               onPress: tradeActions.onSell,
             },
-          ],
+          ].filter(Boolean),
         },
       ],
     });
   }, [
     actions,
+    canStaking,
     intl,
     item,
+    show,
     showMoreAction,
     tradeActions.onBuy,
     tradeActions.onSell,
     tradeActions.onStaking,
-    tradeActions.onSwap,
+    tradeActions.onSwapLazyModal,
   ]);
   const pressEvents = useMemo(
     () => ({
@@ -429,7 +438,7 @@ function BasicMarketHomeList({
     void fetchCategory();
   }, [fetchCategory]);
 
-  const { gtMd, md } = useMedia();
+  const { md, gtMd, gt2Md, gtLg, gtXl, gt2xl } = useMedia();
 
   const filterCoingeckoIdsListData = useMemo(() => {
     const filterListData = category.coingeckoIds?.length
@@ -600,7 +609,43 @@ function BasicMarketHomeList({
   const theme = useThemeVariant();
   const lineColors = lineColorMap[theme];
   const colors = colorMap[theme];
-  const { gtLg, gtXl } = useMedia();
+
+  const marketListTradeButtonWidth = useCallback(() => {
+    if (gtMd) {
+      let numberOfButtons = 1;
+      let isItemSupportStaking = false;
+      let isItemSupportBuy = false;
+      if (listData) {
+        for (let i = 0; i < listData.length; i += 1) {
+          const item = listData[i] as unknown as IMarketToken;
+          if (!isItemSupportStaking) {
+            const stakingItem = isSupportStaking(item.symbol);
+            if (stakingItem) {
+              isItemSupportStaking = true;
+              numberOfButtons += 1;
+            }
+          }
+
+          if (!isItemSupportBuy && item.isSupportBuy) {
+            isItemSupportBuy = true;
+            numberOfButtons += 1;
+          }
+          if (isItemSupportStaking && isItemSupportBuy) {
+            break;
+          }
+        }
+        switch (numberOfButtons) {
+          case 3:
+            return 180;
+          case 2:
+            return 120;
+          default:
+            return 60;
+        }
+      }
+    }
+    return 0;
+  }, [gtMd, listData]);
 
   const columns = useMemo(
     () =>
@@ -690,10 +735,11 @@ function BasicMarketHomeList({
             {
               title: '',
               dataIndex: 'trade',
-              columnWidth: 180,
+              columnWidth: marketListTradeButtonWidth(),
               renderSkeleton: () => <Skeleton w="100%" h="$3" />,
               render: (_, record: IMarketToken) => (
                 <MarketListTradeButton
+                  isSupportBuy={record.isSupportBuy}
                   coinGeckoId={record.coingeckoId}
                   symbol={record.symbol}
                 />
@@ -718,7 +764,7 @@ function BasicMarketHomeList({
               ),
               renderSkeleton: () => <Skeleton w="$20" h="$3" />,
             },
-            gtLg
+            gtXl
               ? {
                   title: intl.formatMessage({
                     id: ETranslations.market_one_hour_percentage,
@@ -737,24 +783,26 @@ function BasicMarketHomeList({
                   renderSkeleton: () => <Skeleton w="$10" h="$3" />,
                 }
               : undefined,
-            {
-              title: intl.formatMessage({
-                id: ETranslations.market_twenty_four_hour_percentage,
-              }),
-              columnProps: {
-                flexGrow: 1,
-                flexBasis: 0,
-              },
-              align: 'right',
-              dataIndex: 'priceChangePercentage24H',
-              render: (priceChangePercentage24H: string) => (
-                <PriceChangePercentage>
-                  {priceChangePercentage24H}
-                </PriceChangePercentage>
-              ),
-              renderSkeleton: () => <Skeleton w="$10" h="$3" />,
-            },
-            gtLg
+            gt2Md
+              ? {
+                  title: intl.formatMessage({
+                    id: ETranslations.market_twenty_four_hour_percentage,
+                  }),
+                  columnProps: {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                  },
+                  align: 'right',
+                  dataIndex: 'priceChangePercentage24H',
+                  render: (priceChangePercentage24H: string) => (
+                    <PriceChangePercentage>
+                      {priceChangePercentage24H}
+                    </PriceChangePercentage>
+                  ),
+                  renderSkeleton: () => <Skeleton w="$10" h="$3" />,
+                }
+              : undefined,
+            gt2xl
               ? {
                   title: intl.formatMessage({
                     id: ETranslations.market_seven_day_percentage,
@@ -773,51 +821,55 @@ function BasicMarketHomeList({
                   renderSkeleton: () => <Skeleton w="$10" h="$3" />,
                 }
               : undefined,
-            {
-              title: intl.formatMessage({
-                id: ETranslations.market_24h_vol_usd,
-              }),
-              dataIndex: 'totalVolume',
-              columnProps: {
-                flexGrow: 1,
-                flexBasis: 0,
-              },
-              align: 'right',
-              render: (totalVolume: string) => (
-                <NumberSizeableText
-                  userSelect="none"
-                  size="$bodyMd"
-                  formatter="marketCap"
-                  formatterOptions={{ currency }}
-                >
-                  {totalVolume || '-'}
-                </NumberSizeableText>
-              ),
-              renderSkeleton: () => <Skeleton w="$20" h="$3" />,
-            },
-            {
-              title: intl.formatMessage({
-                id: ETranslations.global_market_cap,
-              }),
-              dataIndex: 'marketCap',
-              columnProps: {
-                flexGrow: 1,
-                flexBasis: 0,
-              },
-              align: 'right',
-              render: (marketCap: string) => (
-                <NumberSizeableText
-                  userSelect="none"
-                  size="$bodyMd"
-                  formatter="marketCap"
-                  formatterOptions={{ currency }}
-                >
-                  {marketCap || '-'}
-                </NumberSizeableText>
-              ),
-              renderSkeleton: () => <Skeleton w="$20" h="$3" />,
-            },
             gtXl
+              ? {
+                  title: intl.formatMessage({
+                    id: ETranslations.market_24h_vol_usd,
+                  }),
+                  dataIndex: 'totalVolume',
+                  columnProps: {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                  },
+                  align: 'right',
+                  render: (totalVolume: string) => (
+                    <NumberSizeableText
+                      userSelect="none"
+                      size="$bodyMd"
+                      formatter="marketCap"
+                      formatterOptions={{ currency }}
+                    >
+                      {totalVolume || '-'}
+                    </NumberSizeableText>
+                  ),
+                  renderSkeleton: () => <Skeleton w="$20" h="$3" />,
+                }
+              : undefined,
+            gtLg
+              ? {
+                  title: intl.formatMessage({
+                    id: ETranslations.global_market_cap,
+                  }),
+                  dataIndex: 'marketCap',
+                  columnProps: {
+                    flexGrow: 1,
+                    flexBasis: 0,
+                  },
+                  align: 'right',
+                  render: (marketCap: string) => (
+                    <NumberSizeableText
+                      userSelect="none"
+                      size="$bodyMd"
+                      formatter="marketCap"
+                      formatterOptions={{ currency }}
+                    >
+                      {marketCap || '-'}
+                    </NumberSizeableText>
+                  ),
+                  renderSkeleton: () => <Skeleton w="$20" h="$3" />,
+                }
+              : undefined,
+            gt2xl
               ? {
                   title: intl.formatMessage({
                     id: ETranslations.market_last_seven_days,
@@ -875,6 +927,7 @@ function BasicMarketHomeList({
                   </Stack>
                   <Stack flex={1} ai="center">
                     <MarketMore
+                      isSupportBuy={record.isSupportBuy}
                       showMoreAction={showMoreAction}
                       coingeckoId={record.coingeckoId}
                       symbol={record.symbol}
@@ -901,11 +954,14 @@ function BasicMarketHomeList({
     [
       colors,
       currency,
+      gt2Md,
+      gt2xl,
       gtLg,
       gtMd,
       gtXl,
       intl,
       lineColors,
+      marketListTradeButtonWidth,
       renderMdItem,
       showMoreAction,
       tabIndex,
