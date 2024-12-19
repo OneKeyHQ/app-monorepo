@@ -60,7 +60,7 @@
     "@onekeyfe/cross-inpage-provider-errors": "2.2.1",
     "@onekeyfe/cross-inpage-provider-injected": "2.2.1",
     "@onekeyfe/cross-inpage-provider-types": "2.2.1",
-    "@onekeyfe/extension-bridge-hosted": "2.2.0",
+    "@onekeyfe/extension-bridge-hosted": "2.2.1",
     "@onekeyfe/hd-ble-sdk": "1.0.16",
     "@onekeyfe/hd-core": "1.0.16",
     "@onekeyfe/hd-shared": "1.0.16",
