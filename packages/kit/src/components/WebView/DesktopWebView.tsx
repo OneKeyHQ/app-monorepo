@@ -26,6 +26,7 @@ import type {
   IElectronWebViewEvents,
   IInpageProviderWebViewProps,
 } from './types';
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
   DidFailLoadEvent,
@@ -244,7 +245,7 @@ const DesktopWebView = forwardRef(
       // only enable message for current focused webview
       jsBridgeHost.globalOnMessageEnabled = true;
       // connect background jsBridge
-      backgroundApiProxy.connectBridge(jsBridgeHost);
+      backgroundApiProxy.connectBridge(jsBridgeHost as unknown as JsBridgeBase);
 
       const handleMessage = async (event: {
         channel: string;

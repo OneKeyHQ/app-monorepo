@@ -7,6 +7,7 @@ import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
 
 import WebView from '../WebView';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 
@@ -35,7 +36,9 @@ export function WebViewWebEmbed({
       return;
     }
     jsBridge.globalOnMessageEnabled = true;
-    backgroundApiProxy.connectWebEmbedBridge(jsBridge);
+    backgroundApiProxy.connectWebEmbedBridge(
+      jsBridge as unknown as JsBridgeBase,
+    );
   }, [webviewRef]);
   const remoteUrl = useMemo(() => {
     if (process.env.NODE_ENV !== 'production') {
