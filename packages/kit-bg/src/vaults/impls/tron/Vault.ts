@@ -33,6 +33,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -72,7 +73,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../types';
 import type { Types } from 'tronweb';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 const INFINITE_AMOUNT_HEX =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
