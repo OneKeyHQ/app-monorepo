@@ -970,9 +970,9 @@ function BasicMarketHomeList({
 
   const onRow = useCallback(
     (record: IMarketToken) => ({
-      onPress: () => toDetailPage(record),
+      onPress: md ? undefined : () => toDetailPage(record),
     }),
-    [toDetailPage],
+    [md, toDetailPage],
   );
 
   const onHeaderRow = useCallback(
