@@ -722,8 +722,8 @@ function TxFeeContainer(props: IProps) {
       }
       // build swap tx fee info base on first approve fee info
       else if (
-        !selectedFeeInfo &&
-        (isMultiTxs || isLastSwapTxWithFeeInfo) &&
+        (isLastSwapTxWithFeeInfo || !selectedFeeInfo) &&
+        (isLastSwapTxWithFeeInfo || isMultiTxs) &&
         unsignedTx.swapInfo &&
         (selectedFeeInfos[0].gas || selectedFeeInfos[0].gasEIP1559)
       ) {
