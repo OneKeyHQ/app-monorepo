@@ -195,7 +195,11 @@ class ServiceToken extends ServiceBase {
     }
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
-      ...token,
+      ...this.mergeTokenWithCustomData({
+        token,
+        customTokens,
+        networkId,
+      }),
       accountId,
       networkId,
       mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
@@ -203,7 +207,11 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
       (token) => ({
-        ...token,
+        ...this.mergeTokenWithCustomData({
+          token,
+          customTokens,
+          networkId,
+        }),
         accountId,
         networkId,
         mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
@@ -212,7 +220,11 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.smallBalanceTokens.data =
       resp.data.data.smallBalanceTokens.data.map((token) => ({
-        ...token,
+        ...this.mergeTokenWithCustomData({
+          token,
+          customTokens,
+          networkId,
+        }),
         accountId,
         networkId,
         mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
@@ -273,6 +285,32 @@ class ServiceToken extends ServiceBase {
     );
 
     return resp.data.data;
+  }
+
+  private mergeTokenWithCustomData({
+    token,
+    customTokens,
+    networkId,
+  }: {
+    token: IAccountToken;
+    customTokens: IAccountToken[];
+    networkId: string;
+  }): IAccountToken {
+    if (!token.symbol || !token.name) {
+      const customToken = customTokens.find(
+        (t) =>
+          t.address?.toLowerCase() === token.address?.toLowerCase() &&
+          t.networkId === networkId,
+      );
+      if (customToken) {
+        return {
+          ...token,
+          symbol: token.symbol || customToken.symbol,
+          name: token.name || customToken.name,
+        };
+      }
+    }
+    return token;
   }
 
   _updateAccountLocalTokensDebounced = debounce(

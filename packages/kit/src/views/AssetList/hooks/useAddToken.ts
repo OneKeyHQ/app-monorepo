@@ -54,6 +54,7 @@ export function useAddTokenForm({
   const symbolValue = form.watch('symbol');
   const decimalsValue = form.watch('decimals');
   const [isEmptyContract, setIsEmptyContract] = useState(false);
+  const [isSymbolEditable, setIsSymbolEditable] = useState(false);
 
   const firstRenderRef = useRef(true);
   const setIsEmptyContractState = useCallback(
@@ -85,6 +86,8 @@ export function useAddTokenForm({
     contractAddressValue,
     symbolValue,
     decimalsValue,
+    isSymbolEditable,
+    setIsSymbolEditable,
   };
 }
 
@@ -96,6 +99,7 @@ export function useAddToken({
   selectedNetworkIdValue,
   contractAddressValue,
   setIsEmptyContractState,
+  setIsSymbolEditable,
 }: {
   token?: IAccountToken;
   walletId: string;
@@ -104,6 +108,7 @@ export function useAddToken({
   selectedNetworkIdValue: string;
   contractAddressValue: string;
   setIsEmptyContractState: (value: boolean) => void;
+  setIsSymbolEditable: (value: boolean) => void;
   checkAccountIsExist: () => Promise<{
     hasExistAccountFlag: boolean;
     accountIdForNetwork: string;
@@ -152,7 +157,13 @@ export function useAddToken({
         searchResult[0]?.info
       ) {
         const [firstToken] = searchResult;
-        form.setValue('symbol', firstToken.info.symbol);
+        const symbol = firstToken.info.symbol?.trim();
+        if (symbol) {
+          form.setValue('symbol', symbol);
+          setIsSymbolEditable(false);
+        } else {
+          setIsSymbolEditable(true);
+        }
         form.setValue(
           'decimals',
           new BigNumber(firstToken.info.decimals).toString(),
@@ -161,6 +172,7 @@ export function useAddToken({
         setIsEmptyContractState(false);
       } else {
         form.setValue('symbol', '');
+        setIsSymbolEditable(false);
         form.setValue('decimals', '');
         setIsEmptyContractState(true);
       }
