@@ -73,6 +73,12 @@ export class DappScene extends BaseScene {
     return params;
   }
 
+  @LogToServer()
+  @LogToLocal()
+  public enableFloatingIcon(params: { enable: boolean }) {
+    return params;
+  }
+
   @LogToLocal()
   public dappRiskDetect(params: {
     riskLevel: EHostSecurityLevel;
