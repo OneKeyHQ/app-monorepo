@@ -67,7 +67,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlignDappToWallet,
   isCustomNonceEnabled: false,
   isCustomTxMessageEnabled: false,
-  isFloatingIconAlwaysDisplay: true,
+  isFloatingIconAlwaysDisplay: false,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
