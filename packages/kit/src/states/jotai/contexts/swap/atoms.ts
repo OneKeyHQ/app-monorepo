@@ -83,11 +83,6 @@ export const {
   accountInfo: IAccountSelectorActiveAccountInfo | undefined;
 }>({ networkId: undefined, address: undefined, accountInfo: undefined });
 
-export const {
-  atom: swapEnableRecipientAddressAtom,
-  use: useSwapEnableRecipientAddressAtom,
-} = contextAtom<boolean>(false);
-
 // swap select token
 export const {
   atom: swapSelectFromTokenAtom,

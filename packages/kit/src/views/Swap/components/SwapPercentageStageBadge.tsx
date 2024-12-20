@@ -1,16 +1,18 @@
+import type { IStackProps } from '@onekeyhq/components';
 import { Badge } from '@onekeyhq/components';
 
 const SwapPercentageStageBadge = ({
   stage,
   onSelectStage,
-  key,
   badgeSize,
+  key,
+  ...props
 }: {
   stage: number;
   badgeSize?: 'sm' | 'lg';
   onSelectStage?: (stage: number) => void;
   key: string;
-}) => (
+} & IStackProps) => (
   <Badge
     key={key}
     role="button"
@@ -28,6 +30,7 @@ const SwapPercentageStageBadge = ({
     pressStyle={{
       bg: '$bgStrongActive',
     }}
+    {...props}
   >
     <Badge.Text>{stage}%</Badge.Text>
   </Badge>
