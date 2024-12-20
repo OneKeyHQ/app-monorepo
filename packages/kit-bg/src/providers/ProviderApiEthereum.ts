@@ -754,7 +754,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     if (this._switchEthereumChainMemo._has(request, params)) {
       throw web3Errors.rpc.resourceUnavailable({
-        message: `Request of type 'wallet_addEthereumChain' already pending for origin ${
+        message: `Request of type 'wallet_switchEthereumChain' already pending for origin ${
           request?.origin || ''
         }. Please wait.`,
       });
