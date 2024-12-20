@@ -19,8 +19,8 @@ const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
     reachabilityLongTimeout: REACHABILITY_LONG_TIMEOUT,
     reachabilityShortTimeout: REACHABILITY_SHORT_TIMEOUT,
     reachabilityRequestTimeout: REACHABILITY_REQUEST_TIMEOUT,
-    reachabilityShouldRun: () => getCurrentVisibilityState(),
-    // met iOS requirements to get SSID. Will leak memory if set to true without meeting requirements.
+    // TODO: Rewrite to periodically check reachability
+    reachabilityShouldRun: () => true,
     shouldFetchWiFiSSID: false,
     useNativeReachability: false,
   });
