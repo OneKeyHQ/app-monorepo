@@ -356,10 +356,9 @@ function AddCustomTokenModal() {
               required: isSymbolEditable
                 ? {
                     value: true,
-                    // message: intl.formatMessage({
-                    //   id: ETranslations.manage_token_custom_token_symbol_required,
-                    // }),
-                    message: 'symbol is required',
+                    message: intl.formatMessage({
+                      id: ETranslations.manage_token_token_required,
+                    }),
                   }
                 : false,
             }}
