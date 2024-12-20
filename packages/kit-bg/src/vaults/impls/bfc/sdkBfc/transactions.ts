@@ -104,7 +104,7 @@ async function createTokenTransaction({
       key: ETranslations.earn_insufficient_balance,
     });
   }
-  
+
   // Max send native token
   if (maxSendNativeToken && coinType === BFC_TYPE_ARG) {
     tx.transferObjects([tx.gas], recipient);
