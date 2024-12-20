@@ -94,6 +94,7 @@ type ISettingsAtom = {
   swapToAnotherAccountSwitchOn: boolean;
   swapSlippagePercentageMode: ESwapSlippageSegmentKey;
   swapSlippagePercentageCustomValue: number;
+  swapEnableRecipientAddress: boolean;
 };
 
 export const { target: settingsAtom, use: useSettingsAtom } =
@@ -103,6 +104,7 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       swapToAnotherAccountSwitchOn: false,
       swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
       swapSlippagePercentageCustomValue: swapSlippageAutoValue,
+      swapEnableRecipientAddress: false,
     },
   });
 

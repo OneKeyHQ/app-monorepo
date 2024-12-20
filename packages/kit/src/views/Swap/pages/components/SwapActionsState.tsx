@@ -20,14 +20,16 @@ import {
 } from '@onekeyhq/components';
 import {
   useSwapActions,
-  useSwapEnableRecipientAddressAtom,
   useSwapFromTokenAmountAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -92,11 +94,21 @@ function PageFooter({
                 badgeSize="lg"
                 key={`swap-percentage-input-stage-${stage}`}
                 stage={stage}
+                borderRadius={0}
                 onSelectStage={onSelectPercentageStage}
+                flex={1}
+                justifyContent="center"
+                alignItems="center"
+                h="$10"
               />
             ))}
             <Button
+              flex={1}
+              h="$10"
               size="small"
+              justifyContent="center"
+              borderRadius={0}
+              alignItems="center"
               variant="tertiary"
               onPress={() => {
                 Keyboard.dismiss();
@@ -132,7 +144,7 @@ const SwapActionsState = ({
   const swapSlippageRef = useRef(slippageItem);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
-  const [swapEnableRecipientAddress] = useSwapEnableRecipientAddressAtom();
+  const [{ swapEnableRecipientAddress }] = useSettingsAtom();
   const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,

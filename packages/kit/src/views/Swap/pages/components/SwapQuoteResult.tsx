@@ -13,14 +13,16 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
-  useSwapEnableRecipientAddressAtom,
   useSwapFromTokenAmountAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenMetadataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IFetchQuoteResult,
@@ -59,7 +61,7 @@ const SwapQuoteResult = ({
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
-  const [swapEnableRecipientAddress] = useSwapEnableRecipientAddressAtom();
+  const [{ swapEnableRecipientAddress }] = useSettingsAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
