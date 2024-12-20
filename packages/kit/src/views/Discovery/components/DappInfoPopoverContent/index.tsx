@@ -23,6 +23,13 @@ import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { DAppRequestedDappList } from '../../../DAppConnection/components/DAppRequestContent/DAppRequestedDappList';
 import { DAppRiskyAlertDetail } from '../../../DAppConnection/components/DAppRequestLayout/DAppRiskyAlertDetail';
 
+const SecurityTitle = {
+  [EHostSecurityLevel.Security]: ETranslations.dapp_connect_verified_site,
+  [EHostSecurityLevel.High]: ETranslations.dapp_connect_malicious_site_warning,
+  [EHostSecurityLevel.Medium]:
+    ETranslations.dapp_connect_suspected_malicious_behavior,
+};
+
 export function DappInfoPopoverContent({
   hostSecurity,
   closePopover,
@@ -37,109 +44,51 @@ export function DappInfoPopoverContent({
 }) {
   const intl = useIntl();
   const { securityElement, securityStatus } = useMemo(() => {
-    const security =
+    if (hostSecurity?.level === EHostSecurityLevel.Unknown) {
+      return {
+        securityStatus: EHostSecurityLevel.Unknown,
+        securityElement: (
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.global_unknown,
+            })}
+          </SizableText>
+        ),
+      };
+    }
+
+    const providerNames =
       hostSecurity?.checkSources
-        .filter((item) => item.riskLevel === EHostSecurityLevel.Security)
+        .filter((item) => item.riskLevel === hostSecurity?.level)
         .map((item) => item.name)
         .join(' & ') || '';
-    if (security) {
-      return {
-        securityStatus: EHostSecurityLevel.Security,
-        securityElement: (
-          <>
-            <SizableText size="$bodyMd" flex={1}>
-              {intl.formatMessage({
-                id: ETranslations.dapp_connect_verified_site,
-              })}
-            </SizableText>
+    return {
+      securityStatus: hostSecurity?.level
+        ? SecurityTitle[hostSecurity?.level]
+        : EHostSecurityLevel.Unknown,
+      securityElement: (
+        <>
+          <SizableText size="$bodyMd" flex={1}>
+            {intl.formatMessage({
+              id: ETranslations.dapp_connect_verified_site,
+            })}
+          </SizableText>
+          {providerNames ? (
             <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage(
                 {
                   id: ETranslations.global_from_provider,
                 },
                 {
-                  provider: security,
+                  provider: providerNames,
                 },
               )}
             </SizableText>
-          </>
-        ),
-      };
-    }
-
-    const highSecurity =
-      hostSecurity?.checkSources
-        .filter((item) => item.riskLevel === EHostSecurityLevel.High)
-        .map((item) => item.name)
-        .join(' & ') || '';
-
-    if (highSecurity) {
-      return {
-        securityStatus: EHostSecurityLevel.High,
-        securityElement: (
-          <>
-            <SizableText size="$bodyMd" flex={1}>
-              {intl.formatMessage({
-                id: ETranslations.dapp_connect_malicious_site_warning,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMd">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.global_from_provider,
-                },
-                {
-                  provider: highSecurity,
-                },
-              )}
-            </SizableText>
-          </>
-        ),
-      };
-    }
-
-    const mediumSecurity =
-      hostSecurity?.checkSources
-        .filter((item) => EHostSecurityLevel.Medium === item.riskLevel)
-        .map((item) => item.name)
-        .join(' & ') || '';
-
-    if (mediumSecurity) {
-      return {
-        securityStatus: EHostSecurityLevel.Medium,
-        securityElement: (
-          <>
-            <SizableText size="$bodyMd" flex={1}>
-              {intl.formatMessage({
-                id: ETranslations.dapp_connect_suspected_malicious_behavior,
-              })}
-            </SizableText>
-            <SizableText size="$bodyMd">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.global_from_provider,
-                },
-                {
-                  provider: mediumSecurity,
-                },
-              )}
-            </SizableText>
-          </>
-        ),
-      };
-    }
-
-    return {
-      securityStatus: EHostSecurityLevel.Unknown,
-      securityElement: (
-        <SizableText size="$bodyMd">
-          {intl.formatMessage({
-            id: ETranslations.global_unknown,
-          })}
-        </SizableText>
+          ) : null}
+        </>
       ),
     };
-  }, [hostSecurity?.checkSources, intl]);
+  }, [hostSecurity?.checkSources, hostSecurity?.level, intl]);
   return (
     <YStack
       gap="$5"
