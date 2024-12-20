@@ -54,6 +54,11 @@ export class DappScene extends BaseScene {
     return params;
   }
 
+  @LogToLocal({ level: 'info' })
+  public dappRequestNotSupport(params: { request: IJsBridgeMessagePayload }) {
+    return params;
+  }
+
   @LogToServer()
   @LogToLocal()
   public disconnect(params: {
