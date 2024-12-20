@@ -18,7 +18,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
   toBigIntHex,
@@ -571,12 +570,6 @@ export function useSwapBuildTx() {
             const createBuildTxRes = await createBuildTx();
             if (createBuildTxRes) {
               if (
-                accountUtils.isHwAccount({
-                  accountId: swapFromAddressInfo.accountInfo.account.id,
-                }) ||
-                accountUtils.isExternalAccount({
-                  accountId: swapFromAddressInfo.accountInfo.account.id,
-                }) ||
                 SwapBuildUseMultiplePopoversNetworkIds.includes(
                   fromToken.networkId,
                 )
