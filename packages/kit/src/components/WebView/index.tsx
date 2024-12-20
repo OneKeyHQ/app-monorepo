@@ -81,6 +81,7 @@ const WebView: FC<IWebViewProps> = ({
     <Stack flex={1} bg="background-default" {...containerProps}>
       <InpageProviderWebView
         ref={onWebViewRef}
+        webviewDebuggingEnable={webviewDebuggingEnabled}
         src={src}
         allowpopups={allowpopups}
         receiveHandler={receiveHandler}

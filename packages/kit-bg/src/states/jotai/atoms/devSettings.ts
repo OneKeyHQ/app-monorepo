@@ -21,6 +21,7 @@ export interface IDevSettings {
   disableSolanaPriorityFee?: boolean;
   disableNumberShortcuts?: boolean;
   disableSearchAndAccountSelectorShortcuts?: boolean;
+  webviewDebuggingEnabled?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -43,6 +44,7 @@ export const {
       disableSolanaPriorityFee: false,
       disableNumberShortcuts: false,
       disableSearchAndAccountSelectorShortcuts: false,
+      webviewDebuggingEnabled: false,
     },
   },
 });
