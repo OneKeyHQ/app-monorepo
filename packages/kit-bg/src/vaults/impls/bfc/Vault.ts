@@ -321,6 +321,7 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const { unsignedTx, nativeAmountInfo, feeInfo } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSui;
+    let newTx: TransactionBlock;
 
     // max send
     if (nativeAmountInfo?.maxSendAmount) {
@@ -329,7 +330,7 @@ export default class Vault extends VaultBase {
 
       const transactionType = transactionUtils.analyzeTransactionType(oldTx);
       if (transactionType !== EBfcTransactionType.TokenTransfer) {
-        return Promise.resolve(unsignedTx);
+        return unsignedTx;
       }
 
       if (!unsignedTx.transfersInfo?.[0]?.to) {
@@ -337,7 +338,7 @@ export default class Vault extends VaultBase {
       }
 
       // max send logic
-      const newTx = await transactionUtils.createTokenTransaction({
+      newTx = await transactionUtils.createTokenTransaction({
         client,
         sender: oldTx.blockData.sender ?? (await this.getAccountAddress()),
         recipient: unsignedTx.transfersInfo[0].to,
@@ -345,20 +346,13 @@ export default class Vault extends VaultBase {
         coinType: BFC_TYPE_ARG,
         maxSendNativeToken: true,
       });
-      const newEncodedTx = {
-        ...encodedTx,
-        rawTx: newTx.serialize(),
-      };
-      return {
-        ...unsignedTx,
-        encodedTx: newEncodedTx,
-      };
+    } else {
+      newTx = TransactionBlock.from(encodedTx.rawTx);
     }
 
-    // sui and benfen use the same model
+    // Apply fee settings for both normal and max send transactions
     if (feeInfo?.feeBudget) {
       const network = await this.getNetwork();
-      const newTx = TransactionBlock.from(encodedTx.rawTx);
       newTx.setGasPrice(
         Number(
           new BigNumber(feeInfo.feeBudget.gasPrice)
@@ -367,20 +361,17 @@ export default class Vault extends VaultBase {
         ),
       );
 
-      // Convert gasLimit to integer by ceiling the value
       const gasBudget = new BigNumber(feeInfo.feeBudget.budget).toNumber();
       newTx.setGasBudget(gasBudget);
-      const newEncodedTx = {
-        ...encodedTx,
-        rawTx: newTx.serialize(),
-      };
-      return {
-        ...unsignedTx,
-        encodedTx: newEncodedTx,
-      };
     }
 
-    return Promise.resolve(unsignedTx);
+    return {
+      ...unsignedTx,
+      encodedTx: {
+        ...encodedTx,
+        rawTx: newTx.serialize(),
+      },
+    };
   }
 
   override async broadcastTransaction(
