@@ -63,7 +63,9 @@ export function DappInfoPopoverContent({
         .map((item) => item.name)
         .join(' & ') || '';
     return {
-      securityStatus: SecurityTitle[hostSecurity?.level],
+      securityStatus: hostSecurity?.level
+        ? SecurityTitle[hostSecurity?.level]
+        : EHostSecurityLevel.Unknown,
       securityElement: (
         <>
           <SizableText size="$bodyMd" flex={1}>
