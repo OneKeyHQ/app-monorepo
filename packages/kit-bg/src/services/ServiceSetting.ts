@@ -402,7 +402,7 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async isShowFloatingButton() {
     const { isFloatingIconAlwaysDisplay } = await settingsPersistAtom.get();
-    return isFloatingIconAlwaysDisplay ?? true;
+    return isFloatingIconAlwaysDisplay ?? false;
   }
 
   @backgroundMethod()
