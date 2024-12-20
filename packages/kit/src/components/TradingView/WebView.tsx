@@ -1,11 +1,29 @@
 import { useEffect, useMemo } from 'react';
 
-import { Stack } from '@onekeyhq/components';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Stack, useMedia } from '@onekeyhq/components';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { ViewStyle } from 'react-native';
 import type { WebViewProps } from 'react-native-webview';
+
+const MDHiddenBorder = () => (
+  <>
+    <Stack h={1} w="100%" bg="$bgApp" top={-14} left={0} position="absolute" />
+    <Stack h={1} w="100%" bg="$bgApp" top={28} left={0} position="absolute" />
+    <Stack
+      h={1}
+      w="100%"
+      bg="$bgApp"
+      bottom={14}
+      left={0}
+      position="absolute"
+    />
+    <Stack h="100%" w={1} bg="$bgApp" top={-14} left={0} position="absolute" />
+    <Stack h="100%" w={1} bg="$bgApp" top={-14} right={0} position="absolute" />
+  </>
+);
+
+const HiddenBorder = () => null;
 
 export function WebView({
   tradingViewProps,
@@ -34,6 +52,7 @@ export function WebView({
       onLoadEnd();
     }, 3500);
   }, [iframeId, onLoadEnd, tradingViewProps.uri]);
+  const { gtMd } = useMedia();
   return (
     <div style={{ ...(style as any), position: 'relative' }}>
       <iframe
@@ -43,21 +62,18 @@ export function WebView({
           height: '100%',
           width: '100%',
           border: 0,
+          ...(gtMd
+            ? undefined
+            : {
+                position: 'relative',
+                top: -14,
+              }),
         }}
         frameBorder="0"
         title="TradingView"
         sandbox="allow-orientation-lock allow-scripts	allow-top-navigation allow-top-navigation-by-user-activation allow-same-origin allow-popups"
       />
-      {platformEnv.isDesktop ? (
-        <Stack
-          position="absolute"
-          width={42}
-          height={30}
-          bottom={30}
-          left={10}
-          bg="$bgApp"
-        />
-      ) : null}
+      {gtMd ? <HiddenBorder /> : <MDHiddenBorder />}
     </div>
   );
 }

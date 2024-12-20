@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -112,6 +112,9 @@ function BasicTokenDetailTabs({
   const prevSelectedPageIndex = useRef(0);
   const onSelectedPageIndex = useCallback(
     (index: number) => {
+      if (!md) {
+        return;
+      }
       if (index === 0) {
         tabRef.current?.scrollToTop();
         setTimeout(() => {
@@ -122,12 +125,12 @@ function BasicTokenDetailTabs({
       }
       prevSelectedPageIndex.current = index;
     },
-    [changeTabVerticalScrollEnabled],
+    [changeTabVerticalScrollEnabled, md],
   );
 
   const handleMount = useCallback(
     (e: LayoutChangeEvent) => {
-      if (!platformEnv.isNative) {
+      if (!md) {
         return;
       }
       if (e.nativeEvent.layout.height > 0) {
@@ -137,7 +140,7 @@ function BasicTokenDetailTabs({
         }, 100);
       }
     },
-    [changeTabVerticalScrollEnabled],
+    [changeTabVerticalScrollEnabled, md],
   );
 
   return (
