@@ -13,7 +13,6 @@ const {
   isDev,
   isManifestV2,
   ENABLE_ANALYZER,
-  TARGET_BROWSER,
 } = require('./constant');
 const devUtils = require('./ext/devUtils');
 const utils = require('./utils');
