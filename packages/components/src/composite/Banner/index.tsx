@@ -142,7 +142,7 @@ export function Banner<T extends IBannerData>({
               <IconButton
                 position="absolute"
                 left="$10"
-                top="50%"
+                bottom="50%"
                 transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
                 icon="ChevronLeftOutline"
                 variant="tertiary"
@@ -163,7 +163,7 @@ export function Banner<T extends IBannerData>({
                 variant="tertiary"
                 position="absolute"
                 right="$10"
-                top="50%"
+                bottom="50%"
                 transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
                 iconProps={{
                   color:

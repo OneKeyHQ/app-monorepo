@@ -33,6 +33,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       androidLayerType,
       displayProgressBar,
       onProgress,
+      webviewDebuggingEnabled,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -120,6 +121,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       <Stack flex={1}>
         {progressLoading}
         <NativeWebView
+          webviewDebuggingEnabled={webviewDebuggingEnabled}
           ref={setWebViewRef}
           src={src}
           onSrcChange={onSrcChange}

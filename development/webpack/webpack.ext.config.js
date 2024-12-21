@@ -13,23 +13,15 @@ const {
   isDev,
   isManifestV2,
   ENABLE_ANALYZER,
-  TARGET_BROWSER,
 } = require('./constant');
 const devUtils = require('./ext/devUtils');
+const utils = require('./utils');
 const codeSplit = require('./ext/codeSplit');
 const pluginsHtml = require('./ext/pluginsHtml');
 const pluginsCopy = require('./ext/pluginsCopy');
 // const htmlLazyScript = require('./ext/htmlLazyScript');
 
 const IS_DEV = isDev;
-
-function getOutputFolder() {
-  // isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser,
-  const buildTargetBrowser = TARGET_BROWSER;
-  return isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser;
-}
-
-module.exports.getOutputFolder = getOutputFolder;
 
 module.exports = ({
   basePath,
@@ -52,7 +44,7 @@ module.exports = ({
     plugins: baseConfig.basePlugins,
     output: {
       clean: false,
-      path: path.resolve(basePath, 'build', getOutputFolder()),
+      path: path.resolve(basePath, 'build', utils.getOutputFolder()),
       // do not include [hash] here, as `content-script.bundle.js` filename should be stable
       filename: '[name].bundle.js',
       chunkFilename: isDev

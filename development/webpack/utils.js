@@ -40,3 +40,9 @@ exports.createResolveExtensions = function ({ platform, configName }) {
     '.d.ts',
   ]);
 };
+
+exports.getOutputFolder = function ({ isManifestV3 }) {
+  // isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser,
+  const buildTargetBrowser = TARGET_BROWSER;
+  return isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser;
+};
