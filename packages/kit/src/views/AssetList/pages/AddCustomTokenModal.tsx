@@ -119,6 +119,8 @@ function AddCustomTokenModal() {
     contractAddressValue,
     symbolValue,
     decimalsValue,
+    isSymbolEditable,
+    setIsSymbolEditable,
   } = useAddTokenForm({
     token,
     networkId,
@@ -142,6 +144,7 @@ function AddCustomTokenModal() {
     selectedNetworkIdValue,
     contractAddressValue,
     setIsEmptyContractState,
+    setIsSymbolEditable,
     checkAccountIsExist,
   });
 
@@ -214,13 +217,13 @@ function AddCustomTokenModal() {
       try {
         const tokenInfo = {
           address: contractAddress,
+          ...searchedTokenRef.current,
           symbol,
           decimals: new BigNumber(decimals).toNumber(),
-          ...searchedTokenRef.current,
           accountId: accountIdForNetwork,
           networkId: selectedNetworkIdValue,
           allNetworkAccountId: isAllNetwork ? accountId : undefined,
-          name: searchedTokenRef.current?.name ?? '',
+          name: searchedTokenRef.current?.name || symbol || '',
           isNative: searchedTokenRef.current?.isNative ?? false,
           $key: `${selectedNetworkIdValue}_${contractAddress}`,
         };
@@ -349,6 +352,16 @@ function AddCustomTokenModal() {
             label={intl.formatMessage({
               id: ETranslations.manage_token_custom_token_symbol,
             })}
+            rules={{
+              required: isSymbolEditable
+                ? {
+                    value: true,
+                    message: intl.formatMessage({
+                      id: ETranslations.manage_token_token_required,
+                    }),
+                  }
+                : false,
+            }}
             name="symbol"
           >
             <Input
@@ -356,7 +369,7 @@ function AddCustomTokenModal() {
               $gtMd={{
                 size: 'medium',
               }}
-              editable={false}
+              editable={isSymbolEditable}
             />
           </Form.Field>
           <Form.Field

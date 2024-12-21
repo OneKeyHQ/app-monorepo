@@ -195,7 +195,11 @@ class ServiceToken extends ServiceBase {
     }
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
-      ...token,
+      ...this.mergeTokenMetadataWithCustomData({
+        token,
+        customTokens,
+        networkId,
+      }),
       accountId,
       networkId,
       mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
@@ -203,7 +207,11 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
       (token) => ({
-        ...token,
+        ...this.mergeTokenMetadataWithCustomData({
+          token,
+          customTokens,
+          networkId,
+        }),
         accountId,
         networkId,
         mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
@@ -212,7 +220,11 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.smallBalanceTokens.data =
       resp.data.data.smallBalanceTokens.data.map((token) => ({
-        ...token,
+        ...this.mergeTokenMetadataWithCustomData({
+          token,
+          customTokens,
+          networkId,
+        }),
         accountId,
         networkId,
         mergeAssets: vaultSettings.mergeDeriveAssetsEnabled,
@@ -273,6 +285,32 @@ class ServiceToken extends ServiceBase {
     );
 
     return resp.data.data;
+  }
+
+  private mergeTokenMetadataWithCustomData<T extends IToken>({
+    token,
+    customTokens,
+    networkId,
+  }: {
+    token: T;
+    customTokens: IAccountToken[];
+    networkId: string;
+  }): T {
+    if (!token.symbol || !token.name) {
+      const customToken = customTokens.find(
+        (t) =>
+          t.address?.toLowerCase() === token.address?.toLowerCase() &&
+          t.networkId === networkId,
+      );
+      if (customToken) {
+        return {
+          ...token,
+          symbol: token.symbol || customToken.symbol,
+          name: token.name || customToken.name,
+        };
+      }
+    }
+    return token;
   }
 
   _updateAccountLocalTokensDebounced = debounce(
@@ -449,6 +487,22 @@ class ServiceToken extends ServiceBase {
       tokenIdOnNetwork,
     });
 
+    if (localToken) {
+      if (!localToken.symbol || !localToken.name) {
+        const customTokens =
+          await this.backgroundApi.serviceCustomToken.getCustomTokens({
+            accountId,
+            networkId,
+          });
+        return this.mergeTokenMetadataWithCustomData({
+          token: localToken,
+          customTokens,
+          networkId,
+        });
+      }
+      return localToken;
+    }
+
     if (localToken) return localToken;
 
     try {
@@ -458,7 +512,21 @@ class ServiceToken extends ServiceBase {
         contractList: [tokenIdOnNetwork],
       });
 
-      const tokenInfo = tokensDetails[0].info;
+      let tokenInfo = tokensDetails[0].info;
+
+      if (!tokenInfo.symbol || !tokenInfo.name) {
+        const customTokens =
+          await this.backgroundApi.serviceCustomToken.getCustomTokens({
+            accountId,
+            networkId,
+          });
+
+        tokenInfo = this.mergeTokenMetadataWithCustomData({
+          token: tokenInfo,
+          customTokens,
+          networkId,
+        });
+      }
 
       void this.updateLocalTokens({
         networkId,
