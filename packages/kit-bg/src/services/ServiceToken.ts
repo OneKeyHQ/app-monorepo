@@ -195,7 +195,7 @@ class ServiceToken extends ServiceBase {
     }
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
-      ...this.mergeTokenWithCustomData({
+      ...this.mergeTokenMetadataWithCustomData({
         token,
         customTokens,
         networkId,
@@ -207,7 +207,7 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
       (token) => ({
-        ...this.mergeTokenWithCustomData({
+        ...this.mergeTokenMetadataWithCustomData({
           token,
           customTokens,
           networkId,
@@ -220,7 +220,7 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.smallBalanceTokens.data =
       resp.data.data.smallBalanceTokens.data.map((token) => ({
-        ...this.mergeTokenWithCustomData({
+        ...this.mergeTokenMetadataWithCustomData({
           token,
           customTokens,
           networkId,
@@ -287,15 +287,15 @@ class ServiceToken extends ServiceBase {
     return resp.data.data;
   }
 
-  private mergeTokenWithCustomData({
+  private mergeTokenMetadataWithCustomData<T extends IToken>({
     token,
     customTokens,
     networkId,
   }: {
-    token: IAccountToken;
+    token: T;
     customTokens: IAccountToken[];
     networkId: string;
-  }): IAccountToken {
+  }): T {
     if (!token.symbol || !token.name) {
       const customToken = customTokens.find(
         (t) =>
@@ -487,6 +487,22 @@ class ServiceToken extends ServiceBase {
       tokenIdOnNetwork,
     });
 
+    if (localToken) {
+      if (!localToken.symbol || !localToken.name) {
+        const customTokens =
+          await this.backgroundApi.serviceCustomToken.getCustomTokens({
+            accountId,
+            networkId,
+          });
+        return this.mergeTokenMetadataWithCustomData({
+          token: localToken,
+          customTokens,
+          networkId,
+        });
+      }
+      return localToken;
+    }
+
     if (localToken) return localToken;
 
     try {
@@ -496,7 +512,21 @@ class ServiceToken extends ServiceBase {
         contractList: [tokenIdOnNetwork],
       });
 
-      const tokenInfo = tokensDetails[0].info;
+      let tokenInfo = tokensDetails[0].info;
+
+      if (!tokenInfo.symbol || !tokenInfo.name) {
+        const customTokens =
+          await this.backgroundApi.serviceCustomToken.getCustomTokens({
+            accountId,
+            networkId,
+          });
+
+        tokenInfo = this.mergeTokenMetadataWithCustomData({
+          token: tokenInfo,
+          customTokens,
+          networkId,
+        });
+      }
 
       void this.updateLocalTokens({
         networkId,
