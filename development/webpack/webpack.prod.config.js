@@ -2,7 +2,7 @@ const TerserPlugin = require('terser-webpack-plugin');
 const path = require('path');
 const { sentryWebpackPlugin } = require('@sentry/webpack-plugin');
 const babelTools = require('../babelTools');
-const extConfig = require('./webpack.ext.config');
+const utils = require('./utils');
 
 const FILES_TO_DELETE_AFTER_UPLOAD = [
   '**/*.js.map',
@@ -13,7 +13,7 @@ const FILES_TO_DELETE_AFTER_UPLOAD = [
 module.exports = ({ platform, basePath }) => {
   const isExt = platform === babelTools.developmentConsts.platforms.ext;
   const rootPath = isExt
-    ? path.join(basePath, 'build', extConfig.getOutputFolder())
+    ? path.join(basePath, 'build', utils.getOutputFolder())
     : path.join(basePath, 'web-build');
   const filesToDeleteAfterUpload = FILES_TO_DELETE_AFTER_UPLOAD.map((file) =>
     path.join(rootPath, file),

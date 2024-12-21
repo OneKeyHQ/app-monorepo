@@ -217,6 +217,19 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      {platformEnv.isNative ? (
+        <SectionFieldItem
+          name="webviewDebuggingEnabled"
+          title="Enable WebviewDebugging"
+          onValueChange={() => {
+            setTimeout(() => {
+              backgroundApiProxy.serviceApp.restartApp();
+            }, 300);
+          }}
+        >
+          <Switch size={ESwitchSize.small} />
+        </SectionFieldItem>
+      ) : null}
       <SectionFieldItem
         name="disableSolanaPriorityFee"
         title="禁用 Solana 交易优先费"
