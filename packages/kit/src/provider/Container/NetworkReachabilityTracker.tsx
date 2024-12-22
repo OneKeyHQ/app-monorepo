@@ -1,36 +1,42 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 
-import { getCurrentVisibilityState } from '@onekeyhq/components';
+import { configureNetInfo, refreshNetInfo } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
-import { configure as configureNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 const REACHABILITY_LONG_TIMEOUT = 60 * 1000;
 const REACHABILITY_SHORT_TIMEOUT = 5 * 1000;
 const REACHABILITY_REQUEST_TIMEOUT = 10 * 1000;
 
-const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
-  const endpoints = getEndpointsMapByDevSettings(devSettings);
+const checkNetInfo = async (endpoint: string) => {
   configureNetInfo({
-    reachabilityUrl: `${endpoints.wallet}/wallet/v1/health`,
-    reachabilityMethod: 'GET',
-    reachabilityTest: async (response) => response.status === 200,
+    reachabilityUrl: `${endpoint}/wallet/v1/health`,
     reachabilityLongTimeout: REACHABILITY_LONG_TIMEOUT,
     reachabilityShortTimeout: REACHABILITY_SHORT_TIMEOUT,
     reachabilityRequestTimeout: REACHABILITY_REQUEST_TIMEOUT,
-    // TODO: Rewrite to periodically check reachability
-    reachabilityShouldRun: () => true,
-    shouldFetchWiFiSSID: false,
-    useNativeReachability: false,
   });
 };
 
 const useNetInfo = () => {
   const [devSettings] = useDevSettingsPersistAtom();
+  const walletEndpoints = useMemo(
+    () => getEndpointsMapByDevSettings(devSettings).wallet,
+    [devSettings],
+  );
   useEffect(() => {
-    void checkNetInfo(devSettings);
-  }, [devSettings]);
+    void checkNetInfo(walletEndpoints);
+    const callback = () => {
+      refreshNetInfo();
+    };
+    appEventBus.on(EAppEventBusNames.RefreshNetInfo, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshNetInfo, callback);
+    };
+  }, [walletEndpoints]);
 };
 
 export function NetworkReachabilityTracker() {

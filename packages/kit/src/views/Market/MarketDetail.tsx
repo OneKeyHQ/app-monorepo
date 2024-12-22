@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { CommonActions, StackActions } from '@react-navigation/native';
 
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
   HeaderIconButton,
   NavBackButton,
@@ -12,10 +13,10 @@ import {
   View,
   XStack,
   YStack,
+  useDeferredPromise,
   useMedia,
   useShare,
 } from '@onekeyhq/components';
-import type { IPageScreenProps } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EOneKeyDeepLinkPath } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
@@ -31,7 +32,6 @@ import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { OpenInAppButton } from '../../components/OpenInAppButton';
 import useAppNavigation from '../../hooks/useAppNavigation';
-import { useDeferredPromise } from '../../hooks/useDeferredPromise';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 
 import { MarketDetailOverview } from './components/MarketDetailOverview';

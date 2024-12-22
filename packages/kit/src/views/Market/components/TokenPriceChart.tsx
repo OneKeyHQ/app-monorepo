@@ -13,7 +13,10 @@ import {
   useSafeAreaInsets,
   useTabBarHeight,
 } from '@onekeyhq/components';
-import type { ISegmentControlProps } from '@onekeyhq/components';
+import type {
+  IDeferredPromise,
+  ISegmentControlProps,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -27,7 +30,6 @@ import { TradingView } from '../../../components/TradingView';
 import { PriceChart } from './Chart';
 
 import type { ITradingViewProps } from '../../../components/TradingView';
-import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
 
 interface IChartProps {
   coinGeckoId: string;
