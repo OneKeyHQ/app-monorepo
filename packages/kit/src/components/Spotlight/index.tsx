@@ -258,7 +258,7 @@ export function SpotlightView({
   const defer = useDeferredPromise();
   const triggerRef = useRef<IElement | null>(null);
   const triggerPropsRef = useRef<{
-    trigger: ((props: ISpotlightContentEvent) => void) | undefined;
+    trigger: ((props: ISpotlightContentEvent) => void) |  undefined;
     defer: IDeferredPromise<unknown>;
   }>({
     trigger: undefined,
