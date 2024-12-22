@@ -8,7 +8,7 @@ import {
 
 export interface IReachabilityConfiguration {
   reachabilityUrl: string;
-  reachabilityTest: (response: { status: number }) => boolean;
+  reachabilityTest: (response: { status: number }) => Promise<boolean>;
   reachabilityLongTimeout: number;
   reachabilityShortTimeout: number;
   reachabilityRequestTimeout: number;
@@ -32,7 +32,8 @@ class NetInfo {
 
   configuration = {
     reachabilityUrl: '',
-    reachabilityTest: (response: { status: number }) => response.status === 200,
+    reachabilityTest: (response: { status: number }) =>
+      Promise.resolve(response.status === 200),
     reachabilityLongTimeout: 60 * 1000,
     reachabilityShortTimeout: 5 * 1000,
     reachabilityRequestTimeout: 10 * 1000,
@@ -110,7 +111,9 @@ class NetInfo {
         signal: controller.signal,
       });
 
-      this.updateState({ isInternetReachable: reachabilityTest(response) });
+      this.updateState({
+        isInternetReachable: await reachabilityTest(response),
+      });
     } catch (error) {
       console.error('Failed to fetch reachability:', error);
       this.updateState({ isInternetReachable: false });
@@ -144,7 +147,8 @@ class NetInfo {
 
 export const globalNetInfo = new NetInfo({
   reachabilityUrl: '',
-  reachabilityTest: (response: { status: number }) => response.status === 200,
+  reachabilityTest: (response: { status: number }) =>
+    Promise.resolve(response.status === 200),
   reachabilityLongTimeout: 60 * 1000,
   reachabilityShortTimeout: 5 * 1000,
   reachabilityRequestTimeout: 10 * 1000,
