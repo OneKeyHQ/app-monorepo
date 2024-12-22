@@ -39,9 +39,7 @@ class ProviderApiScdo extends ProviderApiBase {
       });
       const result = {
         method: 'wallet_events_accountsChanged',
-        params: {
-          accounts,
-        },
+        params: accounts?.[0] ?? '',
       };
       return result;
     };
