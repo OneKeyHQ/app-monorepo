@@ -70,6 +70,9 @@ const newFetch = async function (
         // @ts-ignore
         headers[key] = val;
       }
+      if (!options.headers) {
+        options.headers = {};
+      }
       // @ts-ignore
       options.headers[key] = val;
     });
