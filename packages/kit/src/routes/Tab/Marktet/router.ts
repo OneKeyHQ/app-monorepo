@@ -1,4 +1,5 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
 
 import {
@@ -18,7 +19,7 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
     name: ETabMarketRoutes.TabMarket,
-    headerShown: false,
+    headerShown: !platformEnv.isNative,
     component: MarketHome,
   },
   {
