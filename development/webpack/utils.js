@@ -41,8 +41,7 @@ exports.createResolveExtensions = function ({ platform, configName }) {
   ]);
 };
 
-exports.getOutputFolder = function ({ isManifestV3 }) {
-  // isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser,
+exports.getOutputFolder = function () {
   const buildTargetBrowser = TARGET_BROWSER;
-  return isManifestV3 ? `${buildTargetBrowser}_v3` : buildTargetBrowser;
+  return `${buildTargetBrowser}_v3`;
 };
