@@ -18,6 +18,7 @@ export const marketRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     rewrite: '/',
     name: ETabMarketRoutes.TabMarket,
+    headerShown: false,
     component: MarketHome,
   },
   {

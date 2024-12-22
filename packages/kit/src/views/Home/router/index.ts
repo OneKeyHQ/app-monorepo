@@ -27,7 +27,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: HomePageContainer,
     // translationId: 'wallet__wallet',
     rewrite: '/',
-    // exact: true,
+    headerShown: false,
   },
   {
     // web refresh will match this route first, make sure it's different url from the home route

@@ -12,5 +12,6 @@ export const earnRouters: ITabSubNavigatorConfig<any, any>[] = [
     rewrite: '/',
     name: ETabEarnRoutes.EarnHome,
     component: EarnHome,
+    headerShown: false,
   },
 ];

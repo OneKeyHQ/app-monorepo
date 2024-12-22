@@ -15,6 +15,7 @@ export const discoveryRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabDiscoveryRoutes.TabDiscovery,
     rewrite: '/',
+    headerShown: false,
     component:
       platformEnv.isNative && !platformEnv.isNativeIOSPad
         ? Browser
