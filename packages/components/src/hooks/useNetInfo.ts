@@ -174,10 +174,10 @@ export const useNetInfo = () => {
     isRawInternetReachable: null,
   });
   useEffect(() => {
-    const remove = globalNetInfo.addEventListener((state) => {
+    const remove = globalNetInfo.addEventListener(({ isInternetReachable }) => {
       setReachabilityState({
-        isInternetReachable: state.isInternetReachable ?? true,
-        isRawInternetReachable: state.isInternetReachable,
+        isInternetReachable: isInternetReachable ?? true,
+        isRawInternetReachable: isInternetReachable,
       });
     });
     return remove;
