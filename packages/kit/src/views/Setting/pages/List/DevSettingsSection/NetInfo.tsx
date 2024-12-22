@@ -3,7 +3,7 @@ import {
   SizableText,
   XStack,
   YStack,
-  refresh,
+  refreshNetInfo,
   useNetInfo,
 } from '@onekeyhq/components';
 
@@ -20,7 +20,7 @@ export function NetInfo() {
       <XStack gap="$4">
         <Button
           onPress={() => {
-            refresh();
+            refreshNetInfo();
           }}
         >
           Refresh

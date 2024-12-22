@@ -149,7 +149,7 @@ export const configure = (configuration: IReachabilityConfiguration) => {
   void globalNetInfo.start();
 };
 
-export const refresh = () => {
+export const refreshNetInfo = () => {
   void globalNetInfo.refresh();
 };
 
