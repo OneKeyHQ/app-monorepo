@@ -1,3 +1,4 @@
+export * from './AnchorSizableText';
 export * from './Badge';
 export * from './HeightTransition';
 export * from './LinearGradient';
