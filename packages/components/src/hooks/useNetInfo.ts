@@ -160,14 +160,19 @@ export const configure = (configuration: IReachabilityConfiguration) => {
 };
 
 export const useNetInfo = () => {
-  const [reachabilityState, setReachabilityState] =
-    useState<IReachabilityState>({
-      isInternetReachable: true,
-    });
+  const [reachabilityState, setReachabilityState] = useState<
+    IReachabilityState & {
+      isRawInternetReachable: boolean | null;
+    }
+  >({
+    isInternetReachable: true,
+    isRawInternetReachable: null,
+  });
   useEffect(() => {
     const remove = globalNetInfo.addEventListener((state) => {
       setReachabilityState({
         isInternetReachable: state.isInternetReachable ?? true,
+        isRawInternetReachable: state.isInternetReachable,
       });
     });
     return remove;
