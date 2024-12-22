@@ -50,9 +50,9 @@ class NetInfo {
 
     const handleVisibilityChange = (isVisible: boolean) => {
       if (isVisible) {
-        this.defer.reset();
-      } else {
         this.defer.resolve(undefined);
+      } else {
+        this.defer.reset();
       }
     };
 
