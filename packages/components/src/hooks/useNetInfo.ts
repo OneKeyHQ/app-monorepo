@@ -45,22 +45,10 @@ class NetInfo {
 
   pollingTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
-  constructor({
-    reachabilityUrl,
-    reachabilityMethod,
-    reachabilityTest,
-    reachabilityLongTimeout,
-    reachabilityShortTimeout,
-    reachabilityRequestTimeout,
-  }: IReachabilityConfiguration) {
+  constructor(configuration: IReachabilityConfiguration) {
     this.configuration = {
       ...this.configuration,
-      reachabilityUrl,
-      reachabilityMethod,
-      reachabilityTest,
-      reachabilityLongTimeout,
-      reachabilityShortTimeout,
-      reachabilityRequestTimeout,
+      ...configuration,
     };
 
     const handleVisibilityChange = (isVisible: boolean) => {
