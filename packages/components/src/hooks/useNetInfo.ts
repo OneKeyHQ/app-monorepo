@@ -46,10 +46,7 @@ class NetInfo {
   pollingTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   constructor(configuration: IReachabilityConfiguration) {
-    this.configuration = {
-      ...this.configuration,
-      ...configuration,
-    };
+    this.configure(configuration);
 
     const handleVisibilityChange = (isVisible: boolean) => {
       if (isVisible) {
