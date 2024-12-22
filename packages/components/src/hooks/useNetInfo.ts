@@ -8,10 +8,11 @@ import {
 
 export interface IReachabilityConfiguration {
   reachabilityUrl: string;
-  reachabilityTest: (response: { status: number }) => Promise<boolean>;
-  reachabilityLongTimeout: number;
-  reachabilityShortTimeout: number;
-  reachabilityRequestTimeout: number;
+  reachabilityTest?: (response: { status: number }) => Promise<boolean>;
+  reachabilityMethod?: 'GET' | 'POST';
+  reachabilityLongTimeout?: number;
+  reachabilityShortTimeout?: number;
+  reachabilityRequestTimeout?: number;
 }
 
 export interface IReachabilityState {
@@ -32,6 +33,7 @@ class NetInfo {
 
   configuration = {
     reachabilityUrl: '',
+    reachabilityMethod: 'GET',
     reachabilityTest: (response: { status: number }) =>
       Promise.resolve(response.status === 200),
     reachabilityLongTimeout: 60 * 1000,
@@ -45,13 +47,16 @@ class NetInfo {
 
   constructor({
     reachabilityUrl,
+    reachabilityMethod,
     reachabilityTest,
     reachabilityLongTimeout,
     reachabilityShortTimeout,
     reachabilityRequestTimeout,
   }: IReachabilityConfiguration) {
     this.configuration = {
+      ...this.configuration,
       reachabilityUrl,
+      reachabilityMethod,
       reachabilityTest,
       reachabilityLongTimeout,
       reachabilityShortTimeout,
@@ -97,8 +102,12 @@ class NetInfo {
     this.isFetching = true;
     await this.defer.promise;
 
-    const { reachabilityRequestTimeout, reachabilityUrl, reachabilityTest } =
-      this.configuration;
+    const {
+      reachabilityRequestTimeout,
+      reachabilityUrl,
+      reachabilityMethod,
+      reachabilityTest,
+    } = this.configuration;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(
@@ -108,6 +117,7 @@ class NetInfo {
 
     try {
       const response = await fetch(reachabilityUrl, {
+        method: reachabilityMethod,
         signal: controller.signal,
       });
 
@@ -146,12 +156,7 @@ class NetInfo {
 }
 
 export const globalNetInfo = new NetInfo({
-  reachabilityUrl: '',
-  reachabilityTest: (response: { status: number }) =>
-    Promise.resolve(response.status === 200),
-  reachabilityLongTimeout: 60 * 1000,
-  reachabilityShortTimeout: 5 * 1000,
-  reachabilityRequestTimeout: 10 * 1000,
+  reachabilityUrl: '/wallet/v1/health',
 });
 
 export const configure = (configuration: IReachabilityConfiguration) => {
