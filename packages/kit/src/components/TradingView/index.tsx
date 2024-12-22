@@ -19,10 +19,10 @@ interface IBaseTradingViewProps {
   identifier: string;
   baseToken: string;
   targetToken: string;
+  onLoadEnd: () => void;
 }
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
-
 
 export function TradingView(props: ITradingViewProps & WebViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
