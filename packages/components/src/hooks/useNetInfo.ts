@@ -74,6 +74,7 @@ class NetInfo {
 
   updateState(state: { isInternetReachable: boolean | null }) {
     this.state = state;
+    this.listeners.forEach((listener) => listener(state));
     this.prevIsInternetReachable = !!state.isInternetReachable;
   }
 
@@ -148,7 +149,7 @@ export const globalNetInfo = new NetInfo({
   reachabilityUrl: '/wallet/v1/health',
 });
 
-export const configure = (configuration: IReachabilityConfiguration) => {
+export const configureNetInfo = (configuration: IReachabilityConfiguration) => {
   globalNetInfo.configure(configuration);
   void globalNetInfo.start();
 };

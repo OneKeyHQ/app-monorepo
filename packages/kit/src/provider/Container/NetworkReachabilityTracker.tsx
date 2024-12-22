@@ -1,9 +1,6 @@
 import { useEffect, useMemo } from 'react';
 
-import {
-  configure as configureNetInfo,
-  refreshNetInfo,
-} from '@onekeyhq/components';
+import { configureNetInfo, refreshNetInfo } from '@onekeyhq/components';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
 import {
