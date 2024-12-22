@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { buildDeferredPromise } from './useDeferredPromise';
 import {
@@ -147,6 +147,10 @@ export const globalNetInfo = new NetInfo({
 export const configure = (configuration: IReachabilityConfiguration) => {
   globalNetInfo.configure(configuration);
   void globalNetInfo.start();
+};
+
+export const refresh = () => {
+  void globalNetInfo.refresh();
 };
 
 export const useNetInfo = () => {
