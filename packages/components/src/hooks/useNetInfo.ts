@@ -68,6 +68,10 @@ class NetInfo {
     };
   }
 
+  currentState() {
+    return this.state;
+  }
+
   updateState(state: { isInternetReachable: boolean | null }) {
     this.state = state;
     this.prevIsInternetReachable = !!state.isInternetReachable;
@@ -158,9 +162,12 @@ export const useNetInfo = () => {
     IReachabilityState & {
       isRawInternetReachable: boolean | null;
     }
-  >({
-    isInternetReachable: true,
-    isRawInternetReachable: null,
+  >(() => {
+    const { isInternetReachable } = globalNetInfo.currentState();
+    return {
+      isInternetReachable: isInternetReachable ?? true,
+      isRawInternetReachable: isInternetReachable,
+    };
   });
   useEffect(() => {
     const remove = globalNetInfo.addEventListener(({ isInternetReachable }) => {
