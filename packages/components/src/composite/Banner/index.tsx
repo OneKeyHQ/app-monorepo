@@ -43,7 +43,6 @@ function BannerItem<T extends IBannerData>({
   const item = useProps(rawItem, {
     resolveValues: 'value',
   }) as T;
-  console.log('item.titleTextProps', item.titleTextProps);
   const onItemPress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
