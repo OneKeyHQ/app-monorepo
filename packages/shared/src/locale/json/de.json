@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "Dies wird alle Daten auf OneKey löschen. Stellen Sie sicher, dass Sie ein Backup haben, und geben Sie dann \"RESET\" ein, um fortzufahren.",
   "settings.resources": "Ressourcen",
   "settings.select_wallet": "Brieftasche auswählen",
-  "settings.set_auto_lock_duration_desktop": "Wenn das App-Fenster minimiert ist oder der Bildschirm des Geräts gesperrt ist, wird es automatisch nach einer festgelegten Zeit gesperrt.",
+  "settings.set_auto_lock_duration_desktop": "Wenn die App im Hintergrund läuft, ohne beendet zu werden, oder wenn der Bildschirm des Geräts gesperrt ist, wird sie automatisch nach einer festgelegten Zeit gesperrt.",
   "settings.set_auto_lock_duration_extension": "Wenn das Plugin-Fenster geschlossen wird oder sich im Vollbildmodus mit ungenutzten Tabs befindet, wird es automatisch nach einer festgelegten Zeit gesperrt.",
   "settings.set_auto_lock_duration_mobile": "Wenn die App im Hintergrund läuft, ohne beendet zu werden, oder wenn der Bildschirm des Geräts gesperrt ist, wird sie automatisch nach einer festgelegten Zeit gesperrt.",
   "settings.set_auto_lock_duration_web": "Wenn die App in einem ungenutzten Tab oder minimierten Fenster ist, wird sie automatisch nach einer festgelegten Zeit gesperrt.",

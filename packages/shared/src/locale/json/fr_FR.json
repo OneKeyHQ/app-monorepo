@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "Cela supprimera toutes les données sur OneKey. Assurez-vous d'avoir une sauvegarde, puis saisissez \"RESET\" pour continuer.",
   "settings.resources": "Ressources",
   "settings.select_wallet": "Sélectionnez le portefeuille",
-  "settings.set_auto_lock_duration_desktop": "Lorsque la fenêtre de l'application est minimisée ou que l'écran de l'appareil est verrouillé, elle se verrouillera automatiquement après une période de temps spécifiée.",
+  "settings.set_auto_lock_duration_desktop": "Lorsque l'application fonctionne en arrière-plan sans quitter ou lorsque l'écran de l'appareil est verrouillé, elle se verrouillera automatiquement après une période de temps spécifiée.",
   "settings.set_auto_lock_duration_extension": "Lors de la fermeture de la fenêtre du plugin ou en mode plein écran avec des onglets inutilisés, il se verrouillera automatiquement après une période de temps spécifiée.",
   "settings.set_auto_lock_duration_mobile": "Lorsque l'application fonctionne en arrière-plan sans quitter ou lorsque l'écran de l'appareil est verrouillé, elle se verrouillera automatiquement après une période de temps spécifiée.",
   "settings.set_auto_lock_duration_web": "Lorsque l'application est dans un onglet inutilisé ou une fenêtre réduite, elle se verrouillera automatiquement après une période de temps spécifiée.",

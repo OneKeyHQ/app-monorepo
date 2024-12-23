@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "Ini akan menghapus semua data di OneKey. Pastikan Anda memiliki cadangan, lalu masukkan \"RESET\" untuk melanjutkan.",
   "settings.resources": "Sumber Daya",
   "settings.select_wallet": "Pilih dompet",
-  "settings.set_auto_lock_duration_desktop": "Ketika jendela aplikasi diminimalkan atau layar perangkat dikunci, aplikasi akan secara otomatis terkunci setelah periode waktu tertentu.",
+  "settings.set_auto_lock_duration_desktop": "Ketika aplikasi berjalan di latar belakang tanpa keluar atau ketika layar perangkat dikunci, aplikasi akan secara otomatis terkunci setelah periode waktu tertentu.",
   "settings.set_auto_lock_duration_extension": "Ketika menutup jendela plugin atau saat dalam mode layar penuh dengan tab yang tidak digunakan, ini akan secara otomatis terkunci setelah periode waktu tertentu.",
   "settings.set_auto_lock_duration_mobile": "Ketika aplikasi berjalan di latar belakang tanpa keluar atau ketika layar perangkat dikunci, aplikasi akan secara otomatis terkunci setelah periode waktu tertentu.",
   "settings.set_auto_lock_duration_web": "Ketika aplikasi berada di tab yang tidak digunakan atau jendela yang diminimalkan, aplikasi akan secara otomatis terkunci setelah periode waktu tertentu.",
