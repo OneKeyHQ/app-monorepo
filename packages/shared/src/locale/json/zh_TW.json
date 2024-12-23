@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "這將刪除 OneKey App 上的所有數據，請確保您已完成備份，然後輸入“RESET”以繼續。",
   "settings.resources": "資源",
   "settings.select_wallet": "选择钱包",
-  "settings.set_auto_lock_duration_desktop": "最小化 App，或鎖定裝置螢幕時，經過指定時間後將自動鎖定",
+  "settings.set_auto_lock_duration_desktop": "未退出 App 而於後台運行、或鎖定裝置螢幕時，經過指定時間後將自動鎖定",
   "settings.set_auto_lock_duration_extension": "關閉插件視窗，或展開模式中處於未使用的分頁時，經過指定時間後將自動鎖定",
   "settings.set_auto_lock_duration_mobile": "未退出 App 而於後台運行、或鎖定裝置螢幕時，經過指定時間後將自動鎖定",
   "settings.set_auto_lock_duration_web": "最小化瀏覽器，或 App 於未使用的分頁時，經過指定時間後將自動鎖定",

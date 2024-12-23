@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "これによりOneKeyのすべてのデータが削除されます。バックアップを取ってから、「RESET」を入力して進行してください。",
   "settings.resources": "リソース",
   "settings.select_wallet": "ウォレットを選択",
-  "settings.set_auto_lock_duration_desktop": "アプリのウィンドウが最小化されたり、デバイスの画面がロックされたりすると、指定された時間が経過すると自動的にロックされます。",
+  "settings.set_auto_lock_duration_desktop": "アプリが終了せずにバックグラウンドで動作している場合や、デバイスの画面がロックされている場合、指定された時間が経過すると自動的にロックされます。",
   "settings.set_auto_lock_duration_extension": "プラグインウィンドウを閉じるか、使用していないタブがあるフルスクリーンモードの場合、指定された時間が経過すると自動的にロックされます。",
   "settings.set_auto_lock_duration_mobile": "アプリが終了せずにバックグラウンドで動作している場合や、デバイスの画面がロックされている場合、指定された時間が経過すると自動的にロックされます。",
   "settings.set_auto_lock_duration_web": "アプリが使用されていないタブや最小化されたウィンドウにある場合、指定された時間が経過すると自動的にロックされます。",

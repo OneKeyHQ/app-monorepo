@@ -40,6 +40,16 @@ const ToastGallery = () => (
             <Button
               onPress={() => {
                 Toast.success({
+                  title: 'url!',
+                  message: 'look, <url href="https://onekey.so">OneKey</url> here. aaa',
+                });
+              }}
+            >
+              Toast with url
+            </Button>
+            <Button
+              onPress={() => {
+                Toast.success({
                   title: '',
                   message: 'title is empty string',
                 });

@@ -195,7 +195,7 @@ class ServiceToken extends ServiceBase {
     }
 
     resp.data.data.tokens.data = resp.data.data.tokens.data.map((token) => ({
-      ...this.mergeTokenMetadataWithCustomData({
+      ...this.mergeTokenMetadataWithCustomDataSync({
         token,
         customTokens,
         networkId,
@@ -207,7 +207,7 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.riskTokens.data = resp.data.data.riskTokens.data.map(
       (token) => ({
-        ...this.mergeTokenMetadataWithCustomData({
+        ...this.mergeTokenMetadataWithCustomDataSync({
           token,
           customTokens,
           networkId,
@@ -220,7 +220,7 @@ class ServiceToken extends ServiceBase {
 
     resp.data.data.smallBalanceTokens.data =
       resp.data.data.smallBalanceTokens.data.map((token) => ({
-        ...this.mergeTokenMetadataWithCustomData({
+        ...this.mergeTokenMetadataWithCustomDataSync({
           token,
           customTokens,
           networkId,
@@ -287,7 +287,16 @@ class ServiceToken extends ServiceBase {
     return resp.data.data;
   }
 
-  private mergeTokenMetadataWithCustomData<T extends IToken>({
+  @backgroundMethod()
+  async mergeTokenMetadataWithCustomData<T extends IToken>(params: {
+    token: T;
+    customTokens: IAccountToken[];
+    networkId: string;
+  }): Promise<T> {
+    return Promise.resolve(this.mergeTokenMetadataWithCustomDataSync(params));
+  }
+
+  private mergeTokenMetadataWithCustomDataSync<T extends IToken>({
     token,
     customTokens,
     networkId,
@@ -521,7 +530,7 @@ class ServiceToken extends ServiceBase {
             networkId,
           });
 
-        tokenInfo = this.mergeTokenMetadataWithCustomData({
+        tokenInfo = this.mergeTokenMetadataWithCustomDataSync({
           token: tokenInfo,
           customTokens,
           networkId,

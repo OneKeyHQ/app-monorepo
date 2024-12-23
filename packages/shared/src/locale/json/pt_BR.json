@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "Isso excluirá todos os dados no OneKey. Certifique-se de ter um backup, depois digite \"RESET\" para prosseguir.",
   "settings.resources": "Recursos",
   "settings.select_wallet": "Selecione a carteira",
-  "settings.set_auto_lock_duration_desktop": "Quando a janela do aplicativo é minimizada ou a tela do dispositivo é bloqueada, ele será automaticamente bloqueado após um período de tempo especificado.",
+  "settings.set_auto_lock_duration_desktop": "Quando o aplicativo é executado em segundo plano sem sair ou quando a tela do dispositivo está bloqueada, ele será automaticamente bloqueado após um período de tempo especificado.",
   "settings.set_auto_lock_duration_extension": "Quando fechar a janela do plugin ou quando estiver em modo de tela cheia com abas não utilizadas, ele será bloqueado automaticamente após um período de tempo especificado.",
   "settings.set_auto_lock_duration_mobile": "Quando o aplicativo é executado em segundo plano sem sair ou quando a tela do dispositivo está bloqueada, ele será automaticamente bloqueado após um período de tempo especificado.",
   "settings.set_auto_lock_duration_web": "Quando o aplicativo está em uma aba não utilizada ou janela minimizada, ele será bloqueado automaticamente após um período de tempo especificado.",
