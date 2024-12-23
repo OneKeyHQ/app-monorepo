@@ -1273,6 +1273,7 @@
   "manage_token.native_token_cant_remove": "ไม่สามารถลบโทเค็นดั้งเดิมได้",
   "manage_token.popular_token": "โทเค็นทั่วไป",
   "manage_token.title": "จัดการโทเค็น",
+  "manage_token.token_required": "จำเป็นต้องมีสัญลักษณ์",
   "manger_token.custom_token_address_required": "ต้องการที่อยู่สัญญา.",
   "manual_backup": "การสำรองข้อมูลด้วยตนเอง",
   "market.1d": "1 วัน",

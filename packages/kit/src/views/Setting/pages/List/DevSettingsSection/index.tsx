@@ -217,6 +217,19 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      {platformEnv.isNative ? (
+        <SectionFieldItem
+          name="webviewDebuggingEnabled"
+          title="Enable WebviewDebugging"
+          onValueChange={() => {
+            setTimeout(() => {
+              backgroundApiProxy.serviceApp.restartApp();
+            }, 300);
+          }}
+        >
+          <Switch size={ESwitchSize.small} />
+        </SectionFieldItem>
+      ) : null}
       <SectionFieldItem
         name="disableSolanaPriorityFee"
         title="禁用 Solana 交易优先费"
@@ -541,6 +554,12 @@ export const DevSettingsSection = () => {
         title="Reset Spotlight"
         onPress={() => {
           void backgroundApiProxy.serviceSpotlight.reset();
+        }}
+      />
+      <SectionPressItem
+        title="Reset Hidden Sites in Floating icon"
+        onPress={() => {
+          void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
         }}
       />
       <SectionPressItem

@@ -1278,6 +1278,7 @@
   manage_token_native_token_cant_remove = 'manage_token.native_token_cant_remove',
   manage_token_popular_token = 'manage_token.popular_token',
   manage_token_title = 'manage_token.title',
+  manage_token_token_required = 'manage_token.token_required',
   manger_token_custom_token_address_required = 'manger_token.custom_token_address_required',
   manual_backup = 'manual_backup',
   market_1d = 'market.1d',

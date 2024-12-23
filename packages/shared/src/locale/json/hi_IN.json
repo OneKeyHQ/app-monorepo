@@ -1273,6 +1273,7 @@
   "manage_token.native_token_cant_remove": "मूल टोकन को हटाया नहीं जा सकता",
   "manage_token.popular_token": "सामान्य टोकन",
   "manage_token.title": "टोकन प्रबंधित करें",
+  "manage_token.token_required": "प्रतीक आवश्यक है.",
   "manger_token.custom_token_address_required": "अनुबंध पता आवश्यक है।",
   "manual_backup": "मैनुअल बैकअप",
   "market.1d": "1 दिन",

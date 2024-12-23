@@ -42,6 +42,7 @@ interface IWebViewProps extends IElectronWebViewEvents {
   onScroll?: IWebViewOnScroll;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
+  webviewDebuggingEnabled?: boolean;
 }
 
 const WebView: FC<IWebViewProps> = ({
@@ -51,6 +52,7 @@ const WebView: FC<IWebViewProps> = ({
   onWebViewRef = () => {},
   customReceiveHandler,
   containerProps,
+  webviewDebuggingEnabled,
   ...rest
 }) => {
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
@@ -81,6 +83,7 @@ const WebView: FC<IWebViewProps> = ({
     <Stack flex={1} bg="background-default" {...containerProps}>
       <InpageProviderWebView
         ref={onWebViewRef}
+        webviewDebuggingEnabled={webviewDebuggingEnabled}
         src={src}
         allowpopups={allowpopups}
         receiveHandler={receiveHandler}

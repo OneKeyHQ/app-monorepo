@@ -5,6 +5,8 @@ import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import { BFC_TYPE_ARG } from '@benfen/bfc.js/utils';
 import BigNumber from 'bignumber.js';
 
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { normalizeBfcCoinType, objectTypeToCoinType } from './utils';
@@ -94,8 +96,13 @@ async function createTokenTransaction({
     new BigNumber(0),
   );
 
-  if (totalBalance.lt(amount)) {
-    throw new Error('Insufficient balance');
+  if (
+    totalBalance.lt(amount) ||
+    (totalBalance.isZero() && allCoins.length === 0)
+  ) {
+    throw new OneKeyInternalError({
+      key: ETranslations.earn_insufficient_balance,
+    });
   }
 
   // Max send native token
@@ -169,7 +176,7 @@ function analyzeTransactionType(tx: TransactionBlock) {
   return EBfcTransactionType.Unknown;
 }
 
-interface ITransferDetail {
+export interface ITransferDetail {
   from: string;
   to: string;
   amount: string;

@@ -40,6 +40,7 @@ export type ISettingsPersistAtom = {
   alignPrimaryAccountMode?: EAlignPrimaryAccountMode;
   isCustomNonceEnabled: boolean;
   isCustomTxMessageEnabled: boolean;
+  isFloatingIconAlwaysDisplay: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -66,6 +67,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   alignPrimaryAccountMode: EAlignPrimaryAccountMode.AlignDappToWallet,
   isCustomNonceEnabled: false,
   isCustomTxMessageEnabled: false,
+  isFloatingIconAlwaysDisplay: false,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({
@@ -92,6 +94,7 @@ type ISettingsAtom = {
   swapToAnotherAccountSwitchOn: boolean;
   swapSlippagePercentageMode: ESwapSlippageSegmentKey;
   swapSlippagePercentageCustomValue: number;
+  swapEnableRecipientAddress: boolean;
 };
 
 export const { target: settingsAtom, use: useSettingsAtom } =
@@ -101,6 +104,7 @@ export const { target: settingsAtom, use: useSettingsAtom } =
       swapToAnotherAccountSwitchOn: false,
       swapSlippagePercentageMode: ESwapSlippageSegmentKey.AUTO,
       swapSlippagePercentageCustomValue: swapSlippageAutoValue,
+      swapEnableRecipientAddress: false,
     },
   });
 

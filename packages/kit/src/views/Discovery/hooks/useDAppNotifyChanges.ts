@@ -20,6 +20,7 @@ import { getWebviewWrapperRef } from '../utils/explorerUtils';
 import { useWebTabDataById } from './useWebTabs';
 
 import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
 const skipDomReadyNotifySites: Record<string, boolean> = {
   'https://wallet.keplr.app': true,
@@ -60,7 +61,7 @@ export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {
     if (!jsBridge) {
       return;
     }
-    backgroundApiProxy.connectBridge(jsBridge);
+    backgroundApiProxy.connectBridge(jsBridge as unknown as JsBridgeBase);
   }, [webviewRef, isFocusedInDiscoveryTab]);
 
   // sent accountChanged notification

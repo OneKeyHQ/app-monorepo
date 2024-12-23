@@ -33,6 +33,7 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -758,21 +759,53 @@ export default class Vault extends VaultBase {
   override async buildOkxSwapEncodedTx(
     params: IBuildOkxSwapEncodedTxParams,
   ): Promise<IEncodedTxTron> {
-    const { okxTx, fromTokenInfo } = params;
+    const { okxTx, fromTokenInfo, type } = params;
     const { from, to, value, data, signatureData: _signatureData } = okxTx;
     const signatureData: { functionSelector: string } = JSON.parse(
       (_signatureData as string[])[0] ?? '{}',
     );
 
+    const isSwapBridge = type === ESwapTabSwitchType.BRIDGE;
+
     let signatureDataHex = '';
+
     if (signatureData) {
       signatureDataHex = signatureData.functionSelector ?? '';
     }
 
-    const functionParams = defaultAbiCoder.decode(
-      ['uint256', 'uint256', 'uint256', 'bytes32[]'],
-      `0x${data.slice(10)}`,
-    ) as [{ _hex: string }, { _hex: string }, { _hex: string }, string[]];
+    let buildTxParams = [];
+    if (isSwapBridge) {
+      const functionParams = defaultAbiCoder.decode(
+        [
+          'tuple(address,address,address,uint256,uint256,uint256,uint256,uint256,bytes,bytes,bytes)',
+        ],
+        `0x${data.slice(10)}`,
+      );
+      buildTxParams = [
+        {
+          type: 'tuple(address,address,address,uint256,uint256,uint256,uint256,uint256,bytes,bytes,bytes)',
+          value: functionParams[0],
+        },
+      ];
+    } else {
+      const functionParams = defaultAbiCoder.decode(
+        ['uint256', 'uint256', 'uint256', 'bytes32[]'],
+        `0x${data.slice(10)}`,
+      ) as [{ _hex: string }, { _hex: string }, { _hex: string }, string[]];
+
+      buildTxParams = [
+        { type: 'uint256', value: functionParams[0]._hex },
+        {
+          type: 'uint256',
+          value: functionParams[1]._hex,
+        },
+        { type: 'uint256', value: functionParams[2]._hex },
+        {
+          type: 'bytes32[]',
+          value: functionParams[3],
+        },
+      ];
+    }
 
     const [{ result, transaction }] =
       await this.backgroundApi.serviceAccountProfile.sendProxyRequest<{
@@ -792,42 +825,34 @@ export default class Vault extends VaultBase {
                   feeLimit: 300_000_000,
                   callValue: parseInt(value, 10),
                 },
-                [
-                  { type: 'uint256', value: functionParams[0]._hex },
-                  {
-                    type: 'uint256',
-                    value: functionParams[1]._hex,
-                  },
-                  { type: 'uint256', value: functionParams[2]._hex },
-                  {
-                    type: 'bytes32[]',
-                    value: functionParams[3],
-                  },
-                ],
+                buildTxParams,
                 from,
               ],
             },
           },
         ],
       });
+
     if (!result) {
       throw new OneKeyInternalError(
         'Unable to build token transfer transaction',
       );
     }
 
-    (
-      transaction.raw_data.contract[0].parameter
-        .value as Types.TriggerSmartContract
-    ).data = data.slice(2);
+    if (!isSwapBridge) {
+      (
+        transaction.raw_data.contract[0].parameter
+          .value as Types.TriggerSmartContract
+      ).data = data.slice(2);
 
-    const txPb = TronWeb.utils.transaction.txJsonToPb(transaction);
+      const txPb = TronWeb.utils.transaction.txJsonToPb(transaction);
 
-    const txRawDataHex = TronWeb.utils.transaction.txPbToRawDataHex(txPb);
-    const txID = TronWeb.utils.transaction.txPbToTxID(txPb);
+      const txRawDataHex = TronWeb.utils.transaction.txPbToRawDataHex(txPb);
+      const txID = TronWeb.utils.transaction.txPbToTxID(txPb);
 
-    transaction.raw_data_hex = txRawDataHex;
-    transaction.txID = txID.slice(2);
+      transaction.raw_data_hex = txRawDataHex;
+      transaction.txID = txID.slice(2);
+    }
 
     return transaction;
   }

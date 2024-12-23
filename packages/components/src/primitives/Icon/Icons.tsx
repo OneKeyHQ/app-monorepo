@@ -36,6 +36,7 @@ const icons = {
     import("./react/custom/CheckboxIndeterminate"),
   RestartToUpdateCustom: () => import("./react/custom/RestartToUpdate"),
   ShortcutsCustom: () => import("./react/custom/Shortcuts"),
+  SidebarLeftArrowCustom: () => import("./react/custom/SidebarLeftArrow"),
   AkashIllus: () => import("./react/illus/Akash"),
   AlgorandIllus: () => import("./react/illus/Algorand"),
   AllNetworksIllus: () => import("./react/illus/AllNetworks"),

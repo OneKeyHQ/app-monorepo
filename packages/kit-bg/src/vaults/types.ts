@@ -37,6 +37,7 @@ import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type {
+  ESwapTabSwitchType,
   IFetchBuildTxResult,
   IOKXTransactionObject,
   ISwapTokenBase,
@@ -655,4 +656,5 @@ export type IQrWalletGetVerifyAddressChainParamsResult = {
 export type IBuildOkxSwapEncodedTxParams = {
   okxTx: IOKXTransactionObject;
   fromTokenInfo: ISwapTokenBase;
+  type: ESwapTabSwitchType;
 };

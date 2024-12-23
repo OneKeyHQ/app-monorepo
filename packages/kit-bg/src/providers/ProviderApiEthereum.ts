@@ -166,6 +166,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       const { method, params } = rpcRequest;
 
       if (!EVM_SAFE_RPC_METHODS.includes(method)) {
+        defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
         throw web3Errors.rpc.methodNotSupported();
       }
 
@@ -373,12 +374,14 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  eth_subscribe() {
+  eth_subscribe(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  eth_unsubscribe() {
+  eth_unsubscribe(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
@@ -494,42 +497,50 @@ class ProviderApiEthereum extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async metamask_logWeb3ShimUsage() {
+  async metamask_logWeb3ShimUsage(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  async wallet_registerOnboarding() {
+  async wallet_registerOnboarding(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  async wallet_scanQRCode() {
+  async wallet_scanQRCode(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  async wallet_getCapabilities() {
+  async wallet_getCapabilities(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  async wallet_sendCalls() {
+  async wallet_sendCalls(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  async wallet_getCallsStatus() {
+  async wallet_getCallsStatus(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  async wallet_showCallsStatus() {
+  async wallet_showCallsStatus(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
   @providerApiMethod()
-  async wallet_getSnaps() {
+  async wallet_getSnaps(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequestNotSupport({ request });
     throw web3Errors.rpc.methodNotSupported();
   }
 
@@ -754,7 +765,7 @@ class ProviderApiEthereum extends ProviderApiBase {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call
     if (this._switchEthereumChainMemo._has(request, params)) {
       throw web3Errors.rpc.resourceUnavailable({
-        message: `Request of type 'wallet_addEthereumChain' already pending for origin ${
+        message: `Request of type 'wallet_switchEthereumChain' already pending for origin ${
           request?.origin || ''
         }. Please wait.`,
       });

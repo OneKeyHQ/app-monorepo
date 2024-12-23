@@ -24,6 +24,8 @@ import { setupSidePanelPortInBg } from '../background/sidePanel';
 
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+
 function initBackground() {
   // TODO use backgroundApiInit
   const backgroundApiProxy: typeof import('@onekeyhq/kit/src/background/instance/backgroundApiProxy').default =
@@ -33,7 +35,7 @@ function initBackground() {
   const bridge = bridgeSetup.background.createHostBridge({
     receiveHandler: backgroundApiProxy.bridgeReceiveHandler,
   });
-  backgroundApiProxy.connectBridge(bridge);
+  backgroundApiProxy.connectBridge(bridge as unknown as JsBridgeBase);
   // backgroundApiProxy.serviceNotification.init().catch((e) => {
   //   debugLogger.notification.error(
   //     `extension background init socket failed`,

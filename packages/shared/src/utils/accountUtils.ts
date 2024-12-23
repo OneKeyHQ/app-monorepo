@@ -761,6 +761,7 @@ function isAllNetworkMockAddress({ address }: { address?: string }) {
 }
 
 export default {
+  URL_ACCOUNT_ID,
   buildAccountValueKey,
   buildUtxoAddressRelPath,
   buildBaseAccountName,

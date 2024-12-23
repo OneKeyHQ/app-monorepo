@@ -703,6 +703,7 @@ export function useSwapSelectedTokenInfo({
     swapAddressInfo,
     token?.networkId,
     token?.contractAddress,
+    token?.balanceParsed,
     loadSwapSelectTokenDetailDeb,
     token?.reservationValue,
     token?.isNative,

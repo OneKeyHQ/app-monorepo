@@ -1273,6 +1273,7 @@
   "manage_token.native_token_cant_remove": "নেটিভ টোকেন মুছে ফেলা যাবে না",
   "manage_token.popular_token": "সাধারণ টোকেন",
   "manage_token.title": "টোকেন পরিচালনা করুন",
+  "manage_token.token_required": "প্রতীক প্রয়োজন।",
   "manger_token.custom_token_address_required": "চুক্তির ঠিকানা প্রয়োজন।",
   "manual_backup": "ম্যানুয়াল ব্যাকআপ",
   "market.1d": "১ দিন",
