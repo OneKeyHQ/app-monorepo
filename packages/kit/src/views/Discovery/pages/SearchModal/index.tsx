@@ -101,10 +101,7 @@ function SearchModal() {
         setSearchList([]);
         return;
       }
-      const logo =
-        await backgroundApiProxy.serviceDiscovery.buildWebsiteIconUrl(
-          'https://google.com',
-        );
+      const logo = 'https://uni.onekey-asset.com/static/logo/google.png';
       setSearchList([
         {
           dappId: SEARCH_ITEM_ID,

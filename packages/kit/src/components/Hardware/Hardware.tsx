@@ -21,6 +21,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
@@ -349,6 +350,42 @@ export function EnterPhase({
   const [secureEntry1, setSecureEntry1] = useState(true);
   const [secureEntry2, setSecureEntry2] = useState(true);
 
+  const handleSubmit = form.handleSubmit(async () => {
+    const values = form.getValues();
+    if (
+      !isSingleInput &&
+      (values.passphrase || '') !== (values.confirmPassphrase || '')
+    ) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.feedback_passphrase_not_matched,
+        }),
+      });
+      return;
+    }
+    const passphrase = values.passphrase || '';
+    onConfirm({ passphrase, save: true });
+  });
+
+  const handleKeyPress = useCallback(
+    async (event: KeyboardEvent) => {
+      if (event.key === 'Enter') {
+        void handleSubmit();
+      }
+    },
+    [handleSubmit],
+  );
+
+  useEffect(() => {
+    if (platformEnv.isRuntimeBrowser && typeof document !== 'undefined') {
+      document.addEventListener('keypress', handleKeyPress);
+      return () => {
+        document.removeEventListener('keypress', handleKeyPress);
+      };
+    }
+    return undefined;
+  }, [handleKeyPress]);
+
   return (
     <Stack>
       <Stack pb="$5">
@@ -443,41 +480,7 @@ export function EnterPhase({
           } as any
         }
         variant="primary"
-        onPress={form.handleSubmit(async () => {
-          const values = form.getValues();
-          if (
-            !isSingleInput &&
-            (values.passphrase || '') !== (values.confirmPassphrase || '')
-          ) {
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.feedback_passphrase_not_matched,
-              }),
-            });
-            return;
-          }
-          // allow empty passphrase
-          const passphrase = values.passphrase || '';
-          onConfirm({ passphrase, save: true });
-
-          // Dialog.show({
-          //   icon: 'CheckboxSolid',
-          //   title: 'Keep Your Wallet Accessible?',
-          //   description:
-          //     'Save this wallet to your device to maintain access after the app is closed. Unsaved wallets will be removed automatically.',
-          //   onConfirm: () => {
-          //     onConfirm({ passphrase: values.passphrase, save: true });
-          //   },
-          //   onConfirmText: 'Save Wallet',
-          //   confirmButtonProps: {
-          //     variant: 'secondary',
-          //   },
-          //   onCancel: () => {
-          //     onConfirm({ passphrase: values.passphrase, save: false });
-          //   },
-          //   onCancelText: "Don't Save",
-          // });
-        })}
+        onPress={handleSubmit}
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>
