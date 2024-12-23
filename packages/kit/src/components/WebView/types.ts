@@ -44,6 +44,11 @@ export interface IInpageProviderWebViewProps
   onScroll?: IWebViewOnScroll;
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
+  /**
+   * Enables WebView remote debugging using Chrome (Android) or Safari (iOS).
+   * Only works in iOS and Android devices.
+   */
+  webviewDebuggingEnabled?: boolean;
 }
 
 export type IElectronWebView = {

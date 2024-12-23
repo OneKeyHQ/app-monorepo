@@ -564,7 +564,11 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       !addressInfo.encoding ||
       (addressInfo.encoding && !supportedTypes.includes(addressInfo.encoding))
     ) {
-      throw new AddressNotSupportSignMethodError();
+      throw new AddressNotSupportSignMethodError({
+        info: {
+          type: 'Native Segwit, Taproot',
+        },
+      });
     }
 
     const outputScript = BitcoinJsAddress.toOutputScript(

@@ -1,23 +1,16 @@
-import { Button, SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
-  fetch,
-  refresh,
+  Button,
+  SizableText,
+  XStack,
+  YStack,
+  refreshNetInfo,
   useNetInfo,
-} from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
+} from '@onekeyhq/components';
 
 export function NetInfo() {
-  const {
-    type,
-    isConnected,
-    isWifiEnabled,
-    isInternetReachable,
-    isRawInternetReachable,
-  } = useNetInfo();
+  const { isInternetReachable, isRawInternetReachable } = useNetInfo();
   return (
     <YStack>
-      <SizableText>{`type: ${type}`}</SizableText>
-      <SizableText>{`isConnected: ${String(isConnected)}`}</SizableText>
-      <SizableText>{`isWifiEnabled: ${String(isWifiEnabled)}`}</SizableText>
       <SizableText>{`isInternetReachable: ${String(
         isInternetReachable,
       )}`}</SizableText>
@@ -27,18 +20,7 @@ export function NetInfo() {
       <XStack gap="$4">
         <Button
           onPress={() => {
-            void fetch().then((state) => {
-              alert(JSON.stringify(state));
-            });
-          }}
-        >
-          Fetch
-        </Button>
-        <Button
-          onPress={() => {
-            void refresh().then((state) => {
-              alert(JSON.stringify(state));
-            });
+            refreshNetInfo();
           }}
         >
           Refresh

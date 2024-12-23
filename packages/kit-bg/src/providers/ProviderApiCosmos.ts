@@ -3,6 +3,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Semaphore } from 'async-mutex';
+import BigNumber from 'bignumber.js';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
@@ -360,13 +361,32 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     const account = await this._getAccount(request, networkId);
 
-    const encodeTx = params.signDoc;
+    const encodedTx = params.signDoc;
+    const accountNumberBN = new BigNumber(encodedTx.accountNumber || '0');
+    if (
+      !encodedTx.accountNumber ||
+      accountNumberBN.isZero() ||
+      accountNumberBN.isNaN()
+    ) {
+      const accountInfo =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+          networkId,
+          accountId: account.account.id,
+          withNonce: true,
+        });
+
+      if (!accountInfo) {
+        throw new Error('Invalid account');
+      }
+
+      encodedTx.accountNumber = `${accountInfo.accountNumber ?? 0}`;
+    }
     const txWrapper = TransactionWrapper.fromDirectSignDocHex(
       {
-        bodyBytes: encodeTx.bodyBytes ?? '',
-        authInfoBytes: encodeTx.authInfoBytes ?? '',
-        chainId: encodeTx.chainId ?? '',
-        accountNumber: encodeTx.accountNumber ?? '',
+        bodyBytes: encodedTx.bodyBytes ?? '',
+        authInfoBytes: encodedTx.authInfoBytes ?? '',
+        chainId: encodedTx.chainId ?? '',
+        accountNumber: encodedTx.accountNumber ?? '',
       },
       undefined,
     );
