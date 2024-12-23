@@ -222,8 +222,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx: ILocalDBTransaction;
     updater: ILocalDBRecordUpdater<ELocalDBStoreNames.Context>;
   }) {
-    const db = await this.readyDb;
-    await db.txUpdateRecords({
+    await this.txUpdateRecords({
       name: ELocalDBStoreNames.Context,
       ids: [DB_MAIN_CONTEXT_ID],
       tx,
@@ -232,8 +231,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async resetContext() {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateContext({
         tx,
         updater(item) {
@@ -246,14 +244,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getBackupUUID(): Promise<string> {
-    const db = await this.readyDb;
     const context = await this.getContext();
     const { backupUUID } = context;
     if (!isNil(backupUUID)) {
       return backupUUID;
     }
     const newBackupUUID = generateUUID();
-    await db.withTransaction(async (tx) =>
+    await this.withTransaction(async (tx) =>
       this.txUpdateContext({
         tx,
         updater: (record) => {
@@ -310,8 +307,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async resetPasswordSet(): Promise<void> {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateContext({
         tx,
         updater: (record) => {
@@ -331,18 +327,17 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     newPassword: string;
     tx: ILocalDBTransaction;
   }) {
-    const db = await this.readyDb;
     if (!oldPassword || !newPassword) {
       throw new Error('password is required');
     }
 
     // update all credentials
-    const { recordPairs: credentialsRecordPairs } = await db.txGetAllRecords({
+    const { recordPairs: credentialsRecordPairs } = await this.txGetAllRecords({
       tx,
       name: ELocalDBStoreNames.Credential,
     });
 
-    await db.txUpdateRecords({
+    await this.txUpdateRecords({
       tx,
       recordPairs: credentialsRecordPairs,
       name: ELocalDBStoreNames.Credential,
@@ -394,8 +389,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async updateContextVerifyString({ verifyString }: { verifyString: string }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateContextVerifyString({
         tx,
         verifyString,
@@ -428,14 +422,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     newPassword: string;
     isCreateMode?: boolean;
   }): Promise<void> {
-    const db = await this.readyDb;
     if (oldPassword) {
       await this.verifyPassword(oldPassword);
     }
     if (!oldPassword && !isCreateMode) {
       throw new Error('changePassword ERROR: oldPassword is required');
     }
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       if (oldPassword) {
         // update all credentials
         await this.txUpdateAllCredentialsPassword({
@@ -454,8 +447,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async getAllCredentials(): Promise<IDBCredentialBase[]> {
-    const db = await this.readyDb;
-    const { records: credentials } = await db.getAllRecords({
+    const { records: credentials } = await this.getAllRecords({
       name: ELocalDBStoreNames.Credential,
     });
     return credentials;
@@ -466,8 +458,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     credentials: IDBCredentialBase[];
   }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.Credential,
@@ -525,8 +516,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: IDBGetAllWalletsParams = {}): Promise<{
     wallets: IDBWallet[];
   }> {
-    const db = await this.readyDb;
-    let { records } = await db.getAllRecords({
+    let { records } = await this.getAllRecords({
       name: ELocalDBStoreNames.Wallet,
     });
     if (refillWalletInfo) {
@@ -558,7 +548,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const ignoreEmptySingletonWalletAccounts =
       option?.ignoreEmptySingletonWalletAccounts;
     const includingAccounts = option?.includingAccounts;
-    const db = await this.readyDb;
 
     let allIndexedAccounts: IDBIndexedAccount[] | undefined;
     if (includingAccounts) {
@@ -694,7 +683,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     dbDeviceId: string;
     isQr: boolean;
   }): Promise<IDBWallet | undefined> {
-    const db = await this.readyDb;
     let parentWalletId = accountUtils.buildHwWalletId({
       dbDeviceId,
     });
@@ -735,7 +723,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     hiddenWallets?: IDBWallet[];
     allDevices?: IDBDevice[];
   }): Promise<IDBWallet> {
-    const db = await this.readyDb;
     let avatarInfo: IAvatarInfo | undefined;
     const parsedAvatar: IAvatarInfo = JSON.parse(wallet.avatar || '{}');
     if (Object.keys(parsedAvatar).length > 0) {
@@ -832,8 +819,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId: string;
     walletOrder: number;
   }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateWallet({
         tx,
         walletId,
@@ -854,8 +840,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexedAccountId: string;
     order: number;
   }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.IndexedAccount,
@@ -966,7 +951,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     walletId: string;
     allIndexedAccounts?: IDBIndexedAccount[];
   }) {
-    const db = await this.readyDb;
     let accounts: IDBIndexedAccount[] = [];
 
     const wallet =
@@ -1011,8 +995,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
     skipIfExists: boolean;
   }) {
-    const db = await this.readyDb;
-    return db.withTransaction(async (tx) =>
+    return this.withTransaction(async (tx) =>
       this.txAddIndexedAccount({
         tx,
         walletId,
@@ -1143,9 +1126,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async addHDNextIndexedAccount({ walletId }: { walletId: string }) {
-    const db = await this.readyDb;
     let indexedAccountId = '';
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
         tx,
         walletId,
@@ -1276,7 +1258,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async createHDWallet(
     params: IDBCreateHDWalletParams,
   ): Promise<{ wallet: IDBWallet; indexedAccount: IDBIndexedAccount }> {
-    const db = await this.readyDb;
     const { password, name, avatar, backuped, rs, walletHash } = params;
     const context = await this.getContext({ verifyPassword: password });
     const walletId = accountUtils.buildHdWalletId({
@@ -1287,7 +1268,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const firstAccountIndex = 0;
 
     let addedHdAccountIndex = -1;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       console.log('add db wallet');
       // add db wallet
       await this.txAddRecords({
@@ -1352,8 +1333,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async updateFirmwareVerified(params: IDBUpdateFirmwareVerifiedParams) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       const { device, verifyResult } = params;
       const { id, featuresInfo, features } = device;
       await this.txUpdateRecords({
@@ -1389,8 +1369,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!device) {
       return;
     }
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+
+    await this.withTransaction(async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -1410,9 +1390,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     dbDeviceId: string;
     label: string;
   }) {
-    const db = await this.readyDb;
     const device = await this.getDevice(dbDeviceId);
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -1455,7 +1434,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async createQrWallet({ qrDevice, airGapAccounts }: IDBCreateQRWalletParams) {
-    const db = await this.readyDb;
     const { deviceId: rawDeviceId, xfp } = qrDevice;
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
@@ -1519,7 +1497,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const firstAccountIndex = 0;
     let addedHdAccountIndex = -1;
 
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       if (existingDevice) {
         await this.txUpdateRecords({
           tx,
@@ -1687,8 +1665,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     device: IDBDevice;
     skipIfExists?: boolean;
   }) {
-    const db = await this.readyDb;
-    return db.withTransaction(async (tx) =>
+    return this.withTransaction(async (tx) =>
       this.txAddDbDevice({
         tx,
         device,
@@ -1740,8 +1717,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async restoreTempCreatedWallet({ walletId }: { walletId: string }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateWallet({
         tx,
         walletId,
@@ -1755,7 +1731,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   // TODO remove unused hidden wallet first
   async createHwWallet(params: IDBCreateHwWalletParams) {
-    const db = await this.readyDb;
     const {
       name,
       device,
@@ -1803,7 +1778,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     let addedHdAccountIndex = -1;
 
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       // add db device
       const now = Date.now();
       await this.txAddDbDevice({
@@ -1934,8 +1909,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async clearQrWalletAirGapAccountKeys({ walletId }: { walletId: string }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,
@@ -1967,7 +1941,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   // TODO clean wallets which associatedDevice is removed
   // TODO remove associate indexedAccount and account
   async removeWallet({ walletId }: IDBRemoveWalletParams): Promise<void> {
-    const db = await this.readyDb;
     const wallet = await this.getWallet({
       walletId,
     });
@@ -1975,7 +1948,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       associatedDevice: wallet.associatedDevice,
     });
 
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       // call remove account & indexed account
       // remove credential
       // remove wallet
@@ -2076,8 +2049,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     isTemp: boolean;
     hideImmediately?: boolean;
   }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateWallet({
         tx,
         walletId,
@@ -2097,7 +2069,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async setWalletNameAndAvatar(
     params: IDBSetWalletNameAndAvatarParams,
   ): Promise<IDBWallet> {
-    const db = await this.readyDb;
     const { walletId } = params;
     let wallet = await this.getWallet({ walletId });
 
@@ -2114,7 +2085,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       // update wallet name
       await this.txUpdateWallet({
         tx,
@@ -2265,8 +2236,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }>
   > {
     try {
-      const db = await this.readyDb;
-
       const info = (
         await Promise.all([
           this.getAddressByNetworkId({ networkId, address }),
@@ -2339,13 +2308,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const walletId = accountUtils.getWalletIdFromAccountId({
       accountId,
     });
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+
+    await this.withTransaction(async (tx) => {
       let recordPair:
         | ILocalDBTxGetRecordByIdResult<ELocalDBStoreNames.Address>
         | undefined;
       try {
-        recordPair = await db.txGetRecordById({
+        recordPair = await this.txGetRecordById({
           tx,
           name: ELocalDBStoreNames.Address,
           id,
@@ -2423,8 +2392,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     // accountNameBuilder for watching, imported, external account
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
   }): Promise<void> {
-    const db = await this.readyDb;
-
     this.validateAccountsFields(accounts);
 
     const wallet = await this.getWallet({ walletId });
@@ -2434,7 +2401,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       defaultValue: 1,
     });
 
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       const firstAccount: IDBAccount | undefined = accounts?.[0];
       if (
         firstAccount &&
@@ -2468,7 +2435,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
 
       const ids = accounts.map((item) => item.id);
-      let { records: existsAccounts = [] } = await db.txGetAllRecords({
+      let { records: existsAccounts = [] } = await this.txGetAllRecords({
         tx,
         name: ELocalDBStoreNames.Account,
         ids,
@@ -2480,7 +2447,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (existsAccounts && existsAccounts.length) {
         // TODO remove and re-add, may cause nextIds not correct,
         // TODO return actual removed count
-        await db.txRemoveRecords({
+        await this.txRemoveRecords({
           tx,
           name: ELocalDBStoreNames.Account,
           ids,
@@ -2511,7 +2478,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
 
       // add account record
-      let { added, addedIds } = await db.txAddRecords({
+      let { added, addedIds } = await this.txAddRecords({
         tx,
         name: ELocalDBStoreNames.Account,
         records: accounts,
@@ -2618,8 +2585,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (!accountUtils.isImportedAccount({ accountId })) {
       throw new Error('saveTonMnemonic ERROR: Not a imported account');
     }
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+
+    await this.withTransaction(async (tx) => {
       await this.txAddRecords({
         tx,
         name: ELocalDBStoreNames.Credential,
@@ -2643,7 +2610,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }): Promise<{
     accounts: IDBAccount[];
   }> {
-    const db = await this.readyDb;
     const wallet = await this.getWalletSafe({ walletId });
     if (!wallet) {
       return { accounts: [] };
@@ -2768,8 +2734,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accountId: string;
     order: number;
   }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Account,
@@ -2804,8 +2769,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }: {
     indexedAccounts: IDBIndexedAccount[];
   }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.IndexedAccount,
@@ -2822,8 +2786,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexedAccountId: string;
     walletId: string;
   }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.IndexedAccount,
@@ -2833,10 +2796,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async removeAccounts({ accounts }: { accounts: IDBAccount[] }) {
-    const db = await this.readyDb;
     const walletToRemovedAccountsMap: Record<string, string[]> = {};
 
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.Account,
@@ -2859,7 +2821,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     const mapEntries = Object.entries(walletToRemovedAccountsMap);
     if (mapEntries.length > 0) {
-      await db.withTransaction(async (tx) => {
+      await this.withTransaction(async (tx) => {
         for (const [walletId, accountIds] of mapEntries) {
           if (!walletId || !accountIds || accountIds.length === 0) {
             // eslint-disable-next-line no-continue
@@ -2887,8 +2849,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accountId: string;
     walletId: string;
   }): Promise<void> {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.Account,
@@ -2935,8 +2896,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     networkIds?: string[];
     createAtNetwork?: string;
   }) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Account,
@@ -2965,7 +2925,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async ensureAccountNameNotDuplicate(
     params: IDBEnsureAccountNameNotDuplicateParams,
   ): Promise<void> {
-    const db = await this.readyDb;
     const { walletId, name, selfAccountOrIndexedAccountId } = params;
     let currentAccounts: IDBIndexedAccount[] | IDBAccount[] = [];
     const isOthersWallet = accountUtils.isOthersWallet({ walletId });
@@ -3019,8 +2978,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
-    const db = await this.readyDb;
-
     if (params.name && params.shouldCheckDuplicate) {
       const id = params.indexedAccountId ?? params.accountId;
       if (params.indexedAccountId && params.accountId) {
@@ -3040,7 +2997,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       if (params.indexedAccountId) {
         await this.txUpdateRecords({
           tx,
@@ -3207,8 +3164,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     dbDeviceId,
     settings,
   }: IDBUpdateDeviceSettingsParams): Promise<void> {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Device,
@@ -3223,8 +3179,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   // ---------------------------------------------- signature record
   async addSignedMessage(params: ICreateSignedMessageParams) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       const [ctx] = await this.txGetContext({ tx }); // check context
       await this.txAddRecords({
         name: ELocalDBStoreNames.SignedMessage,
@@ -3248,10 +3203,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async addSignedTransaction(params: ICreateSignedTransactionParams) {
-    const db = await this.readyDb;
     const { data, ...rest } = params;
     const dataStringify = JSON.stringify(data);
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       const [ctx] = await this.txGetContext({ tx }); // check context
       await this.txAddRecords({
         name: ELocalDBStoreNames.SignedTransaction,
@@ -3276,8 +3230,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async addConnectedSite(params: ICreateConnectedSiteParams) {
-    const db = await this.readyDb;
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       const [ctx] = await this.txGetContext({ tx }); // check context
       await this.txAddRecords({
         name: ELocalDBStoreNames.ConnectedSite,
@@ -3301,11 +3254,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async removeAllSignedMessage() {
-    const db = await this.readyDb;
-    const allSignedMessage = await db.getAllRecords({
+    const allSignedMessage = await this.getAllRecords({
       name: ELocalDBStoreNames.SignedMessage,
     });
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         name: ELocalDBStoreNames.SignedMessage,
         tx,
@@ -3315,11 +3267,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async removeAllSignedTransaction() {
-    const db = await this.readyDb;
-    const allSignedTransaction = await db.getAllRecords({
+    const allSignedTransaction = await this.getAllRecords({
       name: ELocalDBStoreNames.SignedTransaction,
     });
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         name: ELocalDBStoreNames.SignedTransaction,
         tx,
@@ -3329,11 +3280,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async removeAllConnectedSite() {
-    const db = await this.readyDb;
-    const allConnectedSite = await db.getAllRecords({
+    const allConnectedSite = await this.getAllRecords({
       name: ELocalDBStoreNames.ConnectedSite,
     });
-    await db.withTransaction(async (tx) => {
+    await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         name: ELocalDBStoreNames.ConnectedSite,
         tx,
@@ -3344,10 +3294,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   // ---------------------------------------------- demo
   async demoGetDbContext() {
-    const db = await this.readyDb;
     const c = await this.getContext();
 
-    const ctx = await db.withTransaction(async (tx) => {
+    const ctx = await this.withTransaction(async (tx) => {
       // Uncaught (in promise) DOMException: Failed to execute 'abort' on 'IDBTransaction': The transaction has finished.
       // const [c] = await localDb.getRecordByIdFull({
       //   name: ELocalDBStoreNames.Context,
@@ -3371,8 +3320,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async demoDbUpdateUUID() {
-    const db = await this.readyDb;
-    const ctx = await db.withTransaction(async (tx) => {
+    const ctx = await this.withTransaction(async (tx) => {
       await this.txUpdateContext({
         tx,
         updater: (r) => {
@@ -3413,8 +3361,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async demoDbUpdateUUIDFixed() {
-    const db = await this.readyDb;
-    const ctx = await db.withTransaction(async (tx) => {
+    const ctx = await this.withTransaction(async (tx) => {
       const contextRecordPair = await this.txGetContext({ tx });
 
       await this.txUpdateRecords({
@@ -3440,8 +3387,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async demoAddRecord1() {
-    const db = await this.readyDb;
-    const ctx = await db.withTransaction(async (tx) => {
+    const ctx = await this.withTransaction(async (tx) => {
       const id = generateUUID();
       await this.txAddRecords({
         tx,
@@ -3472,8 +3418,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   async demoRemoveRecord1() {
-    const db = await this.readyDb;
-    const ctx = await db.withTransaction(async (tx) => {
+    const ctx = await this.withTransaction(async (tx) => {
       const { recordPairs } = await this.txGetAllRecords({
         tx,
         name: ELocalDBStoreNames.Credential,
@@ -3506,8 +3451,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   // TODO long time logic, multiple transaction
   async demoUpdateCredentialRecord() {
-    const db = await this.readyDb;
-    const ctx = await db.withTransaction(async (tx) => {
+    const ctx = await this.withTransaction(async (tx) => {
       const { recordPairs } = await this.txGetAllRecords({
         tx,
         name: ELocalDBStoreNames.Credential,

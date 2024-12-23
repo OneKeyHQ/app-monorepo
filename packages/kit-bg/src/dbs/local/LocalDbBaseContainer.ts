@@ -1,3 +1,4 @@
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -28,11 +29,11 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T> {
-    throw new Error(
-      'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
-    );
-    // const db = await this.readyDb;
-    // return db.withTransaction(task);
+    // throw new Error(
+    //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
+    // );
+    const db = await this.readyDb;
+    return db.withTransaction(task);
   }
 
   async getRecordsCount<T extends ELocalDBStoreNames>(
@@ -59,9 +60,18 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
-    if (this.isCachedStoreName(params.name)) {
+    // eslint-disable-next-line prefer-const
+    let shouldUseCache = this.isCachedStoreName(params.name);
+    if (
+      params.name === ELocalDBStoreNames.Account &&
+      params.id === accountUtils.URL_ACCOUNT_ID
+    ) {
+      // shouldUseCache = false;
+    }
+    if (shouldUseCache) {
       return this.getRecordByIdWithCache(params);
     }
+
     const db = await this.readyDb;
     return db.getRecordById(params);
   }
