@@ -89,6 +89,26 @@ export type IEstimateGasParams = {
   encodedTx?: IEncodedTx;
 };
 
+export type IFeesInfoUnit = {
+  common: {
+    baseFee?: string;
+    feeDecimals: number;
+    feeSymbol: string;
+    nativeDecimals: number;
+    nativeSymbol: string;
+    nativeTokenPrice?: number;
+  };
+  gas?: IGasLegacy[];
+  gasEIP1559?: IGasEIP1559[];
+  feeUTXO?: IFeeUTXO[];
+  feeTron?: IFeeTron[];
+  feeSol?: IFeeSol[];
+  feeCkb?: IFeeCkb[];
+  feeAlgo?: IFeeAlgo[];
+  feeDot?: IFeeDot[];
+  feeBudget?: IFeeSui[];
+};
+
 export type IFeeInfoUnit = {
   common: {
     baseFee?: string;

@@ -41,7 +41,8 @@ const ToastGallery = () => (
               onPress={() => {
                 Toast.success({
                   title: 'url!',
-                  message: 'look, <url href="https://onekey.so">OneKey</url> here. aaa',
+                  message:
+                    'look, <url href="https://onekey.so">OneKey</url> here. aaa',
                 });
               }}
             >
