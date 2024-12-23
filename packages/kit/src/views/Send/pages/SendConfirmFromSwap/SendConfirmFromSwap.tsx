@@ -2,23 +2,19 @@ import { useCallback, useEffect, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { StackActions, useNavigation } from '@react-navigation/native';
-import { useIntl } from 'react-intl';
 import { AppState } from 'react-native';
 
 import { Page, Spinner, Stack } from '@onekeyhq/components';
-import { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IGasEIP1559, IGasLegacy } from '@onekeyhq/shared/types/fee';
+import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import type { RouteProp } from '@react-navigation/core';
-import type {
-  NavigationAction,
-  StackActionType,
-} from '@react-navigation/native';
+import type { StackActionType } from '@react-navigation/native';
 
 function SendConfirmFromSwap() {
   const pendingAction = useRef<StackActionType>();
@@ -55,23 +51,40 @@ function SendConfirmFromSwap() {
           gas: multiTxsFeeResult.txFees[i].gas,
           gasEIP1559: multiTxsFeeResult.txFees[i].gasEIP1559,
         };
+        const isLastTx = i === len - 1;
 
-        appNavigation.push(EModalSendRoutes.SendConfirm, {
-          ...route.params,
-          unsignedTxs: [unsignedTx],
-          // @ts-ignore
-          _disabledAnimationOfNavigate: true,
+        await new Promise((resolve) => {
+          appNavigation.push(EModalSendRoutes.SendConfirm, {
+            ...route.params,
+            popStack: false,
+            unsignedTxs: [unsignedTx],
+            onSuccess: (data: ISendTxOnSuccessData[]) => {
+              if (isLastTx) {
+                onSuccess?.(data);
+                appNavigation.popStack();
+              }
+              resolve(data);
+            },
+            onFail: (error: Error) => {
+              onFail?.(error);
+
+              appNavigation.popStack();
+            },
+            onCancel: () => {
+              onCancel?.();
+              appNavigation.popStack();
+            },
+          });
         });
       }
     },
-    [unsignedTxs, appNavigation, route.params],
+    [unsignedTxs, appNavigation, route.params, onSuccess, onFail, onCancel],
   );
 
   const navigationToSendConfirm = useCallback(async () => {
     let action: any;
     let batchEstimateButSingleConfirm = false;
     const isMultiTxs = unsignedTxs.length > 1;
-
     if (
       isMultiTxs &&
       (accountUtils.isHwAccount({ accountId }) ||
@@ -90,7 +103,6 @@ function SendConfirmFromSwap() {
               networkId,
               encodedTxs: encodedTxList,
             });
-
           if (multiTxsFeeResult.txFees.length === unsignedTxs.length) {
             await handleConfirmMultiTxsOnHwOrExternal(multiTxsFeeResult);
             batchEstimateButSingleConfirm = true;
@@ -127,12 +139,16 @@ function SendConfirmFromSwap() {
     unsignedTxs,
   ]);
 
+  const handleOnClose = () => {
+    onCancel?.();
+  };
+
   useEffect(() => {
     void navigationToSendConfirm();
   }, [navigation, navigationToSendConfirm, route.params, unsignedTxs]);
 
   return (
-    <Page>
+    <Page onClose={handleOnClose}>
       <Page.Body>
         <Stack h="100%" justifyContent="center" alignContent="center">
           <Spinner size="large" />

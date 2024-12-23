@@ -65,6 +65,10 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
     component: SendConfirmFromDApp,
   },
   {
+    name: EModalSendRoutes.SendConfirmFromSwap,
+    component: SendConfirmFromSwap,
+  },
+  {
     name: EModalSendRoutes.SendReplaceTx,
     component: SendReplaceTx,
   },

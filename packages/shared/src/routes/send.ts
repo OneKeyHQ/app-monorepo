@@ -64,6 +64,7 @@ export type IModalSendParamList = {
     onFail?: (error: Error) => void;
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
+    popStack?: boolean;
   };
   [EModalSendRoutes.SendConfirmFromDApp]: undefined;
   [EModalSendRoutes.SendConfirmFromSwap]: {
