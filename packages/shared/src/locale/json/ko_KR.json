@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "이렇게 하면 OneKey의 모든 데이터가 삭제됩니다. 백업이 있는지 확인한 후 \"RESET\"을 입력하여 진행하십시오.",
   "settings.resources": "자원",
   "settings.select_wallet": "지갑 선택",
-  "settings.set_auto_lock_duration_desktop": "앱 창이 최소화되거나 장치 화면이 잠겨 있을 때, 지정된 시간 후에 자동으로 잠금이 설정됩니다.",
+  "settings.set_auto_lock_duration_desktop": "앱이 종료되지 않고 백그라운드에서 실행되거나 장치 화면이 잠겨있을 때, 지정된 시간 후에 자동으로 잠금이 설정됩니다.",
   "settings.set_auto_lock_duration_extension": "플러그인 창을 닫거나 사용하지 않는 탭이 있는 전체 화면 모드에서는 지정된 시간이 지나면 자동으로 잠급니다.",
   "settings.set_auto_lock_duration_mobile": "앱이 종료되지 않고 백그라운드에서 실행되거나 장치 화면이 잠겨있을 때, 지정된 시간 후에 자동으로 잠금이 설정됩니다.",
   "settings.set_auto_lock_duration_web": "앱이 사용하지 않는 탭이나 최소화된 창에 있을 때, 지정된 시간이 지나면 자동으로 잠길 것입니다.",

@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "Điều này sẽ xóa tất cả dữ liệu trên OneKey. Hãy đảm bảo bạn đã sao lưu, sau đó nhập \"RESET\" để tiếp tục.",
   "settings.resources": "Tài nguyên",
   "settings.select_wallet": "Chọn ví",
-  "settings.set_auto_lock_duration_desktop": "Khi cửa sổ ứng dụng được thu nhỏ hoặc màn hình thiết bị bị khóa, nó sẽ tự động khóa sau một khoảng thời gian đã chỉ định.",
+  "settings.set_auto_lock_duration_desktop": "Khi ứng dụng chạy ở chế độ nền mà không thoát ra hoặc khi màn hình thiết bị bị khóa, nó sẽ tự động khóa sau một khoảng thời gian đã chỉ định.",
   "settings.set_auto_lock_duration_extension": "Khi đóng cửa sổ plugin hoặc khi ở chế độ toàn màn hình với các tab không sử dụng, nó sẽ tự động khóa sau một khoảng thời gian đã chỉ định.",
   "settings.set_auto_lock_duration_mobile": "Khi ứng dụng chạy ở chế độ nền mà không thoát ra hoặc khi màn hình thiết bị bị khóa, nó sẽ tự động khóa sau một khoảng thời gian đã chỉ định.",
   "settings.set_auto_lock_duration_web": "Khi ứng dụng đang ở trong một tab không sử dụng hoặc cửa sổ đã thu nhỏ, nó sẽ tự động khóa sau một khoảng thời gian đã chỉ định.",
