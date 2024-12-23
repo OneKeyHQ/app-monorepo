@@ -1719,7 +1719,7 @@
   "settings.reset_app_desc": "Esto eliminará todos los datos en OneKey. Asegúrate de tener una copia de seguridad, luego ingresa \"RESET\" para proceder.",
   "settings.resources": "Recursos",
   "settings.select_wallet": "Seleccione el monedero",
-  "settings.set_auto_lock_duration_desktop": "Cuando la ventana de la aplicación está minimizada o la pantalla del dispositivo está bloqueada, se bloqueará automáticamente después de un período de tiempo especificado.",
+  "settings.set_auto_lock_duration_desktop": "Cuando la aplicación se ejecuta en segundo plano sin salir o cuando la pantalla del dispositivo está bloqueada, se bloqueará automáticamente después de un período de tiempo especificado.",
   "settings.set_auto_lock_duration_extension": "Cuando se cierra la ventana del complemento o cuando se está en modo de pantalla completa con pestañas sin usar, se bloqueará automáticamente después de un período de tiempo especificado.",
   "settings.set_auto_lock_duration_mobile": "Cuando la aplicación se ejecuta en segundo plano sin salir o cuando la pantalla del dispositivo está bloqueada, se bloqueará automáticamente después de un período de tiempo especificado.",
   "settings.set_auto_lock_duration_web": "Cuando la aplicación está en una pestaña sin usar o en una ventana minimizada, se bloqueará automáticamente después de un período de tiempo especificado.",
