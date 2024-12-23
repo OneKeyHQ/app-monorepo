@@ -697,6 +697,9 @@ function BasicEarnHome() {
           ...i,
           imgUrl: i.src,
           title: i.title || '',
+          titleTextProps: {
+            size: '$headingMd',
+          },
         })) || []
       );
     },
@@ -817,8 +820,8 @@ function BasicEarnHome() {
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
-            right: '$3.5',
-            left: '$3.5',
+            right: '$4',
+            left: '$4',
             justifyContent: 'center',
           }}
         />
