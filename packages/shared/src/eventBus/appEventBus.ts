@@ -85,6 +85,7 @@ export enum EAppEventBusNames {
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
+  RefreshNetInfo = 'RefreshNetInfo',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -257,6 +258,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled]: {
     enabled: boolean;
   };
+  [EAppEventBusNames.RefreshNetInfo]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -28,20 +28,10 @@ export class ClientEvm extends JsonRPCRequest {
       baseFeePerGas: string;
     }>('eth_getBlockByNumber', ['latest', false]);
     const baseFeePerGas = new BigNumber(hexBlock.baseFeePerGas);
-
-    // 0 also means not 1559
-    if (baseFeePerGas.isNaN() || baseFeePerGas.isEqualTo(0)) {
-      return { isEIP1559FeeEnabled: false };
-    }
-
-    let maxPriorityFeeSupported = true;
-    try {
-      await this.call('eth_maxPriorityFeePerGas');
-    } catch (error) {
-      maxPriorityFeeSupported = false;
-    }
-
-    return { isEIP1559FeeEnabled: maxPriorityFeeSupported };
+    const isEIP1559FeeEnabled = !(
+      baseFeePerGas.isNaN() || baseFeePerGas.isEqualTo(0)
+    ); // 0 also means not 1559
+    return { isEIP1559FeeEnabled };
   }
 
   async broadcastTransaction(rawTx: string): Promise<string> {
