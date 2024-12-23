@@ -106,7 +106,7 @@ class ServiceMarket extends ServiceBase {
     const keys = Object.keys(detailPlatforms);
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     try {
-      const poolsData = await Promise.all(
+      const poolsData = await Promise.allSettled(
         keys.map((key) =>
           client.get<{
             data: IMarketDetailPool[];
@@ -121,7 +121,14 @@ class ServiceMarket extends ServiceBase {
       return keys
         .map((key, index) => ({
           ...detailPlatforms[key],
-          data: poolsData[index].data.data,
+          data:
+            poolsData[index].status === 'fulfilled'
+              ? (
+                  poolsData[index].value as {
+                    data: { data: IMarketDetailPool[] };
+                  }
+                ).data.data
+              : [],
         }))
         .filter((i) => i.data.length);
     } catch {
