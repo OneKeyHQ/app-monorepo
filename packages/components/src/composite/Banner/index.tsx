@@ -43,9 +43,7 @@ function BannerItem<T extends IBannerData>({
   const item = useProps(rawItem, {
     resolveValues: 'value',
   }) as T;
-  const textStyle = useStyle(item.titleTextProps || {}, {
-    resolveValues: 'auto',
-  });
+  console.log('item.titleTextProps', item.titleTextProps);
   const onItemPress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
@@ -79,7 +77,7 @@ function BannerItem<T extends IBannerData>({
               key={index}
               color={item.theme === 'dark' ? '$textDark' : '$textLight'}
               size="$headingLg"
-              {...textStyle}
+              {...item.titleTextProps}
             >
               {text}
             </SizableText>
