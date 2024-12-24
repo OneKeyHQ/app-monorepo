@@ -109,16 +109,21 @@ class ServiceMarket extends ServiceBase {
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     try {
       const poolsData = await Promise.allSettled(
-        keys.map((key) =>
-          client.get<{
-            data: IMarketDetailPool[];
-          }>('/utility/v1/market/pools', {
-            params: {
-              query: detailPlatforms[key].contract_address,
-              network: detailPlatforms[key].coingeckoNetworkId,
-            },
-          }),
-        ),
+        keys.map((key) => {
+          const { contract_address: contractAddress, coingeckoNetworkId } =
+            detailPlatforms[key];
+          if (contractAddress && coingeckoNetworkId) {
+            return client.get<{
+              data: IMarketDetailPool[];
+            }>('/utility/v1/market/pools', {
+              params: {
+                query: contractAddress,
+                network: coingeckoNetworkId,
+              },
+            });
+          }
+          return Promise.resolve({ data: { data: [] } });
+        }),
       );
       return keys
         .map((key, index) => ({
@@ -133,7 +138,8 @@ class ServiceMarket extends ServiceBase {
               : [],
         }))
         .filter((i) => i.data.length);
-    } catch {
+    } catch (error) {
+      console.error('fetchPools error', error);
       return [];
     }
   }
