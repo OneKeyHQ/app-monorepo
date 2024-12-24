@@ -32,7 +32,6 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
-  SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -579,57 +578,14 @@ export function useSwapBuildTx() {
             const createBuildTxRes = await createBuildTx();
             if (createBuildTxRes) {
               await navigationToSendConfirm({
-                approvesInfo: [approvesInfo[0]],
                 isInternalSwap: true,
-                onSuccess: async (data: ISendTxOnSuccessData[]) => {
-                  if (approvesInfo.length > 1) {
-                    await navigationToSendConfirm({
-                      approvesInfo: [approvesInfo[1]],
-                      // tron network does not support use pre fee info
-                      feeInfo: SwapBuildUseMultiplePopoversNetworkIds.includes(
-                        fromToken.networkId,
-                      )
-                        ? undefined
-                        : data?.[0]?.feeInfo,
-                      isInternalSwap: true,
-                      onSuccess: async (dataRes: ISendTxOnSuccessData[]) => {
-                        await navigationToSendConfirm({
-                          transfersInfo: createBuildTxRes.transferInfo
-                            ? [createBuildTxRes.transferInfo]
-                            : undefined,
-                          encodedTx: createBuildTxRes.encodedTx,
-                          feeInfo:
-                            SwapBuildUseMultiplePopoversNetworkIds.includes(
-                              fromToken.networkId,
-                            )
-                              ? undefined
-                              : dataRes?.[0]?.feeInfo,
-                          swapInfo: createBuildTxRes.swapInfo,
-                          isInternalSwap: true,
-                          onSuccess: handleBuildTxSuccess,
-                          onCancel: cancelBuildTx,
-                        });
-                      },
-                      onCancel: cancelBuildTx,
-                    });
-                  } else {
-                    await navigationToSendConfirm({
-                      transfersInfo: createBuildTxRes.transferInfo
-                        ? [createBuildTxRes.transferInfo]
-                        : undefined,
-                      encodedTx: createBuildTxRes.encodedTx,
-                      swapInfo: createBuildTxRes.swapInfo,
-                      feeInfo: SwapBuildUseMultiplePopoversNetworkIds.includes(
-                        fromToken.networkId,
-                      )
-                        ? undefined
-                        : data?.[0]?.feeInfo,
-                      isInternalSwap: true,
-                      onSuccess: handleBuildTxSuccess,
-                      onCancel: cancelBuildTx,
-                    });
-                  }
-                },
+                transfersInfo: createBuildTxRes.transferInfo
+                  ? [createBuildTxRes.transferInfo]
+                  : undefined,
+                encodedTx: createBuildTxRes.encodedTx,
+                swapInfo: createBuildTxRes.swapInfo,
+                approvesInfo,
+                onSuccess: handleBuildTxSuccess,
                 onCancel: cancelBuildTx,
               });
 
