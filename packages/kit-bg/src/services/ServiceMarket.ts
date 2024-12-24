@@ -15,6 +15,8 @@ import type {
 
 import ServiceBase from './ServiceBase';
 
+import type { AxiosResponse } from 'axios';
+
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 
 @backgroundClass()
@@ -124,10 +126,10 @@ class ServiceMarket extends ServiceBase {
           data:
             poolsData[index].status === 'fulfilled'
               ? (
-                  poolsData[index].value as {
-                    data: { data: IMarketDetailPool[] };
-                  }
-                ).data.data
+                  poolsData[index] as PromiseFulfilledResult<
+                    AxiosResponse<{ data: IMarketDetailPool[] }>
+                  >
+                ).value.data.data
               : [],
         }))
         .filter((i) => i.data.length);
