@@ -25,6 +25,8 @@ function SendConfirmFromSwap() {
   const navigation = useNavigation();
   const appNavigation = useAppNavigation();
 
+  const navigationToNext = useRef(false);
+
   const route =
     useRoute<
       RouteProp<IModalSendParamList, EModalSendRoutes.SendConfirmFromSwap>
@@ -68,25 +70,28 @@ function SendConfirmFromSwap() {
         const isLastTx = i === len - 1;
 
         const result: ISendTxOnSuccessData[] = await new Promise((resolve) => {
+          navigationToNext.current = true;
           appNavigation.push(EModalSendRoutes.SendConfirm, {
             ...route.params,
             popStack: false,
             unsignedTxs: [unsignedTx],
             onSuccess: (data: ISendTxOnSuccessData[]) => {
+              navigationToNext.current = false;
               if (isLastTx) {
-                onSuccess?.(data);
                 appNavigation.pop();
+                onSuccess?.(data);
               }
               resolve(data);
             },
             onFail: (error: Error) => {
-              onFail?.(error);
-
+              navigationToNext.current = false;
               appNavigation.pop();
+              onFail?.(error);
             },
             onCancel: () => {
-              onCancel?.();
+              navigationToNext.current = false;
               appNavigation.pop();
+              onCancel?.();
             },
           });
         });
@@ -136,6 +141,7 @@ function SendConfirmFromSwap() {
     }
 
     if (!batchEstimateButSingleConfirm) {
+      navigationToNext.current = true;
       action = StackActions.replace(EModalSendRoutes.SendConfirm, {
         ...route.params,
         // @ts-ignore
@@ -160,7 +166,9 @@ function SendConfirmFromSwap() {
   ]);
 
   const handleOnClose = () => {
-    onCancel?.();
+    if (!navigationToNext.current) {
+      onCancel?.();
+    }
   };
 
   useEffect(() => {
