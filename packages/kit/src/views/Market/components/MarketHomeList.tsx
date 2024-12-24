@@ -690,36 +690,6 @@ function BasicMarketHomeList({
                       {record.name}
                     </SizableText>
                   </YStack>
-                  {/* <Button
-                  size="small"
-                  onPress={async () => {
-                    console.log('----log', item);
-                    const response =
-                      await backgroundApiProxy.serviceMarket.fetchPools(
-                        item.symbol,
-                        item.symbol,
-                      );
-        
-                    navigation.pushModal(EModalRoutes.SwapModal, {
-                      screen: EModalSwapRoutes.SwapMainLand,
-                      params: {
-                        importNetworkId: networkId,
-                        importFromToken: {
-                          contractAddress: tokenInfo.address,
-                          symbol: tokenInfo.symbol,
-                          networkId,
-                          isNative: tokenInfo.isNative,
-                          decimals: tokenInfo.decimals,
-                          name: tokenInfo.name,
-                          logoURI: tokenInfo.logoURI,
-                          networkLogoURI: network?.logoURI,
-                        },
-                      },
-                    });
-                  }}
-                >
-                  Swap
-                </Button> */}
                 </XStack>
               ),
               renderSkeleton: () => (

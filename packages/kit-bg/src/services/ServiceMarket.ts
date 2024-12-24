@@ -15,6 +15,8 @@ import type {
 
 import ServiceBase from './ServiceBase';
 
+import type { AxiosResponse } from 'axios';
+
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
 
 @backgroundClass()
@@ -106,25 +108,38 @@ class ServiceMarket extends ServiceBase {
     const keys = Object.keys(detailPlatforms);
     const client = await this.getClient(EServiceEndpointEnum.Utility);
     try {
-      const poolsData = await Promise.all(
-        keys.map((key) =>
-          client.get<{
-            data: IMarketDetailPool[];
-          }>('/utility/v1/market/pools', {
-            params: {
-              query: detailPlatforms[key].contract_address,
-              network: detailPlatforms[key].coingeckoNetworkId,
-            },
-          }),
-        ),
+      const poolsData = await Promise.allSettled(
+        keys.map((key) => {
+          const { contract_address: contractAddress, coingeckoNetworkId } =
+            detailPlatforms[key];
+          if (contractAddress && coingeckoNetworkId) {
+            return client.get<{
+              data: IMarketDetailPool[];
+            }>('/utility/v1/market/pools', {
+              params: {
+                query: contractAddress,
+                network: coingeckoNetworkId,
+              },
+            });
+          }
+          return Promise.resolve({ data: { data: [] } });
+        }),
       );
       return keys
         .map((key, index) => ({
           ...detailPlatforms[key],
-          data: poolsData[index].data.data,
+          data:
+            poolsData[index].status === 'fulfilled'
+              ? (
+                  poolsData[index] as PromiseFulfilledResult<
+                    AxiosResponse<{ data: IMarketDetailPool[] }>
+                  >
+                ).value.data.data
+              : [],
         }))
         .filter((i) => i.data.length);
-    } catch {
+    } catch (error) {
+      console.error('fetchPools error', error);
       return [];
     }
   }

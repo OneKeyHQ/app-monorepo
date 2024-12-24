@@ -32,7 +32,6 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
-  SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -52,7 +51,10 @@ import {
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
-import { useSwapSlippagePercentageModeInfo } from './useSwapState';
+import {
+  useSwapBatchTransfer,
+  useSwapSlippagePercentageModeInfo,
+} from './useSwapState';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
 export function useSwapBuildTx() {
@@ -66,7 +68,6 @@ export function useSwapBuildTx() {
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -81,7 +82,14 @@ export function useSwapBuildTx() {
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
   });
+
   const pageType = usePageType();
+
+  const isBatchTransfer = useSwapBatchTransfer(
+    swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  );
+
   const syncRecentTokenPairs = useCallback(
     async ({
       swapFromToken,
@@ -533,7 +541,7 @@ export function useSwapBuildTx() {
         swapFromAddressInfo.accountInfo?.account?.id &&
         swapFromAddressInfo.address
       ) {
-        if (settingsPersistAtom.swapBatchApproveAndSwap) {
+        if (isBatchTransfer) {
           try {
             setSwapBuildTxFetching(true);
             let approvesInfo: IApproveInfo[] = [];
@@ -569,80 +577,18 @@ export function useSwapBuildTx() {
             }
             const createBuildTxRes = await createBuildTx();
             if (createBuildTxRes) {
-              if (
-                SwapBuildUseMultiplePopoversNetworkIds.includes(
-                  fromToken.networkId,
-                )
-              ) {
-                await navigationToSendConfirm({
-                  approvesInfo: [approvesInfo[0]],
-                  isInternalSwap: true,
-                  onSuccess: async (data: ISendTxOnSuccessData[]) => {
-                    if (approvesInfo.length > 1) {
-                      await navigationToSendConfirm({
-                        approvesInfo: [approvesInfo[1]],
-                        // tron network does not support use pre fee info
-                        feeInfo:
-                          SwapBuildUseMultiplePopoversNetworkIds.includes(
-                            fromToken.networkId,
-                          )
-                            ? undefined
-                            : data?.[0]?.feeInfo,
-                        isInternalSwap: true,
-                        onSuccess: async (dataRes: ISendTxOnSuccessData[]) => {
-                          await navigationToSendConfirm({
-                            transfersInfo: createBuildTxRes.transferInfo
-                              ? [createBuildTxRes.transferInfo]
-                              : undefined,
-                            encodedTx: createBuildTxRes.encodedTx,
-                            feeInfo:
-                              SwapBuildUseMultiplePopoversNetworkIds.includes(
-                                fromToken.networkId,
-                              )
-                                ? undefined
-                                : dataRes?.[0]?.feeInfo,
-                            swapInfo: createBuildTxRes.swapInfo,
-                            isInternalSwap: true,
-                            onSuccess: handleBuildTxSuccess,
-                            onCancel: cancelBuildTx,
-                          });
-                        },
-                        onCancel: cancelBuildTx,
-                      });
-                    } else {
-                      await navigationToSendConfirm({
-                        transfersInfo: createBuildTxRes.transferInfo
-                          ? [createBuildTxRes.transferInfo]
-                          : undefined,
-                        encodedTx: createBuildTxRes.encodedTx,
-                        swapInfo: createBuildTxRes.swapInfo,
-                        feeInfo:
-                          SwapBuildUseMultiplePopoversNetworkIds.includes(
-                            fromToken.networkId,
-                          )
-                            ? undefined
-                            : data?.[0]?.feeInfo,
-                        isInternalSwap: true,
-                        onSuccess: handleBuildTxSuccess,
-                        onCancel: cancelBuildTx,
-                      });
-                    }
-                  },
-                  onCancel: cancelBuildTx,
-                });
-              } else {
-                await navigationToSendConfirm({
-                  isInternalSwap: true,
-                  transfersInfo: createBuildTxRes.transferInfo
-                    ? [createBuildTxRes.transferInfo]
-                    : undefined,
-                  encodedTx: createBuildTxRes.encodedTx,
-                  swapInfo: createBuildTxRes.swapInfo,
-                  approvesInfo,
-                  onSuccess: handleBuildTxSuccess,
-                  onCancel: cancelBuildTx,
-                });
-              }
+              await navigationToSendConfirm({
+                isInternalSwap: true,
+                transfersInfo: createBuildTxRes.transferInfo
+                  ? [createBuildTxRes.transferInfo]
+                  : undefined,
+                encodedTx: createBuildTxRes.encodedTx,
+                swapInfo: createBuildTxRes.swapInfo,
+                approvesInfo,
+                onSuccess: handleBuildTxSuccess,
+                onCancel: cancelBuildTx,
+              });
+
               void syncRecentTokenPairs({
                 swapFromToken: fromToken,
                 swapToToken: toToken,
@@ -723,16 +669,16 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.networkId,
       swapFromAddressInfo.accountInfo?.account?.id,
       swapFromAddressInfo.address,
-      settingsPersistAtom.swapBatchApproveAndSwap,
+      isBatchTransfer,
       setSwapBuildTxFetching,
       createBuildTx,
+      navigationToSendConfirm,
+      cancelBuildTx,
       syncRecentTokenPairs,
       slippageItem.value,
       isFirstTimeSwap,
       pageType,
       setPersistSettings,
-      navigationToSendConfirm,
-      cancelBuildTx,
       handleBuildTxSuccess,
       setSwapShouldRefreshQuote,
       setInAppNotificationAtom,
