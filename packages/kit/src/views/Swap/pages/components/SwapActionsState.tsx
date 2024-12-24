@@ -69,7 +69,6 @@ function PageFooter({
   actionComponent: React.JSX.Element;
 }) {
   const isShow = useIsKeyboardShown();
-  const intl = useIntl();
   return (
     <Page.Footer>
       <Page.FooterActions
@@ -101,6 +100,7 @@ function PageFooter({
               />
             ))}
             <Button
+              icon="CheckLargeOutline"
               flex={1}
               h="$10"
               size="small"
@@ -111,11 +111,7 @@ function PageFooter({
               onPress={() => {
                 Keyboard.dismiss();
               }}
-            >
-              {intl.formatMessage({
-                id: ETranslations.global_confirm,
-              })}
-            </Button>
+            />
           </>
         </XStack>
       ) : null}
