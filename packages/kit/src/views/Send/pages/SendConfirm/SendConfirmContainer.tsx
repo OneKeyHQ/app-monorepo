@@ -64,6 +64,7 @@ function SendConfirmContainer() {
     useFeeInTx,
     transferPayload,
     feeInfoEditable,
+    popStack,
   } = route.params;
 
   const dappApprove = useDappApproveAction({
@@ -208,6 +209,7 @@ function SendConfirmContainer() {
           />
         </Page.Body>
         <SendConfirmActionsContainer
+          popStack={popStack}
           sourceInfo={sourceInfo}
           signOnly={signOnly}
           accountId={accountId}
@@ -233,6 +235,7 @@ function SendConfirmContainer() {
       networkId,
       transferPayload,
       unsignedTxs,
+      popStack,
       signOnly,
       onSuccess,
       onFail,

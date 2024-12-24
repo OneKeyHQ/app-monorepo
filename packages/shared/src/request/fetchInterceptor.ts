@@ -58,6 +58,7 @@ const newFetch = async function (
   const isOneKeyDomain = await checkIsOneKeyDomain(url);
   let requestId: string | undefined;
   if (isOneKeyDomain) {
+    options.headers = options.headers || {};
     const headers = await getRequestHeaders();
     requestId = headers[HEADER_REQUEST_ID_KEY];
     forEach(headers, (val, key) => {

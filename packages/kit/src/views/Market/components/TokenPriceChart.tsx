@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { useWindowDimensions } from 'react-native';
 
 import {
+  AnimatePresence,
   SegmentControl,
   Spinner,
   Stack,
@@ -13,7 +14,10 @@ import {
   useSafeAreaInsets,
   useTabBarHeight,
 } from '@onekeyhq/components';
-import type { ISegmentControlProps } from '@onekeyhq/components';
+import type {
+  IDeferredPromise,
+  ISegmentControlProps,
+} from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -27,7 +31,6 @@ import { TradingView } from '../../../components/TradingView';
 import { PriceChart } from './Chart';
 
 import type { ITradingViewProps } from '../../../components/TradingView';
-import type { IDeferredPromise } from '../../../hooks/useDeferredPromise';
 
 interface IChartProps {
   coinGeckoId: string;
@@ -38,7 +41,20 @@ interface IChartProps {
   height: number;
 }
 
-function NativeTokenPriceChart({ coinGeckoId, height, defer }: IChartProps) {
+function Loading() {
+  return (
+    <Stack flex={1} alignContent="center" justifyContent="center">
+      <Spinner size="large" />
+    </Stack>
+  );
+}
+
+function NativeTokenPriceChart({
+  coinGeckoId,
+  height,
+  defer,
+  onLoadEnd,
+}: IChartProps & { onLoadEnd: () => void }) {
   const intl = useIntl();
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -84,8 +100,9 @@ function NativeTokenPriceChart({ coinGeckoId, height, defer }: IChartProps) {
       await defer.promise;
     }
     setPoints(response);
+    onLoadEnd();
     setIsLoading(false);
-  }, [coinGeckoId, days, defer, md]);
+  }, [coinGeckoId, days, defer, md, onLoadEnd]);
 
   useEffect(() => {
     void init();
@@ -137,8 +154,12 @@ const useHeight = () => {
 
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
-    if (platformEnv.isNative) {
+    if (platformEnv.isNativeIOS) {
       return 268;
+    }
+
+    if (platformEnv.isNativeAndroid) {
+      return 278;
     }
 
     return 300;
@@ -154,8 +175,10 @@ function TradingViewChart({
   baseToken,
   defer,
   height,
+  onLoadEnd,
 }: Omit<ITradingViewProps, 'mode'> & {
   defer: IDeferredPromise<unknown>;
+  onLoadEnd: () => void;
 }) {
   useEffect(() => {
     defer.resolve(null);
@@ -170,6 +193,7 @@ function TradingViewChart({
       targetToken={targetToken}
       baseToken={baseToken}
       identifier={identifier}
+      onLoadEnd={onLoadEnd}
     />
   );
 }
@@ -214,6 +238,10 @@ function BasicTokenPriceChart({
   tickers,
   isFetching,
 }: Omit<IChartProps, 'height'>) {
+  const [showLoading, changeShowLoading] = useState(true);
+  const onLoadEnd = useCallback(() => {
+    changeShowLoading(false);
+  }, []);
   const ticker = useMemo(() => {
     if (!tickers?.length) {
       return null;
@@ -249,33 +277,50 @@ function BasicTokenPriceChart({
   const viewHeight = useHeight();
 
   if (isFetching) {
-    return (
-      <Stack
-        h={viewHeight}
-        w="100%"
-        alignContent="center"
-        justifyContent="center"
-      >
-        <Spinner size="large" />
-      </Stack>
-    );
+    return null;
   }
 
-  return ticker ? (
-    <TradingViewChart
-      defer={defer}
-      height={viewHeight}
-      identifier={ticker?.identifier}
-      baseToken={ticker?.baseToken}
-      targetToken={ticker?.targetToken}
-    />
-  ) : (
-    <NativeTokenPriceChart
-      height={viewHeight}
-      isFetching={isFetching}
-      coinGeckoId={coinGeckoId}
-      defer={defer}
-    />
+  return (
+    <>
+      {ticker ? (
+        <TradingViewChart
+          defer={defer}
+          height={viewHeight}
+          identifier={ticker?.identifier}
+          baseToken={ticker?.baseToken}
+          targetToken={ticker?.targetToken}
+          onLoadEnd={onLoadEnd}
+        />
+      ) : (
+        <NativeTokenPriceChart
+          height={viewHeight}
+          isFetching={isFetching}
+          coinGeckoId={coinGeckoId}
+          defer={defer}
+          onLoadEnd={onLoadEnd}
+        />
+      )}
+      <AnimatePresence>
+        {showLoading ? (
+          <Stack
+            bg="$bgApp"
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            opacity={1}
+            flex={1}
+            animation="quick"
+            exitStyle={{
+              opacity: 0,
+            }}
+          >
+            <Loading />
+          </Stack>
+        ) : null}
+      </AnimatePresence>
+    </>
   );
 }
 

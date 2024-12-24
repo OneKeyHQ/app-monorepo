@@ -115,7 +115,7 @@ export function PriceLabel({
         <SizableText
           size="$bodyMd"
           color="$textSubdued"
-          $md={{ size: '$bodySm', color: '$text' }}
+          $md={{ color: '$text' }}
         >
           {time}
         </SizableText>
@@ -144,14 +144,15 @@ export function PriceLabel({
       $gtMd={{ height: '$10' }}
     >
       <XStack>{displayInfo}</XStack>
-      <NumberSizeableText
-        size="$bodyMdMedium"
-        formatter="price"
-        formatterOptions={{ currency }}
-        $md={{ size: '$bodySmMedium', ml: '$2' }}
-      >
-        {String(price)}
-      </NumberSizeableText>
+      <XStack $md={{ ml: '$2' }}>
+        <NumberSizeableText
+          size="$bodyMd"
+          formatter="price"
+          formatterOptions={{ currency }}
+        >
+          {String(price)}
+        </NumberSizeableText>
+      </XStack>
     </Stack>
   );
 }

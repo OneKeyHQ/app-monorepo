@@ -43,9 +43,6 @@ function BannerItem<T extends IBannerData>({
   const item = useProps(rawItem, {
     resolveValues: 'value',
   }) as T;
-  const textStyle = useStyle(item.titleTextProps || {}, {
-    resolveValues: 'auto',
-  });
   const onItemPress = useCallback(() => {
     onPress(item);
   }, [item, onPress]);
@@ -79,7 +76,7 @@ function BannerItem<T extends IBannerData>({
               key={index}
               color={item.theme === 'dark' ? '$textDark' : '$textLight'}
               size="$headingLg"
-              {...textStyle}
+              {...item.titleTextProps}
             >
               {text}
             </SizableText>
@@ -142,7 +139,7 @@ export function Banner<T extends IBannerData>({
               <IconButton
                 position="absolute"
                 left="$10"
-                top="50%"
+                bottom="50%"
                 transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
                 icon="ChevronLeftOutline"
                 variant="tertiary"
@@ -163,7 +160,7 @@ export function Banner<T extends IBannerData>({
                 variant="tertiary"
                 position="absolute"
                 right="$10"
-                top="50%"
+                bottom="50%"
                 transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
                 iconProps={{
                   color:

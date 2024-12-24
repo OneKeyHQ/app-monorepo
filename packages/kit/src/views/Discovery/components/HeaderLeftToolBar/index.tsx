@@ -1,8 +1,11 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import {
   Icon,
   Input,
+  Popover,
   SizableText,
   Stack,
   Tooltip,
@@ -16,7 +19,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
+import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 
 function HeaderLeftToolBar({
   url,
@@ -47,6 +52,8 @@ function HeaderLeftToolBar({
   isPinned?: boolean;
   onPinnedPress?: (pinned: boolean) => void;
 }) {
+  const { hostSecurity, iconConfig } = useUrlRiskConfig(url);
+  const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const intl = useIntl();
   const media = useMedia();
 
@@ -70,8 +77,8 @@ function HeaderLeftToolBar({
       >
         <Icon
           size="$5"
-          color="$iconSubdued"
-          name={isHttpsUrl ? 'LockSolid' : 'SearchSolid'}
+          color={iconConfig.iconColor}
+          name={iconConfig.iconName}
         />
         <SizableText size="$bodyLg" flex={1} numberOfLines={1} ml="$2">
           {url}
@@ -124,51 +131,77 @@ function HeaderLeftToolBar({
           testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
         />
       </HeaderButtonGroup>
-      <Input
-        containerProps={{ ml: '$6', w: '$80' } as any}
-        size="small"
-        leftIconName={isHttpsUrl ? 'LockSolid' : 'SearchSolid'}
-        value={hiddenHttpsUrl}
-        selectTextOnFocus
-        testID="explore-index-search-input"
-        addOns={[
-          {
-            iconName: isBookmark ? 'StarSolid' : 'StarOutline',
-            onPress: () => onBookmarkPress?.(!isBookmark),
-            tooltipProps: {
-              shortcutKey: EShortcutEvents.AddOrRemoveBookmark,
-              renderContent: intl.formatMessage({
-                id: isBookmark
-                  ? ETranslations.explore_remove_bookmark
-                  : ETranslations.explore_add_bookmark,
+      <Stack>
+        <Input
+          containerProps={{ ml: '$6', w: '$80' } as any}
+          size="small"
+          leftAddOnProps={{
+            ...iconConfig,
+            iconSize: '$4',
+            mr: '$-2',
+            onPress: () => {
+              setDappInfoIsOpen(true);
+            },
+          }}
+          pb="$1.5"
+          value={hiddenHttpsUrl}
+          selectTextOnFocus
+          testID="explore-index-search-input"
+          addOns={[
+            {
+              iconName: isBookmark ? 'StarSolid' : 'StarOutline',
+              onPress: () => onBookmarkPress?.(!isBookmark),
+              tooltipProps: {
+                shortcutKey: EShortcutEvents.AddOrRemoveBookmark,
+                renderContent: intl.formatMessage({
+                  id: isBookmark
+                    ? ETranslations.explore_remove_bookmark
+                    : ETranslations.explore_add_bookmark,
+                }),
+              },
+              testID: `action-header-item-${
+                !isBookmark ? 'bookmark' : 'remove-bookmark'
+              }`,
+              ...(isBookmark && {
+                iconColor: '$icon',
               }),
             },
-            testID: `action-header-item-${
-              !isBookmark ? 'bookmark' : 'remove-bookmark'
-            }`,
-            ...(isBookmark && {
-              iconColor: '$icon',
-            }),
-          },
-          {
-            iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
-            onPress: () => onPinnedPress?.(!isPinned),
-            tooltipProps: {
-              shortcutKey: EShortcutEvents.PinOrUnpinTab,
-              renderContent: intl.formatMessage({
-                id: isPinned
-                  ? ETranslations.explore_unpin
-                  : ETranslations.explore_pin,
+            {
+              iconName: isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
+              onPress: () => onPinnedPress?.(!isPinned),
+              tooltipProps: {
+                shortcutKey: EShortcutEvents.PinOrUnpinTab,
+                renderContent: intl.formatMessage({
+                  id: isPinned
+                    ? ETranslations.explore_unpin
+                    : ETranslations.explore_pin,
+                }),
+              },
+              testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
+              ...(isPinned && {
+                iconColor: '$icon',
               }),
             },
-            testID: `action-header-item-${!isPinned ? 'pin' : 'un-pin'}`,
-            ...(isPinned && {
-              iconColor: '$icon',
-            }),
-          },
-        ]}
-        {...(inputProps as any)}
-      />
+          ]}
+          {...(inputProps as any)}
+        />
+        <Stack ml={24}>
+          <Popover
+            placement="bottom-start"
+            title="dApp info"
+            open={dappInfoIsOpen}
+            onOpenChange={setDappInfoIsOpen}
+            renderTrigger={<Stack />}
+            renderContent={({ closePopover }) => (
+              <DappInfoPopoverContent
+                iconConfig={iconConfig}
+                hostSecurity={hostSecurity}
+                closePopover={closePopover}
+              />
+            )}
+          />
+        </Stack>
+      </Stack>
     </XStack>
   );
 }

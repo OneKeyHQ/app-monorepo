@@ -2664,6 +2664,27 @@ export const presetNetworksMap = {
   benfen,
 };
 
+const bbnTestnet: IServerNetwork = {
+  'chainId': 'bbn-test-5',
+  'code': 'ubbn',
+  'decimals': 6,
+  'id': 'cosmos--bbn-test-5',
+  'impl': 'cosmos',
+  'isTestnet': true,
+  'logoURI': 'https://uni.onekey-asset.com/static/logo/babylon.png',
+  'name': 'Babylon Testnet',
+  'shortcode': 'bbn',
+  'shortname': 'BBN',
+  'symbol': 'BBN',
+  'feeMeta': {
+    'code': 'ubbn',
+    'decimals': 6,
+    'symbol': 'UBBN',
+  },
+  'defaultEnabled': false,
+  'status': ENetworkStatus.LISTED,
+};
+
 // top 20 tvl evm networks
 export const getDefaultEnabledEVMNetworksInAllNetworks = memoFn(
   (): IServerNetwork[] => [
@@ -2769,6 +2790,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   akash,
   osmosis,
   cosmoshub,
+  bbnTestnet,
+
   // polkadot
   polkadot,
   astar,

@@ -9,6 +9,7 @@ import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
 import { SendConfirmFromDApp } from '../pages/SendConfirmFromDApp/SendConfirmFromDApp';
+import { SendConfirmFromSwap } from '../pages/SendConfirmFromSwap/SendConfirmFromSwap';
 
 const LnurlPayRequestModal = LazyLoadPage(
   () =>
@@ -62,6 +63,10 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendConfirmFromDApp,
     component: SendConfirmFromDApp,
+  },
+  {
+    name: EModalSendRoutes.SendConfirmFromSwap,
+    component: SendConfirmFromSwap,
   },
   {
     name: EModalSendRoutes.SendReplaceTx,

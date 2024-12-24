@@ -39,7 +39,15 @@ export function useTokenManagement({
           allNetworkAccountId: isAllNetwork ? accountId : undefined,
         }),
       ]);
-      const allTokens = [...tokenList.tokens, ...customTokens];
+      const allTokens = await Promise.all(
+        [...tokenList.tokens, ...customTokens].map((token) =>
+          backgroundApiProxy.serviceToken.mergeTokenMetadataWithCustomData({
+            token,
+            customTokens,
+            networkId,
+          }),
+        ),
+      );
       const uniqueTokens = allTokens.filter(
         (token, index, self) =>
           index ===

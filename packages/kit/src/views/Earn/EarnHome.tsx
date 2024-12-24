@@ -697,6 +697,9 @@ function BasicEarnHome() {
           ...i,
           imgUrl: i.src,
           title: i.title || '',
+          titleTextProps: {
+            size: '$headingMd',
+          },
         })) || []
       );
     },
@@ -799,22 +802,26 @@ function BasicEarnHome() {
           onItemPress={onBannerPress}
           isLoading={false}
           leftIconButtonStyle={{
-            left: '$1.5',
+            left: '$3.5',
+            bottom: '$2.5',
             size: 'small',
           }}
           rightIconButtonStyle={{
-            right: '$1.5',
+            right: '$3.5',
+            bottom: '$2.5',
             size: 'small',
           }}
           indicatorContainerStyle={{
-            right: '$2.5',
-            bottom: '$3',
+            right: 0,
+            width: '100%',
+            jc: 'center',
+            bottom: '$5',
           }}
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
-            right: '$10',
-            left: '$10',
+            right: '$5',
+            left: '$5',
             justifyContent: 'center',
           }}
         />

@@ -402,7 +402,8 @@ function HistoryDetails() {
       overrideIsFocused: (isPageFocused) =>
         isPageFocused &&
         (!historyInit.current ||
-          (historyTxParam?.decodedTx.status === EDecodedTxStatus.Pending &&
+          ((historyTxParam?.decodedTx.status ?? EDecodedTxStatus.Pending) ===
+            EDecodedTxStatus.Pending &&
             !historyConfirmed.current)),
     },
   );

@@ -637,6 +637,11 @@ function createMainWindow() {
     safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(themeKey));
   });
 
+  ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    event.returnValue = safelyBrowserWindow?.isFocused();
+  });
+
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {
     if (isWin) {
       logger.info(

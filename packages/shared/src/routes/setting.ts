@@ -16,6 +16,7 @@ export enum EModalSettingRoutes {
   SettingNotifications = 'SettingNotifications',
   SettingManageAccountActivity = 'SettingManageAccountActivity',
   SettingAlignPrimaryAccount = 'SettingAlignPrimaryAccount',
+  SettingFloatingIconModal = 'SettingFloatingIconModal',
 }
 
 export type IModalSettingParamList = {
@@ -36,4 +37,5 @@ export type IModalSettingParamList = {
   [EModalSettingRoutes.SettingNotifications]: undefined;
   [EModalSettingRoutes.SettingManageAccountActivity]: undefined;
   [EModalSettingRoutes.SettingAlignPrimaryAccount]: undefined;
+  [EModalSettingRoutes.SettingFloatingIconModal]: undefined;
 };

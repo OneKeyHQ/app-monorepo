@@ -21,7 +21,7 @@ export const EXT_HTML_FILES = {
 
 // Chrome extension popups can have a maximum height of 600px and maximum width of 800px
 export const UI_HTML_DEFAULT_MIN_WIDTH = 375;
-export const UI_HTML_DEFAULT_MIN_HEIGHT = 600;
+export const UI_HTML_DEFAULT_MIN_HEIGHT = 670;
 
 export type IOpenUrlRouteInfo = {
   routes?: string | string[];

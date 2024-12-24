@@ -246,6 +246,7 @@ export interface IFetchQuoteResult {
   fee?: IFetchQuoteFee;
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
+  approvedInfo?: IApprovedInfo;
   estimatedTime?: string;
   isBest?: boolean;
   receivedBest?: boolean;
@@ -273,6 +274,12 @@ export interface IAllowanceResult {
   allowanceTarget: string;
   amount: string;
   shouldResetApprove?: boolean;
+}
+
+export interface IApprovedInfo {
+  isApproved: boolean;
+  allowanceTarget?: string;
+  amount?: string;
 }
 
 export interface IFetchQuoteInfo {

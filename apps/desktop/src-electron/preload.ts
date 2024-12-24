@@ -54,6 +54,7 @@ export type IDesktopAPI = {
   onAppState: (cb: (state: IDesktopAppState) => void) => () => void;
   canPromptTouchID: () => boolean;
   getEnvPath: () => { [key: string]: string };
+  isFocused: () => boolean;
   changeDevTools: (isOpen: boolean) => void;
   changeTheme: (theme: string) => void;
   changeLanguage: (theme: string) => void;
@@ -277,6 +278,7 @@ const desktopApi = Object.freeze({
     },
   getBundleInfo: () =>
     ipcRenderer.sendSync(ipcMessageKeys.APP_GET_BUNDLE_INFO) as IMacBundleInfo,
+  isFocused: () => ipcRenderer.sendSync(ipcMessageKeys.APP_IS_FOCUSED),
   openLoggerFile: () => ipcRenderer.send(ipcMessageKeys.APP_OPEN_LOGGER_FILE),
   testCrash: () => ipcRenderer.send(ipcMessageKeys.APP_TEST_CRASH),
   promptTouchID: async (

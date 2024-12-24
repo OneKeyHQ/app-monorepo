@@ -56,6 +56,7 @@ export const ipcMessageKeys = {
   APP_OPEN_LOGGER_FILE: 'app/openLoggerFile',
   APP_TEST_CRASH: 'app/testCrash',
   APP_UPDATE_DISABLE_SHORTCUTS: 'app/updateDisableShortcuts',
+  APP_IS_FOCUSED: 'app/isFocused',
 
   // Theme
   THEME_UPDATE: 'theme/update',

@@ -200,7 +200,11 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
 
     const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
     if (!isTaprootPath(dbAccount.path)) {
-      throw new AddressNotSupportSignMethodError();
+      throw new AddressNotSupportSignMethodError({
+        info: {
+          type: 'Taproot',
+        },
+      });
     }
 
     const network = await this.getNetwork();
@@ -327,7 +331,11 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         const dAppSignType = (type as 'ecdsa' | 'bip322-simple') || undefined;
 
         if (dAppSignType && !isTaprootPath(dbAccount.path)) {
-          throw new AddressNotSupportSignMethodError();
+          throw new AddressNotSupportSignMethodError({
+            info: {
+              type: 'Taproot',
+            },
+          });
         }
 
         const response = await sdk.btcSignMessage(connectId, deviceId, {

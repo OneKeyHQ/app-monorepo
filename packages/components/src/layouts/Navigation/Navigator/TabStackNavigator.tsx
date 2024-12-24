@@ -34,13 +34,13 @@ function TabSubStackNavigator({
             component={component}
             options={({ navigation }: { navigation: any }) => ({
               freezeOnBlur: true,
-              headerShown,
               title: translationId
                 ? intl.formatMessage({
                     id: translationId,
                   })
                 : '',
               ...makeTabScreenOptions({ navigation, bgColor, titleColor }),
+              headerShown,
             })}
           />
         ))}

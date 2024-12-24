@@ -40,3 +40,8 @@ exports.createResolveExtensions = function ({ platform, configName }) {
     '.d.ts',
   ]);
 };
+
+exports.getOutputFolder = function () {
+  const buildTargetBrowser = TARGET_BROWSER;
+  return `${buildTargetBrowser}_v3`;
+};

@@ -30,6 +30,7 @@ export interface IMarketToken {
   marketCap: number;
   symbol: string;
   iconUrl: string;
+  isSupportBuy: boolean;
   image: string;
   priceChangePercentage1H: number;
   priceChangePercentage24H: number;

@@ -110,6 +110,11 @@ function TxFeeContainer(props: IProps) {
     [unsignedTxs],
   );
 
+  const isSingleTxWithFeesInfo = useMemo(
+    () => unsignedTxs.length === 1 && unsignedTxs[0].feesInfo,
+    [unsignedTxs],
+  );
+
   const isSecondApproveTxWithFeeInfo = useMemo(
     () =>
       unsignedTxs.length === 1 &&
@@ -185,6 +190,21 @@ function TxFeeContainer(props: IProps) {
             encodedTx: unsignedTxs[0].encodedTx,
           });
 
+        if (isSingleTxWithFeesInfo) {
+          const r = unsignedTxs[0].feesInfo;
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Success,
+            errMessage: '',
+          });
+          setTxFeeInit(true);
+          updateTxAdvancedSettings({ dataChanged: false });
+          return {
+            r,
+            e,
+            m: undefined,
+          };
+        }
+
         if (
           (isLastSwapTxWithFeeInfo || isSecondApproveTxWithFeeInfo) &&
           unsignedTxs[0].feeInfo
@@ -207,6 +227,7 @@ function TxFeeContainer(props: IProps) {
               feeCkb: r.feeCkb ? [r.feeCkb] : undefined,
               feeAlgo: r.feeAlgo ? [r.feeAlgo] : undefined,
               feeDot: r.feeDot ? [r.feeDot] : undefined,
+              feeBudget: r.feeBudget ? [r.feeBudget] : undefined,
             },
             e,
           };
@@ -255,6 +276,7 @@ function TxFeeContainer(props: IProps) {
       isLastSwapTxWithFeeInfo,
       isMultiTxs,
       isSecondApproveTxWithFeeInfo,
+      isSingleTxWithFeesInfo,
       networkId,
       unsignedTxs,
       updateSendFeeStatus,
@@ -295,6 +317,7 @@ function TxFeeContainer(props: IProps) {
         txFee.feeCkb?.length ||
         txFee.feeAlgo?.length ||
         txFee.feeDot?.length ||
+        txFee.feeBudget?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -308,6 +331,7 @@ function TxFeeContainer(props: IProps) {
           feeCkb: txFee.feeCkb?.[i],
           feeAlgo: txFee.feeAlgo?.[i],
           feeDot: txFee.feeDot?.[i],
+          feeBudget: txFee.feeBudget?.[i],
         };
 
         const useDappFeeAndNotEditFee =
@@ -438,6 +462,13 @@ function TxFeeContainer(props: IProps) {
           customFeeInfo.feeDot = {
             ...txFee.feeDot[sendSelectedFee.presetIndex],
             ...(customFee?.feeDot ?? { extraTipInDot: '0' }),
+          };
+        }
+
+        if (txFee.feeBudget && !isEmpty(txFee.feeBudget)) {
+          customFeeInfo.feeBudget = {
+            ...txFee.feeBudget[sendSelectedFee.presetIndex],
+            ...(customFee?.feeBudget ?? {}),
           };
         }
 
@@ -594,6 +625,7 @@ function TxFeeContainer(props: IProps) {
     customFee?.feeCkb,
     customFee?.feeAlgo,
     customFee?.feeDot,
+    customFee?.feeBudget,
     unsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,
@@ -711,8 +743,8 @@ function TxFeeContainer(props: IProps) {
       }
       // build swap tx fee info base on first approve fee info
       else if (
-        !selectedFeeInfo &&
-        (isMultiTxs || isLastSwapTxWithFeeInfo) &&
+        (isLastSwapTxWithFeeInfo || !selectedFeeInfo) &&
+        (isLastSwapTxWithFeeInfo || isMultiTxs) &&
         unsignedTx.swapInfo &&
         (selectedFeeInfos[0].gas || selectedFeeInfos[0].gasEIP1559)
       ) {

@@ -133,19 +133,9 @@ export const useTradingViewProps = ({
             div:has(>#header-toolbar-chart-styles) + div {
               display: none;
             }
-            div:has(>#header-toolbar-compare) + div {
-              display: none;
-            }
-            div:has(>#header-toolbar-indicators) {
-              display: none;
-            }
-            div:has(>#header-toolbar-indicators) + div {
-              display: none;
-            }
             html.theme-dark .chart-page {
               background: ${bgAppColor} !important;
             }
-
             #overlap-manager-root [class*="backdrop-"] {
               background-color: ${bgBackdropColor} !important;
             }

@@ -21,11 +21,12 @@ import {
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -40,6 +41,7 @@ import {
 } from '../../hooks/useSwapAccount';
 import {
   useSwapActionState,
+  useSwapBatchTransfer,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 
@@ -90,11 +92,21 @@ function PageFooter({
                 badgeSize="lg"
                 key={`swap-percentage-input-stage-${stage}`}
                 stage={stage}
+                borderRadius={0}
                 onSelectStage={onSelectPercentageStage}
+                flex={1}
+                justifyContent="center"
+                alignItems="center"
+                h="$10"
               />
             ))}
             <Button
+              flex={1}
+              h="$10"
               size="small"
+              justifyContent="center"
+              borderRadius={0}
+              alignItems="center"
               variant="tertiary"
               onPress={() => {
                 Keyboard.dismiss();
@@ -128,8 +140,13 @@ const SwapActionsState = ({
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
-  const [{ swapEnableRecipientAddress }] = useSettingsPersistAtom();
-  const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
+  const [swapProviderSupportReceiveAddress] =
+    useSwapProviderSupportReceiveAddressAtom();
+  const [{ swapEnableRecipientAddress }] = useSettingsAtom();
+  const isBatchTransfer = useSwapBatchTransfer(
+    swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  );
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -243,21 +260,21 @@ const SwapActionsState = ({
   const shouldShowRecipient = useMemo(
     () =>
       swapEnableRecipientAddress &&
-      swapRecipientAddressInfo?.showAddress &&
+      swapProviderSupportReceiveAddress &&
       fromToken &&
       toToken &&
       currentQuoteRes?.toTokenInfo.networkId === toToken.networkId,
     [
       swapEnableRecipientAddress,
       currentQuoteRes?.toTokenInfo.networkId,
+      swapProviderSupportReceiveAddress,
       fromToken,
-      swapRecipientAddressInfo?.showAddress,
       toToken,
     ],
   );
 
   const approveStepComponent = useMemo(() => {
-    if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
+    if (swapActionState.isApprove && !isBatchTransfer) {
       return (
         <XStack
           gap="$1"
@@ -318,11 +335,11 @@ const SwapActionsState = ({
     md,
     pageType,
     swapActionState.isApprove,
-    swapBatchApproveAndSwap,
+    isBatchTransfer,
   ]);
 
   const recipientComponent = useMemo(() => {
-    if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
+    if (swapActionState.isApprove && !isBatchTransfer) {
       return null;
     }
     if (shouldShowRecipient) {
@@ -349,27 +366,31 @@ const SwapActionsState = ({
               textDecorationLine="underline"
               onPress={onOpenRecipientAddress}
             >
-              {swapRecipientAddressInfo?.showAddress}
+              {swapRecipientAddressInfo?.showAddress ??
+                intl.formatMessage({
+                  id: ETranslations.swap_page_recipient_add,
+                })}
             </SizableText>
-
-            <SizableText
-              numberOfLines={1}
-              flexShrink={0}
-              size="$bodyMd"
-              color="$textSubdued"
-            >
-              {`(${
-                !swapRecipientAddressInfo?.isExtAccount
-                  ? `${
-                      swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
-                    }-${
-                      swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
-                    }`
-                  : intl.formatMessage({
-                      id: ETranslations.swap_page_recipient_external_account,
-                    })
-              })`}
-            </SizableText>
+            {swapRecipientAddressInfo?.showAddress ? (
+              <SizableText
+                numberOfLines={1}
+                flexShrink={0}
+                size="$bodyMd"
+                color="$textSubdued"
+              >
+                {`(${
+                  !swapRecipientAddressInfo?.isExtAccount
+                    ? `${
+                        swapRecipientAddressInfo?.accountInfo?.walletName ?? ''
+                      }-${
+                        swapRecipientAddressInfo?.accountInfo?.accountName ?? ''
+                      }`
+                    : intl.formatMessage({
+                        id: ETranslations.swap_page_recipient_external_account,
+                      })
+                })`}
+              </SizableText>
+            ) : null}
           </XStack>
         </XStack>
       );
@@ -382,7 +403,7 @@ const SwapActionsState = ({
     pageType,
     shouldShowRecipient,
     swapActionState.isApprove,
-    swapBatchApproveAndSwap,
+    isBatchTransfer,
     swapRecipientAddressInfo?.accountInfo?.accountName,
     swapRecipientAddressInfo?.accountInfo?.walletName,
     swapRecipientAddressInfo?.isExtAccount,
@@ -391,9 +412,8 @@ const SwapActionsState = ({
 
   const haveTips = useMemo(
     () =>
-      shouldShowRecipient ||
-      (swapActionState.isApprove && !swapBatchApproveAndSwap),
-    [shouldShowRecipient, swapActionState.isApprove, swapBatchApproveAndSwap],
+      shouldShowRecipient || (swapActionState.isApprove && !isBatchTransfer),
+    [shouldShowRecipient, swapActionState.isApprove, isBatchTransfer],
   );
 
   const actionComponent = useMemo(

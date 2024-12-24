@@ -518,6 +518,25 @@ async function base64ImageToBitmap({
   return canvasImageDataToBitmap({ imageData, width, height });
 }
 
+async function getBase64ImageFromUrl(imageUrl: string) {
+  const res = await fetch(imageUrl);
+  const blob = await res.blob();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.addEventListener(
+      'load',
+      () => {
+        resolve(reader.result);
+      },
+      false,
+    );
+
+    reader.onerror = () => reject(new Error('FileReader error'));
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default {
   resizeImage,
   prefixBase64Uri,
@@ -527,4 +546,5 @@ export default {
   getBase64FromImageUri,
   base64ImageToBitmap,
   buildHtmlImage,
+  getBase64ImageFromUrl,
 };
