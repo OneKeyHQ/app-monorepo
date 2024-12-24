@@ -72,7 +72,7 @@ function buildWebTabData(tabs: IWebTab[]) {
     map[tab.id] = tab;
   });
   return {
-    data: [...tabs],
+    data: tabs,
     keys,
     map,
   };
@@ -124,9 +124,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
       const result = buildWebTabData(newTabs);
       // Should update tabs
-      // if (!isEqual(result.keys, webTabs.keys) || options?.forceUpdate) {
-      set(webTabsAtom(), { keys: result.keys, tabs: result.data });
-      // }
+      if (!isEqual(result.keys, webTabs.keys) || options?.forceUpdate) {
+        set(webTabsAtom(), { keys: result.keys, tabs: result.data });
+      }
 
       set(webTabsMapAtom(), () => result.map);
       loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
