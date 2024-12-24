@@ -10,7 +10,11 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import type { IGasEIP1559, IGasLegacy } from '@onekeyhq/shared/types/fee';
+import type {
+  IFeeInfoUnit,
+  IGasEIP1559,
+  IGasLegacy,
+} from '@onekeyhq/shared/types/fee';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import type { RouteProp } from '@react-navigation/core';
@@ -30,30 +34,40 @@ function SendConfirmFromSwap() {
     route.params;
 
   const handleConfirmMultiTxsOnHwOrExternal = useCallback(
-    async (multiTxsFeeResult: {
-      common: {
-        baseFee: string | undefined;
-        feeDecimals: number;
-        feeSymbol: string;
-        nativeDecimals: number;
-        nativeSymbol: string;
-        nativeTokenPrice: number | undefined;
-      };
-      txFees: {
-        gas: IGasLegacy[];
-        gasEIP1559: IGasEIP1559[];
-      }[];
-    }) => {
+    async (
+      multiTxsFeeResult:
+        | {
+            common: {
+              baseFee: string | undefined;
+              feeDecimals: number;
+              feeSymbol: string;
+              nativeDecimals: number;
+              nativeSymbol: string;
+              nativeTokenPrice: number | undefined;
+            };
+            txFees: {
+              gas: IGasLegacy[];
+              gasEIP1559: IGasEIP1559[];
+            }[];
+          }
+        | undefined,
+    ) => {
+      let prevTxFeeInfo: IFeeInfoUnit | undefined;
+
       for (let i = 0, len = unsignedTxs.length; i < len; i += 1) {
         const unsignedTx = unsignedTxs[i];
-        unsignedTx.feesInfo = {
-          common: multiTxsFeeResult.common,
-          gas: multiTxsFeeResult.txFees[i].gas,
-          gasEIP1559: multiTxsFeeResult.txFees[i].gasEIP1559,
-        };
+        if (multiTxsFeeResult) {
+          unsignedTx.feesInfo = {
+            common: multiTxsFeeResult.common,
+            gas: multiTxsFeeResult.txFees[i].gas,
+            gasEIP1559: multiTxsFeeResult.txFees[i].gasEIP1559,
+          };
+        } else if (prevTxFeeInfo) {
+          unsignedTx.feeInfo = prevTxFeeInfo;
+        }
         const isLastTx = i === len - 1;
 
-        await new Promise((resolve) => {
+        const result: ISendTxOnSuccessData[] = await new Promise((resolve) => {
           appNavigation.push(EModalSendRoutes.SendConfirm, {
             ...route.params,
             popStack: false,
@@ -61,21 +75,25 @@ function SendConfirmFromSwap() {
             onSuccess: (data: ISendTxOnSuccessData[]) => {
               if (isLastTx) {
                 onSuccess?.(data);
-                appNavigation.popStack();
+                appNavigation.pop();
               }
               resolve(data);
             },
             onFail: (error: Error) => {
               onFail?.(error);
 
-              appNavigation.popStack();
+              appNavigation.pop();
             },
             onCancel: () => {
               onCancel?.();
-              appNavigation.popStack();
+              appNavigation.pop();
             },
           });
         });
+
+        if (result && result.length > 0 && result[0].feeInfo) {
+          prevTxFeeInfo = result[0].feeInfo;
+        }
       }
     },
     [unsignedTxs, appNavigation, route.params, onSuccess, onFail, onCancel],
@@ -90,6 +108,7 @@ function SendConfirmFromSwap() {
       (accountUtils.isHwAccount({ accountId }) ||
         accountUtils.isExternalAccount({ accountId }))
     ) {
+      batchEstimateButSingleConfirm = true;
       const vaultSettings =
         await backgroundApiProxy.serviceNetwork.getVaultSettings({
           networkId,
@@ -105,13 +124,14 @@ function SendConfirmFromSwap() {
             });
           if (multiTxsFeeResult.txFees.length === unsignedTxs.length) {
             await handleConfirmMultiTxsOnHwOrExternal(multiTxsFeeResult);
-            batchEstimateButSingleConfirm = true;
           } else {
-            batchEstimateButSingleConfirm = false;
+            await handleConfirmMultiTxsOnHwOrExternal(undefined);
           }
         } catch (e) {
-          batchEstimateButSingleConfirm = false;
+          await handleConfirmMultiTxsOnHwOrExternal(undefined);
         }
+      } else {
+        await handleConfirmMultiTxsOnHwOrExternal(undefined);
       }
     }
 
