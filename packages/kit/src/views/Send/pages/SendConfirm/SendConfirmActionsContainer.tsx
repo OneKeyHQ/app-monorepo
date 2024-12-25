@@ -52,6 +52,7 @@ type IProps = {
   transferPayload: ITransferPayload | undefined;
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
+  popStack?: boolean;
 };
 
 function SendConfirmActionsContainer(props: IProps) {
@@ -66,6 +67,7 @@ function SendConfirmActionsContainer(props: IProps) {
     transferPayload,
     useFeeInTx,
     feeInfoEditable,
+    popStack = true,
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
@@ -243,7 +245,11 @@ function SendConfirmActionsContainer(props: IProps) {
 
       void dappApprove.resolve({ result: signedTx });
 
-      navigation.popStack();
+      if (popStack) {
+        navigation.popStack();
+      } else {
+        navigation.pop();
+      }
       updateSendTxStatus({ isSubmitting: false });
       onSuccess?.(result);
     } catch (e: any) {
@@ -276,8 +282,9 @@ function SendConfirmActionsContainer(props: IProps) {
     sourceInfo,
     transferPayload,
     intl,
-    navigation,
+    popStack,
     onSuccess,
+    navigation,
   ]);
 
   const cancelCalledRef = useRef(false);

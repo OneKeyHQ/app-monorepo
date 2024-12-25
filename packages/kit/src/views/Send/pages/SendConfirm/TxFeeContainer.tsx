@@ -110,6 +110,11 @@ function TxFeeContainer(props: IProps) {
     [unsignedTxs],
   );
 
+  const isSingleTxWithFeesInfo = useMemo(
+    () => unsignedTxs.length === 1 && unsignedTxs[0].feesInfo,
+    [unsignedTxs],
+  );
+
   const isSecondApproveTxWithFeeInfo = useMemo(
     () =>
       unsignedTxs.length === 1 &&
@@ -185,6 +190,21 @@ function TxFeeContainer(props: IProps) {
             encodedTx: unsignedTxs[0].encodedTx,
           });
 
+        if (isSingleTxWithFeesInfo) {
+          const r = unsignedTxs[0].feesInfo;
+          updateSendFeeStatus({
+            status: ESendFeeStatus.Success,
+            errMessage: '',
+          });
+          setTxFeeInit(true);
+          updateTxAdvancedSettings({ dataChanged: false });
+          return {
+            r,
+            e,
+            m: undefined,
+          };
+        }
+
         if (
           (isLastSwapTxWithFeeInfo || isSecondApproveTxWithFeeInfo) &&
           unsignedTxs[0].feeInfo
@@ -256,6 +276,7 @@ function TxFeeContainer(props: IProps) {
       isLastSwapTxWithFeeInfo,
       isMultiTxs,
       isSecondApproveTxWithFeeInfo,
+      isSingleTxWithFeesInfo,
       networkId,
       unsignedTxs,
       updateSendFeeStatus,

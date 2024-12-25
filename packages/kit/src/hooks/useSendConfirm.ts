@@ -116,8 +116,12 @@ function useSendConfirm(params: IParams) {
           );
         }
 
+        const target = params.isInternalSwap
+          ? EModalSendRoutes.SendConfirmFromSwap
+          : EModalSendRoutes.SendConfirm;
+
         if (sameModal) {
-          navigation.push(EModalSendRoutes.SendConfirm, {
+          navigation.push(target, {
             accountId,
             networkId,
             unsignedTxs,
@@ -131,7 +135,7 @@ function useSendConfirm(params: IParams) {
           });
         } else {
           navigation.pushModal(EModalRoutes.SendModal, {
-            screen: EModalSendRoutes.SendConfirm,
+            screen: target,
             params: {
               accountId,
               networkId,

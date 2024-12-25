@@ -225,10 +225,10 @@ const SwapSlippageCustomContent = ({
 const SwapSettingsDialogContent = () => {
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [{ swapEnableRecipientAddress }, setSettings] = useSettingsAtom();
+  const [{ swapEnableRecipientAddress }, setNoPersistSettings] =
+    useSettingsAtom();
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
-  const [, setNoPersistSettings] = useSettingsAtom();
   const rightTrigger = useMemo(
     () => (
       <SegmentControl
@@ -308,14 +308,16 @@ const SwapSettingsDialogContent = () => {
         })}
         value={swapEnableRecipientAddress}
         onChange={(v) => {
-          setSettings((s) => ({
-            ...s,
-            swapEnableRecipientAddress: v,
-          }));
-          if (!v) {
+          if (v) {
             setNoPersistSettings((s) => ({
               ...s,
-              swapToAnotherAccountSwitchOn: false,
+              swapEnableRecipientAddress: v,
+            }));
+          } else {
+            setNoPersistSettings((s) => ({
+              ...s,
+              swapEnableRecipientAddress: v,
+              swapToAnotherAccountSwitchOn: v,
             }));
           }
         }}

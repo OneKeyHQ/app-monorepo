@@ -26,10 +26,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import {
-  useSettingsAtom,
-  useSettingsPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -44,6 +41,7 @@ import {
 } from '../../hooks/useSwapAccount';
 import {
   useSwapActionState,
+  useSwapBatchTransfer,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 
@@ -145,7 +143,10 @@ const SwapActionsState = ({
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
-  const [{ swapBatchApproveAndSwap }] = useSettingsPersistAtom();
+  const isBatchTransfer = useSwapBatchTransfer(
+    swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  );
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
@@ -273,7 +274,7 @@ const SwapActionsState = ({
   );
 
   const approveStepComponent = useMemo(() => {
-    if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
+    if (swapActionState.isApprove && !isBatchTransfer) {
       return (
         <XStack
           gap="$1"
@@ -334,11 +335,11 @@ const SwapActionsState = ({
     md,
     pageType,
     swapActionState.isApprove,
-    swapBatchApproveAndSwap,
+    isBatchTransfer,
   ]);
 
   const recipientComponent = useMemo(() => {
-    if (swapActionState.isApprove && !swapBatchApproveAndSwap) {
+    if (swapActionState.isApprove && !isBatchTransfer) {
       return null;
     }
     if (shouldShowRecipient) {
@@ -402,7 +403,7 @@ const SwapActionsState = ({
     pageType,
     shouldShowRecipient,
     swapActionState.isApprove,
-    swapBatchApproveAndSwap,
+    isBatchTransfer,
     swapRecipientAddressInfo?.accountInfo?.accountName,
     swapRecipientAddressInfo?.accountInfo?.walletName,
     swapRecipientAddressInfo?.isExtAccount,
@@ -411,9 +412,8 @@ const SwapActionsState = ({
 
   const haveTips = useMemo(
     () =>
-      shouldShowRecipient ||
-      (swapActionState.isApprove && !swapBatchApproveAndSwap),
-    [shouldShowRecipient, swapActionState.isApprove, swapBatchApproveAndSwap],
+      shouldShowRecipient || (swapActionState.isApprove && !isBatchTransfer),
+    [shouldShowRecipient, swapActionState.isApprove, isBatchTransfer],
   );
 
   const actionComponent = useMemo(
