@@ -47,7 +47,7 @@ function DAppSiteMark({
     const defaultStyle = {
       bg: '$bgSubdued',
       borderColor: '$borderSubdued',
-      textColor: '$text',
+      textColor: '$textSubdued',
       iconName: null,
       iconColor: null,
     };
@@ -89,24 +89,43 @@ function DAppSiteMark({
   }, [urlSecurityInfo?.level]);
 
   return (
-    <XStack alignItems="center" alignSelf="flex-start" gap="$1.5">
-      <Image w="$5" h="$5" bg="$bgSubdued" borderRadius="$1">
+    <XStack
+      px="$2"
+      py="$1"
+      bg={riskyStyle.bg}
+      borderColor={riskyStyle.borderColor}
+      borderWidth={StyleSheet.hairlineWidth}
+      borderRadius="$2"
+      alignItems="center"
+      alignSelf="flex-start"
+      borderCurve="continuous"
+      gap="$2"
+    >
+      <Image w="$6" h="$6" bg="$bgSubdued" borderRadius="$1">
         <Image.Source source={{ uri: favicon || faviconUri }} />
         <Image.Fallback>
-          <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />
+          <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
         </Image.Fallback>
         <Image.Loading>
           <Skeleton width="100%" height="100%" />
         </Image.Loading>
       </Image>
-      <SizableText size="$bodyMd" color={riskyStyle.textColor}>
+      <SizableText
+        flex={1}
+        size="$bodyLgMedium"
+        color={riskyStyle.textColor}
+        style={{
+          wordBreak: 'break-all',
+        }}
+      >
         {content}
       </SizableText>
       {riskyStyle.iconName && riskyStyle.iconColor ? (
         <Icon
+          pt="$0.5"
           name={riskyStyle.iconName}
           color={riskyStyle.iconColor}
-          size="$4.5"
+          size="$5"
         />
       ) : null}
     </XStack>
