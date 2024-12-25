@@ -70,13 +70,11 @@ function SendConfirmFromSwap() {
         const isLastTx = i === len - 1;
 
         const result: ISendTxOnSuccessData[] = await new Promise((resolve) => {
-          navigationToNext.current = true;
           appNavigation.push(EModalSendRoutes.SendConfirm, {
             ...route.params,
             popStack: false,
             unsignedTxs: [unsignedTx],
             onSuccess: (data: ISendTxOnSuccessData[]) => {
-              navigationToNext.current = false;
               if (isLastTx) {
                 appNavigation.pop();
                 onSuccess?.(data);
@@ -84,12 +82,10 @@ function SendConfirmFromSwap() {
               resolve(data);
             },
             onFail: (error: Error) => {
-              navigationToNext.current = false;
               appNavigation.pop();
               onFail?.(error);
             },
             onCancel: () => {
-              navigationToNext.current = false;
               appNavigation.pop();
               onCancel?.();
             },
@@ -127,6 +123,7 @@ function SendConfirmFromSwap() {
               networkId,
               encodedTxs: encodedTxList,
             });
+          navigationToNext.current = true;
           if (multiTxsFeeResult.txFees.length === unsignedTxs.length) {
             await handleConfirmMultiTxsOnHwOrExternal(multiTxsFeeResult);
           } else {
@@ -140,8 +137,9 @@ function SendConfirmFromSwap() {
       }
     }
 
+    navigationToNext.current = true;
+
     if (!batchEstimateButSingleConfirm) {
-      navigationToNext.current = true;
       action = StackActions.replace(EModalSendRoutes.SendConfirm, {
         ...route.params,
         // @ts-ignore
