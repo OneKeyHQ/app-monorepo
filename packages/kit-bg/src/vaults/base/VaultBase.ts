@@ -1419,4 +1419,11 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
   }
+
+  async verifyTxId(params: {
+    txid: string;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    return Promise.resolve(true);
+  }
 }
