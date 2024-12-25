@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { StyleSheet, Text } from 'react-native';
 import {
@@ -18,9 +18,10 @@ const cellStyles = StyleSheet.create({
     fontSize: 30,
     fontWeight: '700',
     textAlign: 'center',
-    marginLeft: 8,
-    borderRadius: 6,
-    backgroundColor: '#eee',
+    marginRight: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#eee',
   },
   focusCell: {
     borderColor: '#000',
@@ -31,12 +32,16 @@ const PassCodeInput = ({
   onPinCodeChange,
   onComplete,
   disabledComplete,
+  pinCodeFocus,
+  enableAutoFocus,
   showMask,
   testId,
 }: {
   onPinCodeChange?: (pin: string) => void;
   onComplete?: () => void;
   disabledComplete?: boolean;
+  pinCodeFocus?: boolean;
+  enableAutoFocus?: boolean;
   testId?: string;
   showMask?: boolean;
 }) => {
@@ -71,17 +76,27 @@ const PassCodeInput = ({
     return (
       <Text
         key={index}
-        style={[cellStyles.cell, isFocused && cellStyles.focusCell]}
+        style={[
+          ...[cellStyles.cell],
+          ...(isFocused ? [cellStyles.focusCell] : []),
+        ]}
         onLayout={getCellOnLayoutHandler(index)}
       >
         {textChild}
       </Text>
     );
   };
+
+  useEffect(() => {
+    if (pinCodeFocus) {
+      pinInputRef.current?.focus();
+    }
+  }, [pinCodeFocus, pinInputRef]);
+
   return (
     <XStack gap="$1" minHeight={40}>
       <CodeField
-        autoFocus
+        autoFocus={enableAutoFocus}
         testID={testId}
         ref={pinInputRef}
         {...props}

@@ -239,9 +239,6 @@ const PasswordVerify = ({
       ) : (
         <>
           <Form.Field
-            label={intl.formatMessage({
-              id: ETranslations.auth_confirm_passcode_form_label,
-            })}
             name="passCode"
             rules={{
               validate: {
@@ -262,6 +259,7 @@ const PasswordVerify = ({
               }}
               onComplete={form.handleSubmit(onInputPasswordAuth)}
               disabledComplete={confirmBtnDisabled}
+              enableAutoFocus
               testId="pass-code-input"
             />
           </Form.Field>

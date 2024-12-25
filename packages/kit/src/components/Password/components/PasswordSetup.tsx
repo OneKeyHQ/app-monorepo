@@ -232,6 +232,7 @@ const PasswordSetup = ({
                 form.setValue('passCode', pin);
                 form.clearErrors('passCode');
               }}
+              enableAutoFocus
               testId="pass-code"
               showMask
             />
@@ -269,6 +270,8 @@ const PasswordSetup = ({
                 form.setValue('confirmPassCode', pin);
                 form.clearErrors('confirmPassCode');
               }}
+              enableAutoFocus={false}
+              pinCodeFocus={passCodeConfirm}
               testId="confirm-pass-code"
               showMask
             />
