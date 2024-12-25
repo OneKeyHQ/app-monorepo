@@ -55,6 +55,7 @@ function DAppAccountListInitFromHome({
         // required delay here, should be called after AccountSelectEffects AutoSelect
         await timerUtils.wait(600);
         if (shouldSyncFromHome) {
+          // alert('syncFromScene home');
           await actions.current.syncFromScene({
             from: {
               sceneName: EAccountSelectorSceneName.home,

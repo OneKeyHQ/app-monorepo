@@ -54,6 +54,7 @@ import accountSelectorUtils from '@onekeyhq/shared/src/utils/accountSelectorUtil
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EAccountSelectorAutoSelectTriggerBy,
@@ -90,6 +91,7 @@ export type IAccountSelectorSyncFromSceneParams = {
     sceneNum: number;
   };
   num: number;
+  withNetworkSync?: boolean;
 };
 
 export type IFinalizeWalletSetupCreateWalletResult = {
@@ -294,6 +296,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  getCurrentSceneInfo = contextAtomMethod(async (get) => {
+    const contextData = get(accountSelectorContextDataAtom());
+    return contextData;
+  });
+
   updateSelectedAccount = contextAtomMethod(
     async (
       get,
@@ -306,7 +313,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         ) => IAccountSelectorSelectedAccount;
       },
     ) => {
-      const contextData = get(accountSelectorContextDataAtom());
+      const sceneInfo = await this.getCurrentSceneInfo.call(set);
       // if (!contextData) {
       //   return;
       // }
@@ -317,6 +324,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       const newSelectedAccount = cloneDeep(builder(oldSelectedAccount));
       if (isEqual(oldSelectedAccount, newSelectedAccount)) {
         return;
+      }
+
+      if (
+        sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
+        newSelectedAccount?.indexedAccountId === 'hd-1--0'
+      ) {
+        // debugger;
       }
 
       const newNetworkId = newSelectedAccount?.networkId;
@@ -348,13 +362,13 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
         };
 
-        if (contextData?.sceneName) {
-          await fixDeriveTypeByGlobal({ sceneName: contextData?.sceneName });
+        if (sceneInfo?.sceneName) {
+          await fixDeriveTypeByGlobal({ sceneName: sceneInfo?.sceneName });
 
           const shouldUseGlobalDeriveType =
             await backgroundApiProxy.serviceAccountSelector.shouldUseGlobalDeriveType(
               {
-                sceneName: contextData?.sceneName,
+                sceneName: sceneInfo?.sceneName,
               },
             );
           if (!shouldUseGlobalDeriveType && newSelectedAccount?.networkId) {
@@ -1326,6 +1340,19 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         // **** emit event
         if (!eventEmitDisabled) {
+          if (
+            networkUtils.isAllNetwork({
+              networkId: payload.selectedAccount?.networkId,
+            })
+          ) {
+            // debugger;
+          }
+          if (sceneName === EAccountSelectorSceneName.discover) {
+            if (payload?.selectedAccount?.indexedAccountId === 'hd-1--0') {
+              // alert('AccountSelectorSelectedAccountUpdate');
+              // debugger;
+            }
+          }
           appEventBus.emit(
             EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
             payload,
@@ -1366,7 +1393,12 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
   );
 
   syncFromScene = contextAtomMethod(
-    async (get, set, { from, num }: IAccountSelectorSyncFromSceneParams) => {
+    async (
+      get,
+      set,
+      { from, num, withNetworkSync }: IAccountSelectorSyncFromSceneParams,
+    ) => {
+      const sceneInfo = await this.getCurrentSceneInfo.call(set);
       const { sceneName, sceneUrl, sceneNum } = from;
 
       const selectedAccount =
@@ -1378,7 +1410,24 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
       await this.updateSelectedAccount.call(set, {
         num,
-        builder: (v) => selectedAccount || v,
+        builder: (v) => {
+          if (selectedAccount) {
+            // networkId won't be synced in default
+            if (!withNetworkSync) {
+              selectedAccount.networkId = v?.networkId;
+            }
+            if (
+              sceneInfo?.sceneName === EAccountSelectorSceneName.discover &&
+              networkUtils.isAllNetwork({
+                networkId: selectedAccount.networkId,
+              })
+            ) {
+              selectedAccount.networkId = v?.networkId;
+            }
+            return selectedAccount;
+          }
+          return v;
+        },
       });
     },
   );

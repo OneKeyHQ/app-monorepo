@@ -1,3 +1,5 @@
+import { cloneDeep } from 'lodash';
+
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   EAppEventBusNames,
@@ -144,7 +146,7 @@ export class SimpleDbEntityAccountSelector extends SimpleDbEntityBase<IAccountSe
       sceneName,
       sceneUrl,
     });
-    return selectedAccountsMap?.[num];
+    return cloneDeep(selectedAccountsMap?.[num]);
   }
 
   async getGlobalDeriveType({

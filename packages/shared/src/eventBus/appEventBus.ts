@@ -326,6 +326,8 @@ class AppEventBus extends CrossEventEmitter {
       defaultLogger.app.eventBus.emitToSelf({
         eventName: type,
       });
+      // @ts-ignore
+      delete payload.$$isRemoteEvent;
       this.emitToSelf(type, payload);
     }
     void this.emitToRemote(type, payload);
@@ -373,6 +375,15 @@ class AppEventBus extends CrossEventEmitter {
   }
 
   async emitToRemote(type: string, payload: any) {
+    try {
+      if (payload) {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        payload.$$isRemoteEvent = true;
+      }
+    } catch (e) {
+      // ignore
+    }
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
       throw new Error('offscreen or webembed event bus not support yet.');
