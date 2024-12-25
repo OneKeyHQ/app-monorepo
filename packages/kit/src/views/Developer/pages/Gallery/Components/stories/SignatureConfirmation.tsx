@@ -1,3 +1,4 @@
+/* eslint-disable import-path/parent-depth */
 import { StyleSheet } from 'react-native';
 
 import type {
@@ -478,7 +479,7 @@ function YourComponentDemo() {
         />
       ))}
 
-      {/* sitemark */}
+      {/* site mark */}
       <DAppSiteMark origin="https://uniswap.org" />
 
       {/* map items */}
@@ -538,7 +539,10 @@ function YourComponentDemo() {
         return (
           <SignatureDetailItem key={item.label}>
             <SignatureDetailItem.Label>{item.label}</SignatureDetailItem.Label>
-            <SignatureDetailItem.Value>{item.value}</SignatureDetailItem.Value>
+            <SignatureDetailItem.Value>
+              {/* @ts-expect-error - fallback case */}
+              {item.value || ''}
+            </SignatureDetailItem.Value>
           </SignatureDetailItem>
         );
       })}
