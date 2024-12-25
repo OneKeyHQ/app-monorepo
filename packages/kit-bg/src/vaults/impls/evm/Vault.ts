@@ -1252,7 +1252,7 @@ export default class Vault extends VaultBase {
 
     const recoveredTxid = ethers.utils.keccak256(signedTx.rawTx);
 
-    return recoveredTxid === txid;
+    return recoveredTxid.toLowerCase() === txid.toLowerCase();
   }
 
   // RPC Client
