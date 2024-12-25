@@ -41,6 +41,7 @@ import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
+import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 
 export type ISwitchEthereumChainParameter = {
   chainId: string;

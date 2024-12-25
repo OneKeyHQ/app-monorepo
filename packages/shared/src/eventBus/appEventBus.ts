@@ -326,8 +326,15 @@ class AppEventBus extends CrossEventEmitter {
       defaultLogger.app.eventBus.emitToSelf({
         eventName: type,
       });
-      // @ts-ignore
-      delete payload.$$isRemoteEvent;
+      try {
+        // @ts-ignore
+        if (payload?.$$isRemoteEvent) {
+          // @ts-ignore
+          delete payload.$$isRemoteEvent;
+        }
+      } catch (e) {
+        // ignore
+      }
       this.emitToSelf(type, payload);
     }
     void this.emitToRemote(type, payload);
