@@ -158,6 +158,19 @@ class ServiceSend extends ServiceBase {
         ...params,
         customRpcInfo,
       });
+
+      try {
+        const verified = await vault.verifyTxId({
+          txid: result.txid,
+          signedTx: result,
+        });
+        if (!verified) {
+          throw new Error('Invalid txid');
+        }
+      } catch (error) {
+        throw new Error('Invalid txid');
+      }
+
       txid = result.txid;
     }
 
