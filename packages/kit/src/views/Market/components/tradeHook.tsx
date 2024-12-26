@@ -126,15 +126,10 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
   const handleBuyOrSell = useCallback(
     async (type: IFiatCryptoType) => {
-      const checkResult = await createAccountIfNotExists({
+      const networkAccount = await createAccountIfNotExists({
         allowWatchAccount: type === 'buy',
       });
-      if (!checkResult) {
-        return;
-      }
-      const { networkAccount, networkId: currentNetworkId } = checkResult;
-
-      if (!currentNetworkId) {
+      if (!networkAccount) {
         return;
       }
 
@@ -152,7 +147,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
       const { url, build } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
-          networkId: currentNetworkId,
+          networkId,
           tokenAddress: realContractAddress,
           accountId: networkAccount?.id,
           type,
@@ -163,7 +158,12 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       }
       openUrlExternal(url);
     },
-    [createAccountIfNotExists, realContractAddress, remindUnsupportedToken],
+    [
+      createAccountIfNotExists,
+      networkId,
+      realContractAddress,
+      remindUnsupportedToken,
+    ],
   );
 
   const handleSwap = useCallback(
@@ -187,18 +187,17 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         });
         return;
       }
-      const checkResult = await createAccountIfNotExists();
-      if (!checkResult) {
+      const networkAccount = await createAccountIfNotExists();
+      if (!networkAccount) {
         navigation.pop();
         return;
       }
-      const { networkId: currentNetworkId } = checkResult;
-      if (!currentNetworkId) {
+      if (!networkId) {
         return;
       }
       const { isSupportSwap, isSupportCrossChain } =
         await backgroundApiProxy.serviceSwap.checkSupportSwap({
-          networkId: currentNetworkId,
+          networkId,
           contractAddress: isNative ? realContractAddress : contractAddress,
         });
 
@@ -242,23 +241,22 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
   );
 
   const handleStaking = useCallback(async () => {
-    const checkResult = await createAccountIfNotExists();
-    if (!checkResult) {
+    const networkAccount = await createAccountIfNotExists();
+    if (!networkAccount) {
       return;
     }
-    const { networkAccount, networkId: currentNetworkId } = checkResult;
     if (currentNetworkId && networkAccount) {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.AssetProtocolList,
         params: {
-          networkId: currentNetworkId,
+          networkId,
           accountId: networkAccount.id,
           indexedAccountId: networkAccount.indexedAccountId,
           symbol,
         },
       });
     }
-  }, [createAccountIfNotExists, navigation, symbol]);
+  }, [createAccountIfNotExists, navigation, networkId, symbol]);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
 
   return useMemo(
