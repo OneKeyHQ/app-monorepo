@@ -6,7 +6,7 @@ import { LocalDbIndexedBase } from './LocalDbIndexedBase';
 
 export class LocalDbIndexed extends LocalDbIndexedBase {
   async reset(): Promise<void> {
-    this.clearStoreCachedData(ELocalDBStoreNames.IndexedAccount);
+    this.clearStoreCachedData();
     return this.deleteIndexedDb();
   }
 }

@@ -20,6 +20,7 @@ module.exports = [
   'hdk',
   'dkey',
   'impls',
+  'ttl',
   'Sollet',
   'Solflare',
   'encryptors',

@@ -1,6 +1,7 @@
 import { cloneDeep, debounce, isEqual, merge } from 'lodash';
 
 import appGlobals from '../../appGlobals';
+import errorUtils from '../../errors/utils/errorUtils';
 import platformEnv from '../../platformEnv';
 import { syncStorage } from '../../storage/instance/syncStorageInstance';
 import { EAppSyncStorageKeys } from '../../storage/syncStorageKeys';
@@ -34,15 +35,18 @@ const shouldDbTxCreatedDebuggerRule: Record<string, boolean> = {
 };
 
 const shouldLocalDbDebuggerRule: Record<string, number> = {
-  'localDb.txGetRecordById__IndexedAccount': 999,
-  'localDb.txGetAllRecords__IndexedAccount': 999,
+  'localDb.txGetAllRecords__Device': 999,
+  'localDb.txGetAllRecords__Wallet': 999,
   'localDb.txGetAllRecords__Account': 999,
+  'localDb.txGetAllRecords__IndexedAccount': 999,
   'localDb.txGetRecordById__Wallet': 999,
   'localDb.txGetRecordById__Account': 999,
+  'localDb.txGetRecordById__IndexedAccount': 999,
   'appStorage.getItem__simple_db_v5:localHistory': 999,
   'appStorage.getItem__simple_db_v5:LocalNFTs': 999,
   'appStorage.getItem__simple_db_v5:localTokens': 999,
   'appStorage.getItem__simple_db_v5:dappConnection': 999,
+  'appStorage.setItem__g_states_v5:notificationsAtom': 999,
 };
 
 const IS_ENABLED =
@@ -303,6 +307,14 @@ function logLocalDbCall(method: string, table: string, params: any[]) {
   if (IS_ENABLED) {
     // eslint-disable-next-line no-param-reassign
     method = `localDb.${method}`;
+    // eslint-disable-next-line no-param-reassign
+    params = [...params, errorUtils.getCurrentCallStack()];
+
+    if (method === 'localDb.txGetAllRecords') {
+      indexedDBResult[method] = (indexedDBResult[method] || 0) + 1;
+      indexedDBResultAll[method] = (indexedDBResultAll[method] || 0) + 1;
+    }
+
     localDbCallDetails[method] = localDbCallDetails[method] || {};
     localDbCallDetails[method][table] = localDbCallDetails[method][table] || {
       calls: [],
@@ -416,10 +428,12 @@ function logIndexedDBCreateTx() {
         const key = `${this.name}_${mode || 'undefined'}`;
         indexedDBResult[key] = (indexedDBResult[key] || 0) + 1;
         indexedDBResultAll[key] = (indexedDBResultAll[key] || 0) + 1;
+
         if (
           settings?.toastWarningSize &&
           indexedDBResult[key] >= settings?.toastWarningSize
         ) {
+          // localDb.txGetAllRecords__
           toastWarningAndReset(key);
         }
         logResultDebounced({

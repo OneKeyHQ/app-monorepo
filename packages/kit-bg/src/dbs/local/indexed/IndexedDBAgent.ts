@@ -309,7 +309,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
     const { tx: paramsTx, name, ids, limit, offset } = params;
     dbPerfMonitor.logLocalDbCall(`txGetAllRecords`, name, [
-      `records: ${ids?.length || ''}`,
+      `ids_count=${ids ? ids?.length?.toString() : 'ALL'}`,
     ]);
     const fn = async (tx: ILocalDBTransaction) => {
       const store = this._getObjectStoreFromTx<T>(tx, name);
