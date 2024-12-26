@@ -266,8 +266,12 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     () => ({
       onSwap: handleSwap,
       onStaking: handleStaking,
-      onBuy: () => handleBuyOrSell('buy'),
-      onSell: () => handleBuyOrSell('sell'),
+      onBuy: () => {
+        void handleBuyOrSell('buy');
+      },
+      onSell: () => {
+        void handleBuyOrSell('sell');
+      },
       createAccountIfNotExists,
       canStaking,
     }),
@@ -299,11 +303,14 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const compose = useCallback(
-    async (actionName: IActionName) => {
-      await fetchMarketTokenDetail();
-      // wait for token detail loaded and actionsRef updated
-      await timerUtils.wait(80);
-      await actionsRef.current[actionName]('modal');
+    (actionName: IActionName) => {
+      const callback = async () => {
+        await fetchMarketTokenDetail();
+        // wait for token detail loaded and actionsRef updated
+        await timerUtils.wait(80);
+        await actionsRef.current[actionName]('modal');
+      };
+      void callback();
     },
     [fetchMarketTokenDetail],
   );
