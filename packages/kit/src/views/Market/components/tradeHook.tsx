@@ -195,7 +195,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           id: ETranslations.wallet_unsupported_network_title,
         },
         {
-          network: networkId.split('--')[0],
+          network: networkId?.split('--')[0].toUpperCase() || '',
         },
       ),
       description: intl.formatMessage({
@@ -255,7 +255,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
                   id: ETranslations.global_private_key_error,
                 },
                 {
-                  network: networkId.split('--')[0],
+                  network: networkId.split('--')[0].toUpperCase(),
                   path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
                 },
               ),
