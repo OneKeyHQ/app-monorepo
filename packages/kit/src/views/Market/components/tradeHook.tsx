@@ -189,8 +189,10 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         return;
       }
       const networkAccount = await createAccountIfNotExists();
-      if (mode === 'modal' && !networkAccount) {
-        navigation.pop();
+      if (!networkAccount) {
+        if (mode === 'modal') {
+          navigation.pop();
+        }
         return;
       }
       if (!networkId) {
