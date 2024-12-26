@@ -212,20 +212,73 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     if (!networkId) {
       throw new Error(`cannot find NetworkId ${networkId || ''}`);
     }
-    try {
-      if (
-        accountUtils.isWatchingAccount({
-          accountId: activeAccount.account?.id ?? '',
-        })
-      ) {
-        showSwitchAccountSelector();
-        return undefined;
-      }
-      if (activeAccount.indexedAccount?.id) {
-        const deriveType =
-          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+    const deriveType =
+      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+        networkId,
+      });
+    if (
+      accountUtils.isWatchingAccount({
+        accountId: activeAccount.account?.id ?? '',
+      })
+    ) {
+      showSwitchAccountSelector();
+      return undefined;
+    }
+    if (activeAccount.indexedAccount?.id) {
+      try {
+        const result =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId: activeAccount.indexedAccount?.id,
             networkId,
+            deriveType,
           });
+        return {
+          networkAccount: result,
+          networkId,
+        };
+      } catch (error) {
+        const isCreated = await new Promise<boolean>((resolve) => {
+          const dialog = Dialog.show({
+            title: intl.formatMessage({
+              id: ETranslations.wallet_no_address,
+            }),
+            icon: 'WalletCryptoOutline',
+            description: intl.formatMessage(
+              {
+                id: ETranslations.global_private_key_error,
+              },
+              {
+                network: symbol.toUpperCase(),
+                path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
+              },
+            ),
+            showFooter: false,
+            onClose: (extra) => {
+              if (extra?.flag !== 'created') {
+                resolve(false);
+              }
+            },
+            renderContent: (
+              <CreateAddressDialogContent
+                onCreate={async () => {
+                  resolve(true);
+                  await dialog.close({ flag: 'created' });
+                  Toast.success({
+                    title: intl.formatMessage({
+                      id: ETranslations.swap_page_toast_address_generated,
+                    }),
+                  });
+                }}
+                networkId={networkId}
+                indexedAccountId={activeAccount.account?.indexedAccountId}
+              />
+            ),
+          });
+        });
+        if (!isCreated) {
+          return undefined;
+        }
         const result =
           await backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId: undefined,
@@ -238,50 +291,22 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           networkId,
         };
       }
-    } catch (error) {
-      const isCreated = await new Promise<boolean>((resolve) => {
-        const dialog = Dialog.show({
-          title: intl.formatMessage({
-            id: ETranslations.wallet_no_address,
-          }),
-          icon: 'WalletCryptoOutline',
-          description: intl.formatMessage(
-            {
-              id: ETranslations.global_private_key_error,
-            },
-            {
-              network: symbol.toUpperCase(),
-              path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
-            },
-          ),
-          showFooter: false,
-          onClose: (extra) => {
-            if (extra?.flag !== 'created') {
-              resolve(false);
-            }
-          },
-          renderContent: (
-            <CreateAddressDialogContent
-              onCreate={async () => {
-                resolve(true);
-                await dialog.close({ flag: 'created' });
-                Toast.success({
-                  title: intl.formatMessage({
-                    id: ETranslations.swap_page_toast_address_generated,
-                  }),
-                });
-              }}
-              networkId={networkId}
-              indexedAccountId={activeAccount.account?.indexedAccountId}
-            />
-          ),
-        });
-      });
-      if (!isCreated) {
-        return undefined;
-      }
     }
 
+    try {
+      const result = await backgroundApiProxy.serviceAccount.getNetworkAccount({
+        accountId: activeAccount?.account?.id,
+        indexedAccountId: undefined,
+        networkId,
+        deriveType,
+      });
+      return {
+        networkAccount: result,
+        networkId,
+      };
+    } catch {
+      showSwitchAccountSelector();
+    }
     return undefined;
   }, [activeAccount, intl, networkId, showSwitchAccountSelector, symbol]);
 
