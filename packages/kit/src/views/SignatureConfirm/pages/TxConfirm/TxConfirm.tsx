@@ -2,4 +2,4 @@ function TxConfirm() {
   return <div>TxConfirm</div>;
 }
 
-export { TxConfirm };
+export default TxConfirm;
