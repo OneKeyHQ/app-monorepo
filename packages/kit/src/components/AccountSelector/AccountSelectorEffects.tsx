@@ -230,18 +230,48 @@ function AccountSelectorEffectsCmp({ num }: { num: number }) {
       }),
     [actions, num, sceneName, sceneUrl],
   );
+  const syncSceneData = useCallback(
+    async (eventPayload: {
+      selectedAccount: IAccountSelectorSelectedAccount;
+      sceneName: EAccountSelectorSceneName;
+      sceneUrl?: string | undefined;
+      num: number;
+    }) => {
+      if (
+        sceneName === EAccountSelectorSceneName.discover &&
+        eventPayload &&
+        eventPayload.selectedAccount &&
+        eventPayload.sceneName === sceneName &&
+        eventPayload.sceneUrl === sceneUrl &&
+        // @ts-ignore
+        eventPayload?.$$isRemoteEvent
+      ) {
+        await actions.current.updateSelectedAccount({
+          num: eventPayload.num,
+          builder: () => eventPayload.selectedAccount,
+          updateMeta: {
+            eventEmitDisabled: true, // avoid infinite loop: event -> updateSelectedAccount -> event
+          },
+        });
+      }
+
+      await syncHomeAndSwap(eventPayload);
+    },
+    [actions, sceneName, sceneUrl, syncHomeAndSwap],
+  );
+
   useEffect(() => {
     appEventBus.on(
       EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
-      syncHomeAndSwap,
+      syncSceneData,
     );
     return () => {
       appEventBus.off(
         EAppEventBusNames.AccountSelectorSelectedAccountUpdate,
-        syncHomeAndSwap,
+        syncSceneData,
       );
     };
-  }, [syncHomeAndSwap]);
+  }, [syncSceneData]);
 
   useEffect(() => {
     void (async () => {
