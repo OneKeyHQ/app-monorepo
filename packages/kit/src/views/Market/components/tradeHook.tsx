@@ -195,7 +195,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           id: ETranslations.wallet_unsupported_network_title,
         },
         {
-          network: symbol.toUpperCase(),
+          network: networkId.split('--')[0],
         },
       ),
       description: intl.formatMessage({
@@ -206,7 +206,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         id: ETranslations.global_switch,
       }),
     });
-  }, [intl, showAccountSelector, symbol]);
+  }, [intl, networkId, showAccountSelector]);
 
   const createAccountIfNotExists = useCallback(
     async (
@@ -255,7 +255,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
                   id: ETranslations.global_private_key_error,
                 },
                 {
-                  network: symbol.toUpperCase(),
+                  network: networkId.split('--')[0],
                   path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
                 },
               ),
@@ -316,7 +316,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       }
       return undefined;
     },
-    [activeAccount, intl, networkId, showSwitchAccountSelector, symbol],
+    [activeAccount, intl, networkId, showSwitchAccountSelector],
   );
 
   const handleBuyOrSell = useCallback(
