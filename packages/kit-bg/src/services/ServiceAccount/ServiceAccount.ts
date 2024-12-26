@@ -2838,7 +2838,6 @@ class ServiceAccount extends ServiceBase {
         return result;
       } catch (error) {
         showSwitchAccountSelector();
-        throw error;
       }
     }
     return undefined;
