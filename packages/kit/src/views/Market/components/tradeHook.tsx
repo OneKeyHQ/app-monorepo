@@ -2,7 +2,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { IButtonProps, IPageNavigationProp } from '@onekeyhq/components';
 import { Button, Dialog, SizableText, Toast } from '@onekeyhq/components';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,10 +28,30 @@ import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvid
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { AccountSelectorCreateAddressButton } from '../../../components/AccountSelector/AccountSelectorCreateAddressButton';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
+
+function CreateAddressButton(props: IButtonProps) {
+  const intl = useIntl();
+  return (
+    <Button
+      $md={
+        {
+          flexGrow: 1,
+          flexBasis: 0,
+          size: 'large',
+        } as any
+      }
+      variant="primary"
+      {...props}
+    >
+      {intl.formatMessage({ id: ETranslations.global_create_address })}
+    </Button>
+  );
+}
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, platforms = {} } = token || {};
@@ -72,39 +92,23 @@ function BasicCreateAddressDialogContent({
   indexedAccountId?: string;
 }) {
   const intl = useIntl();
-  const [isLoading, setIsLoading] = useState(false);
   const {
-    activeAccount: { wallet },
+    activeAccount: { wallet, deriveType, indexedAccount },
   } = useActiveAccount({ num: 0 });
-  const { createAddress } = useAccountSelectorCreateAddress();
-  const handleCreateAddress = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId,
-        });
-      await createAddress({
-        num: 0,
-        account: {
-          walletId: wallet?.id,
-          networkId,
-          indexedAccountId,
-          deriveType: networkUtils.isBTCNetwork(networkId)
-            ? 'BIP86'
-            : deriveType,
-        },
-        selectAfterCreate: false,
-      });
-      onCreate();
-    } finally {
-      setIsLoading(false);
-    }
-  }, [networkId, createAddress, wallet?.id, indexedAccountId, onCreate]);
+
   return (
-    <Button onPress={handleCreateAddress} loading={isLoading}>
-      {intl.formatMessage({ id: ETranslations.global_create })}
-    </Button>
+    <AccountSelectorCreateAddressButton
+      num={0}
+      selectAfterCreate
+      onCreateDone={onCreate}
+      account={{
+        walletId: wallet?.id,
+        networkId,
+        indexedAccountId: indexedAccount?.id,
+        deriveType,
+      }}
+      buttonRender={CreateAddressButton}
+    />
   );
 }
 function CreateAddressDialogContent({
@@ -218,14 +222,14 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         showSwitchAccountSelector();
         return undefined;
       }
-      if (activeAccount.account?.indexedAccountId) {
+      if (activeAccount.indexedAccount?.id) {
         const deriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
           });
         await backgroundApiProxy.serviceAccount.getNetworkAccount({
           accountId: undefined,
-          indexedAccountId: activeAccount.account?.indexedAccountId,
+          indexedAccountId: activeAccount.indexedAccount?.id,
           networkId,
           deriveType,
         });
