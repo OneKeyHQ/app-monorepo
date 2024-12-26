@@ -87,6 +87,7 @@ export enum EAppEventBusNames {
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
+  CreateAddressByDialog = 'CreateAddressByDialog',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -262,6 +263,11 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.RefreshNetInfo]: undefined;
   [EAppEventBusNames.ShowSwitchAccountSelector]: {
     networkId: string;
+  };
+  [EAppEventBusNames.CreateAddressByDialog]: {
+    networkId: string;
+    indexedAccountId: string;
+    promiseId: number;
   };
 }
 

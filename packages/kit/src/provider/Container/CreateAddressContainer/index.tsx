@@ -2,15 +2,17 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Dialog, SizableText, Toast } from '@onekeyhq/components';
+import { Button, Dialog, Toast } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '../../../components/AccountSelector/AccountSelectorCreateAddressButton';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import { useAccountSelectorTrigger } from '../../../components/AccountSelector/hooks/useAccountSelectorTrigger';
@@ -44,9 +46,8 @@ function BasicCreateAddressDialogContent({
   networkId: string;
   indexedAccountId?: string;
 }) {
-  const intl = useIntl();
   const {
-    activeAccount: { wallet, deriveType, indexedAccount },
+    activeAccount: { wallet, deriveType },
   } = useActiveAccount({ num: 0 });
 
   return (
@@ -57,7 +58,7 @@ function BasicCreateAddressDialogContent({
       account={{
         walletId: wallet?.id,
         networkId,
-        indexedAccountId: indexedAccount?.id,
+        indexedAccountId,
         deriveType,
       }}
       buttonRender={CreateAddressButton}
@@ -92,44 +93,6 @@ function CreateAddressDialogContent({
 }
 
 function BasicCreateAddressContainer() {
-  //   const isCreated = await new Promise<boolean>((resolve) => {
-  //     const dialog = Dialog.show({
-  //       title: intl.formatMessage({
-  //         id: ETranslations.wallet_no_address,
-  //       }),
-  //       icon: 'WalletCryptoOutline',
-  //       description: intl.formatMessage(
-  //         {
-  //           id: ETranslations.global_private_key_error,
-  //         },
-  //         {
-  //           network: networkId.split('--')[0].toUpperCase(),
-  //           path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
-  //         },
-  //       ),
-  //       showFooter: false,
-  //       onClose: (extra) => {
-  //         if (extra?.flag !== 'created') {
-  //           resolve(false);
-  //         }
-  //       },
-  //       renderContent: (
-  //         <CreateAddressDialogContent
-  //           onCreate={async () => {
-  //             resolve(true);
-  //             await dialog.close({ flag: 'created' });
-  //             Toast.success({
-  //               title: intl.formatMessage({
-  //                 id: ETranslations.swap_page_toast_address_generated,
-  //               }),
-  //             });
-  //           }}
-  //           networkId={networkId}
-  //           indexedAccountId={activeAccount.account?.indexedAccountId}
-  //         />
-  //       ),
-  //     });
-  //   });
   const intl = useIntl();
   const { showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
@@ -160,18 +123,82 @@ function BasicCreateAddressContainer() {
     [intl, showAccountSelector],
   );
 
+  const handleCreateAddress = useCallback(
+    ({
+      networkId,
+      indexedAccountId,
+      promiseId,
+    }: {
+      networkId: string;
+      indexedAccountId: string;
+      promiseId: number;
+    }) => {
+      const dialog = Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.wallet_no_address,
+        }),
+        icon: 'WalletCryptoOutline',
+        description: intl.formatMessage(
+          {
+            id: ETranslations.global_private_key_error,
+          },
+          {
+            network: networkId.split('--')[0].toUpperCase(),
+            path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
+          },
+        ),
+        showFooter: false,
+        onClose: (extra) => {
+          if (extra?.flag !== 'created') {
+            void backgroundApiProxy.servicePromise.resolveCallback({
+              id: promiseId,
+              data: false,
+            });
+          }
+        },
+        renderContent: (
+          <CreateAddressDialogContent
+            onCreate={async () => {
+              await backgroundApiProxy.servicePromise.resolveCallback({
+                id: promiseId,
+                data: true,
+              });
+              await dialog.close({ flag: 'created' });
+              Toast.success({
+                title: intl.formatMessage({
+                  id: ETranslations.swap_page_toast_address_generated,
+                }),
+              });
+            }}
+            networkId={networkId}
+            indexedAccountId={indexedAccountId}
+          />
+        ),
+      });
+    },
+    [intl],
+  );
+
   useEffect(() => {
     appEventBus.on(
       EAppEventBusNames.ShowSwitchAccountSelector,
       showSwitchAccountSelector,
+    );
+    appEventBus.on(
+      EAppEventBusNames.CreateAddressByDialog,
+      handleCreateAddress,
     );
     return () => {
       appEventBus.off(
         EAppEventBusNames.ShowSwitchAccountSelector,
         showSwitchAccountSelector,
       );
+      appEventBus.off(
+        EAppEventBusNames.CreateAddressByDialog,
+        handleCreateAddress,
+      );
     };
-  }, [showSwitchAccountSelector]);
+  }, [handleCreateAddress, showSwitchAccountSelector]);
   return null;
 }
 

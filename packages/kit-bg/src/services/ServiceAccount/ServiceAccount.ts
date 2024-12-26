@@ -2803,47 +2803,20 @@ class ServiceAccount extends ServiceBase {
           networkId,
         };
       } catch (error) {
-        // const isCreated = await new Promise<boolean>((resolve) => {
-        //   const dialog = Dialog.show({
-        //     title: intl.formatMessage({
-        //       id: ETranslations.wallet_no_address,
-        //     }),
-        //     icon: 'WalletCryptoOutline',
-        //     description: intl.formatMessage(
-        //       {
-        //         id: ETranslations.global_private_key_error,
-        //       },
-        //       {
-        //         network: networkId.split('--')[0].toUpperCase(),
-        //         path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
-        //       },
-        //     ),
-        //     showFooter: false,
-        //     onClose: (extra) => {
-        //       if (extra?.flag !== 'created') {
-        //         resolve(false);
-        //       }
-        //     },
-        //     renderContent: (
-        //       <CreateAddressDialogContent
-        //         onCreate={async () => {
-        //           resolve(true);
-        //           await dialog.close({ flag: 'created' });
-        //           Toast.success({
-        //             title: intl.formatMessage({
-        //               id: ETranslations.swap_page_toast_address_generated,
-        //             }),
-        //           });
-        //         }}
-        //         networkId={networkId}
-        //         indexedAccountId={activeAccount.account?.indexedAccountId}
-        //       />
-        //     ),
-        //   });
-        // });
-        // if (!isCreated) {
-        //   return undefined;
-        // }
+        const isCreated = await new Promise<boolean>((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
+            networkId,
+            indexedAccountId,
+            promiseId,
+          });
+        });
+        if (!isCreated) {
+          return undefined;
+        }
         const result = await serviceAccount.getNetworkAccount({
           accountId: undefined,
           indexedAccountId,

@@ -3,8 +3,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
-import { Dialog, SizableText, Toast } from '@onekeyhq/components';
-import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
+import { Dialog, SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
@@ -13,8 +12,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
@@ -69,11 +66,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-
-  const { showAccountSelector } = useAccountSelectorTrigger({
-    num: 0,
-    linkNetwork: false,
-  });
 
   const contractAddress = useMemo(
     () => network?.contract_address ?? '',
