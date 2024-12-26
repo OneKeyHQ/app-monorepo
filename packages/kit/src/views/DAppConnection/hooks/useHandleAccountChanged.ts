@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
 
+import { useThrottledCallback } from 'use-debounce';
+
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-
-import { useDebounce } from '../../../hooks/useDebounce';
 
 export type IHandleAccountChangedParams = {
   activeAccount: IAccountSelectorActiveAccountInfo;
@@ -31,12 +31,14 @@ export function useHandleDiscoveryAccountChanged({
 
   const accountAddress = activeAccount?.account?.address;
 
-  const activeAccountDepsId = `${accountAddress || ''}-${
-    activeAccount?.wallet?.id ?? ''
-  }-${activeAccount?.account?.id ?? ''}-${
-    activeAccount?.indexedAccount?.id ?? ''
-  }-${activeAccount?.dbAccount?.id ?? ''}`;
-  const debouncedActiveAccountDepsId = useDebounce(activeAccountDepsId, 200);
+  const activeAccountDepsId = [
+    accountAddress || '',
+    activeAccount?.wallet?.id ?? '',
+    activeAccount?.account?.id ?? '',
+    activeAccount?.indexedAccount?.id ?? '',
+    activeAccount?.dbAccount?.id ?? '',
+    activeAccount?.network?.id ?? '',
+  ].join('-');
 
   const activeAccountRef = useRef(activeAccount);
   const selectedAccountRef = useRef(selectedAccount);
@@ -45,19 +47,32 @@ export function useHandleDiscoveryAccountChanged({
   selectedAccountRef.current = selectedAccount;
   accountAddressRef.current = accountAddress;
 
+  const handleAccountChangedThrottle = useThrottledCallback(
+    () => {
+      if (
+        handleAccountChanged &&
+        activeAccountDepsId &&
+        activeAccountRef.current
+      ) {
+        handleAccountChanged(
+          {
+            activeAccount: activeAccountRef.current,
+            selectedAccount: selectedAccountRef.current,
+          },
+          num,
+        );
+      }
+    },
+    200,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
   useEffect(() => {
-    if (
-      handleAccountChanged &&
-      debouncedActiveAccountDepsId &&
-      activeAccountRef.current
-    ) {
-      handleAccountChanged(
-        {
-          activeAccount: activeAccountRef.current,
-          selectedAccount: selectedAccountRef.current,
-        },
-        num,
-      );
+    if (activeAccountDepsId && activeAccountRef.current) {
+      handleAccountChangedThrottle();
     }
-  }, [debouncedActiveAccountDepsId, handleAccountChanged, num]);
+  }, [activeAccountDepsId, handleAccountChangedThrottle]);
 }
