@@ -2798,10 +2798,7 @@ class ServiceAccount extends ServiceBase {
           networkId,
           deriveType,
         });
-        return {
-          networkAccount: result,
-          networkId,
-        };
+        return result;
       } catch (error) {
         const isCreated = await new Promise<boolean>((resolve, reject) => {
           const promiseId = this.backgroundApi.servicePromise.createCallback({
@@ -2823,10 +2820,7 @@ class ServiceAccount extends ServiceBase {
           networkId,
           deriveType,
         });
-        return {
-          networkAccount: result,
-          networkId,
-        };
+        return result;
       }
     }
 
@@ -2838,12 +2832,10 @@ class ServiceAccount extends ServiceBase {
           networkId,
           deriveType,
         });
-        return {
-          networkAccount: result,
-          networkId,
-        };
-      } catch {
+        return result;
+      } catch (error) {
         showSwitchAccountSelector();
+        throw error;
       }
     }
     return undefined;
