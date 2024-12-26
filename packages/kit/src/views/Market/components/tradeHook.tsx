@@ -233,12 +233,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           networkId,
           deriveType,
         });
-      } else if (
-        activeAccount.network?.id &&
-        activeAccount.network?.id !== networkId
-      ) {
-        showSwitchAccountSelector();
-        return undefined;
       }
     } catch (error) {
       const isCreated = await new Promise<boolean>((resolve) => {
@@ -333,14 +327,6 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
   const handleSwap = useCallback(
     async (mode?: 'modal' | 'button') => {
-      const checkResult = await createAccountIfNotExists();
-      if (!checkResult) {
-        return;
-      }
-      const { networkId: currentNetworkId } = checkResult;
-      if (!currentNetworkId) {
-        return;
-      }
       const navigateToSwapPage = (
         params: IModalSwapParamList[EModalSwapRoutes.SwapMainLand],
       ) => {
@@ -353,11 +339,20 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           });
         }
       };
-      if (!currentNetworkId) {
+      if (!networkId) {
         remindUnsupportedToken('trade', false);
         navigateToSwapPage({
           importNetworkId: 'unknown',
         });
+        return;
+      }
+      const checkResult = await createAccountIfNotExists();
+      if (!checkResult) {
+        navigation.pop();
+        return;
+      }
+      const { networkId: currentNetworkId } = checkResult;
+      if (!currentNetworkId) {
         return;
       }
       const { isSupportSwap, isSupportCrossChain } =
@@ -398,6 +393,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       isNative,
       name,
       navigation,
+      networkId,
       realContractAddress,
       remindUnsupportedToken,
       symbol,
@@ -466,16 +462,9 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
       await fetchMarketTokenDetail();
       // wait for token detail loaded and actionsRef updated
       await timerUtils.wait(80);
-      const result = await actionsRef.current.createAccountIfNotExists();
-      if (!result) {
-        if (actionName === 'onSwap') {
-          navigation.pop();
-        }
-        return;
-      }
       await actionsRef.current[actionName]('modal');
     },
-    [fetchMarketTokenDetail, navigation],
+    [fetchMarketTokenDetail],
   );
 
   const handleSwapLazyModal = useCallback(async () => {
