@@ -30,7 +30,6 @@ import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorCreateAddressButton } from '../../../components/AccountSelector/AccountSelectorCreateAddressButton';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
-import { useAccountSelectorCreateAddress } from '../../../components/AccountSelector/hooks/useAccountSelectorCreateAddress';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
@@ -227,12 +226,17 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
           });
-        await backgroundApiProxy.serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId: activeAccount.indexedAccount?.id,
+        const result =
+          await backgroundApiProxy.serviceAccount.getNetworkAccount({
+            accountId: undefined,
+            indexedAccountId: activeAccount.indexedAccount?.id,
+            networkId,
+            deriveType,
+          });
+        return {
+          networkAccount: result,
           networkId,
-          deriveType,
-        });
+        };
       }
     } catch (error) {
       const isCreated = await new Promise<boolean>((resolve) => {
@@ -278,10 +282,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       }
     }
 
-    return {
-      activeAccount,
-      networkId,
-    };
+    return undefined;
   }, [activeAccount, intl, networkId, showSwitchAccountSelector, symbol]);
 
   const handleBuyOrSell = useCallback(
@@ -290,8 +291,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       if (!checkResult) {
         return;
       }
-      const { activeAccount: currentAccount, networkId: currentNetworkId } =
-        checkResult;
+      const { networkAccount, networkId: currentNetworkId } = checkResult;
 
       if (!currentNetworkId) {
         return;
@@ -313,7 +313,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId: currentNetworkId,
           tokenAddress: realContractAddress,
-          accountId: currentAccount.dbAccount?.id,
+          accountId: networkAccount?.id,
           type,
         });
       if (!url || !build) {
@@ -405,15 +405,14 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     if (!checkResult) {
       return;
     }
-    const { activeAccount: currentAccount, networkId: currentNetworkId } =
-      checkResult;
-    if (currentNetworkId && currentAccount.account) {
+    const { networkAccount, networkId: currentNetworkId } = checkResult;
+    if (currentNetworkId && networkAccount) {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.AssetProtocolList,
         params: {
           networkId: currentNetworkId,
-          accountId: currentAccount.account?.id,
-          indexedAccountId: currentAccount.indexedAccount?.id,
+          accountId: networkAccount.id,
+          indexedAccountId: networkAccount.indexedAccountId,
           symbol,
         },
       });
