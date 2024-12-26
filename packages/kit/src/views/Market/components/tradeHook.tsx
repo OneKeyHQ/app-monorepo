@@ -149,7 +149,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
 
   const { showAccountSelector } = useAccountSelectorTrigger({
     num: 0,
-    linkNetwork: true,
+    linkNetwork: false,
   });
 
   const contractAddress = useMemo(
