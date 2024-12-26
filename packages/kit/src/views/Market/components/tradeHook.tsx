@@ -129,13 +129,13 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const networkAccount = await createAccountIfNotExists({
         allowWatchAccount: type === 'buy',
       });
-      if (!networkAccount) {
+      if (!networkAccount || !networkId) {
         return;
       }
 
       const isSupported =
         await backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
-          networkId: currentNetworkId,
+          networkId,
           tokenAddress: realContractAddress,
           type,
         });
@@ -204,19 +204,19 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       if (!isSupportSwap && !isSupportCrossChain) {
         remindUnsupportedToken('trade', false);
         navigateToSwapPage({
-          importNetworkId: currentNetworkId,
+          importNetworkId: networkId,
         });
         return;
       }
       const onekeyNetwork = await backgroundApiProxy.serviceNetwork.getNetwork({
-        networkId: currentNetworkId,
+        networkId,
       });
       navigateToSwapPage({
         importFromToken: {
           ...onekeyNetwork,
           logoURI: isNative ? onekeyNetwork.logoURI : undefined,
           contractAddress: realContractAddress,
-          networkId: currentNetworkId,
+          networkId,
           isNative,
           networkLogoURI: onekeyNetwork.logoURI,
           symbol: symbol.toUpperCase(),
@@ -245,7 +245,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     if (!networkAccount) {
       return;
     }
-    if (currentNetworkId && networkAccount) {
+    if (networkId && networkAccount) {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.AssetProtocolList,
         params: {
