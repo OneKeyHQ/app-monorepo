@@ -473,6 +473,13 @@ const LetterAvatarGallery = LazyLoadPage(
     ),
 );
 
+const SignatureConfirmationGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SignatureConfirmation'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -684,5 +691,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.LetterAvatarGallery,
     component: LetterAvatarGallery,
+  },
+  {
+    name: EGalleryRoutes.SignatureConfirmationGallery,
+    component: SignatureConfirmationGallery,
   },
 ];
