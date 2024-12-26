@@ -2,6 +2,7 @@ import { isPlainObject } from 'lodash';
 
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
+import { ensureRunOnBackground } from '../utils/assertUtils';
 import dbPerfMonitor from '../utils/debug/dbPerfMonitor';
 import resetUtils from '../utils/resetUtils';
 
@@ -30,14 +31,18 @@ export const buildAppStorageFactory = (
   const setItem: IAppStorage['setItem'] = (key, value, callback) => {
     resetUtils.checkNotInResetting();
     dbPerfMonitor.logAppStorageCall('setItem', key);
+    ensureRunOnBackground();
     return originalSetItem.call(storage, key, value, callback);
   };
   const getItem: IAppStorage['getItem'] = (key, callback) => {
     dbPerfMonitor.logAppStorageCall('getItem', key);
+    ensureRunOnBackground();
     return originalGetItem.call(storage, key, callback);
   };
-  const removeItem: IAppStorage['removeItem'] = (key, callback) =>
-    originalRemoveItem.call(storage, key, callback);
+  const removeItem: IAppStorage['removeItem'] = (key, callback) => {
+    ensureRunOnBackground();
+    return originalRemoveItem.call(storage, key, callback);
+  };
 
   storage.setItem = setItem;
   storage.getItem = getItem;
