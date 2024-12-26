@@ -9,7 +9,7 @@ let _canSaveAsObject: boolean | null = null;
 function canSaveAsObject(): boolean {
   if (_canSaveAsObject === null) {
     _canSaveAsObject = false;
-    if (platformEnv.isRuntimeBrowser) {
+    if (platformEnv.isRuntimeBrowser || platformEnv.isExtension) {
       const isIndexedDB: boolean = (
         appStorage as unknown as WebStorage
       )?.isIndexedDB();
