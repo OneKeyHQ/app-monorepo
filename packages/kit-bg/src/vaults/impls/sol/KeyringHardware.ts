@@ -17,7 +17,7 @@ import {
   NotImplemented,
   UnsupportedAddressTypeError,
 } from '@onekeyhq/shared/src/errors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import { convertDeviceError, convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -205,11 +205,39 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new NotImplemented(
-      appLocale.intl.formatMessage({
-        id: ETranslations.feedback_sol_sign_unupported_message,
-      }),
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const dbAccount = await this.vault.getAccount();
+
+    const result = await Promise.all(
+      params.messages.map(
+        async (payload: { type: string; message: string }) => {
+
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+          const response = await HardwareSDK.solSignMessage(
+            connectId,
+            deviceId,
+            {
+              ...params.deviceParams?.deviceCommonParams,
+              path: dbAccount.path,
+              messageHex: Buffer.from(payload.message).toString('hex'),
+            },
+          );
+
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          if (!response.success) {
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            throw convertDeviceError(response.payload);
+          }
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
+          return response.payload?.signature;
+        },
+      ),
     );
+    return result.map((ret) => bs58.encode(Buffer.from(ret, 'hex')));
   }
 }
