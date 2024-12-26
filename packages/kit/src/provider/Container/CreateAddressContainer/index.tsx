@@ -41,6 +41,7 @@ function BasicCreateAddressDialogContent({
   onCreate,
   networkId,
   indexedAccountId,
+  autoCreateAddress,
 }: {
   onCreate: () => void;
   networkId: string;
@@ -54,6 +55,7 @@ function BasicCreateAddressDialogContent({
     <AccountSelectorCreateAddressButton
       num={0}
       selectAfterCreate
+      autoCreateAddress={autoCreateAddress}
       onCreateDone={onCreate}
       account={{
         walletId: wallet?.id,
@@ -70,10 +72,12 @@ function CreateAddressDialogContent({
   onCreate,
   networkId,
   indexedAccountId,
+  autoCreateAddress,
 }: {
   onCreate: () => void;
   networkId: string;
   indexedAccountId?: string;
+  autoCreateAddress: boolean;
 }) {
   return (
     <AccountSelectorProviderMirror
@@ -87,6 +91,7 @@ function CreateAddressDialogContent({
         onCreate={onCreate}
         networkId={networkId}
         indexedAccountId={indexedAccountId}
+        autoCreateAddress={autoCreateAddress}
       />
     </AccountSelectorProviderMirror>
   );
@@ -128,10 +133,12 @@ function BasicCreateAddressContainer() {
       networkId,
       indexedAccountId,
       promiseId,
+      autoCreateAddress,
     }: {
       networkId: string;
       indexedAccountId: string;
       promiseId: number;
+      autoCreateAddress: boolean;
     }) => {
       const dialog = Dialog.show({
         title: intl.formatMessage({
@@ -172,6 +179,7 @@ function BasicCreateAddressContainer() {
             }}
             networkId={networkId}
             indexedAccountId={indexedAccountId}
+            autoCreateAddress={autoCreateAddress}
           />
         ),
       });

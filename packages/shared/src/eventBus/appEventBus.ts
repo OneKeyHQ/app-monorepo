@@ -268,6 +268,7 @@ export interface IAppEventBusPayload {
     networkId: string;
     indexedAccountId: string;
     promiseId: number;
+    autoCreateAddress: boolean;
   };
 }
 

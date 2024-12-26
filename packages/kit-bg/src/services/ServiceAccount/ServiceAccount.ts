@@ -2755,10 +2755,12 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async createAddressIfNotExists(
     {
+      walletId,
       networkId,
       accountId,
       indexedAccountId,
     }: {
+      walletId: string;
       networkId: string;
       accountId?: string;
       indexedAccountId?: string;
@@ -2809,6 +2811,7 @@ class ServiceAccount extends ServiceBase {
             networkId,
             indexedAccountId,
             promiseId,
+            autoCreateAddress: accountUtils.isHdWallet({ walletId }),
           });
         });
         if (!isCreated) {

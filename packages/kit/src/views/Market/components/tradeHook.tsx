@@ -110,6 +110,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       if (networkId) {
         return backgroundApiProxy.serviceAccount.createAddressIfNotExists(
           {
+            walletId: activeAccount.wallet.id,
             networkId,
             accountId: activeAccount?.account?.id,
             indexedAccountId: activeAccount?.indexedAccount?.id,
