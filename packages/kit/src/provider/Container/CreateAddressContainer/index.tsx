@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Button, Dialog, Toast } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -43,9 +44,18 @@ function BasicCreateAddressDialogContent({
   indexedAccountId,
   autoCreateAddress,
 }: {
-  onCreate: () => void;
+  onCreate: (
+    params:
+      | {
+          walletId: string | undefined;
+          indexedAccountId: string | undefined;
+          accounts: IDBAccount[];
+        }
+      | undefined,
+  ) => void;
   networkId: string;
   indexedAccountId?: string;
+  autoCreateAddress: boolean;
 }) {
   const {
     activeAccount: { wallet, deriveType },
@@ -74,7 +84,15 @@ function CreateAddressDialogContent({
   indexedAccountId,
   autoCreateAddress,
 }: {
-  onCreate: () => void;
+  onCreate: (
+    params:
+      | {
+          walletId: string | undefined;
+          indexedAccountId: string | undefined;
+          accounts: IDBAccount[];
+        }
+      | undefined,
+  ) => void;
   networkId: string;
   indexedAccountId?: string;
   autoCreateAddress: boolean;
@@ -165,17 +183,22 @@ function BasicCreateAddressContainer() {
         },
         renderContent: (
           <CreateAddressDialogContent
-            onCreate={async () => {
+            onCreate={async (params) => {
+              const isCreated = !!params;
               await backgroundApiProxy.servicePromise.resolveCallback({
                 id: promiseId,
-                data: true,
+                data: isCreated,
               });
-              await dialog.close({ flag: 'created' });
-              Toast.success({
-                title: intl.formatMessage({
-                  id: ETranslations.swap_page_toast_address_generated,
-                }),
-              });
+              if (isCreated) {
+                await dialog.close({ flag: 'created' });
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.swap_page_toast_address_generated,
+                  }),
+                });
+              } else {
+                await dialog.close();
+              }
             }}
             networkId={networkId}
             indexedAccountId={indexedAccountId}
