@@ -2,8 +2,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps, IPageNavigationProp } from '@onekeyhq/components';
-import { Button, Dialog, SizableText, Toast } from '@onekeyhq/components';
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import { Dialog, SizableText, Toast } from '@onekeyhq/components';
 import { useAccountSelectorTrigger } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorTrigger';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -17,7 +17,6 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
@@ -28,29 +27,8 @@ import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvid
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { AccountSelectorCreateAddressButton } from '../../../components/AccountSelector/AccountSelectorCreateAddressButton';
-import { AccountSelectorProviderMirror } from '../../../components/AccountSelector/AccountSelectorProvider';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
-
-function CreateAddressButton(props: IButtonProps) {
-  const intl = useIntl();
-  return (
-    <Button
-      $md={
-        {
-          flexGrow: 1,
-          flexBasis: 0,
-          size: 'large',
-        } as any
-      }
-      variant="primary"
-      {...props}
-    >
-      {intl.formatMessage({ id: ETranslations.global_create_address })}
-    </Button>
-  );
-}
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
   const { detailPlatforms, platforms = {} } = token || {};
@@ -80,61 +58,6 @@ export const useMarketTradeNetworkId = (
     const { onekeyNetworkId } = network || {};
     return onekeyNetworkId ?? getNetworkIdBySymbol(symbol);
   }, [network, symbol]);
-
-function BasicCreateAddressDialogContent({
-  onCreate,
-  networkId,
-  indexedAccountId,
-}: {
-  onCreate: () => void;
-  networkId: string;
-  indexedAccountId?: string;
-}) {
-  const intl = useIntl();
-  const {
-    activeAccount: { wallet, deriveType, indexedAccount },
-  } = useActiveAccount({ num: 0 });
-
-  return (
-    <AccountSelectorCreateAddressButton
-      num={0}
-      selectAfterCreate
-      onCreateDone={onCreate}
-      account={{
-        walletId: wallet?.id,
-        networkId,
-        indexedAccountId: indexedAccount?.id,
-        deriveType,
-      }}
-      buttonRender={CreateAddressButton}
-    />
-  );
-}
-function CreateAddressDialogContent({
-  onCreate,
-  networkId,
-  indexedAccountId,
-}: {
-  onCreate: () => void;
-  networkId: string;
-  indexedAccountId?: string;
-}) {
-  return (
-    <AccountSelectorProviderMirror
-      config={{
-        sceneName: EAccountSelectorSceneName.home,
-        sceneUrl: '',
-      }}
-      enabledNum={[0]}
-    >
-      <BasicCreateAddressDialogContent
-        onCreate={onCreate}
-        networkId={networkId}
-        indexedAccountId={indexedAccountId}
-      />
-    </AccountSelectorProviderMirror>
-  );
-}
 
 export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
   const { symbol = '', name } = token || {};
@@ -186,137 +109,27 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     [intl, symbol],
   );
 
-  const showSwitchAccountSelector = useCallback(() => {
-    Dialog.confirm({
-      icon: 'ErrorOutline',
-      tone: 'warning',
-      title: intl.formatMessage(
-        {
-          id: ETranslations.wallet_unsupported_network_title,
-        },
-        {
-          network: networkId?.split('--')[0].toUpperCase() || '',
-        },
-      ),
-      description: intl.formatMessage({
-        id: ETranslations.global_switch_supported_accounts_wallets,
-      }),
-      onConfirm: showAccountSelector,
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.global_switch,
-      }),
-    });
-  }, [intl, networkId, showAccountSelector]);
-
   const createAccountIfNotExists = useCallback(
     async (
       { allowWatchAccount }: { allowWatchAccount: boolean } = {
         allowWatchAccount: false,
       },
     ) => {
-      if (!networkId) {
-        throw new Error(`cannot find NetworkId ${networkId || ''}`);
-      }
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId,
-        });
-      if (
-        !allowWatchAccount &&
-        accountUtils.isWatchingAccount({
-          accountId: activeAccount.account?.id ?? '',
-        })
-      ) {
-        showSwitchAccountSelector();
-        return undefined;
-      }
-      if (activeAccount.indexedAccount?.id) {
-        try {
-          const result =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              accountId: undefined,
-              indexedAccountId: activeAccount.indexedAccount?.id,
-              networkId,
-              deriveType,
-            });
-          return {
-            networkAccount: result,
+      if (networkId) {
+        return backgroundApiProxy.serviceAccount.createAddressIfNotExists(
+          {
             networkId,
-          };
-        } catch (error) {
-          const isCreated = await new Promise<boolean>((resolve) => {
-            const dialog = Dialog.show({
-              title: intl.formatMessage({
-                id: ETranslations.wallet_no_address,
-              }),
-              icon: 'WalletCryptoOutline',
-              description: intl.formatMessage(
-                {
-                  id: ETranslations.global_private_key_error,
-                },
-                {
-                  network: networkId.split('--')[0].toUpperCase(),
-                  path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
-                },
-              ),
-              showFooter: false,
-              onClose: (extra) => {
-                if (extra?.flag !== 'created') {
-                  resolve(false);
-                }
-              },
-              renderContent: (
-                <CreateAddressDialogContent
-                  onCreate={async () => {
-                    resolve(true);
-                    await dialog.close({ flag: 'created' });
-                    Toast.success({
-                      title: intl.formatMessage({
-                        id: ETranslations.swap_page_toast_address_generated,
-                      }),
-                    });
-                  }}
-                  networkId={networkId}
-                  indexedAccountId={activeAccount.account?.indexedAccountId}
-                />
-              ),
-            });
-          });
-          if (!isCreated) {
-            return undefined;
-          }
-          const result =
-            await backgroundApiProxy.serviceAccount.getNetworkAccount({
-              accountId: undefined,
-              indexedAccountId: activeAccount.indexedAccount?.id,
-              networkId,
-              deriveType,
-            });
-          return {
-            networkAccount: result,
-            networkId,
-          };
-        }
-      }
-
-      try {
-        const result =
-          await backgroundApiProxy.serviceAccount.getNetworkAccount({
             accountId: activeAccount?.account?.id,
-            indexedAccountId: undefined,
-            networkId,
-            deriveType,
-          });
-        return {
-          networkAccount: result,
-          networkId,
-        };
-      } catch {
-        showSwitchAccountSelector();
+            indexedAccountId: activeAccount?.indexedAccount?.id,
+          },
+          {
+            allowWatchAccount,
+          },
+        );
       }
       return undefined;
     },
-    [activeAccount, intl, networkId, showSwitchAccountSelector],
+    [activeAccount, networkId],
   );
 
   const handleBuyOrSell = useCallback(

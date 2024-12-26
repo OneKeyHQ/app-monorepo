@@ -86,6 +86,7 @@ export enum EAppEventBusNames {
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',
+  ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -259,6 +260,9 @@ export interface IAppEventBusPayload {
     enabled: boolean;
   };
   [EAppEventBusNames.RefreshNetInfo]: undefined;
+  [EAppEventBusNames.ShowSwitchAccountSelector]: {
+    networkId: string;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

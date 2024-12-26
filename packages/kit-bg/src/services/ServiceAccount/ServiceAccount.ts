@@ -2751,6 +2751,130 @@ class ServiceAccount extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.getAddressType({ address });
   }
+
+  @backgroundMethod()
+  async createAddressIfNotExists(
+    {
+      networkId,
+      accountId,
+      indexedAccountId,
+    }: {
+      networkId: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    },
+    { allowWatchAccount }: { allowWatchAccount?: boolean },
+  ) {
+    if (!accountId && !indexedAccountId) {
+      throw new Error('accountId or indexedAccountId is required');
+    }
+
+    const { serviceNetwork, serviceAccount } = this.backgroundApi;
+    const deriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId,
+    });
+
+    const showSwitchAccountSelector = () => {
+      appEventBus.emit(EAppEventBusNames.ShowSwitchAccountSelector, {
+        networkId,
+      });
+    };
+
+    if (
+      !allowWatchAccount &&
+      accountUtils.isWatchingAccount({
+        accountId: accountId ?? '',
+      })
+    ) {
+      showSwitchAccountSelector();
+      return undefined;
+    }
+
+    if (indexedAccountId) {
+      try {
+        const result = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return {
+          networkAccount: result,
+          networkId,
+        };
+      } catch (error) {
+        // const isCreated = await new Promise<boolean>((resolve) => {
+        //   const dialog = Dialog.show({
+        //     title: intl.formatMessage({
+        //       id: ETranslations.wallet_no_address,
+        //     }),
+        //     icon: 'WalletCryptoOutline',
+        //     description: intl.formatMessage(
+        //       {
+        //         id: ETranslations.global_private_key_error,
+        //       },
+        //       {
+        //         network: networkId.split('--')[0].toUpperCase(),
+        //         path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
+        //       },
+        //     ),
+        //     showFooter: false,
+        //     onClose: (extra) => {
+        //       if (extra?.flag !== 'created') {
+        //         resolve(false);
+        //       }
+        //     },
+        //     renderContent: (
+        //       <CreateAddressDialogContent
+        //         onCreate={async () => {
+        //           resolve(true);
+        //           await dialog.close({ flag: 'created' });
+        //           Toast.success({
+        //             title: intl.formatMessage({
+        //               id: ETranslations.swap_page_toast_address_generated,
+        //             }),
+        //           });
+        //         }}
+        //         networkId={networkId}
+        //         indexedAccountId={activeAccount.account?.indexedAccountId}
+        //       />
+        //     ),
+        //   });
+        // });
+        // if (!isCreated) {
+        //   return undefined;
+        // }
+        const result = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return {
+          networkAccount: result,
+          networkId,
+        };
+      }
+    }
+
+    if (accountId) {
+      try {
+        const result = await serviceAccount.getNetworkAccount({
+          accountId,
+          indexedAccountId: undefined,
+          networkId,
+          deriveType,
+        });
+        return {
+          networkAccount: result,
+          networkId,
+        };
+      } catch {
+        showSwitchAccountSelector();
+      }
+    }
+    return undefined;
+  }
 }
 
 export default ServiceAccount;
