@@ -52,7 +52,7 @@ export function BeforeShowRecoveryPhrase() {
       iconColor: '$iconSuccess',
       iconContainerColor: '$bgSuccess',
       message: intl.formatMessage({
-        id: ETranslations.onboarding_bullet_forgot_password_use_recovery,
+        id: ETranslations.onboarding_bullet_forgot_passcode_use_recovery,
       }),
     },
     {

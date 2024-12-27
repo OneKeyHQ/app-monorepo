@@ -50,7 +50,13 @@ import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthUtils } from './biologyAuthUtils';
-import { EPasswordPromptType } from './types';
+import {
+  EPasswordMode,
+  EPasswordPromptType,
+  PASSCODE_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from './types';
 
 import type { IPasswordRes } from './types';
 
@@ -273,12 +279,24 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // validatePassword --------------------------------
-  validatePasswordValidRules(password: string): void {
+  validatePasswordValidRules(
+    password: string,
+    passwordMode: EPasswordMode,
+  ): void {
     ensureSensitiveTextEncoded(password);
     const realPassword = decodePassword({ password });
     // **** length matched
-    if (realPassword.length < 8 || realPassword.length > 128) {
+    if (
+      passwordMode === EPasswordMode.PASSWORD &&
+      (realPassword.length < PASSWORD_MIN_LENGTH ||
+        realPassword.length > PASSWORD_MAX_LENGTH)
+    ) {
       throw new OneKeyErrors.PasswordStrengthValidationFailed();
+    }
+    if (passwordMode === EPasswordMode.PASSCODE) {
+      if (realPassword.length !== PASSCODE_LENGTH) {
+        throw new OneKeyErrors.PasswordStrengthValidationFailed();
+      }
     }
     // **** other rules ....
   }
@@ -286,7 +304,6 @@ export default class ServicePassword extends ServiceBase {
   validatePasswordSame(password: string, newPassword: string) {
     ensureSensitiveTextEncoded(password);
     ensureSensitiveTextEncoded(newPassword);
-
     const realPassword = decodePassword({ password });
     const realNewPassword = decodePassword({ password: newPassword });
     if (realPassword === realNewPassword) {
@@ -296,10 +313,12 @@ export default class ServicePassword extends ServiceBase {
 
   async validatePassword({
     password,
+    passwordMode,
     newPassword,
     skipDBVerify,
   }: {
     password: string;
+    passwordMode: EPasswordMode;
     newPassword?: string;
     skipDBVerify?: boolean;
   }): Promise<void> {
@@ -307,9 +326,10 @@ export default class ServicePassword extends ServiceBase {
     if (newPassword) {
       ensureSensitiveTextEncoded(newPassword);
     }
-    this.validatePasswordValidRules(password);
-    if (newPassword) {
-      this.validatePasswordValidRules(newPassword);
+    if (!newPassword) {
+      this.validatePasswordValidRules(password, passwordMode);
+    } else {
+      this.validatePasswordValidRules(newPassword, passwordMode);
       this.validatePasswordSame(password, newPassword);
     }
     if (!skipDBVerify) {
@@ -336,20 +356,30 @@ export default class ServicePassword extends ServiceBase {
     return checkPasswordSet;
   }
 
-  async setPasswordSetStatus(isSet: boolean): Promise<void> {
-    await passwordPersistAtom.set((v) => ({ ...v, isPasswordSet: isSet }));
+  async setPasswordSetStatus(
+    isSet: boolean,
+    passMode?: EPasswordMode,
+  ): Promise<void> {
+    await passwordPersistAtom.set((v) => ({
+      ...v,
+      isPasswordSet: isSet,
+      ...(passMode ? { passwordMode: passMode } : {}),
+    }));
   }
 
   // password actions --------------
   @backgroundMethod()
-  async setPassword(password: string): Promise<string> {
+  async setPassword(
+    password: string,
+    passwordMode: EPasswordMode,
+  ): Promise<string> {
     ensureSensitiveTextEncoded(password);
-    await this.validatePassword({ password, skipDBVerify: true });
+    await this.validatePassword({ password, passwordMode, skipDBVerify: true });
     try {
       await this.unLockApp();
       await this.saveBiologyAuthPassword(password);
       await this.setCachedPassword(password);
-      await this.setPasswordSetStatus(true);
+      await this.setPasswordSetStatus(true, passwordMode);
       await localDb.setPassword({ password });
       return password;
     } catch (e) {
@@ -362,16 +392,21 @@ export default class ServicePassword extends ServiceBase {
   async updatePassword(
     oldPassword: string,
     newPassword: string,
+    passwordMode: EPasswordMode,
   ): Promise<string> {
     ensureSensitiveTextEncoded(oldPassword);
     ensureSensitiveTextEncoded(newPassword);
 
-    await this.validatePassword({ password: oldPassword, newPassword });
+    await this.validatePassword({
+      password: oldPassword,
+      newPassword,
+      passwordMode,
+    });
     try {
       await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword(newPassword);
-      await this.setPasswordSetStatus(true);
+      await this.setPasswordSetStatus(true, passwordMode);
       // update v5 db password
       await localDb.updatePassword({ oldPassword, newPassword });
       // update v4 db password
@@ -391,9 +426,11 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async verifyPassword({
     password,
+    passwordMode,
     isBiologyAuth,
   }: {
     password: string;
+    passwordMode: EPasswordMode;
     isBiologyAuth?: boolean;
   }): Promise<string> {
     let verifyingPassword = password;
@@ -401,7 +438,7 @@ export default class ServicePassword extends ServiceBase {
       verifyingPassword = await this.getBiologyAuthPassword();
     }
     ensureSensitiveTextEncoded(verifyingPassword);
-    await this.validatePassword({ password: verifyingPassword });
+    await this.validatePassword({ password: verifyingPassword, passwordMode });
     await this.setCachedPassword(verifyingPassword);
     return verifyingPassword;
   }
