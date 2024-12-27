@@ -169,7 +169,7 @@ function BasicCreateAddressContainer() {
           },
           {
             network: networkId.split('--')[0].toUpperCase(),
-            path: networkUtils.isBTCNetwork(networkId) ? '(Taproot)' : '',
+            path: '',
           },
         ),
         showFooter: false,
