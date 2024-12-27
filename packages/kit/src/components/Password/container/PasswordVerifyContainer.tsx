@@ -28,6 +28,7 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
+import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
 import PasswordVerify from '../components/PasswordVerify';
 import usePasswordProtection from '../hooks/usePasswordProtection';
@@ -54,6 +55,7 @@ const PasswordVerifyContainer = ({
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
   const [hasSecurePassword, setHasSecurePassword] = useState(false);
   const [passwordMode] = usePasswordModeAtom();
+  const { title } = useBiometricAuthInfo();
   const biologyAuthAttempts = useMemo(
     () =>
       authType.includes(AuthenticationType.FACIAL_RECOGNITION)
@@ -113,6 +115,7 @@ const PasswordVerifyContainer = ({
     setUnlockPeriodPasswordArray,
     alertText,
     setPasswordPersist,
+    isProtectionTime,
     enablePasswordErrorProtection,
   } = usePasswordProtection(isLock);
 
@@ -134,13 +137,13 @@ const PasswordVerifyContainer = ({
       );
     },
     [
-      hasCachedPassword,
-      hasSecurePassword,
-      isEnable,
-      webAuthCredentialId,
-      isBiologyAuthSwitchOn,
       isExtLockAndNoCachePassword,
+      isBiologyAuthSwitchOn,
       verifyPeriodBiologyEnable,
+      isEnable,
+      hasSecurePassword,
+      webAuthCredentialId,
+      hasCachedPassword,
     ],
   );
 
@@ -177,12 +180,20 @@ const PasswordVerifyContainer = ({
           ...v,
           passwordVerifyStatus: {
             value: EPasswordVerifyStatus.ERROR,
-            message: intl.formatMessage({
-              id:
-                verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
-                  ? ETranslations.auth_biometric_failed
-                  : ETranslations.auth_error_passcode_incorrect,
-            }),
+            message: intl.formatMessage(
+              {
+                id:
+                  verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+                    ? ETranslations.auth_biometric_failed
+                    : ETranslations.auth_error_passcode_incorrect,
+              },
+              {
+                biometric:
+                  verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+                    ? title
+                    : undefined,
+              },
+            ),
           },
         }));
       }
@@ -196,6 +207,7 @@ const PasswordVerifyContainer = ({
       setVerifyPeriodBiologyEnable,
       setVerifyPeriodBiologyAuthAttempts,
       intl,
+      title,
     ]);
 
   const onBiologyAuthenticate = useCallback(async () => {
@@ -241,12 +253,20 @@ const PasswordVerifyContainer = ({
         ...v,
         passwordVerifyStatus: {
           value: EPasswordVerifyStatus.ERROR,
-          message: intl.formatMessage({
-            id:
-              verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
-                ? ETranslations.auth_biometric_failed
-                : ETranslations.auth_error_passcode_incorrect,
-          }),
+          message: intl.formatMessage(
+            {
+              id:
+                verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+                  ? ETranslations.auth_biometric_failed
+                  : ETranslations.auth_error_passcode_incorrect,
+            },
+            {
+              biometric:
+                verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+                  ? title
+                  : undefined,
+            },
+          ),
         },
       }));
     }
@@ -261,6 +281,7 @@ const PasswordVerifyContainer = ({
     setPasswordAtom,
     setVerifyPeriodBiologyAuthAttempts,
     setVerifyPeriodBiologyEnable,
+    title,
     verifiedPasswordWebAuth,
     verifyPeriodBiologyAuthAttempts,
   ]);
@@ -385,13 +406,12 @@ const PasswordVerifyContainer = ({
       unlockPeriodPasswordArray,
     ],
   );
-
   return (
     <Stack onLayout={onLayout}>
       <PasswordVerify
         passwordMode={passwordMode}
         alertText={alertText}
-        confirmBtnDisabled={!!alertText}
+        disableInput={isProtectionTime}
         onPasswordChange={() => {
           setPasswordAtom((v) => ({
             ...v,

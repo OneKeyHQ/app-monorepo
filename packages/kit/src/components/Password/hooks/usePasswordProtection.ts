@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,8 +11,6 @@ const usePasswordProtection = (isLock: boolean) => {
     string[]
   >([]);
   const intl = useIntl();
-  const [passwordErrorProtectionTimeOver, setPasswordErrorProtectionTimeOver] =
-    useState(false);
   const [
     passwordErrorProtectionTimeMinutesSurplus,
     setPasswordErrorProtectionTimeMinutesSurplus,
@@ -29,15 +27,25 @@ const usePasswordProtection = (isLock: boolean) => {
     },
     setPasswordPersist,
   ] = usePasswordPersistAtom();
-  const alertText = useMemo(() => {
-    if (
+
+  const isProtectionTime = useMemo(
+    () =>
       isLock &&
       enablePasswordErrorProtection &&
       passwordErrorAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
-      passwordErrorProtectionTime > Date.now() &&
-      passwordErrorProtectionTimeMinutesSurplus > 0 &&
-      !passwordErrorProtectionTimeOver
-    ) {
+      passwordErrorProtectionTime > Date.now(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      isLock,
+      enablePasswordErrorProtection,
+      passwordErrorAttempts,
+      passwordErrorProtectionTime,
+      passwordErrorProtectionTimeMinutesSurplus,
+    ],
+  );
+
+  const alertText = useMemo(() => {
+    if (isProtectionTime && passwordErrorProtectionTimeMinutesSurplus > 0) {
       return intl.formatMessage(
         {
           id: ETranslations.auth_passcode_cooldown,
@@ -50,28 +58,26 @@ const usePasswordProtection = (isLock: boolean) => {
       );
     }
     return '';
-  }, [
-    isLock,
-    enablePasswordErrorProtection,
-    passwordErrorAttempts,
-    passwordErrorProtectionTime,
-    passwordErrorProtectionTimeMinutesSurplus,
-    passwordErrorProtectionTimeOver,
-    intl,
-  ]);
+  }, [isProtectionTime, passwordErrorProtectionTimeMinutesSurplus, intl]);
+
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
+
+  const protectionTimeRun = useCallback(() => {
+    if (passwordErrorProtectionTime < Date.now()) {
+      setPasswordErrorProtectionTimeMinutesSurplus(0);
+    } else {
+      const timeMinutes =
+        (passwordErrorProtectionTime - Date.now()) / 60_000 + 1;
+      setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
+    }
+  }, [passwordErrorProtectionTime]);
+
   useEffect(() => {
-    if (alertText) {
+    if (isProtectionTime) {
+      protectionTimeRun();
       intervalRef.current = setInterval(() => {
-        if (passwordErrorProtectionTime < Date.now()) {
-          setPasswordErrorProtectionTimeOver(true);
-          setPasswordErrorProtectionTimeMinutesSurplus(0);
-        } else {
-          const timeMinutes =
-            (passwordErrorProtectionTime - Date.now()) / 60_000 + 1;
-          setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
-        }
-      }, 1000 * 50);
+        protectionTimeRun();
+      }, 1000 * 5);
     } else if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
@@ -80,11 +86,15 @@ const usePasswordProtection = (isLock: boolean) => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [alertText, passwordErrorProtectionTime]);
+  }, [
+    alertText,
+    isProtectionTime,
+    passwordErrorProtectionTime,
+    protectionTimeRun,
+  ]);
 
   return {
     unlockPeriodPasswordArray,
-    passwordErrorProtectionTimeOver,
     passwordErrorProtectionTimeMinutesSurplus,
     verifyPeriodBiologyAuthAttempts,
     verifyPeriodBiologyEnable,
@@ -94,9 +104,9 @@ const usePasswordProtection = (isLock: boolean) => {
     setVerifyPeriodBiologyEnable,
     setVerifyPeriodBiologyAuthAttempts,
     setUnlockPeriodPasswordArray,
-    setPasswordErrorProtectionTimeOver,
     setPasswordErrorProtectionTimeMinutesSurplus,
     enablePasswordErrorProtection,
+    isProtectionTime,
   };
 };
 

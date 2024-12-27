@@ -21,6 +21,7 @@ const PassCodeInput = ({
   editable,
   // showMask,
   testId,
+  clearCode,
 }: {
   onPinCodeChange?: (pin: string) => void;
   onComplete?: () => void;
@@ -29,6 +30,7 @@ const PassCodeInput = ({
   enableAutoFocus?: boolean;
   editable?: boolean;
   testId?: string;
+  clearCode?: boolean;
   // showMask?: boolean;
 }) => {
   const [pinValue, setPinValue] = useState('');
@@ -78,6 +80,12 @@ const PassCodeInput = ({
       pinInputRef.current?.focus();
     }
   }, [pinCodeFocus, pinInputRef]);
+
+  useEffect(() => {
+    if (clearCode) {
+      setPinValue('');
+    }
+  }, [clearCode]);
 
   return (
     <CodeField

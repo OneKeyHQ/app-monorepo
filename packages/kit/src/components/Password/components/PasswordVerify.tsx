@@ -153,20 +153,21 @@ const PasswordVerify = ({
     onInputPasswordAuth,
     confirmBtnDisabled,
   ]);
-
+  const [passCodeClear, setPassCodeClear] = useState(false);
   useEffect(() => {
     const fieldName =
       passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode';
     if (status.value === EPasswordVerifyStatus.ERROR) {
-      if (passwordMode === EPasswordMode.PASSCODE) {
-        form.setValue(fieldName, '');
-      }
       form.setError(fieldName, { message: status.message });
-      form.setFocus(fieldName);
+      if (passwordMode === EPasswordMode.PASSCODE) {
+        setPassCodeClear(true);
+      } else {
+        form.setFocus(fieldName);
+      }
     } else {
       form.clearErrors(fieldName);
     }
-  }, [form, passwordMode, status]);
+  }, [form, passwordMode, status, disableInput]);
 
   useLayoutEffect(() => {
     if (
@@ -266,17 +267,26 @@ const PasswordVerify = ({
               onPinCodeChange={(pin) => {
                 form.setValue('passCode', pin);
                 form.clearErrors('passCode');
+                setPassCodeClear(false);
               }}
               editable={Boolean(
                 status.value !== EPasswordVerifyStatus.VERIFYING &&
                   !disableInput,
               )}
               onComplete={form.handleSubmit(onInputPasswordAuth)}
+              clearCode={passCodeClear}
               disabledComplete={confirmBtnDisabled}
               enableAutoFocus
               testId="pass-code-input"
             />
           </Form.Field>
+          {alertText ? (
+            <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
+              <SizableText size="$bodyMd" color="$textOnBrightColor">
+                {alertText}
+              </SizableText>
+            </XStack>
+          ) : null}
           {isEnable ? (
             <YStack alignSelf="center" pt="$6" scale={1.5}>
               <IconButton
@@ -287,17 +297,7 @@ const PasswordVerify = ({
                 loading={status.value === EPasswordVerifyStatus.VERIFYING}
               />
             </YStack>
-          ) : (
-            <>
-              {alertText ? (
-                <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
-                  <SizableText size="$bodyMd" color="$textOnBrightColor">
-                    {alertText}
-                  </SizableText>
-                </XStack>
-              ) : null}
-            </>
-          )}
+          ) : null}
         </>
       )}
     </Form>

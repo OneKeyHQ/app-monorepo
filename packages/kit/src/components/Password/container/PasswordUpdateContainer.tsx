@@ -29,7 +29,6 @@ const PasswordUpdateContainer = ({
       const finalPassword =
         mode === EPasswordMode.PASSCODE ? confirmPassCode : confirmPassword;
       setLoading(true);
-      setLoading(true);
       try {
         const encodeNewPassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
