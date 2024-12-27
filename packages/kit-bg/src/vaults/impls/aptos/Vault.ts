@@ -22,7 +22,7 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { InvalidAccount, NetworkFeeInsufficient, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -774,9 +774,22 @@ export default class VaultAptos extends VaultBase {
       const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
       rawTx = SimpleTransaction.deserialize(deserializer);
     } else {
-      rawTx = await generateUnsignedTransaction(this.client, {
-        encodedTx,
-      });
+      const network = await this.getNetwork();
+      try {
+        rawTx = await generateUnsignedTransaction(this.client, {
+          encodedTx,
+        });
+      } catch (error) {
+        if (error instanceof InvalidAccount) {
+          throw new NetworkFeeInsufficient({
+            info: {
+              symbol: network.symbol,
+            },
+          });
+        }
+
+        throw error;
+      }
     }
 
     const rawTxn = rawTx.rawTransaction;

@@ -11,6 +11,7 @@ import type {
   PaginationArgs,
   TransactionResponse,
 } from '@aptos-labs/ts-sdk';
+import { InvalidAccount } from '@onekeyhq/shared/src/errors';
 
 export class AptosClient {
   backgroundApi: IBackgroundApi;
@@ -44,10 +45,24 @@ export class AptosClient {
     return this.proxyRequest('getChainId', []);
   }
 
-  getAccount(
+  async getAccount(
     accountAddress: AccountAddressInput,
   ): Promise<{ sequence_number: string; authentication_key: string }> {
-    return this.proxyRequest('getAccount', [accountAddress]);
+    try {
+      return await this.proxyRequest('getAccount', [accountAddress]);
+    } catch (error: any) {
+      const { message } = error;
+
+      if (
+        typeof message === 'string' &&
+        message.includes('account_not_found')
+      ) {
+        throw new InvalidAccount({
+          message,
+        });
+      }
+      throw error;
+    }
   }
 
   getTransactionByHash(txnHash: string): Promise<TransactionResponse> {
