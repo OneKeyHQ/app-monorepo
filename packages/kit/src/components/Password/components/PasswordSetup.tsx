@@ -202,6 +202,7 @@ const PasswordSetup = ({
           <Form.Field
             name="passCode"
             display={passCodeFirstStep ? 'flex' : 'none'}
+            errorMessageAlign="center"
             rules={{
               validate: {
                 required: (v) =>
@@ -238,12 +239,12 @@ const PasswordSetup = ({
               }}
               enableAutoFocus
               testId="pass-code"
-              showMask
             />
           </Form.Field>
           <Form.Field
             display={passCodeFirstStep ? 'none' : 'flex'}
             name="confirmPassCode"
+            errorMessageAlign="center"
             rules={{
               validate: {
                 equal: (v, values) => {
@@ -274,7 +275,6 @@ const PasswordSetup = ({
               enableAutoFocus={false}
               pinCodeFocus={passCodeConfirm}
               testId="confirm-pass-code"
-              showMask
             />
             <Divider />
           </Form.Field>

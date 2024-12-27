@@ -43,7 +43,9 @@ const usePasswordProtection = (isLock: boolean) => {
           id: ETranslations.auth_passcode_cooldown,
         },
         {
-          cooldowntime: Math.floor(passwordErrorProtectionTimeMinutesSurplus),
+          cooldowntime: `${Math.floor(
+            passwordErrorProtectionTimeMinutesSurplus,
+          )} Min`,
         },
       );
     }

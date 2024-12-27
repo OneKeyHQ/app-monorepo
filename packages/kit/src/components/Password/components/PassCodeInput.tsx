@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { StyleSheet, Text } from 'react-native';
 import {
   CodeField,
-  useBlurOnFulfill,
   useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
 
 import { YStack } from '@onekeyhq/components';
+
+import type { TextInput } from 'react-native';
 
 export const PIN_CELL_COUNT = 6;
 
@@ -17,7 +18,8 @@ const PassCodeInput = ({
   disabledComplete,
   pinCodeFocus,
   enableAutoFocus,
-  showMask,
+  editable,
+  // showMask,
   testId,
 }: {
   onPinCodeChange?: (pin: string) => void;
@@ -25,21 +27,19 @@ const PassCodeInput = ({
   disabledComplete?: boolean;
   pinCodeFocus?: boolean;
   enableAutoFocus?: boolean;
+  editable?: boolean;
   testId?: string;
-  showMask?: boolean;
+  // showMask?: boolean;
 }) => {
   const [pinValue, setPinValue] = useState('');
 
-  const pinInputRef = useBlurOnFulfill({
-    value: pinValue,
-    cellCount: PIN_CELL_COUNT,
-  });
+  const pinInputRef = useRef<TextInput>(null);
   const [props, getCellOnLayoutHandler] = useClearByFocusCell({
     value: pinValue,
     setValue: setPinValue,
   });
-  const [enableMask, setEnableMask] = useState(true);
-  const toggleMask = () => setEnableMask((f) => !f);
+  // const [enableMask, setEnableMask] = useState(true);
+  // const toggleMask = () => setEnableMask((f) => !f);
 
   const cellStyles = StyleSheet.create({
     cell: {
@@ -51,27 +51,17 @@ const PassCodeInput = ({
   const renderCell = ({
     index,
     symbol,
-    isFocused,
-  }: {
+  }: // isFocused,
+  {
     index: number;
     symbol: string;
     isFocused: boolean;
   }) => (
-    // let textChild = null;
-    // if (symbol) {
-    //   textChild = enableMask ? '•' : symbol;
-    // }
-
     <Text
       key={index}
       style={[...[cellStyles.cell]]}
       onLayout={getCellOnLayoutHandler(index)}
     >
-      {/* {symbol ? (
-          <YStack w="$4" h="$4" borderRadius="$full" bg="$borderActive" />
-        ) : (
-          ''
-        )} */}
       <YStack
         animation="50ms"
         w="$4"
@@ -113,6 +103,7 @@ const PassCodeInput = ({
       textContentType="oneTimeCode"
       renderCell={renderCell}
       {...props}
+      editable={editable}
     />
 
     // <YStack gap="$4">

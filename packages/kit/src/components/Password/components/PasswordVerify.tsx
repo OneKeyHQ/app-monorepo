@@ -35,6 +35,7 @@ import PassCodeInput from './PassCodeInput';
 interface IPasswordVerifyProps {
   authType: AuthenticationType[];
   isEnable: boolean;
+  disableInput?: boolean;
   passwordMode: EPasswordMode;
   onPasswordChange: (e: any) => void;
   onBiologyAuth: () => void;
@@ -57,6 +58,7 @@ const PasswordVerify = ({
   isEnable,
   alertText,
   confirmBtnDisabled,
+  disableInput,
   status,
   passwordMode,
   onBiologyAuth,
@@ -156,6 +158,9 @@ const PasswordVerify = ({
     const fieldName =
       passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode';
     if (status.value === EPasswordVerifyStatus.ERROR) {
+      if (passwordMode === EPasswordMode.PASSCODE) {
+        form.setValue(fieldName, '');
+      }
       form.setError(fieldName, { message: status.message });
       form.setFocus(fieldName);
     } else {
@@ -212,7 +217,10 @@ const PasswordVerify = ({
             <Input
               selectTextOnFocus
               size="large"
-              editable={status.value !== EPasswordVerifyStatus.VERIFYING}
+              editable={Boolean(
+                status.value !== EPasswordVerifyStatus.VERIFYING &&
+                  !disableInput,
+              )}
               placeholder={intl.formatMessage({
                 id: ETranslations.auth_enter_your_passcode,
               })}
@@ -241,6 +249,7 @@ const PasswordVerify = ({
         <>
           <Form.Field
             name="passCode"
+            errorMessageAlign="center"
             rules={{
               validate: {
                 required: (v) =>
@@ -258,13 +267,17 @@ const PasswordVerify = ({
                 form.setValue('passCode', pin);
                 form.clearErrors('passCode');
               }}
+              editable={Boolean(
+                status.value !== EPasswordVerifyStatus.VERIFYING &&
+                  !disableInput,
+              )}
               onComplete={form.handleSubmit(onInputPasswordAuth)}
               disabledComplete={confirmBtnDisabled}
               enableAutoFocus
               testId="pass-code-input"
             />
           </Form.Field>
-          {isEnable && !passwordInput ? (
+          {isEnable ? (
             <YStack alignSelf="center" pt="$6" scale={1.5}>
               <IconButton
                 size="large"

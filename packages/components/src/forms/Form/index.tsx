@@ -109,6 +109,7 @@ type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
     horizontal?: boolean;
     optional?: boolean;
     labelAddon?: string | ReactElement;
+    errorMessageAlign?: 'left' | 'center' | 'right';
   }>;
 
 function Field({
@@ -116,6 +117,7 @@ function Field({
   label,
   optional,
   display,
+  errorMessageAlign,
   description,
   rules,
   children,
@@ -201,6 +203,7 @@ function Field({
                 <SizableText
                   color="$textCritical"
                   size="$bodyMd"
+                  textAlign={errorMessageAlign}
                   key={error?.message}
                   testID={`${testID}-message`}
                 >
