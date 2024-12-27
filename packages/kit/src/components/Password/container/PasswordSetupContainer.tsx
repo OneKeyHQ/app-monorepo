@@ -109,6 +109,9 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
           title: intl.formatMessage({
             id: ETranslations.auth_Passcode_protection,
           }),
+          description: intl.formatMessage({
+            id: ETranslations.auth_Passcode_protection_description,
+          }),
           renderIcon: (
             <XStack
               w="$14"

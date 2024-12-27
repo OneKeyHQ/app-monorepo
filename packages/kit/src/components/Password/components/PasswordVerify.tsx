@@ -18,6 +18,7 @@ import {
   Input,
   SizableText,
   XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
 import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
@@ -264,11 +265,15 @@ const PasswordVerify = ({
             />
           </Form.Field>
           {isEnable && !passwordInput ? (
-            <IconButton
-              icon={biologyAuthIconName}
-              onPress={onBiologyAuth}
-              loading={status.value === EPasswordVerifyStatus.VERIFYING}
-            />
+            <YStack alignSelf="center" pt="$6" scale={1.5}>
+              <IconButton
+                size="large"
+                variant="tertiary"
+                icon={biologyAuthIconName}
+                onPress={onBiologyAuth}
+                loading={status.value === EPasswordVerifyStatus.VERIFYING}
+              />
+            </YStack>
           ) : (
             <>
               {alertText ? (

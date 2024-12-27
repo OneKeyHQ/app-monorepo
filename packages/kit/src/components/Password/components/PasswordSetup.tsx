@@ -2,7 +2,14 @@ import { memo, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Button, Form, Input, Unspaced, useForm } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Form,
+  Input,
+  Unspaced,
+  useForm,
+} from '@onekeyhq/components';
 import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -193,9 +200,6 @@ const PasswordSetup = ({
       ) : (
         <>
           <Form.Field
-            label={intl.formatMessage({
-              id: ETranslations.auth_new_passcode_form_label,
-            })}
             name="passCode"
             display={passCodeFirstStep ? 'flex' : 'none'}
             rules={{
@@ -238,9 +242,6 @@ const PasswordSetup = ({
             />
           </Form.Field>
           <Form.Field
-            label={intl.formatMessage({
-              id: ETranslations.auth_confirm_passcode_form_label,
-            })}
             display={passCodeFirstStep ? 'none' : 'flex'}
             name="confirmPassCode"
             rules={{
@@ -275,6 +276,7 @@ const PasswordSetup = ({
               testId="confirm-pass-code"
               showMask
             />
+            <Divider />
           </Form.Field>
         </>
       )}
@@ -299,8 +301,8 @@ const PasswordSetup = ({
       </Button>
       {platformEnv.isNative ? (
         <Button
-          size="large"
-          variant="secondary"
+          size="small"
+          variant="tertiary"
           onPress={() => {
             form.reset();
             const newPasswordMode =

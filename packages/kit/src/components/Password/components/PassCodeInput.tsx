@@ -3,30 +3,13 @@ import { useEffect, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import {
   CodeField,
-  Cursor,
   useBlurOnFulfill,
   useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
 
-import { IconButton, XStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 
 export const PIN_CELL_COUNT = 6;
-
-const cellStyles = StyleSheet.create({
-  cell: {
-    flex: 1,
-    fontSize: 30,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginRight: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#eee',
-  },
-  focusCell: {
-    borderColor: '#000',
-  },
-});
 
 const PassCodeInput = ({
   onPinCodeChange,
@@ -57,6 +40,14 @@ const PassCodeInput = ({
   });
   const [enableMask, setEnableMask] = useState(true);
   const toggleMask = () => setEnableMask((f) => !f);
+
+  const cellStyles = StyleSheet.create({
+    cell: {
+      width: 16,
+      height: 16,
+    },
+  });
+
   const renderCell = ({
     index,
     symbol,
@@ -65,28 +56,33 @@ const PassCodeInput = ({
     index: number;
     symbol: string;
     isFocused: boolean;
-  }) => {
-    let textChild = null;
-    if (symbol) {
-      textChild = enableMask ? '•' : symbol;
-    } else if (isFocused) {
-      textChild = <Cursor />;
-    }
+  }) => (
+    // let textChild = null;
+    // if (symbol) {
+    //   textChild = enableMask ? '•' : symbol;
+    // }
 
-    return (
-      <Text
-        key={index}
-        style={[
-          ...[cellStyles.cell],
-          ...(isFocused ? [cellStyles.focusCell] : []),
-        ]}
-        onLayout={getCellOnLayoutHandler(index)}
-      >
-        {textChild}
-      </Text>
-    );
-  };
-
+    <Text
+      key={index}
+      style={[...[cellStyles.cell]]}
+      onLayout={getCellOnLayoutHandler(index)}
+    >
+      {/* {symbol ? (
+          <YStack w="$4" h="$4" borderRadius="$full" bg="$borderActive" />
+        ) : (
+          ''
+        )} */}
+      <YStack
+        animation="50ms"
+        w="$4"
+        h="$4"
+        backgroundColor={symbol ? '$borderActive' : '$transparent'}
+        borderWidth={1}
+        borderRadius="$full"
+        borderColor="$borderActive"
+      />
+    </Text>
+  );
   useEffect(() => {
     if (pinCodeFocus) {
       pinInputRef.current?.focus();
@@ -94,33 +90,39 @@ const PassCodeInput = ({
   }, [pinCodeFocus, pinInputRef]);
 
   return (
-    <XStack gap="$1" minHeight={40}>
-      <CodeField
-        autoFocus={enableAutoFocus}
-        testID={testId}
-        ref={pinInputRef}
-        {...props}
-        rootStyle={{ flex: 1 }}
-        value={pinValue}
-        onChangeText={(text) => {
-          setPinValue(text);
-          onPinCodeChange?.(text);
-          if (text.length === PIN_CELL_COUNT && !disabledComplete) {
-            onComplete?.();
-          }
-        }}
-        cellCount={PIN_CELL_COUNT}
-        keyboardType="number-pad"
-        textContentType="oneTimeCode"
-        renderCell={renderCell}
-      />
-      {showMask ? (
-        <IconButton
-          icon={enableMask ? 'EyeOutline' : 'EyeOffOutline'}
-          onPress={toggleMask}
-        />
-      ) : null}
-    </XStack>
+    <CodeField
+      autoFocus={enableAutoFocus}
+      testID={testId}
+      ref={pinInputRef}
+      rootStyle={{
+        flex: 1,
+        paddingVertical: 32,
+        alignSelf: 'center',
+        width: 200,
+      }}
+      value={pinValue}
+      onChangeText={(text) => {
+        setPinValue(text);
+        onPinCodeChange?.(text);
+        if (text.length === PIN_CELL_COUNT && !disabledComplete) {
+          onComplete?.();
+        }
+      }}
+      cellCount={PIN_CELL_COUNT}
+      keyboardType="number-pad"
+      textContentType="oneTimeCode"
+      renderCell={renderCell}
+      {...props}
+    />
+
+    // <YStack gap="$4">
+    //   {showMask ? (
+    //     <IconButton
+    //       icon={enableMask ? 'EyeOutline' : 'EyeOffOutline'}
+    //       onPress={toggleMask}
+    //     />
+    //   ) : null}
+    // </YStack>
   );
 };
 
