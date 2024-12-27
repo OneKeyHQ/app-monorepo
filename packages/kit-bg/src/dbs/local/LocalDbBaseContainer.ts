@@ -1,10 +1,14 @@
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
 import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
   ILocalDBAgent,
   ILocalDBGetAllRecordsParams,
   ILocalDBGetAllRecordsResult,
@@ -98,10 +102,23 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     ].includes(storeName);
   }
 
-  clearStoreCachedData(storeName: ELocalDBStoreNames) {
+  dbAllRecordsCache = new cacheUtils.LRUCache<
+    'allDbAccounts' | 'allDbIndexedAccounts' | 'allDbWallets' | 'allDbDevices',
+    IDBAccount[] | IDBIndexedAccount[] | IDBWallet[] | IDBDevice[]
+  >({
+    max: 10,
+    ttl: timerUtils.getTimeDurationMs({ seconds: 5 }),
+  });
+
+  clearStoreCachedDataIfMatch(storeName: ELocalDBStoreNames) {
     if (this.isCachedStoreName(storeName)) {
-      this.getRecordByIdWithCache.clear();
+      this.clearStoreCachedData();
     }
+  }
+
+  clearStoreCachedData() {
+    this.getRecordByIdWithCache.clear();
+    this.dbAllRecordsCache.clear();
   }
 
   async txGetAllRecords<T extends ELocalDBStoreNames>(
@@ -121,7 +138,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txUpdateRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
-    this.clearStoreCachedData(params.name);
+    this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     // const a = db.txAddRecords['hello-world-test-error-stack-8889273']['name'];
     return db.txUpdateRecords(params);
@@ -130,7 +147,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<ILocalDBTxAddRecordsResult> {
-    this.clearStoreCachedData(params.name);
+    this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     return db.txAddRecords(params);
   }
@@ -138,7 +155,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txRemoveRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxRemoveRecordsParams<T>,
   ): Promise<void> {
-    this.clearStoreCachedData(params.name);
+    this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     return db.txRemoveRecords(params);
   }
@@ -146,7 +163,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   abstract reset(): Promise<void>;
 
   async clearRecords(params: { name: ELocalDBStoreNames }) {
-    this.clearStoreCachedData(params.name);
+    this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     return db.clearRecords(params);
   }

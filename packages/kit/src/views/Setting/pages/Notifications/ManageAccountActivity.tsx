@@ -747,9 +747,9 @@ function ManageAccountActivityContent({ wallets }: { wallets: IDBWallet[] }) {
 function ManageAccountActivity() {
   const intl = useIntl();
 
-  const { result: { wallets } = { wallets: [] }, isLoading } = usePromiseResult(
+  const { result: wallets = [], isLoading } = usePromiseResult(
     () =>
-      backgroundApiProxy.serviceNotification.getNotificationWalletsAndAccounts(),
+      backgroundApiProxy.serviceNotification.getNotificationWalletsWithAccounts(),
     [],
     {
       watchLoading: true,

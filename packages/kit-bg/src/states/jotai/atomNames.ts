@@ -39,3 +39,11 @@ export enum EAtomNames {
   notificationsReadedAtom = 'notificationsReadedAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
 }
+export type IAtomNameKeys = keyof typeof EAtomNames;
+export const atomsConfig: Partial<
+  Record<IAtomNameKeys, { deepCompare?: boolean }>
+> = {
+  [EAtomNames.notificationsAtom]: {
+    deepCompare: true,
+  },
+};

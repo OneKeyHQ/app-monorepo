@@ -12,6 +12,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -134,6 +135,24 @@ export function HomePageView({
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
   }, []);
 
+  const emptyAccountView = useMemo(
+    () => (
+      <EmptyAccount
+        autoCreateAddress
+        name={accountName}
+        chain={network?.name ?? ''}
+        type={
+          (deriveInfo?.labelKey
+            ? intl.formatMessage({
+                id: deriveInfo?.labelKey,
+              })
+            : deriveInfo?.label) ?? ''
+        }
+      />
+    ),
+    [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
+  );
+
   const renderTabs = useCallback(
     () => (
       <Tab
@@ -178,18 +197,7 @@ export function HomePageView({
         <YStack height="100%">
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
-            <EmptyAccount
-              autoCreateAddress
-              name={accountName}
-              chain={network?.name ?? ''}
-              type={
-                (deriveInfo?.labelKey
-                  ? intl.formatMessage({
-                      id: deriveInfo?.labelKey,
-                    })
-                  : deriveInfo?.label) ?? ''
-              }
-            />
+            {emptyAccountView}
           </Stack>
         </YStack>
       );
@@ -215,12 +223,8 @@ export function HomePageView({
     isRequiredValidation,
     renderTabs,
     watchingAccountEnabled,
-    accountName,
-    network?.name,
+    emptyAccountView,
     network?.id,
-    deriveInfo?.labelKey,
-    deriveInfo?.label,
-    intl,
   ]);
 
   const renderHomePage = useCallback(() => {

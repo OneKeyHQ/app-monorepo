@@ -1,4 +1,4 @@
-import { isNil } from 'lodash';
+import { isEqual, isNil } from 'lodash';
 
 import errorUtils from '../../errors/utils/errorUtils';
 import appStorage from '../../storage/appStorage';
@@ -206,8 +206,16 @@ function createPerf(options: IPerformanceTimerOptions) {
   return perf;
 }
 
+function buildNewValueIfChanged<T>(oldValue: T, newValue: T) {
+  if (isEqual(newValue, oldValue)) {
+    return oldValue;
+  }
+  return newValue;
+}
+
 export default {
   createPerf,
   updatePerformanceTimerLogConfig,
   getPerformanceTimerLogConfig,
+  buildNewValueIfChanged,
 };
