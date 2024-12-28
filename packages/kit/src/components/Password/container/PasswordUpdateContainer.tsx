@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
+import { usePasswordModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import PasswordSetup from '../components/PasswordSetup';
@@ -20,36 +22,33 @@ const PasswordUpdateContainer = ({
 }: IPasswordUpdateContainerProps) => {
   const [loading, setLoading] = useState(false);
   const intl = useIntl();
+  const [passwordMode] = usePasswordModeAtom();
   const onUpdatePassword = useCallback(
     async (data: IPasswordSetupForm) => {
+      const { confirmPassword, confirmPassCode, passwordMode: mode } = data;
+      const finalPassword =
+        mode === EPasswordMode.PASSCODE ? confirmPassCode : confirmPassword;
       setLoading(true);
       try {
-        if (data.confirmPassword !== data.password) {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.auth_error_password_not_match,
-            }),
-          });
-          return;
-        }
         const encodeNewPassword =
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
-            text: data.password,
+            text: finalPassword,
           });
         const updatedPassword =
           await backgroundApiProxy.servicePassword.updatePassword(
             oldEncodedPassword,
             encodeNewPassword,
+            mode,
           );
         onUpdateRes(updatedPassword);
         Toast.success({
-          title: intl.formatMessage({ id: ETranslations.auth_password_set }),
+          title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
       } catch (e) {
         console.error(e);
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.auth_new_password_same_as_old,
+            id: ETranslations.auth_new_passcode_same_as_old,
           }),
         });
       }
@@ -60,6 +59,7 @@ const PasswordUpdateContainer = ({
   return (
     <PasswordSetup
       loading={loading}
+      passwordMode={passwordMode}
       onSetupPassword={onUpdatePassword}
       confirmBtnText={intl.formatMessage({ id: ETranslations.global_confirm })}
     />

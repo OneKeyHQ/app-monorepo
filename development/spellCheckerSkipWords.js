@@ -20,6 +20,7 @@ module.exports = [
   'hdk',
   'dkey',
   'impls',
+  'ttl',
   'Sollet',
   'Solflare',
   'encryptors',
@@ -775,4 +776,7 @@ module.exports = [
   'cacheable',
   'benfen',
   'bfc',
+  'biometric',
+  'biometrics',
+  'Biometric',
 ];

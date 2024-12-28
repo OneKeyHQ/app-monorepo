@@ -6749,6 +6749,7 @@ __metadata:
     react-dom: "npm:18.2.0"
     react-mobile-cropper: "npm:^0.10.0"
     react-native: "npm:0.73.7"
+    react-native-confirmation-code-field: "npm:^7.4.0"
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.1"
     react-native-flipper: "npm:0.201.0"
@@ -33599,6 +33600,21 @@ __metadata:
   version: 2.6.3
   resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.3"
   checksum: 10/5ed16fd50e317820bec8f587144849ef9f21a5602bd5bde338330ee889c22f599212fd5728f678bdde693bb28a34899a8b86fb1634c350f871c6a899d7079d44
+  languageName: node
+  linkType: hard
+
+"react-native-confirmation-code-field@npm:^7.4.0":
+  version: 7.4.0
+  resolution: "react-native-confirmation-code-field@npm:7.4.0"
+  peerDependencies:
+    react: ">=16.4.0"
+    react-native: ">=0.64.0"
+  peerDependenciesMeta:
+    react:
+      optional: true
+    react-native:
+      optional: true
+  checksum: 10/ababeeb36067574f57c907f15d6c9ac6831e06076ed2882f382053ccf7c9912377787a6a56876cc6b63b2e8bab9ba179845046e8eed2cd9e2bf59bc00347ade5
   languageName: node
   linkType: hard
 

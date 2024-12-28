@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import PassCodeProtectionSwitch from '@onekeyhq/kit/src/components/Password/container/PassCodeProtectionSwitch';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -50,7 +51,7 @@ const SettingProtectionModal = () => {
           <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader
             title={intl.formatMessage({
-              id: ETranslations.settings_password_bypass,
+              id: ETranslations.settings_passcode_bypass,
             })}
           />
           <ListItem
@@ -85,7 +86,21 @@ const SettingProtectionModal = () => {
           </ListItem>
           <SizableText px="$5" size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.settings_password_bypass_desc,
+              id: ETranslations.settings_passcode_bypass_desc,
+            })}
+          </SizableText>
+          <Divider my="$5" mx="$5" />
+          <SectionList.SectionHeader title="PassCode protection" />
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.settings_reset_app,
+            })}
+          >
+            <PassCodeProtectionSwitch />
+          </ListItem>
+          <SizableText px="$5" size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.Setting_Reset_app_description,
             })}
           </SizableText>
         </YStack>

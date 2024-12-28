@@ -12,3 +12,4 @@ import {
 initSentry();
 
 export default withSentryHOC(KitProvider);
+// export default KitProvider;
