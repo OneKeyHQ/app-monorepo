@@ -19,9 +19,4 @@ export type IParseTransactionResp = {
       hexSignature: string;
     };
   };
-  interactionMap: {
-    [key: string]: {
-      lastTimestampMs: number;
-    };
-  };
 };
