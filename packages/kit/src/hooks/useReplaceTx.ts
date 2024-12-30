@@ -3,9 +3,11 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
@@ -26,6 +28,7 @@ function useReplaceTx({
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const { handleOpenWebSite } = useBrowserAction().current;
 
   const canReplaceTx = usePromiseResult(async () => {
     if (!historyTx) return false;
@@ -106,19 +109,32 @@ function useReplaceTx({
 
       if (!replaceEncodedTx) return;
 
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendReplaceTx,
-        params: {
-          accountId,
-          networkId,
-          replaceType,
-          replaceEncodedTx,
-          historyTx,
-          onSuccess,
-        },
-      });
+      if (networkUtils.isBTCNetwork(networkId)) {
+        // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
+        handleOpenWebSite({
+          switchToMultiTabBrowser: true,
+          navigation,
+          useCurrentWindow: false,
+          webSite: {
+            url: `https://f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
+            title: 'F2Pool',
+          },
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SendModal, {
+          screen: EModalSendRoutes.SendReplaceTx,
+          params: {
+            accountId,
+            networkId,
+            replaceType,
+            replaceEncodedTx,
+            historyTx,
+            onSuccess,
+          },
+        });
+      }
     },
-    [canReplaceTx, historyTx, intl, navigation, onSuccess],
+    [canReplaceTx, historyTx, intl, navigation, onSuccess, handleOpenWebSite],
   );
 
   return {

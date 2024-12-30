@@ -25,6 +25,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -1178,4 +1179,4 @@ function HistoryDetails() {
   );
 }
 
-export default HistoryDetails;
+export default withBrowserProvider(HistoryDetails);
