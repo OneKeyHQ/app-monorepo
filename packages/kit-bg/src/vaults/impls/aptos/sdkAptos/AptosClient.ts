@@ -2,6 +2,7 @@
 import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { InvalidAccount } from '@onekeyhq/shared/src/errors';
 
 import type {
   AccountAddressInput,
@@ -11,7 +12,6 @@ import type {
   PaginationArgs,
   TransactionResponse,
 } from '@aptos-labs/ts-sdk';
-import { InvalidAccount } from '@onekeyhq/shared/src/errors';
 
 export class AptosClient {
   backgroundApi: IBackgroundApi;

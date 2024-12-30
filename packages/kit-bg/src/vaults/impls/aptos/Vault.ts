@@ -22,7 +22,11 @@ import type {
   ISignedTxPro,
   IUnsignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { InvalidAccount, NetworkFeeInsufficient, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import {
+  InvalidAccount,
+  NetworkFeeInsufficient,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
