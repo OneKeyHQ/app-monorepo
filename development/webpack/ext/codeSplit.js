@@ -37,7 +37,7 @@ function enableCodeSplitChunks({ config }) {
     //   vendors: {
     //     test: /[\\/]node_modules[\\/]/,
     //     priority: -10,
-    //     enforce: true, // seperate vendor from our code
+    //     enforce: true, // separate vendor from our code
     //   },
     //   default: {
     //     minChunks: 2,

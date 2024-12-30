@@ -69,7 +69,7 @@ async function signTransaction(
       list.map((item) => Buffer.from(item)),
       totalLength,
     );
-  // In @zondax/izari-filecoin AddressSecp256k1 fromString static fucntion
+  // In @zondax/izari-filecoin AddressSecp256k1 fromString static function
   // When comparing the check sum of the address,
   // The format of both sides is Buffer and Uint8Array,
   // Resulting in different comparison results of the same checksum
