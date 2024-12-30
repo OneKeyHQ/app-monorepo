@@ -11,6 +11,7 @@ import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { useReplaceTx } from '../../hooks/useReplaceTx';
 
+import { SpeedUpAction } from './SpeedUpAction';
 import { TxHistoryListItemErrorBoundary } from './TxHistoryListItemErrorBoundary';
 
 type IProps = {
@@ -49,15 +50,12 @@ function TxHistoryListItem(props: IProps) {
       >
         {canCancelTx ? (
           <XStack gap="$3">
-            <Button
-              size="small"
-              variant="primary"
-              onPress={() =>
+            <SpeedUpAction
+              networkId={historyTx.decodedTx.networkId}
+              onSpeedUp={() =>
                 handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
               }
-            >
-              {intl.formatMessage({ id: ETranslations.global_speed_up })}
-            </Button>
+            />
             {cancelTxEnabled ? (
               <Button
                 size="small"
@@ -95,6 +93,7 @@ function TxHistoryListItem(props: IProps) {
     canReplaceTx,
     handleReplaceTx,
     historyTx.decodedTx.status,
+    historyTx.decodedTx.networkId,
     intl,
     showIcon,
   ]);

@@ -19,6 +19,7 @@ import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { SpeedUpAction } from '@onekeyhq/kit/src/components/TxHistoryListView/SpeedUpAction';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -738,15 +739,12 @@ function HistoryDetails() {
       <XStack ml="$5">
         {canCancelTx ? (
           <XStack gap="$2">
-            <Button
-              size="small"
-              variant="primary"
-              onPress={() =>
+            <SpeedUpAction
+              networkId={networkId}
+              onSpeedUp={() =>
                 handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
               }
-            >
-              {intl.formatMessage({ id: ETranslations.global_speed_up })}
-            </Button>
+            />
             {cancelTxEnabled ? (
               <Button
                 size="small"
@@ -783,6 +781,7 @@ function HistoryDetails() {
     cancelTxEnabled,
     speedUpCancelEnabled,
     handleReplaceTx,
+    networkId,
     intl,
   ]);
 
