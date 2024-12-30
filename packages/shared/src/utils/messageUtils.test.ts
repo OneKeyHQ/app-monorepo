@@ -277,7 +277,7 @@ describe('messageUtils', () => {
       ).toThrow('Current chainId cannot be null or undefined.');
     });
 
-    test('should throw if current chain id is not convertable to integer', () => {
+    test('should throw if current chain id is not convertible to integer', () => {
       const unexpectedChainId = 'unexpected chain id';
       const from = '0x3244e191f1b4903970224322180f1fbbc415696b';
       expect(() =>

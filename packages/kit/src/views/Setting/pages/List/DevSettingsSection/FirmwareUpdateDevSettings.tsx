@@ -69,7 +69,7 @@ export function FirmwareUpdateDevSettings() {
       </FirmwareUpdateSectionFieldItem>
       <FirmwareUpdateSectionFieldItem
         name="shouldUpdateFullRes"
-        title="Should Update Full Resouces"
+        title="Should Update Full Resources"
       >
         <Switch size={ESwitchSize.small} />
       </FirmwareUpdateSectionFieldItem>

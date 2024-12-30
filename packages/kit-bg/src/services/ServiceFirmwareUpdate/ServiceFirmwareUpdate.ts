@@ -581,10 +581,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
     // bootloaderMode may return status: 'unknown' | 'none'
     // TODO: different of 'unknown' | 'none';
     if (
-      // bootloader cann't detect current firmware version, so we always upgrade fw and ble
+      // bootloader can't detect current firmware version, so we always upgrade fw and ble
       releasePayload?.bootloaderMode &&
       releasePayload?.release &&
-      ['firmware', 'ble'].includes(firmwareType) // bootloader cann't reinstall
+      ['firmware', 'ble'].includes(firmwareType) // bootloader can't reinstall
     ) {
       hasUpgrade = true;
     }
