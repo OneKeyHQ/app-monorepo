@@ -20,6 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -203,6 +204,19 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
   }
 
+  guessMessageFormat(message: Buffer) {
+    if (Object.prototype.toString.call(message) !== '[object Uint8Array]') {
+      return undefined;
+    }
+    if (stringUtils.isPrintableASCII(message)) {
+      return 0;
+    }
+    if (stringUtils.isUTF8(message)) {
+      return 1;
+    }
+    return undefined;
+  }
+
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
@@ -221,6 +235,9 @@ export class KeyringHardware extends KeyringHardwareBase {
               ...params.deviceParams?.deviceCommonParams,
               path: dbAccount.path,
               messageHex: Buffer.from(payload.message).toString('hex'),
+              messageFormat: this.guessMessageFormat(
+                Buffer.from(payload.message),
+              ),
             },
           );
 
