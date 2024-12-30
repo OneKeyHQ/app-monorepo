@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
@@ -14,10 +13,9 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
-  NotImplemented,
-  UnsupportedAddressTypeError,
-} from '@onekeyhq/shared/src/errors';
-import { convertDeviceError, convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -216,8 +214,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     const result = await Promise.all(
       params.messages.map(
         async (payload: { type: string; message: string }) => {
-
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-call
           const response = await HardwareSDK.solSignMessage(
             connectId,
             deviceId,
@@ -228,12 +224,9 @@ export class KeyringHardware extends KeyringHardwareBase {
             },
           );
 
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           if (!response.success) {
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             throw convertDeviceError(response.payload);
           }
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-member-access
           return response.payload?.signature;
         },
       ),
