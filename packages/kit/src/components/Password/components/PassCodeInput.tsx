@@ -8,6 +8,8 @@ import {
 
 import { YStack } from '@onekeyhq/components';
 
+import { PassCodeRegex } from '../utils';
+
 import type { TextInput } from 'react-native';
 
 export const PIN_CELL_COUNT = 6;
@@ -100,9 +102,10 @@ const PassCodeInput = ({
       }}
       value={pinValue}
       onChangeText={(text) => {
-        setPinValue(text);
-        onPinCodeChange?.(text);
-        if (text.length === PIN_CELL_COUNT && !disabledComplete) {
+        const newText = text.replace(PassCodeRegex, '');
+        setPinValue(newText);
+        onPinCodeChange?.(newText);
+        if (newText.length === PIN_CELL_COUNT && !disabledComplete) {
           onComplete?.();
         }
       }}

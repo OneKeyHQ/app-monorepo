@@ -90,7 +90,11 @@ const SettingProtectionModal = () => {
             })}
           </SizableText>
           <Divider my="$5" mx="$5" />
-          <SectionList.SectionHeader title="PassCode protection" />
+          <SectionList.SectionHeader
+            title={intl.formatMessage({
+              id: ETranslations.settings_protection_passcode_section_title,
+            })}
+          />
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.settings_reset_app,
