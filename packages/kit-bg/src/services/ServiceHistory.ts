@@ -1198,6 +1198,23 @@ class ServiceHistory extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async checkTxSpeedUpStateEnabled({
+    networkId,
+    accountId,
+    historyTx,
+  }: {
+    networkId: string;
+    accountId: string;
+    historyTx: IAccountHistoryTx;
+  }) {
+    const vault = await vaultFactory.getVault({
+      networkId,
+      accountId,
+    });
+    return vault.checkTxSpeedUpStateEnabled({ historyTx });
+  }
+
+  @backgroundMethod()
   public async getReplaceInfoForBtc(params: {
     networkId: string;
     accountId: string;
@@ -1256,7 +1273,6 @@ class ServiceHistory extends ServiceBase {
         await this.backgroundApi.serviceAccountProfile.sendProxyRequest<
           Record<string, number>
         >({
-          // TODO: 需要根据 networkId 获取对应的 f2pool 地址
           networkId: 'btc--0',
           body: [
             {
@@ -1277,7 +1293,7 @@ class ServiceHistory extends ServiceBase {
 
       // return btcReplaceStateMap;
       return {
-        [txIds[0]]: EBtcF2poolReplaceState.ACCELERATED_PENDING,
+        [txIds[0]]: EBtcF2poolReplaceState.NOT_ACCELERATED,
       };
     },
     {
