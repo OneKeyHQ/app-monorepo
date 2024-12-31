@@ -860,11 +860,17 @@ function TokenListContainer(props: ITabPageProps) {
 
     if (allNetworksResult) {
       for (const r of allNetworksResult) {
-        const mergeDeriveAssetsEnabled = (
-          await backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId: r.networkId ?? '',
-          })
-        ).mergeDeriveAssetsEnabled;
+        let mergeDeriveAssetsEnabled;
+
+        try {
+          mergeDeriveAssetsEnabled = (
+            await backgroundApiProxy.serviceNetwork.getVaultSettings({
+              networkId: r.networkId ?? '',
+            })
+          ).mergeDeriveAssetsEnabled;
+        } catch (e) {
+          mergeDeriveAssetsEnabled = false;
+        }
 
         tokenList.tokens = mergeDeriveTokenList({
           sourceTokens: r.tokens.data,

@@ -68,7 +68,7 @@ function CreateInvoice() {
       withFrozenBalance: false,
       withCheckInscription: false,
     });
-    const price = r[0].price;
+    const price = r[0]?.price;
     return {
       price,
     };
