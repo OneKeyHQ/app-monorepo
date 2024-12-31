@@ -1,5 +1,6 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -9,6 +10,7 @@ import {
   mnemonicToRevealableSeed,
   mnemonicToSeedSync,
   revealEntropyToMnemonic,
+  validateMnemonic,
 } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
 import {
@@ -207,6 +209,9 @@ function encryptRevealableSeed({
   rs: IBip39RevealableSeed;
   password: string;
 }): IBip39RevealableSeedEncryptHex {
+  if (!rs || !rs.entropyWithLangPrefixed || !rs.seed) {
+    throw new Error('Invalid seed object');
+  }
   return (
     EncryptPrefixHdCredential +
     bufferUtils.bytesToHex(
@@ -239,6 +244,9 @@ function encryptImportedCredential({
   credential: ICoreImportedCredential;
   password: string;
 }): ICoreImportedCredentialEncryptHex {
+  if (!credential || !credential.privateKey) {
+    throw new Error('Invalid credential object');
+  }
   return (
     EncryptPrefixImportedCredential +
     encryptString({
@@ -521,7 +529,7 @@ export type IMnemonicFromEntropyAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
 };
-export function mnemonicFromEntropyAsync(
+async function mnemonicFromEntropyAsync(
   params: IMnemonicFromEntropyAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
@@ -536,7 +544,7 @@ export type IMnemonicToSeedAsyncParams = {
   mnemonic: string;
   passphrase?: string;
 };
-export async function mnemonicToSeedAsync(
+async function mnemonicToSeedAsync(
   params: IMnemonicToSeedAsyncParams,
 ): Promise<Buffer> {
   if (platformEnv.isNative) {
@@ -544,6 +552,10 @@ export async function mnemonicToSeedAsync(
       params,
     );
     return Buffer.from(hex, 'hex');
+  }
+  const isValid = validateMnemonic(params.mnemonic);
+  if (!isValid) {
+    throw new InvalidMnemonic();
   }
   return Promise.resolve(
     mnemonicToSeedSync(params.mnemonic, params.passphrase),
@@ -555,7 +567,7 @@ export type IGenerateRootFingerprintHexAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
 };
-export async function generateRootFingerprintHexAsync(
+async function generateRootFingerprintHexAsync(
   params: IGenerateRootFingerprintHexAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
@@ -610,6 +622,9 @@ export {
   batchGetPublicKeysAsync,
   CKDPriv,
   CKDPub,
+  mnemonicToSeedAsync,
+  generateRootFingerprintHexAsync,
+  mnemonicFromEntropyAsync,
   compressPublicKey,
   decryptImportedCredential,
   decryptRevealableSeed,
@@ -624,8 +639,8 @@ export {
   publicFromPrivate,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
-  tonMnemonicFromEntropy,
   sign,
+  tonMnemonicFromEntropy,
   uncompressPublicKey,
   verify,
 };
