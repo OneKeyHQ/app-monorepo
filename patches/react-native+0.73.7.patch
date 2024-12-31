@@ -131,7 +131,7 @@ index 209947d..5092dbd 100644
  @property (nonatomic, assign) NSInteger mostRecentEventCount;
  @property (nonatomic, assign, readonly) NSInteger nativeEventCount;
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
-index b0d71dc..8edafe2 100644
+index b0d71dc..60da5c7 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
 @@ -561,6 +561,51 @@ - (void)textInputDidChangeSelection
@@ -166,7 +166,7 @@ index b0d71dc..8edafe2 100644
 +    return;
 +  }
 +  
-+  if ([self isBlankString:type] || [self isBlankString:data]) {
++  if (isBlankString(type) || isBlankString(data)) {
 +    return;
 +  }
 +
