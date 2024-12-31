@@ -46,6 +46,7 @@ import {
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
+import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
@@ -53,7 +54,6 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { StartTimePanel } from './StartTimePanel';
-import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 
 let correctDevOnlyPwd = '';
 
