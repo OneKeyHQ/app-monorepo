@@ -30,7 +30,6 @@ import {
 import type {
   ICoreApiSignAccount,
   ICoreApiSignBtcExtraInfo,
-  IEncodedTx,
   ISignedTxPro,
   ITxInput,
   ITxInputToSign,
@@ -73,6 +72,7 @@ import {
   EBtcF2poolReplaceState,
   EDecodedTxActionType,
   EDecodedTxStatus,
+  EReplaceTxMethod,
   EReplaceTxType,
 } from '@onekeyhq/shared/types/tx';
 
@@ -1493,6 +1493,7 @@ export default class VaultBtc extends VaultBase {
           updatedTxs.push({
             ...tx,
             replacedType: EReplaceTxType.SpeedUp,
+            replacedMethod: EReplaceTxMethod.BTC_F2POOL,
           });
         }
       }
@@ -1502,5 +1503,16 @@ export default class VaultBtc extends VaultBase {
       console.error(error);
       return [];
     }
+  }
+
+  override checkTxSpeedUpStateEnabled({
+    historyTx,
+  }: {
+    historyTx: IAccountHistoryTx;
+  }): Promise<boolean> {
+    return Promise.resolve(
+      historyTx.replacedType === EReplaceTxType.SpeedUp &&
+        historyTx.replacedMethod === EReplaceTxMethod.BTC_F2POOL,
+    );
   }
 }

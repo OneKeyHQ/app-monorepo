@@ -32,15 +32,71 @@ function TxHistoryListItem(props: IProps) {
     canCancelTx,
     cancelTxEnabled,
     speedUpCancelEnabled,
+    checkSpeedUpStateEnabled,
     handleReplaceTx,
+    handleCheckSpeedUpState,
   } = useReplaceTx({
     historyTx,
   });
 
   const renderReplaceTxActions = useCallback(() => {
-    if (!canReplaceTx) return null;
+    if (!canReplaceTx && !checkSpeedUpStateEnabled) return null;
 
     if (historyTx.decodedTx.status !== EDecodedTxStatus.Pending) return null;
+
+    const renderCancelActions = () => (
+      <XStack gap="$3">
+        <SpeedUpAction
+          networkId={historyTx.decodedTx.networkId}
+          onSpeedUp={() =>
+            handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+          }
+        />
+        {cancelTxEnabled ? (
+          <Button
+            size="small"
+            onPress={() =>
+              handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_cancel })}
+          </Button>
+        ) : null}
+      </XStack>
+    );
+
+    const renderSpeedUpCancelAction = () => (
+      <>
+        {speedUpCancelEnabled ? (
+          <Button
+            size="small"
+            variant="primary"
+            onPress={() =>
+              handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+            }
+          >
+            {intl.formatMessage({
+              id: ETranslations.speed_up_cancellation,
+            })}
+          </Button>
+        ) : null}
+      </>
+    );
+
+    const renderCheckSpeedUpState = () => (
+      <Button
+        size="small"
+        variant="primary"
+        onPress={() => handleCheckSpeedUpState()}
+      >
+        Check Speed Up State
+      </Button>
+    );
+
+    const renderReplaceButtons = () => {
+      if (!canReplaceTx) return null;
+      return canCancelTx ? renderCancelActions() : renderSpeedUpCancelAction();
+    };
 
     return (
       <XStack
@@ -48,50 +104,18 @@ function TxHistoryListItem(props: IProps) {
         testID="history-list-item-speed-up-and-cancel-buttons"
         pb="$3"
       >
-        {canCancelTx ? (
-          <XStack gap="$3">
-            <SpeedUpAction
-              networkId={historyTx.decodedTx.networkId}
-              onSpeedUp={() =>
-                handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
-              }
-            />
-            {cancelTxEnabled ? (
-              <Button
-                size="small"
-                onPress={() =>
-                  handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
-                }
-              >
-                {intl.formatMessage({ id: ETranslations.global_cancel })}
-              </Button>
-            ) : null}
-          </XStack>
-        ) : (
-          <>
-            {speedUpCancelEnabled ? (
-              <Button
-                size="small"
-                variant="primary"
-                onPress={() =>
-                  handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
-                }
-              >
-                {intl.formatMessage({
-                  id: ETranslations.speed_up_cancellation,
-                })}
-              </Button>
-            ) : null}
-          </>
-        )}
+        {renderReplaceButtons()}
+        {checkSpeedUpStateEnabled ? renderCheckSpeedUpState() : null}
       </XStack>
     );
   }, [
     canCancelTx,
     cancelTxEnabled,
     speedUpCancelEnabled,
+    checkSpeedUpStateEnabled,
     canReplaceTx,
     handleReplaceTx,
+    handleCheckSpeedUpState,
     historyTx.decodedTx.status,
     historyTx.decodedTx.networkId,
     intl,

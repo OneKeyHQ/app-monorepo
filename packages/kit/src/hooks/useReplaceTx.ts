@@ -58,6 +58,7 @@ function useReplaceTx({
     const defaultConfig = {
       cancelTxEnabled: false,
       speedUpCancelEnabled: false,
+      checkSpeedUpStateEnabled: false,
     };
     if (!historyTx) return defaultConfig;
     if (isConfirmed) return defaultConfig;
@@ -68,9 +69,17 @@ function useReplaceTx({
         networkId,
       });
 
+    const checkSpeedUpStateEnabled =
+      await backgroundApiProxy.serviceHistory.checkTxSpeedUpStateEnabled({
+        networkId,
+        accountId: historyTx.decodedTx.accountId,
+        historyTx,
+      });
+
     return {
       cancelTxEnabled: vaultSettings.cancelTxEnabled,
       speedUpCancelEnabled: vaultSettings.speedUpCancelEnabled,
+      checkSpeedUpStateEnabled,
     };
   }, [historyTx, isConfirmed]);
 
@@ -137,12 +146,33 @@ function useReplaceTx({
     [canReplaceTx, historyTx, intl, navigation, onSuccess, handleOpenWebSite],
   );
 
+  const handleCheckSpeedUpState = useCallback(async () => {
+    if (!historyTx) return;
+    const { networkId, txid } = historyTx.decodedTx;
+    if (!cancelTxConfig?.checkSpeedUpStateEnabled) return;
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return;
+    }
+    // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
+    handleOpenWebSite({
+      switchToMultiTabBrowser: true,
+      navigation,
+      useCurrentWindow: false,
+      webSite: {
+        url: `https://f2pool.com/user/tx-acc?query=${txid}`,
+        title: 'F2Pool',
+      },
+    });
+  }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation]);
+
   return {
     canReplaceTx,
     canCancelTx,
     cancelTxEnabled: cancelTxConfig?.cancelTxEnabled,
     speedUpCancelEnabled: cancelTxConfig?.speedUpCancelEnabled,
+    checkSpeedUpStateEnabled: cancelTxConfig?.checkSpeedUpStateEnabled,
     handleReplaceTx,
+    handleCheckSpeedUpState,
   };
 }
 

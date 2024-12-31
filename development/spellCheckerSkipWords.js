@@ -775,4 +775,6 @@ module.exports = [
   'cacheable',
   'benfen',
   'bfc',
+  'f2pool',
+  'rbf',
 ];

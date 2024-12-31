@@ -1436,4 +1436,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
   }): Promise<IAccountHistoryTx[]> {
     return Promise.resolve([]);
   }
+
+  async checkTxSpeedUpStateEnabled({
+    historyTx,
+  }: {
+    historyTx: IAccountHistoryTx;
+  }): Promise<boolean> {
+    return Promise.resolve(false);
+  }
 }

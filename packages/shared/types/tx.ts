@@ -53,6 +53,12 @@ export enum EReplaceTxType {
   Cancel = 'Cancel',
 }
 
+export enum EReplaceTxMethod {
+  Normal = 'Normal',
+  BTC_F2POOL = 'BTC_F2POOL',
+  BTC_RBF = 'BTC_RBF',
+}
+
 export type ISendTxBaseParams = {
   networkId: string;
   accountId: string;
