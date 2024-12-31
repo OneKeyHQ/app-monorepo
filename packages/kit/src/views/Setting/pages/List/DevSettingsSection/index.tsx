@@ -53,6 +53,7 @@ import { SectionFieldItem } from './SectionFieldItem';
 import { SectionPressItem } from './SectionPressItem';
 import { SentryCrashSettings } from './SentryCrashSettings';
 import { StartTimePanel } from './StartTimePanel';
+import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 
 let correctDevOnlyPwd = '';
 
@@ -405,6 +406,16 @@ export const DevSettingsSection = () => {
           const dialog = Dialog.cancel({
             title: 'NotificationDevSettings',
             renderContent: <NotificationDevSettings />,
+          });
+        }}
+      />
+
+      <SectionPressItem
+        title="AsyncStorageDevSettings"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Single data store test',
+            renderContent: <AsyncStorageDevSettings />,
           });
         }}
       />

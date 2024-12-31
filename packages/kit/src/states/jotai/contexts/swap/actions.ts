@@ -170,10 +170,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapTypeSwitchValue === ESwapTabSwitchType.SWAP
     ) {
       const defaultTokenSet = swapDefaultSetTokens[token.networkId];
-      if (token.isNative && !defaultTokenSet.toToken?.isNative) {
+      if (
+        token.isNative &&
+        defaultTokenSet?.toToken &&
+        !defaultTokenSet?.toToken?.isNative
+      ) {
         return defaultTokenSet.toToken;
       }
-      if (!token.isNative && defaultTokenSet.fromToken?.isNative) {
+      if (
+        !token.isNative &&
+        defaultTokenSet.fromToken &&
+        defaultTokenSet.fromToken?.isNative
+      ) {
         return defaultTokenSet.fromToken;
       }
     }
