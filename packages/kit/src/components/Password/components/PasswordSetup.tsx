@@ -130,6 +130,14 @@ const PasswordSetup = ({
                     },
                   ),
                 },
+                validate: {
+                  regexCheck: (v: string) =>
+                    v.replace(PasswordRegex, '') === v
+                      ? undefined
+                      : intl.formatMessage({
+                          id: ETranslations.global_hex_data_error,
+                        }),
+                },
                 onChange: () => {
                   form.clearErrors();
                 },
@@ -313,7 +321,9 @@ const PasswordSetup = ({
         >
           {confirmBtnTextMemo}
         </Button>
-        {platformEnv.isNative ? (
+        {platformEnv.isNative &&
+        (passCodeFirstStep ||
+          currentPasswordMode === EPasswordMode.PASSWORD) ? (
           <Button
             size="small"
             variant="tertiary"
