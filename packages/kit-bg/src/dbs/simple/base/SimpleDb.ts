@@ -18,6 +18,7 @@ import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
+import { SimpleDbEntityFloatingIconPosition } from '../entity/SimpleDbEntityFloatingIconPosition';
 import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
@@ -78,6 +79,8 @@ export class SimpleDb {
   marketWatchList = new SimpleDbEntityMarketWatchList();
 
   floatingIconDomainBlockList = new SimpleDbEntityFloatingIconDomainBlockList();
+
+  floatingIconPosition = new SimpleDbEntityFloatingIconPosition();
 
   earn = new SimpleDbEntityEarn();
 

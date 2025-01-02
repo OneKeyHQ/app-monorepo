@@ -290,8 +290,11 @@ class ProviderApiPrivate extends ProviderApiBase {
         await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl(
           { url: request.origin },
         );
+      const position =
+        await this.backgroundApi.simpleDb.floatingIconPosition.position();
       return {
         isShow,
+        position,
         i18n: {
           title: appLocale.intl.formatMessage({
             id: ETranslations.explore_malicious_dapp,
@@ -352,8 +355,21 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
     return {
       isShow: false,
+      position,
       i18n: {},
     };
+  }
+
+  @providerApiMethod()
+  async wallet_saveFloatingIconPosition(request: IJsBridgeMessagePayload) {
+    console.log('ProviderApiPrivate.saveFloatingIconPosition', request);
+    const { params } = request.data as {
+      params?: { side: 'left' | 'right'; bottom: string };
+    };
+    await this.backgroundApi.simpleDb.floatingIconPosition.setRawData({
+      side: params?.side || 'right',
+      bottom: params?.bottom || '30%',
+    });
   }
 
   /*
