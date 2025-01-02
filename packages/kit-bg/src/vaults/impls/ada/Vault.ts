@@ -380,12 +380,12 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
     const input = decodeSensitiveText({ encodedText: params.input });
     let privateKey = bufferUtils.bytesToHex(decodePrivateKeyByXprv(input));
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveText({ text: privateKey });
     return Promise.resolve({ privateKey });
   }
 

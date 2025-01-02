@@ -1075,7 +1075,7 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
       });
-    const credentialEncrypt = encryptImportedCredential({
+    const credentialEncrypt = await encryptImportedCredential({
       credential: {
         privateKey: privateKeyDecoded,
       },
@@ -2121,7 +2121,7 @@ class ServiceAccount extends ServiceBase {
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = revealableSeedFromMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromMnemonic(realMnemonic, password);
     } catch {
       throw new InvalidMnemonic();
     }
@@ -2153,7 +2153,7 @@ class ServiceAccount extends ServiceBase {
     }
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = revealableSeedFromTonMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromTonMnemonic(realMnemonic, password);
     } catch {
       throw new InvalidMnemonic();
     }
