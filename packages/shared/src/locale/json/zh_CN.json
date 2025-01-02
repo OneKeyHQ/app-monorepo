@@ -2046,6 +2046,8 @@
   "troubleshooting.unlock_device": "解锁您的设备，看看是否被检测到。",
   "troubleshooting.use_original_usb_cable": "尽可能使用原装 USB 数据线。",
   "trx_consumed": "TRX 消耗",
+  "tx_accelerate.accelerator_selector_item_label": "{name} 加速器",
+  "tx_accelerate.order_inquiry_label": "订单查询",
   "update.all_other_apps_closed": "所有其他的 OneKey 应用程序和网络升级工具都已关闭",
   "update.all_other_apps_closed_emoji": "所有其他的 OneKey 应用程序和网络升级工具都已关闭 🆗",
   "update.all_updates_complete": "所有更新已完成👏🏻",
