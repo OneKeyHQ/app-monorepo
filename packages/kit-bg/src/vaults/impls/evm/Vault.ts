@@ -1113,6 +1113,7 @@ export default class Vault extends VaultBase {
 
   override async canAccelerateTx(params: {
     encodedTx: IEncodedTxEvm;
+    txId: string;
   }): Promise<boolean> {
     return this.isEarliestLocalPendingTx(params);
   }
