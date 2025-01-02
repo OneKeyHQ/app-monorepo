@@ -94,5 +94,4 @@ function CustomHeaderTitle({ handleSearchBarPress }: ICustomHeaderTitleProps) {
   );
 }
 
-// @ts-expect-error
 export default withBrowserProvider<ICustomHeaderTitleProps>(CustomHeaderTitle);

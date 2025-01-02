@@ -1205,10 +1205,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(accountDetails);
   }
 
-  async isEarliestLocalPendingTx({
+  async canAccelerateTx({
     encodedTx,
+    txId,
   }: {
     encodedTx: IEncodedTx;
+    txId: string;
   }): Promise<boolean> {
     return true;
   }
@@ -1425,5 +1427,21 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     signedTx: ISignedTxPro;
   }): Promise<boolean> {
     return Promise.resolve(true);
+  }
+
+  async getPendingTxsToUpdate({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    return Promise.resolve([]);
+  }
+
+  async checkTxSpeedUpStateEnabled({
+    historyTx,
+  }: {
+    historyTx: IAccountHistoryTx;
+  }): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }

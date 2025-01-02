@@ -73,6 +73,7 @@ const settings: IVaultSettings = {
   dappInteractionEnabled: false,
   mergeDeriveAssetsEnabled: true,
   qrAccountEnabled: false,
+  replaceTxEnabled: false,
 };
 
 export default Object.freeze(settings);
