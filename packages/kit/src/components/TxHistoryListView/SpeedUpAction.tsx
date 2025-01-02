@@ -36,8 +36,15 @@ export function SpeedUpAction({ networkId, onSpeedUp }: ISpeedUpActionProps) {
           {
             items: [
               {
-                label: 'f2pool',
-                icon: 'RepeatOutline' as IKeyOfIcons,
+                label: intl.formatMessage(
+                  {
+                    id: ETranslations.tx_accelerate_accelerator_selector_item_label,
+                  },
+                  {
+                    name: 'F2Pool',
+                  },
+                ),
+                icon: 'F2PoolSolid' as IKeyOfIcons,
                 onPress: () => {
                   onSpeedUp({ replaceType: EReplaceTxType.SpeedUp });
                 },

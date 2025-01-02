@@ -1221,9 +1221,6 @@ class ServiceHistory extends ServiceBase {
     txid: string;
   }) {
     const { networkId, accountId, txid } = params;
-    // 根据 networkId 和 accountId 获取账户对应的 pending Txs
-
-    // 用 pendingTxs 请求接口
     const [xpub, accountAddress] = await Promise.all([
       this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,
@@ -1241,7 +1238,6 @@ class ServiceHistory extends ServiceBase {
         accountAddress,
         xpub,
       });
-    console.log('pendingTxs: ===>>>: ', pendingTxs);
     const pendingTxIds = pendingTxs
       .filter((tx) => tx.decodedTx.networkId === networkId)
       .map((tx) => tx.decodedTx.txid);
@@ -1266,7 +1262,7 @@ class ServiceHistory extends ServiceBase {
       networkId: string;
       txIds: string[];
     }): Promise<Record<string, number>> => {
-      console.log('🚀 实际调用 API:', params.txIds);
+      console.log('🚀 call f2pool api:', params.txIds);
       const { txIds } = params;
 
       const [btcReplaceStateMap] =
@@ -1291,17 +1287,11 @@ class ServiceHistory extends ServiceBase {
 
       console.log('api result: => ', btcReplaceStateMap);
 
-      // return btcReplaceStateMap;
-      return {
-        [txIds[0]]: EBtcF2poolReplaceState.NOT_ACCELERATED,
-      };
+      return btcReplaceStateMap;
     },
     {
       promise: true,
       maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
-      dispose: (value) => {
-        console.log('🥹 缓存过期清理:', value);
-      },
     },
   );
 }

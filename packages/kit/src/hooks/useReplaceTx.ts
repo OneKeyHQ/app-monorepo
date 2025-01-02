@@ -125,7 +125,7 @@ function useReplaceTx({
           navigation,
           useCurrentWindow: false,
           webSite: {
-            url: `https://f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
+            url: `https://www.f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
             title: 'F2Pool',
           },
         });
@@ -159,7 +159,7 @@ function useReplaceTx({
       navigation,
       useCurrentWindow: false,
       webSite: {
-        url: `https://f2pool.com/user/tx-acc?query=${txid}`,
+        url: `https://www.f2pool.com/user/tx-acc?query=${txid}`,
         title: 'F2Pool',
       },
     });
