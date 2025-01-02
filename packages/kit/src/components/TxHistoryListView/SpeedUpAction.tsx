@@ -59,7 +59,7 @@ export function SpeedUpAction({ networkId, onSpeedUp }: ISpeedUpActionProps) {
       useActionList: false,
       sections: [],
     };
-  }, [networkId, onSpeedUp]);
+  }, [networkId, onSpeedUp, intl]);
 
   if (useActionList) {
     return (
