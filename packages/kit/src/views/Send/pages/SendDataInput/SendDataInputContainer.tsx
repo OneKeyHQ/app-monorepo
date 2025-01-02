@@ -1311,4 +1311,6 @@ const SendDataInputContainerWithProvider = memo(() => (
 SendDataInputContainerWithProvider.displayName =
   'SendDataInputContainerWithProvider';
 
-export { SendDataInputContainer, SendDataInputContainerWithProvider };
+export { SendDataInputContainer };
+
+export default SendDataInputContainerWithProvider;

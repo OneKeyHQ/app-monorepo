@@ -4,6 +4,7 @@ import { useCallback } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
   ITransferInfo,
@@ -12,7 +13,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EModalRoutes,
-  EModalSendRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -24,7 +24,6 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 import useAppNavigation from './useAppNavigation';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 type IParams = {
   accountId: string;
@@ -55,12 +54,6 @@ function useSignatureConfirm(params: IParams) {
   const { accountId, networkId } = params;
 
   const navigation = useAppNavigation();
-  const [devSettings] = useDevSettingsPersistAtom();
-
-  const isNewSignatureConfirm = devSettings.settings?.enableNewSignatureConfirm;
-  const signatureConfirmRoute = isNewSignatureConfirm
-    ? EModalSignatureConfirmRoutes.TxConfirm
-    : EModalSendRoutes.SendConfirm;
 
   const normalizeSignatureConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
@@ -128,8 +121,8 @@ function useSignatureConfirm(params: IParams) {
         }
 
         const target = params.isInternalSwap
-          ? EModalSendRoutes.SendConfirmFromSwap
-          : signatureConfirmRoute;
+          ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
+          : EModalSignatureConfirmRoutes.TxConfirm;
 
         if (sameModal) {
           navigation.push(target, {
@@ -145,7 +138,7 @@ function useSignatureConfirm(params: IParams) {
             feeInfoEditable,
           });
         } else {
-          navigation.pushModal(EModalRoutes.SendModal, {
+          navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
             screen: target,
             params: {
               accountId,
@@ -169,7 +162,7 @@ function useSignatureConfirm(params: IParams) {
         }
       }
     },
-    [accountId, navigation, networkId, signatureConfirmRoute],
+    [accountId, navigation, networkId],
   );
 
   const lightningSignatureConfirm = useCallback(
@@ -193,7 +186,7 @@ function useSignatureConfirm(params: IParams) {
         if (lnurlDetails) {
           switch (lnurlDetails.tag) {
             case 'login':
-              navigation.push(EModalSendRoutes.LnurlAuth, {
+              navigation.push(EModalSignatureConfirmRoutes.LnurlAuth, {
                 networkId,
                 accountId,
                 lnurlDetails,
@@ -201,7 +194,7 @@ function useSignatureConfirm(params: IParams) {
               });
               break;
             case 'payRequest':
-              navigation.push(EModalSendRoutes.LnurlPayRequest, {
+              navigation.push(EModalSignatureConfirmRoutes.LnurlPayRequest, {
                 networkId,
                 accountId,
                 transfersInfo,
@@ -213,7 +206,7 @@ function useSignatureConfirm(params: IParams) {
               });
               break;
             case 'withdrawRequest':
-              navigation.push(EModalSendRoutes.LnurlWithdraw, {
+              navigation.push(EModalSignatureConfirmRoutes.LnurlWithdraw, {
                 networkId,
                 accountId,
                 lnurlDetails,

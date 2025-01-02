@@ -22,7 +22,6 @@ export interface IDevSettings {
   disableNumberShortcuts?: boolean;
   disableSearchAndAccountSelectorShortcuts?: boolean;
   webviewDebuggingEnabled?: boolean;
-  enableNewSignatureConfirm?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -46,7 +45,6 @@ export const {
       disableNumberShortcuts: false,
       disableSearchAndAccountSelectorShortcuts: false,
       webviewDebuggingEnabled: false,
-      enableNewSignatureConfirm: false,
     },
   },
 });

@@ -10,7 +10,6 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import type { ITokenSelectorParamList } from './assetSelector';
-import type { EModalSignatureConfirmRoutes } from './signatureConfirm';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
@@ -134,20 +133,5 @@ export type IModalSendParamList = {
     onUnmounted?: () => void;
     tokenMap?: Record<string, ITokenFiat>;
     token?: IToken;
-  };
-
-  [EModalSignatureConfirmRoutes.TxConfirm]: {
-    networkId: string;
-    accountId: string;
-    unsignedTxs: IUnsignedTxPro[];
-    sourceInfo?: IDappSourceInfo;
-    signOnly?: boolean;
-    useFeeInTx?: boolean;
-    feeInfoEditable?: boolean;
-    onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
-    onFail?: (error: Error) => void;
-    onCancel?: () => void;
-    transferPayload?: ITransferPayload;
-    popStack?: boolean;
   };
 };

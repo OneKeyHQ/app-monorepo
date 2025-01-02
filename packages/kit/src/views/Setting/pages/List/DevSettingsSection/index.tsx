@@ -249,18 +249,6 @@ export const DevSettingsSection = () => {
           value={devSettings.settings?.disableSolanaPriorityFee}
         />
       </SectionFieldItem>
-      <SectionFieldItem
-        name="enableNewSignatureConfirm"
-        title="启用新签名确认流程"
-        onValueChange={(value: boolean) => {
-          void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-            'enableNewSignatureConfirm',
-            value,
-          );
-        }}
-      >
-        <Switch size={ESwitchSize.small} />
-      </SectionFieldItem>
       <SectionPressItem
         title="force RTL"
         subtitle="强制启用 RTL 布局"

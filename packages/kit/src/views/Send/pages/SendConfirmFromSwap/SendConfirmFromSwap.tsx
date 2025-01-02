@@ -7,12 +7,11 @@ import { AppState } from 'react-native';
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
-import {
+import type {
   EModalSendRoutes,
-  EModalSignatureConfirmRoutes,
+  IModalSendParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type {
   IFeeInfoUnit,
@@ -39,11 +38,7 @@ function SendConfirmFromSwap() {
   const { networkId, accountId, unsignedTxs, onSuccess, onFail, onCancel } =
     route.params;
 
-  const [devSettings] = useDevSettingsPersistAtom();
-  const isNewSignatureConfirm = devSettings.settings?.enableNewSignatureConfirm;
-  const signatureConfirmRoute = isNewSignatureConfirm
-    ? EModalSignatureConfirmRoutes.TxConfirm
-    : EModalSendRoutes.SendConfirm;
+  const signatureConfirmRoute = EModalSignatureConfirmRoutes.TxConfirm;
 
   const handleConfirmMultiTxsOnHwOrExternal = useCallback(
     async (
@@ -202,4 +197,4 @@ function SendConfirmFromSwap() {
     </Page>
   );
 }
-export { SendConfirmFromSwap };
+export default SendConfirmFromSwap;
