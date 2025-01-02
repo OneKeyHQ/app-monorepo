@@ -1,7 +1,10 @@
 /* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
-import type { IQrcodeDrawType } from '@onekeyhq/components';
+import type {
+  IDialogLoadingProps,
+  IQrcodeDrawType,
+} from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -51,6 +54,8 @@ export enum EAppEventBusNames {
   WalletConnectOpenModal = 'WalletConnectOpenModal',
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
+  ShowDialogLoading = 'ShowDialogLoading',
+  HideDialogLoading = 'HideDialogLoading',
   ShowToast = 'ShowToast',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   HideAirGapQrcode = 'HideAirGapQrcode',
@@ -97,6 +102,8 @@ export enum EAppEventBusNames {
 
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
+  [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
+  [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.WalletRemove]: {

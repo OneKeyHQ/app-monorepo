@@ -41,7 +41,9 @@
           "project": "react-native",
           "organization": "onekey-bb"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-secure-store"
     ]
   }
 }
