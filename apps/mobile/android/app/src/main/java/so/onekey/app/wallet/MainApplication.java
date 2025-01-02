@@ -2,6 +2,7 @@ package so.onekey.app.wallet;
 
 import android.app.Application;
 import android.content.res.Configuration;
+import android.database.CursorWindow;
 import androidx.annotation.NonNull;
 import androidx.annotation.Keep;
 
@@ -19,6 +20,7 @@ import cn.jiguang.plugins.push.JPushModule;
 import expo.modules.ApplicationLifecycleDispatcher;
 import expo.modules.ReactNativeHostWrapper;
 
+import java.lang.reflect.Field;
 import java.util.List;
 
 public class MainApplication extends Application implements ReactApplication {
@@ -79,6 +81,14 @@ public class MainApplication extends Application implements ReactApplication {
   @Override
   public void onCreate() {
     super.onCreate();
+    try {
+      Field field = CursorWindow.class.getDeclaredField("sCursorWindowSize");
+      field.setAccessible(true);
+      field.set(null, 20 * 1024 * 1024);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
     SoLoader.init(this, /* native exopackage */ false);
     if (!BuildConfig.REACT_NATIVE_UNSTABLE_USE_RUNTIME_SCHEDULER_ALWAYS) {
       ReactFeatureFlags.unstable_useRuntimeSchedulerAlways = false;

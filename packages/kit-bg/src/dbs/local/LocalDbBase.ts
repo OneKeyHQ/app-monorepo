@@ -91,7 +91,6 @@ import type {
   IDBDeviceSettings,
   IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
-  IDBGetAllWalletsParams,
   IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
@@ -511,30 +510,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   walletSortFn = (a: IDBWallet, b: IDBWallet) =>
     (a.walletOrder ?? 0) - (b.walletOrder ?? 0);
 
-  async getAllWallets({
-    refillWalletInfo,
-  }: IDBGetAllWalletsParams = {}): Promise<{
-    wallets: IDBWallet[];
-  }> {
-    let { records } = await this.getAllRecords({
-      name: ELocalDBStoreNames.Wallet,
-    });
-    if (refillWalletInfo) {
-      const { devices: allDevices } = await this.getAllDevices();
-      const refilledWalletsCache: {
-        [walletId: string]: IDBWallet;
-      } = {};
-      records = await Promise.all(
-        records.map((wallet) =>
-          this.refillWalletInfo({ wallet, refilledWalletsCache, allDevices }),
-        ),
-      );
-    }
-    return {
-      wallets: records,
-    };
-  }
-
   // eslint-disable-next-line spellcheck/spell-checker
   /**
    * Get wallets
@@ -552,8 +527,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let allIndexedAccounts: IDBIndexedAccount[] | undefined;
     if (includingAccounts) {
       if (!allIndexedAccounts) {
-        allIndexedAccounts = (await this.getAllIndexedAccounts())
-          .indexedAccounts;
+        allIndexedAccounts =
+          option?.allIndexedAccounts ||
+          (await this.getAllIndexedAccounts()).indexedAccounts;
       }
     }
 
@@ -577,8 +553,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
 
     // get all wallets for account selector
-    let { wallets } = await this.getAllWallets();
-    const { devices: allDevices } = await this.getAllDevices();
+    let wallets = option?.allWallets || (await this.getAllWallets()).wallets;
+    const allDevices =
+      option?.allDevices || (await this.getAllDevices()).devices;
     const hiddenWalletsMap: Partial<{
       [dbDeviceId: string]: IDBWallet[];
     }> = {};
@@ -2611,7 +2588,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accounts: IDBAccount[];
   }> {
     const wallet = await this.getWalletSafe({ walletId });
-    if (!wallet) {
+    if (!wallet || !wallet?.accounts?.length) {
+      // if (!wallet) {
       return { accounts: [] };
     }
     const { accounts } = await this.getAllAccounts({
@@ -2648,13 +2626,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const indexedAccount = await this.getIndexedAccount({
       id: indexedAccountId,
     });
-    const { accounts } = await this.getAllAccounts();
-    return accounts
+    const allDbAccounts = (await this.getAllAccounts()).accounts;
+    const accounts = allDbAccounts
       .filter(
         (account) =>
           account.indexedAccountId === indexedAccountId && indexedAccountId,
       )
       .map((account) => this.refillAccountInfo({ account, indexedAccount }));
+    return { accounts, allDbAccounts };
   }
 
   async getAccount({ accountId }: { accountId: string }): Promise<IDBAccount> {
@@ -2749,18 +2728,101 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async getAllIndexedAccounts() {
+  async getAllDevices(): Promise<{ devices: IDBDevice[] }> {
+    const cacheKey = 'allDbDevices';
+    const allDevicesInCache = this.dbAllRecordsCache.get(
+      cacheKey,
+    ) as IDBDevice[];
+    if (allDevicesInCache && allDevicesInCache.length) {
+      return { devices: allDevicesInCache };
+    }
+    const { records: devices } = await this.getAllRecords({
+      name: ELocalDBStoreNames.Device,
+    });
+    devices.forEach((item) => this.refillDeviceInfo({ device: item }));
+    this.dbAllRecordsCache.set(cacheKey, devices);
+    return { devices };
+  }
+
+  async getAllWallets(): Promise<{
+    wallets: IDBWallet[];
+  }> {
+    const cacheKey = 'allDbWallets';
+    const allWalletsInCache = this.dbAllRecordsCache.get(
+      cacheKey,
+    ) as IDBWallet[];
+    if (allWalletsInCache && allWalletsInCache.length) {
+      return { wallets: allWalletsInCache };
+    }
+    const { records: wallets } = await this.getAllRecords({
+      name: ELocalDBStoreNames.Wallet,
+    });
+    this.dbAllRecordsCache.set(cacheKey, wallets);
+    return {
+      wallets,
+    };
+  }
+
+  // async getAllWallets({
+  //   refillWalletInfo,
+  // }: IDBGetAllWalletsParams = {}): Promise<{
+  //   wallets: IDBWallet[];
+  // }> {
+  //   let { records } = await this.getAllRecords({
+  //     name: ELocalDBStoreNames.Wallet,
+  //   });
+  //   if (refillWalletInfo) {
+  //     const { devices: allDevices } = await this.getAllDevices();
+  //     const refilledWalletsCache: {
+  //       [walletId: string]: IDBWallet;
+  //     } = {};
+  //     records = await Promise.all(
+  //       records.map((wallet) =>
+  //         this.refillWalletInfo({ wallet, refilledWalletsCache, allDevices }),
+  //       ),
+  //     );
+  //   }
+  //   return {
+  //     wallets: records,
+  //   };
+  // }
+
+  async getAllIndexedAccounts(): Promise<{
+    indexedAccounts: IDBIndexedAccount[];
+  }> {
+    const cacheKey = 'allDbIndexedAccounts';
+    const allIndexedAccountsInCache = this.dbAllRecordsCache.get(
+      cacheKey,
+    ) as IDBIndexedAccount[];
+    if (allIndexedAccountsInCache && allIndexedAccountsInCache.length) {
+      return { indexedAccounts: allIndexedAccountsInCache };
+    }
     const { records: indexedAccounts } = await this.getAllRecords({
       name: ELocalDBStoreNames.IndexedAccount,
     });
+    this.dbAllRecordsCache.set(cacheKey, indexedAccounts);
     return { indexedAccounts };
   }
 
-  async getAllAccounts({ ids }: { ids?: string[] } = {}) {
+  async getAllAccounts({ ids }: { ids?: string[] } = {}): Promise<{
+    accounts: IDBAccount[];
+  }> {
+    const cacheKey = 'allDbAccounts';
+    if (!ids) {
+      const allDbAccountsInCache = this.dbAllRecordsCache.get(
+        cacheKey,
+      ) as IDBAccount[];
+      if (allDbAccountsInCache && allDbAccountsInCache?.length) {
+        return { accounts: allDbAccountsInCache };
+      }
+    }
     const { records: accounts } = await this.getAllRecords({
       name: ELocalDBStoreNames.Account,
       ids,
     });
+    if (!ids) {
+      this.dbAllRecordsCache.set(cacheKey, accounts);
+    }
     return { accounts };
   }
 
@@ -2961,9 +3023,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
       if (params.indexedAccountId) {
         // TODO low performance
-        accounts = await this.getAccountsInSameIndexedAccountId({
-          indexedAccountId: params.indexedAccountId,
-        });
+        accounts = (
+          await this.getAccountsInSameIndexedAccountId({
+            indexedAccountId: params.indexedAccountId,
+          })
+        ).accounts;
       }
       if (params.accountId) {
         const account = await this.getAccountSafe({
@@ -3030,15 +3094,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   // ---------------------------------------------- device
-
-  async getAllDevices(): Promise<{ devices: IDBDevice[] }> {
-    // TODO performance
-    const { records: devices } = await this.getAllRecords({
-      name: ELocalDBStoreNames.Device,
-    });
-    devices.forEach((item) => this.refillDeviceInfo({ device: item }));
-    return { devices };
-  }
 
   async getSameDeviceByUUIDEvenIfReset(uuid: string) {
     const { devices } = await this.getAllDevices();

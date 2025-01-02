@@ -27,7 +27,7 @@ const PasswordVerifyPromptMount = () => {
   const showPasswordSetupPrompt = useCallback(
     (id: number) => {
       dialogRef.current = Dialog.show({
-        title: intl.formatMessage({ id: ETranslations.global_set_password }),
+        title: intl.formatMessage({ id: ETranslations.global_set_passcode }),
         onClose() {
           onClose(id);
         },
@@ -55,7 +55,7 @@ const PasswordVerifyPromptMount = () => {
       dialogRef.current = Dialog.show({
         ...dialogProps,
         title: intl.formatMessage({
-          id: ETranslations.enter_password,
+          id: ETranslations.enter_passcode,
         }),
         onClose() {
           onClose(id);

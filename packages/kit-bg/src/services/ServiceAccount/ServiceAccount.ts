@@ -91,7 +91,6 @@ import type {
   IDBDevice,
   IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
-  IDBGetAllWalletsParams,
   IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
@@ -169,6 +168,7 @@ class ServiceAccount extends ServiceBase {
 
   clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
+    localDb.clearStoreCachedData();
   }
 
   @backgroundMethod()
@@ -1695,8 +1695,10 @@ class ServiceAccount extends ServiceBase {
     ids?: string[];
     filterRemoved?: boolean;
   } = {}) {
+    let accounts: IDBAccount[] = [];
+
     // filter accounts match to available wallets, some account wallet or indexedAccount may be deleted
-    const { accounts } = await localDb.getAllAccounts({ ids });
+    ({ accounts } = await localDb.getAllAccounts({ ids }));
 
     const removedHiddenWallet: {
       [walletId: string]: true;
@@ -1711,12 +1713,22 @@ class ServiceAccount extends ServiceBase {
     let accountsFiltered: IDBAccount[] = accounts;
     let accountsRemoved: IDBAccount[] | undefined;
 
+    let allWallets: IDBWallet[] | undefined;
+    let indexedAccounts: IDBIndexedAccount[] = [];
+    let indexedAccountsRemoved: IDBIndexedAccount[] = [];
+    let allDevices: IDBDevice[] | undefined;
+
     if (filterRemoved) {
-      const { wallets } = await this.getAllWallets({ refillWalletInfo: true });
-      const { indexedAccounts } = await this.getAllIndexedAccounts({
-        allWallets: wallets,
-        filterRemoved,
+      const allWalletsResult = await this.getAllWallets({
+        refillWalletInfo: true,
       });
+      allWallets = allWalletsResult.wallets;
+      allDevices = allWalletsResult.allDevices;
+      ({ indexedAccounts, indexedAccountsRemoved } =
+        await this.getAllIndexedAccounts({
+          allWallets,
+          filterRemoved: true,
+        }));
 
       accountsRemoved = [];
       accountsFiltered = (
@@ -1744,33 +1756,36 @@ class ServiceAccount extends ServiceBase {
                 pushRemovedAccount();
                 return null;
               }
-              const wallet: IDBWallet | undefined = wallets.find(
+              const wallet: IDBWallet | undefined = allWallets?.find(
                 (o) => o.id === walletId,
               );
-              if (!wallet) {
+              if (!wallet && allWallets) {
                 removedWallet[walletId] = true;
                 pushRemovedAccount();
                 return null;
               }
-              if (localDb.isTempWalletRemoved({ wallet })) {
+              if (wallet && localDb.isTempWalletRemoved({ wallet })) {
                 removedHiddenWallet[walletId] = true;
                 pushRemovedAccount();
                 return null;
               }
             }
+            let indexedAccount: IDBIndexedAccount | undefined;
             if (indexedAccountId) {
               if (removedIndexedAccount[indexedAccountId]) {
                 pushRemovedAccount();
                 return null;
               }
-              const indexedAccount: IDBIndexedAccount | undefined =
-                indexedAccounts.find((o) => o.id === indexedAccountId);
+              indexedAccount = indexedAccounts.find(
+                (o) => o.id === indexedAccountId,
+              );
               if (!indexedAccount) {
                 removedIndexedAccount[indexedAccountId] = true;
                 pushRemovedAccount();
                 return null;
               }
             }
+            localDb.refillAccountInfo({ account, indexedAccount });
             return account;
           }),
         )
@@ -1780,11 +1795,32 @@ class ServiceAccount extends ServiceBase {
     return {
       accounts: accountsFiltered,
       accountsRemoved,
+      allWallets,
+      allDevices,
+      allIndexedAccounts: indexedAccounts,
+      indexedAccountsRemoved,
     };
   }
 
-  async getAllWallets(params: IDBGetAllWalletsParams = {}) {
-    return localDb.getAllWallets(params);
+  async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
+    let { wallets } = await localDb.getAllWallets();
+    let allDevices: IDBDevice[] | undefined;
+    if (params.refillWalletInfo) {
+      allDevices = (await this.getAllDevices()).devices;
+      const refilledWalletsCache: {
+        [walletId: string]: IDBWallet;
+      } = {};
+      wallets = await Promise.all(
+        wallets.map((wallet) =>
+          localDb.refillWalletInfo({
+            wallet,
+            refilledWalletsCache,
+            allDevices,
+          }),
+        ),
+      );
+    }
+    return { wallets, allDevices };
   }
 
   async getAllDevices() {
@@ -1797,8 +1833,15 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId,
   }: {
     indexedAccountId: string;
-  }): Promise<IDBAccount[]> {
-    return localDb.getAccountsInSameIndexedAccountId({ indexedAccountId });
+  }): Promise<{
+    accounts: IDBAccount[];
+    allDbAccounts: IDBAccount[];
+  }> {
+    const result = await localDb.getAccountsInSameIndexedAccountId({
+      indexedAccountId,
+    });
+
+    return result;
   }
 
   @backgroundMethod()
@@ -2636,9 +2679,10 @@ class ServiceAccount extends ServiceBase {
 
     perf.markStart('getAccountsInSameIndexedAccountId');
     const { serviceNetwork } = this.backgroundApi;
-    const dbAccounts = await this.getAccountsInSameIndexedAccountId({
-      indexedAccountId,
-    });
+    const { accounts: dbAccounts } =
+      await this.getAccountsInSameIndexedAccountId({
+        indexedAccountId,
+      });
     perf.markEnd('getAccountsInSameIndexedAccountId');
 
     perf.markStart('processAllNetworksAccounts');

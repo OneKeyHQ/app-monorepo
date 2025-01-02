@@ -5,6 +5,7 @@ import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { biologyAuthUtils } from '../../../services/ServicePassword/biologyAuthUtils';
+import { EPasswordMode } from '../../../services/ServicePassword/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
@@ -60,18 +61,35 @@ export type IPasswordPersistAtom = {
   webAuthCredentialId: string;
   appLockDuration: number;
   enableSystemIdleLock: boolean;
+  passwordMode: EPasswordMode;
+  enablePasswordErrorProtection: boolean;
+  passwordErrorAttempts: number;
+  passwordErrorProtectionTime: number;
 };
 export const passwordAtomInitialValue: IPasswordPersistAtom = {
   isPasswordSet: false,
   webAuthCredentialId: '',
   appLockDuration: 240,
   enableSystemIdleLock: true,
+  passwordMode: EPasswordMode.PASSWORD,
+  enablePasswordErrorProtection: false,
+  passwordErrorAttempts: 0,
+  passwordErrorProtectionTime: 0,
 };
 export const { target: passwordPersistAtom, use: usePasswordPersistAtom } =
   globalAtom<IPasswordPersistAtom>({
     persist: true,
     name: EAtomNames.passwordPersistAtom,
     initialValue: passwordAtomInitialValue,
+  });
+
+export const { target: passwordModeAtom, use: usePasswordModeAtom } =
+  globalAtomComputed<EPasswordMode>((get) => {
+    const { passwordMode, isPasswordSet } = get(passwordPersistAtom.atom());
+    if (platformEnv.isNative && !isPasswordSet) {
+      return EPasswordMode.PASSCODE;
+    }
+    return passwordMode;
   });
 
 export const { target: systemIdleLockSupport, use: useSystemIdleLockSupport } =

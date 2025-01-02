@@ -46,6 +46,7 @@ import {
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
+import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
@@ -393,6 +394,16 @@ export const DevSettingsSection = () => {
           const dialog = Dialog.cancel({
             title: 'NotificationDevSettings',
             renderContent: <NotificationDevSettings />,
+          });
+        }}
+      />
+
+      <SectionPressItem
+        title="AsyncStorageDevSettings"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Single data store test',
+            renderContent: <AsyncStorageDevSettings />,
           });
         }}
       />

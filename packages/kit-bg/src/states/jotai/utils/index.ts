@@ -12,7 +12,7 @@ import {
 import { JotaiCrossAtom } from './JotaiCrossAtom';
 import { wrapAtomPro } from './wrapAtomPro';
 
-import type { EAtomNames } from '../atomNames';
+import type { EAtomNames, IAtomNameKeys } from '../atomNames';
 import type {
   IJotaiRead,
   IJotaiSetAtom,
@@ -47,7 +47,7 @@ export function crossAtomBuilder<Value>({
   name: string;
   initialValue: Value;
   //
-  storageName?: string;
+  storageName?: IAtomNameKeys;
   read?: undefined;
   write?: undefined;
 }): PrimitiveAtom<Value> & IJotaiWithInitialValue<Value>;
@@ -62,7 +62,7 @@ export function crossAtomBuilder<Value>({
 }: {
   name: string;
   initialValue: Value;
-  storageName: string;
+  storageName: IAtomNameKeys;
   //
   read?: undefined;
   write?: undefined;
@@ -80,7 +80,7 @@ export function crossAtomBuilder<Value>({
   read: IJotaiRead<Value>;
   //
   initialValue?: Value;
-  storageName?: string;
+  storageName?: IAtomNameKeys;
   write?: undefined;
 }): Atom<Value>;
 
@@ -97,7 +97,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   //
   initialValue?: Value;
   read?: undefined;
-  storageName?: string;
+  storageName?: IAtomNameKeys;
 }): WritableAtom<Value, Args, Result> & IJotaiWithInitialValue<Value>;
 
 // Read & Write
@@ -113,7 +113,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
   write: IJotaiWrite<Args, Result>;
   //
   initialValue?: Value;
-  storageName?: string;
+  storageName?: IAtomNameKeys;
 }): WritableAtom<Value, Args, Result>;
 
 export function crossAtomBuilder<Value, Args extends unknown[], Result>({
@@ -125,7 +125,7 @@ export function crossAtomBuilder<Value, Args extends unknown[], Result>({
 }: {
   name: string;
   initialValue?: Value;
-  storageName?: string;
+  storageName?: IAtomNameKeys;
   read?: IJotaiRead<Value, IJotaiSetAtom<Args, Result>> | IJotaiRead<Value>;
   write?: IJotaiWrite<Args, Result>;
 }) {

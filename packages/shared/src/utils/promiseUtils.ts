@@ -147,3 +147,21 @@ export async function promiseAllSettledEnhanced<T>(
     result.status === 'fulfilled' ? result.value : null,
   );
 }
+
+class PromiseTarget<T> {
+  ready = new Promise<T>((resolve) => {
+    this.resolve = resolve;
+  });
+
+  resolve: ((value: T) => void) | undefined;
+
+  resolveTarget(value: T, delay = 0) {
+    setTimeout(() => {
+      this.resolve?.(value);
+    }, delay);
+  }
+}
+export function createPromiseTarget<T>() {
+  const p = new PromiseTarget<T>();
+  return p;
+}
