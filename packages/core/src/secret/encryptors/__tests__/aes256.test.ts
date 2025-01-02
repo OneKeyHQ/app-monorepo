@@ -126,6 +126,7 @@ describe('aes256', () => {
       encryptString({
         password: testPassword,
         data: testData,
+        dataEncoding: 'utf8',
       });
       expect(warnMock).toHaveBeenCalledWith(
         expect.stringContaining('deprecated'),
