@@ -39,6 +39,9 @@ const { AutoUpdateModule } = NativeModules as {
 };
 
 export const clearPackage: IClearPackage = async () => {
+  if (!AutoUpdateModule) {
+    return;
+  }
   await AutoUpdateModule.clearCache();
   if (!RNFS) {
     return;
@@ -53,6 +56,9 @@ export const downloadPackage: IDownloadPackage = async ({
   downloadUrl,
   latestVersion,
 }) => {
+  if (!AutoUpdateModule) {
+    return;
+  }
   await RNFS?.mkdir(DIR_PATH);
   if (!downloadUrl || !latestVersion) {
     throw new Error('Invalid version or downloadUrl');
@@ -69,6 +75,9 @@ export const downloadPackage: IDownloadPackage = async ({
 };
 
 export const verifyPackage: IVerifyPackage = async (params) => {
+  if (!AutoUpdateModule) {
+    return;
+  }
   await AutoUpdateModule.verifyAPK({
     filePath: params.downloadedFile,
     downloadUrl: params.downloadUrl || '',
@@ -79,6 +88,9 @@ export const installPackage: IInstallPackage = ({
   latestVersion,
   downloadUrl,
 }) => {
+  if (!AutoUpdateModule) {
+    return;
+  }
   defaultLogger.update.app.log('install', latestVersion);
   if (!latestVersion) {
     return Promise.resolve();
