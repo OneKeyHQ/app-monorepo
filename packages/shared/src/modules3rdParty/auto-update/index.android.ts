@@ -57,7 +57,9 @@ export const downloadPackage: IDownloadPackage = async ({
   latestVersion,
 }) => {
   if (!AutoUpdateModule) {
-    return;
+    return {
+      downloadedFile: '',
+    };
   }
   await RNFS?.mkdir(DIR_PATH);
   if (!downloadUrl || !latestVersion) {
@@ -84,7 +86,7 @@ export const verifyPackage: IVerifyPackage = async (params) => {
   });
 };
 
-export const installPackage: IInstallPackage = ({
+export const installPackage: IInstallPackage = async ({
   latestVersion,
   downloadUrl,
 }) => {
@@ -93,7 +95,7 @@ export const installPackage: IInstallPackage = ({
   }
   defaultLogger.update.app.log('install', latestVersion);
   if (!latestVersion) {
-    return Promise.resolve();
+    return;
   }
   return AutoUpdateModule.installAPK({
     filePath: buildFilePath(latestVersion),
