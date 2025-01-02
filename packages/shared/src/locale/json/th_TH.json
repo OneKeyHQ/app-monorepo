@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "หากเป็นไปได้ ให้ใช้สาย USB ต้นฉบับ",
   "trx_consumed": "TRX ที่ถูกใช้",
   "tx_accelerate.accelerator_selector_item_label": "เครื่องเร่งความเร็ว {name}",
+  "tx_accelerate.order_inquiry_label": "สอบถามการสั่งซื้อ",
   "update.all_other_apps_closed": "แอป OneKey อื่น ๆ และเครื่องมืออัปเกรดเว็บทั้งหมดถูกปิดไปแล้ว",
   "update.all_other_apps_closed_emoji": "แอป OneKey อื่น ๆ และเครื่องมืออัปเกรดเว็บทั้งหมดถูกปิดแล้ว. 🆗",
   "update.all_updates_complete": "การอัปเดตทั้งหมดเสร็จสิ้น 👏🏻",

@@ -89,7 +89,9 @@ function TxHistoryListItem(props: IProps) {
         variant="primary"
         onPress={() => handleCheckSpeedUpState()}
       >
-        Check Speed Up State
+        {intl.formatMessage({
+          id: ETranslations.tx_accelerate_order_inquiry_label,
+        })}
       </Button>
     );
 

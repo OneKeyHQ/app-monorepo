@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "সম্ভবতঃ মূল USB কেবলটি ব্যবহার করুন।",
   "trx_consumed": "TRX ব্যয় হয়েছে",
   "tx_accelerate.accelerator_selector_item_label": "{name} অ্যাক্সিলারেটর",
+  "tx_accelerate.order_inquiry_label": "আদেশ তদন্ত",
   "update.all_other_apps_closed": "অন্য সমস্ত OneKey অ্যাপ এবং ওয়েব আপগ্রেড সরঞ্জামগুলি বন্ধ আছে।",
   "update.all_other_apps_closed_emoji": "অন্য সমস্ত OneKey অ্যাপ এবং ওয়েব আপগ্রেড সরঞ্জাম বন্ধ করা হয়েছে। 🆗",
   "update.all_updates_complete": "সমস্ত আপডেট সম্পন্ন হয়েছে 👏🏻",

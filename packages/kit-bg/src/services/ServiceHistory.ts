@@ -80,8 +80,6 @@ class ServiceHistory extends ServiceBase {
       }),
     ]);
 
-    // TODO: network === BTC, query replace tx info
-
     const isAllNetworks = networkUtils.isAllNetwork({ networkId });
 
     let onChainHistoryTxs: IAccountHistoryTx[] = [];
@@ -261,7 +259,6 @@ class ServiceHistory extends ServiceBase {
             );
             pendingTxsToModify = [];
           }
-          console.log('pendingTxsToModify ====>>>: ', pendingTxsToModify);
           return {
             networkId: account.networkId,
             accountAddress: account.apiAddress,
@@ -298,7 +295,6 @@ class ServiceHistory extends ServiceBase {
         );
         pendingTxsToModify = [];
       }
-      console.log('pendingTxsToModify ====>>>: ', pendingTxsToModify);
 
       const updateResult = await this.batchUpdateLocalHistoryTxs([
         {
@@ -1284,8 +1280,6 @@ class ServiceHistory extends ServiceBase {
             },
           ],
         });
-
-      console.log('api result: => ', btcReplaceStateMap);
 
       return btcReplaceStateMap;
     },

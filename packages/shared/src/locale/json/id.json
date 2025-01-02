@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "Gunakan kabel USB asli jika memungkinkan.",
   "trx_consumed": "TRX yang digunakan",
   "tx_accelerate.accelerator_selector_item_label": "akselerator {name}",
+  "tx_accelerate.order_inquiry_label": "Permintaan pesanan",
   "update.all_other_apps_closed": "Semua aplikasi OneKey lainnya dan alat peningkatan web ditutup.",
   "update.all_other_apps_closed_emoji": "Semua Aplikasi OneKey lainnya dan alat peningkatan web ditutup. 🆗",
   "update.all_updates_complete": "Semua pembaruan selesai 👏🏻",

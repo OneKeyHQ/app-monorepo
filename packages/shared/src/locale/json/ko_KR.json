@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "가능하다면 원래의 USB 케이블을 사용하세요.",
   "trx_consumed": "TRX 소비됨",
   "tx_accelerate.accelerator_selector_item_label": "{name} 가속기",
+  "tx_accelerate.order_inquiry_label": "주문문의",
   "update.all_other_apps_closed": "모든 기타 OneKey 앱과 웹 업그레이드 도구가 종료되었습니다.",
   "update.all_other_apps_closed_emoji": "모든 기타 OneKey 앱과 웹 업그레이드 도구가 닫혔습니다. 🆗",
   "update.all_updates_complete": "모든 업데이트가 완료되었습니다 👏🏻",

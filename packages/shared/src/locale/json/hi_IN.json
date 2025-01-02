@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "संभव हो, तो मूल USB केबल का उपयोग करें।",
   "trx_consumed": "TRX उपयोग किया गया",
   "tx_accelerate.accelerator_selector_item_label": "{name} त्वरक",
+  "tx_accelerate.order_inquiry_label": "आदेश पूछताछ",
   "update.all_other_apps_closed": "अन्य सभी OneKey ऐप्स और वेब अपग्रेड उपकरण बंद हैं।",
   "update.all_other_apps_closed_emoji": "अन्य सभी OneKey ऐप्स और वेब अपग्रेड उपकरण बंद हैं। 🆗",
   "update.all_updates_complete": "सभी अपडेट पूरे हो गए 👏🏻",

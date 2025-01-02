@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "Если возможно, используйте оригинальный USB-кабель.",
   "trx_consumed": "TRX потреблено",
   "tx_accelerate.accelerator_selector_item_label": "{name} ускоритель",
+  "tx_accelerate.order_inquiry_label": "Заказать запрос",
   "update.all_other_apps_closed": "Все остальные приложения OneKey и инструменты для веб-обновления закрыты.",
   "update.all_other_apps_closed_emoji": "Все остальные приложения OneKey и инструменты для веб-обновления закрыты. 🆗",
   "update.all_updates_complete": "Все обновления завершены 👏🏻",

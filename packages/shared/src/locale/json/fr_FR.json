@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "Utilisez le câble USB d'origine si possible.",
   "trx_consumed": "TRX consommé",
   "tx_accelerate.accelerator_selector_item_label": "Accélérateur {name}",
+  "tx_accelerate.order_inquiry_label": "Demande de commande",
   "update.all_other_apps_closed": "Toutes les autres applications OneKey et les outils de mise à niveau web sont fermés.",
   "update.all_other_apps_closed_emoji": "Toutes les autres applications OneKey et outils de mise à niveau web sont fermés. 🆗",
   "update.all_updates_complete": "Toutes les mises à jour sont terminées 👏🏻",

@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "如果可能的話，請使用原裝 USB 線。",
   "trx_consumed": "TRX 消耗",
   "tx_accelerate.accelerator_selector_item_label": "{name} 加速器",
+  "tx_accelerate.order_inquiry_label": "訂單查詢",
   "update.all_other_apps_closed": "所有其他 OneKey 應用程式和網路升級工具均已關閉",
   "update.all_other_apps_closed_emoji": "所有其他 OneKey 應用程式和網路升級工具均已關閉 🆗",
   "update.all_updates_complete": "全部更新完畢👏🏻",

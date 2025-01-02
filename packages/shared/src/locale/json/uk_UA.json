@@ -2047,6 +2047,7 @@
   "troubleshooting.use_original_usb_cable": "Якщо можливо, використовуйте оригінальний USB-кабель.",
   "trx_consumed": "TRX використано",
   "tx_accelerate.accelerator_selector_item_label": "Прискорювач {name}",
+  "tx_accelerate.order_inquiry_label": "Запит на замовлення",
   "update.all_other_apps_closed": "Всі інші додатки OneKey та інструменти веб-оновлення закриті.",
   "update.all_other_apps_closed_emoji": "Всі інші додатки OneKey та інструменти веб-оновлення закриті. 🆗",
   "update.all_updates_complete": "Всі оновлення завершено 👏🏻",
