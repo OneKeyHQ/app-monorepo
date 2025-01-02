@@ -3,6 +3,8 @@ import { Transaction } from '@onekeyfe/kaspa-core-lib';
 
 import {
   EKaspaSignType,
+  MAX_BLOCK_SIZE,
+  MAX_ORPHAN_TX_MASS,
   SignatureType,
   SigningMethodType,
   publicKeyFromX,
@@ -15,7 +17,10 @@ import type {
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
+import {
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
@@ -130,6 +135,17 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
 
     const txn = toTransaction(encodedTx);
+
+    const massAndSize = txn.getMassAndSize();
+    if (
+      massAndSize.mass > MAX_ORPHAN_TX_MASS ||
+      massAndSize.txSize > MAX_BLOCK_SIZE
+    ) {
+      throw new OneKeyInternalError(
+        `Transaction size is too large, please try to reduce the amount of the transaction. UTXO Count: ${txn?.inputs?.length}`,
+      );
+    }
+
     const unSignTx: KaspaSignTransactionParams = {
       version: txn.version,
       inputs: txn.inputs.map((input) => ({
