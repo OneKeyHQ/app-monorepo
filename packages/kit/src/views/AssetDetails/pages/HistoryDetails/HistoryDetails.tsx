@@ -6,6 +6,7 @@ import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Divider,
   Page,
@@ -783,7 +784,9 @@ function HistoryDetails() {
         variant="primary"
         onPress={() => handleCheckSpeedUpState()}
       >
-        Check Speed Up State
+        {intl.formatMessage({
+          id: ETranslations.tx_accelerate_order_inquiry_label,
+        })}
       </Button>
     );
 
@@ -819,6 +822,17 @@ function HistoryDetails() {
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
+        {historyTx?.replacedType &&
+        txDetails?.status === EOnChainHistoryTxStatus.Pending ? (
+          <Badge badgeSize="sm" badgeType="info" ml="$2">
+            {intl.formatMessage({
+              id:
+                historyTx?.replacedType === EReplaceTxType.SpeedUp
+                  ? ETranslations.global_sped_up
+                  : ETranslations.global_cancelling,
+            })}
+          </Badge>
+        ) : null}
         {renderReplaceTxActions()}
       </XStack>
     );
@@ -827,6 +841,7 @@ function HistoryDetails() {
     intl,
     renderReplaceTxActions,
     txDetails?.status,
+    historyTx?.replacedType,
   ]);
 
   const renderTxFlow = useCallback(() => {
