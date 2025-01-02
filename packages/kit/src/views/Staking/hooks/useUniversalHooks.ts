@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -61,7 +61,10 @@ export function useUniversalStake({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
+  const { navigationToSignatureConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
   return useCallback(
     async ({
       amount,
@@ -114,7 +117,7 @@ export function useUniversalStake({
         orderId: stakeTx.orderId,
       });
 
-      await navigationToSendConfirm({
+      await navigationToSignatureConfirm({
         encodedTx,
         stakingInfo: stakeInfoWithOrderId,
         onSuccess: async (data) => {
@@ -130,7 +133,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [navigationToSendConfirm, accountId, networkId],
+    [navigationToSignatureConfirm, accountId, networkId],
   );
 }
 
@@ -141,7 +144,10 @@ export function useUniversalWithdraw({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
+  const { navigationToSignatureConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
   return useCallback(
     async ({
       amount,
@@ -239,7 +245,7 @@ export function useUniversalWithdraw({
         orderId: stakeTx.orderId,
       });
 
-      await navigationToSendConfirm({
+      await navigationToSignatureConfirm({
         encodedTx,
         stakingInfo,
         signOnly: stakingConfig?.withdrawSignOnly,
@@ -271,7 +277,7 @@ export function useUniversalWithdraw({
         onFail,
       });
     },
-    [accountId, networkId, navigationToSendConfirm],
+    [accountId, networkId, navigationToSignatureConfirm],
   );
 }
 
@@ -282,7 +288,10 @@ export function useUniversalClaim({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
+  const { navigationToSignatureConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
   const showClaimEstimateGasAlert = useShowClaimEstimateGasAlert();
   return useCallback(
     async ({
@@ -332,7 +341,7 @@ export function useUniversalClaim({
           orderId: stakeTx.orderId,
         });
 
-        await navigationToSendConfirm({
+        await navigationToSignatureConfirm({
           encodedTx,
           stakingInfo,
           onSuccess: async (data) => {
@@ -371,6 +380,11 @@ export function useUniversalClaim({
       }
       await continueClaim();
     },
-    [navigationToSendConfirm, accountId, networkId, showClaimEstimateGasAlert],
+    [
+      navigationToSignatureConfirm,
+      accountId,
+      networkId,
+      showClaimEstimateGasAlert,
+    ],
   );
 }
