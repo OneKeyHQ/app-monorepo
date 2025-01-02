@@ -14,13 +14,17 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 
 import type {
   NavigationAction,
   StackActionType,
 } from '@react-navigation/native';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function SendConfirmFromDApp() {
   const navigation = useNavigation();
@@ -54,6 +58,12 @@ function SendConfirmFromDApp() {
   });
 
   const isNavigateNewPageRef = useRef(false);
+
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isNewSignatureConfirm = devSettings.settings?.enableNewSignatureConfirm;
+  const signatureConfirmRoute = isNewSignatureConfirm
+    ? EModalSignatureConfirmRoutes.TxConfirm
+    : EModalSendRoutes.SendConfirm;
 
   const dispatchAction = useCallback(
     (action: NavigationAction | ((state: any) => NavigationAction)) => {
@@ -151,7 +161,7 @@ function SendConfirmFromDApp() {
           _$t,
         };
         // replace router to SendConfirm
-        action = StackActions.replace(EModalSendRoutes.SendConfirm, params);
+        action = StackActions.replace(signatureConfirmRoute, params);
       }
 
       if (action) {
@@ -180,6 +190,7 @@ function SendConfirmFromDApp() {
     useFeeInTx,
     dispatchAction,
     sendConfirmCallback,
+    signatureConfirmRoute,
   ]);
 
   return (
