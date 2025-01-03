@@ -292,9 +292,6 @@ function decrypt(
     ignoreLogger: true,
     allowRawPassword,
   });
-  if (!passwordDecoded) {
-    throw new IncorrectPassword();
-  }
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.decodePasswordDone();
   }

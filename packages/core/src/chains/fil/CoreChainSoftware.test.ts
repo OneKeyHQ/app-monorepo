@@ -58,8 +58,8 @@ const {
 // wasm module
 // yarn jest packages/core/src/chains/fil/CoreChainSoftware.test.ts
 describe('FIL Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });
