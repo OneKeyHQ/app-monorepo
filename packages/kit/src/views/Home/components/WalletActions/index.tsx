@@ -24,6 +24,7 @@ import type {
 import {
   EModalRoutes,
   EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -64,8 +65,8 @@ function WalletActionSend() {
         networkId: network.id,
         accountId: account.id,
       });
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendDataInput,
+      navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+        screen: EModalSignatureConfirmRoutes.TxDataInput,
         params: {
           accountId: account.id,
           networkId: network.id,
@@ -116,7 +117,7 @@ function WalletActionSend() {
               tokenMap: map,
               onUnmounted: () => {},
               onSelected: ({ account: a }: { account: INetworkAccount }) => {
-                navigation.push(EModalSendRoutes.SendDataInput, {
+                navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
                   accountId: a.id,
                   networkId: token.networkId ?? network.id,
                   isNFT: false,
@@ -128,7 +129,7 @@ function WalletActionSend() {
             return;
           }
 
-          navigation.push(EModalSendRoutes.SendDataInput, {
+          navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
             accountId: token.accountId ?? account.id,
             networkId: token.networkId ?? network.id,
             isNFT: false,
