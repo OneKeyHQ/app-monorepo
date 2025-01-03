@@ -176,15 +176,16 @@ function encryptString({
 }
 
 // ------------------------------------------------------------
+export type IEncryptAsyncParams = {
+  password: string;
+  data: Buffer | string;
+  allowRawPassword?: boolean;
+};
 async function encryptAsync({
   password,
   data,
   allowRawPassword,
-}: {
-  password: string;
-  data: Buffer | string;
-  allowRawPassword?: boolean;
-}): Promise<Buffer> {
+}: IEncryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
@@ -193,17 +194,16 @@ async function encryptAsync({
   const dataBuffer = bufferUtils.toBuffer(data);
 
   if (platformEnv.isNative && !platformEnv.isJest) {
-    // call appGlobals.$webembedApiProxy.secret.encryptAsync()
-
-    throw new Error('webembedApiProxy not ready yet');
-    // const webembedApiProxy = (
-    //   await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
-    // ).default;
-    // const str = await webembedApiProxy.secret.encrypt({
-    //   password,
-    //   data: bufferUtils.bytesToHex(data),
-    // });
-    // return bufferUtils.toBuffer(str, 'hex');
+    const webembedApiProxy = (
+      await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
+    ).default;
+    const str = await webembedApiProxy.secret.encryptAsync({
+      password,
+      // data,
+      data: bufferUtils.bytesToHex(data),
+      allowRawPassword,
+    });
+    return bufferUtils.toBuffer(str, 'hex');
   }
 
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
@@ -289,28 +289,30 @@ function decrypt(
   }
 }
 
+export type IDecryptAsyncParams = {
+  password: string;
+  data: Buffer | string;
+  allowRawPassword?: boolean;
+};
 async function decryptAsync({
   password,
   data,
-}: {
-  password: string;
-  data: Buffer | string;
-}): Promise<Buffer> {
+  allowRawPassword,
+}: IDecryptAsyncParams): Promise<Buffer> {
   // eslint-disable-next-line no-param-reassign
-  const passwordDecoded = decodePassword({ password });
+  const passwordDecoded = decodePassword({ password, allowRawPassword });
 
   if (platformEnv.isNative && !platformEnv.isJest) {
-    // call appGlobals.$webembedApiProxy.secret.decryptAsync()
-
-    throw new Error('webembedApiProxy not ready yet');
-    // const webembedApiProxy = (
-    //   await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
-    // ).default;
-    // const str = await webembedApiProxy.secret.decrypt({
-    //   password,
-    //   data: bufferUtils.bytesToHex(data),
-    // });
-    // return bufferUtils.toBuffer(str, 'hex');
+    const webembedApiProxy = (
+      await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
+    ).default;
+    const str = await webembedApiProxy.secret.decryptAsync({
+      password,
+      // data,
+      data: bufferUtils.bytesToHex(data),
+      allowRawPassword,
+    });
+    return bufferUtils.toBuffer(str, 'hex');
   }
 
   return Promise.resolve(decrypt(passwordDecoded, data));
