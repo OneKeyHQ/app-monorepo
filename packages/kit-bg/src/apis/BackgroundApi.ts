@@ -563,5 +563,15 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     Object.defineProperty(this, 'serviceCustomRpc', { value });
     return value;
   }
+
+  get serviceSignatureConfirm() {
+    const ServiceSignatureConfirm =
+      require('../services/ServiceSignatureConfirm') as typeof import('../services/ServiceSignatureConfirm');
+    const value = new ServiceSignatureConfirm.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceSignatureConfirm', { value });
+    return value;
+  }
 }
 export default BackgroundApi;

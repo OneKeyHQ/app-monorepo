@@ -18,7 +18,7 @@ import ServiceBase from './ServiceBase';
 import type { IBuildDecodedTxParams } from '../vaults/types';
 
 @backgroundClass()
-class ServiceSend extends ServiceBase {
+class ServiceSignatureConfirm extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -120,4 +120,4 @@ class ServiceSend extends ServiceBase {
   }
 }
 
-export default ServiceSend;
+export default ServiceSignatureConfirm;
