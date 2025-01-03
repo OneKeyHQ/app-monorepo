@@ -124,10 +124,10 @@ const {
 // wasm module
 // yarn jest packages/core/src/chains/ada/CoreChainSoftware.test.ts
 describe('ADA Core tests', () => {
-  it('mnemonic verify', () => {
+  it('mnemonic verify', (done) => {
     coreTestsUtils.expectMnemonicValid({
       hdCredential,
-    });
+    }).then(done).catch(done);
   });
   it('getAddressFromPublic', async () => {
     // ADA use getAddressFromPrivate instead.
