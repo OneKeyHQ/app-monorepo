@@ -69,10 +69,10 @@ const {
 
 // yarn jest packages/core/src/chains/apt/CoreChainSoftware.test.ts
 describe('APT Core tests', () => {
-  it('mnemonic verify', (done) => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
-    }).then(done).catch(done);
+    });
   });
   it('getAddressFromPublic', async () => {
     const coreApi = new CoreChainHd();

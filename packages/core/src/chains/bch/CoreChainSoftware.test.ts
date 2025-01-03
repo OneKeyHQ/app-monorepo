@@ -53,10 +53,10 @@ const {
 
 // yarn jest packages/core/src/chains/bch/CoreChainSoftware.test.ts
 describe('BCH Core tests', () => {
-  it('mnemonic verify', (done) => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
-    }).then(done).catch(done);
+    });
   });
   it('getAddressFromPublic', async () => {
     const coreApi = new CoreChainHd();

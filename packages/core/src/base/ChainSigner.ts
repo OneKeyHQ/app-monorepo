@@ -2,7 +2,7 @@
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { N, decryptAsync, sign, uncompressPublicKey, verify } from '../secret';
+import { decryptAsync, sign, uncompressPublicKey, verify } from '../secret';
 
 import type { ICurveName } from '../types';
 
@@ -28,8 +28,11 @@ export interface ISigner extends IVerifier {
 
 export class Verifier implements IVerifierPro {
   protected uncompressedPublicKey!: Buffer;
+
   protected compressedPublicKey!: Buffer;
+
   protected curve: ICurveName;
+
   protected initialized: Promise<void>;
 
   constructor(pub: string, curve: ICurveName) {
@@ -92,7 +95,7 @@ export class ChainSigner extends Verifier implements ISigner {
     super('', curve);
   }
 
-  protected override async init(_pub?: string): Promise<void> {
+  protected override async init(): Promise<void> {
     this.privateKey = await decryptAsync({
       password: this.password,
       data: this.encryptedPrivateKey,
@@ -119,17 +122,9 @@ export class ChainSigner extends Verifier implements ISigner {
 
   async sign(digest: Buffer): Promise<[Buffer, number]> {
     const privateKey = await this.getPrvkey();
-    const signature = await sign(
-      this.curve,
-      privateKey,
-      digest,
-      this.password,
-    );
+    const signature = await sign(this.curve, privateKey, digest, this.password);
     if (this.curve === 'secp256k1') {
-      return [
-        signature.slice(0, -1),
-        signature[signature.length - 1],
-      ];
+      return [signature.slice(0, -1), signature[signature.length - 1]];
     }
     return [signature, 0];
   }

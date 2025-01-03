@@ -51,10 +51,10 @@ const {
 
 // yarn jest packages/core/src/chains/doge/CoreChainSoftware.test.ts
 describe('DOGE Core tests', () => {
-  it('mnemonic verify', (done) => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
-    }).then(done).catch(done);
+    });
   });
   it('getAddressFromPublic', async () => {
     const coreApi = new CoreChainHd();

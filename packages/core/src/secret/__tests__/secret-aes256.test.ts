@@ -375,7 +375,7 @@ describe('AES256 Encryption Tests', () => {
         password: TEST_PASSWORD,
         key: 'test-key',
       });
-      
+
       // Test sync version
       expect(() =>
         decodePassword({
@@ -395,6 +395,28 @@ describe('AES256 Encryption Tests', () => {
   });
 
   describe('encodeSensitiveText/decodeSensitiveText', () => {
+    beforeEach(() => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'trace').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should log deprecation warning when using decodeSensitiveText', async () => {
+      const encoded = await encodeSensitiveText({
+        text: TEST_DATA,
+        key: 'test-key',
+      });
+      decodeSensitiveText({
+        encodedText: encoded,
+        key: 'test-key',
+      });
+      expect(console.warn).toHaveBeenCalledWith(
+        'decodeSensitiveText() 已弃用 (deprecated). Please use decodeSensitiveTextAsync() instead',
+      );
+    });
     beforeEach(() => {
       jest.spyOn(console, 'warn').mockImplementation(() => {});
       jest.spyOn(console, 'trace').mockImplementation(() => {});

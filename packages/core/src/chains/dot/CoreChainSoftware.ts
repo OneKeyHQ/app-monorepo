@@ -228,14 +228,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     );
     const mnemonic = await mnemonicFromEntropy(hdCredential, password);
 
-    const publicKeys = await Promise.all(indexFormatted.map(async (index) => {
-      const path = `${pathPrefix}/${index}`;
-      const keyPair = derivationHdLedger(mnemonic, path);
-      return {
-        path,
-        pubkey: keyPair.publicKey,
-      };
-    }));
+    const publicKeys = await Promise.all(
+      indexFormatted.map(async (index) => {
+        const path = `${pathPrefix}/${index}`;
+        const keyPair = derivationHdLedger(mnemonic, path);
+        return {
+          path,
+          pubkey: keyPair.publicKey,
+        };
+      }),
+    );
 
     if (publicKeys.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get public key.');

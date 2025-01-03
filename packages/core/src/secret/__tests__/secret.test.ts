@@ -1405,7 +1405,9 @@ describe('Secret Module Tests', () => {
       );
       expect(publicKey).toBeInstanceOf(Buffer);
       expect(publicKey.length).toBeGreaterThan(0);
-      expect(bufferUtils.bytesToHex(publicKey)).toMatchSnapshot('secp256k1-public-key');
+      expect(bufferUtils.bytesToHex(publicKey)).toMatchSnapshot(
+        'secp256k1-public-key',
+      );
     });
 
     it('should generate public key for nistp256', async () => {
@@ -1416,7 +1418,9 @@ describe('Secret Module Tests', () => {
       );
       expect(publicKey).toBeInstanceOf(Buffer);
       expect(publicKey.length).toBeGreaterThan(0);
-      expect(bufferUtils.bytesToHex(publicKey)).toMatchSnapshot('nistp256-public-key');
+      expect(bufferUtils.bytesToHex(publicKey)).toMatchSnapshot(
+        'nistp256-public-key',
+      );
     });
 
     it('should generate public key for ed25519', async () => {
@@ -1427,7 +1431,9 @@ describe('Secret Module Tests', () => {
       );
       expect(publicKey).toBeInstanceOf(Buffer);
       expect(publicKey.length).toBeGreaterThan(0);
-      expect(bufferUtils.bytesToHex(publicKey)).toMatchSnapshot('ed25519-public-key');
+      expect(bufferUtils.bytesToHex(publicKey)).toMatchSnapshot(
+        'ed25519-public-key',
+      );
     });
 
     it('should throw error for invalid curve', () => {
@@ -1842,7 +1848,10 @@ describe('Secret Module Tests', () => {
         TEST_TON_MNEMONIC,
         testPassword,
       );
-      const mnemonic = await tonMnemonicFromEntropy(encryptedSeed, testPassword);
+      const mnemonic = await tonMnemonicFromEntropy(
+        encryptedSeed,
+        testPassword,
+      );
       expect(typeof mnemonic).toBe('string');
       expect(mnemonic.split(' ').length).toBe(24); // TON uses 24 words
       expect(mnemonic).toMatchSnapshot('ton-mnemonic');
@@ -1871,8 +1880,14 @@ describe('Secret Module Tests', () => {
         TEST_TON_MNEMONIC2,
         testPassword,
       );
-      const mnemonic1 = await tonMnemonicFromEntropy(encryptedSeed, testPassword);
-      const mnemonic2 = await tonMnemonicFromEntropy(encryptedSeed2, testPassword);
+      const mnemonic1 = await tonMnemonicFromEntropy(
+        encryptedSeed,
+        testPassword,
+      );
+      const mnemonic2 = await tonMnemonicFromEntropy(
+        encryptedSeed2,
+        testPassword,
+      );
 
       expect(mnemonic1).not.toBe(mnemonic2);
       expect(mnemonic1).toMatchSnapshot('ton-mnemonic-1');
@@ -1885,7 +1900,10 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const mnemonic = await tonMnemonicFromEntropy(encryptedSeed, testPassword);
+      const mnemonic = await tonMnemonicFromEntropy(
+        encryptedSeed,
+        testPassword,
+      );
       expect(typeof mnemonic).toBe('string');
       expect(mnemonic.split(' ').length).toBe(24); // TON uses 24 words
     });
@@ -1905,7 +1923,10 @@ describe('Secret Module Tests', () => {
         TEST_TON_MNEMONIC,
         testPassword,
       );
-      const mnemonic = await tonMnemonicFromEntropy(encryptedSeed, testPassword);
+      const mnemonic = await tonMnemonicFromEntropy(
+        encryptedSeed,
+        testPassword,
+      );
       expect(mnemonic).toMatchSnapshot();
     });
   });
@@ -1981,7 +2002,12 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const verifyResult = await verify('secp256k1', publicKey, testDigest, signature);
+      const verifyResult = await verify(
+        'secp256k1',
+        publicKey,
+        testDigest,
+        signature,
+      );
       expect(verifyResult).toBe(true);
       expect({
         publicKey: bufferUtils.bytesToHex(publicKey),
@@ -2004,7 +2030,12 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const verifyResult = await verify('nistp256', publicKey, testDigest, signature);
+      const verifyResult = await verify(
+        'nistp256',
+        publicKey,
+        testDigest,
+        signature,
+      );
       expect(verifyResult).toBe(true);
       expect({
         publicKey: bufferUtils.bytesToHex(publicKey),
@@ -2027,7 +2058,12 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const verifyResult = await verify('ed25519', publicKey, testDigest, signature);
+      const verifyResult = await verify(
+        'ed25519',
+        publicKey,
+        testDigest,
+        signature,
+      );
       expect(verifyResult).toBe(true);
       expect({
         publicKey: bufferUtils.bytesToHex(publicKey),
@@ -2054,7 +2090,12 @@ describe('Secret Module Tests', () => {
         'hex',
       );
 
-      const verifyResult = await verify('secp256k1', publicKey, wrongDigest, signature);
+      const verifyResult = await verify(
+        'secp256k1',
+        publicKey,
+        wrongDigest,
+        signature,
+      );
       expect(verifyResult).toBe(false);
       expect({
         publicKey: bufferUtils.bytesToHex(publicKey),
