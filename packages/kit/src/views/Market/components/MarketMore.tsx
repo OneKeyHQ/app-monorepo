@@ -54,7 +54,7 @@ function BasicMarketMore({
                   onPress: () => {
                     defaultLogger.market.token.marketTokenAction({
                       tokenName: coingeckoId,
-                      action: 'buy',
+                      action: 'sell',
                       from: 'listPage',
                     });
                     tradeActions.onSell();
