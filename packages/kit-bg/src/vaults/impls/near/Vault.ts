@@ -487,7 +487,7 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
     let privateKey = '';
@@ -499,7 +499,7 @@ export default class Vault extends VaultBase {
     if (prefix === 'ed25519' && decodedPrivateKey.length === 64) {
       privateKey = decodedPrivateKey.slice(0, 32).toString('hex');
     }
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveText({ text: privateKey });
 
     return Promise.resolve({
       privateKey,

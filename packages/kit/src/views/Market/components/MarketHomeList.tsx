@@ -185,7 +185,8 @@ function MarketMdColumn({
   }, [item.coingeckoId, navigation]);
 
   const tradeActions = useLazyMarketTradeActions(item.coingeckoId);
-  const show = useReviewControl();
+  const showReviewControl = useReviewControl();
+  const showBuyOrSellButton = item.isSupportBuy && showReviewControl;
   const canStaking = useMemo(
     () => isSupportStaking(item.symbol),
     [item.symbol],
@@ -255,12 +256,12 @@ function MarketMdColumn({
               label: intl.formatMessage({ id: ETranslations.earn_stake }),
               onPress: tradeActions.onStaking,
             },
-            show && {
+            showBuyOrSellButton && {
               icon: 'PlusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_buy }),
               onPress: tradeActions.onBuy,
             },
-            show && {
+            showBuyOrSellButton && {
               icon: 'MinusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_sell }),
               onPress: tradeActions.onSell,
@@ -274,7 +275,7 @@ function MarketMdColumn({
     canStaking,
     intl,
     item,
-    show,
+    showBuyOrSellButton,
     showMoreAction,
     tradeActions.onBuy,
     tradeActions.onSell,

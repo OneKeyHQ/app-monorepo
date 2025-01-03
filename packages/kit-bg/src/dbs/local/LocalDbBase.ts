@@ -271,12 +271,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return false;
     }
     try {
-      return (
-        decryptVerifyString({
-          password,
-          verifyString: context.verifyString,
-        }) === DEFAULT_VERIFY_STRING
-      );
+      const decrypted = decryptVerifyString({
+        password,
+        verifyString: context.verifyString,
+      });
+      return decrypted === DEFAULT_VERIFY_STRING;
     } catch {
       return false;
     }
@@ -290,9 +289,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       if (isValid) {
         return;
       }
-      if (!isValid) {
-        throw new WrongPassword();
-      }
+      throw new WrongPassword();
     }
     throw new PasswordNotSet();
   }
@@ -340,7 +337,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       tx,
       recordPairs: credentialsRecordPairs,
       name: ELocalDBStoreNames.Credential,
-      updater: (credential) => {
+      updater: async (credential) => {
         if (credential.id.startsWith('imported')) {
           // Ton mnemonic credential
           if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
@@ -348,7 +345,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
               rs: credential.credential,
               password: oldPassword,
             });
-            credential.credential = encryptRevealableSeed({
+            credential.credential = await encryptRevealableSeed({
               rs: revealableSeed,
               password: newPassword,
             });
@@ -358,7 +355,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
                 credential: credential.credential,
                 password: oldPassword,
               });
-            credential.credential = encryptImportedCredential({
+            credential.credential = await encryptImportedCredential({
               credential: importedCredential,
               password: newPassword,
             });
@@ -368,7 +365,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             rs: credential.credential,
             password: oldPassword,
           });
-          credential.credential = encryptRevealableSeed({
+          credential.credential = await encryptRevealableSeed({
             rs: revealableSeed,
             password: newPassword,
           });
@@ -440,7 +437,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // update context verifyString
       await this.txUpdateContextVerifyString({
         tx,
-        verifyString: encryptVerifyString({ password: newPassword }),
+        verifyString: await encryptVerifyString({ password: newPassword }),
       });
     });
   }

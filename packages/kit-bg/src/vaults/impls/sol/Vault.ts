@@ -1274,7 +1274,7 @@ export default class Vault extends VaultBase {
       privateKey = decodedPrivateKey.slice(0, 32).toString('hex');
     }
 
-    privateKey = encodeSensitiveText({ text: privateKey ?? '' });
+    privateKey = await encodeSensitiveText({ text: privateKey ?? '' });
     return {
       privateKey,
     };

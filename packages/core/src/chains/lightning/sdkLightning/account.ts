@@ -30,7 +30,7 @@ export const generateNativeSegwitAccounts = async ({
     (index) => `${index.toString()}'`, // btc
   );
 
-  const pubkeyInfos = batchGetPublicKeys(
+  const pubkeyInfos = await batchGetPublicKeys(
     curve,
     hdCredential,
     password,

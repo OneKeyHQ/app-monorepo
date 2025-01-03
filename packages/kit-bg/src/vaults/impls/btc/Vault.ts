@@ -1286,7 +1286,7 @@ export default class VaultBtc extends VaultBase {
     return { btcExtraInfo, account: signerAccount, relPaths };
   }
 
-  override getPrivateKeyFromImported(params: {
+  override async getPrivateKeyFromImported(params: {
     input: string;
   }): Promise<{ privateKey: string }> {
     // params.input is xprvt format:
@@ -1295,7 +1295,7 @@ export default class VaultBtc extends VaultBase {
     // result is hex format:
     let privateKey = convertBtcXprvtToHex({ xprvt: input });
 
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveText({ text: privateKey });
     return Promise.resolve({
       privateKey,
     });
