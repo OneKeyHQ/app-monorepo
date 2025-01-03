@@ -79,7 +79,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     (action: 'buy' | 'sell' | 'trade', showDialog = true) => {
       defaultLogger.market.token.unsupportedToken({ name: symbol, action });
       if (showDialog) {
-        Dialog.confirm({
+        Dialog.show({
           title: intl.formatMessage({
             id: ETranslations.earn_unsupported_token,
           }),
@@ -101,9 +101,36 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     [intl, symbol],
   );
 
+  const createAccountIfNotExists = useCallback(
+    async (
+      { allowWatchAccount }: { allowWatchAccount: boolean } = {
+        allowWatchAccount: false,
+      },
+    ) => {
+      if (networkId) {
+        return backgroundApiProxy.serviceAccount.createAddressIfNotExists(
+          {
+            walletId: activeAccount?.wallet?.id || '',
+            networkId,
+            accountId: activeAccount?.account?.id,
+            indexedAccountId: activeAccount?.indexedAccount?.id,
+          },
+          {
+            allowWatchAccount,
+          },
+        );
+      }
+      return undefined;
+    },
+    [activeAccount, networkId],
+  );
+
   const handleBuyOrSell = useCallback(
     async (type: IFiatCryptoType) => {
-      if (!activeAccount.account || !networkId) {
+      const networkAccount = await createAccountIfNotExists({
+        allowWatchAccount: type === 'buy',
+      });
+      if (!networkAccount || !networkId) {
         return;
       }
 
@@ -119,22 +146,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         return;
       }
 
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId,
-        });
-      const dbAccount =
-        await backgroundApiProxy.serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId: activeAccount.account.indexedAccountId,
-          networkId,
-          deriveType,
-        });
       const { url, build } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId,
           tokenAddress: realContractAddress,
-          accountId: dbAccount.id,
+          accountId: networkAccount?.id,
           type,
         });
       if (!url || !build) {
@@ -144,7 +160,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       openUrlExternal(url);
     },
     [
-      activeAccount.account,
+      createAccountIfNotExists,
       networkId,
       realContractAddress,
       remindUnsupportedToken,
@@ -170,6 +186,16 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         navigateToSwapPage({
           importNetworkId: 'unknown',
         });
+        return;
+      }
+      const networkAccount = await createAccountIfNotExists();
+      if (!networkAccount) {
+        if (mode === 'modal') {
+          navigation.pop();
+        }
+        return;
+      }
+      if (!networkId) {
         return;
       }
       const { isSupportSwap, isSupportCrossChain } =
@@ -206,6 +232,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     },
     [
       contractAddress,
+      createAccountIfNotExists,
       isNative,
       name,
       navigation,
@@ -216,36 +243,45 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     ],
   );
 
-  const handleStaking = useCallback(() => {
-    if (networkId && activeAccount.account) {
+  const handleStaking = useCallback(async () => {
+    const networkAccount = await createAccountIfNotExists();
+    if (!networkAccount) {
+      return;
+    }
+    if (networkId && networkAccount) {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.AssetProtocolList,
         params: {
           networkId,
-          accountId: activeAccount.account?.id,
-          indexedAccountId: activeAccount.indexedAccount?.id,
+          accountId: networkAccount.id,
+          indexedAccountId: networkAccount.indexedAccountId,
           symbol,
         },
       });
     }
-  }, [
-    activeAccount.account,
-    activeAccount.indexedAccount,
-    navigation,
-    networkId,
-    symbol,
-  ]);
+  }, [createAccountIfNotExists, navigation, networkId, symbol]);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
 
   return useMemo(
     () => ({
       onSwap: handleSwap,
       onStaking: handleStaking,
-      onBuy: () => handleBuyOrSell('buy'),
-      onSell: () => handleBuyOrSell('sell'),
+      onBuy: () => {
+        void handleBuyOrSell('buy');
+      },
+      onSell: () => {
+        void handleBuyOrSell('sell');
+      },
+      createAccountIfNotExists,
       canStaking,
     }),
-    [canStaking, handleBuyOrSell, handleStaking, handleSwap],
+    [
+      canStaking,
+      createAccountIfNotExists,
+      handleBuyOrSell,
+      handleStaking,
+      handleSwap,
+    ],
   );
 };
 
@@ -258,24 +294,28 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
         coinGeckoId,
       );
     setToken(response);
+    return response;
   }, [coinGeckoId]);
 
   const actions = useMarketTradeActions(token);
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const compose = useCallback(
-    async (actionName: IActionName) => {
-      await fetchMarketTokenDetail();
-      // wait for token detail loaded and actionsRef updated
-      await timerUtils.wait(80);
-      await actionsRef.current[actionName]('modal');
+    (actionName: IActionName) => {
+      const callback = async () => {
+        await fetchMarketTokenDetail();
+        // wait for token detail loaded and actionsRef updated
+        await timerUtils.wait(80);
+        await actionsRef.current[actionName]('modal');
+      };
+      void callback();
     },
     [fetchMarketTokenDetail],
   );
 
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const handleSwapLazyModal = useCallback(() => {
+  const handleSwapLazyModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapLazyMarketModal,
       params: {

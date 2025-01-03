@@ -2795,6 +2795,98 @@ class ServiceAccount extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.getAddressType({ address });
   }
+
+  @backgroundMethod()
+  async createAddressIfNotExists(
+    {
+      walletId,
+      networkId,
+      accountId,
+      indexedAccountId,
+    }: {
+      walletId: string;
+      networkId: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    },
+    { allowWatchAccount }: { allowWatchAccount?: boolean },
+  ) {
+    if (!accountId && !indexedAccountId) {
+      throw new Error('accountId or indexedAccountId is required');
+    }
+
+    const { serviceNetwork, serviceAccount } = this.backgroundApi;
+    const deriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId,
+    });
+
+    const showSwitchAccountSelector = () => {
+      appEventBus.emit(EAppEventBusNames.ShowSwitchAccountSelector, {
+        networkId,
+      });
+    };
+
+    if (
+      !allowWatchAccount &&
+      accountUtils.isWatchingAccount({
+        accountId: accountId ?? '',
+      })
+    ) {
+      showSwitchAccountSelector();
+      return undefined;
+    }
+
+    if (indexedAccountId) {
+      try {
+        const result = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return result;
+      } catch (error) {
+        const isCreated = await new Promise<boolean>((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
+            networkId,
+            indexedAccountId,
+            deriveType,
+            promiseId,
+            autoCreateAddress: accountUtils.isHdWallet({ walletId }),
+          });
+        });
+        if (!isCreated) {
+          return undefined;
+        }
+        const result = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return result;
+      }
+    }
+
+    if (accountId) {
+      try {
+        const result = await serviceAccount.getNetworkAccount({
+          accountId,
+          indexedAccountId: undefined,
+          networkId,
+          deriveType,
+        });
+        return result;
+      } catch (error) {
+        showSwitchAccountSelector();
+      }
+    }
+    return undefined;
+  }
 }
 
 export default ServiceAccount;

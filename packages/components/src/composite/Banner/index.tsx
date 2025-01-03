@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import { useCallback } from 'react';
 
 import { isNil } from 'lodash';
-import { useMedia, useProps, useStyle } from 'tamagui';
+import { useMedia, useProps } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 

@@ -14,6 +14,7 @@ import { Bootstrap } from '../Bootstrap';
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
+import { CreateAddressContainer } from './CreateAddressContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
 import { FlipperPluginsContainer } from './FlipperPluginsContainer';
 import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
@@ -94,6 +95,7 @@ export function Container() {
           <JotaiContextRootProvidersAutoMount />
           <Bootstrap />
           <AirGapQrcodeDialogContainer />
+          <CreateAddressContainer />
           <HardwareUiStateContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
