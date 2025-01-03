@@ -18,6 +18,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -191,6 +192,9 @@ class ProviderApiCosmos extends ProviderApiBase {
       } catch (error) {
         if ((error as Error).message !== 'Invalid chainId') {
           this._enableFailureCache[origin] = now;
+        } else {
+          const chainId = params?.[0] ?? '';
+          throw new Error(`OneKey does not support ${chainId}.`);
         }
         return false;
       }
@@ -581,6 +585,26 @@ class ProviderApiCosmos extends ProviderApiBase {
       return true;
     }
     return false;
+  }
+
+  @providerApiMethod()
+  public async getChainInfosWithoutEndpoints(request: IJsBridgeMessagePayload) {
+    const { networks } =
+      await this.backgroundApi.serviceNetwork.getNetworksByImpls({
+        impls: ['cosmos'],
+      });
+
+    return networks.map((n) => {
+      const chainId = networkUtils.getNetworkChainId({ networkId: n.id });
+      if (!chainId) return null;
+      return {
+        chainId,
+        chainName: n.name,
+        bip44: { coinType: parseInt(COINTYPE_COSMOS, 10) },
+        currencies: [],
+        feeCurrencies: [],
+      };
+    });
   }
 }
 
