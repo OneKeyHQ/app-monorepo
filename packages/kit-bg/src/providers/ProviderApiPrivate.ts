@@ -25,6 +25,7 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type BackgroundApiBase from '../apis/BackgroundApiBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
+import type { IFloatingIconSettings } from '../dbs/simple/entity/SimpleDbEntityFloatingIconSettings';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IOneKeyWalletInfo {
@@ -291,7 +292,7 @@ class ProviderApiPrivate extends ProviderApiBase {
           { url: request.origin },
         );
       const position =
-        await this.backgroundApi.simpleDb.floatingIconPosition.position();
+        await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
       return {
         isShow,
         position,
@@ -361,14 +362,15 @@ class ProviderApiPrivate extends ProviderApiBase {
 
   @providerApiMethod()
   async wallet_saveFloatingIconPosition(request: IJsBridgeMessagePayload) {
-    console.log('ProviderApiPrivate.saveFloatingIconPosition', request);
+    console.log('ProviderApiPrivate.wallet_saveFloatingIconPosition', request);
     const { params } = request.data as {
-      params?: { side: 'left' | 'right'; bottom: string };
+      params?: IFloatingIconSettings;
     };
-    await this.backgroundApi.simpleDb.floatingIconPosition.setRawData({
-      side: params?.side || 'right',
-      bottom: params?.bottom || '30%',
-    });
+    if (params?.position) {
+      await this.backgroundApi.simpleDb.floatingIconSettings.setRawData({
+        position: params.position,
+      });
+    }
   }
 
   /*
