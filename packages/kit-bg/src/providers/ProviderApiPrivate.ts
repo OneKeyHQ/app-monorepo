@@ -355,7 +355,6 @@ class ProviderApiPrivate extends ProviderApiBase {
     }
     return {
       isShow: false,
-      position,
       i18n: {},
     };
   }
