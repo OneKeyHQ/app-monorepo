@@ -291,11 +291,11 @@ class ProviderApiPrivate extends ProviderApiBase {
         await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl(
           { url: request.origin },
         );
-      const position =
+      const settings =
         await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
       return {
         isShow,
-        position,
+        settings,
         i18n: {
           title: appLocale.intl.formatMessage({
             id: ETranslations.explore_malicious_dapp,
