@@ -27,19 +27,24 @@ export interface ISigner extends IVerifier {
 }
 
 export class Verifier implements IVerifierPro {
-  protected uncompressedPublicKey: Buffer;
-
-  protected compressedPublicKey: Buffer;
-
+  protected uncompressedPublicKey!: Buffer;
+  protected compressedPublicKey!: Buffer;
   protected curve: ICurveName;
+  protected initialized: Promise<void>;
 
   constructor(pub: string, curve: ICurveName) {
     this.curve = curve;
-    this.compressedPublicKey = Buffer.from(pub, 'hex');
-    this.uncompressedPublicKey = uncompressPublicKey(
-      curve,
-      this.compressedPublicKey,
-    );
+    this.initialized = this.init(pub);
+  }
+
+  protected async init(pub: string): Promise<void> {
+    if (pub) {
+      this.compressedPublicKey = Buffer.from(pub, 'hex');
+      this.uncompressedPublicKey = uncompressPublicKey(
+        this.curve,
+        this.compressedPublicKey,
+      );
+    }
   }
 
   async getPubkey(compressed?: boolean): Promise<Buffer> {
@@ -76,7 +81,7 @@ export class Verifier implements IVerifierPro {
 }
 
 export class ChainSigner extends Verifier implements ISigner {
-  private initialized: Promise<void>;
+  private privateKey?: Buffer;
 
   constructor(
     private encryptedPrivateKey: Buffer,
@@ -85,16 +90,14 @@ export class ChainSigner extends Verifier implements ISigner {
   ) {
     // Initialize with empty public key, will be set in init()
     super('', curve);
-    this.initialized = this.init();
   }
 
-  private async init() {
-    const result = await N(
-      this.curve,
-      { key: this.encryptedPrivateKey, chainCode: Buffer.alloc(32) },
-      this.password,
-    );
-    const pub = result.key.toString('hex');
+  protected override async init(_pub?: string): Promise<void> {
+    this.privateKey = await decryptAsync({
+      password: this.password,
+      data: this.encryptedPrivateKey,
+    });
+    const pub = this.privateKey.toString('hex');
     this.compressedPublicKey = Buffer.from(pub, 'hex');
     this.uncompressedPublicKey = uncompressPublicKey(
       this.curve,
@@ -104,10 +107,10 @@ export class ChainSigner extends Verifier implements ISigner {
 
   async getPrvkey(): Promise<Buffer> {
     await this.initialized;
-    return decryptAsync({
-      password: this.password,
-      data: this.encryptedPrivateKey,
-    });
+    if (!this.privateKey) {
+      throw new Error('Private key not initialized');
+    }
+    return this.privateKey;
   }
 
   async getPrvkeyHex(): Promise<string> {
@@ -115,10 +118,10 @@ export class ChainSigner extends Verifier implements ISigner {
   }
 
   async sign(digest: Buffer): Promise<[Buffer, number]> {
-    await this.initialized;
+    const privateKey = await this.getPrvkey();
     const signature = await sign(
       this.curve,
-      this.encryptedPrivateKey,
+      privateKey,
       digest,
       this.password,
     );
