@@ -209,6 +209,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
       pendingTxs?: IAccountHistoryTx[];
       confirmedTxsToSave?: IAccountHistoryTx[];
       confirmedTxsToRemove?: IAccountHistoryTx[];
+      pendingTxsToModify?: IAccountHistoryTx[];
     }[],
   ) {
     const rawData = await this.getRawData();
@@ -226,6 +227,7 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
         pendingTxs: pendingTxsFromOut,
         confirmedTxsToSave,
         confirmedTxsToRemove,
+        pendingTxsToModify,
       } = param;
       if (!accountAddress && !xpub) {
         throw new OneKeyInternalError('accountAddress or xpub is required');
@@ -244,6 +246,13 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
           pendingTxsToUpdate = undefined;
         } else {
           pendingTxsToUpdate = pendingTxsFromOut;
+
+          if (pendingTxsToModify?.length) {
+            pendingTxsToUpdate = uniqBy(
+              [...pendingTxsToModify, ...pendingTxsToUpdate],
+              (tx) => tx.id,
+            );
+          }
         }
       } else {
         // eslint-disable-next-line no-lonely-if
@@ -266,8 +275,19 @@ export class SimpleDbEntityLocalHistory extends SimpleDbEntityBase<ILocalHistory
             );
 
             if (!onChainHistoryTx && !confirmedTx) {
-              newPendingTxs.push(pendingTx);
+              const modifiedTx = pendingTxsToModify?.find(
+                (modTx) => modTx.id === pendingTx.id,
+              );
+              newPendingTxs.push(modifiedTx || pendingTx);
             }
+          }
+
+          if (pendingTxsToModify?.length) {
+            const existingIds = newPendingTxs.map((tx) => tx.id);
+            const newModifiedTxs = pendingTxsToModify.filter(
+              (tx) => !existingIds.includes(tx.id),
+            );
+            newPendingTxs.push(...newModifiedTxs);
           }
           pendingTxsToUpdate = newPendingTxs;
         }

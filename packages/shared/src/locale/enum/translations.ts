@@ -2051,6 +2051,8 @@
   troubleshooting_unlock_device = 'troubleshooting.unlock_device',
   troubleshooting_use_original_usb_cable = 'troubleshooting.use_original_usb_cable',
   trx_consumed = 'trx_consumed',
+  tx_accelerate_accelerator_selector_item_label = 'tx_accelerate.accelerator_selector_item_label',
+  tx_accelerate_order_inquiry_label = 'tx_accelerate.order_inquiry_label',
   update_all_other_apps_closed = 'update.all_other_apps_closed',
   update_all_other_apps_closed_emoji = 'update.all_other_apps_closed_emoji',
   update_all_updates_complete = 'update.all_updates_complete',

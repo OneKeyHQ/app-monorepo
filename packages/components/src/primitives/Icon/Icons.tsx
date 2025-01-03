@@ -1950,6 +1950,7 @@ const icons = {
   ZipSolid: () => import("./react/solid/Zip"),
   ZoomInSolid: () => import("./react/solid/ZoomIn"),
   ZoomOutSolid: () => import("./react/solid/ZoomOut"),
+  F2PoolSolid: () => import("./react/solid/F2Pool"),
 };
 export type IKeyOfIcons = keyof typeof icons;
 export default icons;

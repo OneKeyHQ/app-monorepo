@@ -2046,6 +2046,8 @@
   "troubleshooting.unlock_device": "Unlock your device to see if it's detected.",
   "troubleshooting.use_original_usb_cable": "Use the original USB cable if possible.",
   "trx_consumed": "TRX consumed",
+  "tx_accelerate.accelerator_selector_item_label": "{name} accelerator",
+  "tx_accelerate.order_inquiry_label": "Order inquiry",
   "update.all_other_apps_closed": "All other OneKey Apps and web upgrade tools are closed.",
   "update.all_other_apps_closed_emoji": "All other OneKey Apps and web upgrade tools are closed. 🆗",
   "update.all_updates_complete": "All updates complete 👏🏻",
