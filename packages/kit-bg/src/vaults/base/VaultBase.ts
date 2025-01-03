@@ -268,7 +268,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   ): Promise<IGetPrivateKeyFromImportedResult> {
     const input = decodeSensitiveText({ encodedText: params.input });
     let privateKey = hexUtils.stripHexPrefix(input);
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveText({ text: privateKey });
     return {
       privateKey,
     };

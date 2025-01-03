@@ -149,7 +149,7 @@ class ServiceAddressBook extends ServiceBase {
       const items = await this.getItems();
       await this.setItems(
         items,
-        encodeSensitiveText({ text: String(Date.now()) }),
+        await encodeSensitiveText({ text: String(Date.now()) }),
       );
     }
   }

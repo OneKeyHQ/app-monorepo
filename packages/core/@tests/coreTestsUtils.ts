@@ -216,7 +216,7 @@ async function expectSignTransactionOk({
     const resultImported = await coreApi.signTransaction({
       ...signTxPayload,
       credentials: {
-        imported: encryptImportedCredential({
+        imported: await encryptImportedCredential({
           password,
           credential: { privateKey: account.xpvtRaw || account.privateKeyRaw },
         }),
@@ -258,7 +258,7 @@ async function expectSignMessageOk({
     const resultImported = await coreApi.signMessage({
       ...signMsgPayload,
       credentials: {
-        imported: encryptImportedCredential({
+        imported: await encryptImportedCredential({
           password,
           credential: { privateKey: account.privateKeyRaw },
         }),
