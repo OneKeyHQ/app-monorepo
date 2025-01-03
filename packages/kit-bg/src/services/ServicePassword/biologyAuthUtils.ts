@@ -26,7 +26,7 @@ class BiologyAuthUtils implements IBiologyAuth {
     if (!secureStorageInstance.supportSecureStorage()) return;
     let text = decodeSensitiveText({ encodedText: password });
     const settings = await settingsPersistAtom.get();
-    text = encodeSensitiveText({
+    text = await encodeSensitiveText({
       text,
       key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
     });
@@ -44,7 +44,7 @@ class BiologyAuthUtils implements IBiologyAuth {
         encodedText: text,
         key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
       });
-      text = encodeSensitiveText({ text });
+      text = await encodeSensitiveText({ text });
       return text;
     }
     throw new Error('No password');

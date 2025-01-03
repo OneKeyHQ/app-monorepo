@@ -86,6 +86,8 @@ export enum EAppEventBusNames {
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',
+  ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
+  CreateAddressByDialog = 'CreateAddressByDialog',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -259,6 +261,16 @@ export interface IAppEventBusPayload {
     enabled: boolean;
   };
   [EAppEventBusNames.RefreshNetInfo]: undefined;
+  [EAppEventBusNames.ShowSwitchAccountSelector]: {
+    networkId: string;
+  };
+  [EAppEventBusNames.CreateAddressByDialog]: {
+    networkId: string;
+    indexedAccountId: string;
+    promiseId: number;
+    autoCreateAddress: boolean;
+    deriveType: IAccountDeriveTypes;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

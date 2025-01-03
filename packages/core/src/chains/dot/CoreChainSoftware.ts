@@ -13,10 +13,11 @@ import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   decrypt,
   decryptImportedCredential,
-  encrypt,
+  encryptAsync,
   mnemonicFromEntropy,
 } from '../../secret';
 import {
+  ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImported,
   type ICoreApiGetAddressQueryPublicKey,
@@ -30,7 +31,6 @@ import {
   type ICurveName,
   type ISignedTxPro,
 } from '../../types';
-import { ECoreApiExportedSecretKeyType } from '../../types';
 import { slicePathTemplate } from '../../utils';
 
 import { serializeMessage, serializeSignedTransaction } from './sdkDot';
@@ -95,15 +95,20 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const usedRelativePaths = relPaths || [pathComponents.pop() as string];
       const basePath = pathComponents.join('/');
       const mnemonic = mnemonicFromEntropy(credentials.hd, password);
-      const keys = usedRelativePaths.map((relPath) => {
+      const keysPromised = usedRelativePaths.map(async (relPath) => {
         const path = `${basePath}/${relPath}`;
 
         const keyPair = derivationHdLedger(mnemonic, path);
         return {
           path,
-          key: encrypt(password, Buffer.from(keyPair.secretKey.slice(0, 32))),
+          key: await encryptAsync({
+            password,
+            data: Buffer.from(keyPair.secretKey.slice(0, 32)),
+          }),
         };
       });
+
+      const keys = await Promise.all(keysPromised);
 
       privateKeys = keys.reduce(
         (ret, key) => ({ ...ret, [key.path]: bufferUtils.bytesToHex(key.key) }),
@@ -115,7 +120,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         password,
         credential: credentials.imported,
       });
-      const encryptPrivateKey = bufferUtils.bytesToHex(encrypt(password, p));
+      const encryptPrivateKey = bufferUtils.bytesToHex(
+        await encryptAsync({ password, data: p }),
+      );
       privateKeys[account.path] = encryptPrivateKey;
       privateKeys[''] = encryptPrivateKey;
     }

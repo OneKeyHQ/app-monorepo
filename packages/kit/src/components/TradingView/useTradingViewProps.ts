@@ -136,6 +136,15 @@ export const useTradingViewProps = ({
             html.theme-dark .chart-page {
               background: ${bgAppColor} !important;
             }
+            html [data-name="indicators-dialog"] {
+              background: ${bgAppColor} !important;
+            }
+            html [id*="indicators_dialog_item"]:hover {
+              background-color: ${bgHoverColor} !important;
+            }
+            html [id*="indicators_dialog_item"]:focus {
+              background-color: ${bgHoverColor} !important;
+            }
             #overlap-manager-root [class*="backdrop-"] {
               background-color: ${bgBackdropColor} !important;
             }

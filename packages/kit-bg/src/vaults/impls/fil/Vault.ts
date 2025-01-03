@@ -406,7 +406,7 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
     let credential = decodeSensitiveText({ encodedText: params.input });
@@ -430,7 +430,7 @@ export default class Vault extends VaultBase {
       privateKey = Buffer.from(credential, 'hex');
     }
 
-    privateKey = encodeSensitiveText({
+    privateKey = await encodeSensitiveText({
       text: privateKey?.toString('hex') ?? '',
     });
 

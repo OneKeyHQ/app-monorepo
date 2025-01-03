@@ -111,7 +111,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         );
       }
       const credentials: ICoreCredentialsInfo = {
-        imported: encryptImportedCredential({
+        imported: await encryptImportedCredential({
           credential: {
             privateKey,
           },
@@ -752,7 +752,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     return this.decryptV4ImportedCredential({
       v4dbCredential,
       encodedPassword: password
-        ? encodeSensitiveText({ text: password })
+        ? await encodeSensitiveText({ text: password })
         : await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }

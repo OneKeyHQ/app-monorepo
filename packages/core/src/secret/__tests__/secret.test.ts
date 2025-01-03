@@ -93,13 +93,18 @@ describe('Secret Module Tests', () => {
       ),
     };
 
-    it('should derive normal child key for secp256k1', () => {
+    it('should derive normal child key for secp256k1', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
-      const childKey = CKDPriv('secp256k1', encryptedParent, 0, testPassword);
+      const childKey = await CKDPriv(
+        'secp256k1',
+        encryptedParent,
+        0,
+        testPassword,
+      );
 
       // Decrypt and verify the derived key
       const decryptedKey = decrypt(testPassword, childKey.key);
@@ -115,14 +120,14 @@ describe('Secret Module Tests', () => {
       expect(publicKey.length).toBeGreaterThan(0);
     });
 
-    it('should derive hardened child key for secp256k1', () => {
+    it('should derive hardened child key for secp256k1', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
       const hardenedIndex = 0x80_00_00_00; // 2^31
-      const childKey = CKDPriv(
+      const childKey = await CKDPriv(
         'secp256k1',
         encryptedParent,
         hardenedIndex,
@@ -134,20 +139,20 @@ describe('Secret Module Tests', () => {
       expect(childKey.chainCode.length).toBe(32);
     });
 
-    it('should only support hardened derivation for ed25519', () => {
+    it('should only support hardened derivation for ed25519', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
       // Normal index should throw
-      expect(() => {
-        CKDPriv('ed25519', encryptedParent, 0, testPassword);
-      }).toThrow('Only hardened CKDPriv is supported for ed25519');
+      await expect(
+        CKDPriv('ed25519', encryptedParent, 0, testPassword),
+      ).rejects.toThrow('Only hardened CKDPriv is supported for ed25519');
 
       // Hardened index should work
       const hardenedIndex = 0x80_00_00_00;
-      const childKey = CKDPriv(
+      const childKey = await CKDPriv(
         'ed25519',
         encryptedParent,
         hardenedIndex,
@@ -157,32 +162,37 @@ describe('Secret Module Tests', () => {
       expect(childKey.chainCode.length).toBe(32);
     });
 
-    it('should throw error for invalid index', () => {
+    it('should throw error for invalid index', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
-      expect(() => {
-        CKDPriv('secp256k1', encryptedParent, -1, testPassword);
-      }).toThrow('Overflowed.');
+      await expect(
+        CKDPriv('secp256k1', encryptedParent, -1, testPassword),
+      ).rejects.toThrow('Invalid index.');
 
-      expect(() => {
-        CKDPriv('secp256k1', encryptedParent, 2 ** 32, testPassword);
-      }).toThrow('Overflowed.');
+      await expect(
+        CKDPriv('secp256k1', encryptedParent, 2 ** 32, testPassword),
+      ).rejects.toThrow('Overflowed.');
 
-      expect(() => {
-        CKDPriv('secp256k1', encryptedParent, 1.5, testPassword);
-      }).toThrow('Invalid index');
+      await expect(
+        CKDPriv('secp256k1', encryptedParent, 1.5, testPassword),
+      ).rejects.toThrow('Invalid index');
     });
 
-    it('should derive child key for nistp256', () => {
+    it('should derive child key for nistp256', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
-      const childKey = CKDPriv('nistp256', encryptedParent, 0, testPassword);
+      const childKey = await CKDPriv(
+        'nistp256',
+        encryptedParent,
+        0,
+        testPassword,
+      );
 
       const decryptedKey = decrypt(testPassword, childKey.key);
       expect(decryptedKey.length).toBe(32);
@@ -192,24 +202,29 @@ describe('Secret Module Tests', () => {
       expect(childKey.chainCode).not.toEqual(testMasterKey.chainCode);
 
       // Verify we can derive multiple children
-      const secondChild = CKDPriv('nistp256', childKey, 1, testPassword);
+      const secondChild = await CKDPriv('nistp256', childKey, 1, testPassword);
       expect(secondChild.key.length).toBeGreaterThan(0);
       expect(secondChild.chainCode.length).toBe(32);
     });
 
-    it('should match snapshot for secp256k1', () => {
+    it('should match snapshot for secp256k1', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
-      const childKey = CKDPriv('secp256k1', encryptedParent, 0, testPassword);
+      const childKey = await CKDPriv(
+        'secp256k1',
+        encryptedParent,
+        0,
+        testPassword,
+      );
       expect({
         key: childKey.key.toString('hex'),
         chainCode: childKey.chainCode.toString('hex'),
       }).toMatchSnapshot('secp256k1-child-key');
 
-      const hardenedChildKey = CKDPriv(
+      const hardenedChildKey = await CKDPriv(
         'secp256k1',
         encryptedParent,
         0x80_00_00_00,
@@ -221,13 +236,13 @@ describe('Secret Module Tests', () => {
       }).toMatchSnapshot('secp256k1-hardened-child-key');
     });
 
-    it('should match snapshot for ed25519', () => {
+    it('should match snapshot for ed25519', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
-      const hardenedChildKey = CKDPriv(
+      const hardenedChildKey = await CKDPriv(
         'ed25519',
         encryptedParent,
         0x80_00_00_00,
@@ -239,24 +254,29 @@ describe('Secret Module Tests', () => {
       }).toMatchSnapshot('ed25519-hardened-child-key');
     });
 
-    it('should match snapshot for nistp256', () => {
+    it('should match snapshot for nistp256', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
-      const childKey = CKDPriv('nistp256', encryptedParent, 0, testPassword);
+      const childKey = await CKDPriv(
+        'nistp256',
+        encryptedParent,
+        0,
+        testPassword,
+      );
       expect({
         key: childKey.key.toString('hex'),
         chainCode: childKey.chainCode.toString('hex'),
       }).toMatchSnapshot('nistp256-child-key');
     });
 
-    it('should derive child private keys correctly using CKDPriv', () => {
+    it('should derive child private keys correctly using CKDPriv', async () => {
       const testMnemonic =
         'test test test test test test test test test test test junk';
       const rs = mnemonicToRevealableSeed(testMnemonic);
-      const hdCredential = encryptRevealableSeed({
+      const hdCredential = await encryptRevealableSeed({
         rs,
         password: testPassword,
       });
@@ -273,13 +293,13 @@ describe('Secret Module Tests', () => {
         entropyWithLangPrefixed: seedBuffer.toString('hex'),
         seed,
       };
-      const encryptedSeed = encryptRevealableSeed({
+      const encryptedSeed = await encryptRevealableSeed({
         rs: revealableSeed,
         password: testPassword,
       });
 
       // Generate master key from seed
-      const encryptedMasterKey = generateMasterKeyFromSeed(
+      const encryptedMasterKey = await generateMasterKeyFromSeed(
         'secp256k1',
         encryptedSeed,
         testPassword,
@@ -295,7 +315,7 @@ describe('Secret Module Tests', () => {
       expect(masterKey.key.length).toBe(32);
       expect(masterKey.chainCode.length).toBe(32);
 
-      const childKey = CKDPriv(
+      const childKey = await CKDPriv(
         'secp256k1',
         encryptedMasterKey,
         0,
@@ -307,7 +327,7 @@ describe('Secret Module Tests', () => {
 
       // Test hardened index derivation
       const hardenedIndex = 2_147_483_648; // 2^31, first hardened index
-      const hardenedChild = CKDPriv(
+      const hardenedChild = await CKDPriv(
         'secp256k1',
         encryptedMasterKey,
         hardenedIndex,
@@ -331,7 +351,12 @@ describe('Secret Module Tests', () => {
           'hex',
         ),
       };
-      const nistChild = CKDPriv('nistp256', nistMasterKey, 0, testPassword);
+      const nistChild = await CKDPriv(
+        'nistp256',
+        nistMasterKey,
+        0,
+        testPassword,
+      );
       expect(nistChild).toBeDefined();
 
       const edMasterKey = {
@@ -342,7 +367,7 @@ describe('Secret Module Tests', () => {
         chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
       };
       // ed25519 only supports hardened derivation
-      const edChild = CKDPriv(
+      const edChild = await CKDPriv(
         'ed25519',
         edMasterKey,
         hardenedIndex,
@@ -351,13 +376,15 @@ describe('Secret Module Tests', () => {
       expect(edChild).toBeDefined();
 
       // Test error cases
-      expect(() => CKDPriv('ed25519', edMasterKey, 0, testPassword)).toThrow();
-      expect(() =>
+      await expect(
+        CKDPriv('ed25519', edMasterKey, 0, testPassword),
+      ).rejects.toThrow();
+      await expect(
         CKDPriv('invalid-curve' as any, encryptedMasterKey, 0, testPassword),
-      ).toThrow();
-      expect(() =>
+      ).rejects.toThrow();
+      await expect(
         CKDPriv('secp256k1', encryptedMasterKey, -1, testPassword),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
     it('should handle async mnemonic and seed operations', async () => {
@@ -368,7 +395,7 @@ describe('Secret Module Tests', () => {
       const testMnemonic =
         'test test test test test test test test test test test junk';
       const rs = mnemonicToRevealableSeed(testMnemonic, 'optional passphrase');
-      const hdCredential = encryptRevealableSeed({
+      const hdCredential = await encryptRevealableSeed({
         rs,
         password,
       });
@@ -424,15 +451,17 @@ describe('Secret Module Tests', () => {
       ).rejects.toThrow();
     });
 
-    it('should throw error for invalid curve', () => {
+    it('should throw error for invalid curve', async () => {
       const encryptedParent = {
         key: encrypt(testPassword, testMasterKey.key),
         chainCode: testMasterKey.chainCode,
       };
 
-      expect(() => {
-        CKDPriv('invalid-curve' as any, encryptedParent, 0, testPassword);
-      }).toThrow('Key derivation is not supported for curve invalid-curve.');
+      await expect(
+        CKDPriv('invalid-curve' as any, encryptedParent, 0, testPassword),
+      ).rejects.toThrow(
+        'Key derivation is not supported for curve invalid-curve.',
+      );
     });
   });
 
@@ -480,12 +509,12 @@ describe('Secret Module Tests', () => {
     const testMnemonic =
       'test test test test test test test test test test test junk';
     const rs = mnemonicToRevealableSeed(testMnemonic);
-    const hdCredential = encryptRevealableSeed({
-      rs,
-      password: testPassword,
-    });
 
     it('should generate fingerprint for secp256k1', async () => {
+      const hdCredential = await encryptRevealableSeed({
+        rs,
+        password: testPassword,
+      });
       const fingerprint = await generateRootFingerprintHexAsync({
         curveName: 'secp256k1',
         hdCredential,
@@ -496,6 +525,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should generate fingerprint for different curves', async () => {
+      const hdCredential = await encryptRevealableSeed({
+        rs,
+        password: testPassword,
+      });
       const curves: ICurveName[] = ['secp256k1', 'nistp256', 'ed25519'];
       for (const curve of curves) {
         const fingerprint = await generateRootFingerprintHexAsync({
@@ -508,6 +541,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should throw error for invalid curve', async () => {
+      const hdCredential = await encryptRevealableSeed({
+        rs,
+        password: testPassword,
+      });
       await expect(
         generateRootFingerprintHexAsync({
           curveName: 'invalid-curve' as ICurveName,
@@ -518,6 +555,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should throw error for invalid password', async () => {
+      const hdCredential = await encryptRevealableSeed({
+        rs,
+        password: testPassword,
+      });
       await expect(
         generateRootFingerprintHexAsync({
           curveName: 'secp256k1',
@@ -528,6 +569,11 @@ describe('Secret Module Tests', () => {
     });
 
     it('should match snapshot', async () => {
+      const hdCredential = await encryptRevealableSeed({
+        rs,
+        password: testPassword,
+      });
+
       const fingerprint = await generateRootFingerprintHexAsync({
         curveName: 'secp256k1',
         hdCredential,
@@ -595,17 +641,17 @@ describe('Secret Module Tests', () => {
       seed: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
     };
 
-    const encryptedSeed = encryptRevealableSeed({
-      rs: testSeed,
-      password: testPassword,
-    });
+    it('should derive private keys for valid paths', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
 
-    it('should derive private keys for valid paths', () => {
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ['0/0', '0/1', "44'/0'/0'/0/0"];
 
-      const privateKeys = batchGetPrivateKeys(
+      const privateKeys = await batchGetPrivateKeys(
         curveName,
         encryptedSeed,
         testPassword,
@@ -626,12 +672,16 @@ describe('Secret Module Tests', () => {
       });
     });
 
-    it('should throw error for invalid curve name', () => {
+    it('should throw error for invalid curve name', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName = 'invalid-curve' as ICurveName;
       const prefix = 'm';
       const relPaths = ['0/0'];
 
-      expect(() =>
+      await expect(
         batchGetPrivateKeys(
           curveName,
           encryptedSeed,
@@ -639,15 +689,21 @@ describe('Secret Module Tests', () => {
           prefix,
           relPaths,
         ),
-      ).toThrow('Key derivation is not supported for curve invalid-curve.');
+      ).rejects.toThrow(
+        'Key derivation is not supported for curve invalid-curve.',
+      );
     });
 
-    it('should throw error for invalid password', () => {
+    it('should throw error for invalid password', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ['0/0'];
 
-      expect(() =>
+      await expect(
         batchGetPrivateKeys(
           curveName,
           encryptedSeed,
@@ -655,15 +711,19 @@ describe('Secret Module Tests', () => {
           prefix,
           relPaths,
         ),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should handle hardened and non-hardened derivation paths', () => {
+    it('should handle hardened and non-hardened derivation paths', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ["44'/0'", '0/0', "1'/0/0"];
 
-      const privateKeys = batchGetPrivateKeys(
+      const privateKeys = await batchGetPrivateKeys(
         curveName,
         encryptedSeed,
         testPassword,
@@ -677,12 +737,16 @@ describe('Secret Module Tests', () => {
       expect(privateKeys[2].path).toBe("m/1'/0/0");
     });
 
-    it('should match snapshot', () => {
+    it('should match snapshot', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ['0/0'];
 
-      const privateKeys = batchGetPrivateKeys(
+      const privateKeys = await batchGetPrivateKeys(
         curveName,
         encryptedSeed,
         testPassword,
@@ -710,17 +774,16 @@ describe('Secret Module Tests', () => {
       seed: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
     };
 
-    const encryptedSeed = encryptRevealableSeed({
-      rs: testSeed,
-      password: testPassword,
-    });
-
-    it('should generate public keys matching private keys', () => {
+    it('should generate public keys matching private keys', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ['0/0', '0/1', "44'/0'/0'/0/0"];
 
-      const privateKeys = batchGetPrivateKeys(
+      const privateKeys = await batchGetPrivateKeys(
         curveName,
         encryptedSeed,
         testPassword,
@@ -728,7 +791,7 @@ describe('Secret Module Tests', () => {
         relPaths,
       );
 
-      const publicKeys = batchGetPublicKeys(
+      const publicKeys = await batchGetPublicKeys(
         curveName,
         encryptedSeed,
         testPassword,
@@ -751,12 +814,16 @@ describe('Secret Module Tests', () => {
       });
     });
 
-    it('should throw error for invalid curve name', () => {
+    it('should throw error for invalid curve name', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName = 'invalid-curve' as ICurveName;
       const prefix = 'm';
       const relPaths = ['0/0'];
 
-      expect(() =>
+      await expect(
         batchGetPublicKeys(
           curveName,
           encryptedSeed,
@@ -764,15 +831,21 @@ describe('Secret Module Tests', () => {
           prefix,
           relPaths,
         ),
-      ).toThrow('Key derivation is not supported for curve invalid-curve.');
+      ).rejects.toThrow(
+        'Key derivation is not supported for curve invalid-curve.',
+      );
     });
 
-    it('should throw error for invalid password', () => {
+    it('should throw error for invalid password', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ['0/0'];
 
-      expect(() =>
+      await expect(
         batchGetPublicKeys(
           curveName,
           encryptedSeed,
@@ -780,15 +853,19 @@ describe('Secret Module Tests', () => {
           prefix,
           relPaths,
         ),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should handle hardened and non-hardened derivation paths', () => {
+    it('should handle hardened and non-hardened derivation paths', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ["44'/0'", '0/0', "1'/0/0"];
 
-      const publicKeys = batchGetPublicKeys(
+      const publicKeys = await batchGetPublicKeys(
         curveName,
         encryptedSeed,
         testPassword,
@@ -802,12 +879,16 @@ describe('Secret Module Tests', () => {
       expect(publicKeys[2].path).toBe("m/1'/0/0");
     });
 
-    it('should match snapshot', () => {
+    it('should match snapshot', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ['0/0'];
 
-      const publicKeys = batchGetPublicKeys(
+      const publicKeys = await batchGetPublicKeys(
         curveName,
         encryptedSeed,
         testPassword,
@@ -835,21 +916,20 @@ describe('Secret Module Tests', () => {
       seed: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
     };
 
-    const encryptedSeed = encryptRevealableSeed({
-      rs: testSeed,
-      password: testPassword,
-    });
-
     beforeEach(() => {
       // do nothing
     });
 
     it('should return same results as batchGetPublicKeys in non-native environment', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const curveName: ICurveName = 'secp256k1';
       const prefix = 'm';
       const relPaths = ['0/0', '0/1', "44'/0'/0'/0/0"];
 
-      const syncResult = batchGetPublicKeys(
+      const syncResult = await batchGetPublicKeys(
         curveName,
         encryptedSeed,
         testPassword,
@@ -869,6 +949,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should handle native environment correctly', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const result = await batchGetPublicKeysAsync({
         curveName: 'secp256k1',
         hdCredential: encryptedSeed,
@@ -892,6 +976,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should match snapshot', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testSeed,
+        password: testPassword,
+      });
       const result = await batchGetPublicKeysAsync({
         curveName: 'secp256k1',
         hdCredential: encryptedSeed,
@@ -969,9 +1057,9 @@ describe('Secret Module Tests', () => {
       privateKey: '0123456789abcdef',
     };
 
-    it('should decrypt imported credential correctly', () => {
+    it('should decrypt imported credential correctly', async () => {
       // First encrypt the credential
-      const encryptedCredential = encryptImportedCredential({
+      const encryptedCredential = await encryptImportedCredential({
         credential: testCredential,
         password: testPassword,
       });
@@ -985,8 +1073,8 @@ describe('Secret Module Tests', () => {
       expect(decryptedCredential).toEqual(testCredential);
     });
 
-    it('should handle credential with prefix correctly', () => {
-      const encryptedCredential = encryptImportedCredential({
+    it('should handle credential with prefix correctly', async () => {
+      const encryptedCredential = await encryptImportedCredential({
         credential: testCredential,
         password: testPassword,
       });
@@ -1001,8 +1089,8 @@ describe('Secret Module Tests', () => {
       expect(decryptedCredential).toEqual(testCredential);
     });
 
-    it('should throw error for invalid password', () => {
-      const encryptedCredential = encryptImportedCredential({
+    it('should throw error for invalid password', async () => {
+      const encryptedCredential = await encryptImportedCredential({
         credential: testCredential,
         password: testPassword,
       });
@@ -1024,8 +1112,8 @@ describe('Secret Module Tests', () => {
       ).toThrow();
     });
 
-    it('should match snapshot for decrypted credential', () => {
-      const encryptedCredential = encryptImportedCredential({
+    it('should match snapshot for decrypted credential', async () => {
+      const encryptedCredential = await encryptImportedCredential({
         credential: testCredential,
         password: testPassword,
       });
@@ -1046,9 +1134,9 @@ describe('Secret Module Tests', () => {
       seed: '00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff',
     };
 
-    it('should decrypt revealable seed correctly', () => {
+    it('should decrypt revealable seed correctly', async () => {
       // First encrypt the seed
-      const encryptedSeed = encryptRevealableSeed({
+      const encryptedSeed = await encryptRevealableSeed({
         rs: testSeed,
         password: testPassword,
       });
@@ -1062,8 +1150,8 @@ describe('Secret Module Tests', () => {
       expect(decryptedSeed).toEqual(testSeed);
     });
 
-    it('should throw error for invalid password', () => {
-      const encryptedSeed = encryptRevealableSeed({
+    it('should throw error for invalid password', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
         rs: testSeed,
         password: testPassword,
       });
@@ -1085,8 +1173,8 @@ describe('Secret Module Tests', () => {
       ).toThrow();
     });
 
-    it('should match snapshot for decrypted seed', () => {
-      const encryptedSeed = encryptRevealableSeed({
+    it('should match snapshot for decrypted seed', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
         rs: testSeed,
         password: testPassword,
       });
@@ -1103,9 +1191,9 @@ describe('Secret Module Tests', () => {
   describe('decryptVerifyString', () => {
     const testPassword = 'test123';
 
-    it('should decrypt verify string correctly', () => {
+    it('should decrypt verify string correctly', async () => {
       // First encrypt the string
-      const encryptedString = encryptVerifyString({
+      const encryptedString = await encryptVerifyString({
         password: testPassword,
       });
 
@@ -1118,8 +1206,8 @@ describe('Secret Module Tests', () => {
       expect(decryptedString).toBe(DEFAULT_VERIFY_STRING);
     });
 
-    it('should handle string with prefix correctly', () => {
-      const encryptedString = encryptVerifyString({
+    it('should handle string with prefix correctly', async () => {
+      const encryptedString = await encryptVerifyString({
         password: testPassword,
         addPrefixString: true,
       });
@@ -1134,8 +1222,8 @@ describe('Secret Module Tests', () => {
       expect(decryptedString).toBe(DEFAULT_VERIFY_STRING);
     });
 
-    it('should throw error for invalid password', () => {
-      const encryptedString = encryptVerifyString({
+    it('should throw error for invalid password', async () => {
+      const encryptedString = await encryptVerifyString({
         password: testPassword,
       });
 
@@ -1156,8 +1244,8 @@ describe('Secret Module Tests', () => {
       ).toThrow();
     });
 
-    it('should match snapshot for decrypted string', () => {
-      const encryptedString = encryptVerifyString({
+    it('should match snapshot for decrypted string', async () => {
+      const encryptedString = await encryptVerifyString({
         password: testPassword,
       });
 
@@ -1176,8 +1264,8 @@ describe('Secret Module Tests', () => {
       privateKey: '0123456789abcdef',
     };
 
-    it('should encrypt credential correctly', () => {
-      const encryptedCredential = encryptImportedCredential({
+    it('should encrypt credential correctly', async () => {
+      const encryptedCredential = await encryptImportedCredential({
         credential: testCredential,
         password: testPassword,
       });
@@ -1193,13 +1281,13 @@ describe('Secret Module Tests', () => {
       expect(decryptedCredential).toEqual(testCredential);
     });
 
-    it('should handle different private key formats', () => {
+    it('should handle different private key formats', async () => {
       const longKeyCredential: ICoreImportedCredential = {
         privateKey:
           '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
       };
 
-      const encryptedCredential = encryptImportedCredential({
+      const encryptedCredential = await encryptImportedCredential({
         credential: longKeyCredential,
         password: testPassword,
       });
@@ -1212,21 +1300,21 @@ describe('Secret Module Tests', () => {
       expect(decryptedCredential).toEqual(longKeyCredential);
     });
 
-    it('should throw error for empty private key', () => {
+    it('should throw error for empty private key', async () => {
       const invalidCredential = {
         privateKey: '',
       };
 
-      expect(() =>
+      await expect(
         encryptImportedCredential({
           credential: invalidCredential as ICoreImportedCredential,
           password: testPassword,
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should match snapshot', () => {
-      const encryptedCredential = encryptImportedCredential({
+    it('should match snapshot', async () => {
+      const encryptedCredential = await encryptImportedCredential({
         credential: testCredential,
         password: testPassword,
       });
@@ -1242,8 +1330,8 @@ describe('Secret Module Tests', () => {
       seed: 'deadbeefdeadbeefdeadbeefdeadbeef',
     };
 
-    it('should encrypt seed correctly', () => {
-      const encryptedSeed = encryptRevealableSeed({
+    it('should encrypt seed correctly', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
         rs: testSeed,
         password: testPassword,
       });
@@ -1257,14 +1345,14 @@ describe('Secret Module Tests', () => {
       expect(decryptedSeed).toEqual(testSeed);
     });
 
-    it('should handle different seed lengths', () => {
+    it('should handle different seed lengths', async () => {
       const longSeed: IBip39RevealableSeed = {
         entropyWithLangPrefixed:
           '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
         seed: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
       };
 
-      const encryptedSeed = encryptRevealableSeed({
+      const encryptedSeed = await encryptRevealableSeed({
         rs: longSeed,
         password: testPassword,
       });
@@ -1277,22 +1365,22 @@ describe('Secret Module Tests', () => {
       expect(decryptedSeed).toEqual(longSeed);
     });
 
-    it('should throw error for invalid seed object', () => {
+    it('should throw error for invalid seed object', async () => {
       const invalidSeed = {
         entropyWithLangPrefixed: '',
         seed: '',
       };
 
-      expect(() =>
+      await expect(
         encryptRevealableSeed({
           rs: invalidSeed as IBip39RevealableSeed,
           password: testPassword,
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should match snapshot', () => {
-      const encryptedSeed = encryptRevealableSeed({
+    it('should match snapshot', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
         rs: testSeed,
         password: testPassword,
       });
@@ -1362,8 +1450,8 @@ describe('Secret Module Tests', () => {
   describe('encryptVerifyString', () => {
     const testPassword = 'test123';
 
-    it('should encrypt string correctly', () => {
-      const encryptedString = encryptVerifyString({
+    it('should encrypt string correctly', async () => {
+      const encryptedString = await encryptVerifyString({
         password: testPassword,
       });
 
@@ -1376,15 +1464,15 @@ describe('Secret Module Tests', () => {
       expect(decryptedString).toBe('OneKey');
     });
 
-    it('should handle prefix option', () => {
-      const withPrefix = encryptVerifyString({
+    it('should handle prefix option', async () => {
+      const withPrefix = await encryptVerifyString({
         password: testPassword,
         addPrefixString: true,
       });
 
       expect(withPrefix.startsWith('|VS|')).toBe(true);
 
-      const withoutPrefix = encryptVerifyString({
+      const withoutPrefix = await encryptVerifyString({
         password: testPassword,
         addPrefixString: false,
       });
@@ -1407,16 +1495,16 @@ describe('Secret Module Tests', () => {
       ).toBe('OneKey');
     });
 
-    it('should throw error for empty password', () => {
-      expect(() =>
+    it('should throw error for empty password', async () => {
+      await expect(
         encryptVerifyString({
           password: '',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should match snapshot', () => {
-      const encryptedString = encryptVerifyString({
+    it('should match snapshot', async () => {
+      const encryptedString = await encryptVerifyString({
         password: testPassword,
       });
 
@@ -1450,7 +1538,7 @@ describe('Secret Module Tests', () => {
       expect(result).toBe('|VS|abc123');
     });
 
-    it('should match snapshot', () => {
+    it('should match snapshot', async () => {
       const result = fixV4VerifyStringToV5({
         verifyString: 'test123',
       });
@@ -1461,13 +1549,13 @@ describe('Secret Module Tests', () => {
   describe('generateMasterKeyFromSeed', () => {
     const testRevealableSeed = mnemonicToRevealableSeed(TEST_MNEMONIC);
 
-    const encryptedSeed = encryptRevealableSeed({
-      rs: testRevealableSeed,
-      password: TEST_PASSWORD,
-    });
+    it('should generate master key for secp256k1', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
 
-    it('should generate master key for secp256k1', () => {
-      const masterKey = generateMasterKeyFromSeed(
+      const masterKey = await generateMasterKeyFromSeed(
         'secp256k1',
         encryptedSeed,
         TEST_PASSWORD,
@@ -1478,8 +1566,12 @@ describe('Secret Module Tests', () => {
       expect(masterKey.chainCode.length).toBe(32);
     });
 
-    it('should generate master key for nistp256', () => {
-      const masterKey = generateMasterKeyFromSeed(
+    it('should generate master key for nistp256', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
+      const masterKey = await generateMasterKeyFromSeed(
         'nistp256',
         encryptedSeed,
         TEST_PASSWORD,
@@ -1490,8 +1582,12 @@ describe('Secret Module Tests', () => {
       expect(masterKey.chainCode.length).toBe(32);
     });
 
-    it('should generate master key for ed25519', () => {
-      const masterKey = generateMasterKeyFromSeed(
+    it('should generate master key for ed25519', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
+      const masterKey = await generateMasterKeyFromSeed(
         'ed25519',
         encryptedSeed,
         TEST_PASSWORD,
@@ -1502,24 +1598,38 @@ describe('Secret Module Tests', () => {
       expect(masterKey.chainCode.length).toBe(32);
     });
 
-    it('should throw error for invalid curve', () => {
-      expect(() => {
+    it('should throw error for invalid curve', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
+      await expect(
         generateMasterKeyFromSeed(
           'invalid-curve' as any,
           encryptedSeed,
           TEST_PASSWORD,
-        );
-      }).toThrow('Key derivation is not supported for curve invalid-curve.');
+        ),
+      ).rejects.toThrow(
+        'Key derivation is not supported for curve invalid-curve.',
+      );
     });
 
-    it('should throw error for invalid password', () => {
-      expect(() => {
-        generateMasterKeyFromSeed('secp256k1', encryptedSeed, 'wrong-password');
-      }).toThrow('IncorrectPassword');
+    it('should throw error for invalid password', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
+      await expect(
+        generateMasterKeyFromSeed('secp256k1', encryptedSeed, 'wrong-password'),
+      ).rejects.toThrow('IncorrectPassword');
     });
 
-    it('should match snapshot', () => {
-      const masterKey = generateMasterKeyFromSeed(
+    it('should match snapshot', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
+      const masterKey = await generateMasterKeyFromSeed(
         'secp256k1',
         encryptedSeed,
         TEST_PASSWORD,
@@ -1534,12 +1644,11 @@ describe('Secret Module Tests', () => {
   describe('mnemonicFromEntropyAsync', () => {
     const testRevealableSeed = mnemonicToRevealableSeed(TEST_MNEMONIC);
 
-    const encryptedSeed = encryptRevealableSeed({
-      rs: testRevealableSeed,
-      password: TEST_PASSWORD,
-    });
-
     it('should generate mnemonic from entropy', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
       const mnemonic = await mnemonicFromEntropyAsync({
         hdCredential: encryptedSeed,
         password: TEST_PASSWORD,
@@ -1549,6 +1658,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should throw error for invalid password', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
       await expect(
         mnemonicFromEntropyAsync({
           hdCredential: encryptedSeed,
@@ -1558,6 +1671,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should match snapshot', async () => {
+      const encryptedSeed = await encryptRevealableSeed({
+        rs: testRevealableSeed,
+        password: TEST_PASSWORD,
+      });
       const mnemonic = await mnemonicFromEntropyAsync({
         hdCredential: encryptedSeed,
         password: TEST_PASSWORD,
@@ -1718,17 +1835,13 @@ describe('Secret Module Tests', () => {
   describe('tonMnemonicFromEntropy', () => {
     const testPassword = 'test123';
 
-    const encryptedSeed = revealableSeedFromTonMnemonic(
-      TEST_TON_MNEMONIC,
-      testPassword,
-    );
-    const encryptedSeed2 = revealableSeedFromTonMnemonic(
-      TEST_TON_MNEMONIC2,
-      testPassword,
-    );
     // const revealableSeed = tonMnemonicToRevealableSeed(TEST_TON_MNEMONIC);
 
-    it('should generate valid TON mnemonic from entropy', () => {
+    it('should generate valid TON mnemonic from entropy', async () => {
+      const encryptedSeed = await revealableSeedFromTonMnemonic(
+        TEST_TON_MNEMONIC,
+        testPassword,
+      );
       const mnemonic = tonMnemonicFromEntropy(encryptedSeed, testPassword);
       expect(typeof mnemonic).toBe('string');
       expect(mnemonic.split(' ').length).toBe(24); // TON uses 24 words
@@ -1749,7 +1862,15 @@ describe('Secret Module Tests', () => {
       ).toThrow();
     });
 
-    it('should generate different mnemonics for different entropy', () => {
+    it('should generate different mnemonics for different entropy', async () => {
+      const encryptedSeed = await revealableSeedFromTonMnemonic(
+        TEST_TON_MNEMONIC,
+        testPassword,
+      );
+      const encryptedSeed2 = await revealableSeedFromTonMnemonic(
+        TEST_TON_MNEMONIC2,
+        testPassword,
+      );
       const mnemonic1 = tonMnemonicFromEntropy(encryptedSeed, testPassword);
       const mnemonic2 = tonMnemonicFromEntropy(encryptedSeed2, testPassword);
 
@@ -1758,19 +1879,32 @@ describe('Secret Module Tests', () => {
       expect(mnemonic2).toMatchSnapshot('ton-mnemonic-2');
     });
 
-    it('should convert entropy to TON mnemonic', () => {
+    it('should convert entropy to TON mnemonic', async () => {
+      const encryptedSeed = await revealableSeedFromTonMnemonic(
+        TEST_TON_MNEMONIC,
+        testPassword,
+      );
+
       const mnemonic = tonMnemonicFromEntropy(encryptedSeed, testPassword);
       expect(typeof mnemonic).toBe('string');
       expect(mnemonic.split(' ').length).toBe(24); // TON uses 24 words
     });
 
-    it('should throw error for invalid password', () => {
+    it('should throw error for invalid password', async () => {
+      const encryptedSeed = await revealableSeedFromTonMnemonic(
+        TEST_TON_MNEMONIC,
+        testPassword,
+      );
       expect(() =>
         tonMnemonicFromEntropy(encryptedSeed, 'wrong-password'),
       ).toThrow();
     });
 
-    it('should match snapshot', () => {
+    it('should match snapshot', async () => {
+      const encryptedSeed = await revealableSeedFromTonMnemonic(
+        TEST_TON_MNEMONIC,
+        testPassword,
+      );
       const mnemonic = tonMnemonicFromEntropy(encryptedSeed, testPassword);
       expect(mnemonic).toMatchSnapshot();
     });
@@ -1781,8 +1915,8 @@ describe('Secret Module Tests', () => {
     const testMnemonic =
       'abandon math mimic master filter design carbon crystal rookie group knife young abandon math mimic master filter design carbon crystal rookie group knife young abandon today';
 
-    it('should convert TON mnemonic to revealable seed with proper UTF-8 encoding', () => {
-      const encryptedSeed = revealableSeedFromTonMnemonic(
+    it('should convert TON mnemonic to revealable seed with proper UTF-8 encoding', async () => {
+      const encryptedSeed = await revealableSeedFromTonMnemonic(
         testMnemonic,
         testPassword,
       );
@@ -1803,21 +1937,21 @@ describe('Secret Module Tests', () => {
     });
 
     // TODO: revealableSeedFromTonMnemonic should validate mnemonic before return, should make it async
-    it.skip('should throw InvalidMnemonic for malformed input', () => {
-      expect(() => revealableSeedFromTonMnemonic('', testPassword)).toThrow(
-        'Invalid seed object',
-      );
-      expect(() =>
+    it.skip('should throw InvalidMnemonic for malformed input', async () => {
+      await expect(
+        revealableSeedFromTonMnemonic('', testPassword),
+      ).rejects.toThrow('Invalid seed object');
+      await expect(
         revealableSeedFromTonMnemonic('invalid mnemonic', testPassword),
-      ).toThrow(InvalidMnemonic);
+      ).rejects.toThrow(InvalidMnemonic);
       // Test with non-UTF8 characters
-      expect(() =>
+      await expect(
         revealableSeedFromTonMnemonic('\uD800', testPassword),
-      ).toThrow(InvalidMnemonic);
+      ).rejects.toThrow(InvalidMnemonic);
     });
 
-    it('should match snapshot', () => {
-      const encryptedSeed = revealableSeedFromTonMnemonic(
+    it('should match snapshot', async () => {
+      const encryptedSeed = await revealableSeedFromTonMnemonic(
         testMnemonic,
         testPassword,
       );
