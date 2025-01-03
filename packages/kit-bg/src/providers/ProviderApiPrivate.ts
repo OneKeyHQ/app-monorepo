@@ -361,8 +361,8 @@ class ProviderApiPrivate extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async wallet_saveFloatingIconPosition(request: IJsBridgeMessagePayload) {
-    console.log('ProviderApiPrivate.wallet_saveFloatingIconPosition', request);
+  async wallet_saveFloatingIconSettings(request: IJsBridgeMessagePayload) {
+    console.log('ProviderApiPrivate.wallet_saveFloatingIconSettings', request);
     const { params } = request.data as {
       params?: IFloatingIconSettings;
     };
