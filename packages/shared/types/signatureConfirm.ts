@@ -56,7 +56,13 @@ export interface ITransactionData {
   hexSignature: string;
 }
 
-export interface IParseTxResp {
+export interface ITransactionDisplay {
+  title: string;
+  components: IDisplayComponent[];
+  alerts: string[];
+}
+
+export interface IParseTransactionResp {
   accountAddress: string;
   parsedTx: {
     to: {
@@ -68,9 +74,5 @@ export interface IParseTxResp {
     };
     data: ITransactionData;
   };
-  display: {
-    title: string;
-    components: IDisplayComponent[];
-    alerts: string[];
-  };
+  display: ITransactionDisplay;
 }

@@ -11,6 +11,7 @@ import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 
 import type { ISwapTxInfo } from '../../types/swap/types';
+import { ITransactionDisplay, ITransactionDisplay } from '../../types/signatureConfirm';
 
 export function buildTxActionDirection({
   from,
@@ -195,3 +196,9 @@ export function getStakingActionLabel({
       });
   }
 }
+
+export function convertDecodedTxActionsToSignatureConfirmTxDisplay({
+  decodedTx,
+}: {
+  decodedTx: IDecodedTx;
+}): ITransactionDisplay {}
