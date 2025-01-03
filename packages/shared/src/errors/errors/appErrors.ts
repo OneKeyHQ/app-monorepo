@@ -323,6 +323,30 @@ export class InvalidAccount extends OneKeyError {
   }
 }
 
+export type INetworkFeeInsufficientInfo = {
+  symbol: string;
+};
+
+export class NetworkFeeInsufficient extends OneKeyError<INetworkFeeInsufficientInfo> {
+  constructor(props?: IOneKeyError<INetworkFeeInsufficientInfo>) {
+    super(
+      normalizeErrorProps(
+        {
+          ...props,
+          info: {
+            'crypto': props?.info?.symbol,
+          },
+        },
+        {
+          defaultMessage: 'NetworkFeeInsufficient',
+          defaultKey:
+            ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+        },
+      ),
+    );
+  }
+}
+
 export class InvalidTokenAddress extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
