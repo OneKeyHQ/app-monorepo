@@ -136,12 +136,12 @@ export default class Vault extends VaultBase {
       });
       txn = toTransaction(encodedTx);
       const massAndSize = txn.getMassAndSize();
-      if (
-        massAndSize.mass > MAX_ORPHAN_TX_MASS ||
-        massAndSize.txSize > MAX_BLOCK_SIZE
-      ) {
-        throw new OneKeyInternalError('Transaction size is too large');
-      }
+      // if (
+      //   massAndSize.mass > MAX_ORPHAN_TX_MASS ||
+      //   massAndSize.txSize > MAX_BLOCK_SIZE
+      // ) {
+      //   throw new OneKeyInternalError('Transaction size is too large');
+      // }
       encodedTx.feeInfo.limit = massAndSize.mass.toString();
       encodedTx.mass = massAndSize.mass;
     }

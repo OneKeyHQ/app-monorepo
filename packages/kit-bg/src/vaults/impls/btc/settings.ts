@@ -105,7 +105,7 @@ const settings: IVaultSettings = {
   nonceRequired: false,
   feeUTXORequired: true,
   editFeeEnabled: true,
-  replaceTxEnabled: false,
+  replaceTxEnabled: true,
   estimatedFeePollingInterval: 120,
 
   minTransferAmount: '0.00000546',

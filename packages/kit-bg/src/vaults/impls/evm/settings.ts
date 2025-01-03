@@ -179,6 +179,9 @@ const settings: IVaultSettings = {
   feeUTXORequired: false,
   editFeeEnabled: true,
   replaceTxEnabled: true,
+  cancelTxEnabled: true,
+  speedUpCancelEnabled: true,
+
   withL1BaseFee: true,
   transferZeroNativeTokenEnabled: true,
   gasLimitValidationEnabled: true,
