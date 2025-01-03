@@ -266,7 +266,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     credentials: ICoreCredentialsInfo;
   }): Promise<string> {
     const { password, credentials, lnurlDetail } = params;
-    const mnemonic = mnemonicFromEntropy(
+    const mnemonic = await mnemonicFromEntropy(
       checkIsDefined(credentials.hd),
       password,
     );

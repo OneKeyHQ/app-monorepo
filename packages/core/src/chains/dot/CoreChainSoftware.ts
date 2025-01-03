@@ -94,7 +94,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const pathComponents = account.path.split('/');
       const usedRelativePaths = relPaths || [pathComponents.pop() as string];
       const basePath = pathComponents.join('/');
-      const mnemonic = mnemonicFromEntropy(credentials.hd, password);
+      const mnemonic = await mnemonicFromEntropy(credentials.hd, password);
       const keysPromised = usedRelativePaths.map(async (relPath) => {
         const path = `${basePath}/${relPath}`;
 
@@ -116,7 +116,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       );
     }
     if (credentials.imported) {
-      const { privateKey: p } = decryptImportedCredential({
+      const { privateKey: p } = await decryptImportedCredential({
         password,
         credential: credentials.imported,
       });
@@ -226,16 +226,16 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
-    const mnemonic = mnemonicFromEntropy(hdCredential, password);
+    const mnemonic = await mnemonicFromEntropy(hdCredential, password);
 
-    const publicKeys = indexFormatted.map((index) => {
+    const publicKeys = await Promise.all(indexFormatted.map(async (index) => {
       const path = `${pathPrefix}/${index}`;
       const keyPair = derivationHdLedger(mnemonic, path);
       return {
         path,
         pubkey: keyPair.publicKey,
       };
-    });
+    }));
 
     if (publicKeys.length !== indexes.length) {
       throw new OneKeyInternalError('Unable to get public key.');

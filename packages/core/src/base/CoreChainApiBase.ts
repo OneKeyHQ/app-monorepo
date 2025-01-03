@@ -136,7 +136,7 @@ export abstract class CoreChainApiBase {
     if (credentials.imported) {
       // TODO handle relPaths privateKey here
       // const { relPaths } = account;
-      const { privateKey: p } = decryptImportedCredential({
+      const { privateKey: p } = await decryptImportedCredential({
         password,
         credential: credentials.imported,
       });

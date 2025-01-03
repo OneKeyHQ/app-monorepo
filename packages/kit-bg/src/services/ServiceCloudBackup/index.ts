@@ -594,11 +594,12 @@ class ServiceCloudBackup extends ServiceBase {
         if (version !== IMPORTED_ACCOUNT_BACKUP_VERSION) {
           return;
         }
+        const decryptedCredential = await decryptImportedCredential({
+          credential: privateData.credentials[account.id],
+          password: remotePassword,
+        });
         const importedCredential = await encryptImportedCredential({
-          credential: decryptImportedCredential({
-            credential: privateData.credentials[account.id],
-            password: remotePassword,
-          }),
+          credential: decryptedCredential,
           password: localPassword,
         });
 

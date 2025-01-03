@@ -2,7 +2,7 @@
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { N, decrypt, sign, uncompressPublicKey, verify } from '../secret';
+import { N, decryptAsync, sign, uncompressPublicKey, verify } from '../secret';
 
 import type { ICurveName } from '../types';
 
@@ -27,9 +27,9 @@ export interface ISigner extends IVerifier {
 }
 
 export class Verifier implements IVerifierPro {
-  private uncompressedPublicKey: Buffer;
+  protected uncompressedPublicKey: Buffer;
 
-  private compressedPublicKey: Buffer;
+  protected compressedPublicKey: Buffer;
 
   protected curve: ICurveName;
 
@@ -82,35 +82,49 @@ export class ChainSigner extends Verifier implements ISigner {
     private password: string,
     protected override curve: ICurveName,
   ) {
-    const pub = N(
-      curve,
-      { key: encryptedPrivateKey, chainCode: Buffer.alloc(32) },
-      password,
-    ).key.toString('hex');
-    super(pub, curve);
+    // Initialize with empty public key, will be set in init()
+    super('', curve);
+    void this.init();
   }
 
-  getPrvkey(): Promise<Buffer> {
-    return Promise.resolve(decrypt(this.password, this.encryptedPrivateKey));
+  private async init() {
+    const result = await N(
+      this.curve,
+      { key: this.encryptedPrivateKey, chainCode: Buffer.alloc(32) },
+      this.password,
+    );
+    const pub = result.key.toString('hex');
+    this.compressedPublicKey = Buffer.from(pub, 'hex');
+    this.uncompressedPublicKey = uncompressPublicKey(
+      this.curve,
+      this.compressedPublicKey,
+    );
+  }
+
+  async getPrvkey(): Promise<Buffer> {
+    return decryptAsync({
+      password: this.password,
+      data: this.encryptedPrivateKey,
+    });
   }
 
   async getPrvkeyHex(): Promise<string> {
     return bufferUtils.bytesToHex(await this.getPrvkey());
   }
 
-  sign(digest: Buffer): Promise<[Buffer, number]> {
-    const signature = sign(
+  async sign(digest: Buffer): Promise<[Buffer, number]> {
+    const signature = await sign(
       this.curve,
       this.encryptedPrivateKey,
       digest,
       this.password,
     );
     if (this.curve === 'secp256k1') {
-      return Promise.resolve([
+      return [
         signature.slice(0, -1),
         signature[signature.length - 1],
-      ]);
+      ];
     }
-    return Promise.resolve([signature, 0]);
+    return [signature, 0];
   }
 }

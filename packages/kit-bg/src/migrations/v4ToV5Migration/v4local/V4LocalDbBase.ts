@@ -69,7 +69,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     return record;
   }
 
-  checkPassword(context: IV4DBContext, password: string): boolean {
+  async checkPassword(context: IV4DBContext, password: string): Promise<boolean> {
     if (!context) {
       console.error('Unable to get main context.');
       return false;
@@ -78,12 +78,11 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       return false;
     }
     try {
-      return (
-        decryptVerifyString({
-          password,
-          verifyString: context.verifyString,
-        }) === DEFAULT_VERIFY_STRING
-      );
+      const decrypted = await decryptVerifyString({
+        password,
+        verifyString: context.verifyString,
+      });
+      return decrypted === DEFAULT_VERIFY_STRING;
     } catch {
       return false;
     }
@@ -93,7 +92,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
-      const isValid = this.checkPassword(ctx, password);
+      const isValid = await this.checkPassword(ctx, password);
       if (isValid) {
         return;
       }

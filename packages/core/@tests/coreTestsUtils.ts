@@ -39,7 +39,7 @@ function expectAccountEqual(
   expect(a1).toEqual(b1);
 }
 
-function expectMnemonicValid({
+async function expectMnemonicValid({
   hdCredential,
 }: {
   hdCredential: ICoreTestsHdCredential;
@@ -47,7 +47,7 @@ function expectMnemonicValid({
   const { password } = hdCredential;
   const rsDecrypt2 = mnemonicToRevealableSeed(hdCredential.mnemonic);
 
-  const rsDecrypt = decryptRevealableSeed({
+  const rsDecrypt = await decryptRevealableSeed({
     rs: hdCredential.hdCredentialHex,
     password,
   });
