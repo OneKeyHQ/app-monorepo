@@ -42,10 +42,9 @@ export class Verifier implements IVerifierPro {
     );
   }
 
-  getPubkey(compressed?: boolean): Promise<Buffer> {
-    return Promise.resolve(
-      compressed ? this.compressedPublicKey : this.uncompressedPublicKey,
-    );
+  async getPubkey(compressed?: boolean): Promise<Buffer> {
+    await this.initialized;
+    return compressed ? this.compressedPublicKey : this.uncompressedPublicKey;
   }
 
   async getPubkeyHex(compressed?: boolean): Promise<string> {
@@ -58,7 +57,7 @@ export class Verifier implements IVerifierPro {
     return Promise.resolve(Buffer.from([]));
   }
 
-  verifySignature({
+  async verifySignature({
     publicKey,
     digest,
     signature,
@@ -67,16 +66,18 @@ export class Verifier implements IVerifierPro {
     digest: Buffer | Uint8Array | string; // hex string or Buffer
     signature: Buffer | Uint8Array | string; // hex string or Buffer
   }): Promise<boolean> {
+    await this.initialized;
     const p = bufferUtils.toBuffer(publicKey);
     const d = bufferUtils.toBuffer(digest);
     const s = bufferUtils.toBuffer(signature);
     const { curve } = this;
-    const result = verify(curve, p, d, s);
-    return Promise.resolve(result);
+    return verify(curve, p, d, s);
   }
 }
 
 export class ChainSigner extends Verifier implements ISigner {
+  private initialized: Promise<void>;
+
   constructor(
     private encryptedPrivateKey: Buffer,
     private password: string,
@@ -84,7 +85,7 @@ export class ChainSigner extends Verifier implements ISigner {
   ) {
     // Initialize with empty public key, will be set in init()
     super('', curve);
-    void this.init();
+    this.initialized = this.init();
   }
 
   private async init() {
@@ -102,6 +103,7 @@ export class ChainSigner extends Verifier implements ISigner {
   }
 
   async getPrvkey(): Promise<Buffer> {
+    await this.initialized;
     return decryptAsync({
       password: this.password,
       data: this.encryptedPrivateKey,
@@ -113,6 +115,7 @@ export class ChainSigner extends Verifier implements ISigner {
   }
 
   async sign(digest: Buffer): Promise<[Buffer, number]> {
+    await this.initialized;
     const signature = await sign(
       this.curve,
       this.encryptedPrivateKey,

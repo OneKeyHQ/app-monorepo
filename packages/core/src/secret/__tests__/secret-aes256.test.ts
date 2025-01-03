@@ -59,6 +59,12 @@ const platformEnv = jest.requireMock('@onekeyhq/shared/src/platformEnv');
 beforeEach(() => {
   platformEnv.isExtensionUi = false;
   platformEnv.isWebEmbed = false;
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'trace').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('AES256 Encryption Tests', () => {

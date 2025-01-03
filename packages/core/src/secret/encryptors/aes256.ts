@@ -121,7 +121,11 @@ async function decodePasswordAsync({
       throw new Error('decodePassword can NOT be called from UI');
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    return decodeSensitiveTextAsync({ encodedText: password, key, ignoreLogger });
+    return decodeSensitiveTextAsync({
+      encodedText: password,
+      key,
+      ignoreLogger,
+    });
   }
   if (
     process.env.NODE_ENV !== 'production' &&
@@ -269,7 +273,9 @@ function decrypt(
   allowRawPassword?: boolean,
 ): Buffer {
   if (!ignoreLogger) {
-    console.warn('decrypt() 已弃用 (deprecated). Please use decryptAsync() instead');
+    console.warn(
+      'decrypt() 已弃用 (deprecated). Please use decryptAsync() instead',
+    );
     console.trace('decrypt() call stack');
   }
   if (!password) {
@@ -381,7 +387,10 @@ async function decryptAsync({
 
   const salt: Buffer = dataBuffer.slice(0, PBKDF2_SALT_LENGTH);
   const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
-  const iv: Buffer = dataBuffer.slice(PBKDF2_SALT_LENGTH, ENCRYPTED_DATA_OFFSET);
+  const iv: Buffer = dataBuffer.slice(
+    PBKDF2_SALT_LENGTH,
+    ENCRYPTED_DATA_OFFSET,
+  );
 
   try {
     const aesDecryptData = AES_CBC.decrypt(
@@ -417,7 +426,9 @@ function decryptString({
   dataEncoding = 'hex',
   allowRawPassword,
 }: IDecryptStringParams): string {
-  console.warn('decryptString() 已弃用 (deprecated). Please use decryptStringAsync() instead');
+  console.warn(
+    'decryptString() 已弃用 (deprecated). Please use decryptStringAsync() instead',
+  );
   console.trace('decryptString() call stack');
   const bytes = decrypt(
     password,
@@ -494,7 +505,9 @@ function decodeSensitiveText({
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
 }): string {
-  console.warn('decodeSensitiveText() 已弃用 (deprecated). Please use decodeSensitiveTextAsync() instead');
+  console.warn(
+    'decodeSensitiveText() 已弃用 (deprecated). Please use decodeSensitiveTextAsync() instead',
+  );
   console.trace('decodeSensitiveText() call stack');
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
@@ -539,7 +552,10 @@ async function decodeSensitiveTextAsync({
     if (encodedText.startsWith(ENCODE_TEXT_PREFIX.aes)) {
       const decrypted = await decryptAsync({
         password: theKey,
-        data: Buffer.from(encodedText.slice(ENCODE_TEXT_PREFIX.aes.length), 'hex'),
+        data: Buffer.from(
+          encodedText.slice(ENCODE_TEXT_PREFIX.aes.length),
+          'hex',
+        ),
         allowRawPassword,
       });
       return decrypted.toString('utf-8');
