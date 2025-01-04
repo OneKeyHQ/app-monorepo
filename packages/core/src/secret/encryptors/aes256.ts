@@ -235,9 +235,6 @@ async function encryptAsync({
     throw new IncorrectPassword();
   }
 
-  const passwordDecoded = decodePassword({ password, allowRawPassword });
-  const dataBuffer = bufferUtils.toBuffer(data);
-
   if (platformEnv.isNative && !platformEnv.isJest) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
@@ -250,6 +247,9 @@ async function encryptAsync({
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
+
+  const passwordDecoded = decodePassword({ password, allowRawPassword });
+  const dataBuffer = bufferUtils.toBuffer(data);
 
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
   const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
@@ -345,6 +345,7 @@ export type IDecryptAsyncParams = {
   password: string;
   data: Buffer | string;
   allowRawPassword?: boolean;
+  ignoreLogger?: boolean;
 };
 /**
  * The recommended asynchronous decryption method
@@ -357,18 +358,11 @@ async function decryptAsync({
   password,
   data,
   allowRawPassword,
+  ignoreLogger,
 }: IDecryptAsyncParams): Promise<Buffer> {
   if (!password) {
     throw new IncorrectPassword();
   }
-
-  const passwordDecoded = decodePassword({ password, allowRawPassword });
-  if (!passwordDecoded) {
-    throw new IncorrectPassword();
-  }
-
-  const dataBuffer = bufferUtils.toBuffer(data);
-
   if (platformEnv.isNative && !platformEnv.isJest) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
@@ -378,24 +372,64 @@ async function decryptAsync({
       // data,
       data: bufferUtils.bytesToHex(data),
       allowRawPassword,
+      ignoreLogger,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
 
+  if (!ignoreLogger) {
+    defaultLogger.account.secretPerf.decodePassword();
+  }
+  // eslint-disable-next-line no-param-reassign
+  const passwordDecoded = await decodePasswordAsync({
+    password,
+    allowRawPassword,
+    ignoreLogger: true,
+  });
+  if (!passwordDecoded) {
+    throw new IncorrectPassword();
+  }
+  if (!ignoreLogger) {
+    defaultLogger.account.secretPerf.decodePasswordDone();
+  }
+
+  const dataBuffer = bufferUtils.toBuffer(data);
   const salt: Buffer = dataBuffer.slice(0, PBKDF2_SALT_LENGTH);
+
+  if (!ignoreLogger) {
+    defaultLogger.account.secretPerf.keyFromPasswordAndSalt();
+  }
   const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
+  if (!ignoreLogger) {
+    defaultLogger.account.secretPerf.keyFromPasswordAndSaltDone();
+  }
+
   const iv: Buffer = dataBuffer.slice(
     PBKDF2_SALT_LENGTH,
     ENCRYPTED_DATA_OFFSET,
   );
 
   try {
+    if (!ignoreLogger) {
+      defaultLogger.account.secretPerf.decryptAES();
+    }
+    // TODO make to async call RN_AES(@metamask/react-native-aes-crypto)
+    // const aesDecryptData = await RN_AES.decrypt(
+    //   dataBuffer.slice(ENCRYPTED_DATA_OFFSET).toString('base64'),
+    //   key.toString('base64'),
+    //   iv.toString('base64'),
+    // );
+
     const aesDecryptData = AES_CBC.decrypt(
       dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
       key,
       true,
       iv,
     );
+    if (!ignoreLogger) {
+      defaultLogger.account.secretPerf.decryptAESDone();
+    }
+
     return Buffer.from(aesDecryptData);
   } catch (e) {
     if (!platformEnv.isJest) {

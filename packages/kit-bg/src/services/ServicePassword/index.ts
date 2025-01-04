@@ -7,7 +7,7 @@ import {
   decodePassword,
   decodeSensitiveText,
   decryptAsync,
-  decryptString,
+  decryptStringAsync,
   encodeSensitiveText,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
@@ -122,7 +122,7 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async decryptString(params: IDecryptStringParams) {
-    return decryptString(params);
+    return decryptStringAsync(params);
   }
 
   @backgroundMethod()
