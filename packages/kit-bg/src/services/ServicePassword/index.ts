@@ -6,7 +6,7 @@ import type {
 import {
   decodePassword,
   decodeSensitiveText,
-  decrypt,
+  decryptAsync,
   decryptString,
   encodeSensitiveText,
   encryptStringAsync,
@@ -92,18 +92,21 @@ export default class ServicePassword extends ServiceBase {
   ) {
     if (process.env.NODE_ENV !== 'production') {
       const pwd = await this.encodeSensitiveText({ text: password });
-      const items = contents
-        .map((t) => {
+      const itemsPromised = contents
+        .map(async (t) => {
           const o: { entropy: string } = JSON.parse(t.credential);
           if (!o.entropy) {
             return '';
           }
-          const entropyBuff = decrypt(pwd, o.entropy);
+          const entropyBuff = await decryptAsync({
+            password: pwd,
+            data: o.entropy,
+          });
           const mnemonic = revealEntropyToMnemonic(entropyBuff);
           return mnemonic;
         })
         .filter(Boolean);
-
+      const items = await Promise.all(itemsPromised);
       return {
         items,
         raw: items.join('\r\n\r\n'),

@@ -5,7 +5,7 @@ import sha256 from 'js-sha256';
 import { isString } from 'lodash';
 import { transactions, utils } from 'near-api-js';
 
-import { decrypt, decryptAsync, ed25519 } from '../../secret';
+import {   decryptAsync, ed25519 } from '../../secret';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';

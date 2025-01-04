@@ -14,7 +14,6 @@ import {
 } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
 import {
-  decrypt,
   decryptAsync,
   encryptAsync,
   encryptStringAsync,

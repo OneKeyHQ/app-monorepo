@@ -11,7 +11,6 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
-  decrypt,
   decryptAsync,
   decryptImportedCredential,
   encryptAsync,

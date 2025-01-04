@@ -7,7 +7,7 @@ import {
   encryptRevealableSeed,
 } from '@onekeyhq/core/src/secret';
 import {
-  decrypt,
+  decryptAsync,
   encryptAsync,
 } from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -527,9 +527,12 @@ class ServiceCloudBackup extends ServiceBase {
     let privateData: IPrivateBackupData;
     try {
       privateData = JSON.parse(
-        decrypt(remotePassword, Buffer.from(privateString, 'base64')).toString(
-          'utf8',
-        ),
+        (
+          await decryptAsync({
+            password: remotePassword,
+            data: Buffer.from(privateString, 'base64'),
+          })
+        ).toString('utf8'),
       );
     } catch {
       return ERestoreResult.WRONG_PASSWORD;

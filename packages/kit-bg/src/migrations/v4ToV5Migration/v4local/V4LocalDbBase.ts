@@ -1,5 +1,5 @@
 import {
-  decrypt,
+  decryptAsync,
   decryptVerifyString,
   encryptAsync,
   encryptVerifyString,
@@ -192,10 +192,10 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
           const importedCredential: IV4DBImportedCredentialRaw = JSON.parse(
             credential.credential,
           );
-          const privateKeyDecrypt = decrypt(
-            oldPassword,
-            importedCredential.privateKey,
-          );
+          const privateKeyDecrypt = await decryptAsync({
+            password: oldPassword,
+            data: importedCredential.privateKey,
+          });
           const importedCredentialRebuild: IV4DBImportedCredentialRaw = {
             privateKey: bufferUtils.bytesToHex(
               await encryptAsync({
@@ -212,8 +212,14 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
           const hdCredential: IV4DBHdCredentialRaw = JSON.parse(
             credential.credential,
           );
-          const seedDecrypt = decrypt(oldPassword, hdCredential.seed);
-          const entropyDecrypt = decrypt(oldPassword, hdCredential.entropy);
+          const seedDecrypt = await decryptAsync({
+            password: oldPassword,
+            data: hdCredential.seed,
+          });
+          const entropyDecrypt = await decryptAsync({
+            password: oldPassword,
+            data: hdCredential.entropy,
+          });
 
           const hdCredentialRebuild: IV4DBHdCredentialRaw = {
             seed: bufferUtils.bytesToHex(

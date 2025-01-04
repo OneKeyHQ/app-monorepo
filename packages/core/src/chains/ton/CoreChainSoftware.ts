@@ -6,7 +6,7 @@ import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt, decryptAsync } from '../../secret';
+import {   decryptAsync } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,

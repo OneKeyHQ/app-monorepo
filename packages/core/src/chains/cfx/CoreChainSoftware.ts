@@ -2,7 +2,6 @@ import { keccak256 } from '@ethersproject/keccak256';
 import { getMessage } from 'cip-23';
 
 import {
-  decrypt,
   decryptAsync,
   secp256k1,
   uncompressPublicKey,
