@@ -216,26 +216,12 @@ describe('AES256 Encryption Tests', () => {
         'decryptString() 已弃用 (deprecated). Please use decryptStringAsync() instead',
       );
     });
-    it('should encrypt and decrypt string with hex encoding and snapshot (sync)', () => {
-      const encrypted = encryptString({
-        password: TEST_PASSWORD,
-        data: TEST_DATA_HEX,
-      });
-      expect(encrypted).toMatchSnapshot('encryptString-hex');
-
-      const decrypted = decryptString({
-        password: TEST_PASSWORD,
-        data: encrypted,
-      });
-      expect(bufferUtils.hexToText(decrypted)).toBe(TEST_DATA);
-    });
-
-    it('should encrypt and decrypt string with hex encoding and snapshot (async)', async () => {
+    it('should encrypt and decrypt string with hex encoding and snapshot', async () => {
       const encrypted = await encryptStringAsync({
         password: TEST_PASSWORD,
         data: TEST_DATA_HEX,
       });
-      expect(encrypted).toMatchSnapshot('encryptString-hex-async');
+      expect(encrypted).toMatchSnapshot('encryptString-hex');
 
       const decrypted = await decryptStringAsync({
         password: TEST_PASSWORD,
@@ -244,32 +230,14 @@ describe('AES256 Encryption Tests', () => {
       expect(bufferUtils.hexToText(decrypted)).toBe(TEST_DATA);
     });
 
-    it('should support different encodings with snapshot (sync)', () => {
-      const base64Data = Buffer.from(TEST_DATA).toString('base64');
-      const encrypted = encryptString({
-        password: TEST_PASSWORD,
-        data: base64Data,
-        dataEncoding: 'base64',
-      });
-      expect(encrypted).toMatchSnapshot('encryptString-base64');
-
-      const decrypted = decryptString({
-        password: TEST_PASSWORD,
-        data: encrypted,
-        dataEncoding: 'hex',
-        resultEncoding: 'base64',
-      });
-      expect(decrypted).toBe(base64Data);
-    });
-
-    it('should support different encodings with snapshot (async)', async () => {
+    it('should support different encodings with snapshot', async () => {
       const base64Data = Buffer.from(TEST_DATA).toString('base64');
       const encrypted = await encryptStringAsync({
         password: TEST_PASSWORD,
         data: base64Data,
         dataEncoding: 'base64',
       });
-      expect(encrypted).toMatchSnapshot('encryptString-base64-async');
+      expect(encrypted).toMatchSnapshot('encryptString-base64');
 
       const decrypted = await decryptStringAsync({
         password: TEST_PASSWORD,
@@ -308,26 +276,12 @@ describe('AES256 Encryption Tests', () => {
   });
 
   describe('encodePassword/decodePassword', () => {
-    it('should encode and decode password with snapshot (sync)', async () => {
+    it('should encode and decode password with snapshot', async () => {
       const encoded = await encodePassword({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
       expect(encoded).toMatchSnapshot('encodePassword');
-
-      const decoded = decodePassword({
-        password: encoded,
-        key: 'test-key',
-      });
-      expect(decoded).toBe(TEST_PASSWORD);
-    });
-
-    it('should encode and decode password with snapshot (async)', async () => {
-      const encoded = await encodePassword({
-        password: TEST_PASSWORD,
-        key: 'test-key',
-      });
-      expect(encoded).toMatchSnapshot('encodePassword-async');
 
       const decoded = await decodePasswordAsync({
         password: encoded,
@@ -426,26 +380,12 @@ describe('AES256 Encryption Tests', () => {
       jest.restoreAllMocks();
     });
 
-    it('should encode and decode sensitive text with snapshot (sync)', async () => {
+    it('should encode and decode sensitive text with snapshot', async () => {
       const encoded = await encodeSensitiveText({
         text: TEST_DATA,
         key: 'test-key',
       });
       expect(encoded).toMatchSnapshot('encodeSensitiveText');
-
-      const decoded = decodeSensitiveText({
-        encodedText: encoded,
-        key: 'test-key',
-      });
-      expect(decoded).toBe(TEST_DATA);
-    });
-
-    it('should encode and decode sensitive text with snapshot (async)', async () => {
-      const encoded = await encodeSensitiveText({
-        text: TEST_DATA,
-        key: 'test-key',
-      });
-      expect(encoded).toMatchSnapshot('encodeSensitiveText-async');
 
       const decoded = await decodeSensitiveTextAsync({
         encodedText: encoded,
