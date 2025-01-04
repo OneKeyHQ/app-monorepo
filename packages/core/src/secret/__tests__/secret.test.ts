@@ -1065,7 +1065,7 @@ describe('Secret Module Tests', () => {
       });
 
       // Then decrypt and verify
-      const decryptedCredential = decryptImportedCredential({
+      const decryptedCredential = await decryptImportedCredential({
         credential: encryptedCredential,
         password: testPassword,
       });
@@ -1081,7 +1081,7 @@ describe('Secret Module Tests', () => {
 
       expect(encryptedCredential.startsWith('|PK|')).toBe(true);
 
-      const decryptedCredential = decryptImportedCredential({
+      const decryptedCredential = await decryptImportedCredential({
         credential: encryptedCredential,
         password: testPassword,
       });
@@ -1095,21 +1095,21 @@ describe('Secret Module Tests', () => {
         password: testPassword,
       });
 
-      expect(() =>
+      await expect(
         decryptImportedCredential({
           credential: encryptedCredential,
           password: 'wrong-password',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should throw error for invalid credential format', () => {
-      expect(() =>
+    it('should throw error for invalid credential format', async () => {
+      await expect(
         decryptImportedCredential({
           credential: '|PK|invalid-data',
           password: testPassword,
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
     it('should match snapshot for decrypted credential', async () => {
@@ -1119,7 +1119,7 @@ describe('Secret Module Tests', () => {
       });
 
       expect(
-        decryptImportedCredential({
+        await decryptImportedCredential({
           credential: encryptedCredential,
           password: testPassword,
         }),
@@ -1142,7 +1142,7 @@ describe('Secret Module Tests', () => {
       });
 
       // Then decrypt and verify
-      const decryptedSeed = decryptRevealableSeed({
+      const decryptedSeed = await decryptRevealableSeed({
         rs: encryptedSeed,
         password: testPassword,
       });
@@ -1156,21 +1156,21 @@ describe('Secret Module Tests', () => {
         password: testPassword,
       });
 
-      expect(() =>
+      await expect(
         decryptRevealableSeed({
           rs: encryptedSeed,
           password: 'wrong-password',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should throw error for invalid seed format', () => {
-      expect(() =>
+    it('should throw error for invalid seed format', async () => {
+      await expect(
         decryptRevealableSeed({
           rs: 'invalid-seed-data',
           password: testPassword,
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
     it('should match snapshot for decrypted seed', async () => {
@@ -1180,7 +1180,7 @@ describe('Secret Module Tests', () => {
       });
 
       expect(
-        decryptRevealableSeed({
+        await decryptRevealableSeed({
           rs: encryptedSeed,
           password: testPassword,
         }),
@@ -1198,7 +1198,7 @@ describe('Secret Module Tests', () => {
       });
 
       // Then decrypt and verify
-      const decryptedString = decryptVerifyString({
+      const decryptedString = await decryptVerifyString({
         verifyString: encryptedString,
         password: testPassword,
       });
@@ -1214,7 +1214,7 @@ describe('Secret Module Tests', () => {
 
       expect(encryptedString.startsWith('|VS|')).toBe(true);
 
-      const decryptedString = decryptVerifyString({
+      const decryptedString = await decryptVerifyString({
         verifyString: encryptedString,
         password: testPassword,
       });
@@ -1227,21 +1227,21 @@ describe('Secret Module Tests', () => {
         password: testPassword,
       });
 
-      expect(() =>
+      await expect(
         decryptVerifyString({
           verifyString: encryptedString,
           password: 'wrong-password',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should throw error for invalid string format', () => {
-      expect(() =>
+    it('should throw error for invalid string format', async () => {
+      await expect(
         decryptVerifyString({
           verifyString: '|VS|invalid-data',
           password: testPassword,
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
     it('should match snapshot for decrypted string', async () => {
@@ -1250,7 +1250,7 @@ describe('Secret Module Tests', () => {
       });
 
       expect(
-        decryptVerifyString({
+        await decryptVerifyString({
           verifyString: encryptedString,
           password: testPassword,
         }),
@@ -1273,7 +1273,7 @@ describe('Secret Module Tests', () => {
       expect(encryptedCredential.startsWith('|PK|')).toBe(true);
 
       // Verify we can decrypt it back
-      const decryptedCredential = decryptImportedCredential({
+      const decryptedCredential = await decryptImportedCredential({
         credential: encryptedCredential,
         password: testPassword,
       });
@@ -1292,7 +1292,7 @@ describe('Secret Module Tests', () => {
         password: testPassword,
       });
 
-      const decryptedCredential = decryptImportedCredential({
+      const decryptedCredential = await decryptImportedCredential({
         credential: encryptedCredential,
         password: testPassword,
       });
@@ -1337,7 +1337,7 @@ describe('Secret Module Tests', () => {
       });
 
       // Verify we can decrypt it back
-      const decryptedSeed = decryptRevealableSeed({
+      const decryptedSeed = await decryptRevealableSeed({
         rs: encryptedSeed,
         password: testPassword,
       });
@@ -1357,7 +1357,7 @@ describe('Secret Module Tests', () => {
         password: testPassword,
       });
 
-      const decryptedSeed = decryptRevealableSeed({
+      const decryptedSeed = await decryptRevealableSeed({
         rs: encryptedSeed,
         password: testPassword,
       });
@@ -1436,20 +1436,20 @@ describe('Secret Module Tests', () => {
       );
     });
 
-    it('should throw error for invalid curve', () => {
-      expect(() =>
+    it('should throw error for invalid curve', async () => {
+      await expect(
         publicFromPrivate(
           'invalid-curve' as ICurveName,
           encryptedPrivateKey,
           testPassword,
         ),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should throw error for invalid password', () => {
-      expect(() =>
+    it('should throw error for invalid password', async () => {
+      await expect(
         publicFromPrivate('secp256k1', encryptedPrivateKey, 'wrong-password'),
-      ).toThrow(IncorrectPassword);
+      ).rejects.toThrow(IncorrectPassword);
     });
   });
 
@@ -1462,7 +1462,7 @@ describe('Secret Module Tests', () => {
       });
 
       // Verify we can decrypt it back
-      const decryptedString = decryptVerifyString({
+      const decryptedString = await decryptVerifyString({
         verifyString: encryptedString,
         password: testPassword,
       });
@@ -1487,14 +1487,14 @@ describe('Secret Module Tests', () => {
 
       // Both should decrypt correctly
       expect(
-        decryptVerifyString({
+        await decryptVerifyString({
           verifyString: withPrefix,
           password: testPassword,
         }),
       ).toBe('OneKey');
 
       expect(
-        decryptVerifyString({
+        await decryptVerifyString({
           verifyString: withoutPrefix,
           password: testPassword,
         }),
@@ -2098,9 +2098,9 @@ describe('Secret Module Tests', () => {
     it('should throw error for invalid curve', async () => {
       const signature = Buffer.from('00'.repeat(64), 'hex');
       const publicKey = Buffer.from('00'.repeat(33), 'hex');
-      await expect(
+      expect(() =>
         verify('invalid-curve' as ICurveName, publicKey, testDigest, signature),
-      ).rejects.toThrow();
+      ).toThrow();
     });
   });
 
