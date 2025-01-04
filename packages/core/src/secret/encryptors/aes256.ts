@@ -249,6 +249,11 @@ async function encryptAsync({
   }
 
   const passwordDecoded = decodePassword({ password, allowRawPassword });
+
+  if (!passwordDecoded) {
+    throw new IncorrectPassword();
+  }
+
   const dataBuffer = bufferUtils.toBuffer(data);
 
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
@@ -292,6 +297,11 @@ function decrypt(
     ignoreLogger: true,
     allowRawPassword,
   });
+
+  if (!passwordDecoded) {
+    throw new IncorrectPassword();
+  }
+
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.decodePasswordDone();
   }

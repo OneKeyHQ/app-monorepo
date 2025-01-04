@@ -2095,7 +2095,7 @@ describe('Secret Module Tests', () => {
       }).toMatchSnapshot('invalid-verify');
     });
 
-    it('should throw error for invalid curve', async () => {
+    it('should throw error for invalid curve', () => {
       const signature = Buffer.from('00'.repeat(64), 'hex');
       const publicKey = Buffer.from('00'.repeat(33), 'hex');
       expect(() =>

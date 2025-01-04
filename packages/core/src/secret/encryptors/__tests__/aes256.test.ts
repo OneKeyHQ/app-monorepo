@@ -21,7 +21,7 @@ describe('aes256', () => {
   describe('encrypt/decrypt', () => {
     it('should encrypt and decrypt data correctly using sync methods', () => {
       const encrypted = encrypt(testPassword, testBuffer, true);
-      const decrypted = decrypt(testPassword, encrypted, true, true);
+      const decrypted = decrypt(testPassword, encrypted, false, true);
       expect(decrypted.toString()).toBe(testData);
     });
 
