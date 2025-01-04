@@ -1957,7 +1957,7 @@ describe('Secret Module Tests', () => {
       );
     });
 
-    // TODO: revealableSeedFromTonMnemonic should validate mnemonic before return, should make it async
+    // TODO: revealableSeedFromTonMnemonic should validate mnemonic before return, should make it async first
     it.skip('should throw InvalidMnemonic for malformed input', async () => {
       await expect(
         revealableSeedFromTonMnemonic('', testPassword),
