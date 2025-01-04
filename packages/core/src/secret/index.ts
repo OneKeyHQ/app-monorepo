@@ -127,10 +127,7 @@ async function sign(
     password,
     data: encryptedPrivateKey,
   });
-  return getCurveByName(curveName).sign(
-    decryptedPrivateKey,
-    digest,
-  );
+  return getCurveByName(curveName).sign(decryptedPrivateKey, digest);
 }
 
 async function publicFromPrivate(
@@ -142,9 +139,7 @@ async function publicFromPrivate(
     password,
     data: encryptedPrivateKey,
   });
-  return getCurveByName(curveName).publicFromPrivate(
-    decryptedPrivateKey,
-  );
+  return getCurveByName(curveName).publicFromPrivate(decryptedPrivateKey);
 }
 
 function uncompressPublicKey(curveName: ICurveName, publicKey: Buffer): Buffer {
@@ -181,7 +176,10 @@ async function decryptVerifyString({
 }) {
   const decrypted = await decryptAsync({
     password,
-    data: Buffer.from(verifyString.replace(EncryptPrefixVerifyString, ''), 'hex'),
+    data: Buffer.from(
+      verifyString.replace(EncryptPrefixVerifyString, ''),
+      'hex',
+    ),
   });
   return decrypted.toString();
 }
@@ -245,9 +243,10 @@ async function decryptImportedCredential({
 }): Promise<ICoreImportedCredential> {
   const decrypted = await decryptAsync({
     password,
-    data: typeof credential === 'string'
-      ? credential.replace(EncryptPrefixImportedCredential, '')
-      : credential,
+    data:
+      typeof credential === 'string'
+        ? credential.replace(EncryptPrefixImportedCredential, '')
+        : credential,
   });
   const text = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(text) as ICoreImportedCredential;

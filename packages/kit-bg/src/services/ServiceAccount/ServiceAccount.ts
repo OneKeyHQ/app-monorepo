@@ -2391,10 +2391,14 @@ class ServiceAccount extends ServiceBase {
         reason,
       });
     const credential = await localDb.getCredential(walletId);
-    const mnemonicRaw = await mnemonicFromEntropy(credential.credential, password);
-    const mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonicRaw,
-    });
+    const mnemonicRaw = await mnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
@@ -2415,10 +2419,14 @@ class ServiceAccount extends ServiceBase {
         accountId,
       }),
     );
-    const mnemonicRaw = await tonMnemonicFromEntropy(credential.credential, password);
-    const mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonicRaw,
-    });
+    const mnemonicRaw = await tonMnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 

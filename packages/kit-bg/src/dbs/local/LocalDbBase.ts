@@ -199,7 +199,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (options?.verifyPassword) {
       const { verifyPassword } = options;
       ensureSensitiveTextEncoded(verifyPassword);
-      if (!this.checkPassword(ctx, verifyPassword)) {
+      if (!(await this.checkPassword(ctx, verifyPassword))) {
         throw new WrongPassword();
       }
     }
@@ -341,10 +341,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         if (credential.id.startsWith('imported')) {
           // Ton mnemonic credential
           if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
-            const revealableSeed: IBip39RevealableSeed = await decryptRevealableSeed({
-              rs: credential.credential,
-              password: oldPassword,
-            });
+            const revealableSeed: IBip39RevealableSeed =
+              await decryptRevealableSeed({
+                rs: credential.credential,
+                password: oldPassword,
+              });
             credential.credential = await encryptRevealableSeed({
               rs: revealableSeed,
               password: newPassword,
@@ -361,10 +362,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             });
           }
         } else {
-          const revealableSeed: IBip39RevealableSeed = await decryptRevealableSeed({
-            rs: credential.credential,
-            password: oldPassword,
-          });
+          const revealableSeed: IBip39RevealableSeed =
+            await decryptRevealableSeed({
+              rs: credential.credential,
+              password: oldPassword,
+            });
           credential.credential = await encryptRevealableSeed({
             rs: revealableSeed,
             password: newPassword,

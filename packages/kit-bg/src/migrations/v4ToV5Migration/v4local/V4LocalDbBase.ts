@@ -69,7 +69,10 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     return record;
   }
 
-  async checkPassword(context: IV4DBContext, password: string): Promise<boolean> {
+  async checkPassword(
+    context: IV4DBContext,
+    password: string,
+  ): Promise<boolean> {
     if (!context) {
       console.error('Unable to get main context.');
       return false;

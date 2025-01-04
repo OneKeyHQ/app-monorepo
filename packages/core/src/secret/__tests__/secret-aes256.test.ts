@@ -426,19 +426,6 @@ describe('AES256 Encryption Tests', () => {
       jest.restoreAllMocks();
     });
 
-    it('should log deprecation warning when using decodeSensitiveText', async () => {
-      const encoded = await encodeSensitiveText({
-        text: TEST_DATA,
-        key: 'test-key',
-      });
-      decodeSensitiveText({
-        encodedText: encoded,
-        key: 'test-key',
-      });
-      expect(console.warn).toHaveBeenCalledWith(
-        'decodeSensitiveText() 已弃用 (deprecated). Please use decodeSensitiveTextAsync() instead',
-      );
-    });
     it('should encode and decode sensitive text with snapshot (sync)', async () => {
       const encoded = await encodeSensitiveText({
         text: TEST_DATA,

@@ -2002,7 +2002,7 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const verifyResult = await verify(
+      const verifyResult = verify(
         'secp256k1',
         publicKey,
         testDigest,
@@ -2030,12 +2030,7 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const verifyResult = await verify(
-        'nistp256',
-        publicKey,
-        testDigest,
-        signature,
-      );
+      const verifyResult = verify('nistp256', publicKey, testDigest, signature);
       expect(verifyResult).toBe(true);
       expect({
         publicKey: bufferUtils.bytesToHex(publicKey),
@@ -2058,12 +2053,7 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const verifyResult = await verify(
-        'ed25519',
-        publicKey,
-        testDigest,
-        signature,
-      );
+      const verifyResult = verify('ed25519', publicKey, testDigest, signature);
       expect(verifyResult).toBe(true);
       expect({
         publicKey: bufferUtils.bytesToHex(publicKey),
@@ -2090,7 +2080,7 @@ describe('Secret Module Tests', () => {
         'hex',
       );
 
-      const verifyResult = await verify(
+      const verifyResult = verify(
         'secp256k1',
         publicKey,
         wrongDigest,
