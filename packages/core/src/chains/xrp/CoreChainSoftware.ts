@@ -6,7 +6,7 @@ import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt } from '../../secret';
+import { decrypt, decryptAsync } from '../../secret';
 import {
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImported,
@@ -101,12 +101,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       if (credentials.hd) {
-        return `00${decrypt(password, privateKeyRaw)
+        return `00${(await decryptAsync({ password, data: privateKeyRaw }))
           .toString('hex')
           .toUpperCase()}`;
       }
       if (credentials.imported) {
-        return `${decrypt(password, privateKeyRaw)
+        return `${(await decryptAsync({ password, data: privateKeyRaw }))
           .toString('hex')
           .toUpperCase()}`;
       }
