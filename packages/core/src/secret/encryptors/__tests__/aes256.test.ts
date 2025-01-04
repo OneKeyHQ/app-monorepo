@@ -30,7 +30,7 @@ describe('aes256', () => {
         password: testPassword,
         data: testBuffer,
       });
-      const decrypted = decrypt(testPassword, encrypted, true, true);
+      const decrypted = decrypt(testPassword, encrypted, false, true);
       expect(decrypted.toString()).toBe(testData);
     });
 
