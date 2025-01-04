@@ -1,6 +1,4 @@
-import { privateKeyFromBuffer } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { decrypt } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
