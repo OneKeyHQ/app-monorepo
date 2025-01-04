@@ -3,7 +3,6 @@ import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringHdBase } from '../../base/KeyringHdBase';
 
-
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IExportAccountSecretKeysParams,

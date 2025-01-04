@@ -283,7 +283,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         );
       }
       if (credentials.imported) {
-        const privateKey = await decryptAsync({ password, data: privateKeyRaw });
+        const privateKey = await decryptAsync({
+          password,
+          data: privateKeyRaw,
+        });
         return generateXprvFromPrivateKey(privateKey);
       }
     }

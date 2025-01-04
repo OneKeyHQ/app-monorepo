@@ -3,7 +3,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import {   decryptAsync } from '../../secret';
+import { decryptAsync } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
