@@ -17,7 +17,7 @@ import type {
 import {
   batchGetPrivateKeys,
   batchGetPublicKeysAsync,
-  decrypt,
+  decryptAsync,
   decryptImportedCredential,
   ed25519,
   encryptAsync,
@@ -136,7 +136,7 @@ export abstract class CoreChainApiBase {
     if (credentials.imported) {
       // TODO handle relPaths privateKey here
       // const { relPaths } = account;
-      const { privateKey: p } = decryptImportedCredential({
+      const { privateKey: p } = await decryptImportedCredential({
         password,
         credential: credentials.imported,
       });
@@ -237,7 +237,9 @@ export abstract class CoreChainApiBase {
         let result: ICoreApiGetAddressItem | undefined;
 
         if (isPrivateKeyMode) {
-          const privateKeyRaw = bufferUtils.bytesToHex(decrypt(password, key));
+          const privateKeyRaw = bufferUtils.bytesToHex(
+            await decryptAsync({ password, data: key }),
+          );
           result = await this.getAddressFromPrivate({
             networkInfo: query.networkInfo,
             privateKeyRaw,

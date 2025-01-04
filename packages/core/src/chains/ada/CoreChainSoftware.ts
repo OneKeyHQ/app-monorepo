@@ -2,7 +2,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt, encryptAsync } from '../../secret';
+import { decryptAsync, encryptAsync } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
@@ -283,7 +283,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         );
       }
       if (credentials.imported) {
-        const privateKey = decrypt(password, privateKeyRaw);
+        const privateKey = await decryptAsync({
+          password,
+          data: privateKeyRaw,
+        });
         return generateXprvFromPrivateKey(privateKey);
       }
     }

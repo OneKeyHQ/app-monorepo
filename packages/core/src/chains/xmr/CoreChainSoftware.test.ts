@@ -58,8 +58,8 @@ const {
 // TODO import wasmBinaryFileName from './moneroCore.wasm.bin';
 // yarn jest packages/core/src/chains/xmr/CoreChainSoftware.test.ts
 describe('XMR Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });

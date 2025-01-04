@@ -2,7 +2,7 @@ import { omit, range } from 'lodash';
 
 import {
   decryptRevealableSeed,
-  decryptString,
+  decryptStringAsync,
   encryptImportedCredential,
   mnemonicToRevealableSeed,
 } from '../src/secret';
@@ -39,7 +39,7 @@ function expectAccountEqual(
   expect(a1).toEqual(b1);
 }
 
-function expectMnemonicValid({
+async function expectMnemonicValid({
   hdCredential,
 }: {
   hdCredential: ICoreTestsHdCredential;
@@ -47,7 +47,7 @@ function expectMnemonicValid({
   const { password } = hdCredential;
   const rsDecrypt2 = mnemonicToRevealableSeed(hdCredential.mnemonic);
 
-  const rsDecrypt = decryptRevealableSeed({
+  const rsDecrypt = await decryptRevealableSeed({
     rs: hdCredential.hdCredentialHex,
     password,
   });
@@ -170,7 +170,7 @@ async function expectGetPrivateKeysHdOk({
     // c1c3e59db78da160261befeef577daa7b54cd756e48601473cfe98d012b3ccfca240a8a3e1a328ee7611ba2688f3fadf1d7c61d36c379c0ced0eec0b66ff9ecd635a8dbfcae4cce36c15c64a79d5873d1d26cbf6c90a36034f96077d66cef413
     expect(encryptKey).toBeTruthy();
     // 105434ca932be16664cb5e44e5b006728577dd757440d068e6d15ef52c15a82f
-    const privateKey = decryptString({
+    const privateKey = await decryptStringAsync({
       password,
       data: encryptKey,
     });

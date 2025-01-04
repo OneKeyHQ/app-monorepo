@@ -96,8 +96,8 @@ const {
 
 // yarn jest packages/core/src/chains/cosmos/CoreChainSoftware.test.ts
 describe('COSMOS Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });

@@ -6,8 +6,9 @@ import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt } from '../../secret';
+import { decryptAsync } from '../../secret';
 import {
+  ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImported,
   type ICoreApiGetAddressQueryPublicKey,
@@ -20,7 +21,6 @@ import {
   type ICurveName,
   type ISignedTxPro,
 } from '../../types';
-import { ECoreApiExportedSecretKeyType } from '../../types';
 
 import type { IEncodedTxXrp } from './types';
 import type { Transaction } from 'xrpl';
@@ -101,12 +101,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       if (credentials.hd) {
-        return `00${decrypt(password, privateKeyRaw)
+        return `00${(await decryptAsync({ password, data: privateKeyRaw }))
           .toString('hex')
           .toUpperCase()}`;
       }
       if (credentials.imported) {
-        return `${decrypt(password, privateKeyRaw)
+        return `${(await decryptAsync({ password, data: privateKeyRaw }))
           .toString('hex')
           .toUpperCase()}`;
       }

@@ -364,7 +364,7 @@ class ServiceV4Migration extends ServiceBase {
     }
     try {
       if (v4DbContext?.verifyString) {
-        const result = decryptVerifyString({
+        const result = await decryptVerifyString({
           password: v5password,
           verifyString: v4DbContext?.verifyString,
         });
