@@ -85,11 +85,12 @@ describe('AES256 Encryption Tests', () => {
       expect(decrypted.toString()).toBe(TEST_DATA);
     });
 
-    it('should throw on incorrect password', () => {
+    it('should throw on incorrect password', async () => {
       const encrypted = encrypt(TEST_PASSWORD, TEST_DATA_HEX);
-      expect(() =>
-        decrypt(encodePassword({ password: 'wrong-password' }), encrypted),
-      ).toThrow();
+      const encodedPassword = await encodePassword({
+        password: 'wrong-password',
+      });
+      expect(() => decrypt(encodedPassword, encrypted)).toThrow();
     });
 
     it('should throw on empty password', () => {
@@ -214,8 +215,8 @@ describe('AES256 Encryption Tests', () => {
   });
 
   describe('encodePassword/decodePassword', () => {
-    it('should encode and decode password with snapshot', () => {
-      const encoded = encodePassword({
+    it('should encode and decode password with snapshot', async () => {
+      const encoded = await encodePassword({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
@@ -228,8 +229,8 @@ describe('AES256 Encryption Tests', () => {
       expect(decoded).toBe(TEST_PASSWORD);
     });
 
-    it('should throw on incorrect key', () => {
-      const encoded = encodePassword({
+    it('should throw on incorrect key', async () => {
+      const encoded = await encodePassword({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
@@ -242,15 +243,15 @@ describe('AES256 Encryption Tests', () => {
     });
 
     // TODO empty key should throw
-    it.skip('should throw on empty key', () => {
-      expect(() =>
+    it.skip('should throw on empty key', async () => {
+      await expect(
         encodePassword({
           password: TEST_PASSWORD,
           key: '',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
 
-      const encoded = encodePassword({
+      const encoded = await encodePassword({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
@@ -264,8 +265,8 @@ describe('AES256 Encryption Tests', () => {
   });
 
   describe('encodeSensitiveText/decodeSensitiveText', () => {
-    it('should encode and decode sensitive text with snapshot', () => {
-      const encoded = encodeSensitiveText({
+    it('should encode and decode sensitive text with snapshot', async () => {
+      const encoded = await encodeSensitiveText({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -278,8 +279,8 @@ describe('AES256 Encryption Tests', () => {
       expect(decoded).toBe(TEST_DATA);
     });
 
-    it('should throw on incorrect key', () => {
-      const encoded = encodeSensitiveText({
+    it('should throw on incorrect key', async () => {
+      const encoded = await encodeSensitiveText({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -292,7 +293,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     // TODO empty key should throw
-    it.skip('should throw on empty key', () => {
+    it.skip('should throw on empty key', async () => {
       expect(() =>
         encodeSensitiveText({
           text: TEST_DATA,
@@ -300,7 +301,7 @@ describe('AES256 Encryption Tests', () => {
         }),
       ).toThrow();
 
-      const encoded = encodeSensitiveText({
+      const encoded = await encodeSensitiveText({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -375,8 +376,8 @@ describe('AES256 Encryption Tests', () => {
   });
 
   describe('isEncodedSensitiveText and ensureSensitiveTextEncoded', () => {
-    it('should correctly identify encoded sensitive text', () => {
-      const encoded = encodeSensitiveText({
+    it('should correctly identify encoded sensitive text', async () => {
+      const encoded = await encodeSensitiveText({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -384,8 +385,8 @@ describe('AES256 Encryption Tests', () => {
       expect(isEncodedSensitiveText('not-encoded-text')).toBe(false);
     });
 
-    it('should handle both aes and xor prefixes', () => {
-      const aesEncoded = encodeSensitiveText({
+    it('should handle both aes and xor prefixes', async () => {
+      const aesEncoded = await encodeSensitiveText({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -404,8 +405,8 @@ describe('AES256 Encryption Tests', () => {
       );
     });
 
-    it('should not throw for valid encoded text in ensureSensitiveTextEncoded', () => {
-      const encoded = encodeSensitiveText({
+    it('should not throw for valid encoded text in ensureSensitiveTextEncoded', async () => {
+      const encoded = await encodeSensitiveText({
         text: TEST_DATA,
         key: 'test-key',
       });

@@ -44,14 +44,13 @@ function BasicMarketMore({
             },
           ] as IActionListItemProps[],
         },
-        show
+        show && isSupportBuy
           ? {
               items: [
                 {
                   icon: 'MinusLargeSolid',
                   label: intl.formatMessage({ id: ETranslations.global_sell }),
                   onPress: tradeActions.onSell,
-                  disabled: !isSupportBuy,
                 },
               ] as IActionListItemProps[],
             }

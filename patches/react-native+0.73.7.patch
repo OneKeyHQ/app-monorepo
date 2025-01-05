@@ -131,16 +131,42 @@ index 209947d..5092dbd 100644
  @property (nonatomic, assign) NSInteger mostRecentEventCount;
  @property (nonatomic, assign, readonly) NSInteger nativeEventCount;
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
-index b0d71dc..2e42fc9 100644
+index b0d71dc..60da5c7 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
 +++ b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputView.mm
-@@ -562,6 +562,26 @@ - (void)textInputDidChangeSelection
+@@ -561,6 +561,51 @@ - (void)textInputDidChangeSelection
+     },
    });
  }
- 
++BOOL isBlankString(NSString *string) {
++  if (!string) {
++    return YES;
++  }
++  if ([string isKindOfClass: [NSNull class]]) {
++    return YES;
++  }
++
++  if (!string.length) {
++    return YES;
++  }
++
++  NSCharacterSet *whitespace = [NSCharacterSet whitespaceAndNewlineCharacterSet];
++  NSString *trimmed = [string stringByTrimmingCharactersInSet:whitespace];
++  if (!trimmed.length) {
++    return YES;
++  }
++
++  return NO;
++}
++
++
 +- (void)textInputDidPaste:(NSString *)type withData:(NSString *)data
 +{
 +  if (!_onPaste) {
++    return;
++  }
++  
++  if (isBlankString(type) || isBlankString(data)) {
 +    return;
 +  }
 +
@@ -157,10 +183,9 @@ index b0d71dc..2e42fc9 100644
 +
 +  _onPaste(payload);
 +}
-+
+ 
  - (void)updateLocalData
  {
-   [self enforceTextAttributesIfNeeded];
 diff --git a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm b/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm
 index a19b555..8146c0d 100644
 --- a/node_modules/react-native/Libraries/Text/TextInput/RCTBaseTextInputViewManager.mm

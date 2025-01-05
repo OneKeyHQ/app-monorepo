@@ -20,7 +20,7 @@ import {
   decrypt,
   decryptImportedCredential,
   ed25519,
-  encrypt,
+  encryptAsync,
   nistp256,
   secp256k1,
 } from '../secret';
@@ -140,7 +140,9 @@ export abstract class CoreChainApiBase {
         password,
         credential: credentials.imported,
       });
-      const encryptPrivateKey = bufferUtils.bytesToHex(encrypt(password, p));
+      const encryptPrivateKey = bufferUtils.bytesToHex(
+        await encryptAsync({ password, data: p }),
+      );
       privateKeys[account.path] = encryptPrivateKey;
       privateKeys[''] = encryptPrivateKey;
     }
@@ -170,7 +172,7 @@ export abstract class CoreChainApiBase {
       );
     }
 
-    const keys = batchGetPrivateKeys(
+    const keys = await batchGetPrivateKeys(
       curve,
       hdCredential,
       password,
@@ -205,7 +207,7 @@ export abstract class CoreChainApiBase {
     let pvtkeyInfos: ISecretPrivateKeyInfo[] = [];
 
     if (isPrivateKeyMode) {
-      pvtkeyInfos = batchGetPrivateKeys(
+      pvtkeyInfos = await batchGetPrivateKeys(
         curve,
         hdCredential,
         password,
