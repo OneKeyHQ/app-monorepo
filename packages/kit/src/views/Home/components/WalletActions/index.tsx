@@ -23,7 +23,6 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,
-  EModalSendRoutes,
   EModalSignatureConfirmRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -77,8 +76,8 @@ function WalletActionSend() {
       return;
     }
 
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendSelectToken,
+    navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+      screen: EModalSignatureConfirmRoutes.TxSelectToken,
       params: {
         title: intl.formatMessage({ id: ETranslations.global_send }),
         searchPlaceholder: intl.formatMessage({
@@ -107,25 +106,28 @@ function WalletActionSend() {
             const walletId = accountUtils.getWalletIdFromAccountId({
               accountId: token.accountId ?? '',
             });
-            navigation.push(EModalSendRoutes.SendSelectDeriveAddress, {
-              networkId: token.networkId ?? '',
-              indexedAccountId: account.indexedAccountId ?? '',
-              walletId,
-              accountId: token.accountId ?? '',
-              actionType: EDeriveAddressActionType.Select,
-              token,
-              tokenMap: map,
-              onUnmounted: () => {},
-              onSelected: ({ account: a }: { account: INetworkAccount }) => {
-                navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
-                  accountId: a.id,
-                  networkId: token.networkId ?? network.id,
-                  isNFT: false,
-                  token,
-                  isAllNetworks: network?.isAllNetworks,
-                });
+            navigation.push(
+              EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
+              {
+                networkId: token.networkId ?? '',
+                indexedAccountId: account.indexedAccountId ?? '',
+                walletId,
+                accountId: token.accountId ?? '',
+                actionType: EDeriveAddressActionType.Select,
+                token,
+                tokenMap: map,
+                onUnmounted: () => {},
+                onSelected: ({ account: a }: { account: INetworkAccount }) => {
+                  navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
+                    accountId: a.id,
+                    networkId: token.networkId ?? network.id,
+                    isNFT: false,
+                    token,
+                    isAllNetworks: network?.isAllNetworks,
+                  });
+                },
               },
-            });
+            );
             return;
           }
 

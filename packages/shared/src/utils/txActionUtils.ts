@@ -10,8 +10,8 @@ import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 
+import type { ITransactionDisplay } from '../../types/signatureConfirm';
 import type { ISwapTxInfo } from '../../types/swap/types';
-import { ITransactionDisplay, ITransactionDisplay } from '../../types/signatureConfirm';
 
 export function buildTxActionDirection({
   from,
@@ -201,4 +201,12 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplay({
   decodedTx,
 }: {
   decodedTx: IDecodedTx;
-}): ITransactionDisplay {}
+}): ITransactionDisplay {
+  const { actions } = decodedTx;
+
+  return {
+    title: '',
+    components: [],
+    alerts: [],
+  };
+}
