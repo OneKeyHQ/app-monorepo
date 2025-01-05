@@ -5,3 +5,5 @@
  * - Error details
  * - Transaction status alerts
  */
+
+export { default } from './SignatureConfirmAlert';

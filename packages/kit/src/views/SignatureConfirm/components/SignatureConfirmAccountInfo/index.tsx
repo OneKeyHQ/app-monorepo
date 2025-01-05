@@ -3,3 +3,4 @@
  * Shows details like:
  * - Account address and name
  */
+export { default } from './SignatureConfirmAccountInfo';

@@ -1,5 +1,8 @@
+import { memo } from 'react';
+
 function SignatureConfirmAlert() {
   return <div>SignatureConfirmAlert</div>;
 }
 
-export default SignatureConfirmAlert;
+// export with memo
+export default memo(SignatureConfirmAlert);
