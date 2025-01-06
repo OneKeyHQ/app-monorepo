@@ -83,6 +83,9 @@ const PasswordSetup = ({
   }, [confirmBtnText, intl, passCodeFirstStep]);
   const onPassCodeNext = () => {
     setPassCodeConfirm(true);
+    setTimeout(() => {
+      form.setFocus('confirmPassCode');
+    }, 150);
   };
 
   return (
@@ -299,8 +302,6 @@ const PasswordSetup = ({
                   form.setValue('confirmPassCode', pin);
                   form.clearErrors('confirmPassCode');
                 }}
-                autoFocus={false}
-                pinCodeFocus={passCodeConfirm}
                 testId="confirm-pass-code"
               />
               <Divider />
