@@ -19,7 +19,7 @@ import type {
 } from '@onekeyhq/core/src/chains/fil/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   encodeSensitiveText,
   uncompressPublicKey,
 } from '@onekeyhq/core/src/secret';
@@ -409,7 +409,9 @@ export default class Vault extends VaultBase {
   override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    let credential = decodeSensitiveText({ encodedText: params.input });
+    let credential = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     let privateKey;
     if (credential.startsWith('0x')) {
       credential = credential.slice(2);

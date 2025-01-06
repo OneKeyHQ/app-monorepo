@@ -1,5 +1,5 @@
 import {
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import { hash160 } from '@onekeyhq/core/src/secret/hash';
@@ -33,8 +33,11 @@ class ServiceAddressBook extends ServiceBase {
     super({ backgroundApi });
   }
 
-  private computeItemsHash(items: IAddressItem[], password: string): string {
-    const salt = decodeSensitiveText({ encodedText: password });
+  private async computeItemsHash(
+    items: IAddressItem[],
+    password: string,
+  ): Promise<string> {
+    const salt = await decodeSensitiveTextAsync({ encodedText: password });
     const itemString = stableStringify(items);
     return bufferUtils.bytesToHex(
       hash160(bufferUtils.toBuffer(`${itemString}${salt}`, 'utf-8')),
@@ -46,7 +49,7 @@ class ServiceAddressBook extends ServiceBase {
     password: string,
   ): Promise<void> {
     const { simpleDb } = this.backgroundApi;
-    const hash = this.computeItemsHash(items, password);
+    const hash = await this.computeItemsHash(items, password);
     await simpleDb.addressBook.updateItemsAndHash({ items, hash });
     this.verifyHashTimestamp = undefined;
     await addressBookPersistAtom.set((prev) => ({
@@ -69,7 +72,7 @@ class ServiceAddressBook extends ServiceBase {
       return true;
     }
     const { password } = await servicePassword.promptPasswordVerify();
-    const currentHash = this.computeItemsHash(items, password);
+    const currentHash = await this.computeItemsHash(items, password);
     if (currentHash === hash) {
       return true;
     }

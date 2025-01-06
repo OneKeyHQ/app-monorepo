@@ -16,7 +16,7 @@ import type {
   IEncodedTxAda,
 } from '@onekeyhq/core/src/chains/ada/types';
 import {
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -383,7 +383,9 @@ export default class Vault extends VaultBase {
   override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     let privateKey = bufferUtils.bytesToHex(decodePrivateKeyByXprv(input));
     privateKey = await encodeSensitiveText({ text: privateKey });
     return Promise.resolve({ privateKey });

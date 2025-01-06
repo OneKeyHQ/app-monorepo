@@ -1,5 +1,5 @@
 import {
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   encodeKeyPrefix,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
@@ -24,7 +24,7 @@ class BiologyAuthUtils implements IBiologyAuth {
 
   savePassword = async (password: string) => {
     if (!secureStorageInstance.supportSecureStorage()) return;
-    let text = decodeSensitiveText({ encodedText: password });
+    let text = await decodeSensitiveTextAsync({ encodedText: password });
     const settings = await settingsPersistAtom.get();
     text = await encodeSensitiveText({
       text,
@@ -40,7 +40,7 @@ class BiologyAuthUtils implements IBiologyAuth {
     let text = await secureStorageInstance.getSecureItem('password');
     if (text) {
       const settings = await settingsPersistAtom.get();
-      text = decodeSensitiveText({
+      text = await decodeSensitiveTextAsync({
         encodedText: text,
         key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
       });

@@ -9,7 +9,7 @@ import { isEmpty, isNil, omit, omitBy } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type {
@@ -203,7 +203,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async baseValidateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<{ result: IGeneralInputValidation; inputDecoded: string }> {
-    const input = decodeSensitiveText({
+    const input = await decodeSensitiveTextAsync({
       encodedText: params.input,
     });
     const { validateAddress, validateXprvt, validateXpub, validatePrivateKey } =
@@ -266,7 +266,9 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async baseGetPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     let privateKey = hexUtils.stripHexPrefix(input);
     privateKey = await encodeSensitiveText({ text: privateKey });
     return {

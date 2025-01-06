@@ -5,7 +5,7 @@ import { isEmpty, isNil, sortBy } from 'lodash';
 import type { IEncodedTxNear } from '@onekeyhq/core/src/chains/near/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -492,7 +492,9 @@ export default class Vault extends VaultBase {
   ): Promise<IGetPrivateKeyFromImportedResult> {
     let privateKey = '';
 
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
 
     const [prefix, encoded] = input.split(':');
     const decodedPrivateKey = Buffer.from(baseDecode(encoded));

@@ -24,7 +24,7 @@ import {
 } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   encodeSensitiveText,
 } from '@onekeyhq/core/src/secret';
 import type {
@@ -1290,7 +1290,7 @@ export default class VaultBtc extends VaultBase {
     input: string;
   }): Promise<{ privateKey: string }> {
     // params.input is xprvt format:
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({ encodedText: params.input });
 
     // result is hex format:
     let privateKey = convertBtcXprvtToHex({ xprvt: input });
