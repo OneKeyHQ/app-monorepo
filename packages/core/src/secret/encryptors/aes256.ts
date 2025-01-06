@@ -59,6 +59,10 @@ function isEncodedSensitiveText(text: string) {
   );
 }
 
+/**
+ * @deprecated 已弃用 - Use decodePasswordAsync instead. This synchronous decoding method will be removed in a future version.
+ * @see decodePasswordAsync
+ */
 function decodePassword({
   password,
   key,
@@ -81,6 +85,47 @@ function decodePassword({
     }
     // eslint-disable-next-line @typescript-eslint/no-use-before-define
     return decodeSensitiveText({ encodedText: password, key, ignoreLogger });
+  }
+  if (
+    process.env.NODE_ENV !== 'production' &&
+    password &&
+    !platformEnv.isJest &&
+    !allowRawPassword
+  ) {
+    console.error(
+      'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
+    );
+    throw new Error('Passing raw password is not allowed and not safe.');
+  }
+  return password;
+}
+
+async function decodePasswordAsync({
+  password,
+  key,
+  ignoreLogger,
+  allowRawPassword,
+}: {
+  password: string;
+  key?: string;
+  ignoreLogger?: boolean;
+  allowRawPassword?: boolean;
+}): Promise<string> {
+  // do nothing if password is encodeKey, but not a real password
+  if (password.startsWith(encodeKeyPrefix)) {
+    return password;
+  }
+  // decode password if it is encoded
+  if (isEncodedSensitiveText(password)) {
+    if (platformEnv.isExtensionUi) {
+      throw new Error('decodePassword can NOT be called from UI');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-use-before-define
+    return decodeSensitiveTextAsync({
+      encodedText: password,
+      key,
+      ignoreLogger,
+    });
   }
   if (
     process.env.NODE_ENV !== 'production' &&
@@ -190,9 +235,6 @@ async function encryptAsync({
     throw new IncorrectPassword();
   }
 
-  const passwordDecoded = decodePassword({ password, allowRawPassword });
-  const dataBuffer = bufferUtils.toBuffer(data);
-
   if (platformEnv.isNative && !platformEnv.isJest) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
@@ -206,6 +248,14 @@ async function encryptAsync({
     return bufferUtils.toBuffer(str, 'hex');
   }
 
+  const passwordDecoded = decodePassword({ password, allowRawPassword });
+
+  if (!passwordDecoded) {
+    throw new IncorrectPassword();
+  }
+
+  const dataBuffer = bufferUtils.toBuffer(data);
+
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
   const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
   const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
@@ -216,6 +266,10 @@ async function encryptAsync({
   ]);
 }
 
+/**
+ * @deprecated 已弃用 - Use decryptAsync instead. This synchronous decryption method will be removed in a future version.
+ * @see decryptAsync
+ */
 function decrypt(
   password: string,
   data: Buffer | string,
@@ -223,6 +277,12 @@ function decrypt(
   ignoreLogger?: boolean,
   allowRawPassword?: boolean,
 ): Buffer {
+  if (!ignoreLogger) {
+    console.warn(
+      'decrypt() 已弃用 (deprecated). Please use decryptAsync() instead',
+    );
+    console.trace('decrypt() call stack');
+  }
   if (!password) {
     throw new IncorrectPassword();
   }
@@ -237,9 +297,11 @@ function decrypt(
     ignoreLogger: true,
     allowRawPassword,
   });
+
   if (!passwordDecoded) {
     throw new IncorrectPassword();
   }
+
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.decodePasswordDone();
   }
@@ -293,15 +355,24 @@ export type IDecryptAsyncParams = {
   password: string;
   data: Buffer | string;
   allowRawPassword?: boolean;
+  ignoreLogger?: boolean;
 };
+/**
+ * The recommended asynchronous decryption method
+ * @param password - The password to decrypt with
+ * @param data - The data to decrypt
+ * @param allowRawPassword - Whether to allow raw password input
+ * @returns Promise<Buffer> - The decrypted data
+ */
 async function decryptAsync({
   password,
   data,
   allowRawPassword,
+  ignoreLogger,
 }: IDecryptAsyncParams): Promise<Buffer> {
-  // eslint-disable-next-line no-param-reassign
-  const passwordDecoded = decodePassword({ password, allowRawPassword });
-
+  if (!password) {
+    throw new IncorrectPassword();
+  }
   if (platformEnv.isNative && !platformEnv.isJest) {
     const webembedApiProxy = (
       await import('@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy')
@@ -311,11 +382,71 @@ async function decryptAsync({
       // data,
       data: bufferUtils.bytesToHex(data),
       allowRawPassword,
+      ignoreLogger,
     });
     return bufferUtils.toBuffer(str, 'hex');
   }
 
-  return Promise.resolve(decrypt(passwordDecoded, data));
+  if (!ignoreLogger) {
+    defaultLogger.account.secretPerf.decodePassword();
+  }
+  // eslint-disable-next-line no-param-reassign
+  const passwordDecoded = await decodePasswordAsync({
+    password,
+    allowRawPassword,
+    ignoreLogger: true,
+  });
+  if (!passwordDecoded) {
+    throw new IncorrectPassword();
+  }
+  if (!ignoreLogger) {
+    defaultLogger.account.secretPerf.decodePasswordDone();
+  }
+
+  const dataBuffer = bufferUtils.toBuffer(data);
+  const salt: Buffer = dataBuffer.slice(0, PBKDF2_SALT_LENGTH);
+
+  if (!ignoreLogger) {
+    defaultLogger.account.secretPerf.keyFromPasswordAndSalt();
+  }
+  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
+  if (!ignoreLogger) {
+    defaultLogger.account.secretPerf.keyFromPasswordAndSaltDone();
+  }
+
+  const iv: Buffer = dataBuffer.slice(
+    PBKDF2_SALT_LENGTH,
+    ENCRYPTED_DATA_OFFSET,
+  );
+
+  try {
+    if (!ignoreLogger) {
+      defaultLogger.account.secretPerf.decryptAES();
+    }
+    // TODO make to async call RN_AES(@metamask/react-native-aes-crypto)
+    // const aesDecryptData = await RN_AES.decrypt(
+    //   dataBuffer.slice(ENCRYPTED_DATA_OFFSET).toString('base64'),
+    //   key.toString('base64'),
+    //   iv.toString('base64'),
+    // );
+
+    const aesDecryptData = AES_CBC.decrypt(
+      dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
+      key,
+      true,
+      iv,
+    );
+    if (!ignoreLogger) {
+      defaultLogger.account.secretPerf.decryptAESDone();
+    }
+
+    return Buffer.from(aesDecryptData);
+  } catch (e) {
+    if (!platformEnv.isJest) {
+      console.error(e);
+    }
+    throw new IncorrectPassword();
+  }
 }
 
 export type IDecryptStringParams = {
@@ -325,6 +456,10 @@ export type IDecryptStringParams = {
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
 };
+/**
+ * @deprecated 已弃用 - Use decryptStringAsync instead. This synchronous decryption method will be removed in a future version.
+ * @see decryptStringAsync
+ */
 function decryptString({
   password,
   data,
@@ -332,12 +467,34 @@ function decryptString({
   dataEncoding = 'hex',
   allowRawPassword,
 }: IDecryptStringParams): string {
+  console.warn(
+    'decryptString() 已弃用 (deprecated). Please use decryptStringAsync() instead',
+  );
+  console.trace('decryptString() call stack');
   const bytes = decrypt(
     password,
     bufferUtils.toBuffer(data, dataEncoding),
     undefined,
     allowRawPassword,
   );
+  if (resultEncoding === 'hex') {
+    return bufferUtils.bytesToHex(bytes);
+  }
+  return bufferUtils.bytesToText(bytes, resultEncoding);
+}
+
+async function decryptStringAsync({
+  password,
+  data,
+  resultEncoding = 'hex',
+  dataEncoding = 'hex',
+  allowRawPassword,
+}: IDecryptStringParams): Promise<string> {
+  const bytes = await decryptAsync({
+    password,
+    data: bufferUtils.toBuffer(data, dataEncoding),
+    allowRawPassword,
+  });
   if (resultEncoding === 'hex') {
     return bufferUtils.bytesToHex(bytes);
   }
@@ -373,6 +530,10 @@ function ensureSensitiveTextEncoded(text: string) {
   }
 }
 
+/**
+ * @deprecated 已弃用 - Use decodeSensitiveTextAsync instead. This synchronous decoding method will be removed in a future version.
+ * @see decodeSensitiveTextAsync
+ */
 function decodeSensitiveText({
   encodedText,
   key,
@@ -384,7 +545,11 @@ function decodeSensitiveText({
   // avoid recursive call log output order confusion
   ignoreLogger?: boolean;
   allowRawPassword?: boolean;
-}) {
+}): string {
+  console.warn(
+    'decodeSensitiveText() 已弃用 (deprecated). Please use decodeSensitiveTextAsync() instead',
+  );
+  console.trace('decodeSensitiveText() call stack');
   checkKeyPassedOnExtUi(key);
   const theKey = key || encodeKey;
   ensureEncodeKeyExists(theKey);
@@ -397,6 +562,44 @@ function decodeSensitiveText({
         allowRawPassword,
       ).toString('utf-8');
       return text;
+    }
+    if (encodedText.startsWith(ENCODE_TEXT_PREFIX.xor)) {
+      const text = xorDecrypt({
+        encryptedDataHex: encodedText.slice(ENCODE_TEXT_PREFIX.xor.length),
+        key: theKey,
+      });
+      return text;
+    }
+  }
+  throw new Error('Not correct encoded text');
+}
+
+async function decodeSensitiveTextAsync({
+  encodedText,
+  key,
+  ignoreLogger,
+  allowRawPassword,
+}: {
+  encodedText: string;
+  key?: string;
+  // avoid recursive call log output order confusion
+  ignoreLogger?: boolean;
+  allowRawPassword?: boolean;
+}): Promise<string> {
+  checkKeyPassedOnExtUi(key);
+  const theKey = key || encodeKey;
+  ensureEncodeKeyExists(theKey);
+  if (isEncodedSensitiveText(encodedText)) {
+    if (encodedText.startsWith(ENCODE_TEXT_PREFIX.aes)) {
+      const decrypted = await decryptAsync({
+        password: theKey,
+        data: Buffer.from(
+          encodedText.slice(ENCODE_TEXT_PREFIX.aes.length),
+          'hex',
+        ),
+        allowRawPassword,
+      });
+      return decrypted.toString('utf-8');
     }
     if (encodedText.startsWith(ENCODE_TEXT_PREFIX.xor)) {
       const text = xorDecrypt({
@@ -484,10 +687,13 @@ function setBgSensitiveTextEncodeKey(key: string) {
 
 export {
   decodePassword,
+  decodePasswordAsync,
   decodeSensitiveText,
+  decodeSensitiveTextAsync,
   decrypt,
   decryptAsync,
   decryptString,
+  decryptStringAsync,
   encodePassword,
   encodeSensitiveText,
   encrypt,

@@ -14,7 +14,7 @@ import {
 } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
 import {
-  decrypt,
+  decryptAsync,
   encryptAsync,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
@@ -116,26 +116,29 @@ function verify(
   return getCurveByName(curveName).verify(publicKey, digest, signature);
 }
 
-function sign(
+async function sign(
   curveName: ICurveName,
   encryptedPrivateKey: Buffer,
   digest: Buffer,
   password: string,
-): Buffer {
-  return getCurveByName(curveName).sign(
-    decrypt(password, encryptedPrivateKey),
-    digest,
-  );
+): Promise<Buffer> {
+  const decryptedPrivateKey = await decryptAsync({
+    password,
+    data: encryptedPrivateKey,
+  });
+  return getCurveByName(curveName).sign(decryptedPrivateKey, digest);
 }
 
-function publicFromPrivate(
+async function publicFromPrivate(
   curveName: ICurveName,
   encryptedPrivateKey: Buffer,
   password: string,
-): Buffer {
-  return getCurveByName(curveName).publicFromPrivate(
-    decrypt(password, encryptedPrivateKey),
-  );
+): Promise<Buffer> {
+  const decryptedPrivateKey = await decryptAsync({
+    password,
+    data: encryptedPrivateKey,
+  });
+  return getCurveByName(curveName).publicFromPrivate(decryptedPrivateKey);
 }
 
 function uncompressPublicKey(curveName: ICurveName, publicKey: Buffer): Buffer {
@@ -163,17 +166,21 @@ function fixV4VerifyStringToV5({ verifyString }: { verifyString: string }) {
   );
 }
 
-function decryptVerifyString({
+async function decryptVerifyString({
   password,
   verifyString,
 }: {
   verifyString: string;
   password: string;
 }) {
-  return decrypt(
+  const decrypted = await decryptAsync({
     password,
-    Buffer.from(verifyString.replace(EncryptPrefixVerifyString, ''), 'hex'),
-  ).toString();
+    data: Buffer.from(
+      verifyString.replace(EncryptPrefixVerifyString, ''),
+      'hex',
+    ),
+  });
+  return decrypted.toString();
 }
 
 async function encryptVerifyString({
@@ -193,16 +200,18 @@ async function encryptVerifyString({
   );
 }
 
-function decryptRevealableSeed({
+async function decryptRevealableSeed({
   rs,
   password,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
-}): IBip39RevealableSeed {
-  const rsJsonStr = bufferUtils.bytesToUtf8(
-    decrypt(password, rs.replace(EncryptPrefixHdCredential, '')),
-  );
+}): Promise<IBip39RevealableSeed> {
+  const decrypted = await decryptAsync({
+    password,
+    data: rs.replace(EncryptPrefixHdCredential, ''),
+  });
+  const rsJsonStr = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(rsJsonStr) as IBip39RevealableSeed;
 }
 
@@ -224,21 +233,21 @@ async function encryptRevealableSeed({
   return EncryptPrefixHdCredential + bufferUtils.bytesToHex(encrypted);
 }
 
-function decryptImportedCredential({
+async function decryptImportedCredential({
   credential,
   password,
 }: {
   credential: ICoreImportedCredentialEncryptHex;
   password: string;
-}): ICoreImportedCredential {
-  const text = bufferUtils.bytesToUtf8(
-    decrypt(
-      password,
+}): Promise<ICoreImportedCredential> {
+  const decrypted = await decryptAsync({
+    password,
+    data:
       typeof credential === 'string'
         ? credential.replace(EncryptPrefixImportedCredential, '')
         : credential,
-    ),
-  );
+  });
+  const text = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(text) as ICoreImportedCredential;
 }
 
@@ -289,7 +298,7 @@ async function batchGetKeys(
   > = {};
 
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
-  const { seed } = decryptRevealableSeed({
+  const { seed } = await decryptRevealableSeed({
     rs: hdCredential,
     password,
   });
@@ -451,7 +460,7 @@ async function generateMasterKeyFromSeed(
   password: string,
 ): Promise<IBip32ExtendedKey> {
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
-  const { seed } = decryptRevealableSeed({
+  const { seed } = await decryptRevealableSeed({
     rs: hdCredential,
     password,
   });
@@ -468,17 +477,20 @@ async function generateMasterKeyFromSeed(
   };
 }
 
-function N(
+async function N(
   curveName: ICurveName,
   encryptedExtPriv: IBip32ExtendedKey,
   password: string,
-): IBip32ExtendedKey {
+): Promise<IBip32ExtendedKey> {
   if (!platformEnv.isJest) {
     ensureSensitiveTextEncoded(password);
   }
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
   const extPriv: IBip32ExtendedKey = {
-    key: decrypt(password, encryptedExtPriv.key),
+    key: await decryptAsync({
+      password,
+      data: encryptedExtPriv.key,
+    }),
     chainCode: encryptedExtPriv.chainCode,
   };
   return deriver.N(extPriv);
@@ -492,7 +504,10 @@ async function CKDPriv(
 ): Promise<IBip32ExtendedKey> {
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
   const parent: IBip32ExtendedKey = {
-    key: decrypt(password, encryptedParent.key),
+    key: await decryptAsync({
+      password,
+      data: encryptedParent.key,
+    }),
     chainCode: encryptedParent.chainCode,
   };
   const child: IBip32ExtendedKey = deriver.CKDPriv(parent, index);
@@ -529,12 +544,12 @@ async function revealableSeedFromMnemonic(
   });
 }
 
-function mnemonicFromEntropy(
+async function mnemonicFromEntropy(
   hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
-): string {
+): Promise<string> {
   defaultLogger.account.secretPerf.decryptHdCredential();
-  const rs: IBip39RevealableSeed = decryptRevealableSeed({
+  const rs: IBip39RevealableSeed = await decryptRevealableSeed({
     password,
     rs: hdCredential,
   });
@@ -605,7 +620,7 @@ async function generateRootFingerprintHexAsync(
     hdCredential,
     password,
   );
-  const publicKey = publicFromPrivate(curveName, masterKey.key, password);
+  const publicKey = await publicFromPrivate(curveName, masterKey.key, password);
   return hash160(publicKey).slice(0, 4).toString('hex');
 }
 
@@ -620,12 +635,12 @@ async function revealableSeedFromTonMnemonic(
   });
 }
 
-function tonMnemonicFromEntropy(
+async function tonMnemonicFromEntropy(
   hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
-): string {
+): Promise<string> {
   defaultLogger.account.secretPerf.decryptHdCredential();
-  const rs: IBip39RevealableSeed = decryptRevealableSeed({
+  const rs: IBip39RevealableSeed = await decryptRevealableSeed({
     password,
     rs: hdCredential,
   });

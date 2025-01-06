@@ -15,7 +15,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt } from '../../secret';
+import { decryptAsync } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
@@ -62,7 +62,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
+      return `0x${(
+        await decryptAsync({ password, data: privateKeyRaw })
+      ).toString('hex')}`;
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
   }

@@ -199,7 +199,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (options?.verifyPassword) {
       const { verifyPassword } = options;
       ensureSensitiveTextEncoded(verifyPassword);
-      if (!this.checkPassword(ctx, verifyPassword)) {
+      if (!(await this.checkPassword(ctx, verifyPassword))) {
         throw new WrongPassword();
       }
     }
@@ -262,7 +262,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   // ---------------------------------------------- credential
-  checkPassword(context: IDBContext, password: string): boolean {
+  async checkPassword(context: IDBContext, password: string): Promise<boolean> {
     if (!context) {
       console.error('Unable to get main context.');
       return false;
@@ -271,7 +271,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return false;
     }
     try {
-      const decrypted = decryptVerifyString({
+      const decrypted = await decryptVerifyString({
         password,
         verifyString: context.verifyString,
       });
@@ -285,7 +285,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
-      const isValid = this.checkPassword(ctx, password);
+      const isValid = await this.checkPassword(ctx, password);
       if (isValid) {
         return;
       }
@@ -341,17 +341,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         if (credential.id.startsWith('imported')) {
           // Ton mnemonic credential
           if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
-            const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
-              rs: credential.credential,
-              password: oldPassword,
-            });
+            const revealableSeed: IBip39RevealableSeed =
+              await decryptRevealableSeed({
+                rs: credential.credential,
+                password: oldPassword,
+              });
             credential.credential = await encryptRevealableSeed({
               rs: revealableSeed,
               password: newPassword,
             });
           } else {
             const importedCredential: ICoreImportedCredential =
-              decryptImportedCredential({
+              await decryptImportedCredential({
                 credential: credential.credential,
                 password: oldPassword,
               });
@@ -361,10 +362,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             });
           }
         } else {
-          const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
-            rs: credential.credential,
-            password: oldPassword,
-          });
+          const revealableSeed: IBip39RevealableSeed =
+            await decryptRevealableSeed({
+              rs: credential.credential,
+              password: oldPassword,
+            });
           credential.credential = await encryptRevealableSeed({
             rs: revealableSeed,
             password: newPassword,

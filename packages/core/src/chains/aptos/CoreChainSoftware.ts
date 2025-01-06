@@ -10,13 +10,14 @@ import {
 // eslint-disable-next-line camelcase
 import { sha3_256 } from 'js-sha3';
 
-import { decrypt, ed25519 } from '@onekeyhq/core/src/secret';
+import { decryptAsync, ed25519 } from '@onekeyhq/core/src/secret';
 import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
+  ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImported,
   type ICoreApiGetAddressQueryPublicKey,
@@ -31,7 +32,6 @@ import {
   type ISignedTxPro,
   type IUnsignedMessageAptos,
 } from '../../types';
-import { ECoreApiExportedSecretKeyType } from '../../types';
 
 const curveName: ICurveName = 'ed25519';
 
@@ -82,7 +82,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
+      return `0x${(
+        await decryptAsync({ password, data: privateKeyRaw })
+      ).toString('hex')}`;
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
   }
