@@ -41,7 +41,7 @@ interface IPasswordSetupProps {
   confirmBtnText?: string;
 }
 
-const AUTO_FOCUS_DELAY_MS = platformEnv.isNativeAndroid ? 380 : 150;
+const AUTO_FOCUS_DELAY_MS = 380;
 const PasswordSetup = ({
   loading,
   passwordMode,
