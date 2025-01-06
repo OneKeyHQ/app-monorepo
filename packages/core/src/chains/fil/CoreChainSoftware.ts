@@ -9,7 +9,7 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt, uncompressPublicKey } from '../../secret';
+import { decryptAsync, uncompressPublicKey } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
@@ -146,9 +146,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      const privateKeyBase64 = decrypt(password, privateKeyRaw).toString(
-        'base64',
-      );
+      const privateKeyBase64 = (
+        await decryptAsync({ password, data: privateKeyRaw })
+      ).toString('base64');
       return Buffer.from(
         JSON.stringify({
           'Type': 'secp256k1',

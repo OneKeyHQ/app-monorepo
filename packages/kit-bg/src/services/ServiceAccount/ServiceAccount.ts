@@ -334,7 +334,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
   }) {
     ensureSensitiveTextEncoded(password);
-    const rs = decryptRevealableSeed({
+    const rs = await decryptRevealableSeed({
       rs: credential,
       password,
     });
@@ -2125,7 +2125,8 @@ class ServiceAccount extends ServiceBase {
     } catch {
       throw new InvalidMnemonic();
     }
-    if (realMnemonic !== mnemonicFromEntropy(rs, password)) {
+    const mnemonicFromRs = await mnemonicFromEntropy(rs, password);
+    if (realMnemonic !== mnemonicFromRs) {
       throw new InvalidMnemonic();
     }
 
@@ -2158,7 +2159,8 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
-    if (realMnemonic !== tonMnemonicFromEntropy(rs, password)) {
+    const tonMnemonicFromRs = await tonMnemonicFromEntropy(rs, password);
+    if (realMnemonic !== tonMnemonicFromRs) {
       throw new InvalidMnemonic();
     }
     await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
@@ -2389,10 +2391,14 @@ class ServiceAccount extends ServiceBase {
         reason,
       });
     const credential = await localDb.getCredential(walletId);
-    let mnemonic = mnemonicFromEntropy(credential.credential, password);
-    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
+    const mnemonicRaw = await mnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
@@ -2413,10 +2419,14 @@ class ServiceAccount extends ServiceBase {
         accountId,
       }),
     );
-    let mnemonic = tonMnemonicFromEntropy(credential.credential, password);
-    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
+    const mnemonicRaw = await tonMnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
