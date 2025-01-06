@@ -24,6 +24,8 @@ import {
 
 import type { IEncodedTxSol, INativeTxSol } from './types';
 import type { ISigner } from '../../base/ChainSigner';
+import { EMessageTypesCommon, EMessageTypesSolana } from '@onekeyhq/shared/types/message';
+import { OffchainMessage } from './sdkSol/OffchainMessage';
 
 const curve: ICurveName = 'ed25519';
 
@@ -152,7 +154,19 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-    return signMessage(unsignedMsg.message, signer);
+
+    if (unsignedMsg.type === EMessageTypesCommon.SIGN_MESSAGE) {
+      return signMessage(unsignedMsg.message, signer);
+    } else if(unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+      const offchainMessage = new OffchainMessage({
+        version: unsignedMsg.payload?.version,
+        message: Buffer.from(unsignedMsg.message),
+      });
+      const [signature] = await signer.sign(offchainMessage.serialize());
+      return bs58.encode(signature);
+    }
+
+    throw new Error('signMessage not supported');
   }
 
   override async getAddressFromPrivate(

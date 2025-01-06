@@ -20,7 +20,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -35,6 +34,8 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
+import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.sol.hd;
@@ -204,19 +205,6 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
   }
 
-  guessMessageFormat(message: Buffer) {
-    if (Object.prototype.toString.call(message) !== '[object Uint8Array]') {
-      return undefined;
-    }
-    if (stringUtils.isPrintableASCII(message)) {
-      return 0;
-    }
-    if (stringUtils.isUTF8(message)) {
-      return 1;
-    }
-    return undefined;
-  }
-
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
@@ -225,17 +213,27 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();
 
+    // exists other sign message type
+    const notSolanaSignOffchainMessage = params.messages.find(
+      (msg) => msg.type !== EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+    );
+
+    if (notSolanaSignOffchainMessage) {
+      throw new Error('signMessage not supported on hardware');
+    }
+
     const result = await Promise.all(
       params.messages.map(
         async (payload: { type: string; message: string }) => {
-          const response = await HardwareSDK.solSignMessage(
+          const response = await HardwareSDK.solSignOffchainMessage(
             connectId,
             deviceId,
             {
               ...params.deviceParams?.deviceCommonParams,
               path: dbAccount.path,
               messageHex: Buffer.from(payload.message).toString('hex'),
-              messageFormat: this.guessMessageFormat(
+              // @ts-expect-error
+              messageFormat: OffchainMessage.guessMessageFormat(
                 Buffer.from(payload.message),
               ),
             },
