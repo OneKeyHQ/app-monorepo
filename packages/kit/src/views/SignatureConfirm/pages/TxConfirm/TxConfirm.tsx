@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Page, Skeleton } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,10 +17,10 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import SignatureConfirmAccountInfo from '../../components/SignatureConfirmAccountInfo';
-import { useDecodedTxs } from '../../hooks/useDecodedTxs';
+// import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 
 function TxConfirm() {
   const route =
@@ -34,19 +36,48 @@ function TxConfirm() {
   const { accountId, networkId, transferPayload, sourceInfo, unsignedTxs } =
     route.params;
 
+  const { updateDecodedTxs } = useSignatureConfirmActions().current;
+
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
 
-  const { decodedTxs } = useDecodedTxs({
-    accountId,
-    networkId,
-    unsignedTxs,
-    transferPayload,
-  });
+  const { result: decodedTxs, isLoading: isBuildingDecodedTxs } =
+    usePromiseResult(
+      async () => {
+        updateDecodedTxs({
+          decodedTxs: [],
+          isBuildingDecodedTxs: true,
+        });
+        const r = await Promise.all(
+          unsignedTxs.map((unsignedTx) =>
+            backgroundApiProxy.serviceSignatureConfirm.buildDecodedTx({
+              accountId,
+              networkId,
+              unsignedTx,
+              transferPayload,
+            }),
+          ),
+        );
+        updateDecodedTxs({
+          decodedTxs: r,
+          isBuildingDecodedTxs: false,
+        });
+
+        return r;
+      },
+      [updateDecodedTxs, unsignedTxs, accountId, networkId, transferPayload],
+      {
+        watchLoading: true,
+      },
+    );
 
   const txConfirmTitle = useMemo(() => {
+    if (isBuildingDecodedTxs) {
+      return '';
+    }
+
     if (
       decodedTxs &&
       decodedTxs[0] &&
@@ -59,7 +90,7 @@ function TxConfirm() {
     return intl.formatMessage({
       id: ETranslations.transaction__transaction_confirm,
     });
-  }, [decodedTxs, intl]);
+  }, [decodedTxs, intl, isBuildingDecodedTxs]);
 
   const handleTxConfirmOnClose = useCallback(() => {
     dappApprove.reject();
@@ -69,17 +100,29 @@ function TxConfirm() {
     appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
   }, []);
 
+  const renderTxConfirmContent = useCallback(() => {
+    if (isBuildingDecodedTxs) {
+      return <Skeleton height="$3" width="$12" />;
+    }
+
+    return <></>;
+  }, [isBuildingDecodedTxs]);
+
   return (
     <Page scrollEnabled onClose={handleTxConfirmOnClose} safeAreaEnabled>
       <Page.Header title={txConfirmTitle} />
-      <Page.Body testID="tx-confirmation-body">
-        <SignatureConfirmAccountInfo
-          accountId={accountId}
-          networkId={networkId}
-        />
+      <Page.Body testID="tx-confirmation-body" px="$5">
+        {renderTxConfirmContent()}
       </Page.Body>
     </Page>
   );
 }
 
-export default TxConfirm;
+const TxConfirmWithProvider = memo(() => (
+  <SignatureConfirmProviderMirror>
+    <TxConfirm />
+  </SignatureConfirmProviderMirror>
+));
+TxConfirmWithProvider.displayName = 'TxConfirmWithProvider';
+
+export default TxConfirmWithProvider;

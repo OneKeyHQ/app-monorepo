@@ -142,6 +142,7 @@ export type IDecodedTx = {
 
   // for signature confirm page display
   txDisplay?: ITransactionDisplay;
+  isLocalParsed?: boolean;
 };
 
 export type IDecodedTxActionBase = {

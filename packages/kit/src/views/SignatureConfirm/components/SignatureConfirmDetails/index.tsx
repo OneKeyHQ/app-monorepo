@@ -5,3 +5,5 @@
  * - Authorization details (permissions, scope)
  * - Transaction parameters and metadata
  */
+
+export { default } from './SignatureConfirmDetails';

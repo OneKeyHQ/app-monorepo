@@ -23,6 +23,7 @@ import { HomeTokenListRootProvider } from '../../../views/Home/components/HomeTo
 import { UrlAccountHomeTokenListProvider } from '../../../views/Home/components/HomeTokenListProvider/UrlAccountHomeTokenListProvider';
 import { MarketWatchListProvider } from '../../../views/Market/MarketWatchListProvider';
 import { SendConfirmRootProvider } from '../../../views/Send/components/SendConfirmProvider/SendConfirmRootProvider';
+import { SignatureConfirmRootProvider } from '../../../views/SignatureConfirm/components/SignatureConfirmProvider/SignatureConfirmRootProvider';
 import {
   SwapModalRootProvider,
   SwapRootProvider,
@@ -156,6 +157,9 @@ function JotaiContextRootProvidersAutoMountCmp() {
           }
           case EJotaiContextStoreNames.sendConfirm: {
             return <SendConfirmRootProvider key={key} />;
+          }
+          case EJotaiContextStoreNames.signatureConfirm: {
+            return <SignatureConfirmRootProvider key={key} />;
           }
           default: {
             const exhaustiveCheck: never = storeName;

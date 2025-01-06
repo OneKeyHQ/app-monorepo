@@ -73,6 +73,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txDisplay = convertDecodedTxActionsToSignatureConfirmTxDisplay({
         decodedTx,
       });
+      decodedTx.isLocalParsed = true;
     }
 
     return decodedTx;

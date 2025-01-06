@@ -1,3 +1,5 @@
+import type { IBadgeType } from '@onekeyhq/components';
+
 import type { IAccountNFT } from './nft';
 import type { IToken, ITokenFiat } from './token';
 
@@ -19,7 +21,10 @@ export interface IDisplayComponentAddress {
   type: EParseTxComponentType.Address;
   label: string;
   address: string;
-  tags: string[];
+  tags: {
+    type: IBadgeType;
+    name: string;
+  }[];
 }
 
 export interface IDisplayComponentAmount {
