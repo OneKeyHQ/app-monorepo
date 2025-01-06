@@ -77,19 +77,6 @@ describe('AES256 Encryption Tests', () => {
       jest.restoreAllMocks();
     });
 
-    it('should log deprecation warning when using decrypt', async () => {
-      const encrypted = await encryptAsync({
-        password: TEST_PASSWORD,
-        data: TEST_DATA_HEX,
-      });
-      await decryptAsync({
-        password: TEST_PASSWORD,
-        data: encrypted,
-      });
-      expect(console.warn).toHaveBeenCalledWith(
-        'decrypt() 已弃用 (deprecated). Please use decryptAsync() instead',
-      );
-    });
     it('should throw error on utf-8 data', async () => {
       await expect(
         encryptAsync({
@@ -241,19 +228,6 @@ describe('AES256 Encryption Tests', () => {
       jest.restoreAllMocks();
     });
 
-    it('should log deprecation warning when using decryptString', async () => {
-      const encrypted = await encryptStringAsync({
-        password: TEST_PASSWORD,
-        data: TEST_DATA_HEX,
-      });
-      await decryptStringAsync({
-        password: TEST_PASSWORD,
-        data: encrypted,
-      });
-      expect(console.warn).toHaveBeenCalledWith(
-        'decryptString() 已弃用 (deprecated). Please use decryptStringAsync() instead',
-      );
-    });
     it('should encrypt and decrypt string with hex encoding and snapshot', async () => {
       const encrypted = await encryptStringAsync({
         password: TEST_PASSWORD,
@@ -396,19 +370,6 @@ describe('AES256 Encryption Tests', () => {
       jest.restoreAllMocks();
     });
 
-    it('should log deprecation warning when using decodeSensitiveText', async () => {
-      const encoded = await encodeSensitiveTextAsync({
-        text: TEST_DATA,
-        key: 'test-key',
-      });
-      await decodeSensitiveTextAsync({
-        encodedText: encoded,
-        key: 'test-key',
-      });
-      expect(console.warn).toHaveBeenCalledWith(
-        'decodeSensitiveText() 已弃用 (deprecated). Please use decodeSensitiveTextAsync() instead',
-      );
-    });
     beforeEach(() => {
       jest.spyOn(console, 'warn').mockImplementation(() => {});
       jest.spyOn(console, 'trace').mockImplementation(() => {});

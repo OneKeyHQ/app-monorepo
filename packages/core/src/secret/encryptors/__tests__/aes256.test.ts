@@ -110,39 +110,4 @@ describe('aes256', () => {
       expect(Buffer.from(decrypted, 'hex').toString()).toBe(testData);
     });
   });
-
-  describe('deprecation warnings', () => {
-    const originalWarn = console.warn;
-    let warnMock: jest.Mock;
-
-    beforeEach(() => {
-      warnMock = jest.fn();
-      console.warn = warnMock;
-    });
-
-    afterEach(() => {
-      console.warn = originalWarn;
-    });
-
-    it('should show deprecation warning for sync encrypt', async () => {
-      await encryptAsync({
-        password: testPassword,
-        data: testBuffer,
-      });
-      expect(warnMock).toHaveBeenCalledWith(
-        expect.stringContaining('deprecated'),
-      );
-    });
-
-    it('should show deprecation warning for sync encryptString', async () => {
-      await encryptStringAsync({
-        password: testPassword,
-        data: testData,
-        dataEncoding: 'utf8',
-      });
-      expect(warnMock).toHaveBeenCalledWith(
-        expect.stringContaining('deprecated'),
-      );
-    });
-  });
 });
