@@ -14,7 +14,7 @@ function SpeedUpTransactionContent() {
         })}
       </SizableText>
       <Stack gap="$3">
-        <XStack alignItems="center">
+        <XStack alignItems="flex-start">
           <XStack m="$2.5" w="$1" h="$1" borderRadius="$full" bg="$text" />
           <SizableText size="$bodyLg" color="$text">
             {intl.formatMessage(
@@ -28,7 +28,7 @@ function SpeedUpTransactionContent() {
           </SizableText>
         </XStack>
 
-        <XStack alignItems="center">
+        <XStack alignItems="flex-start">
           <XStack m="$2.5" w="$1" h="$1" borderRadius="$full" bg="$text" />
           <SizableText>
             {intl.formatMessage(
@@ -41,7 +41,7 @@ function SpeedUpTransactionContent() {
             )}
           </SizableText>
         </XStack>
-        <XStack alignItems="center">
+        <XStack alignItems="flex-start">
           <XStack m="$2.5" w="$1" h="$1" borderRadius="$full" bg="$text" />
           <SizableText>
             {intl.formatMessage({
