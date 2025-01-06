@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { StyleSheet, Text } from 'react-native';
 import {
@@ -14,27 +14,32 @@ import type { TextInput } from 'react-native';
 
 export const PIN_CELL_COUNT = 6;
 
-const PassCodeInput = ({
-  onPinCodeChange,
-  onComplete,
-  disabledComplete,
-  pinCodeFocus,
-  enableAutoFocus,
-  editable,
-  // showMask,
-  testId,
-  clearCode,
-}: {
-  onPinCodeChange?: (pin: string) => void;
-  onComplete?: () => void;
-  disabledComplete?: boolean;
-  pinCodeFocus?: boolean;
-  enableAutoFocus?: boolean;
-  editable?: boolean;
-  testId?: string;
-  clearCode?: boolean;
-  // showMask?: boolean;
-}) => {
+const PassCodeInput = (
+  {
+    onPinCodeChange,
+    onComplete,
+    disabledComplete,
+    pinCodeFocus,
+    autoFocus,
+    editable,
+    // showMask,
+    testId,
+    clearCode,
+    autoFocusDelayMs = 150,
+  }: {
+    onPinCodeChange?: (pin: string) => void;
+    onComplete?: () => void;
+    disabledComplete?: boolean;
+    pinCodeFocus?: boolean;
+    autoFocus?: boolean;
+    editable?: boolean;
+    testId?: string;
+    clearCode?: boolean;
+    autoFocusDelayMs?: number;
+    // showMask?: boolean;
+  },
+  forwardedRef: any,
+) => {
   const [pinValue, setPinValue] = useState('');
 
   const pinInputRef = useRef<TextInput>(null);
@@ -51,6 +56,20 @@ const PassCodeInput = ({
       height: 16,
     },
   });
+
+  useImperativeHandle(forwardedRef, () => ({
+    focus: () => {
+      pinInputRef.current?.focus();
+    },
+  }));
+
+  useEffect(() => {
+    if (autoFocus && pinInputRef.current) {
+      setTimeout(() => {
+        pinInputRef.current?.focus();
+      }, autoFocusDelayMs);
+    }
+  }, [autoFocusDelayMs, autoFocus]);
 
   const renderCell = ({
     index,
@@ -91,7 +110,7 @@ const PassCodeInput = ({
 
   return (
     <CodeField
-      autoFocus={enableAutoFocus}
+      autoFocus={false}
       testID={testId}
       ref={pinInputRef}
       rootStyle={{

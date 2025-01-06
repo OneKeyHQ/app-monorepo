@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { Keyboard } from 'react-native';
 
 import {
   Button,
@@ -15,6 +16,7 @@ import {
 import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import {
   PassCodeRegex,
@@ -39,6 +41,7 @@ interface IPasswordSetupProps {
   confirmBtnText?: string;
 }
 
+const AUTO_FOCUS_DELAY_MS = platformEnv.isNativeAndroid ? 580 : 150;
 const PasswordSetup = ({
   loading,
   passwordMode,
@@ -153,6 +156,7 @@ const PasswordSetup = ({
                 })}
                 disabled={loading}
                 autoFocus
+                autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 keyboardType={getPasswordKeyboardType(!secureEntry)}
                 onChangeText={(text) => text.replace(PasswordRegex, '')}
                 secureTextEntry={secureEntry}
@@ -259,7 +263,8 @@ const PasswordSetup = ({
                   form.setValue('passCode', pin);
                   form.clearErrors('passCode');
                 }}
-                enableAutoFocus
+                autoFocus
+                autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 testId="pass-code"
               />
             </Form.Field>
@@ -294,7 +299,7 @@ const PasswordSetup = ({
                   form.setValue('confirmPassCode', pin);
                   form.clearErrors('confirmPassCode');
                 }}
-                enableAutoFocus={false}
+                autoFocus={false}
                 pinCodeFocus={passCodeConfirm}
                 testId="confirm-pass-code"
               />
@@ -327,14 +332,25 @@ const PasswordSetup = ({
           <Button
             size="small"
             variant="tertiary"
-            onPress={() => {
+            onPress={async () => {
               form.reset();
+              if (platformEnv.isNativeAndroid) {
+                Keyboard.dismiss();
+                await timerUtils.wait(380);
+              }
               const newPasswordMode =
                 currentPasswordMode === EPasswordMode.PASSWORD
                   ? EPasswordMode.PASSCODE
                   : EPasswordMode.PASSWORD;
               setCurrentPasswordMode(newPasswordMode);
               form.setValue('passwordMode', newPasswordMode);
+              if (platformEnv.isNativeAndroid) {
+                form.setFocus(
+                  currentPasswordMode === EPasswordMode.PASSWORD
+                    ? 'password'
+                    : 'passCode',
+                );
+              }
             }}
           >
             {currentPasswordMode === EPasswordMode.PASSWORD
