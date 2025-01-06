@@ -7,7 +7,7 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { verifyNexaAddressPrefix } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import {
-  decrypt,
+  decryptAsync,
   encodeSensitiveText,
   encryptImportedCredential,
   fixV4VerifyStringToV5,
@@ -98,7 +98,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     if (v4dbCredential.id.startsWith('imported-')) {
       const credentialImported = credential as IV4DBImportedCredentialRaw;
       const privateKey = bufferUtils.bytesToHex(
-        decrypt(encodedPassword, credentialImported.privateKey),
+        await decryptAsync({
+          password: encodedPassword,
+          data: credentialImported.privateKey,
+        }),
       );
       const v4account = await v4dbHubs.v4localDb.getRecordById({
         name: EV4LocalDBStoreNames.Account,
@@ -182,7 +185,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     if (v4dbCredential.id.startsWith('hd-')) {
       const credentialHD = credential as IV4DBHdCredentialRaw;
       // TODO fallback to v4 password prompt
-      const entropy = decrypt(encodedPassword, credentialHD.entropy);
+      const entropy = await decryptAsync({
+        password: encodedPassword,
+        data: credentialHD.entropy,
+      });
       const wallet = await v4dbHubs.v4localDb.getRecordById({
         name: EV4LocalDBStoreNames.Wallet,
         id: v4dbCredential.id,

@@ -29,7 +29,7 @@ import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   BaseBip32KeyDeriver,
   batchGetPublicKeysAsync,
-  decrypt,
+  decryptAsync,
   encryptAsync,
   mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
@@ -247,7 +247,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             .fill(
               Buffer.concat([
                 Buffer.from([0]),
-                decrypt(password, privateKeyRaw),
+                await decryptAsync({ password, data: privateKeyRaw }),
               ]),
               45,
               78,
@@ -255,7 +255,9 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         );
       }
       if (credentials.imported) {
-        return bs58check.encode(decrypt(password, privateKeyRaw));
+        return bs58check.encode(
+          await decryptAsync({ password, data: privateKeyRaw }),
+        );
       }
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
@@ -449,7 +451,10 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
 
     // imported account return "" key as root privateKey
     const privateKey = privateKeys[''];
-    const xprv = decrypt(password, bufferUtils.toBuffer(privateKey));
+    const xprv = await decryptAsync({
+      password,
+      data: bufferUtils.toBuffer(privateKey),
+    });
     const startKey = {
       chainCode: xprv.slice(13, 45),
       key: xprv.slice(46, 78),

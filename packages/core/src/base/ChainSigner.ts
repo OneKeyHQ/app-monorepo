@@ -2,7 +2,7 @@
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { N, decrypt, sign, uncompressPublicKey, verify } from '../secret';
+import { N, decryptAsync, sign, uncompressPublicKey, verify } from '../secret';
 
 import type { ICurveName } from '../types';
 
@@ -27,38 +27,53 @@ export interface ISigner extends IVerifier {
 }
 
 export class Verifier implements IVerifierPro {
-  private uncompressedPublicKey: Buffer;
+  protected uncompressedPublicKey!: Buffer;
 
-  private compressedPublicKey: Buffer;
+  protected compressedPublicKey!: Buffer;
 
   protected curve: ICurveName;
 
+  protected initialized!: Promise<void>;
+
   constructor(pub: string, curve: ICurveName) {
     this.curve = curve;
+    if (pub) {
+      this.initialized = this.init(pub);
+    }
+  }
+
+  protected async init(pub: string): Promise<void> {
+    if (pub) {
+      this.initByPubSync(pub);
+    }
+  }
+
+  initByPubSync(pub: string) {
     this.compressedPublicKey = Buffer.from(pub, 'hex');
     this.uncompressedPublicKey = uncompressPublicKey(
-      curve,
+      this.curve,
       this.compressedPublicKey,
     );
   }
 
-  getPubkey(compressed?: boolean): Promise<Buffer> {
-    return Promise.resolve(
-      compressed ? this.compressedPublicKey : this.uncompressedPublicKey,
-    );
+  async getPubkey(compressed?: boolean): Promise<Buffer> {
+    await this.initialized;
+    return compressed ? this.compressedPublicKey : this.uncompressedPublicKey;
   }
 
   async getPubkeyHex(compressed?: boolean): Promise<string> {
+    await this.initialized;
     return bufferUtils.bytesToHex(await this.getPubkey(compressed));
   }
 
-  verify() {
+  async verify() {
+    await this.initialized;
     // verify(_digest: Buffer, _signature: Buffer) {
     // Not used.
     return Promise.resolve(Buffer.from([]));
   }
 
-  verifySignature({
+  async verifySignature({
     publicKey,
     digest,
     signature,
@@ -67,50 +82,71 @@ export class Verifier implements IVerifierPro {
     digest: Buffer | Uint8Array | string; // hex string or Buffer
     signature: Buffer | Uint8Array | string; // hex string or Buffer
   }): Promise<boolean> {
+    await this.initialized;
     const p = bufferUtils.toBuffer(publicKey);
     const d = bufferUtils.toBuffer(digest);
     const s = bufferUtils.toBuffer(signature);
     const { curve } = this;
-    const result = verify(curve, p, d, s);
-    return Promise.resolve(result);
+    return verify(curve, p, d, s);
   }
 }
 
 export class ChainSigner extends Verifier implements ISigner {
+  private encryptedPrivateKey: Buffer;
+
+  private password: string;
+
   constructor(
-    private encryptedPrivateKey: Buffer,
-    private password: string,
+    encryptedPrivateKey: Buffer,
+    password: string,
     protected override curve: ICurveName,
   ) {
-    const pub = N(
-      curve,
-      { key: encryptedPrivateKey, chainCode: Buffer.alloc(32) },
-      password,
-    ).key.toString('hex');
-    super(pub, curve);
+    // Initialize with empty public key, will be set in init()
+    super('', curve);
+    this.encryptedPrivateKey = encryptedPrivateKey;
+    this.password = password;
+    this.initialized = this.init();
   }
 
-  getPrvkey(): Promise<Buffer> {
-    return Promise.resolve(decrypt(this.password, this.encryptedPrivateKey));
+  protected override async init(): Promise<void> {
+    const pub = (
+      await N(
+        this.curve,
+        {
+          key: this.encryptedPrivateKey,
+          chainCode: Buffer.alloc(32),
+        },
+        this.password,
+      )
+    ).key.toString('hex');
+    this.initByPubSync(pub);
+  }
+
+  async getPrvkey(): Promise<Buffer> {
+    await this.initialized;
+    const privateKey = await decryptAsync({
+      password: this.password,
+      data: this.encryptedPrivateKey,
+    });
+    return privateKey;
   }
 
   async getPrvkeyHex(): Promise<string> {
+    await this.initialized;
     return bufferUtils.bytesToHex(await this.getPrvkey());
   }
 
-  sign(digest: Buffer): Promise<[Buffer, number]> {
-    const signature = sign(
+  async sign(digest: Buffer): Promise<[Buffer, number]> {
+    await this.initialized;
+    const signature = await sign(
       this.curve,
       this.encryptedPrivateKey,
       digest,
       this.password,
     );
     if (this.curve === 'secp256k1') {
-      return Promise.resolve([
-        signature.slice(0, -1),
-        signature[signature.length - 1],
-      ]);
+      return [signature.slice(0, -1), signature[signature.length - 1]];
     }
-    return Promise.resolve([signature, 0]);
+    return [signature, 0];
   }
 }

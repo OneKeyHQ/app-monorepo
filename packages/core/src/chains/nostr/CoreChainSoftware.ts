@@ -4,7 +4,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt } from '../../secret';
+import { decryptAsync } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
@@ -59,7 +59,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      const privateKey = decrypt(password, privateKeyRaw);
+      const privateKey = await decryptAsync({ password, data: privateKeyRaw });
       const nostrPrivateKey = getPrivateEncodedByNip19(privateKey);
       return nostrPrivateKey;
     }
