@@ -1,4 +1,10 @@
-import { useEffect, useImperativeHandle, useRef, useState } from 'react';
+import {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 
 import { StyleSheet, Text } from 'react-native';
 import {
@@ -14,12 +20,11 @@ import type { TextInput } from 'react-native';
 
 export const PIN_CELL_COUNT = 6;
 
-const PassCodeInput = (
+function BasicPassCodeInput(
   {
     onPinCodeChange,
     onComplete,
     disabledComplete,
-    pinCodeFocus,
     autoFocus,
     editable,
     // showMask,
@@ -30,7 +35,6 @@ const PassCodeInput = (
     onPinCodeChange?: (pin: string) => void;
     onComplete?: () => void;
     disabledComplete?: boolean;
-    pinCodeFocus?: boolean;
     autoFocus?: boolean;
     editable?: boolean;
     testId?: string;
@@ -39,7 +43,7 @@ const PassCodeInput = (
     // showMask?: boolean;
   },
   forwardedRef: any,
-) => {
+) {
   const [pinValue, setPinValue] = useState('');
 
   const pinInputRef = useRef<TextInput>(null);
@@ -97,12 +101,6 @@ const PassCodeInput = (
     </Text>
   );
   useEffect(() => {
-    if (pinCodeFocus) {
-      pinInputRef.current?.focus();
-    }
-  }, [pinCodeFocus, pinInputRef]);
-
-  useEffect(() => {
     if (clearCode) {
       setPinValue('');
     }
@@ -145,6 +143,7 @@ const PassCodeInput = (
     //   ) : null}
     // </YStack>
   );
-};
+}
 
+const PassCodeInput = forwardRef(BasicPassCodeInput);
 export default PassCodeInput;
