@@ -41,7 +41,7 @@ interface IPasswordSetupProps {
   confirmBtnText?: string;
 }
 
-const AUTO_FOCUS_DELAY_MS = platformEnv.isNativeAndroid ? 580 : 150;
+const AUTO_FOCUS_DELAY_MS = platformEnv.isNativeAndroid ? 380 : 150;
 const PasswordSetup = ({
   loading,
   passwordMode,
@@ -344,13 +344,6 @@ const PasswordSetup = ({
                   : EPasswordMode.PASSWORD;
               setCurrentPasswordMode(newPasswordMode);
               form.setValue('passwordMode', newPasswordMode);
-              if (platformEnv.isNativeAndroid) {
-                form.setFocus(
-                  currentPasswordMode === EPasswordMode.PASSWORD
-                    ? 'password'
-                    : 'passCode',
-                );
-              }
             }}
           >
             {currentPasswordMode === EPasswordMode.PASSWORD
