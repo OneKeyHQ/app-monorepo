@@ -5,7 +5,7 @@ import { flatMap, map } from 'lodash';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
-import { Address, Network } from '../SignatureConfirmComponents';
+import { Address, Assets, Network } from '../SignatureConfirmComponents';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 
 type IProps = {
@@ -23,6 +23,10 @@ function SignatureConfirmDetails(props: IProps) {
     ).filter(Boolean);
     return txDisplayComponents.map((component) => {
       switch (component.type) {
+        case EParseTxComponentType.Token:
+          return <Assets.Token component={component} networkId={networkId} />;
+        case EParseTxComponentType.NFT:
+          return <Assets.NFT component={component} networkId={networkId} />;
         case EParseTxComponentType.Network:
           return <Network component={component} />;
         case EParseTxComponentType.Address:

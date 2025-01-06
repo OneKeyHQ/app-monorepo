@@ -25,22 +25,21 @@ function Address(props: IProps) {
       <SignatureConfirmItem.Value>
         {component.address}
       </SignatureConfirmItem.Value>
-      {component.tags?.length ? (
-        <XStack gap="$1">
-          {accountId && networkId && showAddressLocalTags ? (
-            <AddressInfo
-              accountId={accountId}
-              networkId={networkId}
-              address={component.address}
-            />
-          ) : null}
-          {component.tags?.map((tag) => (
-            <Badge key={tag.name} badgeType={tag.type}>
-              {tag.name}
-            </Badge>
-          ))}
-        </XStack>
-      ) : null}
+      <XStack gap="$1">
+        {accountId && networkId && showAddressLocalTags ? (
+          <AddressInfo
+            accountId={accountId}
+            networkId={networkId}
+            address={component.address}
+            withWrapper={false}
+          />
+        ) : null}
+        {component.tags?.map((tag) => (
+          <Badge key={tag.value} badgeType={tag.displayType}>
+            {tag.value}
+          </Badge>
+        ))}
+      </XStack>
     </SignatureConfirmItem>
   );
 }

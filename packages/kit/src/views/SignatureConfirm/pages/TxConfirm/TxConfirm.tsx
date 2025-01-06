@@ -7,6 +7,7 @@ import { Page, Skeleton } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -17,10 +18,10 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 
-// import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
+import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
+import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
-import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 
 function TxConfirm() {
   const route =
@@ -101,12 +102,20 @@ function TxConfirm() {
   }, []);
 
   const renderTxConfirmContent = useCallback(() => {
-    if (isBuildingDecodedTxs) {
+    if (isBuildingDecodedTxs || !decodedTxs) {
       return <Skeleton height="$3" width="$12" />;
     }
 
-    return <></>;
-  }, [isBuildingDecodedTxs]);
+    return (
+      <>
+        <SignatureConfirmDetails
+          accountId={accountId}
+          networkId={networkId}
+          decodedTxs={decodedTxs}
+        />
+      </>
+    );
+  }, [isBuildingDecodedTxs, decodedTxs, accountId, networkId]);
 
   return (
     <Page scrollEnabled onClose={handleTxConfirmOnClose} safeAreaEnabled>

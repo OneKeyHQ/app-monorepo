@@ -7,7 +7,7 @@ import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms
 export function useSignatureConfirmContextStoreInitData() {
   const data = useMemo(
     () => ({
-      storeName: EJotaiContextStoreNames.sendConfirm,
+      storeName: EJotaiContextStoreNames.signatureConfirm,
     }),
     [],
   );

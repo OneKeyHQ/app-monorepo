@@ -22,8 +22,8 @@ export interface IDisplayComponentAddress {
   label: string;
   address: string;
   tags: {
-    type: IBadgeType;
-    name: string;
+    value: string;
+    displayType: IBadgeType;
   }[];
 }
 
@@ -47,12 +47,14 @@ export interface IDisplayComponentToken {
     info: IToken;
   } & ITokenFiat;
   amount: string;
+  amountParsed: string;
 }
 
 export type IDisplayComponent =
+  | IDisplayComponentToken
+  | IDisplayComponentNFT
   | IDisplayComponentNetwork
-  | IDisplayComponentAddress
-  | IDisplayComponentNFT;
+  | IDisplayComponentAddress;
 
 export interface ITransactionData {
   name: string;
