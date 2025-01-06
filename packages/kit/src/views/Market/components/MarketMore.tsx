@@ -3,8 +3,9 @@ import { memo, useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
-import { ActionList, IconButton, Stack } from '@onekeyhq/components';
+import { ActionList, IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useReviewControl } from '../../../components/ReviewControl';
 
@@ -50,13 +51,28 @@ function BasicMarketMore({
                 {
                   icon: 'MinusLargeSolid',
                   label: intl.formatMessage({ id: ETranslations.global_sell }),
-                  onPress: tradeActions.onSell,
+                  onPress: () => {
+                    defaultLogger.market.token.marketTokenAction({
+                      tokenName: coingeckoId,
+                      action: 'sell',
+                      from: 'listPage',
+                    });
+                    tradeActions.onSell();
+                  },
                 },
               ] as IActionListItemProps[],
             }
           : undefined,
       ].filter(Boolean),
-    [MoveToTop, intl, isSupportBuy, show, showMoreAction, tradeActions.onSell],
+    [
+      MoveToTop,
+      coingeckoId,
+      intl,
+      isSupportBuy,
+      show,
+      showMoreAction,
+      tradeActions,
+    ],
   );
   return (
     <ActionList

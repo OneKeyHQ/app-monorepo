@@ -40,7 +40,6 @@ function BasicTradeOrBuy({
     const { isSupportSwap } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
         networkId,
-        contractAddress: token.address,
       });
     const network = await backgroundApiProxy.serviceNetwork.getNetwork({
       networkId,

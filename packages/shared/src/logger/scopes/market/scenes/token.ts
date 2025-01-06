@@ -57,4 +57,22 @@ export class TokenScene extends BaseScene {
       userAction: action,
     };
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public marketTokenAction({
+    tokenName,
+    action,
+    from,
+  }: {
+    tokenName: string;
+    action: 'trade' | 'stake' | 'buy' | 'sell';
+    from: 'listPage' | 'detailsPage';
+  }) {
+    return {
+      tokenName,
+      action,
+      from,
+    };
+  }
 }
