@@ -20,7 +20,7 @@ import type {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
   uncompressPublicKey,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -432,7 +432,7 @@ export default class Vault extends VaultBase {
       privateKey = Buffer.from(credential, 'hex');
     }
 
-    privateKey = await encodeSensitiveText({
+    privateKey = await encodeSensitiveTextAsync({
       text: privateKey?.toString('hex') ?? '',
     });
 

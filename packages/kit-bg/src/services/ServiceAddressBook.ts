@@ -1,6 +1,6 @@
 import {
   decodeSensitiveTextAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import { hash160 } from '@onekeyhq/core/src/secret/hash';
 import type {
@@ -152,7 +152,7 @@ class ServiceAddressBook extends ServiceBase {
       const items = await this.getItems();
       await this.setItems(
         items,
-        await encodeSensitiveText({ text: String(Date.now()) }),
+        await encodeSensitiveTextAsync({ text: String(Date.now()) }),
       );
     }
   }

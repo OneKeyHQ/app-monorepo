@@ -8,8 +8,8 @@ import {
   decodeSensitiveTextAsync,
   decryptAsync,
   decryptStringAsync,
-  encodePassword,
-  encodeSensitiveText,
+  encodePasswordAsync,
+  encodeSensitiveTextAsync,
   encryptAsync,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
@@ -133,7 +133,7 @@ describe('AES256 Encryption Tests', () => {
         password: TEST_PASSWORD,
         data: TEST_DATA_HEX,
       });
-      const encodedPassword = await encodePassword({
+      const encodedPassword = await encodePasswordAsync({
         password: 'wrong-password',
       });
       await expect(
@@ -315,7 +315,7 @@ describe('AES256 Encryption Tests', () => {
 
   describe('encodePassword/decodePassword', () => {
     it('should encode and decode password with snapshot', async () => {
-      const encoded = await encodePassword({
+      const encoded = await encodePasswordAsync({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
@@ -329,7 +329,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     it('should throw on incorrect key (sync)', async () => {
-      const encoded = await encodePassword({
+      const encoded = await encodePasswordAsync({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
@@ -342,7 +342,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     it('should throw on incorrect key (async)', async () => {
-      const encoded = await encodePassword({
+      const encoded = await encodePasswordAsync({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
@@ -357,13 +357,13 @@ describe('AES256 Encryption Tests', () => {
     // TODO empty key should throw
     it.skip('should throw on empty key (sync and async)', async () => {
       await expect(
-        encodePassword({
+        encodePasswordAsync({
           password: TEST_PASSWORD,
           key: '',
         }),
       ).rejects.toThrow();
 
-      const encoded = await encodePassword({
+      const encoded = await encodePasswordAsync({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
@@ -397,7 +397,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     it('should log deprecation warning when using decodeSensitiveText', async () => {
-      const encoded = await encodeSensitiveText({
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -419,7 +419,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     it('should encode and decode sensitive text with snapshot', async () => {
-      const encoded = await encodeSensitiveText({
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -433,7 +433,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     it('should throw on incorrect key (sync)', async () => {
-      const encoded = await encodeSensitiveText({
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -446,7 +446,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     it('should throw on incorrect key (async)', async () => {
-      const encoded = await encodeSensitiveText({
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -461,13 +461,13 @@ describe('AES256 Encryption Tests', () => {
     // TODO empty key should throw
     it.skip('should throw on empty key', async () => {
       expect(() =>
-        encodeSensitiveText({
+        encodeSensitiveTextAsync({
           text: TEST_DATA,
           key: '',
         }),
       ).toThrow();
 
-      const encoded = await encodeSensitiveText({
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -543,7 +543,7 @@ describe('AES256 Encryption Tests', () => {
 
   describe('isEncodedSensitiveText and ensureSensitiveTextEncoded', () => {
     it('should correctly identify encoded sensitive text', async () => {
-      const encoded = await encodeSensitiveText({
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -552,7 +552,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     it('should handle both aes and xor prefixes', async () => {
-      const aesEncoded = await encodeSensitiveText({
+      const aesEncoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -572,7 +572,7 @@ describe('AES256 Encryption Tests', () => {
     });
 
     it('should not throw for valid encoded text in ensureSensitiveTextEncoded', async () => {
-      const encoded = await encodeSensitiveText({
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });

@@ -6,7 +6,7 @@ import type { IEncodedTxNear } from '@onekeyhq/core/src/chains/near/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -501,7 +501,7 @@ export default class Vault extends VaultBase {
     if (prefix === 'ed25519' && decodedPrivateKey.length === 64) {
       privateKey = decodedPrivateKey.slice(0, 32).toString('hex');
     }
-    privateKey = await encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
 
     return Promise.resolve({
       privateKey,

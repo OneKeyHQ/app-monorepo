@@ -17,7 +17,7 @@ import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sd
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import {
   decodeSensitiveTextAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -363,7 +363,7 @@ export default class Vault extends VaultBase {
     });
     if (this.isHexPrivateKey(input)) {
       let privateKey = input.startsWith('0x') ? input.slice(2) : input;
-      privateKey = await encodeSensitiveText({ text: privateKey });
+      privateKey = await encodeSensitiveTextAsync({ text: privateKey });
       return Promise.resolve({
         privateKey,
       });
@@ -371,7 +371,7 @@ export default class Vault extends VaultBase {
 
     if (this.isWIFPrivateKey(input)) {
       const privateKeyBuffer = privateKeyFromWIF(input);
-      const wifPrivateKey = await encodeSensitiveText({
+      const wifPrivateKey = await encodeSensitiveTextAsync({
         text: privateKeyBuffer.toString(),
       });
       return Promise.resolve({

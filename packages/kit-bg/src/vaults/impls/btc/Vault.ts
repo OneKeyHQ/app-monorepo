@@ -25,7 +25,7 @@ import {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type {
   ICoreApiSignAccount,
@@ -1295,7 +1295,7 @@ export default class VaultBtc extends VaultBase {
     // result is hex format:
     let privateKey = convertBtcXprvtToHex({ xprvt: input });
 
-    privateKey = await encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return Promise.resolve({
       privateKey,
     });

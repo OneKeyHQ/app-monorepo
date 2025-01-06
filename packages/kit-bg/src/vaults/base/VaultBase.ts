@@ -10,7 +10,7 @@ import { isEmpty, isNil, omit, omitBy } from 'lodash';
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
   decodeSensitiveTextAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
@@ -270,7 +270,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
       encodedText: params.input,
     });
     let privateKey = hexUtils.stripHexPrefix(input);
-    privateKey = await encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return {
       privateKey,
     };

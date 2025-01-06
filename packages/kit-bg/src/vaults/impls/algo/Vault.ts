@@ -9,7 +9,7 @@ import type {
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
   decodeSensitiveTextAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -531,7 +531,7 @@ export default class Vault extends VaultBase {
     let privateKey = Buffer.from(sdkAlgo.seedFromMnemonic(input)).toString(
       'hex',
     );
-    privateKey = await encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return Promise.resolve({
       privateKey,
     });

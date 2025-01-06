@@ -100,7 +100,7 @@ async function decodePasswordAsync({
   return password;
 }
 
-async function encodePassword({
+async function encodePasswordAsync({
   password,
   key,
 }: {
@@ -108,7 +108,7 @@ async function encodePassword({
   key?: string;
 }): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
-  return encodeSensitiveText({
+  return encodeSensitiveTextAsync({
     text: password,
     key,
   });
@@ -365,7 +365,7 @@ async function decodeSensitiveTextAsync({
   throw new Error('Not correct encoded text');
 }
 
-async function encodeSensitiveText({
+async function encodeSensitiveTextAsync({
   text,
   key,
 }: {
@@ -443,8 +443,8 @@ export {
   decodeSensitiveTextAsync,
   decryptAsync,
   decryptStringAsync,
-  encodePassword,
-  encodeSensitiveText,
+  encodePasswordAsync,
+  encodeSensitiveTextAsync,
   encryptAsync,
   encryptStringAsync,
   ensureSensitiveTextEncoded,

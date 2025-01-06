@@ -8,7 +8,7 @@ import type {
 } from '@onekeyhq/core/src/chains/xrp/types';
 import {
   decodeSensitiveTextAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -299,7 +299,7 @@ export default class Vault extends VaultBase {
   ): Promise<IGetPrivateKeyFromImportedResult> {
     const input = await decodeSensitiveTextAsync({ encodedText: params.input });
     let privateKey = bufferUtils.bytesToHex(input);
-    privateKey = await encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return Promise.resolve({ privateKey });
   }
 
