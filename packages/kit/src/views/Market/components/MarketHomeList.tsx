@@ -249,22 +249,50 @@ function MarketMdColumn({
             {
               icon: 'SwitchHorOutline' as const,
               label: intl.formatMessage({ id: ETranslations.global_trade }),
-              onPress: tradeActions.onSwapLazyModal,
+              onPress: () => {
+                defaultLogger.market.token.marketTokenAction({
+                  tokenName: coingeckoId,
+                  action: 'trade',
+                  from: 'listPage',
+                });
+                void tradeActions.onSwapLazyModal();
+              },
             },
             canStaking && {
               icon: 'CoinsOutline' as const,
               label: intl.formatMessage({ id: ETranslations.earn_stake }),
-              onPress: tradeActions.onStaking,
+              onPress: () => {
+                defaultLogger.market.token.marketTokenAction({
+                  tokenName: coingeckoId,
+                  action: 'stake',
+                  from: 'listPage',
+                });
+                void tradeActions.onStaking();
+              },
             },
             showBuyOrSellButton && {
               icon: 'PlusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_buy }),
-              onPress: tradeActions.onBuy,
+              onPress: () => {
+                defaultLogger.market.token.marketTokenAction({
+                  tokenName: coingeckoId,
+                  action: 'buy',
+                  from: 'listPage',
+                });
+                void tradeActions.onBuy();
+              },
             },
             showBuyOrSellButton && {
               icon: 'MinusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_sell }),
-              onPress: tradeActions.onSell,
+              onPress: () => {
+                defaultLogger.market.token.marketTokenAction({
+                  tokenName: coingeckoId,
+                  action: 'sell',
+                  from: 'listPage',
+                });
+                tradeActions.onSell();
+              },
             },
           ].filter(Boolean),
         },
@@ -277,10 +305,7 @@ function MarketMdColumn({
     item,
     showBuyOrSellButton,
     showMoreAction,
-    tradeActions.onBuy,
-    tradeActions.onSell,
-    tradeActions.onStaking,
-    tradeActions.onSwapLazyModal,
+    tradeActions,
   ]);
   const pressEvents = useMemo(
     () => ({

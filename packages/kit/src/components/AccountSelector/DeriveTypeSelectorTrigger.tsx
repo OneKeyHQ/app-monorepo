@@ -464,7 +464,9 @@ export function DeriveTypeSelectorFormInput(
           fixedValue = defaultDeriveType;
         }
         shouldResetDeriveTypeWhenNetworkChanged.current = false;
-        onDeriveTypeChange?.(fixedValue || 'default');
+        if (fixedValue) {
+          onDeriveTypeChange?.(fixedValue);
+        }
       }
     })();
   }, [deriveType, networkId, onDeriveTypeChange, viewItems]);
