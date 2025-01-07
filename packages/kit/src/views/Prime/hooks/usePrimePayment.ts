@@ -7,8 +7,8 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
 import { usePrimeAuth } from './usePrimeAuth';
 
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type { Package } from '@revenuecat/purchases-js';
+import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
 export function usePrimePayment(): IUsePrimePayment {
   const { isReady: isAuthReady, user } = usePrimeAuth();
@@ -73,9 +73,12 @@ export function usePrimePayment(): IUsePrimePayment {
     }
     const offerings = await getOfferings();
     const packages: Package[] = [];
-    Object.values(offerings.all).forEach((offering) => {
-      packages.push(...offering.availablePackages);
-    });
+
+    // Object.values(offerings.all).forEach((offering) => {
+    //   packages.push(...offering.availablePackages);
+    // });
+    packages.push(...(offerings.current?.availablePackages || []));
+
     packages.sort((a) => {
       // Yearly is the first
       if (
