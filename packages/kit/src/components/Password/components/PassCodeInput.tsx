@@ -20,6 +20,7 @@ import { PassCodeRegex } from '../utils';
 import type { TextInput } from 'react-native';
 
 export const PIN_CELL_COUNT = 6;
+export const AUTO_FOCUS_DELAY_MS = 380;
 
 function BasicPassCodeInput(
   {
@@ -31,7 +32,8 @@ function BasicPassCodeInput(
     // showMask,
     testId,
     clearCode,
-    autoFocusDelayMs = 150,
+    clearCodeAndFocus,
+    autoFocusDelayMs = AUTO_FOCUS_DELAY_MS,
   }: {
     onPinCodeChange?: (pin: string) => void;
     onComplete?: () => void;
@@ -40,6 +42,7 @@ function BasicPassCodeInput(
     editable?: boolean;
     testId?: string;
     clearCode?: boolean;
+    clearCodeAndFocus?: boolean;
     autoFocusDelayMs?: number;
     // showMask?: boolean;
   },
@@ -117,6 +120,15 @@ function BasicPassCodeInput(
       setPinValue('');
     }
   }, [clearCode]);
+
+  useEffect(() => {
+    if (clearCodeAndFocus) {
+      setPinValue('');
+      setTimeout(() => {
+        pinInputRef.current?.focus();
+      }, AUTO_FOCUS_DELAY_MS);
+    }
+  }, [clearCodeAndFocus]);
 
   return (
     <CodeField

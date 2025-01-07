@@ -56,7 +56,7 @@ const PasswordVerifyContainer = ({
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
   const [hasCachedPassword, setHasCachedPassword] = useState(false);
-  const [hasSecurePassword, setHasSecurePassword] = useState(false);
+  const [hasSecurePassword, setHasSecurePassword] = useState(true);
   const [passwordMode] = usePasswordModeAtom();
   const { title } = useBiometricAuthInfo();
   const biologyAuthAttempts = useMemo(
@@ -222,21 +222,19 @@ const PasswordVerifyContainer = ({
       } catch (e: any) {
         const error = e as { message?: string; cause?: string };
         let message = error?.message;
-        if (!message || error?.cause !== biologyAuthNativeError) {
+        if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           message = intl.formatMessage(
             {
-              id:
-                verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
-                  ? ETranslations.auth_biometric_failed
-                  : ETranslations.prime_incorrect_password,
+              id: ETranslations.auth_biometric_failed,
             },
             {
-              biometric:
-                verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
-                  ? title
-                  : undefined,
+              biometric: title,
             },
           );
+        } else if (!message || error?.cause !== biologyAuthNativeError) {
+          message = intl.formatMessage({
+            id: ETranslations.prime_incorrect_password,
+          });
         }
         if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           setVerifyPeriodBiologyEnable(false);

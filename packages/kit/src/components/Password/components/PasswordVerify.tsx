@@ -23,7 +23,6 @@ import {
 import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
@@ -56,7 +55,6 @@ export interface IPasswordVerifyForm {
 }
 
 const PasswordVerify = ({
-  authType,
   isEnable,
   alertText,
   confirmBtnDisabled,
@@ -73,27 +71,21 @@ const PasswordVerify = ({
     reValidateMode: 'onSubmit',
     defaultValues: { password: '', passCode: '' },
   });
-  const timeOutRef = useRef<NodeJS.Timeout | null>(null);
+
   const isEnableRef = useRef(isEnable);
   if (isEnableRef.current !== isEnable) {
     isEnableRef.current = isEnable;
   }
+
   useEffect(() => {
-    // enable first false should wait some logic to get final value
-    timeOutRef.current = setTimeout(() => {
+    setTimeout(() => {
       if (!isEnableRef.current) {
         form.setFocus(
           passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
         );
       }
-    }, 500);
-    return () => {
-      if (timeOutRef.current) {
-        clearTimeout(timeOutRef.current);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    }, 200);
+  }, [form, passwordMode]);
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
   const passwordInput = form.watch(
