@@ -22,6 +22,7 @@ import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
+import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
@@ -139,6 +140,10 @@ export class SimpleDbProxy
   floatingIconDomainBlockList = this._createProxyService(
     'floatingIconDomainBlockList',
   ) as SimpleDbEntityFloatingIconDomainBlockList;
+
+  floatingIconSettings = this._createProxyService(
+    'floatingIconSettings',
+  ) as SimpleDbEntityFloatingIconSettings;
 
   universalSearch = this._createProxyService(
     'universalSearch',
