@@ -8,7 +8,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
-import type { ITransactionDisplay } from './signatureConfirm';
+import type { ITransactionData, ITransactionDisplay } from './signatureConfirm';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -142,6 +142,7 @@ export type IDecodedTx = {
 
   // for signature confirm page display
   txDisplay?: ITransactionDisplay;
+  txABI?: ITransactionData;
   isLocalParsed?: boolean;
 };
 

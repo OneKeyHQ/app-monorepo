@@ -26,12 +26,14 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { TxDataViewer } from '../SignatureConfirmDataViewer';
 
 type IProps = {
   accountId: string;
   networkId: string;
+  decodedTxs: IDecodedTx[];
 };
 
 const showNonceFaq = () => {
@@ -67,7 +69,7 @@ const showHexDataFaq = () => {
 };
 
 function TxAdvancedSettings(props: IProps) {
-  const { accountId, networkId } = props;
+  const { accountId, networkId, decodedTxs } = props;
   const intl = useIntl();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [settings] = useSettingsPersistAtom();
@@ -108,11 +110,18 @@ function TxAdvancedSettings(props: IProps) {
   }, [unsignedTxs]);
 
   const abiContent = useMemo(() => {
-    if (!unsignedTxs || unsignedTxs.length === 0) {
+    if (!decodedTxs || decodedTxs.length === 0) {
       return '';
     }
-    return '';
-  }, [unsignedTxs]);
+    return decodedTxs.reduce((acc, decodedTx) => {
+      try {
+        const txABI = JSON.stringify(decodedTx.txABI, null, 2);
+        return acc ? `${acc}\n\n${txABI}` : txABI;
+      } catch {
+        return acc;
+      }
+    }, '');
+  }, [decodedTxs]);
 
   const hexContent = useMemo(() => {
     if (!unsignedTxs || unsignedTxs.length === 0) {

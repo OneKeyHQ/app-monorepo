@@ -180,7 +180,11 @@ function TxConfirm() {
           networkId={networkId}
           decodedTxs={decodedTxs}
         />
-        <TxAdvancedSettings accountId={accountId} networkId={networkId} />
+        <TxAdvancedSettings
+          accountId={accountId}
+          networkId={networkId}
+          decodedTxs={decodedTxs}
+        />
       </>
     );
   }, [isBuildingDecodedTxs, decodedTxs, accountId, networkId]);

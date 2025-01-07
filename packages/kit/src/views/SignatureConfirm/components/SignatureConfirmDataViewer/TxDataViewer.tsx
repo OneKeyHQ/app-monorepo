@@ -74,12 +74,12 @@ function TxDataViewer(props: IProps) {
             icon="Copy3Outline"
             size="small"
             onPress={() => {
-              copyText(dataGroup[activeDataGroupIndex].data);
+              copyText(items[activeDataGroupIndex].data);
             }}
           />
         ) : null}
       </XStack>
-      <DataViewer data={dataGroup[activeDataGroupIndex].data} />
+      <DataViewer data={items[activeDataGroupIndex].data} />
     </YStack>
   );
 }

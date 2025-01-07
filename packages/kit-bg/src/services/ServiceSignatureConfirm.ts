@@ -68,6 +68,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (parsedTx && parsedTx.display) {
       decodedTx.txDisplay = parsedTx.display;
+      decodedTx.txABI = parsedTx.parsedTx?.data;
     } else {
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
       decodedTx.txDisplay = convertDecodedTxActionsToSignatureConfirmTxDisplay({
