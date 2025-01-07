@@ -50,8 +50,8 @@ const {
 
 // yarn jest packages/core/src/chains/stc/CoreChainSoftware.test.ts
 describe('STC Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });

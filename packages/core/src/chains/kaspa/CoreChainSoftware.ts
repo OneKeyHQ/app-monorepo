@@ -3,7 +3,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt } from '../../secret';
+import { decryptAsync } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
@@ -57,7 +57,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
       const chainId = networkInfo.chainId;
       return privateKeyFromBuffer(
-        decrypt(password, privateKeyRaw),
+        await decryptAsync({ password, data: privateKeyRaw }),
         chainId,
       ).toWIF();
     }
