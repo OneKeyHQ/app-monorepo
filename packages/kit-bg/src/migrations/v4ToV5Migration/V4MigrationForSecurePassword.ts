@@ -1,4 +1,4 @@
-import { encodeSensitiveText } from '@onekeyhq/core/src/secret';
+import { encodeSensitiveTextAsync } from '@onekeyhq/core/src/secret';
 import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureStorageInstance';
 
 import { biologyAuthUtils } from '../../services/ServicePassword/biologyAuthUtils';
@@ -11,7 +11,7 @@ export class V4MigrationForSecurePassword extends V4MigrationManagerBase {
       'password',
     );
     if (v4SecurePassword) {
-      return encodeSensitiveText({ text: v4SecurePassword });
+      return encodeSensitiveTextAsync({ text: v4SecurePassword });
     }
     return '';
   }

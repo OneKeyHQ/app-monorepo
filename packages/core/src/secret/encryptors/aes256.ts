@@ -59,47 +59,6 @@ function isEncodedSensitiveText(text: string) {
   );
 }
 
-/**
- * @deprecated 已弃用 - Use decodePasswordAsync instead. This synchronous decoding method will be removed in a future version.
- * @see decodePasswordAsync
- */
-function decodePassword({
-  password,
-  key,
-  ignoreLogger,
-  allowRawPassword,
-}: {
-  password: string;
-  key?: string;
-  ignoreLogger?: boolean;
-  allowRawPassword?: boolean;
-}): string {
-  // do nothing if password is encodeKey, but not a real password
-  if (password.startsWith(encodeKeyPrefix)) {
-    return password;
-  }
-  // decode password if it is encoded
-  if (isEncodedSensitiveText(password)) {
-    if (platformEnv.isExtensionUi) {
-      throw new Error('decodePassword can NOT be called from UI');
-    }
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define
-    return decodeSensitiveText({ encodedText: password, key, ignoreLogger });
-  }
-  if (
-    process.env.NODE_ENV !== 'production' &&
-    password &&
-    !platformEnv.isJest &&
-    !allowRawPassword
-  ) {
-    console.error(
-      'Passing raw password is not allowed and not safe, please encode it at the beginning of debugger breakpoint call stack.',
-    );
-    throw new Error('Passing raw password is not allowed and not safe.');
-  }
-  return password;
-}
-
 async function decodePasswordAsync({
   password,
   key,
@@ -141,7 +100,7 @@ async function decodePasswordAsync({
   return password;
 }
 
-async function encodePassword({
+async function encodePasswordAsync({
   password,
   key,
 }: {
@@ -149,43 +108,10 @@ async function encodePassword({
   key?: string;
 }): Promise<string> {
   // eslint-disable-next-line @typescript-eslint/no-use-before-define
-  return encodeSensitiveText({
+  return encodeSensitiveTextAsync({
     text: password,
     key,
   });
-}
-
-// ------------------------------------------------------------
-
-/**
- * @deprecated Use encryptAsync instead. This synchronous encryption method will be removed in a future version.
- * @see encryptAsync
- */
-function encrypt(
-  password: string,
-  data: Buffer | string,
-  allowRawPassword?: boolean,
-): Buffer {
-  console.warn('encrypt() is deprecated. Please use encryptAsync() instead');
-  // eslint-disable-next-line no-console
-  console.trace('encrypt() call stack');
-  if (!password) {
-    throw new IncorrectPassword();
-  }
-  const dataBuffer = bufferUtils.toBuffer(data);
-  // eslint-disable-next-line no-param-reassign
-  const passwordDecoded = decodePassword({ password, allowRawPassword });
-  if (!passwordDecoded) {
-    throw new IncorrectPassword();
-  }
-  const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
-  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
-  const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
-  return Buffer.concat([
-    salt,
-    iv,
-    Buffer.from(AES_CBC.encrypt(dataBuffer, key, true, iv)),
-  ]);
 }
 
 // ------------------------------------------------------------
@@ -196,29 +122,6 @@ export type IEncryptStringParams = {
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
 };
-
-/**
- * @deprecated Use encryptStringAsync instead. This synchronous encryption method will be removed in a future version.
- * @see encryptStringAsync
- */
-function encryptString({
-  password,
-  data,
-  dataEncoding = 'hex',
-  allowRawPassword,
-}: IEncryptStringParams): string {
-  console.warn(
-    'encryptString() is deprecated. Please use encryptStringAsync() instead',
-  );
-  // eslint-disable-next-line no-console
-  console.trace('encryptString() call stack');
-  const bytes = encrypt(
-    password,
-    bufferUtils.toBuffer(data, dataEncoding),
-    allowRawPassword,
-  );
-  return bufferUtils.bytesToHex(bytes);
-}
 
 // ------------------------------------------------------------
 export type IEncryptAsyncParams = {
@@ -248,7 +151,10 @@ async function encryptAsync({
     return bufferUtils.toBuffer(str, 'hex');
   }
 
-  const passwordDecoded = decodePassword({ password, allowRawPassword });
+  const passwordDecoded = await decodePasswordAsync({
+    password,
+    allowRawPassword,
+  });
 
   if (!passwordDecoded) {
     throw new IncorrectPassword();
@@ -264,91 +170,6 @@ async function encryptAsync({
     iv,
     Buffer.from(AES_CBC.encrypt(dataBuffer, key, true, iv)),
   ]);
-}
-
-/**
- * @deprecated 已弃用 - Use decryptAsync instead. This synchronous decryption method will be removed in a future version.
- * @see decryptAsync
- */
-function decrypt(
-  password: string,
-  data: Buffer | string,
-  // avoid recursive call log output order confusion
-  ignoreLogger?: boolean,
-  allowRawPassword?: boolean,
-): Buffer {
-  if (!ignoreLogger) {
-    console.warn(
-      'decrypt() 已弃用 (deprecated). Please use decryptAsync() instead',
-    );
-    console.trace('decrypt() call stack');
-  }
-  if (!password) {
-    throw new IncorrectPassword();
-  }
-  const dataBuffer = bufferUtils.toBuffer(data);
-
-  if (!ignoreLogger) {
-    defaultLogger.account.secretPerf.decodePassword();
-  }
-  // eslint-disable-next-line no-param-reassign
-  const passwordDecoded = decodePassword({
-    password,
-    ignoreLogger: true,
-    allowRawPassword,
-  });
-
-  if (!passwordDecoded) {
-    throw new IncorrectPassword();
-  }
-
-  if (!ignoreLogger) {
-    defaultLogger.account.secretPerf.decodePasswordDone();
-  }
-
-  const salt: Buffer = dataBuffer.slice(0, PBKDF2_SALT_LENGTH);
-
-  if (!ignoreLogger) {
-    defaultLogger.account.secretPerf.keyFromPasswordAndSalt();
-  }
-  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
-  if (!ignoreLogger) {
-    defaultLogger.account.secretPerf.keyFromPasswordAndSaltDone();
-  }
-
-  const iv: Buffer = dataBuffer.slice(
-    PBKDF2_SALT_LENGTH,
-    ENCRYPTED_DATA_OFFSET,
-  );
-
-  try {
-    if (!ignoreLogger) {
-      defaultLogger.account.secretPerf.decryptAES();
-    }
-    // TODO make to async call RN_AES(@metamask/react-native-aes-crypto)
-    // const aesDecryptData = await RN_AES.decrypt(
-    //   dataBuffer.slice(ENCRYPTED_DATA_OFFSET).toString('base64'),
-    //   key.toString('base64'),
-    //   iv.toString('base64'),
-    // );
-
-    const aesDecryptData = AES_CBC.decrypt(
-      dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
-      key,
-      true,
-      iv,
-    );
-    if (!ignoreLogger) {
-      defaultLogger.account.secretPerf.decryptAESDone();
-    }
-
-    return Buffer.from(aesDecryptData);
-  } catch (e) {
-    if (!platformEnv.isJest) {
-      console.error(e);
-    }
-    throw new IncorrectPassword();
-  }
 }
 
 export type IDecryptAsyncParams = {
@@ -456,32 +277,6 @@ export type IDecryptStringParams = {
   dataEncoding?: BufferEncoding;
   allowRawPassword?: boolean;
 };
-/**
- * @deprecated 已弃用 - Use decryptStringAsync instead. This synchronous decryption method will be removed in a future version.
- * @see decryptStringAsync
- */
-function decryptString({
-  password,
-  data,
-  resultEncoding = 'hex',
-  dataEncoding = 'hex',
-  allowRawPassword,
-}: IDecryptStringParams): string {
-  console.warn(
-    'decryptString() 已弃用 (deprecated). Please use decryptStringAsync() instead',
-  );
-  console.trace('decryptString() call stack');
-  const bytes = decrypt(
-    password,
-    bufferUtils.toBuffer(data, dataEncoding),
-    undefined,
-    allowRawPassword,
-  );
-  if (resultEncoding === 'hex') {
-    return bufferUtils.bytesToHex(bytes);
-  }
-  return bufferUtils.bytesToText(bytes, resultEncoding);
-}
 
 async function decryptStringAsync({
   password,
@@ -493,6 +288,7 @@ async function decryptStringAsync({
   const bytes = await decryptAsync({
     password,
     data: bufferUtils.toBuffer(data, dataEncoding),
+    ignoreLogger: undefined,
     allowRawPassword,
   });
   if (resultEncoding === 'hex') {
@@ -530,50 +326,6 @@ function ensureSensitiveTextEncoded(text: string) {
   }
 }
 
-/**
- * @deprecated 已弃用 - Use decodeSensitiveTextAsync instead. This synchronous decoding method will be removed in a future version.
- * @see decodeSensitiveTextAsync
- */
-function decodeSensitiveText({
-  encodedText,
-  key,
-  ignoreLogger,
-  allowRawPassword,
-}: {
-  encodedText: string;
-  key?: string;
-  // avoid recursive call log output order confusion
-  ignoreLogger?: boolean;
-  allowRawPassword?: boolean;
-}): string {
-  console.warn(
-    'decodeSensitiveText() 已弃用 (deprecated). Please use decodeSensitiveTextAsync() instead',
-  );
-  console.trace('decodeSensitiveText() call stack');
-  checkKeyPassedOnExtUi(key);
-  const theKey = key || encodeKey;
-  ensureEncodeKeyExists(theKey);
-  if (isEncodedSensitiveText(encodedText)) {
-    if (encodedText.startsWith(ENCODE_TEXT_PREFIX.aes)) {
-      const text = decrypt(
-        theKey,
-        Buffer.from(encodedText.slice(ENCODE_TEXT_PREFIX.aes.length), 'hex'),
-        ignoreLogger,
-        allowRawPassword,
-      ).toString('utf-8');
-      return text;
-    }
-    if (encodedText.startsWith(ENCODE_TEXT_PREFIX.xor)) {
-      const text = xorDecrypt({
-        encryptedDataHex: encodedText.slice(ENCODE_TEXT_PREFIX.xor.length),
-        key: theKey,
-      });
-      return text;
-    }
-  }
-  throw new Error('Not correct encoded text');
-}
-
 async function decodeSensitiveTextAsync({
   encodedText,
   key,
@@ -597,6 +349,7 @@ async function decodeSensitiveTextAsync({
           encodedText.slice(ENCODE_TEXT_PREFIX.aes.length),
           'hex',
         ),
+        ignoreLogger,
         allowRawPassword,
       });
       return decrypted.toString('utf-8');
@@ -612,7 +365,7 @@ async function decodeSensitiveTextAsync({
   throw new Error('Not correct encoded text');
 }
 
-async function encodeSensitiveText({
+async function encodeSensitiveTextAsync({
   text,
   key,
 }: {
@@ -630,7 +383,7 @@ async function encodeSensitiveText({
       platformEnv.isDev
     ) {
       // try to decode it to verify if encode by same key
-      decodeSensitiveText({ encodedText: text });
+      await decodeSensitiveTextAsync({ encodedText: text });
     }
     return text;
   }
@@ -686,19 +439,13 @@ function setBgSensitiveTextEncodeKey(key: string) {
 }
 
 export {
-  decodePassword,
   decodePasswordAsync,
-  decodeSensitiveText,
   decodeSensitiveTextAsync,
-  decrypt,
   decryptAsync,
-  decryptString,
   decryptStringAsync,
-  encodePassword,
-  encodeSensitiveText,
-  encrypt,
+  encodePasswordAsync,
+  encodeSensitiveTextAsync,
   encryptAsync,
-  encryptString,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
