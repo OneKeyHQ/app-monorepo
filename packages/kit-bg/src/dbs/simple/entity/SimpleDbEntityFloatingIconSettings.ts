@@ -16,7 +16,8 @@ export class SimpleDbEntityFloatingIconSettings extends SimpleDbEntityBase<IFloa
 
   @backgroundMethod()
   async getSettings(): Promise<IFloatingIconSettings> {
-    const result = (await this.getRawData()) || ({} as IFloatingIconSettings);
+    const result =
+      (await this.getRawData()) || ({} as Partial<IFloatingIconSettings>);
     const position = result.position || {
       side: 'right',
       bottom: '30%',
@@ -24,5 +25,17 @@ export class SimpleDbEntityFloatingIconSettings extends SimpleDbEntityBase<IFloa
     return {
       position,
     };
+  }
+
+  @backgroundMethod()
+  async setSettings(settings: Partial<IFloatingIconSettings> | undefined) {
+    if (!settings) {
+      return;
+    }
+    const dbSettings = await this.getSettings();
+    const position = settings.position || dbSettings.position;
+    await this.setRawData({
+      position,
+    });
   }
 }
