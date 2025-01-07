@@ -8,7 +8,7 @@ import {
 import { verifyNexaAddressPrefix } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import {
   decryptAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
   encryptImportedCredential,
   fixV4VerifyStringToV5,
   revealEntropyToMnemonic,
@@ -758,7 +758,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     return this.decryptV4ImportedCredential({
       v4dbCredential,
       encodedPassword: password
-        ? await encodeSensitiveText({ text: password })
+        ? await encodeSensitiveTextAsync({ text: password })
         : await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }

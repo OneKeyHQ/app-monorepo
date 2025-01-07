@@ -16,6 +16,10 @@ export enum EMessageTypesCommon {
   HEX_MESSAGE = 'commonHexMessage',
 }
 
+export enum EMessageTypesSolana {
+  SIGN_OFFCHAIN_MESSAGE = 'solanaSignOffchainMessage',
+}
+
 export enum EMessageTypesAda {
   SIGN_MESSAGE = 'adaSignMessage',
 }
