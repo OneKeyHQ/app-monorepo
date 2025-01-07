@@ -18,6 +18,7 @@ import type {
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 
+import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
@@ -113,6 +114,7 @@ function TxConfirm() {
           networkId={networkId}
           decodedTxs={decodedTxs}
         />
+        <TxAdvancedSettings accountId={accountId} networkId={networkId} />
       </>
     );
   }, [isBuildingDecodedTxs, decodedTxs, accountId, networkId]);
