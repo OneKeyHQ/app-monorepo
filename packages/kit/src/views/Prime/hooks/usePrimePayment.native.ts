@@ -11,9 +11,12 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
 import { usePrimeAuth } from './usePrimeAuth';
 
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
-import type { PurchasesPackage } from '@revenuecat/purchases-typescript-internal';
+import type {
+  CustomerInfo,
+  PurchasesPackage,
+} from '@revenuecat/purchases-typescript-internal';
 import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
 export function usePrimePayment(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
@@ -21,6 +24,37 @@ export function usePrimePayment(): IUsePrimePayment {
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
 
   const isReady = isPaymentReady && isAuthReady;
+
+  const getCustomerInfo = useCallback(async () => {
+    if (!isReady) {
+      throw new Error('PrimeAuth Not ready');
+    }
+    if (!user?.privyUserId) {
+      throw new Error('User not logged in');
+    }
+    try {
+      await Purchases.logOut();
+    } catch (e) {
+      console.error(e);
+    }
+    if (user?.privyUserId) {
+      try {
+        await Purchases.logIn(user.privyUserId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
+    console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
+    setPrimePersistAtom((prev) =>
+      perfUtils.buildNewValueIfChanged(prev, {
+        ...prev,
+        subscriptionManageUrl: customerInfo.managementURL || '',
+      }),
+    );
+
+    return customerInfo;
+  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
 
   // TODO move to jotai context
   useEffect(() => {
@@ -53,30 +87,10 @@ export function usePrimePayment(): IUsePrimePayment {
   useEffect(() => {
     void (async () => {
       if (isReady && user?.privyUserId) {
-        try {
-          await Purchases.logOut();
-        } catch (e) {
-          console.error(e);
-        }
-        if (user?.privyUserId) {
-          await Purchases.logIn(user.privyUserId);
-        }
-        const customerInfo = await Purchases.getCustomerInfo();
-        console.log(
-          'customerInfo >>>>> ',
-          JSON.stringify(customerInfo, null, 2),
-        );
-        if (customerInfo.managementURL) {
-          setPrimePersistAtom((prev) =>
-            perfUtils.buildNewValueIfChanged(prev, {
-              ...prev,
-              subscriptionManageUrl: customerInfo.managementURL || '',
-            }),
-          );
-        }
+        await getCustomerInfo();
       }
     })();
-  }, [isReady, user?.privyUserId, setPrimePersistAtom]);
+  }, [getCustomerInfo, isReady, user?.privyUserId]);
 
   const getPaywallPackagesNative = useCallback(async () => {
     if (!isReady) {
@@ -163,5 +177,6 @@ export function usePrimePayment(): IUsePrimePayment {
     getPaywallPackagesNative,
     getPaywallPackagesWeb: undefined,
     purchasePaywallPackageWeb: undefined,
+    getCustomerInfo,
   };
 }

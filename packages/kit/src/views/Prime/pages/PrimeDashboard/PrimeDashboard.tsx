@@ -276,6 +276,7 @@ export default function PrimeDashboard() {
     purchasePaywallPackageWeb,
     getPaywallPackagesWeb,
     getPaywallPackagesNative,
+    getCustomerInfo,
   } = usePrimePayment();
 
   const onConfirm = useCallback(async () => {
@@ -416,14 +417,32 @@ export default function PrimeDashboard() {
               >
                 User Info
               </Button>
+              <Button
+                onPress={() => {
+                  //
+                }}
+              >
+                shouldShowConfirmButton={shouldShowConfirmButton.toString()}
+              </Button>
+              <Button
+                onPress={() => {
+                  void getCustomerInfo().then(console.log);
+                }}
+              >
+                CustomerInfo
+              </Button>
             </XStack>
           </Page.Body>
           <Page.Footer
             onConfirm={shouldShowConfirmButton ? onConfirm : undefined}
             onConfirmText="Subscribe"
-            confirmButtonProps={{
-              loading: isLoading,
-            }}
+            confirmButtonProps={
+              shouldShowConfirmButton
+                ? {
+                    loading: isLoading,
+                  }
+                : undefined
+            }
           />
         </Page>
       </Theme>
