@@ -8,7 +8,6 @@ import {
   useState,
 } from 'react';
 
-import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
@@ -27,10 +26,13 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
+import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import { getPasswordKeyboardType } from '../utils';
 
 import PassCodeInput from './PassCodeInput';
+
+import type { AuthenticationType } from 'expo-local-authentication';
 
 interface IPasswordVerifyProps {
   authType: AuthenticationType[];
@@ -98,20 +100,8 @@ const PasswordVerify = ({
     passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
   );
   const [{ manualLocking }] = usePasswordAtom();
-  const biologyAuthIconName = useMemo(() => {
-    let iconName: IKeyOfIcons =
-      authType &&
-      (authType.includes(AuthenticationType.FACIAL_RECOGNITION) ||
-        authType.includes(AuthenticationType.IRIS))
-        ? 'FaceIdOutline'
-        : 'TouchId2Outline';
-    if (platformEnv.isDesktopWin) {
-      iconName = 'WindowsHelloSolid';
-    } else if (platformEnv.isExtension) {
-      iconName = 'PassKeySolid';
-    }
-    return iconName;
-  }, [authType]);
+  const { icon: biologyAuthIconName } = useBiometricAuthInfo();
+
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{
       iconName?: IKeyOfIcons;
@@ -276,7 +266,6 @@ const PasswordVerify = ({
               onComplete={form.handleSubmit(onInputPasswordAuth)}
               clearCode={passCodeClear}
               disabledComplete={confirmBtnDisabled}
-              enableAutoFocus
               testId="pass-code-input"
             />
           </Form.Field>
