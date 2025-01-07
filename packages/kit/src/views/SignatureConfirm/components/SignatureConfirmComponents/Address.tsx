@@ -25,7 +25,7 @@ function Address(props: IProps) {
       <SignatureConfirmItem.Value>
         {component.address}
       </SignatureConfirmItem.Value>
-      <XStack gap="$1">
+      <XStack gap="$1" flexWrap="wrap" flex={1}>
         {accountId && networkId && showAddressLocalTags ? (
           <AddressInfo
             accountId={accountId}

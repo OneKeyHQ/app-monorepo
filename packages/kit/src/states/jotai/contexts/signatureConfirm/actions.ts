@@ -164,6 +164,11 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         originalIsUnlimited: boolean;
       },
     ) => {
+      const tokenApproveInfo = get(tokenApproveInfoAtom());
+      if (tokenApproveInfo.originalAllowance !== '') {
+        return;
+      }
+
       set(tokenApproveInfoAtom(), payload);
     },
   );

@@ -56,6 +56,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       unsignedTx,
       transferPayload,
       saveToLocalHistory,
+      isToContract: parsedTx?.parsedTx?.to?.isContract,
     });
 
     if (feeInfo) {

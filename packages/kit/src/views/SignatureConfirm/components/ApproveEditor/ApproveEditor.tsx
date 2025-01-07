@@ -293,10 +293,19 @@ function ApproveEditor(props: IProps) {
           id: ETranslations.global_reset,
         })}
         onCancel={() => {
-          void handleUpdateUnsignedTxs({
-            allowance: tokenApproveInfo.originalAllowance,
-            isUnlimited: tokenApproveInfo.originalIsUnlimited,
-          });
+          if (
+            !(
+              new BigNumber(allowance).isEqualTo(
+                tokenApproveInfo.originalAllowance,
+              ) && isUnlimited === tokenApproveInfo.originalIsUnlimited
+            )
+          ) {
+            void handleUpdateUnsignedTxs({
+              allowance: tokenApproveInfo.originalAllowance,
+              isUnlimited: tokenApproveInfo.originalIsUnlimited,
+            });
+          }
+
           onResetTokenApproveInfo?.();
         }}
       />

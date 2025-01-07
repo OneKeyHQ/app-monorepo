@@ -65,9 +65,12 @@ function TxConfirm() {
     usePromiseResult(
       async () => {
         updateDecodedTxs({
-          decodedTxs: [],
           isBuildingDecodedTxs: true,
         });
+
+        if (!reactiveUnsignedTxs || reactiveUnsignedTxs.length === 0) {
+          return [];
+        }
 
         const r = await Promise.all(
           reactiveUnsignedTxs.map((unsignedTx) =>
@@ -91,8 +94,8 @@ function TxConfirm() {
       [
         updateDecodedTxs,
         reactiveUnsignedTxs,
-        networkId,
         accountId,
+        networkId,
         transferPayload,
       ],
       {
@@ -155,7 +158,7 @@ function TxConfirm() {
   ]);
 
   const txConfirmTitle = useMemo(() => {
-    if (isBuildingDecodedTxs) {
+    if (isBuildingDecodedTxs && !decodedTxsInit.current) {
       return '';
     }
 

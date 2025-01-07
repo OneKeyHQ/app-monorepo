@@ -1,10 +1,19 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { IYStackProps } from '@onekeyhq/components';
-import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Icon,
+  SizableText,
+  Skeleton,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { Token } from '@onekeyhq/kit/src/components/Token';
-import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import {
+  useDecodedTxsAtom,
+  useSignatureConfirmActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IDisplayComponentApprove,
@@ -45,6 +54,7 @@ function SignatureAssetDetailItem({
   symbol,
   editable,
   tokenProps,
+  isLoading,
   handleEdit,
   ...rest
 }: {
@@ -54,9 +64,25 @@ function SignatureAssetDetailItem({
   symbol: string;
   editable?: boolean;
   showNetwork?: boolean;
+  isLoading?: boolean;
   tokenProps?: Omit<ITokenProps, 'size' | 'showNetworkIcon'>;
   handleEdit?: () => void;
 } & ISignatureConfirmItemType) {
+  const renderDetails = useCallback(() => {
+    if (isLoading) {
+      return <Skeleton.HeadingMd />;
+    }
+    return (
+      <>
+        {amount ? <SizableText size="$headingMd">{amount}</SizableText> : null}
+        {symbol ? <SizableText size="$bodyLg">{symbol}</SizableText> : null}
+        {editable ? (
+          <Icon name="PencilOutline" size="$4.5" color="$iconSubdued" />
+        ) : null}
+      </>
+    );
+  }, [amount, symbol, editable, isLoading]);
+
   return (
     <SignatureConfirmItem {...rest}>
       <SignatureConfirmItem.Label>{label}</SignatureConfirmItem.Label>
@@ -96,19 +122,8 @@ function SignatureAssetDetailItem({
               },
             })}
           >
-            {amount ? (
-              <SizableText size="$headingMd">{amount}</SizableText>
-            ) : null}
-            <SizableText size="$bodyLg">{symbol}</SizableText>
-            {editable ? (
-              <Icon name="PencilOutline" size="$4.5" color="$iconSubdued" />
-            ) : null}
+            {renderDetails()}
           </XStack>
-          {showNetwork ? (
-            <SizableText size="$bodyMd" color="$textSubdued">
-              Ethereum
-            </SizableText>
-          ) : null}
         </YStack>
       </XStack>
     </SignatureConfirmItem>
@@ -136,20 +151,24 @@ function AssetsToken(props: IAssetsTokenProps) {
 function AssetsTokenApproval(props: IAssetsApproveProps) {
   const { component, accountId, networkId, approveInfo, ...rest } = props;
   const { token } = component;
-  const approveInfoInit = useRef(false);
   const { updateTokenApproveInfo } = useSignatureConfirmActions().current;
+  const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
 
   useEffect(() => {
-    if (approveInfoInit.current) return;
     updateTokenApproveInfo({
-      originalAllowance: component.amount,
+      originalAllowance: component.amountParsed,
       originalIsUnlimited: component.isInfiniteAmount,
     });
-    approveInfoInit.current = true;
-  }, [updateTokenApproveInfo, component.amount, component.isInfiniteAmount]);
+  }, [
+    updateTokenApproveInfo,
+    component.amount,
+    component.isInfiniteAmount,
+    component.amountParsed,
+  ]);
 
   return (
     <SignatureAssetDetailItem
+      isLoading={isBuildingDecodedTxs}
       label={component.label}
       amount={component.amountParsed}
       symbol={component.token.info.symbol}
@@ -164,7 +183,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
           accountId,
           networkId,
           isUnlimited: component.isInfiniteAmount,
-          allowance: component.amount,
+          allowance: component.amountParsed,
           tokenDecimals: token.info.decimals,
           tokenSymbol: token.info.symbol,
           tokenAddress: token.info.address,
