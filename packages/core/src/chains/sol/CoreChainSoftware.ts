@@ -3,6 +3,10 @@ import bs58 from 'bs58';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import {
+  EMessageTypesCommon,
+  EMessageTypesSolana,
+} from '@onekeyhq/shared/types/message';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { decryptAsync } from '../../secret';
@@ -21,6 +25,8 @@ import {
   type ICurveName,
   type ISignedTxPro,
 } from '../../types';
+
+import { OffchainMessage } from './sdkSol/OffchainMessage';
 
 import type { IEncodedTxSol, INativeTxSol } from './types';
 import type { ISigner } from '../../base/ChainSigner';
@@ -152,7 +158,21 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       payload,
       curve,
     });
-    return signMessage(unsignedMsg.message, signer);
+
+    if (unsignedMsg.type === EMessageTypesCommon.SIGN_MESSAGE) {
+      return signMessage(unsignedMsg.message, signer);
+    }
+    if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+      const { message, payload: messagePayload } = unsignedMsg;
+      const offchainMessage = new OffchainMessage({
+        version: messagePayload?.version,
+        message: Buffer.from(message),
+      });
+      const [signature] = await signer.sign(offchainMessage.serialize());
+      return bs58.encode(signature);
+    }
+
+    throw new Error('signMessage not supported');
   }
 
   override async getAddressFromPrivate(

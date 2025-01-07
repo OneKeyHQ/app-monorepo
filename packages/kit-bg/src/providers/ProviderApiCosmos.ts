@@ -606,6 +606,28 @@ class ProviderApiCosmos extends ProviderApiBase {
       };
     });
   }
+
+  @providerApiMethod()
+  public async getChainInfoWithoutEndpoints(
+    request: IJsBridgeMessagePayload,
+    params: string,
+  ) {
+    const { networks } =
+      await this.backgroundApi.serviceNetwork.getNetworksByImpls({
+        impls: ['cosmos'],
+      });
+
+    const network = networks.find((n) => n.chainId === params);
+    if (!network) throw new Error(`OneKey does not support ${params}`);
+
+    return {
+      chainId: network.chainId,
+      chainName: network.name,
+      bip44: { coinType: parseInt(COINTYPE_COSMOS, 10) },
+      currencies: [],
+      feeCurrencies: [],
+    };
+  }
 }
 
 export default ProviderApiCosmos;
