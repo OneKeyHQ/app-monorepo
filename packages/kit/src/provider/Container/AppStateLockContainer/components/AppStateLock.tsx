@@ -44,6 +44,7 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
       const animatedStyles = useAnimatedStyle(() => ({
         flex: 1,
         bottom: keyboardHeightValue.value,
+        position: 'relative',
       }));
       useKeyboardEvent({
         keyboardWillShow: (event: KeyboardEvent) => {
@@ -60,7 +61,7 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
       });
       return animatedStyles;
     }
-  : () => ({ flex: 1 });
+  : () => ({ flex: 1, position: 'relative' });
 
 const useForgotPasswordAnimationStyle = platformEnv.isNative
   ? () => {
@@ -88,7 +89,7 @@ const useForgotPasswordAnimationStyle = platformEnv.isNative
       return animatedStyles;
     }
   : () => ({
-      position: 'absolute',
+      position: 'relative',
       paddingVertical: 32,
       width: '100%',
       alignItems: 'center',
@@ -105,7 +106,6 @@ const AppStateLock = ({
 
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
   const forgotPasswordAnimationStyle = useForgotPasswordAnimationStyle();
-
   return (
     <AppStateContainer>
       <ThemeableStack
@@ -119,13 +119,12 @@ const AppStateLock = ({
         bg="$bgApp"
         {...props}
       >
-        <Animated.View style={safeKeyboardAnimationStyle}>
+        <Animated.View style={safeKeyboardAnimationStyle as any}>
           <Stack
             flex={1}
             justifyContent="center"
             alignItems="center"
             p="$8"
-            pb={126}
             gap="$8"
           >
             <Stack gap="$4" alignItems="center">
@@ -145,6 +144,10 @@ const AppStateLock = ({
               {passwordVerifyContainer}
             </Stack>
           </Stack>
+          {
+            // Add an empty view as a placeholder
+            platformEnv.isNative ? <Stack h={126} /> : null
+          }
           <Animated.View style={forgotPasswordAnimationStyle as any}>
             {v4migrationData?.isMigrationModalOpen ||
             v4migrationData?.isProcessing ? null : (
