@@ -4,11 +4,11 @@ import type {
   IEncryptStringParams,
 } from '@onekeyhq/core/src/secret';
 import {
-  decodePassword,
-  decodeSensitiveText,
+  decodePasswordAsync,
+  decodeSensitiveTextAsync,
   decryptAsync,
   decryptStringAsync,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
   encryptStringAsync,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
@@ -82,7 +82,7 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
-    return Promise.resolve(encodeSensitiveText({ text }));
+    return Promise.resolve(encodeSensitiveTextAsync({ text }));
   }
 
   @backgroundMethod()
@@ -128,7 +128,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async encryptByInstanceId(input: string): Promise<string> {
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
-    const output = await encodeSensitiveText({
+    const output = await encodeSensitiveTextAsync({
       text: input,
       key: instanceId,
     });
@@ -138,7 +138,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async decryptByInstanceId(input: string): Promise<string> {
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
-    const output = decodeSensitiveText({
+    const output = await decodeSensitiveTextAsync({
       encodedText: input,
       key: instanceId,
       allowRawPassword: true,
@@ -152,7 +152,7 @@ export default class ServicePassword extends ServiceBase {
   }: {
     encodedText: string;
   }): Promise<string> {
-    return Promise.resolve(decodeSensitiveText({ encodedText }));
+    return Promise.resolve(await decodeSensitiveTextAsync({ encodedText }));
   }
 
   @backgroundMethod()
@@ -282,12 +282,12 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // validatePassword --------------------------------
-  validatePasswordValidRules(
+  async validatePasswordValidRules(
     password: string,
     passwordMode: EPasswordMode,
-  ): void {
+  ): Promise<void> {
     ensureSensitiveTextEncoded(password);
-    const realPassword = decodePassword({ password });
+    const realPassword = await decodePasswordAsync({ password });
     // **** length matched
     if (
       passwordMode === EPasswordMode.PASSWORD &&
@@ -304,11 +304,16 @@ export default class ServicePassword extends ServiceBase {
     // **** other rules ....
   }
 
-  validatePasswordSame(password: string, newPassword: string) {
+  async validatePasswordSame(
+    password: string,
+    newPassword: string,
+  ): Promise<void> {
     ensureSensitiveTextEncoded(password);
     ensureSensitiveTextEncoded(newPassword);
-    const realPassword = decodePassword({ password });
-    const realNewPassword = decodePassword({ password: newPassword });
+    const realPassword = await decodePasswordAsync({ password });
+    const realNewPassword = await decodePasswordAsync({
+      password: newPassword,
+    });
     if (realPassword === realNewPassword) {
       throw new OneKeyErrors.PasswordUpdateSameFailed();
     }
@@ -330,10 +335,10 @@ export default class ServicePassword extends ServiceBase {
       ensureSensitiveTextEncoded(newPassword);
     }
     if (!newPassword) {
-      this.validatePasswordValidRules(password, passwordMode);
+      await this.validatePasswordValidRules(password, passwordMode);
     } else {
-      this.validatePasswordValidRules(newPassword, passwordMode);
-      this.validatePasswordSame(password, newPassword);
+      await this.validatePasswordValidRules(newPassword, passwordMode);
+      await this.validatePasswordSame(password, newPassword);
     }
     if (!skipDBVerify) {
       await localDb.verifyPassword(password);
