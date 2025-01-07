@@ -264,7 +264,6 @@ const PasswordVerify = ({
             }}
           >
             <PassCodeInput
-              autoFocus
               onPinCodeChange={(pin) => {
                 form.setValue('passCode', pin);
                 form.clearErrors('passCode');
