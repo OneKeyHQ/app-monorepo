@@ -10,7 +10,7 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { decrypt, encryptAsync } from './encryptors/aes256';
+import { decryptAsync, encryptAsync } from './encryptors/aes256';
 import { sha256 } from './hash';
 
 import type { ICurveName } from '../types';
@@ -645,15 +645,21 @@ test('CKDPub is not supported for ed25519', () => {
 test('Normal encryption/decryption', async () => {
   const data = Buffer.from('deadbeef', 'hex');
   expect(
-    decrypt(password, await encryptAsync({ password, data })),
+    await decryptAsync({
+      password,
+      data: await encryptAsync({ password, data }),
+    }),
   ).toStrictEqual(data);
 });
 
 test('Incorrect password', async () => {
   const encrypted = await encryptAsync({ password, data: Buffer.from('') });
-  expect(() => decrypt(password + password, encrypted)).toThrow(
-    IncorrectPassword,
-  );
+  await expect(
+    decryptAsync({
+      password: password + password,
+      data: encrypted,
+    }),
+  ).rejects.toThrow(IncorrectPassword);
 });
 
 test('Incorrect mnemonic checksum', async () => {
