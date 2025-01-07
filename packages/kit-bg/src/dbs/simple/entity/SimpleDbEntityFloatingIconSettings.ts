@@ -9,6 +9,11 @@ export interface IFloatingIconSettings {
   };
 }
 
+const DEFAULT_POSITION: IFloatingIconSettings['position'] = {
+  side: 'right',
+  bottom: '30%',
+};
+
 export class SimpleDbEntityFloatingIconSettings extends SimpleDbEntityBase<IFloatingIconSettings> {
   entityName = 'floatingIconSettings';
 
@@ -18,10 +23,7 @@ export class SimpleDbEntityFloatingIconSettings extends SimpleDbEntityBase<IFloa
   async getSettings(): Promise<IFloatingIconSettings> {
     const result =
       (await this.getRawData()) || ({} as Partial<IFloatingIconSettings>);
-    const position = result.position || {
-      side: 'right',
-      bottom: '30%',
-    };
+    const position = result.position || DEFAULT_POSITION;
     return {
       position,
     };
@@ -35,7 +37,10 @@ export class SimpleDbEntityFloatingIconSettings extends SimpleDbEntityBase<IFloa
     const dbSettings = await this.getSettings();
     const position = settings.position || dbSettings.position;
     await this.setRawData({
-      position,
+      position: {
+        side: position.side || DEFAULT_POSITION.side,
+        bottom: position.bottom || DEFAULT_POSITION.bottom,
+      },
     });
   }
 }
