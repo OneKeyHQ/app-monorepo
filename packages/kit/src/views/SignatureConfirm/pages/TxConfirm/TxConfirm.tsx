@@ -29,6 +29,7 @@ import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 function TxConfirm() {
   const route =
@@ -49,6 +50,7 @@ function TxConfirm() {
     updateUnsignedTxs,
     updateNativeTokenInfo,
     updatePreCheckTxStatus,
+    updateSendFeeStatus,
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
@@ -183,7 +185,10 @@ function TxConfirm() {
   useEffect(() => {
     updateUnsignedTxs(unsignedTxs);
     appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
-  }, [unsignedTxs, updateUnsignedTxs]);
+    return () => {
+      updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
+    };
+  }, [unsignedTxs, updateSendFeeStatus, updateUnsignedTxs]);
 
   const renderTxConfirmContent = useCallback(() => {
     if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit.current) {
