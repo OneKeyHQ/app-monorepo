@@ -5,7 +5,10 @@ import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { biologyAuthUtils } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
+import {
+  biologyAuthNativeError,
+  biologyAuthUtils,
+} from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
 import {
   BIOLOGY_AUTH_ATTEMPTS_FACE,
   BIOLOGY_AUTH_ATTEMPTS_FINGERPRINT,
@@ -216,7 +219,25 @@ const PasswordVerifyContainer = ({
             throw new Error('biology auth verify error');
           }
         }
-      } catch (e) {
+      } catch (e: any) {
+        const error = e as { message?: string; cause?: string };
+        let message = error?.message;
+        if (!message || error?.cause !== biologyAuthNativeError) {
+          message = intl.formatMessage(
+            {
+              id:
+                verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+                  ? ETranslations.auth_biometric_failed
+                  : ETranslations.prime_incorrect_password,
+            },
+            {
+              biometric:
+                verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
+                  ? title
+                  : undefined,
+            },
+          );
+        }
         if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           setVerifyPeriodBiologyEnable(false);
         } else {
@@ -226,20 +247,7 @@ const PasswordVerifyContainer = ({
           ...v,
           passwordVerifyStatus: {
             value: EPasswordVerifyStatus.ERROR,
-            message: intl.formatMessage(
-              {
-                id:
-                  verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
-                    ? ETranslations.auth_biometric_failed
-                    : ETranslations.auth_error_passcode_incorrect,
-              },
-              {
-                biometric:
-                  verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts
-                    ? title
-                    : undefined,
-              },
-            ),
+            message,
           },
         }));
       }

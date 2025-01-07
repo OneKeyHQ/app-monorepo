@@ -63,7 +63,7 @@ const PassCodeInput = ({
     isFocused: boolean;
   }) => {
     const symbolBg = symbol ? '$borderActive' : '$transparent';
-    const bg = editable ? symbolBg : '$bgDisabled';
+    const bg = editable ? symbolBg : '$borderDisabled';
     const borderColor = editable ? '$borderActive' : '$transparent';
     return (
       <Text
@@ -82,7 +82,6 @@ const PassCodeInput = ({
           {...(platformEnv.isNativeAndroid
             ? {
                 renderToHardwareTextureAndroid: true,
-                elevationAndroid: 0.1,
                 overflow: 'hidden',
               }
             : {})}
