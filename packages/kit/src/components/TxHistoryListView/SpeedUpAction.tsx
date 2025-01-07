@@ -64,7 +64,7 @@ export function SpeedUpAction({ networkId, onSpeedUp }: ISpeedUpActionProps) {
   if (useActionList) {
     return (
       <ActionList
-        title="Speed up"
+        title={intl.formatMessage({ id: ETranslations.global_speed_up })}
         sections={sections}
         renderTrigger={
           <Button size="small" variant="primary">
