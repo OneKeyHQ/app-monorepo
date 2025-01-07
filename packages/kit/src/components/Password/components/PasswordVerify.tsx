@@ -264,6 +264,7 @@ const PasswordVerify = ({
             }}
           >
             <PassCodeInput
+              autoFocus
               onPinCodeChange={(pin) => {
                 form.setValue('passCode', pin);
                 form.clearErrors('passCode');
@@ -276,7 +277,6 @@ const PasswordVerify = ({
               onComplete={form.handleSubmit(onInputPasswordAuth)}
               clearCode={passCodeClear}
               disabledComplete={confirmBtnDisabled}
-              enableAutoFocus
               testId="pass-code-input"
             />
           </Form.Field>
