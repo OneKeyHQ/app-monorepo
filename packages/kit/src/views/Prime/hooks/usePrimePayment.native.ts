@@ -5,15 +5,15 @@ import RevenueCatUI from 'react-native-purchases-ui';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService.android';
+import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
 import { usePrimeAuth } from './usePrimeAuth';
 
+import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type { PurchasesPackage } from '@revenuecat/purchases-typescript-internal';
 import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
 export function usePrimePayment(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
@@ -107,9 +107,17 @@ export function usePrimePayment(): IUsePrimePayment {
         throw new Error('PrimeAuth native not ready!!!');
       }
 
-      // TODO VPN required or device not support google play service
-      if (!(await googlePlayService.isAvailable())) {
-        throw new Error('Google Play Service is not available on this device');
+      if (platformEnv.isNativeAndroid) {
+        if (platformEnv.isNativeAndroidGooglePlay) {
+          // TODO VPN required or device not support google play service
+          if (!(await googlePlayService.isAvailable())) {
+            throw new Error(
+              'Google Play Service is not available on this device',
+            );
+          }
+        } else {
+          throw new Error('Android web purchase not supported yet');
+        }
       }
 
       // const { packages } = await getPaywallPackagesNative();
@@ -126,17 +134,16 @@ export function usePrimePayment(): IUsePrimePayment {
       // const customerInfo = await Purchases.getCustomerInfo();
       // console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
 
-      // const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
-      //   // offering: offeringYearly,
-      //   offering: offeringMonthly,
-      //   // offering: offering // Optional Offering object obtained through getOfferings
-      // });
+      const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
+        // offering: offeringYearly,
+        // offering: offering // Optional Offering object obtained through getOfferings
+      });
 
-      const paywallResult: PAYWALL_RESULT =
-        await RevenueCatUI.presentPaywallIfNeeded({
-          // offering: offering, // Optional Offering object obtained through getOfferings
-          requiredEntitlementIdentifier: 'Prime',
-        });
+      // const paywallResult: PAYWALL_RESULT =
+      //   await RevenueCatUI.presentPaywallIfNeeded({
+      //     // offering: offering, // Optional Offering object obtained through getOfferings
+      //     requiredEntitlementIdentifier: 'Prime',
+      //   });
 
       console.log(
         'paywallResult >>>>> ',
@@ -148,7 +155,7 @@ export function usePrimePayment(): IUsePrimePayment {
       errorToastUtils.toastIfError(error);
       throw error;
     }
-  }, [isReady, getPaywallPackagesNative]);
+  }, [isReady]);
 
   return {
     isReady,

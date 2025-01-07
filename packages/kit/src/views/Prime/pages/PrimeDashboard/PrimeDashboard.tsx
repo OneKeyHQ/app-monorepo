@@ -141,20 +141,20 @@ function PrimeBenefitsList() {
 function PrimeSubscriptionPlanItem({
   selected,
   title,
-  type,
+  periodDuration,
   price,
   currency,
   ...rest
 }: {
   selected?: boolean;
   title: string;
-  type: 'Yearly' | 'Monthly';
+  periodDuration: 'P1Y' | 'P1M';
   price: number;
   currency: string;
 } & IXStackProps) {
   let promoText = '';
   let pricePerMonth = price;
-  if (type === 'Yearly') {
+  if (periodDuration === 'P1Y') {
     const pricePerMonthBN = new BigNumber(price).div(12);
     pricePerMonth = pricePerMonthBN.toNumber();
     // const savePercent = new BigNumber(1)
@@ -184,7 +184,7 @@ function PrimeSubscriptionPlanItem({
         </Badge>
       ) : null}
       <SizableText size="$headingXl" mr="$2">
-        {title}
+        {title} ({periodDuration})
       </SizableText>
       <NumberSizeableText
         flex={1}
@@ -243,9 +243,8 @@ function PrimeSubscriptionPlans({
             key={p.identifier}
             selected={selected}
             title={p.rcBillingProduct.title}
-            type={
-              p.rcBillingProduct?.presentedOfferingContext
-                ?.offeringIdentifier as any
+            periodDuration={
+              p.rcBillingProduct?.normalPeriodDuration as unknown as any
             }
             price={p.rcBillingProduct.currentPrice.amountMicros / 1_000_000}
             onPress={() => {
