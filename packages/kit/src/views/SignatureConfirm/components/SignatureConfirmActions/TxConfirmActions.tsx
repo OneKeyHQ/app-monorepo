@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
@@ -16,13 +16,13 @@ import {
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   usePreCheckTxStatusAtom,
-  useSendConfirmActions,
   useSendFeeStatusAtom,
   useSendSelectedFeeInfoAtom,
   useSendTxStatusAtom,
+  useSignatureConfirmActions,
   useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { checkIsEmptyData } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -48,7 +48,7 @@ type IProps = {
   onCancel?: () => void;
   sourceInfo?: IDappSourceInfo;
   signOnly?: boolean;
-  transferPayload: ITransferPayload | undefined;
+  transferPayload?: ITransferPayload;
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   popStack?: boolean;
@@ -81,7 +81,7 @@ function TxConfirmActions(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
-  const { updateSendTxStatus } = useSendConfirmActions().current;
+  const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
 
   const dappApprove = useDappApproveAction({

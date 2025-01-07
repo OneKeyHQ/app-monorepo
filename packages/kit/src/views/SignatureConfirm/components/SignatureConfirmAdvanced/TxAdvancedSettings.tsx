@@ -24,9 +24,9 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
-  useSendConfirmActions,
+  useSignatureConfirmActions,
   useUnsignedTxsAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/sendConfirm';
+} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
@@ -73,9 +73,7 @@ function TxAdvancedSettings(props: IProps) {
   const intl = useIntl();
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [settings] = useSettingsPersistAtom();
-  const { updateTxAdvancedSettings } = useSendConfirmActions().current;
-
-  const [shouldShowSettings, setShouldShowSettings] = useState<boolean>(false);
+  const { updateTxAdvancedSettings } = useSignatureConfirmActions().current;
 
   const vaultSettings = usePromiseResult(
     async () =>
@@ -267,8 +265,8 @@ function TxAdvancedSettings(props: IProps) {
 
   return (
     <>
-      <Divider />
       <YStack
+        mt="$5"
         pt="$5"
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
