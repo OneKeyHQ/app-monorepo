@@ -7,6 +7,7 @@ import {
 } from 'react-native-confirmation-code-field';
 
 import { YStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PassCodeRegex } from '../utils';
 
@@ -60,23 +61,35 @@ const PassCodeInput = ({
     index: number;
     symbol: string;
     isFocused: boolean;
-  }) => (
-    <Text
-      key={index}
-      style={[...[cellStyles.cell]]}
-      onLayout={getCellOnLayoutHandler(index)}
-    >
-      <YStack
-        animation="50ms"
-        w="$4"
-        h="$4"
-        backgroundColor={symbol ? '$borderActive' : '$transparent'}
-        borderWidth={1}
-        borderRadius="$full"
-        borderColor="$borderActive"
-      />
-    </Text>
-  );
+  }) => {
+    const symbolBg = symbol ? '$borderActive' : '$transparent';
+    const bg = editable ? symbolBg : '$bgDisabled';
+    const borderColor = editable ? '$borderActive' : '$transparent';
+    return (
+      <Text
+        key={index}
+        style={[...[cellStyles.cell]]}
+        onLayout={getCellOnLayoutHandler(index)}
+      >
+        <YStack
+          animation="50ms"
+          w="$4"
+          h="$4"
+          backgroundColor={bg}
+          borderWidth={1}
+          borderRadius="$full"
+          borderColor={borderColor}
+          {...(platformEnv.isNativeAndroid
+            ? {
+                renderToHardwareTextureAndroid: true,
+                elevationAndroid: 0.1,
+                overflow: 'hidden',
+              }
+            : {})}
+        />
+      </Text>
+    );
+  };
   useEffect(() => {
     if (pinCodeFocus) {
       pinInputRef.current?.focus();
