@@ -9,6 +9,8 @@ export function usePrivyUniversal(): IUsePrivyUniversal {
   const { error, user, isReady, logout, getAccessToken } = privy;
   const { login } = usePrivyLogin();
 
+  console.log('usePrivyUniversal: isReady >>>>> ', isReady);
+
   const userEmail = useMemo<string | undefined>(() => {
     if (user) {
       const emailUser = user?.linked_accounts?.find(

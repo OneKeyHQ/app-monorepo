@@ -274,9 +274,9 @@ export default function PrimeDashboard() {
   >();
   const {
     presentPaywallNative,
-    getPaywallPackagesNative,
     purchasePaywallPackageWeb,
     getPaywallPackagesWeb,
+    getPaywallPackagesNative,
   } = usePrimePayment();
 
   const onConfirm = useCallback(async () => {

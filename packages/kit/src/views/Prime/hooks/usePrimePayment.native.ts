@@ -4,14 +4,16 @@ import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import RevenueCatUI from 'react-native-purchases-ui';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService.android';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
 import { usePrimeAuth } from './usePrimeAuth';
 
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type { PurchasesPackage } from '@revenuecat/purchases-typescript-internal';
 import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
+import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
 export function usePrimePayment(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
@@ -60,6 +62,10 @@ export function usePrimePayment(): IUsePrimePayment {
           await Purchases.logIn(user.privyUserId);
         }
         const customerInfo = await Purchases.getCustomerInfo();
+        console.log(
+          'customerInfo >>>>> ',
+          JSON.stringify(customerInfo, null, 2),
+        );
         if (customerInfo.managementURL) {
           setPrimePersistAtom((prev) =>
             perfUtils.buildNewValueIfChanged(prev, {
@@ -74,7 +80,7 @@ export function usePrimePayment(): IUsePrimePayment {
 
   const getPaywallPackagesNative = useCallback(async () => {
     if (!isReady) {
-      throw new Error('PrimeAuth Not ready');
+      throw new Error('PrimeAuth native not ready, please try again later');
     }
     const offerings = await Purchases.getOfferings();
     const packages: PurchasesPackage[] = [];
@@ -95,33 +101,54 @@ export function usePrimePayment(): IUsePrimePayment {
 
   // https://www.revenuecat.com/docs/tools/paywalls/displaying-paywalls#react-native
   const presentPaywallNative = useCallback(async () => {
-    if (!isReady) {
-      throw new Error('PrimeAuth Not ready');
+    try {
+      console.log('presentPaywallNative >>>>> ');
+      if (!isReady) {
+        throw new Error('PrimeAuth native not ready!!!');
+      }
+
+      // TODO VPN required or device not support google play service
+      if (!(await googlePlayService.isAvailable())) {
+        throw new Error('Google Play Service is not available on this device');
+      }
+
+      // const { packages } = await getPaywallPackagesNative();
+      // console.log(
+      //   'getPaywallPackagesNative: packages >>>>> ',
+      //   JSON.stringify(packages, null, 2),
+      // );
+
+      // const offerings = await Purchases.getOfferings();
+      // console.log('offerings >>>>> ', JSON.stringify(offerings, null, 2));
+      // const offeringYearly = offerings.all.Yearly;
+      // const offeringMonthly = offerings.all.Monthly;
+
+      // const customerInfo = await Purchases.getCustomerInfo();
+      // console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
+
+      // const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
+      //   // offering: offeringYearly,
+      //   offering: offeringMonthly,
+      //   // offering: offering // Optional Offering object obtained through getOfferings
+      // });
+
+      const paywallResult: PAYWALL_RESULT =
+        await RevenueCatUI.presentPaywallIfNeeded({
+          // offering: offering, // Optional Offering object obtained through getOfferings
+          requiredEntitlementIdentifier: 'Prime',
+        });
+
+      console.log(
+        'paywallResult >>>>> ',
+        JSON.stringify(paywallResult, null, 2),
+      );
+
+      return paywallResult;
+    } catch (error) {
+      errorToastUtils.toastIfError(error);
+      throw error;
     }
-    const offerings = await Purchases.getOfferings();
-    const customerInfo = await Purchases.getCustomerInfo();
-    const offeringYearly = offerings.all.Yearly;
-    const offeringMonthly = offerings.all.Monthly;
-
-    console.log('offerings >>>>> ', JSON.stringify(offerings, null, 2));
-    console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
-
-    // const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
-    //   // offering: offeringYearly,
-    //   offering: offeringMonthly,
-    //   // offering: offering // Optional Offering object obtained through getOfferings
-    // });
-
-    const paywallResult: PAYWALL_RESULT =
-      await RevenueCatUI.presentPaywallIfNeeded({
-        // offering: offering, // Optional Offering object obtained through getOfferings
-        requiredEntitlementIdentifier: 'Prime000',
-      });
-
-    console.log('paywallResult >>>>> ', JSON.stringify(paywallResult, null, 2));
-
-    return paywallResult;
-  }, [isReady]);
+  }, [isReady, getPaywallPackagesNative]);
 
   return {
     isReady,
