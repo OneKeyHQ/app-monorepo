@@ -145,7 +145,7 @@ const AppStateLock = ({
             </Stack>
           </Stack>
           {
-            // Add an empty view as a placeholder
+            // 126px placeholder maintains consistent spacing when keyboard is hidden
             platformEnv.isNative ? <Stack h={126} /> : null
           }
           <Animated.View style={forgotPasswordAnimationStyle as any}>
