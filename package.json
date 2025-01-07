@@ -139,6 +139,7 @@
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
     "@babel/plugin-proposal-private-methods": "^7.18.6",
     "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/plugin-transform-optional-chaining": "^7.25.9",
     "@babel/preset-env": "^7.22.9",
     "@emurgo/cardano-message-signing-nodejs": "^1.0.1",
     "@emurgo/cardano-serialization-lib-nodejs": "^11.5.0",
