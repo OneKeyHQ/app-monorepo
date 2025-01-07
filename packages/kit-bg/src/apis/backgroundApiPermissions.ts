@@ -44,6 +44,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_sendSiteMetadata',
   'wallet_scanQrcode',
   'wallet_isShowFloatingButton',
+  'wallet_saveFloatingIconSettings',
   'wallet_disableFloatingButton',
   'wallet_hideFloatingButtonOnSite',
   'wallet_detectRiskLevel',

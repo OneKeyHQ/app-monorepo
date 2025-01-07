@@ -5,6 +5,7 @@ import type {
   EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
+  EMessageTypesSolana,
   EMessageTypesTon,
 } from '@onekeyhq/shared/types/message';
 
@@ -72,6 +73,14 @@ export type IUnsignedMessageAlph = {
   payload?: any;
 };
 
+export type IUnsignedMessageSolana = {
+  type: EMessageTypesSolana;
+  message: string;
+  payload?: {
+    version?: number;
+  };
+};
+
 export type IUnsignedMessage =
   | IUnsignedMessageCommon
   | IUnsignedMessageEth
@@ -80,4 +89,5 @@ export type IUnsignedMessage =
   | IUnsignedMessageTon
   | IUnsignedMessageAda
   | IUnsignedMessageAlph
-  | IUnsignedMessageCfx;
+  | IUnsignedMessageCfx
+  | IUnsignedMessageSolana;
