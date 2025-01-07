@@ -62,17 +62,49 @@ const useSafeKeyboardAnimationStyle = platformEnv.isNative
     }
   : () => ({ flex: 1 });
 
+const useForgotPasswordAnimationStyle = platformEnv.isNative
+  ? () => {
+      const { bottom } = useSafeAreaInsets();
+      const keyboardHeightValue = useSharedValue(bottom);
+      const animatedStyles = useAnimatedStyle(() => ({
+        position: 'absolute',
+        bottom: keyboardHeightValue.value,
+        width: '100%',
+        alignItems: 'center',
+        paddingVertical: 32,
+      }));
+      useKeyboardEvent({
+        keyboardWillShow: (event: KeyboardEvent) => {
+          if (event?.endCoordinates?.height) {
+            keyboardHeightValue.value = updateHeightWhenKeyboardShown(
+              event.endCoordinates.height - bottom - 60,
+            );
+          }
+        },
+        keyboardWillHide: () => {
+          keyboardHeightValue.value = updateHeightWhenKeyboardHide(bottom);
+        },
+      });
+      return animatedStyles;
+    }
+  : () => ({
+      position: 'absolute',
+      paddingVertical: 32,
+      width: '100%',
+      alignItems: 'center',
+    });
+
 const AppStateLock = ({
   passwordVerifyContainer,
   lockContainerRef,
   ...props
 }: IAppStateLockProps) => {
   const intl = useIntl();
-  const { bottom } = useSafeAreaInsets();
   const resetApp = useResetApp({ inAppStateLock: true });
   const [v4migrationData] = useV4migrationAtom();
 
   const safeKeyboardAnimationStyle = useSafeKeyboardAnimationStyle();
+  const forgotPasswordAnimationStyle = useForgotPasswordAnimationStyle();
 
   return (
     <AppStateContainer>
@@ -93,6 +125,7 @@ const AppStateLock = ({
             justifyContent="center"
             alignItems="center"
             p="$8"
+            pb={126}
             gap="$8"
           >
             <Stack gap="$4" alignItems="center">
@@ -112,7 +145,7 @@ const AppStateLock = ({
               {passwordVerifyContainer}
             </Stack>
           </Stack>
-          <Stack py="$8" mb={bottom ?? 'unset'} alignItems="center">
+          <Animated.View style={forgotPasswordAnimationStyle as any}>
             {v4migrationData?.isMigrationModalOpen ||
             v4migrationData?.isProcessing ? null : (
               <Button size="small" variant="tertiary" onPress={resetApp}>
@@ -121,7 +154,7 @@ const AppStateLock = ({
                 })}
               </Button>
             )}
-          </Stack>
+          </Animated.View>
         </Animated.View>
       </ThemeableStack>
     </AppStateContainer>
