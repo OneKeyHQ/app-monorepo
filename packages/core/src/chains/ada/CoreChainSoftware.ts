@@ -2,7 +2,7 @@ import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt, encrypt } from '../../secret';
+import { decryptAsync, encryptAsync } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
@@ -53,7 +53,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     const xprv = await generateExportedCredential(password, hdCredential, path);
     const privateKey = decodePrivateKeyByXprv(xprv);
-    const privateKeyEncrypt = encrypt(password, privateKey);
+    const privateKeyEncrypt = await encryptAsync({
+      password,
+      data: privateKey,
+    });
 
     const map: ICoreApiPrivateKeysMap = {
       [path]: bufferUtils.bytesToHex(privateKeyEncrypt),
@@ -280,7 +283,10 @@ export default class CoreChainSoftware extends CoreChainApiBase {
         );
       }
       if (credentials.imported) {
-        const privateKey = decrypt(password, privateKeyRaw);
+        const privateKey = await decryptAsync({
+          password,
+          data: privateKeyRaw,
+        });
         return generateXprvFromPrivateKey(privateKey);
       }
     }

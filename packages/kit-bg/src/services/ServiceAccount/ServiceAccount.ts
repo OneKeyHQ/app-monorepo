@@ -334,7 +334,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
   }) {
     ensureSensitiveTextEncoded(password);
-    const rs = decryptRevealableSeed({
+    const rs = await decryptRevealableSeed({
       rs: credential,
       password,
     });
@@ -1075,7 +1075,7 @@ class ServiceAccount extends ServiceBase {
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
       });
-    const credentialEncrypt = encryptImportedCredential({
+    const credentialEncrypt = await encryptImportedCredential({
       credential: {
         privateKey: privateKeyDecoded,
       },
@@ -2121,11 +2121,12 @@ class ServiceAccount extends ServiceBase {
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = revealableSeedFromMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromMnemonic(realMnemonic, password);
     } catch {
       throw new InvalidMnemonic();
     }
-    if (realMnemonic !== mnemonicFromEntropy(rs, password)) {
+    const mnemonicFromRs = await mnemonicFromEntropy(rs, password);
+    if (realMnemonic !== mnemonicFromRs) {
       throw new InvalidMnemonic();
     }
 
@@ -2153,12 +2154,13 @@ class ServiceAccount extends ServiceBase {
     }
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = revealableSeedFromTonMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromTonMnemonic(realMnemonic, password);
     } catch {
       throw new InvalidMnemonic();
     }
 
-    if (realMnemonic !== tonMnemonicFromEntropy(rs, password)) {
+    const tonMnemonicFromRs = await tonMnemonicFromEntropy(rs, password);
+    if (realMnemonic !== tonMnemonicFromRs) {
       throw new InvalidMnemonic();
     }
     await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
@@ -2389,10 +2391,14 @@ class ServiceAccount extends ServiceBase {
         reason,
       });
     const credential = await localDb.getCredential(walletId);
-    let mnemonic = mnemonicFromEntropy(credential.credential, password);
-    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
+    const mnemonicRaw = await mnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
@@ -2413,10 +2419,14 @@ class ServiceAccount extends ServiceBase {
         accountId,
       }),
     );
-    let mnemonic = tonMnemonicFromEntropy(credential.credential, password);
-    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
+    const mnemonicRaw = await tonMnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
@@ -2794,6 +2804,98 @@ class ServiceAccount extends ServiceBase {
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.getAddressType({ address });
+  }
+
+  @backgroundMethod()
+  async createAddressIfNotExists(
+    {
+      walletId,
+      networkId,
+      accountId,
+      indexedAccountId,
+    }: {
+      walletId: string;
+      networkId: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    },
+    { allowWatchAccount }: { allowWatchAccount?: boolean },
+  ) {
+    if (!accountId && !indexedAccountId) {
+      throw new Error('accountId or indexedAccountId is required');
+    }
+
+    const { serviceNetwork, serviceAccount } = this.backgroundApi;
+    const deriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId,
+    });
+
+    const showSwitchAccountSelector = () => {
+      appEventBus.emit(EAppEventBusNames.ShowSwitchAccountSelector, {
+        networkId,
+      });
+    };
+
+    if (
+      !allowWatchAccount &&
+      accountUtils.isWatchingAccount({
+        accountId: accountId ?? '',
+      })
+    ) {
+      showSwitchAccountSelector();
+      return undefined;
+    }
+
+    if (indexedAccountId) {
+      try {
+        const result = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return result;
+      } catch (error) {
+        const isCreated = await new Promise<boolean>((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
+            networkId,
+            indexedAccountId,
+            deriveType,
+            promiseId,
+            autoCreateAddress: accountUtils.isHdWallet({ walletId }),
+          });
+        });
+        if (!isCreated) {
+          return undefined;
+        }
+        const result = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return result;
+      }
+    }
+
+    if (accountId) {
+      try {
+        const result = await serviceAccount.getNetworkAccount({
+          accountId,
+          indexedAccountId: undefined,
+          networkId,
+          deriveType,
+        });
+        return result;
+      } catch (error) {
+        showSwitchAccountSelector();
+      }
+    }
+    return undefined;
   }
 }
 

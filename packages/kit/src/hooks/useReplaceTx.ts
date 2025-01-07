@@ -13,6 +13,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { showBtcSpeedUpTxDialog } from '../components/TxHistoryListView/showBtcSpeedUpTxDialog';
 
 import useAppNavigation from './useAppNavigation';
 import { usePromiseResult } from './usePromiseResult';
@@ -119,14 +120,29 @@ function useReplaceTx({
       if (!replaceEncodedTx) return;
 
       if (networkUtils.isBTCNetwork(networkId)) {
-        // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
-        handleOpenWebSite({
-          switchToMultiTabBrowser: true,
-          navigation,
-          useCurrentWindow: false,
-          webSite: {
-            url: `https://www.f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
-            title: 'F2Pool',
+        showBtcSpeedUpTxDialog({
+          title: intl.formatMessage(
+            {
+              id: ETranslations.tx_accelerate_speed_up_with_accelerator_dialog_title,
+            },
+            {
+              accelerator: 'F2Pool',
+            },
+          ),
+          description: intl.formatMessage({
+            id: ETranslations.tx_accelerate_speed_up_with_accelerator_dialog_desc,
+          }),
+          onConfirm: async () => {
+            // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
+            handleOpenWebSite({
+              switchToMultiTabBrowser: true,
+              navigation,
+              useCurrentWindow: false,
+              webSite: {
+                url: `https://www.f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
+                title: 'F2Pool',
+              },
+            });
           },
         });
       } else {

@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // require('react-native-reanimated').setUpTests();
 
 // FIX:     ReferenceError: self is not defined

@@ -1,7 +1,7 @@
 import {
-  decrypt,
+  decryptAsync,
   decryptVerifyString,
-  encrypt,
+  encryptAsync,
   encryptVerifyString,
   ensureSensitiveTextEncoded,
 } from '@onekeyhq/core/src/secret';
@@ -69,7 +69,10 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     return record;
   }
 
-  checkPassword(context: IV4DBContext, password: string): boolean {
+  async checkPassword(
+    context: IV4DBContext,
+    password: string,
+  ): Promise<boolean> {
     if (!context) {
       console.error('Unable to get main context.');
       return false;
@@ -78,12 +81,11 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       return false;
     }
     try {
-      return (
-        decryptVerifyString({
-          password,
-          verifyString: context.verifyString,
-        }) === DEFAULT_VERIFY_STRING
-      );
+      const decrypted = await decryptVerifyString({
+        password,
+        verifyString: context.verifyString,
+      });
+      return decrypted === DEFAULT_VERIFY_STRING;
     } catch {
       return false;
     }
@@ -93,7 +95,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
-      const isValid = this.checkPassword(ctx, password);
+      const isValid = await this.checkPassword(ctx, password);
       if (isValid) {
         return;
       }
@@ -152,7 +154,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       // update context verifyString
       await this.txUpdateContextVerifyString({
         tx,
-        verifyString: encryptVerifyString({
+        verifyString: await encryptVerifyString({
           password: newPassword,
           addPrefixString: false,
         }),
@@ -184,19 +186,22 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
       tx,
       recordPairs: credentialsRecordPairs,
       name: EV4LocalDBStoreNames.Credential,
-      updater: (credential) => {
+      updater: async (credential) => {
         // imported credential
         if (credential.id.startsWith('imported')) {
           const importedCredential: IV4DBImportedCredentialRaw = JSON.parse(
             credential.credential,
           );
-          const privateKeyDecrypt = decrypt(
-            oldPassword,
-            importedCredential.privateKey,
-          );
+          const privateKeyDecrypt = await decryptAsync({
+            password: oldPassword,
+            data: importedCredential.privateKey,
+          });
           const importedCredentialRebuild: IV4DBImportedCredentialRaw = {
             privateKey: bufferUtils.bytesToHex(
-              encrypt(newPassword, privateKeyDecrypt),
+              await encryptAsync({
+                password: newPassword,
+                data: privateKeyDecrypt,
+              }),
             ),
           };
 
@@ -207,13 +212,24 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
           const hdCredential: IV4DBHdCredentialRaw = JSON.parse(
             credential.credential,
           );
-          const seedDecrypt = decrypt(oldPassword, hdCredential.seed);
-          const entropyDecrypt = decrypt(oldPassword, hdCredential.entropy);
+          const seedDecrypt = await decryptAsync({
+            password: oldPassword,
+            data: hdCredential.seed,
+          });
+          const entropyDecrypt = await decryptAsync({
+            password: oldPassword,
+            data: hdCredential.entropy,
+          });
 
           const hdCredentialRebuild: IV4DBHdCredentialRaw = {
-            seed: bufferUtils.bytesToHex(encrypt(newPassword, seedDecrypt)),
+            seed: bufferUtils.bytesToHex(
+              await encryptAsync({ password: newPassword, data: seedDecrypt }),
+            ),
             entropy: bufferUtils.bytesToHex(
-              encrypt(newPassword, entropyDecrypt),
+              await encryptAsync({
+                password: newPassword,
+                data: entropyDecrypt,
+              }),
             ),
           };
 
@@ -231,7 +247,7 @@ export abstract class V4LocalDbBase extends V4LocalDbBaseContainer {
   }: {
     tx: IV4LocalDBTransaction;
     verifyString: string;
-  }) {
+  }): Promise<void> {
     await this.txUpdateContext({
       tx,
       updater: (record) => {

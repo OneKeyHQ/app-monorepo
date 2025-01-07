@@ -6,7 +6,10 @@ import {
   encryptImportedCredential,
   encryptRevealableSeed,
 } from '@onekeyhq/core/src/secret';
-import { decrypt, encrypt } from '@onekeyhq/core/src/secret/encryptors/aes256';
+import {
+  decryptAsync,
+  encryptAsync,
+} from '@onekeyhq/core/src/secret/encryptors/aes256';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { cloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -185,9 +188,11 @@ class ServiceCloudBackup extends ServiceBase {
 
     return {
       privateData: password
-        ? encrypt(
-            password,
-            Buffer.from(JSON.stringify(privateBackupData), 'utf8'),
+        ? (
+            await encryptAsync({
+              password,
+              data: Buffer.from(JSON.stringify(privateBackupData), 'utf8'),
+            })
           ).toString('base64')
         : '',
       publicData: publicBackupData,
@@ -369,24 +374,26 @@ class ServiceCloudBackup extends ServiceBase {
     privateData: IPrivateBackupData;
     remotePassword: string;
   }) {
-    Object.keys(privateData.credentials).forEach((key) => {
-      const credential = privateData.credentials[key];
-      try {
-        const credentialRs = JSON.parse(credential) as {
-          entropy: string;
-          seed: string;
-        };
-        privateData.credentials[key] = encryptRevealableSeed({
-          rs: {
-            entropyWithLangPrefixed: credentialRs.entropy,
-            seed: credentialRs.seed,
-          },
-          password: remotePassword,
-        });
-      } catch {
-        //
-      }
-    });
+    await Promise.all(
+      Object.keys(privateData.credentials).map(async (key) => {
+        const credential = privateData.credentials[key];
+        try {
+          const credentialRs = JSON.parse(credential) as {
+            entropy: string;
+            seed: string;
+          };
+          privateData.credentials[key] = await encryptRevealableSeed({
+            rs: {
+              entropyWithLangPrefixed: credentialRs.entropy,
+              seed: credentialRs.seed,
+            },
+            password: remotePassword,
+          });
+        } catch {
+          //
+        }
+      }),
+    );
     return privateData;
   }
 
@@ -520,9 +527,12 @@ class ServiceCloudBackup extends ServiceBase {
     let privateData: IPrivateBackupData;
     try {
       privateData = JSON.parse(
-        decrypt(remotePassword, Buffer.from(privateString, 'base64')).toString(
-          'utf8',
-        ),
+        (
+          await decryptAsync({
+            password: remotePassword,
+            data: Buffer.from(privateString, 'base64'),
+          })
+        ).toString('utf8'),
       );
     } catch {
       return ERestoreResult.WRONG_PASSWORD;
@@ -551,7 +561,7 @@ class ServiceCloudBackup extends ServiceBase {
             password: remotePassword,
             credential: privateData.credentials[id],
           });
-        const rsEncoded = encryptRevealableSeed({
+        const rsEncoded = await encryptRevealableSeed({
           rs: rsDecoded,
           password: localPassword,
         });
@@ -587,11 +597,12 @@ class ServiceCloudBackup extends ServiceBase {
         if (version !== IMPORTED_ACCOUNT_BACKUP_VERSION) {
           return;
         }
-        const importedCredential = encryptImportedCredential({
-          credential: decryptImportedCredential({
-            credential: privateData.credentials[account.id],
-            password: remotePassword,
-          }),
+        const decryptedCredential = await decryptImportedCredential({
+          credential: privateData.credentials[account.id],
+          password: remotePassword,
+        });
+        const importedCredential = await encryptImportedCredential({
+          credential: decryptedCredential,
           password: localPassword,
         });
 

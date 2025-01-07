@@ -13,7 +13,7 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-function BaseSwapLazyMarketModalModal({
+function BaseSwapLazyMarketModal({
   route,
 }: IPageScreenProps<
   IModalSwapParamList,
@@ -56,7 +56,7 @@ export default function SwapLazyMarketModal(
       }}
       enabledNum={[0]}
     >
-      <BaseSwapLazyMarketModalModal {...props} />
+      <BaseSwapLazyMarketModal {...props} />
     </AccountSelectorProviderMirror>
   );
 }

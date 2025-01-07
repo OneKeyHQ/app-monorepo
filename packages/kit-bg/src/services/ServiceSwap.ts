@@ -762,20 +762,13 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkSupportSwap({
-    networkId,
-    contractAddress,
-  }: {
-    networkId: string;
-    contractAddress: string;
-  }) {
+  async checkSupportSwap({ networkId }: { networkId: string }) {
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const resp = await client.get<{
       data: ISwapCheckSupportResponse[];
     }>(`/swap/v1/check-support`, {
       params: {
         networkId,
-        contractAddress,
         protocol: 'Swap',
       },
     });

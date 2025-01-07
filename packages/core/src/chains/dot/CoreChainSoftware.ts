@@ -11,12 +11,13 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
-  decrypt,
+  decryptAsync,
   decryptImportedCredential,
-  encrypt,
+  encryptAsync,
   mnemonicFromEntropy,
 } from '../../secret';
 import {
+  ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
   type ICoreApiGetAddressQueryImported,
   type ICoreApiGetAddressQueryPublicKey,
@@ -30,7 +31,6 @@ import {
   type ICurveName,
   type ISignedTxPro,
 } from '../../types';
-import { ECoreApiExportedSecretKeyType } from '../../types';
 import { slicePathTemplate } from '../../utils';
 
 import { serializeMessage, serializeSignedTransaction } from './sdkDot';
@@ -78,7 +78,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return `0x${decrypt(password, privateKeyRaw).toString('hex')}`;
+      return `0x${(
+        await decryptAsync({ password, data: privateKeyRaw })
+      ).toString('hex')}`;
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
   }
@@ -94,16 +96,21 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       const pathComponents = account.path.split('/');
       const usedRelativePaths = relPaths || [pathComponents.pop() as string];
       const basePath = pathComponents.join('/');
-      const mnemonic = mnemonicFromEntropy(credentials.hd, password);
-      const keys = usedRelativePaths.map((relPath) => {
+      const mnemonic = await mnemonicFromEntropy(credentials.hd, password);
+      const keysPromised = usedRelativePaths.map(async (relPath) => {
         const path = `${basePath}/${relPath}`;
 
         const keyPair = derivationHdLedger(mnemonic, path);
         return {
           path,
-          key: encrypt(password, Buffer.from(keyPair.secretKey.slice(0, 32))),
+          key: await encryptAsync({
+            password,
+            data: Buffer.from(keyPair.secretKey.slice(0, 32)),
+          }),
         };
       });
+
+      const keys = await Promise.all(keysPromised);
 
       privateKeys = keys.reduce(
         (ret, key) => ({ ...ret, [key.path]: bufferUtils.bytesToHex(key.key) }),
@@ -111,11 +118,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       );
     }
     if (credentials.imported) {
-      const { privateKey: p } = decryptImportedCredential({
+      const { privateKey: p } = await decryptImportedCredential({
         password,
         credential: credentials.imported,
       });
-      const encryptPrivateKey = bufferUtils.bytesToHex(encrypt(password, p));
+      const encryptPrivateKey = bufferUtils.bytesToHex(
+        await encryptAsync({ password, data: p }),
+      );
       privateKeys[account.path] = encryptPrivateKey;
       privateKeys[''] = encryptPrivateKey;
     }
@@ -219,7 +228,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const indexFormatted = indexes.map((index) =>
       pathSuffix.replace('{index}', index.toString()),
     );
-    const mnemonic = mnemonicFromEntropy(hdCredential, password);
+    const mnemonic = await mnemonicFromEntropy(hdCredential, password);
 
     const publicKeys = indexFormatted.map((index) => {
       const path = `${pathPrefix}/${index}`;
