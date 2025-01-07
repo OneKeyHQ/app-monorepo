@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
