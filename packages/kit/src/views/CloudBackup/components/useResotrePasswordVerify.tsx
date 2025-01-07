@@ -17,7 +17,7 @@ function RestorePasswordVerify() {
           required: {
             value: true,
             message: intl.formatMessage({
-              id: ETranslations.auth_enter_your_password,
+              id: ETranslations.auth_enter_your_passcode,
             }),
           },
           onChange: () => {},
@@ -27,7 +27,7 @@ function RestorePasswordVerify() {
           autoFocus
           size="large"
           placeholder={intl.formatMessage({
-            id: ETranslations.auth_enter_your_password,
+            id: ETranslations.auth_enter_your_passcode,
           })}
           flex={1}
           keyboardType={getPasswordKeyboardType(!secureEntry)}
@@ -56,7 +56,7 @@ export function useRestorePasswordVerifyDialog() {
           icon: 'InfoCircleOutline',
           title: intl.formatMessage({ id: ETranslations.backup_import_data }),
           description: intl.formatMessage({
-            id: ETranslations.backup_verify_app_password_to_import_data,
+            id: ETranslations.backup_verify_app_passcode_to_import_data,
           }),
           renderContent: <RestorePasswordVerify />,
           onConfirmText: intl.formatMessage({

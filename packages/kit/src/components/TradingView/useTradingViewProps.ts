@@ -74,12 +74,12 @@ export const useTradingViewProps = ({
       'show_popup_button': 'false',
       'autosize': 'true',
       'symbol': `${identifier.toUpperCase()}:${baseToken.toUpperCase()}${targetToken.toUpperCase()}`,
-      'range': '3M',
       'timezone': timezone,
       'theme': theme,
       'style': '1',
       'gridColor': 'rgba(255, 255, 255, 0)',
       'locale': locale,
+      'interval': '15',
       'hide_legend': 'true',
       'allow_symbol_change': 'false',
       'save_image': 'false',
@@ -133,19 +133,18 @@ export const useTradingViewProps = ({
             div:has(>#header-toolbar-chart-styles) + div {
               display: none;
             }
-            div:has(>#header-toolbar-compare) + div {
-              display: none;
-            }
-            div:has(>#header-toolbar-indicators) {
-              display: none;
-            }
-            div:has(>#header-toolbar-indicators) + div {
-              display: none;
-            }
             html.theme-dark .chart-page {
               background: ${bgAppColor} !important;
             }
-
+            html [data-name="indicators-dialog"] {
+              background: ${bgAppColor} !important;
+            }
+            html [id*="indicators_dialog_item"]:hover {
+              background-color: ${bgHoverColor} !important;
+            }
+            html [id*="indicators_dialog_item"]:focus {
+              background-color: ${bgHoverColor} !important;
+            }
             #overlap-manager-root [class*="backdrop-"] {
               background-color: ${bgBackdropColor} !important;
             }

@@ -522,14 +522,14 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
     const input = decodeSensitiveText({ encodedText: params.input });
     let privateKey = Buffer.from(sdkAlgo.seedFromMnemonic(input)).toString(
       'hex',
     );
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveText({ text: privateKey });
     return Promise.resolve({
       privateKey,
     });

@@ -166,7 +166,6 @@ export interface IAccountSelectorActiveAccountInfo {
   deriveInfoItems: IAccountDeriveInfoItems[];
   canCreateAddress?: boolean;
   isNetworkNotMatched?: boolean;
-  allNetworkDbAccounts?: IDBAccount[] | undefined;
 }
 export const defaultActiveAccountInfo: () => IAccountSelectorActiveAccountInfo =
   () => ({

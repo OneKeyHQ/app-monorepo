@@ -16,11 +16,11 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
-import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
-import {
-  getImportFromToken,
-  getNetworkIdBySymbol,
-} from '@onekeyhq/shared/types/market/marketProvider.constants';
+import type {
+  IMarketDetailPlatformNetwork,
+  IMarketTokenDetail,
+} from '@onekeyhq/shared/types/market';
+import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -28,23 +28,27 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 export const useMarketTradeNetwork = (token: IMarketTokenDetail | null) => {
-  const { detailPlatforms, name } = token || {};
+  const { detailPlatforms, platforms = {} } = token || {};
   const network = useMemo(() => {
-    if (detailPlatforms && name === 'Toncoin') {
-      return detailPlatforms['the-open-network'];
+    if (detailPlatforms) {
+      const values = Object.values(detailPlatforms);
+      const nativePlatform = values.find((i) => i.isNative);
+      if (nativePlatform) {
+        return nativePlatform;
+      }
+
+      const tokenAddress = Object.values(platforms)[0];
+      const tokenAddressPlatform = values.find(
+        (i) => i.tokenAddress === tokenAddress,
+      );
+      return tokenAddressPlatform ?? values[0];
     }
-    return detailPlatforms ? Object.values(detailPlatforms)[0] : null;
-  }, [detailPlatforms, name]);
+  }, [detailPlatforms, platforms]);
   return network;
 };
 
 export const useMarketTradeNetworkId = (
-  network: {
-    contract_address: string;
-    onekeyNetworkId?: string;
-    hideContractAddress?: boolean;
-    coingeckoNetworkId?: string;
-  } | null,
+  network: IMarketDetailPlatformNetwork | null | undefined,
   symbol: string,
 ) =>
   useMemo(() => {
@@ -68,11 +72,14 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     [network],
   );
 
+  const { isNative = false, tokenAddress: realContractAddress = '' } =
+    network || {};
+
   const remindUnsupportedToken = useCallback(
     (action: 'buy' | 'sell' | 'trade', showDialog = true) => {
       defaultLogger.market.token.unsupportedToken({ name: symbol, action });
       if (showDialog) {
-        Dialog.confirm({
+        Dialog.show({
           title: intl.formatMessage({
             id: ETranslations.earn_unsupported_token,
           }),
@@ -94,22 +101,43 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     [intl, symbol],
   );
 
+  const createAccountIfNotExists = useCallback(
+    async (
+      { allowWatchAccount }: { allowWatchAccount: boolean } = {
+        allowWatchAccount: false,
+      },
+    ) => {
+      if (networkId) {
+        return backgroundApiProxy.serviceAccount.createAddressIfNotExists(
+          {
+            walletId: activeAccount?.wallet?.id || '',
+            networkId,
+            accountId: activeAccount?.account?.id,
+            indexedAccountId: activeAccount?.indexedAccount?.id,
+          },
+          {
+            allowWatchAccount,
+          },
+        );
+      }
+      return undefined;
+    },
+    [activeAccount, networkId],
+  );
+
   const handleBuyOrSell = useCallback(
     async (type: IFiatCryptoType) => {
-      if (!activeAccount.account || !networkId) {
+      const networkAccount = await createAccountIfNotExists({
+        allowWatchAccount: type === 'buy',
+      });
+      if (!networkAccount || !networkId) {
         return;
       }
 
-      const { isNative } =
-        getImportFromToken({
-          networkId,
-          tokenSymbol: symbol,
-          contractAddress,
-        }) || {};
       const isSupported =
         await backgroundApiProxy.serviceFiatCrypto.isTokenSupported({
           networkId,
-          tokenAddress: isNative ? '' : contractAddress,
+          tokenAddress: realContractAddress,
           type,
         });
 
@@ -118,22 +146,11 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         return;
       }
 
-      const deriveType =
-        await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-          networkId,
-        });
-      const dbAccount =
-        await backgroundApiProxy.serviceAccount.getNetworkAccount({
-          accountId: undefined,
-          indexedAccountId: activeAccount.account.indexedAccountId,
-          networkId,
-          deriveType,
-        });
       const { url, build } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
           networkId,
-          tokenAddress: '',
-          accountId: dbAccount.id,
+          tokenAddress: realContractAddress,
+          accountId: networkAccount?.id,
           type,
         });
       if (!url || !build) {
@@ -143,11 +160,10 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       openUrlExternal(url);
     },
     [
-      activeAccount.account,
-      contractAddress,
+      createAccountIfNotExists,
       networkId,
+      realContractAddress,
       remindUnsupportedToken,
-      symbol,
     ],
   );
 
@@ -172,16 +188,19 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         });
         return;
       }
-      const { isNative, realContractAddress = '' } =
-        getImportFromToken({
-          networkId,
-          tokenSymbol: symbol,
-          contractAddress,
-        }) || {};
+      const networkAccount = await createAccountIfNotExists();
+      if (!networkAccount) {
+        if (mode === 'modal') {
+          navigation.pop();
+        }
+        return;
+      }
+      if (!networkId) {
+        return;
+      }
       const { isSupportSwap, isSupportCrossChain } =
         await backgroundApiProxy.serviceSwap.checkSupportSwap({
           networkId,
-          contractAddress: isNative ? realContractAddress : contractAddress,
         });
 
       if (!isSupportSwap && !isSupportCrossChain) {
@@ -198,7 +217,7 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
         importFromToken: {
           ...onekeyNetwork,
           logoURI: isNative ? onekeyNetwork.logoURI : undefined,
-          contractAddress: isNative ? '' : contractAddress,
+          contractAddress: realContractAddress,
           networkId,
           isNative,
           networkLogoURI: onekeyNetwork.logoURI,
@@ -211,45 +230,56 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       });
     },
     [
-      contractAddress,
+      createAccountIfNotExists,
+      isNative,
       name,
       navigation,
       networkId,
+      realContractAddress,
       remindUnsupportedToken,
       symbol,
     ],
   );
 
-  const handleStaking = useCallback(() => {
-    if (networkId && activeAccount.account) {
+  const handleStaking = useCallback(async () => {
+    const networkAccount = await createAccountIfNotExists();
+    if (!networkAccount) {
+      return;
+    }
+    if (networkId && networkAccount) {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.AssetProtocolList,
         params: {
           networkId,
-          accountId: activeAccount.account?.id,
-          indexedAccountId: activeAccount.indexedAccount?.id,
+          accountId: networkAccount.id,
+          indexedAccountId: networkAccount.indexedAccountId,
           symbol,
         },
       });
     }
-  }, [
-    activeAccount.account,
-    activeAccount.indexedAccount,
-    navigation,
-    networkId,
-    symbol,
-  ]);
+  }, [createAccountIfNotExists, navigation, networkId, symbol]);
   const canStaking = useMemo(() => isSupportStaking(symbol), [symbol]);
 
   return useMemo(
     () => ({
       onSwap: handleSwap,
       onStaking: handleStaking,
-      onBuy: () => handleBuyOrSell('buy'),
-      onSell: () => handleBuyOrSell('sell'),
+      onBuy: () => {
+        void handleBuyOrSell('buy');
+      },
+      onSell: () => {
+        void handleBuyOrSell('sell');
+      },
+      createAccountIfNotExists,
       canStaking,
     }),
-    [canStaking, handleBuyOrSell, handleStaking, handleSwap],
+    [
+      canStaking,
+      createAccountIfNotExists,
+      handleBuyOrSell,
+      handleStaking,
+      handleSwap,
+    ],
   );
 };
 
@@ -262,24 +292,28 @@ export const useLazyMarketTradeActions = (coinGeckoId: string) => {
         coinGeckoId,
       );
     setToken(response);
+    return response;
   }, [coinGeckoId]);
 
   const actions = useMarketTradeActions(token);
   const actionsRef = useRef(actions);
   actionsRef.current = actions;
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const compose = useCallback(
-    async (actionName: IActionName) => {
-      await fetchMarketTokenDetail();
-      // wait for token detail loaded and actionsRef updated
-      await timerUtils.wait(80);
-      await actionsRef.current[actionName]('modal');
+    (actionName: IActionName) => {
+      const callback = async () => {
+        await fetchMarketTokenDetail();
+        // wait for token detail loaded and actionsRef updated
+        await timerUtils.wait(80);
+        await actionsRef.current[actionName]('modal');
+      };
+      void callback();
     },
     [fetchMarketTokenDetail],
   );
 
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
-  const handleSwapLazyModal = useCallback(() => {
+  const handleSwapLazyModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapLazyMarketModal,
       params: {

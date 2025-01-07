@@ -41,6 +41,7 @@ const settings: IVaultSettings = {
   estimatedFeePollingInterval: 60,
   mergeDeriveAssetsEnabled: false,
   qrAccountEnabled: false,
+  replaceTxEnabled: false,
 };
 
 export default Object.freeze(settings);

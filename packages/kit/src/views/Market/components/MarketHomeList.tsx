@@ -185,7 +185,8 @@ function MarketMdColumn({
   }, [item.coingeckoId, navigation]);
 
   const tradeActions = useLazyMarketTradeActions(item.coingeckoId);
-  const show = useReviewControl();
+  const showReviewControl = useReviewControl();
+  const showBuyOrSellButton = item.isSupportBuy && showReviewControl;
   const canStaking = useMemo(
     () => isSupportStaking(item.symbol),
     [item.symbol],
@@ -248,22 +249,50 @@ function MarketMdColumn({
             {
               icon: 'SwitchHorOutline' as const,
               label: intl.formatMessage({ id: ETranslations.global_trade }),
-              onPress: tradeActions.onSwapLazyModal,
+              onPress: () => {
+                defaultLogger.market.token.marketTokenAction({
+                  tokenName: coingeckoId,
+                  action: 'trade',
+                  from: 'listPage',
+                });
+                void tradeActions.onSwapLazyModal();
+              },
             },
             canStaking && {
               icon: 'CoinsOutline' as const,
               label: intl.formatMessage({ id: ETranslations.earn_stake }),
-              onPress: tradeActions.onStaking,
+              onPress: () => {
+                defaultLogger.market.token.marketTokenAction({
+                  tokenName: coingeckoId,
+                  action: 'stake',
+                  from: 'listPage',
+                });
+                void tradeActions.onStaking();
+              },
             },
-            show && {
+            showBuyOrSellButton && {
               icon: 'PlusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_buy }),
-              onPress: tradeActions.onBuy,
+              onPress: () => {
+                defaultLogger.market.token.marketTokenAction({
+                  tokenName: coingeckoId,
+                  action: 'buy',
+                  from: 'listPage',
+                });
+                void tradeActions.onBuy();
+              },
             },
-            show && {
+            showBuyOrSellButton && {
               icon: 'MinusLargeSolid' as const,
               label: intl.formatMessage({ id: ETranslations.global_sell }),
-              onPress: tradeActions.onSell,
+              onPress: () => {
+                defaultLogger.market.token.marketTokenAction({
+                  tokenName: coingeckoId,
+                  action: 'sell',
+                  from: 'listPage',
+                });
+                tradeActions.onSell();
+              },
             },
           ].filter(Boolean),
         },
@@ -274,12 +303,9 @@ function MarketMdColumn({
     canStaking,
     intl,
     item,
-    show,
+    showBuyOrSellButton,
     showMoreAction,
-    tradeActions.onBuy,
-    tradeActions.onSell,
-    tradeActions.onStaking,
-    tradeActions.onSwapLazyModal,
+    tradeActions,
   ]);
   const pressEvents = useMemo(
     () => ({
@@ -610,6 +636,43 @@ function BasicMarketHomeList({
   const lineColors = lineColorMap[theme];
   const colors = colorMap[theme];
 
+  const marketListTradeButtonWidth = useCallback(() => {
+    if (gtMd) {
+      let numberOfButtons = 1;
+      let isItemSupportStaking = false;
+      let isItemSupportBuy = false;
+      if (listData) {
+        for (let i = 0; i < listData.length; i += 1) {
+          const item = listData[i] as unknown as IMarketToken;
+          if (!isItemSupportStaking) {
+            const stakingItem = isSupportStaking(item.symbol);
+            if (stakingItem) {
+              isItemSupportStaking = true;
+              numberOfButtons += 1;
+            }
+          }
+
+          if (!isItemSupportBuy && item.isSupportBuy) {
+            isItemSupportBuy = true;
+            numberOfButtons += 1;
+          }
+          if (isItemSupportStaking && isItemSupportBuy) {
+            break;
+          }
+        }
+        switch (numberOfButtons) {
+          case 3:
+            return 180;
+          case 2:
+            return 120;
+          default:
+            return 60;
+        }
+      }
+    }
+    return 0;
+  }, [gtMd, listData]);
+
   const columns = useMemo(
     () =>
       gtMd
@@ -653,36 +716,6 @@ function BasicMarketHomeList({
                       {record.name}
                     </SizableText>
                   </YStack>
-                  {/* <Button
-                  size="small"
-                  onPress={async () => {
-                    console.log('----log', item);
-                    const response =
-                      await backgroundApiProxy.serviceMarket.fetchPools(
-                        item.symbol,
-                        item.symbol,
-                      );
-        
-                    navigation.pushModal(EModalRoutes.SwapModal, {
-                      screen: EModalSwapRoutes.SwapMainLand,
-                      params: {
-                        importNetworkId: networkId,
-                        importFromToken: {
-                          contractAddress: tokenInfo.address,
-                          symbol: tokenInfo.symbol,
-                          networkId,
-                          isNative: tokenInfo.isNative,
-                          decimals: tokenInfo.decimals,
-                          name: tokenInfo.name,
-                          logoURI: tokenInfo.logoURI,
-                          networkLogoURI: network?.logoURI,
-                        },
-                      },
-                    });
-                  }}
-                >
-                  Swap
-                </Button> */}
                 </XStack>
               ),
               renderSkeleton: () => (
@@ -698,10 +731,11 @@ function BasicMarketHomeList({
             {
               title: '',
               dataIndex: 'trade',
-              columnWidth: 180,
+              columnWidth: marketListTradeButtonWidth(),
               renderSkeleton: () => <Skeleton w="100%" h="$3" />,
               render: (_, record: IMarketToken) => (
                 <MarketListTradeButton
+                  isSupportBuy={record.isSupportBuy}
                   coinGeckoId={record.coingeckoId}
                   symbol={record.symbol}
                 />
@@ -889,6 +923,7 @@ function BasicMarketHomeList({
                   </Stack>
                   <Stack flex={1} ai="center">
                     <MarketMore
+                      isSupportBuy={record.isSupportBuy}
                       showMoreAction={showMoreAction}
                       coingeckoId={record.coingeckoId}
                       symbol={record.symbol}
@@ -922,6 +957,7 @@ function BasicMarketHomeList({
       gtXl,
       intl,
       lineColors,
+      marketListTradeButtonWidth,
       renderMdItem,
       showMoreAction,
       tabIndex,
@@ -930,9 +966,9 @@ function BasicMarketHomeList({
 
   const onRow = useCallback(
     (record: IMarketToken) => ({
-      onPress: () => toDetailPage(record),
+      onPress: md ? undefined : () => toDetailPage(record),
     }),
-    [toDetailPage],
+    [md, toDetailPage],
   );
 
   const onHeaderRow = useCallback(

@@ -5,6 +5,8 @@ import { TransactionBlock } from '@benfen/bfc.js/transactions';
 import { BFC_TYPE_ARG } from '@benfen/bfc.js/utils';
 import BigNumber from 'bignumber.js';
 
+import { OneKeyInternalError } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { normalizeBfcCoinType, objectTypeToCoinType } from './utils';
@@ -94,8 +96,13 @@ async function createTokenTransaction({
     new BigNumber(0),
   );
 
-  if (totalBalance.lt(amount)) {
-    throw new Error('Insufficient balance');
+  if (
+    totalBalance.lt(amount) ||
+    (totalBalance.isZero() && allCoins.length === 0)
+  ) {
+    throw new OneKeyInternalError({
+      key: ETranslations.earn_insufficient_balance,
+    });
   }
 
   // Max send native token
@@ -123,15 +130,28 @@ async function createTokenTransaction({
     tx.transferObjects([coin], recipient);
   } else {
     // Token transfer
-    const [primaryCoin, ...mergeCoins] = allCoins.filter(
+    const [primaryCoin, ...otherCoins] = allCoins.filter(
       (coin) =>
         normalizeBfcCoinType(coin.coinType) === normalizeBfcCoinType(coinType),
     );
+    let currentAmount = new BigNumber(primaryCoin.balance);
+    const targetAmount = new BigNumber(amount);
+    const coinsToMerge = [];
+
+    // merge coin from other utxo coins.
+    for (const coin of otherCoins) {
+      if (currentAmount.isGreaterThanOrEqualTo(targetAmount)) {
+        break;
+      }
+      coinsToMerge.push(coin);
+      currentAmount = currentAmount.plus(new BigNumber(coin.balance));
+    }
+
     const primaryCoinInput = tx.object(primaryCoin.coinObjectId);
-    if (mergeCoins.length) {
+    if (coinsToMerge.length > 0) {
       tx.mergeCoins(
         primaryCoinInput,
-        mergeCoins.map((coin) => tx.object(coin.coinObjectId)),
+        coinsToMerge.map((coin) => tx.object(coin.coinObjectId)),
       );
     }
     const coin = tx.splitCoins(primaryCoinInput, [amount]);
@@ -156,7 +176,7 @@ function analyzeTransactionType(tx: TransactionBlock) {
   return EBfcTransactionType.Unknown;
 }
 
-interface ITransferDetail {
+export interface ITransferDetail {
   from: string;
   to: string;
   amount: string;

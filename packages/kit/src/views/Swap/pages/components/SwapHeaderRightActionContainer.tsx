@@ -225,11 +225,10 @@ const SwapSlippageCustomContent = ({
 const SwapSettingsDialogContent = () => {
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [
-    { swapBatchApproveAndSwap, swapEnableRecipientAddress },
-    setPersistSettings,
-  ] = useSettingsPersistAtom();
-  const [, setNoPersistSettings] = useSettingsAtom();
+  const [{ swapEnableRecipientAddress }, setNoPersistSettings] =
+    useSettingsAtom();
+  const [{ swapBatchApproveAndSwap }, setPersistSettings] =
+    useSettingsPersistAtom();
   const rightTrigger = useMemo(
     () => (
       <SegmentControl
@@ -309,14 +308,16 @@ const SwapSettingsDialogContent = () => {
         })}
         value={swapEnableRecipientAddress}
         onChange={(v) => {
-          setPersistSettings((s) => ({
-            ...s,
-            swapEnableRecipientAddress: v,
-          }));
-          if (!v) {
+          if (v) {
             setNoPersistSettings((s) => ({
               ...s,
-              swapToAnotherAccountSwitchOn: false,
+              swapEnableRecipientAddress: v,
+            }));
+          } else {
+            setNoPersistSettings((s) => ({
+              ...s,
+              swapEnableRecipientAddress: v,
+              swapToAnotherAccountSwitchOn: v,
             }));
           }
         }}
@@ -389,23 +390,29 @@ const SwapHeaderRightActionContainer = ({
       showFooter: true,
     });
   }, [intl, pageType]);
-
   return (
     <HeaderButtonGroup>
       {slippageTitle ? (
-        <Button
+        <XStack
           onPress={onOpenSwapSettings}
-          size="medium"
-          variant="tertiary"
           borderRadius="$3"
           bg="$bgSubdued"
           cursor="pointer"
+          px="$2"
+          py="$1"
+          gap="$1"
+          alignItems="center"
+          justifyContent="center"
+          hoverStyle={{
+            bg: '$bgHover',
+          }}
+          pressStyle={{
+            bg: '$bgActive',
+          }}
         >
-          <XStack alignItems="center" gap="$1">
-            {slippageTitle}
-            <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
-          </XStack>
-        </Button>
+          {slippageTitle}
+          <Icon name="SliderHorOutline" size="$6" color="$iconSubdued" />
+        </XStack>
       ) : (
         <HeaderIconButton
           icon="SliderHorOutline"
@@ -423,7 +430,7 @@ const SwapHeaderRightActionContainer = ({
           userSelect="none"
           borderRadius="$full"
           borderColor="$icon"
-          borderWidth="1.2px"
+          borderWidth={1.2}
           alignItems="center"
           justifyContent="center"
           hoverStyle={{

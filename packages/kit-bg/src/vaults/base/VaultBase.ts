@@ -268,7 +268,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   ): Promise<IGetPrivateKeyFromImportedResult> {
     const input = decodeSensitiveText({ encodedText: params.input });
     let privateKey = hexUtils.stripHexPrefix(input);
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveText({ text: privateKey });
     return {
       privateKey,
     };
@@ -1205,10 +1205,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(accountDetails);
   }
 
-  async isEarliestLocalPendingTx({
+  async canAccelerateTx({
     encodedTx,
+    txId,
   }: {
     encodedTx: IEncodedTx;
+    txId: string;
   }): Promise<boolean> {
     return true;
   }
@@ -1418,5 +1420,28 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IBuildOkxSwapEncodedTxParams,
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
+  }
+
+  async verifyTxId(params: {
+    txid: string;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
+  async getPendingTxsToUpdate({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    return Promise.resolve([]);
+  }
+
+  async checkTxSpeedUpStateEnabled({
+    historyTx,
+  }: {
+    historyTx: IAccountHistoryTx;
+  }): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }

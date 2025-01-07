@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // require('react-native-reanimated').setUpTests();
 
 // FIX:     ReferenceError: self is not defined
@@ -75,6 +76,8 @@ jest.mock('@sentry/react-native', () => ({
   init: () => jest.fn(),
   reactNavigationIntegration: () => jest.fn(),
   reactNativeTracingIntegration: () => jest.fn(),
+  TimeToInitialDisplay: () => jest.fn(),
+  TimeToFullDisplay: () => jest.fn(),
 }));
 
 jest.mock('expo-localization', () => ({

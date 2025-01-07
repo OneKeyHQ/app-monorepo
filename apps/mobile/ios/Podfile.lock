@@ -1262,13 +1262,13 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
-  - RNSentry (6.2.0):
+  - RNSentry (6.4.0):
     - glog
     - hermes-engine
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
     - React-hermes
-    - Sentry/HybridSDK (= 8.40.1)
+    - Sentry/HybridSDK (= 8.41.0)
   - RNShare (10.2.1):
     - React-Core
   - RNSVG (13.14.0):
@@ -1289,7 +1289,7 @@ PODS:
   - SDWebImageWebPCoder (0.8.5):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
-  - Sentry/HybridSDK (8.40.1)
+  - Sentry/HybridSDK (8.41.0)
   - SocketRocket (0.6.1)
   - SPAlert (4.2.0)
   - SPIndicator (1.6.4)
@@ -1686,7 +1686,7 @@ SPEC CHECKSUMS:
   Burnt: dde5dd245f124a4594098e3938ba71aae4ec83c3
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
-  DoubleConversion: 76ab83afb40bddeeee456813d9c04f67f78771b5
+  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
   EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
   EXBarCodeScanner: d59fd943cebee3f913ebf4ffde0d05d344da8b78
   EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
@@ -1713,7 +1713,7 @@ SPEC CHECKSUMS:
   FBLazyVector: 9f533d5a4c75ca77c8ed774aced1a91a0701781e
   FBReactNativeSpec: 2db5940ee4b58968274eec0a4f1c736fc4caefa3
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
-  glog: 69ef571f3de08433d766d614c73a9838a06bf7eb
+  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
   hermes-engine: 39589e9c297d024e90fe68f6830ff86c4e01498a
   ImageColors: 88be684570585c07ae2750bff34eb7b78bfc53b4
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
@@ -1804,20 +1804,20 @@ SPEC CHECKSUMS:
   RNPermissions: ac5ac3a8f5f63166a4ea5473c73d7e28447e8178
   RNReanimated: f5cb331578e0c4263050d77ba8bbec209f6b82d7
   RNScreens: 99476adb9f898a77872e67836bbb9d47988788cc
-  RNSentry: 059abcedf78a8f8c177901cf36b2362bb7dcb512
+  RNSentry: 780f6c64063f176a9f8296ef32390c3025c97e80
   RNShare: 0fad69ae2d71de9d1f7b9a43acf876886a6cb99c
   RNSVG: d00c8f91c3cbf6d476451313a18f04d220d4f396
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
-  Sentry: e9215d7b17f7902692b4f8700e061e4f853e3521
+  Sentry: 54d0fe6c0df448497c8ed4cce66ccf7027e1823e
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
   TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
-  Yoga: 6d01ccde54c9f8b92492beb05d468dbfed1d9881
+  Yoga: 07db09965bc46c4902e20d3ae6990d95e53af8a8
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: 5b7f20a90e19262f325cab10e37056b7f3cd0ffb

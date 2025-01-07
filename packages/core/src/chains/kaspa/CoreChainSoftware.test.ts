@@ -77,8 +77,8 @@ const {
 
 // yarn jest packages/core/src/chains/kaspa/CoreChainSoftware.test.ts
 describe('KASPA Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });

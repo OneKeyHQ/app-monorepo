@@ -320,41 +320,19 @@ class ServiceAccountSelector extends ServiceBase {
         //
       }
     }
-    let allNetworkDbAccounts: IDBAccount[] | undefined;
     let canCreateAddress = false;
     if (isAllNetwork && networkId) {
-      try {
-        allNetworkDbAccounts =
-          await this.backgroundApi.serviceAllNetwork.getAllNetworkDbAccounts({
-            networkId,
-            singleNetworkDeriveType: undefined,
-            indexedAccountId,
-            othersWalletAccountId,
-          });
-      } catch (error) {
-        //
-      }
-
       // build mocked networkAccount of all network
       if (!isOthersWallet && indexedAccountId) {
-        const updateCanCreateAddressForAllNetwork = async () => {
+        try {
+          account =
+            await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount({
+              indexedAccountId,
+            });
+          canCreateAddress = true;
+        } catch (error) {
           account = undefined;
           canCreateAddress = true;
-        };
-        if (allNetworkDbAccounts?.length) {
-          try {
-            account =
-              await this.backgroundApi.serviceAccount.getMockedAllNetworkAccount(
-                {
-                  indexedAccountId,
-                },
-              );
-            canCreateAddress = false;
-          } catch (error) {
-            await updateCanCreateAddressForAllNetwork();
-          }
-        } else {
-          await updateCanCreateAddressForAllNetwork();
         }
       }
     } else {
@@ -389,7 +367,6 @@ class ServiceAccountSelector extends ServiceBase {
     const activeAccount: IAccountSelectorActiveAccountInfo = {
       account,
       dbAccount,
-      allNetworkDbAccounts,
       indexedAccount,
       accountName: universalAccountName,
       wallet,

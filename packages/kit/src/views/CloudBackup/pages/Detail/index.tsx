@@ -280,7 +280,7 @@ export default function Detail() {
       if (result === ERestoreResult.WRONG_PASSWORD) {
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.auth_error_password_incorrect,
+            id: ETranslations.auth_error_passcode_incorrect,
           }),
         });
       } else if (result === ERestoreResult.UNKNOWN_ERROR) {

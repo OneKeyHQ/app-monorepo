@@ -199,7 +199,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
     const { name, importedCredential, password, networks, createAtNetwork } =
       params;
-    const { privateKey } = decryptImportedCredential({
+    const { privateKey } = await decryptImportedCredential({
       credential: importedCredential,
       password,
     });
@@ -268,7 +268,7 @@ export abstract class KeyringSoftwareBase extends KeyringBase {
     }
     const { name, importedCredential, password, createAtNetwork, deriveInfo } =
       params;
-    const { privateKey } = decryptImportedCredential({
+    const { privateKey } = await decryptImportedCredential({
       credential: importedCredential,
       password,
     });

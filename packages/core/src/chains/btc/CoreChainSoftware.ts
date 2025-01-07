@@ -29,8 +29,8 @@ import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import {
   BaseBip32KeyDeriver,
   batchGetPublicKeysAsync,
-  decrypt,
-  encrypt,
+  decryptAsync,
+  encryptAsync,
   mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
   secp256k1,
@@ -247,7 +247,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
             .fill(
               Buffer.concat([
                 Buffer.from([0]),
-                decrypt(password, privateKeyRaw),
+                await decryptAsync({ password, data: privateKeyRaw }),
               ]),
               45,
               78,
@@ -255,7 +255,9 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
         );
       }
       if (credentials.imported) {
-        return bs58check.encode(decrypt(password, privateKeyRaw));
+        return bs58check.encode(
+          await decryptAsync({ password, data: privateKeyRaw }),
+        );
       }
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
@@ -433,7 +435,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     return psbt;
   }
 
-  private appendImportedRelPathPrivateKeys({
+  private async appendImportedRelPathPrivateKeys({
     privateKeys,
     password,
     relPaths,
@@ -441,7 +443,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     privateKeys: ICoreApiPrivateKeysMap;
     password: string;
     relPaths?: string[];
-  }): ICoreApiPrivateKeysMap {
+  }): Promise<ICoreApiPrivateKeysMap> {
     const deriver = new BaseBip32KeyDeriver(
       Buffer.from('Bitcoin seed'),
       secp256k1,
@@ -449,7 +451,10 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
 
     // imported account return "" key as root privateKey
     const privateKey = privateKeys[''];
-    const xprv = decrypt(password, bufferUtils.toBuffer(privateKey));
+    const xprv = await decryptAsync({
+      password,
+      data: bufferUtils.toBuffer(privateKey),
+    });
     const startKey = {
       chainCode: xprv.slice(13, 45),
       key: xprv.slice(46, 78),
@@ -457,12 +462,12 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
 
     const cache: Record<string, IBip32ExtendedKey> = {};
 
-    relPaths?.forEach((relPath) => {
+    for (const relPath of relPaths ?? []) {
       const pathComponents = relPath.split('/');
 
       let currentPath = '';
       let parent = startKey;
-      pathComponents.forEach((pathComponent) => {
+      for (const pathComponent of pathComponents) {
         currentPath =
           currentPath.length > 0
             ? `${currentPath}/${pathComponent}`
@@ -475,13 +480,13 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
           cache[currentPath] = thisPrivKey;
         }
         parent = cache[currentPath];
-      });
+      }
 
       // TODO use dbAccountAddresses save fullPath/relPath key
       privateKeys[relPath] = bufferUtils.bytesToHex(
-        encrypt(password, cache[relPath].key),
+        await encryptAsync({ password, data: cache[relPath].key }),
       );
-    });
+    }
     return privateKeys;
   }
 
@@ -564,7 +569,11 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       !addressInfo.encoding ||
       (addressInfo.encoding && !supportedTypes.includes(addressInfo.encoding))
     ) {
-      throw new AddressNotSupportSignMethodError();
+      throw new AddressNotSupportSignMethodError({
+        info: {
+          type: 'Native Segwit, Taproot',
+        },
+      });
     }
 
     const outputScript = BitcoinJsAddress.toOutputScript(
@@ -699,7 +708,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
       curve: curveName,
     });
     if (isImported) {
-      this.appendImportedRelPathPrivateKeys({
+      await this.appendImportedRelPathPrivateKeys({
         privateKeys,
         password,
         relPaths,

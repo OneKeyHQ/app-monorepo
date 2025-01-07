@@ -136,12 +136,12 @@ export default class Vault extends VaultBase {
       });
       txn = toTransaction(encodedTx);
       const massAndSize = txn.getMassAndSize();
-      if (
-        massAndSize.mass > MAX_ORPHAN_TX_MASS ||
-        massAndSize.txSize > MAX_BLOCK_SIZE
-      ) {
-        throw new OneKeyInternalError('Transaction size is too large');
-      }
+      // if (
+      //   massAndSize.mass > MAX_ORPHAN_TX_MASS ||
+      //   massAndSize.txSize > MAX_BLOCK_SIZE
+      // ) {
+      //   throw new OneKeyInternalError('Transaction size is too large');
+      // }
       encodedTx.feeInfo.limit = massAndSize.mass.toString();
       encodedTx.mass = massAndSize.mass;
     }
@@ -355,13 +355,13 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
     const input = decodeSensitiveText({ encodedText: params.input });
     if (this.isHexPrivateKey(input)) {
       let privateKey = input.startsWith('0x') ? input.slice(2) : input;
-      privateKey = encodeSensitiveText({ text: privateKey });
+      privateKey = await encodeSensitiveText({ text: privateKey });
       return Promise.resolve({
         privateKey,
       });
@@ -369,7 +369,7 @@ export default class Vault extends VaultBase {
 
     if (this.isWIFPrivateKey(input)) {
       const privateKeyBuffer = privateKeyFromWIF(input);
-      const wifPrivateKey = encodeSensitiveText({
+      const wifPrivateKey = await encodeSensitiveText({
         text: privateKeyBuffer.toString(),
       });
       return Promise.resolve({

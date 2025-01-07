@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IActionListItemProps, IStackProps } from '@onekeyhq/components';
 import { ActionList, IconButton } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { useReviewControl } from '../../../components/ReviewControl';
 
@@ -15,10 +16,12 @@ function BasicMarketMore({
   coingeckoId,
   symbol,
   showMoreAction,
+  isSupportBuy,
   ...props
 }: {
   coingeckoId: string;
   symbol: string;
+  isSupportBuy: boolean;
   showMoreAction: boolean;
 } & IStackProps) {
   const intl = useIntl();
@@ -42,19 +45,36 @@ function BasicMarketMore({
             },
           ] as IActionListItemProps[],
         },
-        show && {
-          items: [
-            {
-              icon: 'MinusLargeSolid',
-              label: intl.formatMessage({ id: ETranslations.global_sell }),
-              onPress: tradeActions.onSell,
-            },
-          ] as IActionListItemProps[],
-        },
+        show && isSupportBuy
+          ? {
+              items: [
+                {
+                  icon: 'MinusLargeSolid',
+                  label: intl.formatMessage({ id: ETranslations.global_sell }),
+                  onPress: () => {
+                    defaultLogger.market.token.marketTokenAction({
+                      tokenName: coingeckoId,
+                      action: 'sell',
+                      from: 'listPage',
+                    });
+                    tradeActions.onSell();
+                  },
+                },
+              ] as IActionListItemProps[],
+            }
+          : undefined,
       ].filter(Boolean),
-    [MoveToTop, intl, show, showMoreAction, tradeActions.onSell],
+    [
+      MoveToTop,
+      coingeckoId,
+      intl,
+      isSupportBuy,
+      show,
+      showMoreAction,
+      tradeActions,
+    ],
   );
-  return sections.length ? (
+  return (
     <ActionList
       title=""
       renderTrigger={
@@ -63,12 +83,13 @@ function BasicMarketMore({
           icon="DotVerSolid"
           variant="tertiary"
           iconSize="$5"
+          disabled={sections.length === 0}
           {...props}
         />
       }
       sections={sections}
     />
-  ) : null;
+  );
 }
 
 export const MarketMore = memo(BasicMarketMore);

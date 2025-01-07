@@ -66,7 +66,7 @@ const SetPasswordItem = () => {
         void backgroundApiProxy.servicePassword.promptPasswordVerify();
       }}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: ETranslations.global_set_password })}
+      title={intl.formatMessage({ id: ETranslations.global_set_passcode })}
       drillIn
     />
   );
@@ -80,7 +80,7 @@ const ChangePasswordItem = () => {
         reason: EReasonForNeedPassword.Security,
       });
     const dialog = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_change_password }),
+      title: intl.formatMessage({ id: ETranslations.global_change_passcode }),
       renderContent: (
         <PasswordUpdateContainer
           oldEncodedPassword={oldEncodedPassword.password}
@@ -98,7 +98,7 @@ const ChangePasswordItem = () => {
     <ListItem
       onPress={onPress}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: ETranslations.global_change_password })}
+      title={intl.formatMessage({ id: ETranslations.global_change_passcode })}
       drillIn
     />
   );
@@ -179,7 +179,24 @@ const SignatureRecordItem = () => {
   );
 };
 
-export const SecuritySection = () => {
+function FloatingIcon() {
+  const intl = useIntl();
+  const navigation =
+    useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
+  const onPress = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingFloatingIconModal);
+  }, [navigation]);
+  return (
+    <ListItem
+      onPress={onPress}
+      icon="MenuCircleHorOutline"
+      title={intl.formatMessage({ id: ETranslations.setting_floating_icon })}
+      drillIn
+    />
+  );
+}
+
+export function SecuritySection() {
   const intl = useIntl();
   return (
     <Section title={intl.formatMessage({ id: ETranslations.global_security })}>
@@ -189,9 +206,10 @@ export const SecuritySection = () => {
       <AppAutoLockItem />
       <PasswordItem />
       {!platformEnv.isWebDappMode ? <ConnectedSitesItem /> : null}
+      {platformEnv.isExtension ? <FloatingIcon /> : null}
       <SignatureRecordItem />
       <ProtectionItem />
       <CleanDataItem />
     </Section>
   );
-};
+}

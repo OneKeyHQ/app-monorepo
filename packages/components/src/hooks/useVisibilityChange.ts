@@ -10,6 +10,9 @@ export const getCurrentVisibilityState = () => {
     // https://reactnative.dev/docs/appstate
     return AppState.currentState === 'active' || AppState.currentState === null;
   }
+  if (platformEnv.isDesktop) {
+    return globalThis.desktopApi.isFocused();
+  }
   return document.visibilityState === 'visible';
 };
 export const onVisibilityStateChange = (
@@ -22,6 +25,13 @@ export const onVisibilityStateChange = (
     return () => {
       subscription.remove();
     };
+  }
+
+  if (platformEnv.isDesktop) {
+    const removeSubscription = globalThis.desktopApi.onAppState((state) => {
+      callback(state === 'active');
+    });
+    return removeSubscription;
   }
   const handleVisibilityStateChange = () => {
     callback(document.visibilityState === 'visible');

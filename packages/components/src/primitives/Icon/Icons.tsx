@@ -36,6 +36,7 @@ const icons = {
     import("./react/custom/CheckboxIndeterminate"),
   RestartToUpdateCustom: () => import("./react/custom/RestartToUpdate"),
   ShortcutsCustom: () => import("./react/custom/Shortcuts"),
+  SidebarLeftArrowCustom: () => import("./react/custom/SidebarLeftArrow"),
   AkashIllus: () => import("./react/illus/Akash"),
   AlgorandIllus: () => import("./react/illus/Algorand"),
   AllNetworksIllus: () => import("./react/illus/AllNetworks"),
@@ -1949,6 +1950,7 @@ const icons = {
   ZipSolid: () => import("./react/solid/Zip"),
   ZoomInSolid: () => import("./react/solid/ZoomIn"),
   ZoomOutSolid: () => import("./react/solid/ZoomOut"),
+  F2PoolSolid: () => import("./react/solid/F2Pool"),
 };
 export type IKeyOfIcons = keyof typeof icons;
 export default icons;

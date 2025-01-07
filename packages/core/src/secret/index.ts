@@ -1,5 +1,6 @@
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { DEFAULT_VERIFY_STRING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { InvalidMnemonic } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -9,12 +10,13 @@ import {
   mnemonicToRevealableSeed,
   mnemonicToSeedSync,
   revealEntropyToMnemonic,
+  validateMnemonic,
 } from './bip39';
 import { ed25519, nistp256, secp256k1 } from './curves';
 import {
-  decrypt,
-  encrypt,
-  encryptString,
+  decryptAsync,
+  encryptAsync,
+  encryptStringAsync,
   ensureSensitiveTextEncoded,
 } from './encryptors/aes256';
 import { hash160 } from './hash';
@@ -114,26 +116,29 @@ function verify(
   return getCurveByName(curveName).verify(publicKey, digest, signature);
 }
 
-function sign(
+async function sign(
   curveName: ICurveName,
   encryptedPrivateKey: Buffer,
   digest: Buffer,
   password: string,
-): Buffer {
-  return getCurveByName(curveName).sign(
-    decrypt(password, encryptedPrivateKey),
-    digest,
-  );
+): Promise<Buffer> {
+  const decryptedPrivateKey = await decryptAsync({
+    password,
+    data: encryptedPrivateKey,
+  });
+  return getCurveByName(curveName).sign(decryptedPrivateKey, digest);
 }
 
-function publicFromPrivate(
+async function publicFromPrivate(
   curveName: ICurveName,
   encryptedPrivateKey: Buffer,
   password: string,
-): Buffer {
-  return getCurveByName(curveName).publicFromPrivate(
-    decrypt(password, encryptedPrivateKey),
-  );
+): Promise<Buffer> {
+  const decryptedPrivateKey = await decryptAsync({
+    password,
+    data: encryptedPrivateKey,
+  });
+  return getCurveByName(curveName).publicFromPrivate(decryptedPrivateKey);
 }
 
 function uncompressPublicKey(curveName: ICurveName, publicKey: Buffer): Buffer {
@@ -161,106 +166,123 @@ function fixV4VerifyStringToV5({ verifyString }: { verifyString: string }) {
   );
 }
 
-function decryptVerifyString({
+async function decryptVerifyString({
   password,
   verifyString,
 }: {
   verifyString: string;
   password: string;
 }) {
-  return decrypt(
+  const decrypted = await decryptAsync({
     password,
-    Buffer.from(verifyString.replace(EncryptPrefixVerifyString, ''), 'hex'),
-  ).toString();
+    data: Buffer.from(
+      verifyString.replace(EncryptPrefixVerifyString, ''),
+      'hex',
+    ),
+  });
+  return decrypted.toString();
 }
 
-function encryptVerifyString({
+async function encryptVerifyString({
   password,
   addPrefixString = true,
 }: {
   password: string;
   addPrefixString?: boolean;
-}) {
+}): Promise<string> {
+  const encrypted = await encryptAsync({
+    password,
+    data: Buffer.from(DEFAULT_VERIFY_STRING),
+  });
   return (
     (addPrefixString ? EncryptPrefixVerifyString : '') +
-    encrypt(password, Buffer.from(DEFAULT_VERIFY_STRING)).toString('hex')
+    encrypted.toString('hex')
   );
 }
 
-function decryptRevealableSeed({
+async function decryptRevealableSeed({
   rs,
   password,
 }: {
   rs: IBip39RevealableSeedEncryptHex;
   password: string;
-}): IBip39RevealableSeed {
-  const rsJsonStr = bufferUtils.bytesToUtf8(
-    decrypt(password, rs.replace(EncryptPrefixHdCredential, '')),
-  );
+}): Promise<IBip39RevealableSeed> {
+  const decrypted = await decryptAsync({
+    password,
+    data: rs.replace(EncryptPrefixHdCredential, ''),
+  });
+  const rsJsonStr = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(rsJsonStr) as IBip39RevealableSeed;
 }
 
-function encryptRevealableSeed({
+async function encryptRevealableSeed({
   rs,
   password,
 }: {
   rs: IBip39RevealableSeed;
   password: string;
-}): IBip39RevealableSeedEncryptHex {
-  return (
-    EncryptPrefixHdCredential +
-    bufferUtils.bytesToHex(
-      encryptString({
-        password,
-        data: JSON.stringify(rs),
-        dataEncoding: 'utf8',
-      }),
-    )
-  );
+}): Promise<IBip39RevealableSeedEncryptHex> {
+  if (!rs || !rs.entropyWithLangPrefixed || !rs.seed) {
+    throw new Error('Invalid seed object');
+  }
+  const encrypted = await encryptStringAsync({
+    password,
+    data: JSON.stringify(rs),
+    dataEncoding: 'utf8',
+  });
+  return EncryptPrefixHdCredential + bufferUtils.bytesToHex(encrypted);
 }
 
-function decryptImportedCredential({
+async function decryptImportedCredential({
   credential,
   password,
 }: {
   credential: ICoreImportedCredentialEncryptHex;
   password: string;
-}): ICoreImportedCredential {
-  const text = bufferUtils.bytesToUtf8(
-    decrypt(password, credential.replace(EncryptPrefixImportedCredential, '')),
-  );
+}): Promise<ICoreImportedCredential> {
+  const decrypted = await decryptAsync({
+    password,
+    data:
+      typeof credential === 'string'
+        ? credential.replace(EncryptPrefixImportedCredential, '')
+        : credential,
+  });
+  const text = bufferUtils.bytesToUtf8(decrypted);
   return JSON.parse(text) as ICoreImportedCredential;
 }
 
-function encryptImportedCredential({
+async function encryptImportedCredential({
   credential,
   password,
 }: {
   credential: ICoreImportedCredential;
   password: string;
-}): ICoreImportedCredentialEncryptHex {
-  return (
-    EncryptPrefixImportedCredential +
-    encryptString({
-      password,
-      data: JSON.stringify(credential),
-      dataEncoding: 'utf8',
-    })
-  );
+}): Promise<ICoreImportedCredentialEncryptHex> {
+  if (!credential || !credential.privateKey) {
+    throw new Error('Invalid credential object');
+  }
+  const encrypted = await encryptStringAsync({
+    password,
+    data: JSON.stringify(credential),
+    dataEncoding: 'utf8',
+  });
+  return EncryptPrefixImportedCredential + encrypted;
 }
 
-function batchGetKeys(
+async function batchGetKeys(
   curveName: ICurveName,
   hdCredential: ICoreHdCredentialEncryptHex,
   password: string,
   prefix: string,
   relPaths: Array<string>,
   type: 'public' | 'private',
-): Array<{
-  path: string;
-  parentFingerPrint: Buffer;
-  extendedKey: IBip32ExtendedKey;
-}> {
+): Promise<
+  Array<{
+    path: string;
+    parentFingerPrint: Buffer;
+    extendedKey: IBip32ExtendedKey;
+  }>
+> {
   const ret: Array<{
     path: string;
     parentFingerPrint: Buffer;
@@ -276,7 +298,7 @@ function batchGetKeys(
   > = {};
 
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
-  const { seed } = decryptRevealableSeed({
+  const { seed } = await decryptRevealableSeed({
     rs: hdCredential,
     password,
   });
@@ -299,12 +321,14 @@ function batchGetKeys(
     privkey: key,
   };
 
-  relPaths.forEach((relPath) => {
+  // Process paths sequentially to maintain order and handle async operations
+  for (const relPath of relPaths) {
     const pathComponents = relPath.split('/');
 
     let currentPath = prefix;
     let parent = cache[currentPath];
-    pathComponents.forEach((pathComponent) => {
+
+    for (const pathComponent of pathComponents) {
       currentPath = `${currentPath}/${pathComponent}`;
       if (typeof cache[currentPath] === 'undefined') {
         const index = pathComponent.endsWith("'")
@@ -326,20 +350,25 @@ function batchGetKeys(
         };
       }
       parent = cache[currentPath];
-    });
+    }
+
+    const extendedKey =
+      type === 'private'
+        ? {
+            chainCode: cache[currentPath].privkey.chainCode,
+            key: await encryptAsync({
+              password,
+              data: cache[currentPath].privkey.key,
+            }),
+          }
+        : deriver.N(cache[currentPath].privkey);
 
     ret.push({
       path: currentPath,
       parentFingerPrint: cache[currentPath].parentFingerPrint,
-      extendedKey:
-        type === 'private'
-          ? {
-              chainCode: cache[currentPath].privkey.chainCode,
-              key: encrypt(password, cache[currentPath].privkey.key),
-            }
-          : deriver.N(cache[currentPath].privkey),
+      extendedKey,
     });
-  });
+  }
 
   return ret;
 }
@@ -349,13 +378,13 @@ export type ISecretPrivateKeyInfo = {
   parentFingerPrint: Buffer;
   extendedKey: IBip32ExtendedKey;
 };
-function batchGetPrivateKeys(
+async function batchGetPrivateKeys(
   curveName: ICurveName,
   hdCredential: ICoreHdCredentialEncryptHex,
   password: string,
   prefix: string,
   relPaths: Array<string>,
-): ISecretPrivateKeyInfo[] {
+): Promise<ISecretPrivateKeyInfo[]> {
   return batchGetKeys(
     curveName,
     hdCredential,
@@ -376,13 +405,13 @@ export type ISecretPublicKeyInfo = {
   parentFingerPrint: Buffer;
   extendedKey: IBip32ExtendedKey;
 };
-function batchGetPublicKeys(
+async function batchGetPublicKeys(
   curveName: ICurveName,
   hdCredential: ICoreHdCredentialEncryptHex,
   password: string,
   prefix: string,
   relPaths: Array<string>,
-): ISecretPublicKeyInfo[] {
+): Promise<ISecretPublicKeyInfo[]> {
   return batchGetKeys(
     curveName,
     hdCredential,
@@ -416,60 +445,78 @@ async function batchGetPublicKeysAsync(
     }));
   }
   const { curveName, hdCredential, password, prefix, relPaths } = params;
-  return Promise.resolve(
-    batchGetPublicKeys(curveName, hdCredential, password, prefix, relPaths),
+  return batchGetPublicKeys(
+    curveName,
+    hdCredential,
+    password,
+    prefix,
+    relPaths,
   );
 }
 
-function generateMasterKeyFromSeed(
+async function generateMasterKeyFromSeed(
   curveName: ICurveName,
   hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
-): IBip32ExtendedKey {
+): Promise<IBip32ExtendedKey> {
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
-  const { seed } = decryptRevealableSeed({
+  const { seed } = await decryptRevealableSeed({
     rs: hdCredential,
     password,
   });
   const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
   const masterKey: IBip32ExtendedKey =
     deriver.generateMasterKeyFromSeed(seedBuffer);
+  const encryptedKey = await encryptAsync({
+    password,
+    data: masterKey.key,
+  });
   return {
-    key: encrypt(password, masterKey.key),
+    key: encryptedKey,
     chainCode: masterKey.chainCode,
   };
 }
 
-function N(
+async function N(
   curveName: ICurveName,
   encryptedExtPriv: IBip32ExtendedKey,
   password: string,
-): IBip32ExtendedKey {
+): Promise<IBip32ExtendedKey> {
   if (!platformEnv.isJest) {
     ensureSensitiveTextEncoded(password);
   }
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
   const extPriv: IBip32ExtendedKey = {
-    key: decrypt(password, encryptedExtPriv.key),
+    key: await decryptAsync({
+      password,
+      data: encryptedExtPriv.key,
+    }),
     chainCode: encryptedExtPriv.chainCode,
   };
   return deriver.N(extPriv);
 }
 
-function CKDPriv(
+async function CKDPriv(
   curveName: ICurveName,
   encryptedParent: IBip32ExtendedKey,
   index: number,
   password: string,
-): IBip32ExtendedKey {
+): Promise<IBip32ExtendedKey> {
   const deriver: IBip32KeyDeriver = getDeriverByCurveName(curveName);
   const parent: IBip32ExtendedKey = {
-    key: decrypt(password, encryptedParent.key),
+    key: await decryptAsync({
+      password,
+      data: encryptedParent.key,
+    }),
     chainCode: encryptedParent.chainCode,
   };
   const child: IBip32ExtendedKey = deriver.CKDPriv(parent, index);
+  const encryptedKey = await encryptAsync({
+    password,
+    data: child.key,
+  });
   return {
-    key: encrypt(password, child.key),
+    key: encryptedKey,
     chainCode: child.chainCode,
   };
 }
@@ -482,11 +529,11 @@ function CKDPub(
   return getDeriverByCurveName(curveName).CKDPub(parent, index);
 }
 
-function revealableSeedFromMnemonic(
+async function revealableSeedFromMnemonic(
   mnemonic: string,
   password: string,
   passphrase?: string,
-): IBip39RevealableSeedEncryptHex {
+): Promise<IBip39RevealableSeedEncryptHex> {
   const rs: IBip39RevealableSeed = mnemonicToRevealableSeed(
     mnemonic,
     passphrase,
@@ -497,12 +544,12 @@ function revealableSeedFromMnemonic(
   });
 }
 
-function mnemonicFromEntropy(
+async function mnemonicFromEntropy(
   hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
-): string {
+): Promise<string> {
   defaultLogger.account.secretPerf.decryptHdCredential();
-  const rs: IBip39RevealableSeed = decryptRevealableSeed({
+  const rs: IBip39RevealableSeed = await decryptRevealableSeed({
     password,
     rs: hdCredential,
   });
@@ -521,7 +568,7 @@ export type IMnemonicFromEntropyAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
 };
-export function mnemonicFromEntropyAsync(
+async function mnemonicFromEntropyAsync(
   params: IMnemonicFromEntropyAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
@@ -536,7 +583,7 @@ export type IMnemonicToSeedAsyncParams = {
   mnemonic: string;
   passphrase?: string;
 };
-export async function mnemonicToSeedAsync(
+async function mnemonicToSeedAsync(
   params: IMnemonicToSeedAsyncParams,
 ): Promise<Buffer> {
   if (platformEnv.isNative) {
@@ -544,6 +591,10 @@ export async function mnemonicToSeedAsync(
       params,
     );
     return Buffer.from(hex, 'hex');
+  }
+  const isValid = validateMnemonic(params.mnemonic);
+  if (!isValid) {
+    throw new InvalidMnemonic();
   }
   return Promise.resolve(
     mnemonicToSeedSync(params.mnemonic, params.passphrase),
@@ -555,7 +606,7 @@ export type IGenerateRootFingerprintHexAsyncParams = {
   hdCredential: IBip39RevealableSeedEncryptHex;
   password: string;
 };
-export async function generateRootFingerprintHexAsync(
+async function generateRootFingerprintHexAsync(
   params: IGenerateRootFingerprintHexAsyncParams,
 ): Promise<string> {
   if (platformEnv.isNative) {
@@ -564,19 +615,19 @@ export async function generateRootFingerprintHexAsync(
     );
   }
   const { curveName, hdCredential, password } = params;
-  const masterKey = generateMasterKeyFromSeed(
+  const masterKey = await generateMasterKeyFromSeed(
     curveName,
     hdCredential,
     password,
   );
-  const publicKey = publicFromPrivate(curveName, masterKey.key, password);
+  const publicKey = await publicFromPrivate(curveName, masterKey.key, password);
   return hash160(publicKey).slice(0, 4).toString('hex');
 }
 
-function revealableSeedFromTonMnemonic(
+async function revealableSeedFromTonMnemonic(
   mnemonic: string,
   password: string,
-): IBip39RevealableSeedEncryptHex {
+): Promise<IBip39RevealableSeedEncryptHex> {
   const rs: IBip39RevealableSeed = tonMnemonicToRevealableSeed(mnemonic);
   return encryptRevealableSeed({
     rs,
@@ -584,12 +635,12 @@ function revealableSeedFromTonMnemonic(
   });
 }
 
-function tonMnemonicFromEntropy(
+async function tonMnemonicFromEntropy(
   hdCredential: IBip39RevealableSeedEncryptHex,
   password: string,
-): string {
+): Promise<string> {
   defaultLogger.account.secretPerf.decryptHdCredential();
-  const rs: IBip39RevealableSeed = decryptRevealableSeed({
+  const rs: IBip39RevealableSeed = await decryptRevealableSeed({
     password,
     rs: hdCredential,
   });
@@ -619,13 +670,16 @@ export {
   encryptVerifyString,
   fixV4VerifyStringToV5,
   generateMasterKeyFromSeed,
+  generateRootFingerprintHexAsync,
   mnemonicFromEntropy,
+  mnemonicFromEntropyAsync,
+  mnemonicToSeedAsync,
   N,
   publicFromPrivate,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
-  tonMnemonicFromEntropy,
   sign,
+  tonMnemonicFromEntropy,
   uncompressPublicKey,
   verify,
 };

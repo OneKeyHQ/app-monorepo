@@ -1,4 +1,5 @@
 import type { ITabSubNavigatorConfig } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
@@ -27,7 +28,7 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     component: HomePageContainer,
     // translationId: 'wallet__wallet',
     rewrite: '/',
-    // exact: true,
+    headerShown: !platformEnv.isNative,
   },
   {
     // web refresh will match this route first, make sure it's different url from the home route

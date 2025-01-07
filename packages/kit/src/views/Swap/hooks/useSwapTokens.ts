@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { debounce, isNil } from 'lodash';
 
 import { EPageType, usePageType } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -13,10 +13,7 @@ import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import {
-  swapDefaultSetTokens,
-  tokenDetailSwapDefaultToTokens,
-} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
   ISwapNetwork,
@@ -50,7 +47,7 @@ export function useSwapInit(params?: ISwapInitParams) {
   const [fromToken, setFromToken] = useSwapSelectFromTokenAtom();
   const [toToken, setToToken] = useSwapSelectToTokenAtom();
   const [, setInAppNotificationAtom] = useInAppNotificationAtom();
-  const { syncNetworksSort } = useSwapActions().current;
+  const { syncNetworksSort, needChangeToken } = useSwapActions().current;
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const { updateSelectedAccountNetwork } = useAccountSelectorActions().current;
   const [networkListFetching, setNetworkListFetching] = useState<boolean>(true);
@@ -206,20 +203,19 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
       }
       if (params?.importFromToken && !params?.importToToken) {
-        const fromNetworkDefault =
-          swapDefaultSetTokens[params?.importFromToken.networkId];
-
-        const defaultToToken = !params?.importFromToken?.isNative
-          ? tokenDetailSwapDefaultToTokens[params?.importFromToken.networkId]
-          : fromNetworkDefault?.toToken;
-        if (defaultToToken) {
+        const needSetToToken = needChangeToken({
+          token: params.importFromToken,
+          swapTypeSwitchValue:
+            params?.swapTabSwitchType ?? ESwapTabSwitchType.SWAP,
+        });
+        if (needSetToToken) {
           const defaultTokenSupportTypes =
-            checkSupportTokenSwapType(defaultToToken);
+            checkSupportTokenSwapType(needSetToToken);
           if (
             params?.swapTabSwitchType &&
             defaultTokenSupportTypes.includes(params?.swapTabSwitchType)
           ) {
-            setToToken(defaultToToken);
+            setToToken(needSetToToken);
           }
         }
       }
@@ -297,6 +293,7 @@ export function useSwapInit(params?: ISwapInitParams) {
     checkSupportTokenSwapType,
     setFromToken,
     setToToken,
+    needChangeToken,
   ]);
 
   useEffect(() => {
@@ -372,9 +369,7 @@ export function useSwapTokenList(
   >([]);
   const [{ tokenCatch }] = useSwapTokenMapAtom();
   const [swapAllNetworkTokenListMap] = useSwapAllNetworkTokenListMapAtom();
-  const [swapSupportAllAccounts, setSwapSupportAllAccounts] = useState<
-    IAllNetworkAccountInfo[]
-  >([]);
+  const swapSupportAllAccountsRef = useRef<IAllNetworkAccountInfo[]>([]);
   const [swapNetworks] = useSwapNetworksAtom();
   const [swapSupportAllNetworks] = useSwapNetworksIncludeAllNetworkAtom();
   const { tokenListFetchAction, swapLoadAllNetworkTokenList } =
@@ -394,7 +389,7 @@ export function useSwapTokenList(
             : undefined,
           swapSupportNetworks: swapNetworks,
         });
-      setSwapSupportAllAccounts(swapSupportAccounts);
+      swapSupportAllAccountsRef.current = swapSupportAccounts;
     })();
   }, [
     swapAddressInfo?.accountInfo?.account?.id,
@@ -404,7 +399,7 @@ export function useSwapTokenList(
   ]);
 
   const tokenFetchParams = useMemo(() => {
-    const findNetInfo = swapSupportAllAccounts.find(
+    const findNetInfo = swapSupportAllAccountsRef.current.find(
       (net) => net.networkId === currentNetworkId,
     );
     if (swapAddressInfo.networkId === currentNetworkId) {
@@ -428,7 +423,6 @@ export function useSwapTokenList(
     swapAddressInfo.networkId,
     swapAddressInfo?.address,
     swapAddressInfo?.accountInfo?.account?.id,
-    swapSupportAllAccounts,
     keywords,
   ]);
 
@@ -672,6 +666,15 @@ export function useSwapSelectedTokenInfo({
   if (isFocusRef.current !== isFocused) {
     isFocusRef.current = isFocused;
   }
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const loadSwapSelectTokenDetailDeb = useCallback(
+    debounce((direction, addressInfo, fetchBalance) => {
+      void loadSwapSelectTokenDetail(direction, addressInfo, fetchBalance);
+    }, 200),
+    [],
+  );
+
   useEffect(() => {
     if (!isFocusRef.current) return;
     if (swapHistoryPendingList.length) {
@@ -679,14 +682,18 @@ export function useSwapSelectedTokenInfo({
         (item) => item.status === ESwapTxHistoryStatus.SUCCESS,
       ).length;
       if (successOrder > orderFinishCheckBalanceRef.current) {
-        void loadSwapSelectTokenDetail(type, swapAddressInfoRef.current, true);
+        void loadSwapSelectTokenDetailDeb(
+          type,
+          swapAddressInfoRef.current,
+          true,
+        );
         setOrderFinishCheckBalance(successOrder);
       }
     }
-  }, [loadSwapSelectTokenDetail, swapHistoryPendingList, type]);
+  }, [loadSwapSelectTokenDetailDeb, swapHistoryPendingList, type]);
 
   useEffect(() => {
-    void loadSwapSelectTokenDetail(
+    void loadSwapSelectTokenDetailDeb(
       type,
       swapAddressInfoRef.current,
       !token?.reservationValue && token?.isNative,
@@ -696,7 +703,8 @@ export function useSwapSelectedTokenInfo({
     swapAddressInfo,
     token?.networkId,
     token?.contractAddress,
-    loadSwapSelectTokenDetail,
+    token?.balanceParsed,
+    loadSwapSelectTokenDetailDeb,
     token?.reservationValue,
     token?.isNative,
   ]);
@@ -715,7 +723,7 @@ export function useSwapSelectedTokenInfo({
             (item) => item.status === ESwapTxHistoryStatus.SUCCESS,
           ).length;
           if (successOrder > orderFinishCheckBalanceRef.current) {
-            void loadSwapSelectTokenDetail(
+            void loadSwapSelectTokenDetailDeb(
               type,
               swapAddressInfoRef.current,
               true,

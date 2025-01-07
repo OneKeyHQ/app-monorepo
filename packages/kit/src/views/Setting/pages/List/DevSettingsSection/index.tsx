@@ -46,6 +46,7 @@ import {
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
+import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { CrashDevSettings } from './CrashDevSettings';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
@@ -217,6 +218,19 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      {platformEnv.isNative ? (
+        <SectionFieldItem
+          name="webviewDebuggingEnabled"
+          title="Enable WebviewDebugging"
+          onValueChange={() => {
+            setTimeout(() => {
+              backgroundApiProxy.serviceApp.restartApp();
+            }, 300);
+          }}
+        >
+          <Switch size={ESwitchSize.small} />
+        </SectionFieldItem>
+      ) : null}
       <SectionFieldItem
         name="disableSolanaPriorityFee"
         title="禁用 Solana 交易优先费"
@@ -384,6 +398,16 @@ export const DevSettingsSection = () => {
         }}
       />
 
+      <SectionPressItem
+        title="AsyncStorageDevSettings"
+        onPress={() => {
+          Dialog.cancel({
+            title: 'Single data store test',
+            renderContent: <AsyncStorageDevSettings />,
+          });
+        }}
+      />
+
       {platformEnv.isNative ? (
         <SectionPressItem
           title="AppNotificationBadge"
@@ -541,6 +565,12 @@ export const DevSettingsSection = () => {
         title="Reset Spotlight"
         onPress={() => {
           void backgroundApiProxy.serviceSpotlight.reset();
+        }}
+      />
+      <SectionPressItem
+        title="Reset Hidden Sites in Floating icon"
+        onPress={() => {
+          void backgroundApiProxy.serviceSetting.clearFloatingIconHiddenSites();
         }}
       />
       <SectionPressItem

@@ -3,6 +3,7 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { Semaphore } from 'async-mutex';
+import BigNumber from 'bignumber.js';
 import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
 import { AuthInfo, TxBody } from 'cosmjs-types/cosmos/tx/v1beta1/tx';
 
@@ -17,6 +18,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -190,6 +192,9 @@ class ProviderApiCosmos extends ProviderApiBase {
       } catch (error) {
         if ((error as Error).message !== 'Invalid chainId') {
           this._enableFailureCache[origin] = now;
+        } else {
+          const chainId = params?.[0] ?? '';
+          throw new Error(`OneKey does not support ${chainId}.`);
         }
         return false;
       }
@@ -360,13 +365,32 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     const account = await this._getAccount(request, networkId);
 
-    const encodeTx = params.signDoc;
+    const encodedTx = params.signDoc;
+    const accountNumberBN = new BigNumber(encodedTx.accountNumber || '0');
+    if (
+      !encodedTx.accountNumber ||
+      accountNumberBN.isZero() ||
+      accountNumberBN.isNaN()
+    ) {
+      const accountInfo =
+        await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+          networkId,
+          accountId: account.account.id,
+          withNonce: true,
+        });
+
+      if (!accountInfo) {
+        throw new Error('Invalid account');
+      }
+
+      encodedTx.accountNumber = `${accountInfo.accountNumber ?? 0}`;
+    }
     const txWrapper = TransactionWrapper.fromDirectSignDocHex(
       {
-        bodyBytes: encodeTx.bodyBytes ?? '',
-        authInfoBytes: encodeTx.authInfoBytes ?? '',
-        chainId: encodeTx.chainId ?? '',
-        accountNumber: encodeTx.accountNumber ?? '',
+        bodyBytes: encodedTx.bodyBytes ?? '',
+        authInfoBytes: encodedTx.authInfoBytes ?? '',
+        chainId: encodedTx.chainId ?? '',
+        accountNumber: encodedTx.accountNumber ?? '',
       },
       undefined,
     );
@@ -561,6 +585,26 @@ class ProviderApiCosmos extends ProviderApiBase {
       return true;
     }
     return false;
+  }
+
+  @providerApiMethod()
+  public async getChainInfosWithoutEndpoints(request: IJsBridgeMessagePayload) {
+    const { networks } =
+      await this.backgroundApi.serviceNetwork.getNetworksByImpls({
+        impls: ['cosmos'],
+      });
+
+    return networks.map((n) => {
+      const chainId = networkUtils.getNetworkChainId({ networkId: n.id });
+      if (!chainId) return null;
+      return {
+        chainId,
+        chainName: n.name,
+        bip44: { coinType: parseInt(COINTYPE_COSMOS, 10) },
+        currencies: [],
+        feeCurrencies: [],
+      };
+    });
   }
 }
 

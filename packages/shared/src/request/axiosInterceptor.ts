@@ -6,7 +6,10 @@ import axios, { AxiosError } from 'axios';
 import { debounce, forEach } from 'lodash';
 
 import { OneKeyError, OneKeyServerApiError } from '@onekeyhq/shared/src/errors';
-import { refresh } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IOneKeyAPIBaseResponse } from '@onekeyhq/shared/types/request';
 
 import { EOneKeyErrorClassNames } from '../errors/types/errorTypes';
@@ -25,7 +28,7 @@ import {
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 const refreshNetInfo = debounce(() => {
-  void refresh();
+  appEventBus.emit(EAppEventBusNames.RefreshNetInfo, undefined);
 }, 2500);
 
 axios.interceptors.request.use(async (config) => {

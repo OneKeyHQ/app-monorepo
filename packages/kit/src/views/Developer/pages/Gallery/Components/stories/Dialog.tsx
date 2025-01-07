@@ -44,9 +44,6 @@ const CustomFooter = ({
   index: number;
   form: UseFormReturn<any>;
 }) => {
-  // test Navigation Container hooks
-  const isFocused = useIsFocused();
-  console.log('isFocused', isFocused);
   const dialog = useDialogInstance();
   return (
     <XStack gap="$4" justifyContent="center">
@@ -798,7 +795,7 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'ScrollView Demo(not recommand, use Modal Page instead it))',
+        title: 'ScrollView Demo(not recommend, use Modal Page instead it))',
         element: (
           <YStack>
             <Button

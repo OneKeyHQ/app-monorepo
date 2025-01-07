@@ -79,7 +79,7 @@ const usePassKeyOperations = () => {
           passwordVerifyStatus: {
             value: EPasswordVerifyStatus.ERROR,
             message: intl.formatMessage({
-              id: ETranslations.auth_error_password_incorrect,
+              id: ETranslations.auth_error_passcode_incorrect,
             }),
           },
         }));
@@ -90,7 +90,7 @@ const usePassKeyOperations = () => {
         passwordVerifyStatus: {
           value: EPasswordVerifyStatus.ERROR,
           message: intl.formatMessage({
-            id: ETranslations.auth_error_password_incorrect,
+            id: ETranslations.auth_error_passcode_incorrect,
           }),
         },
       }));

@@ -145,7 +145,7 @@ export function TestSimpleModal() {
         <YStack gap="$4" m="$4">
           <Button onPress={navigateToNextPage}>Push to Next Page</Button>
           <Page.Close>
-            <Button>Back To Pervious Page</Button>
+            <Button>Back To Previous Page</Button>
           </Page.Close>
           <Page.Close>
             <Button
@@ -158,7 +158,7 @@ export function TestSimpleModal() {
                 })
               }
             >
-              Back To Pervious Page --- async fail
+              Back To Previous Page --- async fail
             </Button>
           </Page.Close>
           <Page.Close>
@@ -171,7 +171,7 @@ export function TestSimpleModal() {
                 })
               }
             >
-              Back To Pervious Page --- async success
+              Back To Previous Page --- async success
             </Button>
           </Page.Close>
         </YStack>

@@ -5,13 +5,13 @@ import { debounce, isEmpty } from 'lodash';
 import {
   getCurrentVisibilityState,
   onVisibilityStateChange,
+  useDeferredPromise,
+  useNetInfo,
 } from '@onekeyhq/components';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { useDeferredPromise } from './useDeferredPromise';
 import { useIsMounted } from './useIsMounted';
 import { usePrevious } from './usePrevious';
 

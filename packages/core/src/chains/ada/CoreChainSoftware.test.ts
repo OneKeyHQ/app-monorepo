@@ -124,8 +124,8 @@ const {
 // wasm module
 // yarn jest packages/core/src/chains/ada/CoreChainSoftware.test.ts
 describe('ADA Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });

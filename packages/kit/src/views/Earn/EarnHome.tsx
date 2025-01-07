@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type {
+  IIconButtonProps,
   IKeyOfIcons,
   ISizableTextProps,
   IYStackProps,
@@ -610,6 +611,12 @@ function AvailableAssets() {
   return null;
 }
 
+const bannerIconStyle: Omit<IIconButtonProps, 'icon'> = {
+  bottom: '$3',
+  size: 'small',
+  transform: platformEnv.isNative ? '' : 'unset',
+};
+
 function BasicEarnHome() {
   const {
     activeAccount: { account, network, indexedAccount },
@@ -697,6 +704,9 @@ function BasicEarnHome() {
           ...i,
           imgUrl: i.src,
           title: i.title || '',
+          titleTextProps: {
+            size: '$headingMd',
+          },
         })) || []
       );
     },
@@ -799,22 +809,24 @@ function BasicEarnHome() {
           onItemPress={onBannerPress}
           isLoading={false}
           leftIconButtonStyle={{
-            left: '$1.5',
-            size: 'small',
+            ...bannerIconStyle,
+            left: '$3.5',
           }}
           rightIconButtonStyle={{
-            right: '$1.5',
-            size: 'small',
+            ...bannerIconStyle,
+            right: '$3.5',
           }}
           indicatorContainerStyle={{
-            right: '$2.5',
-            bottom: '$3',
+            right: 0,
+            width: '100%',
+            jc: 'center',
+            bottom: '$5',
           }}
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
-            right: '$10',
-            left: '$10',
+            right: '$5',
+            left: '$5',
             justifyContent: 'center',
           }}
         />

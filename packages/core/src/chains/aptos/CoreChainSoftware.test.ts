@@ -69,8 +69,8 @@ const {
 
 // yarn jest packages/core/src/chains/apt/CoreChainSoftware.test.ts
 describe('APT Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });

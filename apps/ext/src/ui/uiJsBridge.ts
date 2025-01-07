@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundUtils';
 import { appEventBus } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 import type {
   IJsBridgeMessagePayload,
   IJsonRpcRequest,
@@ -40,7 +41,7 @@ function init() {
       // use <WaitBackgroundReady /> instead
       // legacy method:    syncWholeStoreState();
     },
-  });
+  }) as unknown as JsBridgeBase;
 }
 
 export default {

@@ -13,12 +13,16 @@ module.exports = ({
 }) => {
   switch (NODE_ENV) {
     case 'production': {
-      return merge(baseConfig({ platform, basePath }), productionConfig, {
-        output: {
-          crossOriginLoading: 'anonymous',
+      return merge(
+        baseConfig({ platform, basePath }),
+        productionConfig({ platform, basePath }),
+        {
+          output: {
+            crossOriginLoading: 'anonymous',
+          },
+          plugins: [new SubresourceIntegrityPlugin()],
         },
-        plugins: [new SubresourceIntegrityPlugin()],
-      });
+      );
     }
     case 'development':
     default: {

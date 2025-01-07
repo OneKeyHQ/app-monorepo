@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { debounce, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -10,6 +10,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   swapQuoteIntervalMaxCount,
   swapSlippageAutoValue,
@@ -22,6 +23,7 @@ import {
   ESwapAlertLevel,
   ESwapDirectionType,
   ESwapSlippageSegmentKey,
+  SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useDebounce } from '../../../hooks/useDebounce';
@@ -78,17 +80,25 @@ function useSwapWarningCheck() {
     }
   }, [swapFromAddressInfo, swapToAddressInfo]);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const checkSwapWarningDeb = useCallback(
+    debounce((fromAddressInfo, toAddressInfo) => {
+      void checkSwapWarning(fromAddressInfo, toAddressInfo);
+    }, 300),
+    [],
+  );
+
   useEffect(() => {
     if (isFocused) {
       asyncRefContainer();
-      void checkSwapWarning(
+      checkSwapWarningDeb(
         refContainer.current.swapFromAddressInfo,
         refContainer.current.swapToAddressInfo,
       );
     }
   }, [
     asyncRefContainer,
-    checkSwapWarning,
+    checkSwapWarningDeb,
     fromToken,
     fromTokenAmount,
     toToken,
@@ -107,7 +117,24 @@ export function useSwapQuoteLoading() {
 export function useSwapQuoteEventFetching() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteResult] = useSwapQuoteListAtom();
-  return quoteEventTotalCount > 0 && quoteResult.length < quoteEventTotalCount;
+  return (
+    quoteEventTotalCount.count > 0 &&
+    quoteResult.length < quoteEventTotalCount.count
+  );
+}
+
+export function useSwapBatchTransfer(networkId?: string, accountId?: string) {
+  const [settingsPersistAtom] = useSettingsPersistAtom();
+  const isExternalAccount = accountUtils.isExternalAccount({
+    accountId: accountId ?? '',
+  });
+  const isUnSupportBatchTransferNet =
+    SwapBuildUseMultiplePopoversNetworkIds.includes(networkId ?? '');
+  return (
+    settingsPersistAtom.swapBatchApproveAndSwap &&
+    !isUnSupportBatchTransferNet &&
+    !isExternalAccount
+  );
 }
 
 export function useSwapActionState() {
@@ -119,7 +146,6 @@ export function useSwapActionState() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
   const [shouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapQuoteApproveAllowanceUnLimit] =
     useSwapQuoteApproveAllowanceUnLimitAtom();
@@ -130,8 +156,15 @@ export function useSwapActionState() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
-  const isRefreshQuote =
-    quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote;
+  const isBatchTransfer = useSwapBatchTransfer(
+    swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  );
+  const isRefreshQuote = useMemo(
+    () => quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote,
+    [quoteIntervalCount, shouldRefreshQuote],
+  );
+
   const hasError = alerts.states.some(
     (item) => item.alertLevel === ESwapAlertLevel.ERROR,
   );
@@ -185,7 +218,7 @@ export function useSwapActionState() {
       }
       if (quoteCurrentSelect && quoteCurrentSelect.allowanceResult) {
         infoRes.label = intl.formatMessage({
-          id: settingsPersistAtom.swapBatchApproveAndSwap
+          id: isBatchTransfer
             ? ETranslations.swap_page_approve_and_swap
             : ETranslations.global_approve,
         });
@@ -257,7 +290,7 @@ export function useSwapActionState() {
     quoteLoading,
     quoteResultNoMatchDebounce,
     selectedFromTokenBalance,
-    settingsPersistAtom.swapBatchApproveAndSwap,
+    isBatchTransfer,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
     toToken,

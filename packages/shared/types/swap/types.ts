@@ -246,6 +246,7 @@ export interface IFetchQuoteResult {
   fee?: IFetchQuoteFee;
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
+  approvedInfo?: IApprovedInfo;
   estimatedTime?: string;
   isBest?: boolean;
   receivedBest?: boolean;
@@ -273,6 +274,12 @@ export interface IAllowanceResult {
   allowanceTarget: string;
   amount: string;
   shouldResetApprove?: boolean;
+}
+
+export interface IApprovedInfo {
+  isApproved: boolean;
+  allowanceTarget?: string;
+  amount?: string;
 }
 
 export interface IFetchQuoteInfo {
@@ -578,4 +585,9 @@ export enum ESwapSlippageCustomStatus {
 }
 
 export const SwapPercentageInputStage = [25, 50, 100];
+export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
+
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
+
+export const SwapAmountInputAccessoryViewID =
+  'swap-amount-input-accessory-view';

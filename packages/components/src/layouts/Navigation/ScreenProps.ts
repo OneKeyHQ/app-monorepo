@@ -69,19 +69,19 @@ export interface INavSearchBarProps {
   /**
    * The search hint text color
    *
-   * @plaform android
+   * @platform android
    */
   hintTextColor?: string;
   /**
    * The search and close icon color shown in the header
    *
-   * @plaform android
+   * @platform android
    */
   headerIconColor?: string;
   /**
    * Show the search hint icon when search bar is focused
    *
-   * @plaform android
+   * @platform android
    * @default true
    */
   shouldShowHintSearchIcon?: boolean;

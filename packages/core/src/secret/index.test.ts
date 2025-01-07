@@ -10,12 +10,17 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
-import { decrypt, encrypt } from './encryptors/aes256';
+import { decrypt, encryptAsync } from './encryptors/aes256';
 import { sha256 } from './hash';
 
 import type { ICurveName } from '../types';
 
-// yarn jest packages/core/src/secret/index.test.ts
+/* run test ==============================
+
+yarn jest packages/core/src/secret/index.test.ts
+
+*/
+
 const halfNs: Record<string, BigNumber> = {
   // eslint-disable-next-line new-cap
   secp256k1: new BigNumber(new elliptic.ec('secp256k1').nh.toString()),
@@ -570,10 +575,14 @@ const bip39TestVectors = [
 ];
 
 const password = 'onekey';
-const xPrvTest = {
+
+const createXPrvTestAsync = async () => ({
   chainCode: Buffer.alloc(32),
-  key: encrypt(password, Buffer.alloc(32)),
-};
+  key: await encryptAsync({
+    password,
+    data: Buffer.alloc(32),
+  }),
+});
 
 const xPubTest = {
   chainCode: Buffer.alloc(32),
@@ -593,19 +602,23 @@ test('Empty buffer not allowed', () => {
   }).toThrow(new Error('Curve call ERROR: Buffer is empty'));
 });
 
-test('Child index is not int', () => {
-  expect(() => {
-    CKDPriv('secp256k1', xPrvTest, 1.1, password);
-  }).toThrow(new Error('Invalid index.'));
+test('Child index is not int', async () => {
+  const xPrvTest = await createXPrvTestAsync();
+  await expect(CKDPriv('secp256k1', xPrvTest, 1.1, password)).rejects.toThrow(
+    new Error('Invalid index.'),
+  );
 });
 
-test('Child index too big', () => {
-  expect(() => {
-    CKDPriv('secp256k1', xPrvTest, 2 ** 32, password);
-  }).toThrow(new Error('Overflowed.'));
-  expect(() => {
-    CKDPub('secp256k1', xPubTest, 2 ** 32);
-  }).toThrow(new Error('Invalid index.'));
+test('Child index too big', async () => {
+  const xPrvTest = await createXPrvTestAsync();
+
+  await expect(
+    CKDPriv('secp256k1', xPrvTest, 2 ** 32, password),
+  ).rejects.toThrow(new Error('Overflowed.'));
+
+  expect(() => CKDPub('secp256k1', xPubTest, 2 ** 32)).toThrow(
+    new Error('Invalid index.'),
+  );
 });
 
 test('(ECDSA) CKDPub failed for hardened index', () => {
@@ -615,10 +628,12 @@ test('(ECDSA) CKDPub failed for hardened index', () => {
   }).toThrow(new Error(`Can't derive public key for index ${index}.`));
 });
 
-test('Normal CKDPriv is not supported for ed25519', () => {
-  expect(() => {
-    CKDPriv('ed25519', xPrvTest, 1, password);
-  }).toThrow(new Error('Only hardened CKDPriv is supported for ed25519.'));
+test('Normal CKDPriv is not supported for ed25519', async () => {
+  const xPrvTest = await createXPrvTestAsync();
+
+  await expect(CKDPriv('ed25519', xPrvTest, 1, password)).rejects.toThrow(
+    new Error('Only hardened CKDPriv is supported for ed25519.'),
+  );
 });
 
 test('CKDPub is not supported for ed25519', () => {
@@ -627,33 +642,36 @@ test('CKDPub is not supported for ed25519', () => {
   }).toThrow(new Error('CKDPub is not supported for ed25519.'));
 });
 
-test('Normal encryption/decryption', () => {
+test('Normal encryption/decryption', async () => {
   const data = Buffer.from('deadbeef', 'hex');
-  expect(decrypt(password, encrypt(password, data))).toStrictEqual(data);
+  expect(
+    decrypt(password, await encryptAsync({ password, data })),
+  ).toStrictEqual(data);
 });
 
-test('Incorrect password', () => {
-  expect(() => {
-    decrypt(password + password, encrypt(password, Buffer.from('')));
-  }).toThrow(IncorrectPassword);
+test('Incorrect password', async () => {
+  const encrypted = await encryptAsync({ password, data: Buffer.from('') });
+  expect(() => decrypt(password + password, encrypted)).toThrow(
+    IncorrectPassword,
+  );
 });
 
-test('Incorrect mnemonic checksum', () => {
-  expect(() => {
+test('Incorrect mnemonic checksum', async () => {
+  await expect(
     revealableSeedFromMnemonic(
       'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon',
       'whatever password',
-    );
-  }).toThrow(InvalidMnemonic);
+    ),
+  ).rejects.toThrow(InvalidMnemonic);
 });
 
-test('Incorrect mnemonic', () => {
-  expect(() => {
+test('Incorrect mnemonic', async () => {
+  await expect(
     revealableSeedFromMnemonic(
       'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon',
       'whatever password',
-    );
-  }).toThrow(InvalidMnemonic);
+    ),
+  ).rejects.toThrow(InvalidMnemonic);
 });
 
 test('sha256', () => {

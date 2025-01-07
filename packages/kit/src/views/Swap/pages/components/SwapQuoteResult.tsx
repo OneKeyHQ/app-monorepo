@@ -19,7 +19,10 @@ import {
   useSwapSelectToTokenAtom,
   useSwapTokenMetadataAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useSettingsAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IFetchQuoteResult,
@@ -58,12 +61,13 @@ const SwapQuoteResult = ({
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
+  const [{ swapEnableRecipientAddress }] = useSettingsAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
 
   const swapRecipientAddress = useSwapRecipientAddressInfo(
-    settingsPersistAtom.swapEnableRecipientAddress,
+    swapEnableRecipientAddress,
   );
 
   const calculateTaxItem = useCallback(
@@ -195,7 +199,7 @@ const SwapQuoteResult = ({
             >
               <Divider mt="$4" />
               {swapProviderSupportReceiveAddress &&
-              settingsPersistAtom.swapEnableRecipientAddress ? (
+              swapEnableRecipientAddress ? (
                 <SwapCommonInfoItem
                   title={intl.formatMessage({
                     id: ETranslations.global_recipient,

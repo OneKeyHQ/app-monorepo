@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { memo, useEffect, useMemo, useState } from 'react';
 
 import {
@@ -64,6 +65,7 @@ type IProps = {
   tokenSelectorSearchTokenList?: {
     tokens: IAccountToken[];
   };
+  emptyAccountView?: ReactNode;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -90,6 +92,7 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchKey = '',
     tokenSelectorSearchTokenState = { isSearching: false },
     tokenSelectorSearchTokenList = { tokens: [] },
+    emptyAccountView,
   } = props;
 
   const [tokenList] = useTokenListAtom();
@@ -217,6 +220,10 @@ function TokenListViewCmp(props: IProps) {
         <ListLoading isTokenSelectorView={!tableLayout} />
       </NestedScrollView>
     );
+  }
+
+  if (emptyAccountView) {
+    return emptyAccountView;
   }
 
   return (
