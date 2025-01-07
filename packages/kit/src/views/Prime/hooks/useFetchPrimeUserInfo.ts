@@ -4,15 +4,15 @@ import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { usePrimeAuth } from './usePrimeAuth';
 
 export function useFetchPrimeUserInfo() {
-  const { isReady } = usePrimeAuth();
+  const { isReady, user } = usePrimeAuth();
   const { result } = usePromiseResult(async () => {
-    if (isReady) {
+    if (isReady && user?.privyUserId) {
       const userInfo =
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       return userInfo;
     }
     return undefined;
-  }, [isReady]);
+  }, [isReady, user?.privyUserId]);
 
   return { result };
 }
