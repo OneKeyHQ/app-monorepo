@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNaN, isNil } from 'lodash';
@@ -9,14 +9,10 @@ import {
   Accordion,
   Button,
   Dialog,
-  Divider,
   Form,
   Icon,
-  IconButton,
   Input,
   SizableText,
-  TextAreaInput,
-  XStack,
   YStack,
   useForm,
 } from '@onekeyhq/components';
@@ -30,6 +26,8 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+
+import { TxDataViewer } from '../SignatureConfirmDataViewer';
 
 type IProps = {
   accountId: string;
@@ -91,7 +89,32 @@ function TxAdvancedSettings(props: IProps) {
     [unsignedTxs],
   );
 
-  const dataContent = useMemo(() => {
+  const txContent = useMemo(() => {
+    if (!unsignedTxs || unsignedTxs.length === 0) {
+      return '';
+    }
+    return unsignedTxs.reduce((acc, unsignedTx) => {
+      try {
+        const tx = JSON.stringify(
+          unsignedTx.encodedTx as IEncodedTxEvm,
+          null,
+          2,
+        );
+        return acc ? `${acc}\n\n${tx}` : tx;
+      } catch {
+        return acc;
+      }
+    }, '');
+  }, [unsignedTxs]);
+
+  const abiContent = useMemo(() => {
+    if (!unsignedTxs || unsignedTxs.length === 0) {
+      return '';
+    }
+    return '';
+  }, [unsignedTxs]);
+
+  const hexContent = useMemo(() => {
     if (!unsignedTxs || unsignedTxs.length === 0) {
       return '';
     }
@@ -119,7 +142,6 @@ function TxAdvancedSettings(props: IProps) {
   const form = useForm({
     defaultValues: {
       nonce: currentNonce,
-      data: dataContent,
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -165,95 +187,85 @@ function TxAdvancedSettings(props: IProps) {
 
   const renderAdvancedSettings = useCallback(
     () => (
-      <Form form={form}>
-        {canEditNonce ? (
-          <Form.Field
-            label={intl.formatMessage({
-              id: ETranslations.global_nonce,
-            })}
-            name="nonce"
-            rules={{
-              validate: handleValidateNonce,
-              onChange: (e: { target: { name: string; value: string } }) => {
-                const value = e.target?.value;
-                let finalValue = '';
+      <YStack gap="$5">
+        <Form form={form}>
+          {canEditNonce ? (
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.global_nonce,
+              })}
+              name="nonce"
+              rules={{
+                validate: handleValidateNonce,
+                onChange: (e: { target: { name: string; value: string } }) => {
+                  const value = e.target?.value;
+                  let finalValue = '';
 
-                if (value === '') {
-                  finalValue = '';
-                } else {
-                  const formattedValue = Number.parseInt(value, 10);
-
-                  if (isNaN(formattedValue)) {
-                    form.setValue('nonce', '');
+                  if (value === '') {
                     finalValue = '';
                   } else {
-                    form.setValue('nonce', String(formattedValue));
-                    finalValue = String(formattedValue);
-                  }
-                }
+                    const formattedValue = Number.parseInt(value, 10);
 
-                updateTxAdvancedSettings({
-                  nonce: finalValue,
-                });
-              },
-            }}
-            description={intl.formatMessage(
-              {
-                id: ETranslations.global_nonce_desc,
-              },
-              {
-                'amount': currentNonce,
-              },
-            )}
-            labelAddon={
-              <Button
-                size="small"
-                variant="tertiary"
-                onPress={() => showNonceFaq()}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.global_nonce_faq,
-                })}
-              </Button>
-            }
-          >
-            <Input flex={1} placeholder={currentNonce} />
-          </Form.Field>
-        ) : null}
-        <Form.Field
-          label={intl.formatMessage({
-            id: ETranslations.global_hex_data_default,
-          })}
-          name="data"
-          labelAddon={
-            <Button
-              size="small"
-              variant="tertiary"
-              onPress={() => showHexDataFaq()}
+                    if (isNaN(formattedValue)) {
+                      form.setValue('nonce', '');
+                      finalValue = '';
+                    } else {
+                      form.setValue('nonce', String(formattedValue));
+                      finalValue = String(formattedValue);
+                    }
+                  }
+
+                  updateTxAdvancedSettings({
+                    nonce: finalValue,
+                  });
+                },
+              }}
+              description={intl.formatMessage(
+                {
+                  id: ETranslations.global_nonce_desc,
+                },
+                {
+                  'amount': currentNonce,
+                },
+              )}
+              labelAddon={
+                <Button
+                  size="small"
+                  variant="tertiary"
+                  onPress={() => showNonceFaq()}
+                >
+                  {intl.formatMessage({
+                    id: ETranslations.global_nonce_faq,
+                  })}
+                </Button>
+              }
             >
-              {intl.formatMessage({
-                id: ETranslations.global_hex_data_default_faq,
-              })}
-            </Button>
-          }
-        >
-          <TextAreaInput editable={false} flex={1} />
-        </Form.Field>
-      </Form>
+              <Input flex={1} placeholder={currentNonce} />
+            </Form.Field>
+          ) : null}
+        </Form>
+        <TxDataViewer
+          dataGroup={[
+            { title: 'DATA', data: txContent },
+            { title: 'ABI', data: abiContent },
+            { title: 'HEX', data: hexContent },
+          ]}
+          showCopy
+        />
+      </YStack>
     ),
     [
+      abiContent,
       canEditNonce,
       currentNonce,
       form,
       handleValidateNonce,
+      hexContent,
       intl,
+      txContent,
       updateTxAdvancedSettings,
     ],
   );
-
-  useEffect(() => {
-    form.setValue('data', dataContent);
-  }, [dataContent, form]);
 
   if (
     isInternalStakingTx ||
