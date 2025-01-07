@@ -29,7 +29,7 @@ import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import { getPasswordKeyboardType } from '../utils';
 
-import PassCodeInput from './PassCodeInput';
+import PassCodeInput, { AUTO_FOCUS_DELAY_MS } from './PassCodeInput';
 
 import type { AuthenticationType } from 'expo-local-authentication';
 
@@ -77,9 +77,14 @@ const PasswordVerify = ({
     isEnableRef.current = isEnable;
   }
 
+  const disableInputRef = useRef(disableInput);
+  if (disableInputRef.current !== disableInput) {
+    disableInputRef.current = disableInput;
+  }
+
   useEffect(() => {
     setTimeout(() => {
-      if (!isEnableRef.current) {
+      if (!isEnableRef.current && !disableInputRef.current) {
         form.setFocus(
           passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
         );
@@ -143,13 +148,16 @@ const PasswordVerify = ({
       form.setError(fieldName, { message: status.message });
       if (passwordMode === EPasswordMode.PASSCODE) {
         setPassCodeClear(true);
-      } else {
-        form.setFocus(fieldName);
+      }
+      if (!disableInputRef.current) {
+        setTimeout(() => {
+          form.setFocus(fieldName);
+        }, 150);
       }
     } else {
       form.clearErrors(fieldName);
     }
-  }, [form, passwordMode, status, disableInput]);
+  }, [form, passwordMode, status]);
 
   useLayoutEffect(() => {
     if (
