@@ -112,7 +112,7 @@ const baseConfig = ({ platform, basePath, configName }) => {
               resolve: { fullySpecified: false },
             },
             {
-              test: /lru-cache/,
+              test: /lru-cache.*\.(ts|js)x?$/,
               use: {
                 loader: 'babel-loader',
                 options: baseLoaderOption,
