@@ -81,15 +81,20 @@ const PasswordVerify = ({
   if (disableInputRef.current !== disableInput) {
     disableInputRef.current = disableInput;
   }
-
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       if (!isEnableRef.current && !disableInputRef.current) {
         form.setFocus(
           passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
         );
       }
     }, 200);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [form, passwordMode]);
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
