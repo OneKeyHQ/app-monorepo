@@ -10,7 +10,10 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EMessageTypesCommon, EMessageTypesSolana } from '@onekeyhq/shared/types/message';
+import {
+  EMessageTypesCommon,
+  EMessageTypesSolana,
+} from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
 

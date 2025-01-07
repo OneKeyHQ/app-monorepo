@@ -3,6 +3,10 @@ import bs58 from 'bs58';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import {
+  EMessageTypesCommon,
+  EMessageTypesSolana,
+} from '@onekeyhq/shared/types/message';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
 import { decryptAsync } from '../../secret';
@@ -22,10 +26,10 @@ import {
   type ISignedTxPro,
 } from '../../types';
 
+import { OffchainMessage } from './sdkSol/OffchainMessage';
+
 import type { IEncodedTxSol, INativeTxSol } from './types';
 import type { ISigner } from '../../base/ChainSigner';
-import { EMessageTypesCommon, EMessageTypesSolana } from '@onekeyhq/shared/types/message';
-import { OffchainMessage } from './sdkSol/OffchainMessage';
 
 const curve: ICurveName = 'ed25519';
 
@@ -157,10 +161,12 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
     if (unsignedMsg.type === EMessageTypesCommon.SIGN_MESSAGE) {
       return signMessage(unsignedMsg.message, signer);
-    } else if(unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+    }
+    if (unsignedMsg.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+      const { message, payload: messagePayload } = unsignedMsg;
       const offchainMessage = new OffchainMessage({
-        version: unsignedMsg.payload?.version,
-        message: Buffer.from(unsignedMsg.message),
+        version: messagePayload?.version,
+        message: Buffer.from(message),
       });
       const [signature] = await signer.sign(offchainMessage.serialize());
       return bs58.encode(signature);

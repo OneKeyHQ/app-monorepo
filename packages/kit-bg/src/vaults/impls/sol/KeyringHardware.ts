@@ -2,6 +2,7 @@
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import type {
   IEncodedTxSol,
   INativeTxSol,
@@ -20,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -34,8 +36,6 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
-import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
-import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.sol.hd;

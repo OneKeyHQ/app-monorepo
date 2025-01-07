@@ -5,8 +5,8 @@ import type {
   EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
+  EMessageTypesSolana,
   EMessageTypesTon,
-  EMessageTypesSolana
 } from '@onekeyhq/shared/types/message';
 
 import type { ISignMessageRequest } from '../chains/aptos/types';
@@ -76,7 +76,9 @@ export type IUnsignedMessageAlph = {
 export type IUnsignedMessageSolana = {
   type: EMessageTypesSolana;
   message: string;
-  payload?: any;
+  payload?: {
+    version?: number;
+  };
 };
 
 export type IUnsignedMessage =
