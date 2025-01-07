@@ -300,7 +300,9 @@ function TxAdvancedSettings(props: IProps) {
               {({ open }: { open: boolean }) => (
                 <>
                   <SizableText size="$bodyMd" color="$textSubdued">
-                    Advance
+                    {intl.formatMessage({
+                      id: ETranslations.global_advanced_settings,
+                    })}
                   </SizableText>
                   <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
                     <Icon
