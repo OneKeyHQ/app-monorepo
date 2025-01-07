@@ -21,10 +21,12 @@ describe('aes256', () => {
       const encrypted = await encryptAsync({
         password: testPassword,
         data: testBuffer,
+        allowRawPassword: true,
       });
       const decrypted = await decryptAsync({
         password: testPassword,
         data: encrypted,
+        ignoreLogger: false,
         allowRawPassword: true,
       });
       expect(decrypted.toString()).toBe(testData);
@@ -38,6 +40,7 @@ describe('aes256', () => {
       const decrypted = await decryptAsync({
         password: testPassword,
         data: encrypted,
+        ignoreLogger: false,
         allowRawPassword: true,
       });
       expect(decrypted.toString()).toBe(testData);
