@@ -9,6 +9,7 @@ export enum EParseTxComponentType {
   NFT = 'nft',
   Amount = 'amount',
   Token = 'token',
+  Approve = 'tokenApproval',
 }
 
 export interface IDisplayComponentNetwork {
@@ -50,8 +51,23 @@ export interface IDisplayComponentToken {
   amountParsed: string;
 }
 
+export interface IDisplayComponentApprove {
+  type: EParseTxComponentType.Approve;
+  label: string;
+  token: {
+    info: IToken;
+  } & ITokenFiat;
+  amount: string;
+  amountParsed: string;
+  balance: string;
+  balanceParsed: string;
+  isEditable: boolean;
+  isInfiniteAmount: boolean;
+}
+
 export type IDisplayComponent =
   | IDisplayComponentToken
+  | IDisplayComponentApprove
   | IDisplayComponentNFT
   | IDisplayComponentNetwork
   | IDisplayComponentAddress;

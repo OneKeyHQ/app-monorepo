@@ -1,9 +1,13 @@
 import { memo, useCallback } from 'react';
 
-import { flatMap, map } from 'lodash';
+import { flatMap } from 'lodash';
 
+import {
+  useDecodedTxsAtom,
+  useUnsignedTxsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { Address, Assets, Network } from '../SignatureConfirmComponents';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
@@ -11,18 +15,46 @@ import { SignatureConfirmItem } from '../SignatureConfirmItem';
 type IProps = {
   accountId: string;
   networkId: string;
-  decodedTxs: IDecodedTx[];
 };
 
 function SignatureConfirmDetails(props: IProps) {
-  const { accountId, networkId, decodedTxs } = props;
+  const { accountId, networkId } = props;
+
+  const [unsignedTxs] = useUnsignedTxsAtom();
+  const [{ decodedTxs }] = useDecodedTxsAtom();
+
+  const isMultiTxs = decodedTxs?.length > 1;
 
   const renderSignatureConfirmDetails = useCallback(() => {
-    const txDisplayComponents = flatMap(
-      map(decodedTxs, (tx) => tx.txDisplay?.components),
-    ).filter(Boolean);
-    return txDisplayComponents.map((component) => {
+    let txDisplayComponents: {
+      component: IDisplayComponent;
+      txIndex: number;
+    }[] = [];
+
+    for (let i = 0; i < decodedTxs.length; i += 1) {
+      const decodedTx = decodedTxs[i];
+      const components = decodedTx.txDisplay?.components?.map((component) => ({
+        component,
+        txIndex: i,
+      }));
+
+      if (components) {
+        txDisplayComponents = flatMap(txDisplayComponents.concat(components));
+      }
+    }
+
+    return txDisplayComponents.map(({ component, txIndex }) => {
       switch (component.type) {
+        case EParseTxComponentType.Approve:
+          return (
+            <Assets.TokenApproval
+              component={component}
+              accountId={accountId}
+              networkId={networkId}
+              editable={!isMultiTxs}
+              approveInfo={unsignedTxs?.[txIndex]?.approveInfo}
+            />
+          );
         case EParseTxComponentType.Token:
           return <Assets.Token component={component} networkId={networkId} />;
         case EParseTxComponentType.NFT:
@@ -42,7 +74,7 @@ function SignatureConfirmDetails(props: IProps) {
           return null;
       }
     });
-  }, [accountId, decodedTxs, networkId]);
+  }, [accountId, decodedTxs, isMultiTxs, networkId, unsignedTxs]);
 
   return (
     <SignatureConfirmItem gap="$5">

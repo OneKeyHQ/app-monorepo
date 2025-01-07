@@ -20,20 +20,19 @@ import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useDecodedTxsAtom,
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 import { TxDataViewer } from '../SignatureConfirmDataViewer';
 
 type IProps = {
   accountId: string;
   networkId: string;
-  decodedTxs: IDecodedTx[];
 };
 
 const showNonceFaq = () => {
@@ -69,9 +68,10 @@ const showHexDataFaq = () => {
 };
 
 function TxAdvancedSettings(props: IProps) {
-  const { accountId, networkId, decodedTxs } = props;
+  const { accountId, networkId } = props;
   const intl = useIntl();
   const [unsignedTxs] = useUnsignedTxsAtom();
+  const [{ decodedTxs }] = useDecodedTxsAtom();
   const [settings] = useSettingsPersistAtom();
   const { updateTxAdvancedSettings } = useSignatureConfirmActions().current;
 

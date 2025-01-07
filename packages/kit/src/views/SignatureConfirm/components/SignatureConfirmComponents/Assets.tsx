@@ -1,12 +1,18 @@
+import { useEffect, useRef } from 'react';
+
 import type { IYStackProps } from '@onekeyhq/components';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
+  IDisplayComponentApprove,
   IDisplayComponentNFT,
   IDisplayComponentToken,
 } from '@onekeyhq/shared/types/signatureConfirm';
 
+import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 
 type IAssetsProps = {
@@ -17,6 +23,12 @@ type IAssetsProps = {
 
 type IAssetsTokenProps = IAssetsProps & {
   component: IDisplayComponentToken;
+};
+
+type IAssetsApproveProps = IAssetsProps & {
+  accountId: string;
+  component: IDisplayComponentApprove;
+  approveInfo?: IApproveInfo;
 };
 
 type IAssetsNFTProps = IAssetsProps & {
@@ -33,6 +45,7 @@ function SignatureAssetDetailItem({
   symbol,
   editable,
   tokenProps,
+  handleEdit,
   ...rest
 }: {
   type?: 'token' | 'nft';
@@ -42,6 +55,7 @@ function SignatureAssetDetailItem({
   editable?: boolean;
   showNetwork?: boolean;
   tokenProps?: Omit<ITokenProps, 'size' | 'showNetworkIcon'>;
+  handleEdit?: () => void;
 } & ISignatureConfirmItemType) {
   return (
     <SignatureConfirmItem {...rest}>
@@ -61,7 +75,7 @@ function SignatureAssetDetailItem({
             alignItems="center"
             {...(editable && {
               onPress: () => {
-                console.log('clicked');
+                handleEdit?.();
               },
               p: '$1',
               m: '$-1',
@@ -102,7 +116,7 @@ function SignatureAssetDetailItem({
 }
 
 function AssetsToken(props: IAssetsTokenProps) {
-  const { component, showNetwork, ...rest } = props;
+  const { component, ...rest } = props;
   return (
     <SignatureAssetDetailItem
       label={component.label}
@@ -114,6 +128,50 @@ function AssetsToken(props: IAssetsTokenProps) {
         networkId: component.token.info.networkId,
       }}
       type="token"
+      {...rest}
+    />
+  );
+}
+
+function AssetsTokenApproval(props: IAssetsApproveProps) {
+  const { component, accountId, networkId, approveInfo, ...rest } = props;
+  const { token } = component;
+  const approveInfoInit = useRef(false);
+  const { updateTokenApproveInfo } = useSignatureConfirmActions().current;
+
+  useEffect(() => {
+    if (approveInfoInit.current) return;
+    updateTokenApproveInfo({
+      originalAllowance: component.amount,
+      originalIsUnlimited: component.isInfiniteAmount,
+    });
+    approveInfoInit.current = true;
+  }, [updateTokenApproveInfo, component.amount, component.isInfiniteAmount]);
+
+  return (
+    <SignatureAssetDetailItem
+      label={component.label}
+      amount={component.amountParsed}
+      symbol={component.token.info.symbol}
+      tokenProps={{
+        tokenImageUri: component.token.info.logoURI,
+        isNFT: false,
+        networkId: component.token.info.networkId,
+      }}
+      type="token"
+      handleEdit={() => {
+        showApproveEditor({
+          accountId,
+          networkId,
+          isUnlimited: component.isInfiniteAmount,
+          allowance: component.amount,
+          tokenDecimals: token.info.decimals,
+          tokenSymbol: token.info.symbol,
+          tokenAddress: token.info.address,
+          balanceParsed: component.balanceParsed,
+          approveInfo,
+        });
+      }}
       {...rest}
     />
   );
@@ -144,6 +202,8 @@ function Assets() {
 }
 
 Assets.Token = AssetsToken;
+Assets.TokenApproval = AssetsTokenApproval;
+
 Assets.NFT = AssetsNFT;
 
 export { Assets };

@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -7,7 +7,10 @@ import { Page, Skeleton } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSignatureConfirmActions } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import {
+  useSignatureConfirmActions,
+  useUnsignedTxsAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -49,6 +52,9 @@ function TxConfirm() {
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
+  const [reactiveUnsignedTxs] = useUnsignedTxsAtom();
+  const decodedTxsInit = useRef(false);
+  const txConfirmParamsInit = useRef(false);
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -63,14 +69,8 @@ function TxConfirm() {
           isBuildingDecodedTxs: true,
         });
 
-        updateUnsignedTxs(unsignedTxs);
-        updateNativeTokenInfo({
-          isLoading: true,
-          balance: '0',
-          logoURI: '',
-        });
         const r = await Promise.all(
-          unsignedTxs.map((unsignedTx) =>
+          reactiveUnsignedTxs.map((unsignedTx) =>
             backgroundApiProxy.serviceSignatureConfirm.buildDecodedTx({
               accountId,
               networkId,
@@ -84,62 +84,75 @@ function TxConfirm() {
           isBuildingDecodedTxs: false,
         });
 
-        const nativeTokenAddress =
-          await backgroundApiProxy.serviceToken.getNativeTokenAddress({
-            networkId,
-          });
-
-        try {
-          await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
-            networkId,
-            accountId,
-            unsignedTxs,
-            precheckTiming: ESendPreCheckTimingEnum.BeforeTransaction,
-          });
-        } catch (e: any) {
-          updatePreCheckTxStatus((e as Error).message);
-        }
-        const checkInscriptionProtectionEnabled =
-          await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
-            {
-              networkId,
-              accountId,
-            },
-          );
-        const withCheckInscription =
-          checkInscriptionProtectionEnabled && settings.inscriptionProtection;
-        const tokenResp =
-          await backgroundApiProxy.serviceToken.fetchTokensDetails({
-            networkId,
-            accountId,
-            contractList: [nativeTokenAddress],
-            withFrozenBalance: true,
-            withCheckInscription,
-          });
-        const balance = tokenResp?.[0]?.balanceParsed;
-        updateNativeTokenInfo({
-          isLoading: false,
-          balance,
-          logoURI: tokenResp?.[0]?.info.logoURI ?? '',
-        });
+        decodedTxsInit.current = true;
 
         return r;
       },
       [
         updateDecodedTxs,
-        updateUnsignedTxs,
-        unsignedTxs,
-        updateNativeTokenInfo,
+        reactiveUnsignedTxs,
         networkId,
         accountId,
-        settings.inscriptionProtection,
         transferPayload,
-        updatePreCheckTxStatus,
       ],
       {
         watchLoading: true,
       },
     );
+
+  usePromiseResult(async () => {
+    if (txConfirmParamsInit.current) return;
+    updateNativeTokenInfo({
+      isLoading: true,
+      balance: '0',
+      logoURI: '',
+    });
+    const nativeTokenAddress =
+      await backgroundApiProxy.serviceToken.getNativeTokenAddress({
+        networkId,
+      });
+
+    try {
+      await backgroundApiProxy.serviceSend.precheckUnsignedTxs({
+        networkId,
+        accountId,
+        unsignedTxs,
+        precheckTiming: ESendPreCheckTimingEnum.BeforeTransaction,
+      });
+    } catch (e: any) {
+      updatePreCheckTxStatus((e as Error).message);
+    }
+    const checkInscriptionProtectionEnabled =
+      await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        {
+          networkId,
+          accountId,
+        },
+      );
+    const withCheckInscription =
+      checkInscriptionProtectionEnabled && settings.inscriptionProtection;
+    const tokenResp = await backgroundApiProxy.serviceToken.fetchTokensDetails({
+      networkId,
+      accountId,
+      contractList: [nativeTokenAddress],
+      withFrozenBalance: true,
+      withCheckInscription,
+    });
+    const balance = tokenResp?.[0]?.balanceParsed;
+    updateNativeTokenInfo({
+      isLoading: false,
+      balance,
+      logoURI: tokenResp?.[0]?.info.logoURI ?? '',
+    });
+    txConfirmParamsInit.current = true;
+  }, [
+    accountId,
+    networkId,
+    settings.inscriptionProtection,
+    unsignedTxs,
+    updateNativeTokenInfo,
+    updatePreCheckTxStatus,
+  ]);
 
   const txConfirmTitle = useMemo(() => {
     if (isBuildingDecodedTxs) {
@@ -165,26 +178,19 @@ function TxConfirm() {
   }, [dappApprove]);
 
   useEffect(() => {
+    updateUnsignedTxs(unsignedTxs);
     appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
-  }, []);
+  }, [unsignedTxs, updateUnsignedTxs]);
 
   const renderTxConfirmContent = useCallback(() => {
-    if (isBuildingDecodedTxs || !decodedTxs) {
+    if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit.current) {
       return <Skeleton height="$3" width="$12" />;
     }
 
     return (
       <>
-        <SignatureConfirmDetails
-          accountId={accountId}
-          networkId={networkId}
-          decodedTxs={decodedTxs}
-        />
-        <TxAdvancedSettings
-          accountId={accountId}
-          networkId={networkId}
-          decodedTxs={decodedTxs}
-        />
+        <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
+        <TxAdvancedSettings accountId={accountId} networkId={networkId} />
       </>
     );
   }, [isBuildingDecodedTxs, decodedTxs, accountId, networkId]);
