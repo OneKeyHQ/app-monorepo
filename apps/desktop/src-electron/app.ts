@@ -14,7 +14,6 @@ import {
   ipcMain,
   nativeTheme,
   powerMonitor,
-  screen,
   session,
   shell,
   systemPreferences,
@@ -388,6 +387,8 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
+  // https://github.com/electron/electron/issues/16168
+  const { screen } = require('electron');
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;

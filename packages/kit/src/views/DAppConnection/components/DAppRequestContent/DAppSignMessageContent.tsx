@@ -20,6 +20,7 @@ import {
   EMessageTypesBtc,
   EMessageTypesCommon,
   EMessageTypesEth,
+  EMessageTypesSolana,
 } from '@onekeyhq/shared/types/message';
 
 type ITypedDataV1 = {
@@ -48,7 +49,8 @@ function DAppSignMessageContent({
       }
 
       case EMessageTypesEth.PERSONAL_SIGN:
-      case EMessageTypesCommon.SIGN_MESSAGE: {
+      case EMessageTypesCommon.SIGN_MESSAGE:
+      case EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE: {
         try {
           const buffer = ethUtils.toBuffer(message);
           return buffer.toString('utf8');

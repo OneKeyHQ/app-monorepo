@@ -25,6 +25,7 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type BackgroundApiBase from '../apis/BackgroundApiBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
+import type { IFloatingIconSettings } from '../dbs/simple/entity/SimpleDbEntityFloatingIconSettings';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IOneKeyWalletInfo {
@@ -290,8 +291,11 @@ class ProviderApiPrivate extends ProviderApiBase {
         await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl(
           { url: request.origin },
         );
+      const settings =
+        await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
       return {
         isShow,
+        settings,
         i18n: {
           title: appLocale.intl.formatMessage({
             id: ETranslations.explore_malicious_dapp,
@@ -354,6 +358,15 @@ class ProviderApiPrivate extends ProviderApiBase {
       isShow: false,
       i18n: {},
     };
+  }
+
+  @providerApiMethod()
+  async wallet_saveFloatingIconSettings(request: IJsBridgeMessagePayload) {
+    console.log('ProviderApiPrivate.wallet_saveFloatingIconSettings', request);
+    const { params } = request.data as {
+      params?: Partial<IFloatingIconSettings>;
+    };
+    await this.backgroundApi.simpleDb.floatingIconSettings.setSettings(params);
   }
 
   /*

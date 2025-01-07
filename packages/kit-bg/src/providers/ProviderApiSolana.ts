@@ -10,7 +10,10 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
+import {
+  EMessageTypesCommon,
+  EMessageTypesSolana,
+} from '@onekeyhq/shared/types/message';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -213,6 +216,41 @@ class ProviderApiSolana extends ProviderApiBase {
         unsignedMessage: {
           type: EMessageTypesCommon.SIGN_MESSAGE,
           message: bs58.decode(message).toString(),
+        },
+        networkId: networkId ?? '',
+        accountId: accountId ?? '',
+      },
+    );
+
+    return { signature, publicKey: address ?? '' };
+  }
+
+  @providerApiMethod()
+  public async solSignOffchainMessage(
+    request: IJsBridgeMessagePayload,
+    params: {
+      message: string;
+      version?: number;
+    },
+  ) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const { message, version } = params;
+
+    const { accountInfo: { accountId, networkId, address } = {} } = (
+      await this.getAccountsInfo(request)
+    )[0];
+
+    console.log('solana signOffchainMessage', request, params);
+
+    const signature = await this.backgroundApi.serviceDApp.openSignMessageModal(
+      {
+        request,
+        unsignedMessage: {
+          type: EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
+          message: bs58.decode(message).toString(),
+          payload: {
+            version: version ?? 0,
+          },
         },
         networkId: networkId ?? '',
         accountId: accountId ?? '',

@@ -16,11 +16,11 @@ import {
   batchGetPublicKeys,
   batchGetPublicKeysAsync,
   compressPublicKey,
-  decrypt,
+  decryptAsync,
   decryptImportedCredential,
   decryptRevealableSeed,
   decryptVerifyString,
-  encrypt,
+  encryptAsync,
   encryptImportedCredential,
   encryptRevealableSeed,
   encryptVerifyString,
@@ -95,7 +95,10 @@ describe('Secret Module Tests', () => {
 
     it('should derive normal child key for secp256k1', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -107,7 +110,10 @@ describe('Secret Module Tests', () => {
       );
 
       // Decrypt and verify the derived key
-      const decryptedKey = decrypt(testPassword, childKey.key);
+      const decryptedKey = await decryptAsync({
+        password: testPassword,
+        data: childKey.key,
+      });
       expect(decryptedKey.length).toBe(32);
       expect(childKey.chainCode.length).toBe(32);
 
@@ -122,7 +128,10 @@ describe('Secret Module Tests', () => {
 
     it('should derive hardened child key for secp256k1', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -134,14 +143,20 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const decryptedKey = decrypt(testPassword, childKey.key);
+      const decryptedKey = await decryptAsync({
+        password: testPassword,
+        data: childKey.key,
+      });
       expect(decryptedKey.length).toBe(32);
       expect(childKey.chainCode.length).toBe(32);
     });
 
     it('should only support hardened derivation for ed25519', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -164,7 +179,10 @@ describe('Secret Module Tests', () => {
 
     it('should throw error for invalid index', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -183,7 +201,10 @@ describe('Secret Module Tests', () => {
 
     it('should derive child key for nistp256', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -194,7 +215,10 @@ describe('Secret Module Tests', () => {
         testPassword,
       );
 
-      const decryptedKey = decrypt(testPassword, childKey.key);
+      const decryptedKey = await decryptAsync({
+        password: testPassword,
+        data: childKey.key,
+      });
       expect(decryptedKey.length).toBe(32);
       expect(childKey.chainCode.length).toBe(32);
 
@@ -209,7 +233,10 @@ describe('Secret Module Tests', () => {
 
     it('should match snapshot for secp256k1', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -238,7 +265,10 @@ describe('Secret Module Tests', () => {
 
     it('should match snapshot for ed25519', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -256,7 +286,10 @@ describe('Secret Module Tests', () => {
 
     it('should match snapshot for nistp256', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -307,7 +340,10 @@ describe('Secret Module Tests', () => {
 
       // Decrypt the master key for CKDPriv
       const masterKey = {
-        key: decrypt(testPassword, encryptedMasterKey.key),
+        key: await decryptAsync({
+          password: testPassword,
+          data: encryptedMasterKey.key,
+        }),
         chainCode: encryptedMasterKey.chainCode,
       };
 
@@ -339,13 +375,13 @@ describe('Secret Module Tests', () => {
 
       // Test with different curves
       const nistMasterKey = {
-        key: encrypt(
-          testPassword,
-          Buffer.from(
+        key: await encryptAsync({
+          password: testPassword,
+          data: Buffer.from(
             '612091aaa12e22dd2abef664f8a01a82cae99ad7441b7ef8110424915c268bc2',
             'hex',
           ),
-        ),
+        }),
         chainCode: Buffer.from(
           'beeb672fe4621673f722f38529c07392fecaa61015c80c34f29ce8b41b3cb6ea',
           'hex',
@@ -360,10 +396,10 @@ describe('Secret Module Tests', () => {
       expect(nistChild).toBeDefined();
 
       const edMasterKey = {
-        key: encrypt(
-          testPassword,
-          Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
-        ),
+        key: await encryptAsync({
+          password: testPassword,
+          data: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+        }),
         chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
       };
       // ed25519 only supports hardened derivation
@@ -453,7 +489,10 @@ describe('Secret Module Tests', () => {
 
     it('should throw error for invalid curve', async () => {
       const encryptedParent = {
-        key: encrypt(testPassword, testMasterKey.key),
+        key: await encryptAsync({
+          password: testPassword,
+          data: testMasterKey.key,
+        }),
         chainCode: testMasterKey.chainCode,
       };
 
@@ -1395,9 +1434,12 @@ describe('Secret Module Tests', () => {
       'e8f32e723decf4051aefac8e2c93c9c5b214313817cdb01a1494b917c8436b35',
       'hex',
     );
-    const encryptedPrivateKey = encrypt(testPassword, testPrivateKey);
 
     it('should generate public key for secp256k1', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const publicKey = await publicFromPrivate(
         'secp256k1',
         encryptedPrivateKey,
@@ -1411,6 +1453,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should generate public key for nistp256', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const publicKey = await publicFromPrivate(
         'nistp256',
         encryptedPrivateKey,
@@ -1424,6 +1470,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should generate public key for ed25519', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const publicKey = await publicFromPrivate(
         'ed25519',
         encryptedPrivateKey,
@@ -1437,6 +1487,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should throw error for invalid curve', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       await expect(
         publicFromPrivate(
           'invalid-curve' as ICurveName,
@@ -1447,6 +1501,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should throw error for invalid password', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       await expect(
         publicFromPrivate('secp256k1', encryptedPrivateKey, 'wrong-password'),
       ).rejects.toThrow(IncorrectPassword);
@@ -1691,15 +1749,15 @@ describe('Secret Module Tests', () => {
 
   describe('N', () => {
     const testPassword = 'test123';
-    const testMasterKey: IBip32ExtendedKey = {
-      key: encrypt(
-        testPassword,
-        Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
-      ),
-      chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
-    };
 
     it('should derive public key from private key', async () => {
+      const testMasterKey: IBip32ExtendedKey = {
+        key: await encryptAsync({
+          password: testPassword,
+          data: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+        }),
+        chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+      };
       const publicKey = await N('secp256k1', testMasterKey, testPassword);
       expect(publicKey).toBeDefined();
       expect(publicKey.key).toBeInstanceOf(Buffer);
@@ -1707,6 +1765,13 @@ describe('Secret Module Tests', () => {
     });
 
     it('should work with different curves', async () => {
+      const testMasterKey: IBip32ExtendedKey = {
+        key: await encryptAsync({
+          password: testPassword,
+          data: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+        }),
+        chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+      };
       const curves: ICurveName[] = ['secp256k1', 'nistp256', 'ed25519'];
       for (const curve of curves) {
         const publicKey = await N(curve, testMasterKey, testPassword);
@@ -1717,12 +1782,26 @@ describe('Secret Module Tests', () => {
     });
 
     it('should throw error for invalid curve', async () => {
+      const testMasterKey: IBip32ExtendedKey = {
+        key: await encryptAsync({
+          password: testPassword,
+          data: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+        }),
+        chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+      };
       await expect(
         N('invalid-curve' as ICurveName, testMasterKey, testPassword),
       ).rejects.toThrow();
     });
 
     it('should match snapshot', async () => {
+      const testMasterKey: IBip32ExtendedKey = {
+        key: await encryptAsync({
+          password: testPassword,
+          data: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+        }),
+        chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
+      };
       const publicKey = await N('secp256k1', testMasterKey, testPassword);
       expect({
         key: publicKey.key.toString('hex'),
@@ -1738,9 +1817,12 @@ describe('Secret Module Tests', () => {
       'hex',
     );
     const testDigest = Buffer.from('0123456789abcdef0123456789abcdef', 'hex');
-    const encryptedPrivateKey = encrypt(testPassword, testPrivateKey);
 
     it('should sign digest correctly with secp256k1', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const signature = await sign(
         'secp256k1',
         encryptedPrivateKey,
@@ -1764,7 +1846,10 @@ describe('Secret Module Tests', () => {
       );
       const wrongPublicKey = await publicFromPrivate(
         'secp256k1',
-        encrypt(testPassword, wrongPrivateKey),
+        await encryptAsync({
+          password: testPassword,
+          data: wrongPrivateKey,
+        }),
         testPassword,
       );
       expect(verify('secp256k1', wrongPublicKey, testDigest, signature)).toBe(
@@ -1773,6 +1858,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should sign digest correctly with nistp256', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const signature = await sign(
         'nistp256',
         encryptedPrivateKey,
@@ -1792,6 +1881,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should sign digest correctly with ed25519', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const signature = await sign(
         'ed25519',
         encryptedPrivateKey,
@@ -1811,6 +1904,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should throw error for invalid curve', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       await expect(
         sign(
           'invalid-curve' as ICurveName,
@@ -1822,12 +1919,20 @@ describe('Secret Module Tests', () => {
     });
 
     it('should throw error for invalid password', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       await expect(
         sign('secp256k1', encryptedPrivateKey, testDigest, 'wrong-password'),
       ).rejects.toThrow();
     });
 
     it('should match snapshot', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const signature = await sign(
         'secp256k1',
         encryptedPrivateKey,
@@ -1987,9 +2092,12 @@ describe('Secret Module Tests', () => {
       'hex',
     );
     const testDigest = Buffer.from('0123456789abcdef0123456789abcdef', 'hex');
-    const encryptedPrivateKey = encrypt(testPassword, testPrivateKey);
 
     it('should verify secp256k1 signatures correctly', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const signature = await sign(
         'secp256k1',
         encryptedPrivateKey,
@@ -2018,6 +2126,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should verify nistp256 signatures correctly', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const signature = await sign(
         'nistp256',
         encryptedPrivateKey,
@@ -2041,6 +2153,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should verify ed25519 signatures correctly', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const signature = await sign(
         'ed25519',
         encryptedPrivateKey,
@@ -2064,6 +2180,10 @@ describe('Secret Module Tests', () => {
     });
 
     it('should return false for invalid signatures', async () => {
+      const encryptedPrivateKey = await encryptAsync({
+        password: testPassword,
+        data: testPrivateKey,
+      });
       const signature = await sign(
         'secp256k1',
         encryptedPrivateKey,

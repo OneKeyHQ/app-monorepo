@@ -1,9 +1,7 @@
 import {
-  decrypt,
-  decryptString,
-  encrypt,
+  decryptAsync,
+  decryptStringAsync,
   encryptAsync,
-  encryptString,
   encryptStringAsync,
 } from '../aes256';
 
@@ -19,9 +17,18 @@ describe('aes256', () => {
   const testBuffer = Buffer.from(testData);
 
   describe('encrypt/decrypt', () => {
-    it('should encrypt and decrypt data correctly using sync methods', () => {
-      const encrypted = encrypt(testPassword, testBuffer, true);
-      const decrypted = decrypt(testPassword, encrypted, false, true);
+    it('should encrypt and decrypt data correctly using sync methods', async () => {
+      const encrypted = await encryptAsync({
+        password: testPassword,
+        data: testBuffer,
+        allowRawPassword: true,
+      });
+      const decrypted = await decryptAsync({
+        password: testPassword,
+        data: encrypted,
+        ignoreLogger: false,
+        allowRawPassword: true,
+      });
       expect(decrypted.toString()).toBe(testData);
     });
 
@@ -30,7 +37,12 @@ describe('aes256', () => {
         password: testPassword,
         data: testBuffer,
       });
-      const decrypted = decrypt(testPassword, encrypted, false, true);
+      const decrypted = await decryptAsync({
+        password: testPassword,
+        data: encrypted,
+        ignoreLogger: false,
+        allowRawPassword: true,
+      });
       expect(decrypted.toString()).toBe(testData);
     });
 
@@ -48,15 +60,15 @@ describe('aes256', () => {
   });
 
   describe('encryptString/decryptString', () => {
-    it('should encrypt and decrypt strings correctly using sync methods', () => {
-      const encrypted = encryptString({
+    it('should encrypt and decrypt strings correctly using sync methods', async () => {
+      const encrypted = await encryptStringAsync({
         password: testPassword,
         data: testData,
         dataEncoding: 'utf8',
         allowRawPassword: true,
       });
       console.log('encrypted', encrypted);
-      const decrypted = decryptString({
+      const decrypted = await decryptStringAsync({
         password: testPassword,
         data: encrypted,
         dataEncoding: 'hex',
@@ -73,7 +85,7 @@ describe('aes256', () => {
         dataEncoding: 'utf8',
         allowRawPassword: true,
       });
-      const decrypted = decryptString({
+      const decrypted = await decryptStringAsync({
         password: testPassword,
         data: encrypted,
         dataEncoding: 'hex',
@@ -91,7 +103,7 @@ describe('aes256', () => {
         dataEncoding: 'hex',
         allowRawPassword: true,
       });
-      const decrypted = decryptString({
+      const decrypted = await decryptStringAsync({
         password: testPassword,
         data: encrypted,
         dataEncoding: 'hex',
@@ -99,38 +111,6 @@ describe('aes256', () => {
         allowRawPassword: true,
       });
       expect(Buffer.from(decrypted, 'hex').toString()).toBe(testData);
-    });
-  });
-
-  describe('deprecation warnings', () => {
-    const originalWarn = console.warn;
-    let warnMock: jest.Mock;
-
-    beforeEach(() => {
-      warnMock = jest.fn();
-      console.warn = warnMock;
-    });
-
-    afterEach(() => {
-      console.warn = originalWarn;
-    });
-
-    it('should show deprecation warning for sync encrypt', () => {
-      encrypt(testPassword, testBuffer);
-      expect(warnMock).toHaveBeenCalledWith(
-        expect.stringContaining('deprecated'),
-      );
-    });
-
-    it('should show deprecation warning for sync encryptString', () => {
-      encryptString({
-        password: testPassword,
-        data: testData,
-        dataEncoding: 'utf8',
-      });
-      expect(warnMock).toHaveBeenCalledWith(
-        expect.stringContaining('deprecated'),
-      );
     });
   });
 });

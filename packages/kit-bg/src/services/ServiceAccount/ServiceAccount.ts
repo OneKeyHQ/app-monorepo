@@ -3,7 +3,7 @@ import { isEmpty, isNil } from 'lodash';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   EMnemonicType,
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   decryptRevealableSeed,
   encryptImportedCredential,
   ensureSensitiveTextEncoded,
@@ -177,7 +177,7 @@ class ServiceAccount extends ServiceBase {
     mnemonicType: EMnemonicType;
   }> {
     ensureSensitiveTextEncoded(mnemonic);
-    const realMnemonic = decodeSensitiveText({
+    const realMnemonic = await decodeSensitiveTextAsync({
       encodedText: mnemonic,
     });
     const realMnemonicFixed = realMnemonic.trim().replace(/\s+/g, ' ');
@@ -1069,7 +1069,9 @@ class ServiceAccount extends ServiceBase {
     // TODO privateKey should be HEX format
     ensureSensitiveTextEncoded(credential);
 
-    const privateKeyDecoded = decodeSensitiveText({ encodedText: credential });
+    const privateKeyDecoded = await decodeSensitiveTextAsync({
+      encodedText: credential,
+    });
 
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
