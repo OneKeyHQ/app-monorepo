@@ -80,6 +80,23 @@ export default class ServicePassword extends ServiceBase {
 
   private extCheckLockStatusTimer?: ReturnType<typeof setInterval>;
 
+  private handleBiologyAuthError(authRes: {
+    warning?: string;
+    error: string;
+    success: boolean;
+  }) {
+    if (!authRes.success) {
+      if (authRes.warning) {
+        const nativeError = new Error(authRes.warning);
+        nativeError.name = authRes.error;
+        nativeError.cause = biologyAuthNativeError;
+        throw nativeError;
+      } else {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+    }
+  }
+
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
     return Promise.resolve(encodeSensitiveTextAsync({ text }));
@@ -247,14 +264,7 @@ export default class ServicePassword extends ServiceBase {
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
-      if (authRes.warning) {
-        const nativeError = new Error(authRes.warning);
-        nativeError.name = authRes.error;
-        nativeError.cause = biologyAuthNativeError;
-        throw nativeError;
-      } else {
-        throw new OneKeyErrors.BiologyAuthFailed();
-      }
+      this.handleBiologyAuthError(authRes);
     }
     try {
       const pwd = await biologyAuthUtils.getPassword();
@@ -274,14 +284,7 @@ export default class ServicePassword extends ServiceBase {
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
-        if (authRes.warning) {
-          const nativeError = new Error(authRes.warning);
-          nativeError.name = authRes.error;
-          nativeError.cause = biologyAuthNativeError;
-          throw nativeError;
-        } else {
-          throw new OneKeyErrors.BiologyAuthFailed();
-        }
+        this.handleBiologyAuthError(authRes);
       }
       const catchPassword = await this.getCachedPassword();
       if (catchPassword) {
