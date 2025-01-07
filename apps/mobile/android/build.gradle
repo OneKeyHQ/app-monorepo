@@ -54,6 +54,12 @@ allprojects {
         exclude group: 'androidx.compose.foundation', module: 'foundation-desktop'
         exclude group: 'androidx.compose.runtime', module: 'runtime-desktop'
         exclude group: 'androidx.compose.animation', module: 'animation-desktop'
+
+        resolutionStrategy {
+            force 'androidx.compose.runtime:runtime:1.5.4'
+            force 'androidx.compose.ui:ui:1.5.4'
+            force 'androidx.compose.foundation:foundation:1.5.4'
+        }
     }
 }
 // @generated begin expo-camera-import - expo prebuild (DO NOT MODIFY) sync-f244f4f3d8bf7229102e8f992b525b8602c74770

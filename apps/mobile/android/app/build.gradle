@@ -258,6 +258,9 @@ dependencies {
 
     // Add BouncyCastle OpenPGP dependency
     implementation("org.bouncycastle:bcpg-jdk18on:1.77")
+    implementation("androidx.compose.runtime:runtime:1.5.4")
+    implementation("androidx.compose.ui:ui:1.5.4")
+    implementation("androidx.compose.foundation:foundation:1.5.4")
 }
 
 apply from: new File(["node", "--print", "require.resolve('@react-native-community/cli-platform-android/package.json')"].execute(null, rootDir).text.trim(), "../native_modules.gradle");
