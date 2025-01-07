@@ -30,6 +30,8 @@ import { SignatureConfirmProviderMirror } from '../../components/SignatureConfir
 
 import type { RouteProp } from '@react-navigation/core';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
+import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
+import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
 
 function TxConfirm() {
   const route =
@@ -182,6 +184,11 @@ function TxConfirm() {
     dappApprove.reject();
   }, [dappApprove]);
 
+  usePreCheckNativeBalance({
+    networkId,
+    transferPayload,
+  });
+
   useEffect(() => {
     updateUnsignedTxs(unsignedTxs);
     appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
@@ -197,6 +204,7 @@ function TxConfirm() {
 
     return (
       <>
+        <SignatureConfirmAlert networkId={networkId} />
         <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
         <TxAdvancedSettings accountId={accountId} networkId={networkId} />
       </>

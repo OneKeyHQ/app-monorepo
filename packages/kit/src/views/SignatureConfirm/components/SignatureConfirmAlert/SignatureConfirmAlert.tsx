@@ -3,12 +3,13 @@ import { memo, useCallback } from 'react';
 import { flatMap, map } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Alert, YStack } from '@onekeyhq/components';
+import { Alert } from '@onekeyhq/components';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
   useDecodedTxsAtom,
   usePreCheckTxStatusAtom,
   useSendFeeStatusAtom,
+  useSendTxStatusAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import {
   EAppEventBusNames,
@@ -21,11 +22,16 @@ interface IProps {
   networkId: string;
 }
 
+const alertStyles = {
+  mb: '$2.5',
+};
+
 function SignatureConfirmAlert(props: IProps) {
   const { networkId } = props;
   const intl = useIntl();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
+  const [sendTxStatus] = useSendTxStatusAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const { network } = useAccountData({
     networkId,
@@ -42,6 +48,7 @@ function SignatureConfirmAlert(props: IProps) {
         description={alert}
         type="warning"
         icon="InfoSquareOutline"
+        {...alertStyles}
       />
     ));
   }, [decodedTxs]);
@@ -52,8 +59,6 @@ function SignatureConfirmAlert(props: IProps) {
     }
     return (
       <Alert
-        mb="$2.5"
-        fullBleed
         icon="ErrorOutline"
         type="critical"
         title={sendFeeStatus.errMessage}
@@ -66,17 +71,17 @@ function SignatureConfirmAlert(props: IProps) {
             appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
           },
         }}
+        {...alertStyles}
       />
     );
   }, [intl, sendFeeStatus.errMessage, sendFeeStatus.status]);
 
   const renderInsufficientNativeBalanceAlert = useCallback(() => {
-    if (!sendFeeStatus.errMessage) {
+    if (!sendTxStatus.isInsufficientNativeBalance) {
       return null;
     }
     return (
       <Alert
-        fullBleed
         icon="ErrorOutline"
         type="critical"
         title={intl.formatMessage(
@@ -87,18 +92,19 @@ function SignatureConfirmAlert(props: IProps) {
             crypto: network?.symbol ?? '',
           },
         )}
+        {...alertStyles}
       />
     );
-  }, [intl, network?.symbol, sendFeeStatus.errMessage]);
+  }, [intl, network?.symbol, sendTxStatus.isInsufficientNativeBalance]);
 
   const renderPreCheckTxAlert = useCallback(() => {
     if (preCheckTxStatus.errorMessage) {
       return (
         <Alert
-          fullBleed
           icon="ErrorOutline"
           type="critical"
           title={preCheckTxStatus.errorMessage}
+          {...alertStyles}
         />
       );
     }
@@ -106,12 +112,12 @@ function SignatureConfirmAlert(props: IProps) {
   }, [preCheckTxStatus]);
 
   return (
-    <YStack gap="$2.5">
+    <>
       {renderTxFeeAlert()}
       {renderInsufficientNativeBalanceAlert()}
       {renderDecodedTxsAlert()}
       {renderPreCheckTxAlert()}
-    </YStack>
+    </>
   );
 }
 
