@@ -85,6 +85,9 @@ export enum EAppEventBusNames {
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
+  RefreshNetInfo = 'RefreshNetInfo',
+  ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
+  CreateAddressByDialog = 'CreateAddressByDialog',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -257,6 +260,17 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.ChangeTokenDetailTabVerticalScrollEnabled]: {
     enabled: boolean;
   };
+  [EAppEventBusNames.RefreshNetInfo]: undefined;
+  [EAppEventBusNames.ShowSwitchAccountSelector]: {
+    networkId: string;
+  };
+  [EAppEventBusNames.CreateAddressByDialog]: {
+    networkId: string;
+    indexedAccountId: string;
+    promiseId: number;
+    autoCreateAddress: boolean;
+    deriveType: IAccountDeriveTypes;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
@@ -324,6 +338,15 @@ class AppEventBus extends CrossEventEmitter {
       defaultLogger.app.eventBus.emitToSelf({
         eventName: type,
       });
+      try {
+        // @ts-ignore
+        if (payload?.$$isRemoteEvent) {
+          // @ts-ignore
+          delete payload.$$isRemoteEvent;
+        }
+      } catch (e) {
+        // ignore
+      }
       this.emitToSelf(type, payload);
     }
     void this.emitToRemote(type, payload);
@@ -371,6 +394,15 @@ class AppEventBus extends CrossEventEmitter {
   }
 
   async emitToRemote(type: string, payload: any) {
+    try {
+      if (payload) {
+        // @ts-ignore
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        payload.$$isRemoteEvent = true;
+      }
+    } catch (e) {
+      // ignore
+    }
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
       throw new Error('offscreen or webembed event bus not support yet.');

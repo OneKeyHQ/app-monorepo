@@ -50,5 +50,4 @@ function CustomHeaderSearch({ handleSearchBarPress }: ICustomHeaderRightProps) {
   );
 }
 
-// @ts-expect-error
 export default withBrowserProvider<ICustomHeaderRightProps>(CustomHeaderSearch);

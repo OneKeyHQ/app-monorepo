@@ -565,6 +565,8 @@ const config = createTamagui({
     gtSm: { minWidth: 640 },
     md: { maxWidth: 767 },
     gtMd: { minWidth: 768 },
+    '2md': { maxWidth: 895 },
+    'gt2Md': { minWidth: 896 },
     lg: { maxWidth: 1023 },
     gtLg: { minWidth: 1024 },
     xl: { maxWidth: 1279 },

@@ -14,7 +14,6 @@ import {
   ipcMain,
   nativeTheme,
   powerMonitor,
-  screen,
   session,
   shell,
   systemPreferences,
@@ -388,6 +387,8 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
+  // https://github.com/electron/electron/issues/16168
+  const { screen } = require('electron');
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
@@ -537,6 +538,19 @@ function createMainWindow() {
   });
 
   ipcMain.on(
+    ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS,
+    (
+      event,
+      params: {
+        disableNumberShortcuts: boolean;
+        disableSearchAndAccountSelectorShortcuts: boolean;
+      },
+    ) => {
+      store.setDisableKeyboardShortcuts(params);
+    },
+  );
+
+  ipcMain.on(
     ipcMessageKeys.APP_GET_MEDIA_ACCESS_STATUS,
     (event, prefType: IMediaType) => {
       const result = systemPreferences?.getMediaAccessStatus?.(prefType);
@@ -622,6 +636,11 @@ function createMainWindow() {
     const safelyBrowserWindow = getSafelyBrowserWindow();
     store.setTheme(themeKey);
     safelyBrowserWindow?.setBackgroundColor(getBackgroundColor(themeKey));
+  });
+
+  ipcMain.on(ipcMessageKeys.APP_IS_FOCUSED, (event) => {
+    const safelyBrowserWindow = getSafelyBrowserWindow();
+    event.returnValue = safelyBrowserWindow?.isFocused();
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_PROMPT, async (event, msg: string) => {

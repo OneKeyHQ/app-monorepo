@@ -12,6 +12,8 @@ import type { IBip39RevealableSeed } from './bip39';
 
 function tonMnemonicToRevealableSeed(mnemonic: string): IBip39RevealableSeed {
   try {
+    // TODO: should validate mnemonic before return, make function to async first
+    // tonValidateMnemonicFn(mnemonic);
     return {
       entropyWithLangPrefixed: bufferUtils.bytesToHex(
         Buffer.from(mnemonic, 'utf-8'),
@@ -53,10 +55,10 @@ async function tonMnemonicToKeyPair(
 }
 
 export {
-  tonValidateMnemonic,
-  tonValidateMnemonicFn,
   tonMnemonicToKeyPair,
   tonMnemonicToKeyPairFn,
   tonMnemonicToRevealableSeed,
   tonRevealEntropyToMnemonic,
+  tonValidateMnemonic,
+  tonValidateMnemonicFn,
 };

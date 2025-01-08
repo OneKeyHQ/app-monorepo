@@ -17,6 +17,8 @@ import { SimpleDbEntityDefaultWalletSettings } from '../entity/SimpleDbEntityDef
 import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
+import { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
+import { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
 import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
@@ -75,6 +77,10 @@ export class SimpleDb {
   feeInfo = new SimpleDbEntityFeeInfo();
 
   marketWatchList = new SimpleDbEntityMarketWatchList();
+
+  floatingIconDomainBlockList = new SimpleDbEntityFloatingIconDomainBlockList();
+
+  floatingIconSettings = new SimpleDbEntityFloatingIconSettings();
 
   earn = new SimpleDbEntityEarn();
 

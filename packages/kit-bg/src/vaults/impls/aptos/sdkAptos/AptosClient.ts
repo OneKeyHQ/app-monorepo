@@ -2,6 +2,7 @@
 import { Aptos, AptosConfig, Network } from '@aptos-labs/ts-sdk';
 
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
+import { InvalidAccount } from '@onekeyhq/shared/src/errors';
 
 import type {
   AccountAddressInput,
@@ -37,21 +38,31 @@ export class AptosClient {
     moduleName: string,
     options?: LedgerVersionArg,
   ): Promise<MoveModuleBytecode> {
-    return this.aptos.account.getAccountModule({
-      accountAddress,
-      moduleName,
-      options,
-    });
+    return this.proxyRequest('getAccountModule', [accountAddress, moduleName]);
   }
 
   getChainId(): Promise<number> {
     return this.proxyRequest('getChainId', []);
   }
 
-  getAccount(
+  async getAccount(
     accountAddress: AccountAddressInput,
   ): Promise<{ sequence_number: string; authentication_key: string }> {
-    return this.proxyRequest('getAccount', [accountAddress]);
+    try {
+      return await this.proxyRequest('getAccount', [accountAddress]);
+    } catch (error: any) {
+      const { message } = error;
+
+      if (
+        typeof message === 'string' &&
+        message.includes('account_not_found')
+      ) {
+        throw new InvalidAccount({
+          message,
+        });
+      }
+      throw error;
+    }
   }
 
   getTransactionByHash(txnHash: string): Promise<TransactionResponse> {
@@ -84,7 +95,7 @@ export class AptosClient {
   }
 
   getGasPriceEstimation(): Promise<{ gas_estimate: number }> {
-    return this.aptos.getGasPriceEstimation();
+    return this.proxyRequest('estimateGasPrice');
   }
 
   getLedgerInfo(): Promise<{

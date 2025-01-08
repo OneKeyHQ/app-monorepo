@@ -70,6 +70,7 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
+  autoFocusDelayMs?: number;
   containerProps?: IGroupProps;
   onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
@@ -114,7 +115,11 @@ const useReadOnlyStyle = (readOnly = false) =>
     [readOnly],
   );
 
-const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
+const useAutoFocus = (
+  inputRef: RefObject<TextInput>,
+  autoFocus?: boolean,
+  autoFocusDelayMs?: number,
+) => {
   const shouldReloadAutoFocus = useMemo(
     () => platformEnv.isRuntimeBrowser && autoFocus,
     [autoFocus],
@@ -131,9 +136,9 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
     } else {
       setTimeout(() => {
         inputRef.current?.focus();
-      }, 150);
+      }, autoFocusDelayMs || 150);
     }
-  }, [inputRef, shouldReloadAutoFocus]);
+  }, [autoFocusDelayMs, inputRef, shouldReloadAutoFocus]);
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
@@ -163,6 +168,7 @@ function BaseInput(
     onChangeText,
     keyboardType,
     InputComponentStyle,
+    autoFocusDelayMs,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -175,7 +181,7 @@ function BaseInput(
   });
   const themeName = useThemeName();
   const inputRef: RefObject<TextInput> | null = useRef(null);
-  const reloadAutoFocus = useAutoFocus(inputRef, autoFocus);
+  const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
 
   const addOns = useMemo<IInputAddOnProps[] | undefined>(() => {

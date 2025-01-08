@@ -6,6 +6,8 @@ import { basicOptions, buildIntegrations, buildOptions } from './basicOptions';
 
 export * from '@sentry/react';
 
+export * from './basicOptions';
+
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
     return;
@@ -23,8 +25,8 @@ export const nativeCrash = () => {};
 export const withSentryHOC = (
   Component: ComponentType<any>,
 ): ComponentType<any> =>
-  Sentry.withErrorBoundary(Sentry.withProfiler(Component), {});
-
-export const navigationIntegration = {
-  registerNavigationContainer: (ref: any) => {},
-};
+  Sentry.withErrorBoundary(Sentry.withProfiler(Component), {
+    onError: (error, info) => {
+      console.error('error', error, info);
+    },
+  });

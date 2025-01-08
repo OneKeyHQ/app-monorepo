@@ -42,7 +42,7 @@ function buildAccountSelectorSceneId({
     const origin = uriUtils.getOriginFromUrl({ url: sceneUrl });
     if (origin !== sceneUrl) {
       throw new Error(
-        'buildSceneId ERROR: sceneUrl should be equal to origin, full url is not allowed',
+        `buildSceneId ERROR: sceneUrl should be equal to origin, full url is not allowed: ${sceneUrl}`,
       );
     }
     return `${sceneName}--${origin}`;

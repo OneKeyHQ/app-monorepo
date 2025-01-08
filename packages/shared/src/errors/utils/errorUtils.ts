@@ -1,4 +1,4 @@
-import { isObject, isPlainObject, isString, isUndefined, omitBy } from 'lodash';
+import { isObject, isString, isUndefined, omitBy } from 'lodash';
 
 import type {
   ETranslations,
@@ -181,6 +181,15 @@ function isErrorByClassName({
   return Boolean(errorClassName && classNames.includes(errorClassName));
 }
 
+function getCurrentCallStack() {
+  try {
+    throw new Error();
+  } catch (e) {
+    autoPrintErrorIgnore(e);
+    return (e as IOneKeyError)?.stack;
+  }
+}
+
 export default {
   autoPrintErrorIgnore,
   normalizeErrorProps,
@@ -190,4 +199,5 @@ export default {
   errorsIntlFormatter,
   getDeviceErrorPayloadMessage,
   isErrorByClassName,
+  getCurrentCallStack,
 };

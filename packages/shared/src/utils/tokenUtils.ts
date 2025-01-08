@@ -123,10 +123,12 @@ export function sortTokensByFiatValue({
   };
 }) {
   return tokens.sort((a, b) => {
-    const aFiat = map[a.$key]?.fiatValue ?? 0;
-    const bFiat = map[b.$key]?.fiatValue ?? 0;
+    const aFiat = new BigNumber(map[a.$key]?.fiatValue ?? 0);
+    const bFiat = new BigNumber(map[b.$key]?.fiatValue ?? 0);
 
-    return new BigNumber(bFiat).comparedTo(aFiat);
+    return new BigNumber(bFiat.isNaN() ? 0 : bFiat).comparedTo(
+      new BigNumber(aFiat.isNaN() ? 0 : aFiat),
+    );
   });
 }
 

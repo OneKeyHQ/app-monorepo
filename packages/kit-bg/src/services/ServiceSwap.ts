@@ -33,6 +33,7 @@ import {
   swapQuoteEventTimeout,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ESwapTabSwitchType,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -83,6 +84,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private historyStateIntervals: Record<string, ReturnType<typeof setTimeout>> =
     {};
+
+  private historyCurrentStateIntervalIds: string[] = [];
 
   private historyStateIntervalCountMap: Record<string, number> = {};
 
@@ -759,20 +762,13 @@ export default class ServiceSwap extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkSupportSwap({
-    networkId,
-    contractAddress,
-  }: {
-    networkId: string;
-    contractAddress: string;
-  }) {
+  async checkSupportSwap({ networkId }: { networkId: string }) {
     const client = await this.getClient(EServiceEndpointEnum.Swap);
     const resp = await client.get<{
       data: ISwapCheckSupportResponse[];
     }>(`/swap/v1/check-support`, {
       params: {
         networkId,
-        contractAddress,
         protocol: 'Swap',
       },
     });
@@ -1031,13 +1027,18 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   async cleanHistoryStateIntervals(historyId?: string) {
     if (!historyId) {
-      Object.values(this.historyStateIntervals).forEach((interval) => {
-        clearInterval(interval);
-      });
-      this.historyStateIntervals = {};
-      this.historyStateIntervalCountMap = {};
+      this.historyCurrentStateIntervalIds = [];
+      await Promise.all(
+        Object.keys(this.historyStateIntervals).map(async (id) => {
+          clearInterval(this.historyStateIntervals[id]);
+          delete this.historyStateIntervals[id];
+          delete this.historyStateIntervalCountMap[id];
+        }),
+      );
     } else if (this.historyStateIntervals[historyId]) {
       clearInterval(this.historyStateIntervals[historyId]);
+      this.historyCurrentStateIntervalIds =
+        this.historyCurrentStateIntervalIds.filter((id) => id !== historyId);
       delete this.historyStateIntervals[historyId];
       delete this.historyStateIntervalCountMap[historyId];
     }
@@ -1047,7 +1048,7 @@ export default class ServiceSwap extends ServiceBase {
     let enableInterval = true;
     try {
       const txStatusRes = await this.fetchTxState({
-        txId: swapTxHistory.txInfo.txId,
+        txId: swapTxHistory.txInfo.txId ?? swapTxHistory.txInfo.orderId ?? '',
         provider: swapTxHistory.swapInfo.provider.provider,
         protocol: EProtocolOfExchange.SWAP,
         networkId: swapTxHistory.baseInfo.fromToken.networkId,
@@ -1085,10 +1086,13 @@ export default class ServiceSwap extends ServiceBase {
       const error = e as { message?: string };
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
-      if (enableInterval) {
-        const keyId = swapTxHistory.txInfo.useOrderId
-          ? swapTxHistory.swapInfo.orderId ?? ''
-          : swapTxHistory.txInfo.txId ?? '';
+      const keyId = swapTxHistory.txInfo.useOrderId
+        ? swapTxHistory.txInfo.orderId ?? ''
+        : swapTxHistory.txInfo.txId ?? '';
+      if (
+        enableInterval &&
+        this.historyCurrentStateIntervalIds.includes(keyId)
+      ) {
         this.historyStateIntervalCountMap[keyId] =
           (this.historyStateIntervalCountMap[keyId] ?? 0) + 1;
         this.historyStateIntervals[keyId] = setTimeout(() => {
@@ -1106,10 +1110,23 @@ export default class ServiceSwap extends ServiceBase {
         item.status === ESwapTxHistoryStatus.PENDING ||
         item.status === ESwapTxHistoryStatus.CANCELING,
     );
-    await this.cleanHistoryStateIntervals();
-    if (!statusPendingList.length) return;
+    const newHistoryStatePendingList = statusPendingList.filter(
+      (item) =>
+        !this.historyCurrentStateIntervalIds.includes(
+          item.txInfo.useOrderId
+            ? item.txInfo.orderId ?? ''
+            : item.txInfo.txId ?? '',
+        ),
+    );
+    if (!newHistoryStatePendingList.length) return;
     await Promise.all(
-      statusPendingList.map(async (swapTxHistory) => {
+      newHistoryStatePendingList.map(async (swapTxHistory) => {
+        this.historyCurrentStateIntervalIds = [
+          ...this.historyCurrentStateIntervalIds,
+          swapTxHistory.txInfo.useOrderId
+            ? swapTxHistory.txInfo.orderId ?? ''
+            : swapTxHistory.txInfo.txId ?? '',
+        ];
         await this.swapHistoryStatusRunFetch(swapTxHistory);
       }),
     );
@@ -1266,6 +1283,7 @@ export default class ServiceSwap extends ServiceBase {
     networkId: string;
     okxTx: IOKXTransactionObject;
     fromTokenInfo: ISwapTokenBase;
+    type: ESwapTabSwitchType;
   }) {
     const vault = await vaultFactory.getVault({
       accountId: params.accountId,
@@ -1274,6 +1292,7 @@ export default class ServiceSwap extends ServiceBase {
     return vault.buildOkxSwapEncodedTx({
       okxTx: params.okxTx,
       fromTokenInfo: params.fromTokenInfo,
+      type: params.type,
     });
   }
 }

@@ -106,12 +106,12 @@ class ServiceAllNetwork extends ServiceBase {
         );
       }
       if (isAllNetwork) {
-        dbAccounts =
+        ({ accounts: dbAccounts } =
           await this.backgroundApi.serviceAccount.getAccountsInSameIndexedAccountId(
             {
               indexedAccountId,
             },
-          );
+          ));
       } else {
         if (!singleNetworkDeriveType) {
           throw new Error(

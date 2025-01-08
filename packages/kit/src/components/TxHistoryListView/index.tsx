@@ -29,6 +29,7 @@ import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 import { useTabListScroll } from '../../hooks/useTabListScroll';
 import { useSearchKeyAtom } from '../../states/jotai/contexts/historyList';
 import useActiveTabDAppInfo from '../../views/DAppConnection/hooks/useActiveTabDAppInfo';
+import { withBrowserProvider } from '../../views/Discovery/pages/Browser/WithBrowserProvider';
 import { EmptySearch } from '../Empty';
 import { EmptyHistory } from '../Empty/EmptyHistory';
 import { HistoryLoadingView } from '../Loading';
@@ -88,7 +89,7 @@ function TxHistoryListViewSectionHeader(props: IHistoryListSectionGroup) {
   return <SectionList.SectionHeader title={titleText} />;
 }
 
-function TxHistoryListView(props: IProps) {
+function BaseTxHistoryListView(props: IProps) {
   const {
     data,
     isLoading,
@@ -164,7 +165,7 @@ function TxHistoryListView(props: IProps) {
 
   if (!initialized && isLoading) {
     return (
-      <Stack py="$3" {...contentContainerStyle}>
+      <Stack {...contentContainerStyle}>
         {ListHeaderComponent}
         <HistoryLoadingView tableLayout={tableLayout} />
       </Stack>
@@ -200,5 +201,7 @@ function TxHistoryListView(props: IProps) {
     />
   );
 }
+
+const TxHistoryListView = withBrowserProvider<IProps>(BaseTxHistoryListView);
 
 export { TxHistoryListView };

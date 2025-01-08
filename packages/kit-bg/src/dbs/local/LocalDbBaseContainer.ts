@@ -1,9 +1,14 @@
-import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
 import type {
+  IDBAccount,
+  IDBDevice,
+  IDBIndexedAccount,
+  IDBWallet,
   ILocalDBAgent,
   ILocalDBGetAllRecordsParams,
   ILocalDBGetAllRecordsResult,
@@ -28,11 +33,11 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async withTransaction<T>(task: ILocalDBWithTransactionTask<T>): Promise<T> {
-    throw new Error(
-      'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
-    );
-    // const db = await this.readyDb;
-    // return db.withTransaction(task);
+    // throw new Error(
+    //   'Directly call withTransaction() is NOT allowed, please use (await this.readyDb).withTransaction() at DB layer',
+    // );
+    const db = await this.readyDb;
+    return db.withTransaction(task);
   }
 
   async getRecordsCount<T extends ELocalDBStoreNames>(
@@ -59,9 +64,18 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async getRecordById<T extends ELocalDBStoreNames>(
     params: ILocalDBGetRecordByIdParams<T>,
   ): Promise<ILocalDBGetRecordByIdResult<T>> {
-    if (this.isCachedStoreName(params.name)) {
+    // eslint-disable-next-line prefer-const
+    let shouldUseCache = this.isCachedStoreName(params.name);
+    if (
+      params.name === ELocalDBStoreNames.Account &&
+      params.id === accountUtils.URL_ACCOUNT_ID
+    ) {
+      // shouldUseCache = false;
+    }
+    if (shouldUseCache) {
       return this.getRecordByIdWithCache(params);
     }
+
     const db = await this.readyDb;
     return db.getRecordById(params);
   }
@@ -88,10 +102,23 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     ].includes(storeName);
   }
 
-  clearStoreCachedData(storeName: ELocalDBStoreNames) {
+  dbAllRecordsCache = new cacheUtils.LRUCache<
+    'allDbAccounts' | 'allDbIndexedAccounts' | 'allDbWallets' | 'allDbDevices',
+    IDBAccount[] | IDBIndexedAccount[] | IDBWallet[] | IDBDevice[]
+  >({
+    max: 10,
+    ttl: timerUtils.getTimeDurationMs({ seconds: 5 }),
+  });
+
+  clearStoreCachedDataIfMatch(storeName: ELocalDBStoreNames) {
     if (this.isCachedStoreName(storeName)) {
-      this.getRecordByIdWithCache.clear();
+      this.clearStoreCachedData();
     }
+  }
+
+  clearStoreCachedData() {
+    this.getRecordByIdWithCache.clear();
+    this.dbAllRecordsCache.clear();
   }
 
   async txGetAllRecords<T extends ELocalDBStoreNames>(
@@ -111,7 +138,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txUpdateRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxUpdateRecordsParams<T>,
   ): Promise<void> {
-    this.clearStoreCachedData(params.name);
+    this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     // const a = db.txAddRecords['hello-world-test-error-stack-8889273']['name'];
     return db.txUpdateRecords(params);
@@ -120,7 +147,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txAddRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxAddRecordsParams<T>,
   ): Promise<ILocalDBTxAddRecordsResult> {
-    this.clearStoreCachedData(params.name);
+    this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     return db.txAddRecords(params);
   }
@@ -128,7 +155,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   async txRemoveRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxRemoveRecordsParams<T>,
   ): Promise<void> {
-    this.clearStoreCachedData(params.name);
+    this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     return db.txRemoveRecords(params);
   }
@@ -136,7 +163,7 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   abstract reset(): Promise<void>;
 
   async clearRecords(params: { name: ELocalDBStoreNames }) {
-    this.clearStoreCachedData(params.name);
+    this.clearStoreCachedDataIfMatch(params.name);
     const db = await this.readyDb;
     return db.clearRecords(params);
   }

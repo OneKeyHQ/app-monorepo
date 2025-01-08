@@ -111,9 +111,6 @@ PODS:
     - MMKVCore (~> 1.3.1)
   - MMKVCore (1.3.1)
   - MultiplatformBleAdapter (0.1.9)
-  - PromisesObjC (2.3.1)
-  - PromisesSwift (2.3.1):
-    - PromisesObjC (= 2.3.1)
   - RCT-Folly (2022.05.16.00):
     - boost
     - DoubleConversion
@@ -1019,18 +1016,21 @@ PODS:
     - React-Core
   - react-native-slider (4.4.3):
     - React-Core
-  - react-native-tab-page-view (1.0.17):
+  - react-native-tab-page-view (1.0.18):
     - JXCategoryView (~> 1.6.1)
     - JXPagingView/Pager (~> 2.1.2)
     - React
   - react-native-tcp-socket (6.0.6):
     - CocoaAsyncSocket
     - React-Core
-  - react-native-video (6.0.0-beta.6):
+  - react-native-video (6.2.0):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
     - React-Core
-    - react-native-video/Video (= 6.0.0-beta.6)
-  - react-native-video/Video (6.0.0-beta.6):
-    - PromisesSwift
+    - react-native-video/Video (= 6.2.0)
+  - react-native-video/Video (6.2.0):
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
     - React-Core
   - react-native-view-shot (3.1.2):
     - React
@@ -1262,13 +1262,13 @@ PODS:
     - glog
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
-  - RNSentry (6.2.0):
+  - RNSentry (6.4.0):
     - glog
     - hermes-engine
     - RCT-Folly (= 2022.05.16.00)
     - React-Core
     - React-hermes
-    - Sentry/HybridSDK (= 8.40.1)
+    - Sentry/HybridSDK (= 8.41.0)
   - RNShare (10.2.1):
     - React-Core
   - RNSVG (13.14.0):
@@ -1289,7 +1289,7 @@ PODS:
   - SDWebImageWebPCoder (0.8.5):
     - libwebp (~> 1.0)
     - SDWebImage/Core (~> 5.10)
-  - Sentry/HybridSDK (8.40.1)
+  - Sentry/HybridSDK (8.41.0)
   - SocketRocket (0.6.1)
   - SPAlert (4.2.0)
   - SPIndicator (1.6.4)
@@ -1437,8 +1437,6 @@ SPEC REPOS:
     - MMKV
     - MMKVCore
     - MultiplatformBleAdapter
-    - PromisesObjC
-    - PromisesSwift
     - ScreenshotPreventing
     - SDWebImage
     - SDWebImageWebPCoder
@@ -1688,7 +1686,7 @@ SPEC CHECKSUMS:
   Burnt: dde5dd245f124a4594098e3938ba71aae4ec83c3
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
-  DoubleConversion: 76ab83afb40bddeeee456813d9c04f67f78771b5
+  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
   EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
   EXBarCodeScanner: d59fd943cebee3f913ebf4ffde0d05d344da8b78
   EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
@@ -1715,7 +1713,7 @@ SPEC CHECKSUMS:
   FBLazyVector: 9f533d5a4c75ca77c8ed774aced1a91a0701781e
   FBReactNativeSpec: 2db5940ee4b58968274eec0a4f1c736fc4caefa3
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
-  glog: 69ef571f3de08433d766d614c73a9838a06bf7eb
+  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
   hermes-engine: 39589e9c297d024e90fe68f6830ff86c4e01498a
   ImageColors: 88be684570585c07ae2750bff34eb7b78bfc53b4
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
@@ -1730,8 +1728,6 @@ SPEC CHECKSUMS:
   MMKV: 5a07930c70c70b86cd87761a42c8f3836fb681d7
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
-  PromisesObjC: c50d2056b5253dadbd6c2bea79b0674bd5a52fa4
-  PromisesSwift: 28dca69a9c40779916ac2d6985a0192a5cb4a265
   RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
   RCTRequired: 77f73950d15b8c1a2b48ba5b79020c3003d1c9b5
   RCTTypeSafety: ede1e2576424d89471ef553b2aed09fbbcc038e3
@@ -1766,9 +1762,9 @@ SPEC CHECKSUMS:
   react-native-restart: 7595693413fe3ca15893702f2c8306c62a708162
   react-native-safe-area-context: 7aa8e6d9d0f3100a820efb1a98af68aa747f9284
   react-native-slider: 1cdd6ba29675df21f30544253bf7351d3c2d68c4
-  react-native-tab-page-view: c1f9217177b7043a7e3a9bc779d49d9f2c9eb0d7
+  react-native-tab-page-view: 85c179e539d8a096f13a057ffe97aa3995479dc2
   react-native-tcp-socket: e724380c910c2e704816ec817ed28f1342246ff7
-  react-native-video: dc3118548cf8864a83f57df4345cf6c692402e8f
+  react-native-video: 12a68a3e9a6d93e8bdfa8e352917261c49ac35f7
   react-native-view-shot: 4475fde003fe8a210053d1f98fb9e06c1d834e1c
   react-native-webview: ab8587e1e43e274471ec8dc9342ec1711fa8bf61
   react-native-webview-cleaner: 93c8c73a302c90fcd83a227438b2a53bdb47f7cc
@@ -1808,20 +1804,20 @@ SPEC CHECKSUMS:
   RNPermissions: ac5ac3a8f5f63166a4ea5473c73d7e28447e8178
   RNReanimated: f5cb331578e0c4263050d77ba8bbec209f6b82d7
   RNScreens: 99476adb9f898a77872e67836bbb9d47988788cc
-  RNSentry: 059abcedf78a8f8c177901cf36b2362bb7dcb512
+  RNSentry: 780f6c64063f176a9f8296ef32390c3025c97e80
   RNShare: 0fad69ae2d71de9d1f7b9a43acf876886a6cb99c
   RNSVG: d00c8f91c3cbf6d476451313a18f04d220d4f396
   RNZipArchive: ef9451b849c45a29509bf44e65b788829ab07801
   ScreenshotPreventing: 7057fd23cb00599ba265c0b166768e1e0cb3a0b0
   SDWebImage: a7f831e1a65eb5e285e3fb046a23fcfbf08e696d
   SDWebImageWebPCoder: 908b83b6adda48effe7667cd2b7f78c897e5111d
-  Sentry: e9215d7b17f7902692b4f8700e061e4f853e3521
+  Sentry: 54d0fe6c0df448497c8ed4cce66ccf7027e1823e
   SocketRocket: f32cd54efbe0f095c4d7594881e52619cfe80b17
   SPAlert: 735da1f16a887e294719217572ce1f936d8c8782
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
   TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
-  Yoga: 6d01ccde54c9f8b92492beb05d468dbfed1d9881
+  Yoga: 07db09965bc46c4902e20d3ae6990d95e53af8a8
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: 5b7f20a90e19262f325cab10e37056b7f3cd0ffb

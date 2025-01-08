@@ -26,7 +26,7 @@ function serNum(p: BigNumber, bits: 32 | 256): Buffer {
 }
 
 function ser32(index: number): Buffer {
-  if (!Number.isInteger(index)) {
+  if (typeof index !== 'number' || !Number.isInteger(index) || index < 0) {
     throw Error('Invalid index.');
   }
 

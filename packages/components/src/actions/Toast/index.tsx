@@ -8,15 +8,9 @@ import { useMedia } from 'tamagui';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { AnchorSizableText } from '../../content/AnchorSizableText';
 import { Portal } from '../../hocs';
-import {
-  Anchor,
-  Icon,
-  SizableText,
-  View,
-  XStack,
-  YStack,
-} from '../../primitives';
+import { Icon, View, XStack, YStack } from '../../primitives';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
 import { showMessage } from './showMessage';
@@ -48,7 +42,6 @@ const iconMap = {
   warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
 };
 
-const urlRegex = /<url(?:\s+[^>]*?)?>(.*?)<\/url>/g;
 const RenderLines = ({
   size,
   children: text,
@@ -69,52 +62,18 @@ const RenderLines = ({
 
   return (
     <YStack>
-      {lines.map((line, index) => {
-        const hasUrl = urlRegex.test(line);
-        if (!hasUrl) {
-          return (
-            <SizableText
-              key={index}
-              color={color}
-              textTransform="none"
-              userSelect="none"
-              size={size}
-              wordWrap="break-word"
-            >
-              {line}
-            </SizableText>
-          );
-        }
-        const parts = line.split(urlRegex);
-        const hrefMatch = line.match(/href="(.*?)"/);
-        return (
-          <SizableText
-            key={index}
-            color={color}
-            textTransform="none"
-            userSelect="none"
-            size={size}
-            wordWrap="break-word"
-          >
-            {parts.map((part, partIndex) => {
-              if (partIndex % 2 === 1) {
-                return (
-                  <Anchor
-                    key={partIndex}
-                    href={hrefMatch?.[1]}
-                    target="_blank"
-                    size={size}
-                    color="$textInfo"
-                  >
-                    {part}
-                  </Anchor>
-                );
-              }
-              return part;
-            })}
-          </SizableText>
-        );
-      })}
+      {lines.map((line, index) => (
+        <AnchorSizableText
+          key={index}
+          color={color}
+          textTransform="none"
+          userSelect="none"
+          size={size}
+          wordWrap="break-word"
+        >
+          {line}
+        </AnchorSizableText>
+      ))}
     </YStack>
   );
 };

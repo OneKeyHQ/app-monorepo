@@ -107,7 +107,7 @@ export class XMLHttpRequest extends Dispatch {
     }
   }
 
-  // No response headers suport yet!
+  // No response headers support yet!
   getAllResponseHeaders() {
     return ''; // todo fix headers at HEADERS_RECEIVED
   }

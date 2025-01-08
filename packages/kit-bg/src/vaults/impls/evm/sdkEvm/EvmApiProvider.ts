@@ -413,15 +413,28 @@ class EvmApiProvider extends BaseApiProvider {
     let maxPriorityFeePerGas: string;
     let baseFeePerGas: BigNumber;
     try {
-      const [maxPriorityFeePerGasResult, hexBlock] =
-        await this.client.batchCall<[string, any]>([
-          ['eth_maxPriorityFeePerGas', []],
-          ['eth_getBlockByNumber', ['latest', false]],
-        ]);
+      const hexBlock = await this.client.call<any>('eth_getBlockByNumber', [
+        'latest',
+        false,
+      ]);
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       baseFeePerGas = new B(hexBlock.baseFeePerGas);
       isEIP1559 = !(baseFeePerGas.isNaN() || baseFeePerGas.isEqualTo(0)); // 0 also means not 1559
-      maxPriorityFeePerGas = maxPriorityFeePerGasResult;
+      if (isEIP1559) {
+        try {
+          maxPriorityFeePerGas = await this.client.call<string>(
+            'eth_maxPriorityFeePerGas',
+            [],
+          );
+        } catch (error) {
+          // if native method is not available, use fallback estimate method
+          maxPriorityFeePerGas =
+            await this.fallbackEstimateMaxPriorityFeePerGas();
+          console.log(
+            `[ProviderEVMFork.getGasPriceEIP1559] fallbackEstimateMaxPriorityFeePerGas: ${maxPriorityFeePerGas}`,
+          );
+        }
+      }
     } catch (error) {
       console.error(
         `[ProviderEVMFork.getGasPriceEIP1559] get maxPriorityFeePerGas error: ${
@@ -460,6 +473,52 @@ class EvmApiProvider extends BaseApiProvider {
       isEIP1559,
       gasEIP1559,
     };
+  }
+
+  protected async fallbackEstimateMaxPriorityFeePerGas(): Promise<string> {
+    const BLOCK_COUNT = 3;
+    const PRIORITY_FEE_RATIO = 0.25; // use 25% of base fee as priority fee
+
+    try {
+      // get latest block
+      const latestBlock = await this.client.call<any>('eth_getBlockByNumber', [
+        'latest',
+        false,
+      ]);
+      const latestNumber = parseInt(latestBlock.number, 16);
+
+      // get recent blocks
+      const blockPromises = Array.from({ length: BLOCK_COUNT }, (_, i) => {
+        const blockNumber = `0x${(latestNumber - i).toString(16)}`;
+        return this.client.call<any>('eth_getBlockByNumber', [
+          blockNumber,
+          false,
+        ]);
+      });
+
+      const blocks = await Promise.all(blockPromises);
+
+      // calculate max base fee
+      const baseFees = blocks
+        .map((block) => new B(block.baseFeePerGas))
+        .filter((fee) => !fee.isNaN());
+
+      if (baseFees.length === 0) {
+        throw new Error('No valid base fees found in recent blocks');
+      }
+
+      const maxBaseFee = B.max(...baseFees);
+
+      // calculate suggested priority fee
+      return maxBaseFee.multipliedBy(PRIORITY_FEE_RATIO).toFixed(0);
+    } catch (error) {
+      console.error(
+        `[ProviderEVMFork.estimateMaxPriorityFeePerGas] error: ${
+          (error as Error).message
+        }`,
+      );
+      throw error;
+    }
   }
 
   override async getGasFee(

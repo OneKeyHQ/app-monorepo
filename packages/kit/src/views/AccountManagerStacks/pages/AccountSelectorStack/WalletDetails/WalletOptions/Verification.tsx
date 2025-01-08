@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
+import { type IIconProps, type IKeyOfIcons } from '@onekeyhq/components';
 import { useFirmwareVerifyDialog } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -9,21 +9,6 @@ import { WalletOptionItem } from './WalletOptionItem';
 
 export function Verification({ device }: { device?: IDBDevice | undefined }) {
   const intl = useIntl();
-  // const returnVerified = () => {
-  //   setVerified(true);
-  //   Toast.success({
-  //     title: 'Verified',
-  //     message: 'You are good to go',
-  //   });
-  // };
-
-  // const returnUnofficial = () => {
-  //   setUnofficial(true);
-  //   Toast.error({
-  //     title: 'Unofficial',
-  //     message: 'Please contact support',
-  //   });
-  // };
 
   const getIconNameAndIconColor = (): {
     iconName: IKeyOfIcons;
@@ -69,6 +54,7 @@ export function Verification({ device }: { device?: IDBDevice | undefined }) {
         }
         await showFirmwareVerifyDialog({
           device,
+          features: device.featuresInfo,
           onContinue: async ({ checked }) => {
             console.log(checked);
           },

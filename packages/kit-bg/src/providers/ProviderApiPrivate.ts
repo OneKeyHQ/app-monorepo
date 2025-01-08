@@ -25,6 +25,7 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type BackgroundApiBase from '../apis/BackgroundApiBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
+import type { IFloatingIconSettings } from '../dbs/simple/entity/SimpleDbEntityFloatingIconSettings';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IOneKeyWalletInfo {
@@ -78,6 +79,16 @@ class ProviderApiPrivate extends ProviderApiBase {
     const params = await this.getWalletInfo();
     info.send(
       { method: 'wallet_events_ext_switch_changed', params },
+      info.targetOrigin,
+    );
+  }
+
+  public async notifyFloatingIconChanged(
+    info: IProviderBaseBackgroundNotifyInfo,
+    params: { showFloatingIcon: boolean },
+  ) {
+    info.send(
+      { method: 'wallet_events_floating_icon_changed', params },
       info.targetOrigin,
     );
   }
@@ -243,10 +254,144 @@ class ProviderApiPrivate extends ProviderApiBase {
           sourceMessage: appLocale.intl.formatMessage({
             id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
           }),
+          fetchingDAppInfo: appLocale.intl.formatMessage({
+            id: ETranslations.browser_fetching_dapp_info,
+          }),
+          dappListedBy: appLocale.intl.formatMessage({
+            id: ETranslations.browser_dapp_listed_by,
+          }),
+          riskDetection: appLocale.intl.formatMessage({
+            id: ETranslations.browser_risk_detection,
+          }),
+          maliciousDappWarningSourceMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+          }),
+          verifiedSite: appLocale.intl.formatMessage({
+            id: ETranslations.dapp_connect_verified_site,
+          }),
+          unknown: appLocale.intl.formatMessage({
+            id: ETranslations.global_unknown,
+          }),
         },
       };
     }
     throw new Error('Invalid request');
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_isShowFloatingButton',
+      params: { url: 'https://www.google.com' },
+    });
+  */
+  @providerApiMethod()
+  async wallet_isShowFloatingButton(request: IJsBridgeMessagePayload) {
+    if (request.origin) {
+      const isShow =
+        await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl(
+          { url: request.origin },
+        );
+      const settings =
+        await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
+      return {
+        isShow,
+        settings,
+        i18n: {
+          title: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp,
+          }),
+          description: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_description,
+          }),
+          continueMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_continueMessage,
+          }),
+          continueLink: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_continueLink,
+          }),
+          addToWhiteListLink: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_addToWhiteListLink,
+          }),
+          sourceMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+          }),
+          fetchingDAppInfo: appLocale.intl.formatMessage({
+            id: ETranslations.browser_fetching_dapp_info,
+          }),
+          dappListedBy: appLocale.intl.formatMessage({
+            id: ETranslations.browser_dapp_listed_by,
+          }),
+          riskDetection: appLocale.intl.formatMessage({
+            id: ETranslations.browser_risk_detection,
+          }),
+          maliciousDappWarningSourceMessage: appLocale.intl.formatMessage({
+            id: ETranslations.explore_malicious_dapp_warning_sourceMessage,
+          }),
+          maliciousSiteWarning: appLocale.intl.formatMessage({
+            id: ETranslations.dapp_connect_malicious_site_warning,
+          }),
+          suspectedMaliciousBehavior: appLocale.intl.formatMessage({
+            id: ETranslations.dapp_connect_suspected_malicious_behavior,
+          }),
+          verifiedSite: appLocale.intl.formatMessage({
+            id: ETranslations.dapp_connect_verified_site,
+          }),
+          unknown: appLocale.intl.formatMessage({
+            id: ETranslations.global_unknown,
+          }),
+          lastVerifiedAt: appLocale.intl.formatMessage({
+            id: ETranslations.browser_last_verified_at,
+          }),
+          disable: appLocale.intl.formatMessage({
+            id: ETranslations.browser_disable,
+          }),
+          hideOnThisSite: appLocale.intl.formatMessage({
+            id: ETranslations.browser_hide_on_this_site,
+          }),
+          canBeReEnabledInSettings: appLocale.intl.formatMessage({
+            id: ETranslations.browser_can_be_re_enabled_in_settings,
+          }),
+        },
+      };
+    }
+    return {
+      isShow: false,
+      i18n: {},
+    };
+  }
+
+  @providerApiMethod()
+  async wallet_saveFloatingIconSettings(request: IJsBridgeMessagePayload) {
+    console.log('ProviderApiPrivate.wallet_saveFloatingIconSettings', request);
+    const { params } = request.data as {
+      params?: Partial<IFloatingIconSettings>;
+    };
+    await this.backgroundApi.simpleDb.floatingIconSettings.setSettings(params);
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_disableFloatingButton',
+    });
+  */
+  @providerApiMethod()
+  async wallet_disableFloatingButton() {
+    void this.backgroundApi.serviceSetting.setIsShowFloatingButton(false);
+  }
+
+  /*
+    window.$onekey.$private.request({
+      method: 'wallet_hideFloatingButtonOnSite',
+      params: { url: 'https://www.google.com' },
+    });
+  */
+  @providerApiMethod()
+  async wallet_hideFloatingButtonOnSite(request: IJsBridgeMessagePayload) {
+    if (request.origin) {
+      void this.backgroundApi.serviceSetting.hideFloatingButtonOnSite({
+        url: request.origin,
+      });
+    }
   }
 
   /*

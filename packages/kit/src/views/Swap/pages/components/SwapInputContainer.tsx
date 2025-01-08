@@ -7,6 +7,9 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
+  useSwapFromTokenAmountAtom,
+  useSwapSelectFromTokenAtom,
+  useSwapSelectedFromTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -15,13 +18,14 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
   ESwapRateDifferenceUnit,
+  SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
-import SwapPercentageInput from './SwapPercentageInput';
+import SwapInputActions from './SwapInputActions';
 
 interface ISwapInputContainerProps {
   direction: ESwapDirectionType;
@@ -68,16 +72,38 @@ const SwapInputContainer = ({
       : `${tokenFiatValueBN.decimalPlaces(6, BigNumber.ROUND_DOWN).toFixed()}`;
   }, [amountValue, token?.price]);
 
-  const fromInputHasError = useMemo(
-    () =>
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [fromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+
+  const fromInputHasError = useMemo(() => {
+    const accountError =
       (alerts?.states.some((item) => item.inputShowError) &&
         direction === ESwapDirectionType.FROM) ||
       (!address &&
         (accountUtils.isHdWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isHwWallet({ walletId: accountInfo?.wallet?.id }) ||
-          accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id }))),
-    [alerts?.states, direction, address, accountInfo],
-  );
+          accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id })));
+    const balanceBN = new BigNumber(fromTokenBalance ?? 0);
+    const amountValueBN = new BigNumber(fromTokenAmount ?? 0);
+    const hasBalanceError =
+      direction === ESwapDirectionType.FROM &&
+      !!fromToken &&
+      !!address &&
+      balanceBN.lt(amountValueBN);
+    return {
+      accountError,
+      hasBalanceError,
+    };
+  }, [
+    alerts?.states,
+    direction,
+    address,
+    accountInfo?.wallet?.id,
+    fromTokenBalance,
+    fromTokenAmount,
+    fromToken,
+  ]);
 
   const valueMoreComponent = useMemo(() => {
     if (rateDifference && direction === ESwapDirectionType.TO) {
@@ -108,7 +134,10 @@ const SwapInputContainer = ({
   };
 
   const onFromInputBlur = () => {
-    setPercentageInputStageShow(false);
+    // delay to avoid blur when select percentage stage
+    setTimeout(() => {
+      setPercentageInputStageShow(false);
+    }, 200);
   };
 
   const showPercentageInput = useMemo(
@@ -118,6 +147,14 @@ const SwapInputContainer = ({
     [direction, percentageInputStageShow, amountValue],
   );
 
+  const showActionBuy = useMemo(
+    () =>
+      direction === ESwapDirectionType.FROM &&
+      !!accountInfo?.account?.id &&
+      !!fromToken &&
+      fromInputHasError.hasBalanceError,
+    [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
+  );
   return (
     <YStack>
       <XStack justifyContent="space-between">
@@ -125,8 +162,11 @@ const SwapInputContainer = ({
           type={direction}
           onClickNetwork={onSelectToken}
         />
-        <SwapPercentageInput
-          show={showPercentageInput}
+        <SwapInputActions
+          fromToken={fromToken}
+          accountInfo={accountInfo}
+          showPercentageInput={showPercentageInput}
+          showActionBuy={showActionBuy}
           onSelectStage={onSelectPercentageStage}
         />
       </XStack>
@@ -135,7 +175,9 @@ const SwapInputContainer = ({
         value={amountValue}
         onFocus={onFromInputFocus}
         onBlur={onFromInputBlur}
-        hasError={fromInputHasError}
+        hasError={
+          fromInputHasError.accountError || fromInputHasError.hasBalanceError
+        }
         balanceProps={{
           value: balance,
           onPress:
@@ -165,6 +207,13 @@ const SwapInputContainer = ({
                   caretColor: 'transparent',
                 } as any)
               : undefined,
+          inputAccessoryViewID:
+            direction === ESwapDirectionType.FROM && platformEnv.isNativeIOS
+              ? SwapAmountInputAccessoryViewID
+              : undefined,
+          autoCorrect: false,
+          spellCheck: false,
+          autoComplete: 'off',
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,

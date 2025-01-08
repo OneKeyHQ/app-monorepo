@@ -17,7 +17,6 @@ import {
 
 import { useIntl } from 'react-intl';
 
-import type { IElement, IStackStyle } from '@onekeyhq/components';
 import {
   Button,
   EPortalContainerConstantName,
@@ -28,7 +27,13 @@ import {
   XStack,
   YStack,
   useBackHandler,
+  useDeferredPromise,
   useMedia,
+} from '@onekeyhq/components';
+import type {
+  IDeferredPromise,
+  IElement,
+  IStackStyle,
 } from '@onekeyhq/components';
 import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
@@ -37,9 +42,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useDeferredPromise } from '../../hooks/useDeferredPromise';
 
-import type { IDeferredPromise } from '../../hooks/useDeferredPromise';
 import type { View as NativeView } from 'react-native';
 
 export type ISpotlightViewProps = PropsWithChildren<{

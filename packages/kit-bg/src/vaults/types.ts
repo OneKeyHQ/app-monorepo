@@ -37,6 +37,7 @@ import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
 import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type {
+  ESwapTabSwitchType,
   IFetchBuildTxResult,
   IOKXTransactionObject,
   ISwapTokenBase,
@@ -163,6 +164,8 @@ export type IVaultSettings = {
   defaultFeePresetIndex: number;
   checkFeeDetailEnabled?: boolean;
   replaceTxEnabled: boolean;
+  cancelTxEnabled?: boolean;
+  speedUpCancelEnabled?: boolean;
   // Get the interval time for polling the fee API, in seconds
   estimatedFeePollingInterval: number;
 
@@ -249,6 +252,8 @@ export type IVaultSettings = {
   withTxMessage?: boolean;
 
   fixConfirmedTxEnabled?: boolean;
+
+  supportBatchEstimateFee?: Record<string, boolean>;
 };
 
 export type IVaultFactoryOptions = {
@@ -653,4 +658,5 @@ export type IQrWalletGetVerifyAddressChainParamsResult = {
 export type IBuildOkxSwapEncodedTxParams = {
   okxTx: IOKXTransactionObject;
   fromTokenInfo: ISwapTokenBase;
+  type: ESwapTabSwitchType;
 };

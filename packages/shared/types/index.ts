@@ -80,6 +80,7 @@ export enum EAccountSelectorSceneName {
   swap = 'swap',
   discover = 'discover',
   addressInput = 'addressInput', // test Gallery AddressInput test
+  market = 'market',
 }
 
 export enum EAccountSelectorAutoSelectTriggerBy {

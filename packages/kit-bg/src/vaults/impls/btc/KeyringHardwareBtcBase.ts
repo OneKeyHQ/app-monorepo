@@ -200,7 +200,11 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
 
     const dbAccount = (await this.vault.getAccount()) as IDBUtxoAccount;
     if (!isTaprootPath(dbAccount.path)) {
-      throw new AddressNotSupportSignMethodError();
+      throw new AddressNotSupportSignMethodError({
+        info: {
+          type: 'Taproot',
+        },
+      });
     }
 
     const network = await this.getNetwork();
@@ -284,14 +288,24 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
     const signedPsbt = response.psbt;
 
     let rawTx = '';
-    const finalizedPsbt = BitcoinJS.Psbt.fromHex(signedPsbt, {
-      network: btcNetwork,
-    });
-    inputsToSign.forEach((v) => {
-      finalizedPsbt.finalizeInput(v.index);
-    });
-    if (!signOnly) {
-      rawTx = finalizedPsbt.extractTransaction().toHex();
+    let finalizedPsbtHex = '';
+
+    try {
+      const finalizedPsbt = BitcoinJS.Psbt.fromHex(signedPsbt, {
+        network: btcNetwork,
+      });
+      inputsToSign.forEach((v) => {
+        finalizedPsbt.finalizeInput(v.index);
+      });
+
+      if (!signOnly) {
+        rawTx = finalizedPsbt.extractTransaction().toHex();
+      }
+      finalizedPsbtHex = finalizedPsbt.toHex();
+    } catch (error) {
+      console.error('Failed to finalize hardware PSBT:', error);
+      // if can't finalize, use original signedPsbt
+      finalizedPsbtHex = signedPsbt;
     }
 
     return {
@@ -299,7 +313,7 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
       txid: '',
       rawTx,
       psbtHex: signedPsbt,
-      finalizedPsbtHex: finalizedPsbt.toHex(),
+      finalizedPsbtHex,
     };
   }
 
@@ -317,7 +331,11 @@ export abstract class KeyringHardwareBtcBase extends KeyringHardwareBase {
         const dAppSignType = (type as 'ecdsa' | 'bip322-simple') || undefined;
 
         if (dAppSignType && !isTaprootPath(dbAccount.path)) {
-          throw new AddressNotSupportSignMethodError();
+          throw new AddressNotSupportSignMethodError({
+            info: {
+              type: 'Taproot',
+            },
+          });
         }
 
         const response = await sdk.btcSignMessage(connectId, deviceId, {

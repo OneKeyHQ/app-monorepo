@@ -1,6 +1,6 @@
-import type { Transaction } from 'tronweb';
+import type { Types } from 'tronweb';
 
-export type IEncodedTxTron = Transaction;
+export type IEncodedTxTron = Types.Transaction;
 
 export type IDecodedTxExtraTron = {
   energyUsage?: number;

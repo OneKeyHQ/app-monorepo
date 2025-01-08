@@ -15,6 +15,7 @@ import { WebView } from 'react-native-webview';
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
 import { Stack } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUtils';
@@ -49,6 +50,7 @@ const NativeWebView = forwardRef(
       onLoadEnd,
       onScroll,
       pullToRefreshEnabled = true,
+      webviewDebuggingEnabled,
       ...props
     }: INativeWebViewProps,
     ref,
@@ -139,7 +141,28 @@ const NativeWebView = forwardRef(
       [src],
     );
 
+    const [devSettings] = useDevSettingsPersistAtom();
+
     const renderLoading = useCallback(() => <Stack />, []);
+
+    const debuggingEnabled = useMemo(() => {
+      if (__DEV__) {
+        return true;
+      }
+
+      if (
+        devSettings.enabled &&
+        devSettings.settings?.webviewDebuggingEnabled
+      ) {
+        return true;
+      }
+
+      return webviewDebuggingEnabled;
+    }, [
+      devSettings.enabled,
+      devSettings.settings?.webviewDebuggingEnabled,
+      webviewDebuggingEnabled,
+    ]);
 
     const renderWebView = (
       <WebView
@@ -188,7 +211,7 @@ const NativeWebView = forwardRef(
           void onScroll?.(e);
         }}
         scrollEventThrottle={16}
-        webviewDebuggingEnabled={__DEV__}
+        webviewDebuggingEnabled={debuggingEnabled}
         {...props}
       />
     );

@@ -152,7 +152,11 @@ class ServiceNostr extends ServiceBase {
           });
           return signedTx;
         },
-        { deviceParams, debugMethodName: 'nostr.encrypt' },
+        {
+          deviceParams,
+          skipDeviceCancel: true,
+          debugMethodName: 'nostr.encrypt',
+        },
       );
     return {
       data: encrypted,

@@ -4,6 +4,7 @@ import { memo, useCallback, useMemo } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import type {
   IActionListSection,
@@ -18,6 +19,7 @@ import {
   Tab,
   getFontToken,
   useClipboard,
+  useMedia,
   useThemeValue,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
@@ -58,6 +60,7 @@ export type IProps = {
   isBlocked?: boolean;
   riskyTokens?: string[];
   isAllNetworks?: boolean;
+  isTabView?: boolean;
   listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   indexedAccountId?: string;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
@@ -164,6 +167,16 @@ function TokenDetailsView() {
     [fontColor],
   );
 
+  const { gtMd } = useMedia();
+  const { width } = useWindowDimensions();
+
+  const contentItemWidth = useMemo(() => {
+    if (platformEnv.isNative) {
+      return undefined;
+    }
+    return gtMd ? 640 : width;
+  }, [gtMd, width]);
+
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
   const tabs = useMemo(() => {
     if (accountId && networkId && walletId) {
@@ -182,6 +195,7 @@ function TokenDetailsView() {
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
             indexedAccountId={account?.indexedAccountId}
+            isTabView
           />
         ),
       }));
@@ -219,9 +233,10 @@ function TokenDetailsView() {
     ) {
       if (tabs && !isEmpty(tabs)) {
         return (
-          <Tab.Page
+          <Tab
+            disableRefresh
             data={tabs}
-            contentItemWidth={platformEnv.isNative ? undefined : (640 as any)}
+            contentItemWidth={contentItemWidth as any}
             initialScrollIndex={0}
             showsVerticalScrollIndicator={false}
           />
@@ -244,18 +259,19 @@ function TokenDetailsView() {
       />
     );
   }, [
-    listViewContentContainerStyle,
+    isLoading,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    isAllNetworks,
+    walletId,
     accountId,
+    networkId,
     deriveInfo,
     deriveType,
-    isAllNetworks,
-    isLoading,
-    networkId,
-    tabs,
     tokenInfo,
-    vaultSettings?.mergeDeriveAssetsEnabled,
-    walletId,
-    account,
+    account?.indexedAccountId,
+    listViewContentContainerStyle,
+    tabs,
+    contentItemWidth,
   ]);
 
   return (

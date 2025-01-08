@@ -42,4 +42,37 @@ export class TokenScene extends BaseScene {
   ) {
     return token;
   }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public unsupportedToken({
+    name,
+    action,
+  }: {
+    name: string;
+    action: 'buy' | 'sell' | 'trade';
+  }) {
+    return {
+      tokenName: name,
+      userAction: action,
+    };
+  }
+
+  @LogToServer()
+  @LogToLocal({ level: 'info' })
+  public marketTokenAction({
+    tokenName,
+    action,
+    from,
+  }: {
+    tokenName: string;
+    action: 'trade' | 'stake' | 'buy' | 'sell';
+    from: 'listPage' | 'detailsPage';
+  }) {
+    return {
+      tokenName,
+      action,
+      from,
+    };
+  }
 }

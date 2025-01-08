@@ -3,7 +3,7 @@ import { isEmpty, isNil } from 'lodash';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   EMnemonicType,
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   decryptRevealableSeed,
   encryptImportedCredential,
   ensureSensitiveTextEncoded,
@@ -91,7 +91,6 @@ import type {
   IDBDevice,
   IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
-  IDBGetAllWalletsParams,
   IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
@@ -169,6 +168,7 @@ class ServiceAccount extends ServiceBase {
 
   clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
+    localDb.clearStoreCachedData();
   }
 
   @backgroundMethod()
@@ -177,7 +177,7 @@ class ServiceAccount extends ServiceBase {
     mnemonicType: EMnemonicType;
   }> {
     ensureSensitiveTextEncoded(mnemonic);
-    const realMnemonic = decodeSensitiveText({
+    const realMnemonic = await decodeSensitiveTextAsync({
       encodedText: mnemonic,
     });
     const realMnemonicFixed = realMnemonic.trim().replace(/\s+/g, ' ');
@@ -226,6 +226,19 @@ class ServiceAccount extends ServiceBase {
     walletId: string;
   }) {
     return localDb.getWalletDeviceSafe({ dbWallet, walletId });
+  }
+
+  @backgroundMethod()
+  async getAccountDeviceSafe({ accountId }: { accountId: string }) {
+    const walletId = accountUtils.getWalletIdFromAccountId({ accountId });
+    if (!walletId) {
+      return null;
+    }
+    const device = await this.getWalletDeviceSafe({ walletId });
+    if (!device) {
+      return null;
+    }
+    return device;
   }
 
   // TODO move to serviceHardware
@@ -321,7 +334,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
   }) {
     ensureSensitiveTextEncoded(password);
-    const rs = decryptRevealableSeed({
+    const rs = await decryptRevealableSeed({
       rs: credential,
       password,
     });
@@ -1056,13 +1069,15 @@ class ServiceAccount extends ServiceBase {
     // TODO privateKey should be HEX format
     ensureSensitiveTextEncoded(credential);
 
-    const privateKeyDecoded = decodeSensitiveText({ encodedText: credential });
+    const privateKeyDecoded = await decodeSensitiveTextAsync({
+      encodedText: credential,
+    });
 
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
       });
-    const credentialEncrypt = encryptImportedCredential({
+    const credentialEncrypt = await encryptImportedCredential({
       credential: {
         privateKey: privateKeyDecoded,
       },
@@ -1682,8 +1697,10 @@ class ServiceAccount extends ServiceBase {
     ids?: string[];
     filterRemoved?: boolean;
   } = {}) {
+    let accounts: IDBAccount[] = [];
+
     // filter accounts match to available wallets, some account wallet or indexedAccount may be deleted
-    const { accounts } = await localDb.getAllAccounts({ ids });
+    ({ accounts } = await localDb.getAllAccounts({ ids }));
 
     const removedHiddenWallet: {
       [walletId: string]: true;
@@ -1698,12 +1715,22 @@ class ServiceAccount extends ServiceBase {
     let accountsFiltered: IDBAccount[] = accounts;
     let accountsRemoved: IDBAccount[] | undefined;
 
+    let allWallets: IDBWallet[] | undefined;
+    let indexedAccounts: IDBIndexedAccount[] = [];
+    let indexedAccountsRemoved: IDBIndexedAccount[] = [];
+    let allDevices: IDBDevice[] | undefined;
+
     if (filterRemoved) {
-      const { wallets } = await this.getAllWallets({ refillWalletInfo: true });
-      const { indexedAccounts } = await this.getAllIndexedAccounts({
-        allWallets: wallets,
-        filterRemoved,
+      const allWalletsResult = await this.getAllWallets({
+        refillWalletInfo: true,
       });
+      allWallets = allWalletsResult.wallets;
+      allDevices = allWalletsResult.allDevices;
+      ({ indexedAccounts, indexedAccountsRemoved } =
+        await this.getAllIndexedAccounts({
+          allWallets,
+          filterRemoved: true,
+        }));
 
       accountsRemoved = [];
       accountsFiltered = (
@@ -1731,33 +1758,36 @@ class ServiceAccount extends ServiceBase {
                 pushRemovedAccount();
                 return null;
               }
-              const wallet: IDBWallet | undefined = wallets.find(
+              const wallet: IDBWallet | undefined = allWallets?.find(
                 (o) => o.id === walletId,
               );
-              if (!wallet) {
+              if (!wallet && allWallets) {
                 removedWallet[walletId] = true;
                 pushRemovedAccount();
                 return null;
               }
-              if (localDb.isTempWalletRemoved({ wallet })) {
+              if (wallet && localDb.isTempWalletRemoved({ wallet })) {
                 removedHiddenWallet[walletId] = true;
                 pushRemovedAccount();
                 return null;
               }
             }
+            let indexedAccount: IDBIndexedAccount | undefined;
             if (indexedAccountId) {
               if (removedIndexedAccount[indexedAccountId]) {
                 pushRemovedAccount();
                 return null;
               }
-              const indexedAccount: IDBIndexedAccount | undefined =
-                indexedAccounts.find((o) => o.id === indexedAccountId);
+              indexedAccount = indexedAccounts.find(
+                (o) => o.id === indexedAccountId,
+              );
               if (!indexedAccount) {
                 removedIndexedAccount[indexedAccountId] = true;
                 pushRemovedAccount();
                 return null;
               }
             }
+            localDb.refillAccountInfo({ account, indexedAccount });
             return account;
           }),
         )
@@ -1767,11 +1797,32 @@ class ServiceAccount extends ServiceBase {
     return {
       accounts: accountsFiltered,
       accountsRemoved,
+      allWallets,
+      allDevices,
+      allIndexedAccounts: indexedAccounts,
+      indexedAccountsRemoved,
     };
   }
 
-  async getAllWallets(params: IDBGetAllWalletsParams = {}) {
-    return localDb.getAllWallets(params);
+  async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
+    let { wallets } = await localDb.getAllWallets();
+    let allDevices: IDBDevice[] | undefined;
+    if (params.refillWalletInfo) {
+      allDevices = (await this.getAllDevices()).devices;
+      const refilledWalletsCache: {
+        [walletId: string]: IDBWallet;
+      } = {};
+      wallets = await Promise.all(
+        wallets.map((wallet) =>
+          localDb.refillWalletInfo({
+            wallet,
+            refilledWalletsCache,
+            allDevices,
+          }),
+        ),
+      );
+    }
+    return { wallets, allDevices };
   }
 
   async getAllDevices() {
@@ -1784,8 +1835,15 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId,
   }: {
     indexedAccountId: string;
-  }): Promise<IDBAccount[]> {
-    return localDb.getAccountsInSameIndexedAccountId({ indexedAccountId });
+  }): Promise<{
+    accounts: IDBAccount[];
+    allDbAccounts: IDBAccount[];
+  }> {
+    const result = await localDb.getAccountsInSameIndexedAccountId({
+      indexedAccountId,
+    });
+
+    return result;
   }
 
   @backgroundMethod()
@@ -2065,11 +2123,12 @@ class ServiceAccount extends ServiceBase {
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = revealableSeedFromMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromMnemonic(realMnemonic, password);
     } catch {
       throw new InvalidMnemonic();
     }
-    if (realMnemonic !== mnemonicFromEntropy(rs, password)) {
+    const mnemonicFromRs = await mnemonicFromEntropy(rs, password);
+    if (realMnemonic !== mnemonicFromRs) {
       throw new InvalidMnemonic();
     }
 
@@ -2097,12 +2156,13 @@ class ServiceAccount extends ServiceBase {
     }
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = revealableSeedFromTonMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromTonMnemonic(realMnemonic, password);
     } catch {
       throw new InvalidMnemonic();
     }
 
-    if (realMnemonic !== tonMnemonicFromEntropy(rs, password)) {
+    const tonMnemonicFromRs = await tonMnemonicFromEntropy(rs, password);
+    if (realMnemonic !== tonMnemonicFromRs) {
       throw new InvalidMnemonic();
     }
     await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
@@ -2333,10 +2393,14 @@ class ServiceAccount extends ServiceBase {
         reason,
       });
     const credential = await localDb.getCredential(walletId);
-    let mnemonic = mnemonicFromEntropy(credential.credential, password);
-    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
+    const mnemonicRaw = await mnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
@@ -2357,10 +2421,14 @@ class ServiceAccount extends ServiceBase {
         accountId,
       }),
     );
-    let mnemonic = tonMnemonicFromEntropy(credential.credential, password);
-    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
+    const mnemonicRaw = await tonMnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
@@ -2623,9 +2691,10 @@ class ServiceAccount extends ServiceBase {
 
     perf.markStart('getAccountsInSameIndexedAccountId');
     const { serviceNetwork } = this.backgroundApi;
-    const dbAccounts = await this.getAccountsInSameIndexedAccountId({
-      indexedAccountId,
-    });
+    const { accounts: dbAccounts } =
+      await this.getAccountsInSameIndexedAccountId({
+        indexedAccountId,
+      });
     perf.markEnd('getAccountsInSameIndexedAccountId');
 
     perf.markStart('processAllNetworksAccounts');
@@ -2737,6 +2806,98 @@ class ServiceAccount extends ServiceBase {
   }) {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     return vault.getAddressType({ address });
+  }
+
+  @backgroundMethod()
+  async createAddressIfNotExists(
+    {
+      walletId,
+      networkId,
+      accountId,
+      indexedAccountId,
+    }: {
+      walletId: string;
+      networkId: string;
+      accountId?: string;
+      indexedAccountId?: string;
+    },
+    { allowWatchAccount }: { allowWatchAccount?: boolean },
+  ) {
+    if (!accountId && !indexedAccountId) {
+      throw new Error('accountId or indexedAccountId is required');
+    }
+
+    const { serviceNetwork, serviceAccount } = this.backgroundApi;
+    const deriveType = await serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId,
+    });
+
+    const showSwitchAccountSelector = () => {
+      appEventBus.emit(EAppEventBusNames.ShowSwitchAccountSelector, {
+        networkId,
+      });
+    };
+
+    if (
+      !allowWatchAccount &&
+      accountUtils.isWatchingAccount({
+        accountId: accountId ?? '',
+      })
+    ) {
+      showSwitchAccountSelector();
+      return undefined;
+    }
+
+    if (indexedAccountId) {
+      try {
+        const result = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return result;
+      } catch (error) {
+        const isCreated = await new Promise<boolean>((resolve, reject) => {
+          const promiseId = this.backgroundApi.servicePromise.createCallback({
+            resolve,
+            reject,
+          });
+          appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
+            networkId,
+            indexedAccountId,
+            deriveType,
+            promiseId,
+            autoCreateAddress: accountUtils.isHdWallet({ walletId }),
+          });
+        });
+        if (!isCreated) {
+          return undefined;
+        }
+        const result = await serviceAccount.getNetworkAccount({
+          accountId: undefined,
+          indexedAccountId,
+          networkId,
+          deriveType,
+        });
+        return result;
+      }
+    }
+
+    if (accountId) {
+      try {
+        const result = await serviceAccount.getNetworkAccount({
+          accountId,
+          indexedAccountId: undefined,
+          networkId,
+          deriveType,
+        });
+        return result;
+      } catch (error) {
+        showSwitchAccountSelector();
+      }
+    }
+    return undefined;
   }
 }
 

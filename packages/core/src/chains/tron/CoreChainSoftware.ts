@@ -1,7 +1,7 @@
 import { keccak256 } from '@ethersproject/keccak256';
 import TronWeb from 'tronweb';
 
-import { decrypt, uncompressPublicKey } from '@onekeyhq/core/src/secret';
+import { decryptAsync, uncompressPublicKey } from '@onekeyhq/core/src/secret';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
@@ -32,7 +32,7 @@ function publicKeyToAddress(publicKey: string): string {
     curve,
     Buffer.from(publicKey, 'hex'),
   );
-  return TronWeb.address.fromHex(
+  return TronWeb.utils.address.fromHex(
     `41${keccak256(uncompressed.slice(-64)).slice(-40)}`,
   );
 }
@@ -84,7 +84,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return decrypt(password, privateKeyRaw).toString('hex');
+      return (await decryptAsync({ password, data: privateKeyRaw })).toString(
+        'hex',
+      );
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
   }

@@ -1,10 +1,7 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { decrypt, ed25519 } from '@onekeyhq/core/src/secret';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 
 import { KeyringImportedBase } from '../../base/KeyringImportedBase';
-
-import { baseEncode } from './utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {

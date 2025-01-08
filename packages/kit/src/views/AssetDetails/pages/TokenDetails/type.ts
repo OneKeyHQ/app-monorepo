@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactNode } from 'react';
 
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives/Icon/Icons';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
@@ -18,7 +18,7 @@ export type IActionBaseProps = PropsWithChildren<{
   tokenAddress: string;
   accountId: string;
   type: IFiatCryptoType;
-  label: string;
+  label: string | ReactNode;
   icon: IKeyOfIcons;
   walletType: string | undefined;
   hiddenIfDisabled?: boolean;

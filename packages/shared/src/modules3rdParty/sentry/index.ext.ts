@@ -18,13 +18,15 @@ export const initSentry = () => {
 
 export * from '@sentry/react';
 
+export * from './basicOptions';
+
 export const nativeCrash = () => {};
 
 export const withSentryHOC = (
   Component: ComponentType<any>,
 ): ComponentType<any> =>
-  Sentry.withErrorBoundary(Sentry.withProfiler(Component), {});
-
-export const navigationIntegration = {
-  registerNavigationContainer: (ref: any) => {},
-};
+  Sentry.withErrorBoundary(Sentry.withProfiler(Component), {
+    onError: (error, info) => {
+      console.error('error', error, info);
+    },
+  });

@@ -35,13 +35,15 @@ function BasicTradeOrBuy({
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
+
   const handleOnSwap = useCallback(async () => {
     const { isSupportSwap } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
         networkId,
-        contractAddress: token.address,
       });
-
+    const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+      networkId,
+    });
     const { importFromToken, swapTabSwitchType } = getImportFromToken({
       networkId,
       isSupportSwap,
@@ -54,6 +56,7 @@ function BasicTradeOrBuy({
           ...token,
           contractAddress: token.address,
           networkId,
+          networkLogoURI: network.logoURI,
         },
         importFromToken,
         swapTabSwitchType,

@@ -5,12 +5,12 @@ import sha256 from 'js-sha256';
 import { isString } from 'lodash';
 import { transactions, utils } from 'near-api-js';
 
-import { decrypt, ed25519 } from '@onekeyhq/core/src/secret';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
+import { decryptAsync, ed25519 } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
@@ -157,7 +157,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      const privateKey = decrypt(password, privateKeyRaw);
+      const privateKey = await decryptAsync({ password, data: privateKeyRaw });
       const publicKey = ed25519.publicFromPrivate(privateKey);
       return `ed25519:${baseEncode(Buffer.concat([privateKey, publicKey]))}`;
     }

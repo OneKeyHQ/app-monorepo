@@ -104,8 +104,8 @@ const {
 
 // yarn jest packages/core/src/chains/nexa/CoreChainSoftware.test.ts
 describe('NEXA Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });

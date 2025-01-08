@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import type { IXStackProps } from '@onekeyhq/components';
 import {
@@ -9,6 +9,7 @@ import {
   Stack,
   XStack,
   YStack,
+  useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
@@ -48,13 +49,7 @@ function ActionsRowContainer(props: PropsWithChildren<IXStackProps>) {
   );
 }
 
-function TokenDetailsHeader(
-  props: IProps & {
-    setOverviewInit: (value: boolean) => void;
-    overviewInit: boolean;
-    historyInit: boolean;
-  },
-) {
+function TokenDetailsHeader(props: IProps) {
   const {
     accountId,
     networkId,
@@ -64,22 +59,17 @@ function TokenDetailsHeader(
     tokenInfo,
     isAllNetworks,
     indexedAccountId,
-    setOverviewInit,
-    overviewInit,
-    historyInit,
+    isTabView,
   } = props;
   const navigation = useAppNavigation();
 
   const [settings] = useSettingsPersistAtom();
 
-  // const wallet: IDBWallet | undefined = undefined;
-  // const network: IServerNetwork | undefined = undefined;
   const { network, wallet } = useAccountData({
     accountId,
     networkId,
     walletId,
   });
-  // console.log('TokenDetailsHeader', { accountId, networkId, walletId });
 
   const { handleOnReceive } = useReceiveToken({
     accountId,
@@ -89,10 +79,7 @@ function TokenDetailsHeader(
     deriveType,
   });
 
-  const initialized = useMemo(
-    () => overviewInit && historyInit,
-    [overviewInit, historyInit],
-  );
+  const { isFocused } = useTabIsRefreshingFocused();
 
   const { result: tokenDetails, isLoading: isLoadingTokenDetails } =
     usePromiseResult(
@@ -103,12 +90,13 @@ function TokenDetailsHeader(
             networkId,
             contractList: [tokenInfo.address],
           });
-        setOverviewInit(true);
         return tokensDetails[0];
       },
-      [accountId, networkId, setOverviewInit, tokenInfo.address],
+      [accountId, networkId, tokenInfo.address],
       {
         watchLoading: true,
+        overrideIsFocused: (isPageFocused) =>
+          isPageFocused && (isTabView ? isFocused : true),
       },
     );
 
@@ -128,6 +116,7 @@ function TokenDetailsHeader(
             logoURI: tokenInfo.logoURI,
             networkLogoURI: network?.logoURI,
           },
+          importDeriveType: deriveType,
           ...(actionType && {
             swapTabSwitchType: actionType,
           }),
@@ -144,6 +133,7 @@ function TokenDetailsHeader(
       tokenInfo.logoURI,
       tokenInfo.name,
       tokenInfo.symbol,
+      deriveType,
     ],
   );
 
@@ -253,17 +243,16 @@ function TokenDetailsHeader(
                   accountId={accountId}
                   walletType={wallet?.type}
                   tokenAddress={tokenInfo.address}
-                  disabled={!initialized}
                 />
               </ReviewControl>
 
               <RawActions.Swap
                 onPress={handleOnSwap}
-                disabled={disableSwapAction || !initialized}
+                disabled={disableSwapAction}
               />
               <RawActions.Bridge
                 onPress={handleOnBridge}
-                disabled={disableSwapAction || !initialized}
+                disabled={disableSwapAction}
               />
               <ReviewControl>
                 <ActionSell
@@ -271,17 +260,13 @@ function TokenDetailsHeader(
                   accountId={accountId}
                   walletType={wallet?.type}
                   tokenAddress={tokenInfo.address}
-                  disabled={!initialized}
                 />
               </ReviewControl>
             </ActionsRowContainer>
             <ActionsRowContainer>
-              <RawActions.Send
-                onPress={handleSendPress}
-                disabled={!initialized}
-              />
+              <RawActions.Send onPress={handleSendPress} />
               <RawActions.Receive
-                disabled={isReceiveDisabled || !initialized}
+                disabled={isReceiveDisabled}
                 onPress={() => handleOnReceive(tokenInfo)}
               />
               <Stack

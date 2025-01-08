@@ -52,9 +52,10 @@ const accountDeriveInfo: IAccountDeriveInfoMapLtc = {
     coinType: COINTYPE_LTC,
     coinName: COINNAME_LTC,
     label: 'Legacy',
-    desc: `${appLocale.intl.formatMessage({
+    descI18n: {
       id: ETranslations.litecoin_legacy_desc,
-    })} BIP44, P2PKH, Base58`,
+      data: {},
+    },
     addressEncoding: EAddressEncodings.P2PKH,
   },
 };
@@ -72,6 +73,7 @@ const settings: IVaultSettings = {
   dappInteractionEnabled: false,
   mergeDeriveAssetsEnabled: true,
   qrAccountEnabled: false,
+  replaceTxEnabled: false,
 };
 
 export default Object.freeze(settings);

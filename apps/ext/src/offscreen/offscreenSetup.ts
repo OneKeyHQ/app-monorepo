@@ -6,6 +6,8 @@ import offscreenApi from '@onekeyhq/kit-bg/src/offscreens/instance/offscreenApi'
 import { OFFSCREEN_API_MESSAGE_TYPE } from '@onekeyhq/kit-bg/src/offscreens/types';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 
+import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
+
 export function offscreenSetup() {
   const offscreenBridge = bridgeSetup.offscreen.createOffscreenJsBridge({
     onPortConnect() {},
@@ -18,11 +20,10 @@ export function offscreenSetup() {
       }
     },
   });
-  appGlobals.extJsBridgeOffscreenToBg = offscreenBridge;
 
+  appGlobals.extJsBridgeOffscreenToBg =
+    offscreenBridge as unknown as JsBridgeBase;
   return offscreenBridge;
-
-  // chrome.runtime.sendMessage
   // chrome.runtime.onMessage.addListener(
   //   (msg: IOffscreenApiMessagePayload, sender, sendResponse) => {
   //     (async () => {

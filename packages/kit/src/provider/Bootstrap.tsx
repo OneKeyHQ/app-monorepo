@@ -12,14 +12,9 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
-import type { IDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { getEndpointsMapByDevSettings } from '@onekeyhq/shared/src/config/endpointsMap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { configure as configureNetInfo } from '@onekeyhq/shared/src/modules3rdParty/@react-native-community/netinfo';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -33,30 +28,6 @@ import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
-
-const checkNetInfo = async (devSettings: IDevSettingsPersistAtom) => {
-  const endpoints = getEndpointsMapByDevSettings(devSettings);
-  const headers = await getRequestHeaders();
-  configureNetInfo({
-    reachabilityUrl: `${endpoints.wallet}/wallet/v1/health`,
-    reachabilityMethod: 'GET',
-    reachabilityHeaders: headers,
-    reachabilityTest: async (response) => response.status === 200,
-    reachabilityLongTimeout: 60 * 1000,
-    reachabilityShortTimeout: 5 * 1000,
-    reachabilityRequestTimeout: 10 * 1000,
-    reachabilityShouldRun: () => true,
-    // met iOS requirements to get SSID. Will leak memory if set to true without meeting requirements.
-    shouldFetchWiFiSSID: true,
-    useNativeReachability: false,
-  });
-};
-const useNetInfo = () => {
-  const [devSettings] = useDevSettingsPersistAtom();
-  useEffect(() => {
-    void checkNetInfo(devSettings);
-  }, [devSettings]);
-};
 
 const useOnLockCallback = platformEnv.isDesktop
   ? useOnLock
@@ -252,7 +223,6 @@ export const useFetchCurrencyList = () => {
 export function Bootstrap() {
   useFetchCurrencyList();
   useAboutVersion();
-  useNetInfo();
   useDesktopEvents();
   return null;
 }

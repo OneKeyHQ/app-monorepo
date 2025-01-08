@@ -4,6 +4,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -58,12 +59,35 @@ export const TabComponent = (
   }: ITabProps,
   // fix missing forwardRef warnings.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  _: any,
+  forwardRef: any,
 ) => {
   const scrollViewRef = useRef<IScrollViewRef | null>(null);
   const pageContainerRef = useRef<any | null>(null);
   const scrollViewHeight = useRef(0);
   const headerViewHeight = useRef(0);
+  useImperativeHandle(
+    forwardRef,
+    () => ({
+      ...scrollViewRef.current,
+      scrollToTop: () => {
+        if (scrollViewRef.current) {
+          const node = scrollViewRef.current as unknown as HTMLElement;
+          if (node) {
+            node.scrollTop = 0;
+          }
+        }
+      },
+      setVerticalScrollEnabled: (enabled: boolean) => {
+        if (scrollViewRef.current) {
+          const node = scrollViewRef.current as unknown as HTMLElement;
+          if (node) {
+            node.style.overflow = enabled ? 'auto' : 'hidden';
+          }
+        }
+      },
+    }),
+    [],
+  );
   const stickyConfig = useMemo(
     () => ({
       lastIndex: initialScrollIndex,

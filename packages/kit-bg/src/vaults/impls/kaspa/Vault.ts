@@ -16,8 +16,8 @@ import {
 import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import {
-  decodeSensitiveText,
-  encodeSensitiveText,
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -136,12 +136,12 @@ export default class Vault extends VaultBase {
       });
       txn = toTransaction(encodedTx);
       const massAndSize = txn.getMassAndSize();
-      if (
-        massAndSize.mass > MAX_ORPHAN_TX_MASS ||
-        massAndSize.txSize > MAX_BLOCK_SIZE
-      ) {
-        throw new OneKeyInternalError('Transaction size is too large');
-      }
+      // if (
+      //   massAndSize.mass > MAX_ORPHAN_TX_MASS ||
+      //   massAndSize.txSize > MAX_BLOCK_SIZE
+      // ) {
+      //   throw new OneKeyInternalError('Transaction size is too large');
+      // }
       encodedTx.feeInfo.limit = massAndSize.mass.toString();
       encodedTx.mass = massAndSize.mass;
     }
@@ -208,6 +208,7 @@ export default class Vault extends VaultBase {
             amount: swapInfo.sender.amount,
             isNFT: false,
             isNative: swapSendToken.isNative,
+            networkId: swapInfo.sender.accountInfo.networkId,
           },
           {
             from: '',
@@ -219,6 +220,7 @@ export default class Vault extends VaultBase {
             amount: swapInfo.receiver.amount,
             isNFT: false,
             isNative: swapReceiveToken.isNative,
+            networkId: swapInfo.receiver.accountInfo.networkId,
           },
         ],
         isInternalSwap: true,
@@ -353,13 +355,15 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     if (this.isHexPrivateKey(input)) {
       let privateKey = input.startsWith('0x') ? input.slice(2) : input;
-      privateKey = encodeSensitiveText({ text: privateKey });
+      privateKey = await encodeSensitiveTextAsync({ text: privateKey });
       return Promise.resolve({
         privateKey,
       });
@@ -367,7 +371,7 @@ export default class Vault extends VaultBase {
 
     if (this.isWIFPrivateKey(input)) {
       const privateKeyBuffer = privateKeyFromWIF(input);
-      const wifPrivateKey = encodeSensitiveText({
+      const wifPrivateKey = await encodeSensitiveTextAsync({
         text: privateKeyBuffer.toString(),
       });
       return Promise.resolve({

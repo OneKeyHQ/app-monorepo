@@ -1,7 +1,5 @@
 import { useCallback } from 'react';
 
-import { OrderSigningUtils } from '@cowprotocol/cow-sdk';
-import { Web3Provider } from '@ethersproject/providers';
 import BigNumber from 'bignumber.js';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -21,7 +19,6 @@ import type {
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
   numberFormat,
   toBigIntHex,
@@ -41,7 +38,6 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
-  SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
@@ -57,22 +53,22 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
+  useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
-import { useSwapSlippagePercentageModeInfo } from './useSwapState';
+import {
+  useSwapBatchTransfer,
+  useSwapSlippagePercentageModeInfo,
+} from './useSwapState';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
-import type { OrderParameters, UnsignedOrder } from '@cowprotocol/cow-sdk';
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 
 export function useSwapBuildTx() {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
-  // eslint-disable-next-line unicorn/prefer-global-this
-  const provider = new Web3Provider(window.ethereum);
-  const signer = provider.getSigner();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [selectQuote] = useSwapQuoteCurrentSelectAtom();
   const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
@@ -80,9 +76,9 @@ export function useSwapBuildTx() {
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
-  const [settingsPersistAtom] = useSettingsPersistAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [, setSwapManualSelectQuoteProviders] =
@@ -94,7 +90,14 @@ export function useSwapBuildTx() {
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
   });
+
   const pageType = usePageType();
+
+  const isBatchTransfer = useSwapBatchTransfer(
+    swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.account?.id,
+  );
+
   const syncRecentTokenPairs = useCallback(
     async ({
       swapFromToken,
@@ -114,7 +117,9 @@ export function useSwapBuildTx() {
   const clearQuoteData = useCallback(() => {
     setSwapFromTokenAmount(''); // send success, clear from token amount
     setSwapQuoteResultList([]);
-    setSwapQuoteEventTotalCount(0);
+    setSwapQuoteEventTotalCount({
+      count: 0,
+    });
     setSettings((v) => ({
       // reset account switch for reset swap receive address
       ...v,
@@ -506,6 +511,7 @@ export function useSwapBuildTx() {
                 networkId: res.result.fromTokenInfo.networkId,
                 okxTx: res.OKXTxObject,
                 fromTokenInfo: res.result.fromTokenInfo,
+                type: swapTypeSwitch,
               });
           } else if (res?.tx) {
             transferInfo = undefined;
@@ -585,6 +591,7 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
+    swapTypeSwitch,
   ]);
 
   const approveTx = useCallback(
@@ -598,7 +605,7 @@ export function useSwapBuildTx() {
         swapFromAddressInfo.accountInfo?.account?.id &&
         swapFromAddressInfo.address
       ) {
-        if (settingsPersistAtom.swapBatchApproveAndSwap) {
+        if (isBatchTransfer && !selectQuote?.swapShouldSignedData) {
           try {
             setSwapBuildTxFetching(true);
             let approvesInfo: IApproveInfo[] = [];
@@ -633,73 +640,11 @@ export function useSwapBuildTx() {
               approvesInfo = [...approvesInfo, approveResetInfo];
             }
             const createBuildTxRes = await createBuildTx();
-            if (createBuildTxRes && !createBuildTxRes.skipSendTransAction) {
-              if (
-                accountUtils.isHwAccount({
-                  accountId: swapFromAddressInfo.accountInfo.account.id,
-                }) ||
-                accountUtils.isOthersAccount({
-                  accountId: swapFromAddressInfo.accountInfo.account.id,
-                }) ||
-                SwapBuildUseMultiplePopoversNetworkIds.includes(
-                  fromToken.networkId,
-                )
-              ) {
-                await navigationToSendConfirm({
-                  approvesInfo: [approvesInfo[0]],
-                  isInternalSwap: true,
-                  onSuccess: async (data: ISendTxOnSuccessData[]) => {
-                    if (approvesInfo.length > 1) {
-                      await navigationToSendConfirm({
-                        approvesInfo: [approvesInfo[1]],
-                        // tron network does not support use pre fee info
-                        feeInfo:
-                          SwapBuildUseMultiplePopoversNetworkIds.includes(
-                            fromToken.networkId,
-                          )
-                            ? undefined
-                            : data?.[0]?.feeInfo,
-                        isInternalSwap: true,
-                        onSuccess: async (dataRes: ISendTxOnSuccessData[]) => {
-                          await navigationToSendConfirm({
-                            transfersInfo: createBuildTxRes.transferInfo
-                              ? [createBuildTxRes.transferInfo]
-                              : undefined,
-                            encodedTx: createBuildTxRes.encodedTx,
-                            feeInfo:
-                              SwapBuildUseMultiplePopoversNetworkIds.includes(
-                                fromToken.networkId,
-                              )
-                                ? undefined
-                                : dataRes?.[0]?.feeInfo,
-                            swapInfo: createBuildTxRes.swapInfo,
-                            isInternalSwap: true,
-                            onSuccess: handleBuildTxSuccess,
-                            onCancel: cancelBuildTx,
-                          });
-                        },
-                        onCancel: cancelBuildTx,
-                      });
-                    } else {
-                      await navigationToSendConfirm({
-                        transfersInfo: createBuildTxRes.transferInfo
-                          ? [createBuildTxRes.transferInfo]
-                          : undefined,
-                        encodedTx: createBuildTxRes.encodedTx,
-                        swapInfo: createBuildTxRes.swapInfo,
-                        feeInfo:
-                          SwapBuildUseMultiplePopoversNetworkIds.includes(
-                            fromToken.networkId,
-                          )
-                            ? undefined
-                            : data?.[0]?.feeInfo,
-                        isInternalSwap: true,
-                        onSuccess: handleBuildTxSuccess,
-                        onCancel: cancelBuildTx,
-                      });
-                    }
-                  },
-                  onCancel: cancelBuildTx,
+            if (createBuildTxRes) {
+              // todo cow swap isBatchTransfer
+              if (createBuildTxRes?.skipSendTransAction) {
+                void handleBuildTxSuccessWithSignedNoSend({
+                  swapInfo: createBuildTxRes.swapInfo,
                 });
               } else {
                 await navigationToSendConfirm({
@@ -713,33 +658,31 @@ export function useSwapBuildTx() {
                   onSuccess: handleBuildTxSuccess,
                   onCancel: cancelBuildTx,
                 });
+
+                void syncRecentTokenPairs({
+                  swapFromToken: fromToken,
+                  swapToToken: toToken,
+                });
+                defaultLogger.swap.createSwapOrder.swapCreateOrder({
+                  swapProvider: selectQuote?.info.provider,
+                  swapProviderName: selectQuote?.info.providerName,
+                  swapType: EProtocolOfExchange.SWAP,
+                  slippage: slippageItem.value.toString(),
+                  sourceChain: fromToken.networkId,
+                  receivedChain: toToken.networkId,
+                  sourceTokenSymbol: fromToken.symbol,
+                  receivedTokenSymbol: toToken.symbol,
+                  feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
+                  router: JSON.stringify(selectQuote?.routesData ?? ''),
+                  isFirstTime: isFirstTimeSwap,
+                  createFrom:
+                    pageType === EPageType.modal ? 'modal' : 'swapPage',
+                });
+                setPersistSettings((prev) => ({
+                  ...prev,
+                  isFirstTimeSwap: false,
+                }));
               }
-              void syncRecentTokenPairs({
-                swapFromToken: fromToken,
-                swapToToken: toToken,
-              });
-              defaultLogger.swap.createSwapOrder.swapCreateOrder({
-                swapProvider: selectQuote?.info.provider,
-                swapProviderName: selectQuote?.info.providerName,
-                swapType: EProtocolOfExchange.SWAP,
-                slippage: slippageItem.value.toString(),
-                sourceChain: fromToken.networkId,
-                receivedChain: toToken.networkId,
-                sourceTokenSymbol: fromToken.symbol,
-                receivedTokenSymbol: toToken.symbol,
-                feeType: selectQuote?.fee?.percentageFee?.toString() ?? '0',
-                router: JSON.stringify(selectQuote?.routesData ?? ''),
-                isFirstTime: isFirstTimeSwap,
-                createFrom: pageType === EPageType.modal ? 'modal' : 'swapPage',
-              });
-              setPersistSettings((prev) => ({
-                ...prev,
-                isFirstTimeSwap: false,
-              }));
-            } else if (createBuildTxRes?.skipSendTransAction) {
-              void handleBuildTxSuccessWithSignedNoSend({
-                swapInfo: createBuildTxRes.swapInfo,
-              });
             }
           } catch (e) {
             console.error(e);
@@ -795,16 +738,16 @@ export function useSwapBuildTx() {
       swapFromAddressInfo.networkId,
       swapFromAddressInfo?.accountInfo?.account?.id,
       swapFromAddressInfo.address,
-      settingsPersistAtom.swapBatchApproveAndSwap,
+      isBatchTransfer,
       setSwapBuildTxFetching,
       createBuildTx,
+      navigationToSendConfirm,
+      cancelBuildTx,
       syncRecentTokenPairs,
       slippageItem.value,
       isFirstTimeSwap,
       pageType,
       setPersistSettings,
-      navigationToSendConfirm,
-      cancelBuildTx,
       handleBuildTxSuccess,
       setSwapShouldRefreshQuote,
       handleBuildTxSuccessWithSignedNoSend,
@@ -828,17 +771,23 @@ export function useSwapBuildTx() {
       setSwapBuildTxFetching(true);
       const createBuildTxRes = await createBuildTx();
       try {
-        if (createBuildTxRes && !createBuildTxRes.skipSendTransAction) {
-          await navigationToSendConfirm({
-            isInternalSwap: true,
-            transfersInfo: createBuildTxRes.transferInfo
-              ? [createBuildTxRes.transferInfo]
-              : undefined,
-            encodedTx: createBuildTxRes.encodedTx,
-            swapInfo: createBuildTxRes.swapInfo,
-            onSuccess: handleBuildTxSuccess,
-            onCancel: cancelBuildTx,
-          });
+        if (createBuildTxRes) {
+          if (!createBuildTxRes.skipSendTransAction) {
+            await navigationToSendConfirm({
+              isInternalSwap: true,
+              transfersInfo: createBuildTxRes.transferInfo
+                ? [createBuildTxRes.transferInfo]
+                : undefined,
+              encodedTx: createBuildTxRes.encodedTx,
+              swapInfo: createBuildTxRes.swapInfo,
+              onSuccess: handleBuildTxSuccess,
+              onCancel: cancelBuildTx,
+            });
+          } else {
+            void handleBuildTxSuccessWithSignedNoSend({
+              swapInfo: createBuildTxRes.swapInfo,
+            });
+          }
           void syncRecentTokenPairs({
             swapFromToken: fromToken,
             swapToToken: toToken,
@@ -861,10 +810,6 @@ export function useSwapBuildTx() {
             ...prev,
             isFirstTimeSwap: false,
           }));
-        } else if (createBuildTxRes?.skipSendTransAction) {
-          void handleBuildTxSuccessWithSignedNoSend({
-            swapInfo: createBuildTxRes.swapInfo,
-          });
         }
       } catch (e) {
         setSwapBuildTxFetching(false);

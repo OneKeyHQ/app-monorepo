@@ -231,14 +231,24 @@ const ProtocolDetailsPage = () => {
   const intl = useIntl();
   const media = useMedia();
 
+  const disableStakeButton = useMemo(
+    () => !(result?.provider.buttonStake ?? true),
+    [result?.provider.buttonStake],
+  );
+
+  const disableUnstakeButton = useMemo(
+    () => !(result?.provider.buttonUnstake ?? true),
+    [result?.provider.buttonUnstake],
+  );
+
   const stakeButtonProps = useMemo<ComponentProps<typeof Button>>(
     () => ({
       variant: 'primary',
       loading: stakeLoading,
       onPress: onStake,
-      disabled: !earnAccount?.accountAddress,
+      disabled: !earnAccount?.accountAddress || disableStakeButton,
     }),
-    [stakeLoading, earnAccount?.accountAddress, onStake],
+    [stakeLoading, onStake, earnAccount?.accountAddress, disableStakeButton],
   );
 
   const withdrawButtonProps = useMemo<ComponentProps<typeof Button>>(
@@ -246,9 +256,16 @@ const ProtocolDetailsPage = () => {
       onPress: onWithdraw,
       disabled:
         !earnAccount?.accountAddress ||
-        !(Number(result?.active) > 0 || Number(result?.overflow) > 0),
+        !(Number(result?.active) > 0 || Number(result?.overflow) > 0) ||
+        disableUnstakeButton,
     }),
-    [onWithdraw, earnAccount?.accountAddress, result?.active, result?.overflow],
+    [
+      onWithdraw,
+      earnAccount?.accountAddress,
+      result?.active,
+      result?.overflow,
+      disableUnstakeButton,
+    ],
   );
 
   return (
@@ -277,6 +294,7 @@ const ProtocolDetailsPage = () => {
                   details={result}
                   stakeButtonProps={stakeButtonProps}
                   withdrawButtonProps={withdrawButtonProps}
+                  alerts={result?.provider.alerts}
                 />
                 <PortfolioSection
                   details={result}

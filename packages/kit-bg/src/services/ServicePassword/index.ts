@@ -4,12 +4,12 @@ import type {
   IEncryptStringParams,
 } from '@onekeyhq/core/src/secret';
 import {
-  decodePassword,
-  decodeSensitiveText,
-  decrypt,
-  decryptString,
-  encodeSensitiveText,
-  encryptString,
+  decodePasswordAsync,
+  decodeSensitiveTextAsync,
+  decryptAsync,
+  decryptStringAsync,
+  encodeSensitiveTextAsync,
+  encryptStringAsync,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
@@ -49,8 +49,14 @@ import {
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
-import { biologyAuthUtils } from './biologyAuthUtils';
-import { EPasswordPromptType } from './types';
+import { biologyAuthNativeError, biologyAuthUtils } from './biologyAuthUtils';
+import {
+  EPasswordMode,
+  EPasswordPromptType,
+  PASSCODE_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+} from './types';
 
 import type { IPasswordRes } from './types';
 
@@ -74,9 +80,26 @@ export default class ServicePassword extends ServiceBase {
 
   private extCheckLockStatusTimer?: ReturnType<typeof setInterval>;
 
+  private handleBiologyAuthError(authRes: {
+    warning?: string;
+    error: string;
+    success: boolean;
+  }) {
+    if (!authRes.success) {
+      if (authRes.warning) {
+        const nativeError = new Error(authRes.warning);
+        nativeError.name = authRes.error;
+        nativeError.cause = biologyAuthNativeError;
+        throw nativeError;
+      } else {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+    }
+  }
+
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
-    return Promise.resolve(encodeSensitiveText({ text }));
+    return Promise.resolve(encodeSensitiveTextAsync({ text }));
   }
 
   @backgroundMethod()
@@ -86,18 +109,21 @@ export default class ServicePassword extends ServiceBase {
   ) {
     if (process.env.NODE_ENV !== 'production') {
       const pwd = await this.encodeSensitiveText({ text: password });
-      const items = contents
-        .map((t) => {
+      const itemsPromised = contents
+        .map(async (t) => {
           const o: { entropy: string } = JSON.parse(t.credential);
           if (!o.entropy) {
             return '';
           }
-          const entropyBuff = decrypt(pwd, o.entropy);
+          const entropyBuff = await decryptAsync({
+            password: pwd,
+            data: o.entropy,
+          });
           const mnemonic = revealEntropyToMnemonic(entropyBuff);
           return mnemonic;
         })
         .filter(Boolean);
-
+      const items = await Promise.all(itemsPromised);
       return {
         items,
         raw: items.join('\r\n\r\n'),
@@ -108,18 +134,18 @@ export default class ServicePassword extends ServiceBase {
 
   @backgroundMethod()
   async encryptString(params: IEncryptStringParams) {
-    return encryptString(params);
+    return encryptStringAsync(params);
   }
 
   @backgroundMethod()
   async decryptString(params: IDecryptStringParams) {
-    return decryptString(params);
+    return decryptStringAsync(params);
   }
 
   @backgroundMethod()
   async encryptByInstanceId(input: string): Promise<string> {
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
-    const output = encodeSensitiveText({
+    const output = await encodeSensitiveTextAsync({
       text: input,
       key: instanceId,
     });
@@ -129,7 +155,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async decryptByInstanceId(input: string): Promise<string> {
     const instanceId = await this.backgroundApi.serviceSetting.getInstanceId();
-    const output = decodeSensitiveText({
+    const output = await decodeSensitiveTextAsync({
       encodedText: input,
       key: instanceId,
       allowRawPassword: true,
@@ -143,7 +169,7 @@ export default class ServicePassword extends ServiceBase {
   }: {
     encodedText: string;
   }): Promise<string> {
-    return Promise.resolve(decodeSensitiveText({ encodedText }));
+    return Promise.resolve(await decodeSensitiveTextAsync({ encodedText }));
   }
 
   @backgroundMethod()
@@ -238,7 +264,7 @@ export default class ServicePassword extends ServiceBase {
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
-      throw new OneKeyErrors.BiologyAuthFailed();
+      this.handleBiologyAuthError(authRes);
     }
     try {
       const pwd = await biologyAuthUtils.getPassword();
@@ -258,7 +284,7 @@ export default class ServicePassword extends ServiceBase {
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
-        throw new OneKeyErrors.BiologyAuthFailed();
+        this.handleBiologyAuthError(authRes);
       }
       const catchPassword = await this.getCachedPassword();
       if (catchPassword) {
@@ -273,22 +299,38 @@ export default class ServicePassword extends ServiceBase {
   }
 
   // validatePassword --------------------------------
-  validatePasswordValidRules(password: string): void {
+  async validatePasswordValidRules(
+    password: string,
+    passwordMode: EPasswordMode,
+  ): Promise<void> {
     ensureSensitiveTextEncoded(password);
-    const realPassword = decodePassword({ password });
+    const realPassword = await decodePasswordAsync({ password });
     // **** length matched
-    if (realPassword.length < 8 || realPassword.length > 128) {
+    if (
+      passwordMode === EPasswordMode.PASSWORD &&
+      (realPassword.length < PASSWORD_MIN_LENGTH ||
+        realPassword.length > PASSWORD_MAX_LENGTH)
+    ) {
       throw new OneKeyErrors.PasswordStrengthValidationFailed();
+    }
+    if (passwordMode === EPasswordMode.PASSCODE) {
+      if (realPassword.length !== PASSCODE_LENGTH) {
+        throw new OneKeyErrors.PasswordStrengthValidationFailed();
+      }
     }
     // **** other rules ....
   }
 
-  validatePasswordSame(password: string, newPassword: string) {
+  async validatePasswordSame(
+    password: string,
+    newPassword: string,
+  ): Promise<void> {
     ensureSensitiveTextEncoded(password);
     ensureSensitiveTextEncoded(newPassword);
-
-    const realPassword = decodePassword({ password });
-    const realNewPassword = decodePassword({ password: newPassword });
+    const realPassword = await decodePasswordAsync({ password });
+    const realNewPassword = await decodePasswordAsync({
+      password: newPassword,
+    });
     if (realPassword === realNewPassword) {
       throw new OneKeyErrors.PasswordUpdateSameFailed();
     }
@@ -296,10 +338,12 @@ export default class ServicePassword extends ServiceBase {
 
   async validatePassword({
     password,
+    passwordMode,
     newPassword,
     skipDBVerify,
   }: {
     password: string;
+    passwordMode: EPasswordMode;
     newPassword?: string;
     skipDBVerify?: boolean;
   }): Promise<void> {
@@ -307,10 +351,11 @@ export default class ServicePassword extends ServiceBase {
     if (newPassword) {
       ensureSensitiveTextEncoded(newPassword);
     }
-    this.validatePasswordValidRules(password);
-    if (newPassword) {
-      this.validatePasswordValidRules(newPassword);
-      this.validatePasswordSame(password, newPassword);
+    if (!newPassword) {
+      await this.validatePasswordValidRules(password, passwordMode);
+    } else {
+      await this.validatePasswordValidRules(newPassword, passwordMode);
+      await this.validatePasswordSame(password, newPassword);
     }
     if (!skipDBVerify) {
       await localDb.verifyPassword(password);
@@ -336,20 +381,30 @@ export default class ServicePassword extends ServiceBase {
     return checkPasswordSet;
   }
 
-  async setPasswordSetStatus(isSet: boolean): Promise<void> {
-    await passwordPersistAtom.set((v) => ({ ...v, isPasswordSet: isSet }));
+  async setPasswordSetStatus(
+    isSet: boolean,
+    passMode?: EPasswordMode,
+  ): Promise<void> {
+    await passwordPersistAtom.set((v) => ({
+      ...v,
+      isPasswordSet: isSet,
+      ...(passMode ? { passwordMode: passMode } : {}),
+    }));
   }
 
   // password actions --------------
   @backgroundMethod()
-  async setPassword(password: string): Promise<string> {
+  async setPassword(
+    password: string,
+    passwordMode: EPasswordMode,
+  ): Promise<string> {
     ensureSensitiveTextEncoded(password);
-    await this.validatePassword({ password, skipDBVerify: true });
+    await this.validatePassword({ password, passwordMode, skipDBVerify: true });
     try {
       await this.unLockApp();
       await this.saveBiologyAuthPassword(password);
       await this.setCachedPassword(password);
-      await this.setPasswordSetStatus(true);
+      await this.setPasswordSetStatus(true, passwordMode);
       await localDb.setPassword({ password });
       return password;
     } catch (e) {
@@ -362,16 +417,21 @@ export default class ServicePassword extends ServiceBase {
   async updatePassword(
     oldPassword: string,
     newPassword: string,
+    passwordMode: EPasswordMode,
   ): Promise<string> {
     ensureSensitiveTextEncoded(oldPassword);
     ensureSensitiveTextEncoded(newPassword);
 
-    await this.validatePassword({ password: oldPassword, newPassword });
+    await this.validatePassword({
+      password: oldPassword,
+      newPassword,
+      passwordMode,
+    });
     try {
       await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword(newPassword);
-      await this.setPasswordSetStatus(true);
+      await this.setPasswordSetStatus(true, passwordMode);
       // update v5 db password
       await localDb.updatePassword({ oldPassword, newPassword });
       // update v4 db password
@@ -391,9 +451,11 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async verifyPassword({
     password,
+    passwordMode,
     isBiologyAuth,
   }: {
     password: string;
+    passwordMode: EPasswordMode;
     isBiologyAuth?: boolean;
   }): Promise<string> {
     let verifyingPassword = password;
@@ -401,7 +463,7 @@ export default class ServicePassword extends ServiceBase {
       verifyingPassword = await this.getBiologyAuthPassword();
     }
     ensureSensitiveTextEncoded(verifyingPassword);
-    await this.validatePassword({ password: verifyingPassword });
+    await this.validatePassword({ password: verifyingPassword, passwordMode });
     await this.setCachedPassword(verifyingPassword);
     return verifyingPassword;
   }

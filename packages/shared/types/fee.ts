@@ -49,6 +49,16 @@ export type IFeeDot = {
   extraTipInDot: string; // number
 };
 
+export type IFeeSui = {
+  budget: string;
+  gasPrice: string;
+  computationCost?: string;
+  computationCostBase?: string;
+  storageCost?: string;
+  storageRebate?: string;
+  gasLimit?: string;
+};
+
 export type IFeeCkb = {
   feeRate?: string;
   gasLimit?: string;
@@ -66,11 +76,37 @@ export type IFeeFil = {
   gasLimit: string;
 };
 
+export type IBatchEstimateFeeParams = {
+  accountId: string;
+  networkId: string;
+  encodedTxs: IEncodedTx[];
+};
+
 export type IEstimateGasParams = {
   accountId: string;
   networkId: string;
   accountAddress: string;
   encodedTx?: IEncodedTx;
+};
+
+export type IFeesInfoUnit = {
+  common: {
+    baseFee?: string;
+    feeDecimals: number;
+    feeSymbol: string;
+    nativeDecimals: number;
+    nativeSymbol: string;
+    nativeTokenPrice?: number;
+  };
+  gas?: IGasLegacy[];
+  gasEIP1559?: IGasEIP1559[];
+  feeUTXO?: IFeeUTXO[];
+  feeTron?: IFeeTron[];
+  feeSol?: IFeeSol[];
+  feeCkb?: IFeeCkb[];
+  feeAlgo?: IFeeAlgo[];
+  feeDot?: IFeeDot[];
+  feeBudget?: IFeeSui[];
 };
 
 export type IFeeInfoUnit = {
@@ -90,6 +126,7 @@ export type IFeeInfoUnit = {
   feeCkb?: IFeeCkb;
   feeAlgo?: IFeeAlgo;
   feeDot?: IFeeDot;
+  feeBudget?: IFeeSui;
 };
 
 export type IEstimateFeeParamsSol = {
@@ -112,7 +149,7 @@ export type ISendSelectedFeeInfo = {
 };
 
 export type IEstimateGasResp = {
-  isEIP1559: true;
+  isEIP1559: boolean;
   feeDecimals: number;
   feeSymbol: string;
   nativeDecimals: number;
@@ -133,6 +170,27 @@ export type IEstimateGasResp = {
   feeData?: {
     extraTip: string; // dot extraTip
   }[];
+  feeBudget?: IFeeSui[];
+};
+
+export type IServerBatchEstimateFeeResponse = {
+  data: {
+    isEIP1559: boolean;
+    feeDecimals: number;
+    feeSymbol: string;
+    nativeDecimals: number;
+    nativeSymbol: string;
+    baseFee?: string;
+    computeUnitPrice?: string;
+    nativeTokenPrice?: {
+      price: number;
+      price24h: number;
+    };
+    result: {
+      gas: IGasLegacy[];
+      gasEIP1559: IGasEIP1559[];
+    }[];
+  };
 };
 
 export type IServerEstimateFeeResponse = {
@@ -146,6 +204,14 @@ export type IFeeSelectorItem = {
   icon: string;
   value: number;
   feeInfo: IFeeInfoUnit;
+  type: EFeeType;
+};
+
+export type IMultiTxsFeeSelectorItem = {
+  label: string;
+  icon: string;
+  value: number;
+  feeInfos: IFeeInfoUnit[];
   type: EFeeType;
 };
 

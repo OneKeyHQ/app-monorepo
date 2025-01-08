@@ -20,6 +20,7 @@ import {
   crossWebviewLoadUrl,
   injectToPauseWebsocket,
   injectToResumeWebsocket,
+  processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -670,28 +671,37 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         shouldPopNavigation?: boolean;
       },
     ) => {
-      const isNewWindow = !useCurrentWindow;
-
-      if (!useCurrentWindow) {
-        const disabledAddedNewTab = get(disabledAddedNewTabAtom());
-        if (disabledAddedNewTab) {
-          Toast.message({
-            title: appLocale.intl.formatMessage(
-              { id: ETranslations.explore_toast_tab_limit_reached },
-              { number: '20' },
-            ),
-          });
-          return;
-        }
+      if (webSite?.url) {
+        webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
-      this.setDisplayHomePage.call(set, false);
-      void this.openMatchDApp.call(set, {
-        webSite,
-        dApp,
-        isNewWindow,
-        tabId,
-      });
-      if (platformEnv.isDesktop || switchToMultiTabBrowser) {
+      let delayTime = 0;
+      if (shouldPopNavigation) {
+        delayTime = 300;
+      }
+      setTimeout(() => {
+        const isNewWindow = !useCurrentWindow;
+
+        if (!useCurrentWindow) {
+          const disabledAddedNewTab = get(disabledAddedNewTabAtom());
+          if (disabledAddedNewTab) {
+            Toast.message({
+              title: appLocale.intl.formatMessage(
+                { id: ETranslations.explore_toast_tab_limit_reached },
+                { number: '20' },
+              ),
+            });
+            return;
+          }
+        }
+        this.setDisplayHomePage.call(set, false);
+        void this.openMatchDApp.call(set, {
+          webSite,
+          dApp,
+          isNewWindow,
+          tabId,
+        });
+      }, delayTime);
+      if (switchToMultiTabBrowser || platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
         navigation.switchTab(ETabRoutes.Discovery);

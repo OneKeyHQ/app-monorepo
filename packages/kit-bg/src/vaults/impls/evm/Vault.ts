@@ -1111,7 +1111,14 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async isEarliestLocalPendingTx({
+  override async canAccelerateTx(params: {
+    encodedTx: IEncodedTxEvm;
+    txId: string;
+  }): Promise<boolean> {
+    return this.isEarliestLocalPendingTx(params);
+  }
+
+  private async isEarliestLocalPendingTx({
     encodedTx,
   }: {
     encodedTx: IEncodedTxEvm;
@@ -1232,11 +1239,27 @@ export default class Vault extends VaultBase {
     }
     const client = new ClientEvm(rpcUrl);
     const txid = await client.broadcastTransaction(signedTx.rawTx);
+
     return {
       ...signedTx,
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  override async verifyTxId(params: {
+    txid: string;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    const { signedTx, txid } = params;
+
+    if (typeof txid !== 'string') {
+      return false;
+    }
+
+    const recoveredTxid = ethers.utils.keccak256(signedTx.rawTx);
+
+    return recoveredTxid.toLowerCase() === txid.toLowerCase();
   }
 
   // RPC Client

@@ -3,7 +3,12 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountNFT } from './nft';
 import type { IStakingInfo } from './staking';
 import type { IToken } from './token';
-import type { EDecodedTxStatus, EReplaceTxType, IDecodedTx } from './tx';
+import type {
+  EDecodedTxStatus,
+  EReplaceTxMethod,
+  EReplaceTxType,
+  IDecodedTx,
+} from './tx';
 
 export enum EHistoryTxDetailsBlock {
   Flow = 'Flow',
@@ -144,6 +149,7 @@ export type IAccountHistoryTx = {
   replacedPrevId?: string; // cancel speedUp replacedId
   replacedNextId?: string;
   replacedType?: EReplaceTxType; // cancel speedUp
+  replacedMethod?: EReplaceTxMethod; // normal f2pool rbf
 
   decodedTx: IDecodedTx;
   stakingInfo?: IStakingInfo;

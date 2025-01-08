@@ -8,7 +8,7 @@ import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
 import ServiceBase from '../ServiceBase';
 
-import type { IDBAccount } from '../../dbs/local/types';
+import type { IDBAccount, IDBIndexedAccount } from '../../dbs/local/types';
 
 class ServiceAppCleanup extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -48,8 +48,12 @@ class ServiceAppCleanup extends ServiceBase {
 
   @backgroundMethod()
   async cleanup(
-    params: { accountsRemoved: IDBAccount[] | undefined } = {
+    params: {
+      accountsRemoved: IDBAccount[] | undefined;
+      indexedAccountsRemoved: IDBIndexedAccount[] | undefined;
+    } = {
       accountsRemoved: undefined,
+      indexedAccountsRemoved: undefined,
     },
   ) {
     const isCleanupTime = await this.isCleanupTime();
@@ -62,7 +66,7 @@ class ServiceAppCleanup extends ServiceBase {
     await this.cleanupAccounts(params.accountsRemoved);
 
     // **** cleanup indexed accounts
-    await this.cleanupIndexedAccounts();
+    await this.cleanupIndexedAccounts(params.indexedAccountsRemoved);
 
     // **** cleanup credentials
     // The number of private key and mnemonic wallets will not be many, so we don't clean up here
@@ -100,12 +104,15 @@ class ServiceAppCleanup extends ServiceBase {
     });
   }
 
-  async cleanupIndexedAccounts() {
+  async cleanupIndexedAccounts(indexedAccountsRemoved?: IDBIndexedAccount[]) {
     await this.runCleanupTask(async () => {
-      const { indexedAccountsRemoved } =
-        await this.backgroundApi.serviceAccount.getAllIndexedAccounts({
-          filterRemoved: true,
-        });
+      if (!indexedAccountsRemoved) {
+        // eslint-disable-next-line no-param-reassign
+        ({ indexedAccountsRemoved } =
+          await this.backgroundApi.serviceAccount.getAllIndexedAccounts({
+            filterRemoved: true,
+          }));
+      }
       if (indexedAccountsRemoved.length) {
         await localDb.removeIndexedAccounts({
           indexedAccounts: indexedAccountsRemoved,

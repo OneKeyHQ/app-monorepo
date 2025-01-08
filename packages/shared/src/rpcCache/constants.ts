@@ -74,6 +74,7 @@ export const EVM_SAFE_RPC_METHODS = [
   'eth_submitWork',
   'eth_syncing',
   'eth_uninstallFilter',
+  'eth_feeHistory',
   'net_version',
   'wallet_getPermissions',
   'wallet_requestPermissions',

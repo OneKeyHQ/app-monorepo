@@ -19,10 +19,12 @@ export function useDebugComponentRemountLog({
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'production') {
-      console.log(
+      console.groupCollapsed(
         `@@ComponentRemountLog mounted: ${nameRef.current}`,
-        stringUtils.safeStringify(payloadRef.current),
       );
+      console.log(stringUtils.safeStringify(payloadRef.current));
+      console.log('href: ', globalThis?.location?.href);
+      console.groupEnd();
     }
     return () => {
       if (process.env.NODE_ENV !== 'production') {

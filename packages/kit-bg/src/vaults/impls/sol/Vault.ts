@@ -49,8 +49,8 @@ import type {
 } from '@onekeyhq/core/src/chains/sol/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
-  decodeSensitiveText,
-  encodeSensitiveText,
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -228,15 +228,21 @@ export default class Vault extends VaultBase {
 
     nativeTx.feePayer = source;
 
-    const prioritizationFee = await client.getRecentMaxPrioritizationFees([
-      accountAddress,
-    ]);
+    const devSettings =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    if (
+      !(devSettings.enabled && devSettings.settings?.disableSolanaPriorityFee)
+    ) {
+      const prioritizationFee = await client.getRecentMaxPrioritizationFees([
+        accountAddress,
+      ]);
 
-    const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
-      microLamports: prioritizationFee,
-    });
+      const addPriorityFee = ComputeBudgetProgram.setComputeUnitPrice({
+        microLamports: prioritizationFee,
+      });
 
-    nativeTx.add(addPriorityFee);
+      nativeTx.add(addPriorityFee);
+    }
 
     for (let i = 0; i < transfersInfo.length; i += 1) {
       const { amount, to, tokenInfo, nftInfo } = transfersInfo[i];
@@ -1078,10 +1084,16 @@ export default class Vault extends VaultBase {
     }
 
     if (feeInfo && feeInfoEditable !== false) {
-      encodedTxNew = await this._attachFeeInfoToEncodedTx({
-        encodedTx: encodedTxNew,
-        feeInfo,
-      });
+      const devSettings =
+        await this.backgroundApi.serviceDevSetting.getDevSetting();
+      if (
+        !(devSettings.enabled && devSettings.settings?.disableSolanaPriorityFee)
+      ) {
+        encodedTxNew = await this._attachFeeInfoToEncodedTx({
+          encodedTx: encodedTxNew,
+          feeInfo,
+        });
+      }
     }
 
     unsignedTx.encodedTx = encodedTxNew;
@@ -1255,14 +1267,16 @@ export default class Vault extends VaultBase {
   override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     let privateKey;
     const decodedPrivateKey = bs58.decode(input);
     if (decodedPrivateKey.length === 64) {
       privateKey = decodedPrivateKey.slice(0, 32).toString('hex');
     }
 
-    privateKey = encodeSensitiveText({ text: privateKey ?? '' });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey ?? '' });
     return {
       privateKey,
     };
@@ -1335,6 +1349,13 @@ export default class Vault extends VaultBase {
     feeInfo: IFeeInfoUnit;
   }): Promise<IEncodedTxSol> {
     const { encodedTx, feeInfo } = params;
+
+    const devSettings =
+      await this.backgroundApi.serviceDevSetting.getDevSetting();
+    if (devSettings.enabled && devSettings.settings?.disableSolanaPriorityFee) {
+      return '';
+    }
+
     const client = await this.getClient();
     const accountAddress = await this.getAccountAddress();
     let computeUnitPrice = '0';

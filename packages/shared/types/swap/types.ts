@@ -14,7 +14,6 @@ import type {
 
 import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
-import type { OrderParameters } from '@cowprotocol/cow-sdk';
 
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
@@ -248,6 +247,7 @@ export interface IFetchQuoteResult {
   fee?: IFetchQuoteFee;
   instantRate?: string;
   allowanceResult?: IAllowanceResult;
+  approvedInfo?: IApprovedInfo;
   estimatedTime?: string;
   isBest?: boolean;
   receivedBest?: boolean;
@@ -262,7 +262,7 @@ export interface IFetchQuoteResult {
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
-  cowSwapQuoteResult?: OrderParameters;
+  cowSwapQuoteResult?: any;
   swapShouldSignedData?: {
     unSignedMessage: string;
     unSignedInfo: {
@@ -277,12 +277,19 @@ export interface IFetchQuoteResult {
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   gasLimit?: number;
+  slippage?: number;
 }
 
 export interface IAllowanceResult {
   allowanceTarget: string;
   amount: string;
   shouldResetApprove?: boolean;
+}
+
+export interface IApprovedInfo {
+  isApproved: boolean;
+  allowanceTarget?: string;
+  amount?: string;
 }
 
 export interface IFetchQuoteInfo {
@@ -590,4 +597,9 @@ export enum ESwapSlippageCustomStatus {
 }
 
 export const SwapPercentageInputStage = [25, 50, 100];
+export const SwapPercentageInputStageForNative = [25, 50, 75, 100];
+
 export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
+
+export const SwapAmountInputAccessoryViewID =
+  'swap-amount-input-accessory-view';

@@ -1,5 +1,6 @@
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import BigNumber from 'bignumber.js';
 import * as ethUtils from 'ethereumjs-util';
 import { keccak256 } from 'viem';
 
@@ -38,9 +39,7 @@ class ProviderApiScdo extends ProviderApiBase {
       });
       const result = {
         method: 'wallet_events_accountsChanged',
-        params: {
-          accounts,
-        },
+        params: accounts?.[0] ?? '',
       };
       return result;
     };
@@ -141,6 +140,12 @@ class ProviderApiScdo extends ProviderApiBase {
         '"from" address is invalid for this account',
       );
     }
+    if (typeof encodedTx.Amount === 'string') {
+      const amount = new BigNumber(encodedTx.Amount);
+      if (amount.isInteger()) {
+        encodedTx.Amount = amount.toNumber();
+      }
+    }
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -174,8 +179,9 @@ class ProviderApiScdo extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  public scdo_sendTransaction(request: IJsBridgeMessagePayload) {
-    return this._signAndSendTransaction(request, true);
+  public async scdo_sendTransaction(request: IJsBridgeMessagePayload) {
+    const tx = await this._signAndSendTransaction(request, true);
+    return tx.Hash;
   }
 
   @providerApiMethod()

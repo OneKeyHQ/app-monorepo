@@ -9,7 +9,7 @@ import {
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';
-import { decrypt, uncompressPublicKey } from '../../secret';
+import { decryptAsync, uncompressPublicKey } from '../../secret';
 import {
   ECoreApiExportedSecretKeyType,
   type ICoreApiGetAddressItem,
@@ -69,7 +69,7 @@ async function signTransaction(
       list.map((item) => Buffer.from(item)),
       totalLength,
     );
-  // In @zondax/izari-filecoin AddressSecp256k1 fromString static fucntion
+  // In @zondax/izari-filecoin AddressSecp256k1 fromString static function
   // When comparing the check sum of the address,
   // The format of both sides is Buffer and Uint8Array,
   // Resulting in different comparison results of the same checksum
@@ -146,9 +146,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      const privateKeyBase64 = decrypt(password, privateKeyRaw).toString(
-        'base64',
-      );
+      const privateKeyBase64 = (
+        await decryptAsync({ password, data: privateKeyRaw })
+      ).toString('base64');
       return Buffer.from(
         JSON.stringify({
           'Type': 'secp256k1',

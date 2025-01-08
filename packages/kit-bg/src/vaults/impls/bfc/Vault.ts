@@ -41,6 +41,7 @@ import { OneKeyBfcClient } from './sdkBfc/ClientBfc';
 import transactionUtils, { EBfcTransactionType } from './sdkBfc/transactions';
 import { waitPendingTransaction } from './sdkBfc/utils';
 
+import type { ITransferDetail } from './sdkBfc/transactions';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
@@ -196,15 +197,19 @@ export default class Vault extends VaultBase {
         });
         actions.push(action);
       } else {
-        // use dry-run result to create action
-        const client = await this.getClient();
-        const buildTx = await tx.build({ client });
-        const dryRunResult = await client.dryRunTransactionBlock({
-          transactionBlock: buildTx,
-        });
-        const transfers = transactionUtils.parseTransferDetails({
-          balanceChanges: dryRunResult.balanceChanges,
-        });
+        let transfers: ITransferDetail[];
+        try {
+          // use dry-run result to create action
+          const client = await this.getClient();
+          const dryRunResult = await client.dryRunTransactionBlock({
+            transactionBlock: await tx.build({ client }),
+          });
+          transfers = transactionUtils.parseTransferDetails({
+            balanceChanges: dryRunResult.balanceChanges,
+          });
+        } catch (error) {
+          transfers = [];
+        }
         if (transfers.length > 0) {
           const action = await this.buildTxTransferAssetAction({
             from: transfers[0].from,
@@ -316,6 +321,7 @@ export default class Vault extends VaultBase {
     const client = await this.getClient();
     const { unsignedTx, nativeAmountInfo, feeInfo } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSui;
+    let newTx: TransactionBlock;
 
     // max send
     if (nativeAmountInfo?.maxSendAmount) {
@@ -324,7 +330,7 @@ export default class Vault extends VaultBase {
 
       const transactionType = transactionUtils.analyzeTransactionType(oldTx);
       if (transactionType !== EBfcTransactionType.TokenTransfer) {
-        return Promise.resolve(unsignedTx);
+        return unsignedTx;
       }
 
       if (!unsignedTx.transfersInfo?.[0]?.to) {
@@ -332,7 +338,7 @@ export default class Vault extends VaultBase {
       }
 
       // max send logic
-      const newTx = await transactionUtils.createTokenTransaction({
+      newTx = await transactionUtils.createTokenTransaction({
         client,
         sender: oldTx.blockData.sender ?? (await this.getAccountAddress()),
         recipient: unsignedTx.transfersInfo[0].to,
@@ -340,33 +346,32 @@ export default class Vault extends VaultBase {
         coinType: BFC_TYPE_ARG,
         maxSendNativeToken: true,
       });
-      const newEncodedTx = {
-        ...encodedTx,
-        rawTx: newTx.serialize(),
-      };
-      return {
-        ...unsignedTx,
-        encodedTx: newEncodedTx,
-      };
+    } else {
+      newTx = TransactionBlock.from(encodedTx.rawTx);
     }
 
-    if (feeInfo?.gas?.gasLimit && feeInfo?.gas?.gasPrice) {
-      const newTx = TransactionBlock.from(encodedTx.rawTx);
-      newTx.blockData.gasConfig.price = feeInfo.gas.gasPrice;
-      newTx.blockData.gasConfig.budget = feeInfo.gas.gasLimit;
-      // newTx.setGasPrice(new BigNumber(feeInfo.gas.gasPrice).toNumber());
-      // newTx.setGasBudget(new BigNumber(feeInfo.gas.gasLimit).toNumber());
-      const newEncodedTx = {
-        ...encodedTx,
-        rawTx: newTx.serialize(),
-      };
-      return {
-        ...unsignedTx,
-        encodedTx: newEncodedTx,
-      };
+    // Apply fee settings for both normal and max send transactions
+    if (feeInfo?.feeBudget) {
+      const network = await this.getNetwork();
+      newTx.setGasPrice(
+        Number(
+          new BigNumber(feeInfo.feeBudget.gasPrice)
+            .shiftedBy(network.feeMeta.decimals)
+            .toFixed(),
+        ),
+      );
+
+      const gasBudget = new BigNumber(feeInfo.feeBudget.budget).toNumber();
+      newTx.setGasBudget(gasBudget);
     }
 
-    return Promise.resolve(unsignedTx);
+    return {
+      ...unsignedTx,
+      encodedTx: {
+        ...encodedTx,
+        rawTx: newTx.serialize(),
+      },
+    };
   }
 
   override async broadcastTransaction(

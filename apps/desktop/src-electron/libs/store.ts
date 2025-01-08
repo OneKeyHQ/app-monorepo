@@ -23,6 +23,7 @@ const configKeys = {
   Theme: 'theme',
   EncryptedData: 'EncryptedData',
   Language: 'language',
+  DisableKeyboardShortcuts: 'disableKeyboardShortcuts',
 };
 
 export const getUpdateSettings = (): IUpdateSettings =>
@@ -38,6 +39,25 @@ export const getDevTools = () => store.get(configKeys.DevTools, false);
 
 export const setDevTools = (devTools: boolean) => {
   store.set(configKeys.DevTools, devTools);
+};
+
+export const getDisableKeyboardShortcuts = () =>
+  store.get(configKeys.DisableKeyboardShortcuts, {
+    disableNumberShortcuts: false,
+    disableSearchAndAccountSelectorShortcuts: false,
+  }) as {
+    disableNumberShortcuts: boolean;
+    disableSearchAndAccountSelectorShortcuts: boolean;
+  };
+
+export const setDisableKeyboardShortcuts = (config: {
+  disableNumberShortcuts: boolean;
+  disableSearchAndAccountSelectorShortcuts: boolean;
+}) => {
+  store.set(configKeys.DisableKeyboardShortcuts, {
+    ...getDisableKeyboardShortcuts(),
+    ...config,
+  });
 };
 
 export const getTheme = () => store.get(configKeys.Theme, 'system') as string;

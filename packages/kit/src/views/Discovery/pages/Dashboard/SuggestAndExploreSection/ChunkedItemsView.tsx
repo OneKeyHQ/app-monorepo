@@ -1,29 +1,20 @@
 import type { ReactNode } from 'react';
 
 import memoizee from 'memoizee';
-import { StyleSheet, useWindowDimensions } from 'react-native';
-import { opacity } from 'react-native-reanimated/lib/typescript/reanimated2/Colors';
+import { useWindowDimensions } from 'react-native';
 
 import {
-  Badge,
-  Icon,
-  Image,
   ScrollView,
-  SizableText,
-  Skeleton,
   Stack,
-  XStack,
   getTokenValue,
   useMedia,
 } from '@onekeyhq/components';
-import type {
-  IBadgeType,
-  IScrollViewProps,
-  IStackProps,
-} from '@onekeyhq/components';
+import type { IScrollViewProps, IStackProps } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { ICategory, IDApp } from '@onekeyhq/shared/types/discovery';
+
+import { ChunkedItem } from '../../../components/ChunkedItem';
 
 import type { IMatchDAppItemType } from '../../../types';
 
@@ -142,27 +133,11 @@ export function ChunkedItemsView({
             flexWrap: 'wrap',
           }}
         >
-          {chunk.map((item) => (
-            <XStack
-              group="card"
-              key={item.dappId}
-              p="$3"
-              alignItems="center"
-              $md={
-                isExploreView
-                  ? {
-                      flexBasis: '100%',
-                    }
-                  : undefined
-              }
-              $gtMd={{
-                px: '$5',
-                flexBasis: '50%',
-              }}
-              $gtLg={{
-                px: '$5',
-                flexBasis: '33.3333%',
-              }}
+          {chunk.map((item, index) => (
+            <ChunkedItem
+              key={index}
+              item={item}
+              isExploreView={isExploreView}
               onPress={() =>
                 handleOpenWebSite({
                   webSite: {
@@ -171,69 +146,7 @@ export function ChunkedItemsView({
                   },
                 })
               }
-              userSelect="none"
-              testID={`dapp-${item.dappId}`}
-            >
-              <Image
-                w="$14"
-                h="$14"
-                borderRadius="$3"
-                $group-card-hover={{
-                  opacity: 0.75,
-                }}
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$borderSubdued"
-                borderCurve="continuous"
-              >
-                <Image.Source
-                  source={{
-                    uri: item.logo,
-                  }}
-                />
-                <Image.Fallback>
-                  <Icon name="GlobusOutline" width="100%" height="100%" />
-                </Image.Fallback>
-                <Image.Loading>
-                  <Skeleton width="100%" height="100%" />
-                </Image.Loading>
-              </Image>
-              <Stack flex={1} ml="$3">
-                <XStack alignItems="center">
-                  <SizableText
-                    size="$bodyLgMedium"
-                    $gtMd={{
-                      size: '$bodyMdMedium',
-                    }}
-                    numberOfLines={1}
-                  >
-                    {item.name}
-                  </SizableText>
-                  {Array.isArray(item.tags) && item.tags.length ? (
-                    <Badge
-                      badgeSize="sm"
-                      badgeType={item.tags[0].type as IBadgeType}
-                      ml="$2"
-                    >
-                      {item.tags[0].name}
-                    </Badge>
-                  ) : null}
-                </XStack>
-                <SizableText
-                  size="$bodyMd"
-                  color="$textSubdued"
-                  numberOfLines={1}
-                  $gtMd={
-                    {
-                      size: '$bodySm',
-                      numberOfLines: 2,
-                      whiteSpace: 'break-spaces',
-                    } as any
-                  }
-                >
-                  {item.description}
-                </SizableText>
-              </Stack>
-            </XStack>
+            />
           ))}
         </Stack>
       ))}
