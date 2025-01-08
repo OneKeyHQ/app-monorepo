@@ -21,17 +21,17 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
 import TxConfirmActions from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
+import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
 import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
+import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
 
 import type { RouteProp } from '@react-navigation/core';
-import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
-import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
-import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
 
 function TxConfirm() {
   const route =
