@@ -17,31 +17,37 @@ import {
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IDisplayComponentApprove,
+  IDisplayComponentAssets,
   IDisplayComponentNFT,
   IDisplayComponentToken,
 } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
+import { isNil } from 'lodash';
 
-type IAssetsProps = {
+type IAssetsCommonProps = {
   networkId: string;
   showNetwork?: boolean;
   editable?: boolean;
 } & ISignatureConfirmItemType;
 
-type IAssetsTokenProps = IAssetsProps & {
+type IAssetsTokenProps = IAssetsCommonProps & {
   component: IDisplayComponentToken;
 };
 
-type IAssetsApproveProps = IAssetsProps & {
+type IAssetsApproveProps = IAssetsCommonProps & {
   accountId: string;
   component: IDisplayComponentApprove;
   approveInfo?: IApproveInfo;
 };
 
-type IAssetsNFTProps = IAssetsProps & {
+type IAssetsNFTProps = IAssetsCommonProps & {
   component: IDisplayComponentNFT;
+};
+
+type IAssetsProps = IAssetsCommonProps & {
+  component: IDisplayComponentAssets;
 };
 
 type ISignatureConfirmItemType = IYStackProps;
@@ -179,6 +185,9 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
       }}
       type="token"
       handleEdit={() => {
+        if (isNil(token.info.decimals)) {
+          throw new Error('token decimals is required.');
+        }
         showApproveEditor({
           accountId,
           networkId,
@@ -216,8 +225,22 @@ function AssetsNFT(props: IAssetsNFTProps) {
   );
 }
 
-function Assets() {
-  return <></>;
+function Assets(props: IAssetsProps) {
+  const { component, ...rest } = props;
+  return (
+    <SignatureAssetDetailItem
+      label={component.label}
+      amount={component.amountParsed}
+      symbol={component.symbol}
+      tokenProps={{
+        tokenImageUri: component.icon,
+        isNFT: component.isNFT,
+        networkId: component.networkId,
+      }}
+      type={component.isNFT ? 'nft' : 'token'}
+      {...rest}
+    />
+  );
 }
 
 Assets.Token = AssetsToken;

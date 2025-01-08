@@ -78,16 +78,14 @@ function TxConfirm() {
           return [];
         }
 
-        const r = await Promise.all(
-          reactiveUnsignedTxs.map((unsignedTx) =>
-            backgroundApiProxy.serviceSignatureConfirm.buildDecodedTx({
-              accountId,
-              networkId,
-              unsignedTx,
-              transferPayload,
-            }),
-          ),
-        );
+        const r =
+          await backgroundApiProxy.serviceSignatureConfirm.buildDecodedTxs({
+            accountId,
+            networkId,
+            unsignedTxs: reactiveUnsignedTxs,
+            transferPayload,
+          });
+
         updateDecodedTxs({
           decodedTxs: r,
           isBuildingDecodedTxs: false,

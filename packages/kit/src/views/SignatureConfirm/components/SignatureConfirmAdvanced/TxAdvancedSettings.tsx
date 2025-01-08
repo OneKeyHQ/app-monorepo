@@ -138,12 +138,20 @@ function TxAdvancedSettings(props: IProps) {
 
   const canEditNonce = useMemo(
     () =>
+      !isInternalStakingTx &&
+      !isInternalSwapTx &&
       unsignedTxs.length === 1 &&
       !unsignedTxs[0]?.isInternalSwap &&
       vaultSettings?.canEditNonce &&
       settings.isCustomNonceEnabled &&
       !isNil(unsignedTxs[0]?.nonce),
-    [settings.isCustomNonceEnabled, unsignedTxs, vaultSettings?.canEditNonce],
+    [
+      isInternalStakingTx,
+      isInternalSwapTx,
+      settings.isCustomNonceEnabled,
+      unsignedTxs,
+      vaultSettings?.canEditNonce,
+    ],
   );
 
   const currentNonce = new BigNumber(unsignedTxs[0]?.nonce ?? 0).toFixed();
@@ -276,11 +284,7 @@ function TxAdvancedSettings(props: IProps) {
     ],
   );
 
-  if (
-    isInternalStakingTx ||
-    isInternalSwapTx ||
-    (!canEditNonce && !vaultSettings?.canEditData)
-  ) {
+  if (!canEditNonce && !vaultSettings?.canEditData) {
     return null;
   }
 

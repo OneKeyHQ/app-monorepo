@@ -55,6 +55,8 @@ function SignatureConfirmDetails(props: IProps) {
               approveInfo={unsignedTxs?.[txIndex]?.approveInfo}
             />
           );
+        case EParseTxComponentType.Assets:
+          return <Assets component={component} networkId={networkId} />;
         case EParseTxComponentType.Token:
           return <Assets.Token component={component} networkId={networkId} />;
         case EParseTxComponentType.NFT:

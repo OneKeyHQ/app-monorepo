@@ -5,7 +5,8 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   convertAddressToSignatureConfirmAddress,
-  convertDecodedTxActionsToSignatureConfirmTxDisplay,
+  convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
+  convertDecodedTxActionsToSignatureConfirmTxDisplayTitle,
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -61,17 +62,27 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (r[0] && r[0].txDisplay && r[0].isLocalParsed) {
       // add network and account info as leading components
-      r[0].txDisplay.components.unshift(
-        convertNetworkToSignatureConfirmNetwork({
-          networkId,
-        }),
-      );
+
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
         }),
       );
+
+      r[0].txDisplay.components.unshift(
+        convertNetworkToSignatureConfirmNetwork({
+          networkId,
+        }),
+      );
+
+      r[0].txDisplay.title =
+        convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
+          decodedTxs: r,
+          unsignedTxs: params.unsignedTxs,
+        });
     }
+
+    console.log('r', r);
 
     return r;
   }
@@ -132,11 +143,18 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     } else {
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
-      decodedTx.txDisplay = convertDecodedTxActionsToSignatureConfirmTxDisplay({
-        decodedTx,
-        isMultiTxs,
-        unsignedTx,
-      });
+      const txDisplayComponents =
+        convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+          decodedTx,
+          isMultiTxs,
+          unsignedTx,
+        });
+
+      decodedTx.txDisplay = {
+        title: '',
+        components: txDisplayComponents,
+        alerts: [],
+      };
       decodedTx.isLocalParsed = true;
     }
 
