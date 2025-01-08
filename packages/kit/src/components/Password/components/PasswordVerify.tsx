@@ -23,14 +23,13 @@ import {
 import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import { getPasswordKeyboardType } from '../utils';
 
-import PassCodeInput from './PassCodeInput';
+import PassCodeInput, { AUTO_FOCUS_DELAY_MS } from './PassCodeInput';
 
 import type { AuthenticationType } from 'expo-local-authentication';
 
@@ -56,7 +55,6 @@ export interface IPasswordVerifyForm {
 }
 
 const PasswordVerify = ({
-  authType,
   isEnable,
   alertText,
   confirmBtnDisabled,
@@ -73,27 +71,31 @@ const PasswordVerify = ({
     reValidateMode: 'onSubmit',
     defaultValues: { password: '', passCode: '' },
   });
-  const timeOutRef = useRef<NodeJS.Timeout | null>(null);
+
   const isEnableRef = useRef(isEnable);
   if (isEnableRef.current !== isEnable) {
     isEnableRef.current = isEnable;
   }
+
+  const disableInputRef = useRef(disableInput);
+  if (disableInputRef.current !== disableInput) {
+    disableInputRef.current = disableInput;
+  }
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    // enable first false should wait some logic to get final value
-    timeOutRef.current = setTimeout(() => {
-      if (!isEnableRef.current) {
+    timeoutRef.current = setTimeout(() => {
+      if (!isEnableRef.current && !disableInputRef.current) {
         form.setFocus(
           passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
         );
       }
-    }, 500);
+    }, 200);
     return () => {
-      if (timeOutRef.current) {
-        clearTimeout(timeOutRef.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [form, passwordMode]);
   const [secureEntry, setSecureEntry] = useState(true);
   const lastTime = useRef(0);
   const passwordInput = form.watch(
@@ -151,13 +153,16 @@ const PasswordVerify = ({
       form.setError(fieldName, { message: status.message });
       if (passwordMode === EPasswordMode.PASSCODE) {
         setPassCodeClear(true);
-      } else {
-        form.setFocus(fieldName);
+      }
+      if (!disableInputRef.current) {
+        setTimeout(() => {
+          form.setFocus(fieldName);
+        }, 150);
       }
     } else {
       form.clearErrors(fieldName);
     }
-  }, [form, passwordMode, status, disableInput]);
+  }, [form, passwordMode, status]);
 
   useLayoutEffect(() => {
     if (

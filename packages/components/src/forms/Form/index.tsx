@@ -199,6 +199,7 @@ function Field({
                   opacity: 0,
                   y: -6,
                 }}
+                textAlign={errorMessageAlign}
               >
                 <SizableText
                   color="$textCritical"
