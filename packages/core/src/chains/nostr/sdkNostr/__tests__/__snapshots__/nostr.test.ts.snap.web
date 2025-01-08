@@ -4,8 +4,8 @@ exports[`Nostr Crypto Functions should match snapshot for decryption 1`] = `"486
 
 exports[`Nostr Crypto Functions should match snapshot for encryption 1`] = `
 {
-  "ciphertext": "8326d029638cdb355dc1fdacea3cf298",
-  "iv": "1a112f259aea737aa9d5baf8314814f9",
+  "ciphertext": "d2841c13c47e2d22f96d6d4fb0a466a9",
+  "iv": "f214e7bec53242b73dad0b3c8134dd07",
 }
 `;
 
@@ -18,9 +18,9 @@ exports[`Nostr Crypto Functions should match snapshot for round-trip encryption/
 
 exports[`Nostr Crypto Functions should validate encryption format 1`] = `
 {
-  "ciphertext": "cbb591aee10a58d87ebfa3b5fc5c8497",
+  "ciphertext": "8b7aafc385d6582ab67981f5ffce5849",
   "format": "base64+iv",
   "hasValidFormat": true,
-  "iv": "00fd8689810e33c116b891532ac884c0",
+  "iv": "1220a2e73125911117536efd191bb3f3",
 }
 `;
