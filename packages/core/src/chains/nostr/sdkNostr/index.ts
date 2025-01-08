@@ -88,7 +88,7 @@ export function decrypt(
   privateKey: string,
   pubkey: string,
   ciphertext: string,
-) {
+): string {
   const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
   const [cip, iv] = ciphertext.split('?iv=');
   const normalizedKey = key.slice(1, 33);
