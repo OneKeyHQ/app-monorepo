@@ -9,6 +9,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
 import type { ITransactionData, ITransactionDisplay } from './signatureConfirm';
+import { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -94,7 +95,8 @@ export type IDecodedTxExtraInfo =
   | IDecodedTxExtraLightning
   | IDecodedTxExtraXrp
   | IDecodedTxExtraDnx
-  | IDecodedTxExtraTron;
+  | IDecodedTxExtraTron
+  | IDecodedTxExtraSol;
 
 export type IDecodedTx = {
   txid: string; // blockHash
