@@ -24,7 +24,10 @@ import {
   getPasswordKeyboardType,
 } from '../utils';
 
-import PassCodeInput, { PIN_CELL_COUNT } from './PassCodeInput';
+import PassCodeInput, {
+  AUTO_FOCUS_DELAY_MS,
+  PIN_CELL_COUNT,
+} from './PassCodeInput';
 
 export interface IPasswordSetupForm {
   password: string;
@@ -41,7 +44,6 @@ interface IPasswordSetupProps {
   confirmBtnText?: string;
 }
 
-const AUTO_FOCUS_DELAY_MS = 380;
 const PasswordSetup = ({
   loading,
   passwordMode,
@@ -266,6 +268,7 @@ const PasswordSetup = ({
                   form.setValue('passCode', pin);
                   form.clearErrors('passCode');
                 }}
+                editable
                 autoFocus
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 testId="pass-code"
@@ -302,6 +305,9 @@ const PasswordSetup = ({
                   form.setValue('confirmPassCode', pin);
                   form.clearErrors('confirmPassCode');
                 }}
+                editable
+                autoFocus={passCodeConfirm}
+                autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 testId="confirm-pass-code"
               />
               <Divider />

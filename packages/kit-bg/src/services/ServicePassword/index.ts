@@ -49,7 +49,7 @@ import {
 import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
-import { biologyAuthUtils } from './biologyAuthUtils';
+import { biologyAuthNativeError, biologyAuthUtils } from './biologyAuthUtils';
 import {
   EPasswordMode,
   EPasswordPromptType,
@@ -79,6 +79,23 @@ export default class ServicePassword extends ServiceBase {
   private securitySession?: IPasswordSecuritySession;
 
   private extCheckLockStatusTimer?: ReturnType<typeof setInterval>;
+
+  private handleBiologyAuthError(authRes: {
+    warning?: string;
+    error: string;
+    success: boolean;
+  }) {
+    if (!authRes.success) {
+      if (authRes.warning) {
+        const nativeError = new Error(authRes.warning);
+        nativeError.name = authRes.error;
+        nativeError.cause = biologyAuthNativeError;
+        throw nativeError;
+      } else {
+        throw new OneKeyErrors.BiologyAuthFailed();
+      }
+    }
+  }
 
   @backgroundMethod()
   async encodeSensitiveText({ text }: { text: string }): Promise<string> {
@@ -247,7 +264,7 @@ export default class ServicePassword extends ServiceBase {
     }
     const authRes = await biologyAuthUtils.biologyAuthenticate();
     if (!authRes.success) {
-      throw new OneKeyErrors.BiologyAuthFailed();
+      this.handleBiologyAuthError(authRes);
     }
     try {
       const pwd = await biologyAuthUtils.getPassword();
@@ -267,7 +284,7 @@ export default class ServicePassword extends ServiceBase {
     if (enable && !skipAuth) {
       const authRes = await biologyAuth.biologyAuthenticate();
       if (!authRes.success) {
-        throw new OneKeyErrors.BiologyAuthFailed();
+        this.handleBiologyAuthError(authRes);
       }
       const catchPassword = await this.getCachedPassword();
       if (catchPassword) {
