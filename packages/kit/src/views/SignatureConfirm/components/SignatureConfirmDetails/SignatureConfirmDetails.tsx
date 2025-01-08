@@ -9,7 +9,12 @@ import {
 import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 
-import { Address, Assets, Network } from '../SignatureConfirmComponents';
+import {
+  Address,
+  Assets,
+  Default,
+  Network,
+} from '../SignatureConfirmComponents';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 
 type IProps = {
@@ -45,6 +50,8 @@ function SignatureConfirmDetails(props: IProps) {
 
     return txDisplayComponents.map(({ component, txIndex }) => {
       switch (component.type) {
+        case EParseTxComponentType.Default:
+          return <Default component={component} />;
         case EParseTxComponentType.Approve:
           return (
             <Assets.TokenApproval

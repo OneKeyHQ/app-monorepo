@@ -4,6 +4,7 @@ import type { IAccountNFT } from './nft';
 import type { IToken, ITokenFiat } from './token';
 
 export enum EParseTxComponentType {
+  Default = 'default',
   Network = 'network',
   Address = 'address',
   NFT = 'nft',
@@ -11,6 +12,10 @@ export enum EParseTxComponentType {
   Token = 'token',
   Assets = 'assets',
   Approve = 'tokenApproval',
+}
+
+export enum EParseTxType {
+  Unknown = 'unknown',
 }
 
 export interface IDisplayComponentNetwork {
@@ -78,13 +83,20 @@ export interface IDisplayComponentApprove {
   isInfiniteAmount: boolean;
 }
 
+export interface IDisplayComponentDefault {
+  type: EParseTxComponentType.Default;
+  label: string;
+  value: string;
+}
+
 export type IDisplayComponent =
   | IDisplayComponentAssets
   | IDisplayComponentToken
   | IDisplayComponentApprove
   | IDisplayComponentNFT
   | IDisplayComponentNetwork
-  | IDisplayComponentAddress;
+  | IDisplayComponentAddress
+  | IDisplayComponentDefault;
 
 export interface ITransactionData {
   name: string;
@@ -112,4 +124,5 @@ export interface IParseTransactionResp {
     data: ITransactionData;
   };
   display: ITransactionDisplay;
+  type: EParseTxType;
 }

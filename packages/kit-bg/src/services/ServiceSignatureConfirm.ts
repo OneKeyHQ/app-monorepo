@@ -10,7 +10,10 @@ import {
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
+import {
+  EParseTxType,
+  type IParseTransactionResp,
+} from '@onekeyhq/shared/types/signatureConfirm';
 import type {
   IDecodedTx,
   IParseTransactionParams,
@@ -105,7 +108,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       isMultiTxs,
     } = params;
 
-    let parsedTx;
+    let parsedTx: IParseTransactionResp | null = null;
 
     // try to parse tx through background api
     // multi txs not supported by api for now, will support in future versions
@@ -120,6 +123,14 @@ class ServiceSignatureConfirm extends ServiceBase {
       } catch (e) {
         console.log('parse tx through api failed', e);
       }
+    }
+
+    if (
+      parsedTx &&
+      (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
+      parsedTx?.type === EParseTxType.Unknown
+    ) {
+      parsedTx = null;
     }
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
