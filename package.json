@@ -15,6 +15,8 @@
     "postinstall": "node development/scripts/postinstall.js",
     "copy:inject": "node development/scripts/copy-injected.js",
     "app:desktop": "yarn workspace @onekeyhq/desktop start",
+    "app:desktop:web": "yarn workspace @onekeyhq/desktop dev:renderer",
+    "app:desktop:electron": "yarn workspace @onekeyhq/desktop build:main:dev && yarn workspace @onekeyhq/desktop dev:main",
     "app:ext": "yarn workspace @onekeyhq/ext start:v3",
     "app:ext:proxy": "yarn workspace @onekeyhq/ext start:v3:proxy",
     "app:ext:build": "yarn workspace @onekeyhq/ext build:v3",
