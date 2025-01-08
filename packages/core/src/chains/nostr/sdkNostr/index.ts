@@ -69,7 +69,7 @@ export async function encrypt(
   plaintext: string,
 ): Promise<string> {
   return Promise.resolve().then(() => {
-    const key = secp256k1.getSharedSecret(privateKey, pubkey);
+    const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
     const normalizedKey = key.slice(1, 33);
     const iv = crypto.randomBytes(16);
 
@@ -92,7 +92,7 @@ export async function decrypt(
   ciphertext: string,
 ): Promise<string> {
   return Promise.resolve().then(() => {
-    const key = secp256k1.getSharedSecret(privateKey, pubkey);
+    const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
     const [cip, iv] = ciphertext.split('?iv=');
     const normalizedKey = key.slice(1, 33);
     const decrypted = AES_CBC.decrypt(
