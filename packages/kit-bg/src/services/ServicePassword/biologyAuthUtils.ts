@@ -9,6 +9,7 @@ import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureS
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
+const biologyAuthNativeError = 'biology_native_error';
 class BiologyAuthUtils implements IBiologyAuth {
   isSupportBiologyAuth() {
     return biologyAuth.isSupportBiologyAuth();
@@ -56,4 +57,4 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 }
 const biologyAuthUtils = new BiologyAuthUtils();
-export { biologyAuthUtils };
+export { biologyAuthUtils, biologyAuthNativeError };

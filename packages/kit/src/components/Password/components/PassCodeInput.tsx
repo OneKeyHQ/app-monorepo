@@ -13,12 +13,14 @@ import {
 } from 'react-native-confirmation-code-field';
 
 import { YStack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { PassCodeRegex } from '../utils';
 
 import type { TextInput } from 'react-native';
 
 export const PIN_CELL_COUNT = 6;
+export const AUTO_FOCUS_DELAY_MS = 380;
 
 function BasicPassCodeInput(
   {
@@ -30,7 +32,8 @@ function BasicPassCodeInput(
     // showMask,
     testId,
     clearCode,
-    autoFocusDelayMs = 150,
+    clearCodeAndFocus,
+    autoFocusDelayMs = AUTO_FOCUS_DELAY_MS,
   }: {
     onPinCodeChange?: (pin: string) => void;
     onComplete?: () => void;
@@ -39,6 +42,7 @@ function BasicPassCodeInput(
     editable?: boolean;
     testId?: string;
     clearCode?: boolean;
+    clearCodeAndFocus?: boolean;
     autoFocusDelayMs?: number;
     // showMask?: boolean;
   },
@@ -83,28 +87,48 @@ function BasicPassCodeInput(
     index: number;
     symbol: string;
     isFocused: boolean;
-  }) => (
-    <Text
-      key={index}
-      style={[...[cellStyles.cell]]}
-      onLayout={getCellOnLayoutHandler(index)}
-    >
-      <YStack
-        animation="50ms"
-        w="$4"
-        h="$4"
-        backgroundColor={symbol ? '$borderActive' : '$transparent'}
-        borderWidth={1}
-        borderRadius="$full"
-        borderColor="$borderActive"
-      />
-    </Text>
-  );
+  }) => {
+    const symbolBg = symbol ? '$borderActive' : '$transparent';
+    const bg = editable ? symbolBg : '$borderDisabled';
+    const borderColor = editable ? '$borderActive' : '$transparent';
+    return (
+      <Text
+        key={index}
+        style={[...[cellStyles.cell]]}
+        onLayout={getCellOnLayoutHandler(index)}
+      >
+        <YStack
+          animation="50ms"
+          w="$4"
+          h="$4"
+          backgroundColor={bg}
+          borderWidth={1}
+          borderRadius="$full"
+          borderColor={borderColor}
+          {...(platformEnv.isNativeAndroid
+            ? {
+                renderToHardwareTextureAndroid: true,
+                overflow: 'hidden',
+              }
+            : {})}
+        />
+      </Text>
+    );
+  };
   useEffect(() => {
     if (clearCode) {
       setPinValue('');
     }
   }, [clearCode]);
+
+  useEffect(() => {
+    if (clearCodeAndFocus) {
+      setPinValue('');
+      setTimeout(() => {
+        pinInputRef.current?.focus();
+      }, AUTO_FOCUS_DELAY_MS);
+    }
+  }, [clearCodeAndFocus]);
 
   return (
     <CodeField
