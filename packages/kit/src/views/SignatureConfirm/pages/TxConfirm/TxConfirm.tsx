@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
@@ -28,14 +29,13 @@ import TxConfirmActions from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
 import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
+import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
+import StakingInfo from '../../components/StakingInfo';
+import SwapInfo from '../../components/SwapInfo';
 import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
 
 import type { RouteProp } from '@react-navigation/core';
-import { find } from 'lodash';
-import SwapInfo from '../../components/SwapInfo';
-import StakingInfo from '../../components/StakingInfo';
-import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 
 function TxConfirm() {
   const route =
@@ -180,7 +180,7 @@ function TxConfirm() {
     return intl.formatMessage({
       id: ETranslations.transaction__transaction_confirm,
     });
-  }, [decodedTxs, intl, isBuildingDecodedTxs]);
+  }, [decodedTxs, intl]);
 
   const swapInfo = useMemo(() => {
     const swapTx = find(unsignedTxs, 'swapInfo');
