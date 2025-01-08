@@ -9,7 +9,7 @@ PODS:
     - CocoaLumberjack/Core (= 3.8.1)
   - CocoaLumberjack/Core (3.8.1)
   - DoubleConversion (1.1.6)
-  - EXApplication (5.8.4):
+  - EXApplication (5.8.3):
     - ExpoModulesCore
   - EXBarCodeScanner (12.9.3):
     - EXImageLoader
@@ -63,7 +63,7 @@ PODS:
     - ReactCommon/turbomodule/core
   - ExpoNativeExtensions (0.0.3):
     - ExpoModulesCore
-  - ExpoSecureStore (12.8.1):
+  - ExpoSecureStore (12.5.0):
     - ExpoModulesCore
   - ExpoSharing (11.10.0):
     - ExpoModulesCore
@@ -1731,7 +1731,7 @@ SPEC CHECKSUMS:
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
   DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
-  EXApplication: 16bcea16789221bd566e64b5ea2608cf7756b005
+  EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
   EXBarCodeScanner: d59fd943cebee3f913ebf4ffde0d05d344da8b78
   EXConstants: a5f6276e565d98f9eb4280f81241fc342d641590
   EXFont: f20669cb266ef48b004f1eb1f2b20db96cd1df9f
@@ -1753,7 +1753,7 @@ SPEC CHECKSUMS:
   ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
   ExpoModulesCore: 370096473359f5f6aade0871400d063333747719
   ExpoNativeExtensions: 6c442ddce49ea2d1780e56224b222e5b103193f1
-  ExpoSecureStore: c84ae37d1c36f38524d289c67c3a2e3fc56f1108
+  ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
   ExpoSharing: 752ad6ae2b693de9cd4e7fddb78297bdc658b815
   ExpoWebBrowser: e31c97230ea93b51a2a74c6c2381b0d4fca5698c
   EXScreenCapture: d23d01882ce614ba2a341f9fe4bf4a9559830d92
