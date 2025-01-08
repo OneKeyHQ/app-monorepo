@@ -68,7 +68,7 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
     const histories = data?.histories ?? [];
     const newHistories = histories.filter((i) =>
       txInfo.useOrderId
-        ? i.swapInfo.orderId !== txInfo.orderId
+        ? i.txInfo.orderId !== txInfo.orderId
         : i.txInfo.txId !== txInfo.txId,
     );
     await this.setRawData({ histories: newHistories });

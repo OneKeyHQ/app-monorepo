@@ -854,7 +854,7 @@ export default class ServiceSwap extends ServiceBase {
       if (
         !pre.swapHistoryPendingList.find((i) =>
           item.txInfo.useOrderId
-            ? i.swapInfo.orderId === item.swapInfo.orderId
+            ? i.txInfo.orderId === item.txInfo.orderId
             : i.txInfo.txId === item.txInfo.txId,
         )
       ) {
@@ -917,7 +917,7 @@ export default class ServiceSwap extends ServiceBase {
     const { swapHistoryPendingList } = await inAppNotificationAtom.get();
     const index = swapHistoryPendingList.findIndex((i) =>
       item.txInfo.useOrderId
-        ? i.swapInfo.orderId === item.swapInfo.orderId
+        ? i.txInfo.orderId === item.txInfo.orderId
         : i.txInfo.txId === item.txInfo.txId,
     );
     if (index !== -1) {
@@ -1018,7 +1018,7 @@ export default class ServiceSwap extends ServiceBase {
       ...pre,
       swapHistoryPendingList: pre.swapHistoryPendingList.filter((item) =>
         item.txInfo.useOrderId
-          ? item.swapInfo.orderId !== txInfo.orderId
+          ? item.txInfo.orderId !== txInfo.orderId
           : item.txInfo.txId !== txInfo.txId,
       ),
     }));
