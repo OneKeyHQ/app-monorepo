@@ -58,6 +58,7 @@ allprojects {
         resolutionStrategy {
             force 'androidx.compose.runtime:runtime:1.5.4'
             force 'androidx.compose.ui:ui:1.5.4'
+            force 'androidx.compose.ui:ui-tooling:1.5.4'
             force 'androidx.compose.foundation:foundation:1.5.4'
         }
     }

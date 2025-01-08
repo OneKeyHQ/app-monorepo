@@ -260,6 +260,7 @@ dependencies {
     implementation("org.bouncycastle:bcpg-jdk18on:1.77")
     implementation("androidx.compose.runtime:runtime:1.5.4")
     implementation("androidx.compose.ui:ui:1.5.4")
+    implementation("androidx.compose.ui:ui-tooling:1.5.4")
     implementation("androidx.compose.foundation:foundation:1.5.4")
 }
 
