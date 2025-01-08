@@ -2276,33 +2276,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@cowprotocol/contracts@npm:^1.6.0":
-  version: 1.7.0
-  resolution: "@cowprotocol/contracts@npm:1.7.0"
-  peerDependencies:
-    ethers: ^5.4.0
-  checksum: 10/a698a0ae70cfb63bb0aac1bc310b0070291dccbfaaa39e0b982145524983b572317aafd07cfdef0b5f95d669fcf0c3a5b0b9ab30fef2ea0e64edb58e5d677480
-  languageName: node
-  linkType: hard
-
-"@cowprotocol/cow-sdk@npm:^5.8.0":
-  version: 5.8.0
-  resolution: "@cowprotocol/cow-sdk@npm:5.8.0"
-  dependencies:
-    "@cowprotocol/contracts": "npm:^1.6.0"
-    "@ethersproject/abstract-signer": "npm:^5.7.0"
-    "@openzeppelin/merkle-tree": "npm:^1.0.5"
-    cross-fetch: "npm:^3.1.5"
-    exponential-backoff: "npm:^3.1.1"
-    graphql: "npm:^16.3.0"
-    graphql-request: "npm:^4.3.0"
-    limiter: "npm:^2.1.0"
-  peerDependencies:
-    ethers: ^5.7.2
-  checksum: 10/ca9ce848a61fd166792b465d3c3ee813696b15c8d2acbc8d6e37956b408345098104bc583c3c4ad285aee10218de7c3a4a9ccfcc3cd132dd9f200e35d3851fb3
-  languageName: node
-  linkType: hard
-
 "@develar/schema-utils@npm:~2.6.5":
   version: 2.6.5
   resolution: "@develar/schema-utils@npm:2.6.5"
@@ -6645,7 +6618,6 @@ __metadata:
     "@babel/plugin-proposal-private-property-in-object": "npm:^7.21.11"
     "@babel/preset-env": "npm:^7.22.9"
     "@benfen/bfc.js": "npm:0.2.7"
-    "@cowprotocol/cow-sdk": "npm:^5.8.0"
     "@emurgo/cardano-message-signing-nodejs": "npm:^1.0.1"
     "@emurgo/cardano-serialization-lib-nodejs": "npm:^11.5.0"
     "@expo/plist": "npm:^0.1.3"
@@ -7636,18 +7608,6 @@ __metadata:
   peerDependencies:
     "@opentelemetry/api": ^1.1.0
   checksum: 10/f887b4135be56c9ef6e29f040c9f75f34709e38c11897d59d284d7e73175a2dd2c6267c18061144e81a0045fc461b7813769db2e49c42a8d6becc58b1456d55c
-  languageName: node
-  linkType: hard
-
-"@openzeppelin/merkle-tree@npm:^1.0.5":
-  version: 1.0.7
-  resolution: "@openzeppelin/merkle-tree@npm:1.0.7"
-  dependencies:
-    "@ethersproject/abi": "npm:^5.7.0"
-    "@ethersproject/bytes": "npm:^5.7.0"
-    "@ethersproject/constants": "npm:^5.7.0"
-    "@ethersproject/keccak256": "npm:^5.7.0"
-  checksum: 10/f90bb5ac243ff3340a3be7a0583c054dc263089cad2187b976d9148633e373336efa400458d8037897e0716daa88f273bed7b822359f37f42b43309698f7692b
   languageName: node
   linkType: hard
 
@@ -23836,13 +23796,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"extract-files@npm:^9.0.0":
-  version: 9.0.0
-  resolution: "extract-files@npm:9.0.0"
-  checksum: 10/0ad2f94ef5d7b7da1e5c20428ca08d02d70654af8d3a2c9fd4c1af4c2498b4ab11b9d93f11755348d89d477ce18aa408f22b8875de22fa82d8f166a59a52b06c
-  languageName: node
-  linkType: hard
-
 "extract-zip@npm:^2.0.1":
   version: 2.0.1
   resolution: "extract-zip@npm:2.0.1"
@@ -25307,19 +25260,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql-request@npm:^4.3.0":
-  version: 4.3.0
-  resolution: "graphql-request@npm:4.3.0"
-  dependencies:
-    cross-fetch: "npm:^3.1.5"
-    extract-files: "npm:^9.0.0"
-    form-data: "npm:^3.0.0"
-  peerDependencies:
-    graphql: 14 - 16
-  checksum: 10/4e02366a9349b646b3503be19b02039a8886098cdb529c83e65bfad2ac91ca8194701ff8d0027014cc18a38c290d2f142c50cb75c9671a4fe98753df31d197ae
-  languageName: node
-  linkType: hard
-
 "graphql-tag@npm:^2.10.1":
   version: 2.12.6
   resolution: "graphql-tag@npm:2.12.6"
@@ -25338,7 +25278,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"graphql@npm:^15.5.0 || ^16.0.0 || ^17.0.0, graphql@npm:^16.3.0, graphql@npm:^16.8.1, graphql@npm:^16.9.0":
+"graphql@npm:^15.5.0 || ^16.0.0 || ^17.0.0, graphql@npm:^16.8.1, graphql@npm:^16.9.0":
   version: 16.9.0
   resolution: "graphql@npm:16.9.0"
   checksum: 10/5833f82bb6c31bec120bbf9cd400eda873e1bb7ef5c17974fa262cd82dc68728fda5d4cb859dc8aaa4c4fe4f6fe1103a9c47efc01a12c02ae5cb581d8e4029e2
@@ -28356,13 +28296,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"just-performance@npm:4.3.0":
-  version: 4.3.0
-  resolution: "just-performance@npm:4.3.0"
-  checksum: 10/5e5f0664f357d291aac9ccca6357b997254600f2d2dd429e9b63e058035c44b6b1c73dbae51f58af7918c0701db4b20d4f365ed61e77d87c92a0183efb77a72a
-  languageName: node
-  linkType: hard
-
 "jwt-decode@npm:^4.0.0":
   version: 4.0.0
   resolution: "jwt-decode@npm:4.0.0"
@@ -28745,15 +28678,6 @@ __metadata:
   version: 2.1.0
   resolution: "lilconfig@npm:2.1.0"
   checksum: 10/b1314a2e55319013d5e7d7d08be39015829d2764a1eaee130129545d40388499d81b1c31b0f9b3417d4db12775a88008b72ec33dd06e0184cf7503b32ca7cc0b
-  languageName: node
-  linkType: hard
-
-"limiter@npm:^2.1.0":
-  version: 2.1.0
-  resolution: "limiter@npm:2.1.0"
-  dependencies:
-    just-performance: "npm:4.3.0"
-  checksum: 10/d6292c2a576fe7c4664652a64d286cb3701dd18e1878e01207840d809c62ce6db46ec6ee5e2ab53d548cb56152d0aeeb8555e32fe9177fcb4b04983ef04f805e
   languageName: node
   linkType: hard
 
