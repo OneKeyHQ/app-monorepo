@@ -122,16 +122,16 @@ export function usePrimePayment(): IUsePrimePayment {
       }
 
       if (platformEnv.isNativeAndroid) {
-        if (platformEnv.isNativeAndroidGooglePlay) {
-          // TODO VPN required or device not support google play service
-          if (!(await googlePlayService.isAvailable())) {
-            throw new Error(
-              'Google Play Service is not available on this device',
-            );
-          }
-        } else {
-          throw new Error('Android web purchase not supported yet');
-        }
+        // if (platformEnv.isNativeAndroidGooglePlay) {
+        //   // TODO VPN required or device not support google play service
+        //   if (!(await googlePlayService.isAvailable())) {
+        //     throw new Error(
+        //       'Google Play Service is not available on this device',
+        //     );
+        //   }
+        // } else {
+        //   throw new Error('Android web purchase not supported yet');
+        // }
       }
 
       // const { packages } = await getPaywallPackagesNative();
