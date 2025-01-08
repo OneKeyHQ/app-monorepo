@@ -1,4 +1,4 @@
-import { decrypt, encrypt } from '../index';
+import { decrypt, encrypt } from '..';
 
 describe('Nostr Crypto Functions', () => {
   const testPrivateKey =
