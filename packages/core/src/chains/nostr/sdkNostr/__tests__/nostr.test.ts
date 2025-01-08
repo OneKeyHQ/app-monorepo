@@ -7,61 +7,68 @@ describe('Nostr Crypto Functions', () => {
     'a8b5e5163c1d78754dd9229a42047f3ff4b069b99868580da3bb915960e7e9d8';
   const testPlaintext = 'Hello, Nostr!';
 
-  it('should match snapshot for encryption', async () => {
+  it('should encrypt data with correct format', async () => {
     const encrypted = await encrypt(
       testPrivateKey,
       testPublicKey,
       testPlaintext,
     );
-    // Convert base64 parts to hex for consistent snapshots
     const [ciphertext, iv] = encrypted.split('?iv=');
-    const ciphertextBuffer = Buffer.from(ciphertext, 'base64');
+    
+    // Validate format
+    expect(encrypted).toMatch(/^[A-Za-z0-9+/]+=*\?iv=[A-Za-z0-9+/]+=*$/);
+    
+    // Validate IV length (16 bytes)
     const ivBuffer = Buffer.from(iv, 'base64');
-    expect({
-      ciphertext: ciphertextBuffer.toString('hex'),
-      iv: ivBuffer.toString('hex'),
-    }).toMatchSnapshot();
+    expect(ivBuffer.length).toBe(16);
+    
+    // Validate ciphertext is non-empty and base64
+    expect(ciphertext.length).toBeGreaterThan(0);
+    expect(() => Buffer.from(ciphertext, 'base64')).not.toThrow();
   });
 
-  it('should match snapshot for decryption', async () => {
+  it('should decrypt encrypted data correctly', async () => {
     const encrypted = await encrypt(
       testPrivateKey,
       testPublicKey,
       testPlaintext,
     );
     const decrypted = await decrypt(testPrivateKey, testPublicKey, encrypted);
-    // Convert UTF-8 string to hex for consistent snapshots
-    expect(Buffer.from(decrypted).toString('hex')).toMatchSnapshot();
+    expect(decrypted).toBe(testPlaintext);
   });
 
-  it('should match snapshot for round-trip encryption/decryption', async () => {
+  it('should perform round-trip encryption/decryption', async () => {
     const encrypted = await encrypt(
       testPrivateKey,
       testPublicKey,
       testPlaintext,
     );
     const decrypted = await decrypt(testPrivateKey, testPublicKey, encrypted);
-    expect({
-      input: Buffer.from(testPlaintext).toString('hex'),
-      output: Buffer.from(decrypted).toString('hex'),
-    }).toMatchSnapshot();
-  });
-
-  it('should validate encryption format', async () => {
-    const encrypted = await encrypt(
-      testPrivateKey,
-      testPublicKey,
-      testPlaintext,
-    );
+    expect(decrypted).toBe(testPlaintext);
+    
+    // Verify encrypted data format
+    expect(encrypted).toContain('?iv=');
     const [ciphertext, iv] = encrypted.split('?iv=');
+    expect(Buffer.from(iv, 'base64').length).toBe(16);
+    expect(ciphertext.length).toBeGreaterThan(0);
+  });
 
-    // Validate format and convert to hex for snapshot
-    expect({
-      format: 'base64+iv',
-      ciphertext: Buffer.from(ciphertext, 'base64').toString('hex'),
-      iv: Buffer.from(iv, 'base64').toString('hex'),
-      hasValidFormat:
-        encrypted.match(/^[A-Za-z0-9+/]+=*\?iv=[A-Za-z0-9+/]+=*$/) !== null,
-    }).toMatchSnapshot();
+  it('should generate unique IVs for each encryption', async () => {
+    const encrypted1 = await encrypt(
+      testPrivateKey,
+      testPublicKey,
+      testPlaintext,
+    );
+    const encrypted2 = await encrypt(
+      testPrivateKey,
+      testPublicKey,
+      testPlaintext,
+    );
+    
+    const [, iv1] = encrypted1.split('?iv=');
+    const [, iv2] = encrypted2.split('?iv=');
+    
+    // IVs should be different for each encryption
+    expect(iv1).not.toBe(iv2);
   });
 });
