@@ -53,7 +53,7 @@ const usePasswordProtection = (isLock: boolean) => {
         {
           cooldowntime: `${Math.floor(
             passwordErrorProtectionTimeMinutesSurplus,
-          )} Min`,
+          )}`,
         },
       );
     }
