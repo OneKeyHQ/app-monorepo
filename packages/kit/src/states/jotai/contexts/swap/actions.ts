@@ -1273,10 +1273,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       let balanceDisplay;
       if (
-        token &&
-        accountAddress &&
-        accountNetworkId &&
-        accountNetworkId === token?.networkId
+        (token &&
+          accountAddress &&
+          accountNetworkId &&
+          accountNetworkId === token?.networkId) ||
+        (!token?.price && token)
       ) {
         if (
           token.accountAddress === accountAddress &&
@@ -1315,40 +1316,49 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               balanceDisplay = balanceParsedBN.isNaN()
                 ? '0.0'
                 : balanceParsedBN.toFixed();
-              if (
-                detailInfo[0].price &&
-                detailInfo[0].fiatValue &&
-                detailInfo[0].balanceParsed
-              ) {
-                if (type === ESwapDirectionType.FROM) {
-                  set(swapSelectFromTokenAtom(), (pre) => {
-                    if (pre) {
-                      return {
-                        ...pre,
-                        price: detailInfo[0].price,
-                        fiatValue: detailInfo[0].fiatValue,
-                        balanceParsed: detailInfo[0].balanceParsed,
-                        reservationValue: detailInfo[0].reservationValue,
-                        logoURI: detailInfo[0].logoURI ?? pre.logoURI,
-                        accountAddress,
-                      };
-                    }
-                  });
-                } else {
-                  set(swapSelectToTokenAtom(), (pre) => {
-                    if (pre) {
-                      return {
-                        ...pre,
-                        price: detailInfo[0].price,
-                        fiatValue: detailInfo[0].fiatValue,
-                        balanceParsed: detailInfo[0].balanceParsed,
-                        reservationValue: detailInfo[0].reservationValue,
-                        logoURI: detailInfo[0].logoURI ?? pre.logoURI,
-                        accountAddress,
-                      };
-                    }
-                  });
-                }
+              const condition: {
+                price?: string;
+                fiatValue?: string;
+                balanceParsed?: string;
+                reservationValue?: string;
+                logoURI?: string;
+              } = {};
+              if (detailInfo[0].price) {
+                condition.price = detailInfo[0].price;
+              }
+              if (detailInfo[0].fiatValue) {
+                condition.fiatValue = detailInfo[0].fiatValue;
+              }
+              if (detailInfo[0].balanceParsed) {
+                condition.balanceParsed = detailInfo[0].balanceParsed;
+              }
+              if (detailInfo[0].reservationValue) {
+                condition.reservationValue = detailInfo[0].reservationValue;
+              }
+              if (detailInfo[0].logoURI) {
+                condition.logoURI = detailInfo[0].logoURI;
+              }
+
+              if (type === ESwapDirectionType.FROM) {
+                set(swapSelectFromTokenAtom(), (pre) => {
+                  if (pre) {
+                    return {
+                      ...pre,
+                      ...condition,
+                      accountAddress,
+                    };
+                  }
+                });
+              } else {
+                set(swapSelectToTokenAtom(), (pre) => {
+                  if (pre) {
+                    return {
+                      ...pre,
+                      ...condition,
+                      accountAddress,
+                    };
+                  }
+                });
               }
             }
           } catch (e: any) {
