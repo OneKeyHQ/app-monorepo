@@ -63,42 +63,46 @@ export function getPrivateEncodedByNip19(privateKey: Buffer) {
   return bech32.encode('nsec', words, 1000);
 }
 
-export function encrypt(
+export async function encrypt(
   privateKey: string,
   pubkey: string,
   plaintext: string,
-): string {
-  const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
-  const normalizedKey = key.slice(1, 33);
-  const iv = crypto.randomBytes(16);
+): Promise<string> {
+  return Promise.resolve().then(() => {
+    const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
+    const normalizedKey = key.slice(1, 33);
+    const iv = crypto.randomBytes(16);
 
-  const encrypted = AES_CBC.encrypt(
-    Buffer.from(plaintext),
-    normalizedKey,
-    true,
-    iv,
-  );
+    const encrypted = AES_CBC.encrypt(
+      Buffer.from(plaintext),
+      normalizedKey,
+      true,
+      iv,
+    );
 
-  return `${Buffer.from(encrypted).toString('base64')}?iv=${Buffer.from(
-    iv.buffer,
-  ).toString('base64')}`;
+    return `${Buffer.from(encrypted).toString('base64')}?iv=${Buffer.from(
+      iv.buffer,
+    ).toString('base64')}`;
+  });
 }
 
-export function decrypt(
+export async function decrypt(
   privateKey: string,
   pubkey: string,
   ciphertext: string,
-): string {
-  const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
-  const [cip, iv] = ciphertext.split('?iv=');
-  const normalizedKey = key.slice(1, 33);
-  const decrypted = AES_CBC.decrypt(
-    Buffer.from(cip, 'base64'),
-    normalizedKey,
-    true,
-    Buffer.from(iv, 'base64'),
-  );
-  return Buffer.from(decrypted).toString('utf-8');
+): Promise<string> {
+  return Promise.resolve().then(() => {
+    const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
+    const [cip, iv] = ciphertext.split('?iv=');
+    const normalizedKey = key.slice(1, 33);
+    const decrypted = AES_CBC.decrypt(
+      Buffer.from(cip, 'base64'),
+      normalizedKey,
+      true,
+      Buffer.from(iv, 'base64'),
+    );
+    return Buffer.from(decrypted).toString('utf-8');
+  });
 }
 
 export function signSchnorr(privateKey: string, sigHash: string): string {
