@@ -32,6 +32,8 @@ import { SignatureConfirmProviderMirror } from '../../components/SignatureConfir
 import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
 
 import type { RouteProp } from '@react-navigation/core';
+import { find } from 'lodash';
+import SwapInfo from '../../components/SwapInfo';
 
 function TxConfirm() {
   const route =
@@ -180,6 +182,11 @@ function TxConfirm() {
     });
   }, [decodedTxs, intl, isBuildingDecodedTxs]);
 
+  const swapInfo = useMemo(() => {
+    const swapTx = find(unsignedTxs, 'swapInfo');
+    return swapTx?.swapInfo;
+  }, [unsignedTxs]);
+
   const handleTxConfirmOnClose = useCallback(() => {
     dappApprove.reject();
   }, [dappApprove]);
@@ -206,10 +213,11 @@ function TxConfirm() {
       <>
         <SignatureConfirmAlert networkId={networkId} />
         <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
+        {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         <TxAdvancedSettings accountId={accountId} networkId={networkId} />
       </>
     );
-  }, [isBuildingDecodedTxs, decodedTxs, accountId, networkId]);
+  }, [isBuildingDecodedTxs, decodedTxs, networkId, accountId, swapInfo]);
 
   return (
     <Page scrollEnabled onClose={handleTxConfirmOnClose} safeAreaEnabled>

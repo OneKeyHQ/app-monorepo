@@ -9,10 +9,29 @@ function SignatureConfirmItemValue(props: ISizableTextProps) {
   return <SizableText size="$bodyMd" {...props} />;
 }
 
-type ISignatureConfirmItemType = IYStackProps;
+type ISignatureConfirmItemType = IYStackProps & {
+  compact?: boolean;
+  compactAll?: boolean;
+};
 
 function SignatureConfirmItem(props: ISignatureConfirmItemType) {
-  return <YStack gap="$1" {...props} />;
+  const { compact, compactAll, ...rest } = props;
+  return (
+    <YStack
+      gap="$1"
+      flex={1}
+      flexBasis="100%"
+      {...(compact && {
+        $gtMd: {
+          flexBasis: '50%',
+        },
+      })}
+      {...(compactAll && {
+        flexBasis: '50%',
+      })}
+      {...rest}
+    />
+  );
 }
 
 SignatureConfirmItem.Label = SignatureConfirmItemLabel;

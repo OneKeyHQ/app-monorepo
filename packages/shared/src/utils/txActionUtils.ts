@@ -10,8 +10,16 @@ import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 
-import type { ITransactionDisplay } from '../../types/signatureConfirm';
+import {
+  EParseTxComponentType,
+  IDisplayComponent,
+  IDisplayComponentAddress,
+  type IDisplayComponentNetwork,
+  type ITransactionDisplay,
+} from '../../types/signatureConfirm';
 import type { ISwapTxInfo } from '../../types/swap/types';
+import { IUnsignedTx } from '@onekeyhq/core/src/types';
+import { action } from 'webextension-polyfill';
 
 export function buildTxActionDirection({
   from,
@@ -197,12 +205,57 @@ export function getStakingActionLabel({
   }
 }
 
+export function convertAddressToSignatureConfirmAddress({
+  address,
+  label,
+}: {
+  address: string;
+  label?: string;
+}): IDisplayComponentAddress {
+  return {
+    type: EParseTxComponentType.Address,
+    label:
+      label ??
+      appLocale.intl.formatMessage({
+        id: ETranslations.copy_address_modal_title,
+      }),
+    address,
+    tags: [],
+  };
+}
+
+export function convertNetworkToSignatureConfirmNetwork({
+  networkId,
+  label,
+}: {
+  networkId: string;
+  label?: string;
+}): IDisplayComponentNetwork {
+  return {
+    type: EParseTxComponentType.Network,
+    label:
+      label ??
+      appLocale.intl.formatMessage({
+        id: ETranslations.network__network,
+      }),
+    networkId,
+  };
+}
+
 export function convertDecodedTxActionsToSignatureConfirmTxDisplay({
   decodedTx,
+  isMultiTxs,
+  unsignedTx,
 }: {
   decodedTx: IDecodedTx;
+  unsignedTx: IUnsignedTx;
+  isMultiTxs?: boolean;
 }): ITransactionDisplay {
   const { actions } = decodedTx;
+
+  const components: IDisplayComponent[] = [];
+
+  
 
   return {
     title: '',
