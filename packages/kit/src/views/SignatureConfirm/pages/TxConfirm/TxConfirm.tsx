@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, Skeleton } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -35,6 +35,7 @@ import type { RouteProp } from '@react-navigation/core';
 import { find } from 'lodash';
 import SwapInfo from '../../components/SwapInfo';
 import StakingInfo from '../../components/StakingInfo';
+import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 
 function TxConfirm() {
   const route =
@@ -163,7 +164,7 @@ function TxConfirm() {
   ]);
 
   const txConfirmTitle = useMemo(() => {
-    if (isBuildingDecodedTxs && !decodedTxsInit.current) {
+    if ((!decodedTxs || decodedTxs.length === 0) && !decodedTxsInit.current) {
       return '';
     }
 
@@ -210,7 +211,7 @@ function TxConfirm() {
 
   const renderTxConfirmContent = useCallback(() => {
     if ((isBuildingDecodedTxs || !decodedTxs) && !decodedTxsInit.current) {
-      return <Skeleton height="$3" width="$12" />;
+      return <SignatureConfirmLoading />;
     }
 
     return (

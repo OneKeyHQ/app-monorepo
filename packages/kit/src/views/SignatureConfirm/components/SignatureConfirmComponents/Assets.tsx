@@ -25,6 +25,8 @@ import type {
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 type IAssetsCommonProps = {
   networkId: string;
@@ -159,6 +161,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
   const { token } = component;
   const { updateTokenApproveInfo } = useSignatureConfirmActions().current;
   const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
+  const intl = useIntl();
 
   useEffect(() => {
     updateTokenApproveInfo({
@@ -176,7 +179,13 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
     <SignatureAssetDetailItem
       isLoading={isBuildingDecodedTxs}
       label={component.label}
-      amount={component.amountParsed}
+      amount={
+        component.isInfiniteAmount
+          ? intl.formatMessage({
+              id: ETranslations.swap_page_provider_approve_amount_un_limit,
+            })
+          : component.amountParsed
+      }
       symbol={component.token.info.symbol}
       tokenProps={{
         tokenImageUri: component.token.info.logoURI,
