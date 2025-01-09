@@ -26,6 +26,7 @@ import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EModalRoutes,
   EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -141,8 +142,8 @@ function TokenDetailsHeader(props: IProps) {
   const handleOnBridge = createSwapActionHandler(ESwapTabSwitchType.BRIDGE);
 
   const handleSendPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendDataInput,
+    navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+      screen: EModalSignatureConfirmRoutes.TxDataInput,
       params: {
         networkId,
         accountId,

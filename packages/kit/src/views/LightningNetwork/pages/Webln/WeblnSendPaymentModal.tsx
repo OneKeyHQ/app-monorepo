@@ -8,7 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
@@ -39,7 +39,7 @@ function WeblnSendPaymentModal() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
-  const sendConfirm = useSendConfirm({ accountId, networkId });
+  const signatureConfirm = useSignatureConfirm({ accountId, networkId });
 
   const {
     showContinueOperate,
@@ -118,7 +118,7 @@ function WeblnSendPaymentModal() {
             ...transferInfo,
           },
         ];
-        await sendConfirm.normalizeSendConfirm({
+        await signatureConfirm.normalizeSignatureConfirm({
           transfersInfo,
           sameModal: true,
           onSuccess: () => {
@@ -154,7 +154,7 @@ function WeblnSendPaymentModal() {
       isLoading,
       dappApprove,
       useFormReturn,
-      sendConfirm,
+      signatureConfirm,
       paymentRequest,
       paymentHash,
     ],

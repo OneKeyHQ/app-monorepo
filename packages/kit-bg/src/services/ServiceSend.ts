@@ -21,11 +21,9 @@ import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
-import type {
-  ESendPreCheckTimingEnum,
-  IParseTransactionResp,
-} from '@onekeyhq/shared/types/send';
+import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,

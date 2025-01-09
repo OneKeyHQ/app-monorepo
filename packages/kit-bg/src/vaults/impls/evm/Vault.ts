@@ -243,7 +243,7 @@ export default class Vault extends VaultBase {
         icon: network.logoURI ?? '',
       },
     };
-    let isToContract: boolean | undefined;
+    let isToContract: boolean | undefined = params.isToContract;
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {
@@ -270,19 +270,6 @@ export default class Vault extends VaultBase {
               encodedTx,
             });
         }
-      }
-
-      try {
-        const parseResult =
-          await this.backgroundApi.serviceSend.parseTransaction({
-            accountId: this.accountId,
-            networkId: this.networkId,
-            encodedTx,
-            accountAddress,
-          });
-        isToContract = parseResult.parsedTx.to.isContract;
-      } catch (e) {
-        // ignore
       }
 
       if (

@@ -44,6 +44,7 @@ import bs58 from 'bs58';
 import { isEmpty, isNil } from 'lodash';
 
 import type {
+  IDecodedTxExtraSol,
   IEncodedTxSol,
   INativeTxSol,
 } from '@onekeyhq/core/src/chains/sol/types';
@@ -720,54 +721,27 @@ export default class Vault extends VaultBase {
       });
     }
 
-    // to be consistent with onChain tx,
-    // also filter create token account instruction when saving tx locally
+    let extraInfo: IDecodedTxExtraSol | null = null;
     if (
-      !saveToLocalHistory &&
       !unsignedTx.swapInfo &&
       instructions.some(
         (instruction) =>
           instruction.programId.toString() ===
           ASSOCIATED_TOKEN_PROGRAM_ID.toString(),
-      )
+      ) &&
+      actions[0].assetTransfer
     ) {
-      if (actions[0].assetTransfer) {
-        const nativeToken =
-          await this.backgroundApi.serviceToken.getNativeToken({
-            accountId: this.accountId,
-            networkId: this.networkId,
-          });
-        const network = await this.getNetwork();
-        if (nativeToken) {
-          actions[0].assetTransfer.sends.push({
-            from: actions[0].assetTransfer.from,
-            to: actions[0].assetTransfer.to,
-            amount: CREATE_TOKEN_ACCOUNT_RENT,
-            icon: nativeToken.logoURI ?? '',
-            name: nativeToken.name,
-            symbol: nativeToken.symbol,
-            tokenIdOnNetwork: nativeToken.address,
-            isNFT: false,
-            isNative: true,
-          });
-          actions[0].assetTransfer.nativeAmount = new BigNumber(
-            actions[0].assetTransfer.nativeAmount ?? '0',
-          )
-            .plus(CREATE_TOKEN_ACCOUNT_RENT)
-            .toFixed();
-
-          actions[0].assetTransfer.nativeAmountValue = new BigNumber(
-            actions[0].assetTransfer.nativeAmountValue ?? '0',
-          )
-            .plus(
-              chainValueUtils.convertAmountToChainValue({
-                value: CREATE_TOKEN_ACCOUNT_RENT,
-                network,
-              }),
-            )
-            .toFixed();
-        }
-      }
+      const network = await this.getNetwork();
+      extraInfo = {
+        createTokenAccountFee: {
+          amount: CREATE_TOKEN_ACCOUNT_RENT,
+          amountValue: chainValueUtils.convertAmountToChainValue({
+            value: CREATE_TOKEN_ACCOUNT_RENT,
+            network: await this.getNetwork(),
+          }),
+          symbol: network.symbol,
+        },
+      };
     }
 
     const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
@@ -791,7 +765,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
 
-      extraInfo: null,
+      extraInfo,
       encodedTx,
     };
 

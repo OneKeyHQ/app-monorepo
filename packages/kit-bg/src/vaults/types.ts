@@ -531,6 +531,7 @@ export interface IBuildDecodedTxParams {
   feeInfo?: ISendSelectedFeeInfo;
   transferPayload?: ITransferPayload;
   saveToLocalHistory?: boolean;
+  isToContract?: boolean;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
