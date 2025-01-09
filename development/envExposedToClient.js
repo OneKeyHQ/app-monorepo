@@ -28,6 +28,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'REVENUECAT_API_KEY_APPLE',
     'REVENUECAT_API_KEY_GOOGLE',
   ];
+  // ***        also update Inject Environment Variables at release-ios.yml, release-android      ***
 
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnvironmentVariables.push('JPUSH_KEY');

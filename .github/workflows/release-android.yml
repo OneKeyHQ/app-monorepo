@@ -97,6 +97,12 @@ jobs:
           echo "NO_FLIPPER=1" >> .env.expo
           echo "SENTRY_DISABLE_AUTO_UPLOAD=false" >> .env.expo
           echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> .env.expo
+          echo "PRIVY_APP_ID=${{ env.PRIVY_APP_ID }}" >> .env.expo
+          echo "PRIVY_MOBILE_CLIENT_ID=${{ env.PRIVY_MOBILE_CLIENT_ID }}" >> .env.expo
+          echo "REVENUECAT_API_KEY_WEB=${{ env.REVENUECAT_API_KEY_WEB }}" >> .env.expo
+          echo "REVENUECAT_API_KEY_WEB_SANDBOX=${{ env.REVENUECAT_API_KEY_WEB_SANDBOX }}" >> .env.expo
+          echo "REVENUECAT_API_KEY_APPLE=${{ env.REVENUECAT_API_KEY_APPLE }}" >> .env.expo
+          echo "REVENUECAT_API_KEY_GOOGLE=${{ env.REVENUECAT_API_KEY_GOOGLE }}" >> .env.expo
       
       - name: Write .sentry.properties
         run: |

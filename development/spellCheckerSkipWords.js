@@ -20,6 +20,7 @@ module.exports = [
   'hdk',
   'Captcha',
   'Resending',
+  'yml',
   'captcha',
   'dkey',
   'impls',

@@ -58,7 +58,7 @@ export function KitProvider(props: any = {}) {
     Inter_600SemiBold,
   });
 
-  return (
+  const content = (
     <SafeAreaProvider>
       <PrivyProvider>
         <GlobalJotaiReady>
@@ -81,4 +81,6 @@ export function KitProvider(props: any = {}) {
       </PrivyProvider>
     </SafeAreaProvider>
   );
+
+  return content;
 }
