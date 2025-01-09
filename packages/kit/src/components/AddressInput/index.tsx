@@ -230,6 +230,7 @@ type IAddressInputProps = Omit<
   enableAddressContract?: boolean;
   enableAddressInteractionStatus?: boolean; // for check address interaction
   enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
+  enableAddressNotAllowList?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
 };
@@ -245,6 +246,7 @@ export type IAddressQueryResult = {
   addressInteractionStatus?: IAddressInteractionStatus;
   isContract?: boolean;
   isAllowListed?: boolean;
+  isEnableTransferAllowList?: boolean;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -335,6 +337,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAddressNotAllowList,
     onInputTypeChange,
     ...rest
   } = props;
@@ -402,6 +405,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableWalletName,
       enableVerifySendFundToSelf,
       enableAddressContract,
+      enableAddressNotAllowList,
     });
   }, [
     inputText,
@@ -413,6 +417,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAddressNotAllowList,
     refreshNum,
     queryAddress,
   ]);
@@ -432,6 +437,9 @@ export function AddressInput(props: IAddressInputProps) {
         }),
         'invalid': intl.formatMessage({
           id: ETranslations.send_address_invalid,
+        }),
+        'address-not-allowlist': intl.formatMessage({
+          id: ETranslations.send_address_not_allowlist_error,
         }),
       };
       return message[status];

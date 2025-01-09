@@ -248,11 +248,15 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAddressNotAllowList,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
-    const { serviceValidator } = this.backgroundApi;
+    const { serviceValidator, serviceSetting } = this.backgroundApi;
+
     const address = rawAddress.trim();
-    const result: IAddressQueryResult = { input: rawAddress };
+    const result: IAddressQueryResult = {
+      input: rawAddress,
+    };
     if (!networkId) {
       return result;
     }
@@ -298,6 +302,16 @@ class ServiceAccountProfile extends ServiceBase {
       result.addressBookName = addressBookItem?.name;
       result.isAllowListed = addressBookItem?.isAllowListed;
     }
+
+    if (enableAddressNotAllowList) {
+      const isEnableTransferAllowList =
+        await serviceSetting.getIsEnableTransferAllowList();
+      if (isEnableTransferAllowList && !result.isAllowListed) {
+        result.validStatus = 'address-not-allowlist';
+        return result;
+      }
+    }
+
     if (enableWalletName && resolveAddress) {
       // handleWalletAccountName
       const walletAccountItems =

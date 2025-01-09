@@ -55,9 +55,9 @@ const SettingProtectionModal = () => {
           >
             <Switch
               size={ESwitchSize.small}
-              value={settings.transferAllowlist ?? true}
+              value={settings.transferAllowList ?? true}
               onChange={async (value) => {
-                setSettings((v) => ({ ...v, transferAllowlist: !!value }));
+                setSettings((v) => ({ ...v, transferAllowList: !!value }));
               }}
             />
           </ListItem>
