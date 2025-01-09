@@ -174,9 +174,11 @@ const ProtocolDetailsPage = () => {
       amount: string;
       claimTokenAddress?: string;
       isReward?: boolean;
+      isMorphoClaim?: boolean;
     }) => {
       if (!result) return;
-      const { amount, claimTokenAddress, isReward } = params ?? {};
+      const { amount, claimTokenAddress, isReward, isMorphoClaim } =
+        params ?? {};
       let claimTokenInfo = { token: result.token.info, amount: amount ?? '0' };
       if (claimTokenAddress) {
         const rewardToken = result.rewardAssets?.[claimTokenAddress];
@@ -191,6 +193,7 @@ const ProtocolDetailsPage = () => {
         claimAmount: claimTokenInfo.amount,
         claimTokenAddress,
         isReward,
+        isMorphoClaim,
         details: result,
         stakingInfo: {
           label: EEarnLabels.Claim,

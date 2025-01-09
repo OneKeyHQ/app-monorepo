@@ -1,7 +1,11 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showMorphoClaimDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showMorphoClaimDialog';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IStakeProtocolDetails,
@@ -17,6 +21,7 @@ export const useHandleClaim = ({
   accountId?: string;
   networkId: string;
 }) => {
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const handleUniversalClaim = useUniversalClaim({
     networkId,
@@ -29,6 +34,7 @@ export const useHandleClaim = ({
       claimAmount,
       claimTokenAddress,
       isReward,
+      isMorphoClaim,
       provider,
       stakingInfo,
       onSuccess,
@@ -38,6 +44,7 @@ export const useHandleClaim = ({
       claimAmount: string;
       claimTokenAddress?: string;
       isReward?: boolean;
+      isMorphoClaim?: boolean;
       details?: IStakeProtocolDetails;
       stakingInfo?: IStakingInfo;
       onSuccess?: () => void;
@@ -59,6 +66,26 @@ export const useHandleClaim = ({
           provider,
           stakingInfo,
           claimTokenAddress,
+        });
+        return;
+      }
+      if (isMorphoClaim) {
+        showMorphoClaimDialog({
+          title: intl.formatMessage({
+            id: ETranslations.earn_claim_rewards,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.earn_claim_rewards_morpho_desc,
+          }),
+          onConfirm: async () => {
+            await handleUniversalClaim({
+              amount: claimAmount,
+              symbol,
+              provider,
+              stakingInfo,
+              claimTokenAddress,
+            });
+          },
         });
         return;
       }
@@ -93,6 +120,6 @@ export const useHandleClaim = ({
         stakingInfo,
       });
     },
-    [appNavigation, accountId, networkId, handleUniversalClaim],
+    [appNavigation, accountId, networkId, handleUniversalClaim, intl],
   );
 };

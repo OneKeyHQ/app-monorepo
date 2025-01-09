@@ -149,6 +149,7 @@ type IPortfolioInfoProps = {
     amount: string;
     claimTokenAddress?: string;
     isReward?: boolean;
+    isMorphoClaim?: boolean;
   }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
@@ -405,7 +406,7 @@ function PortfolioInfo({
                     onPress={() =>
                       onClaim?.({
                         amount,
-                        isReward: true,
+                        isMorphoClaim: true,
                         claimTokenAddress: rewardTokenAddress,
                       })
                     }
