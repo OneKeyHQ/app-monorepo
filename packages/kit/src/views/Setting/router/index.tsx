@@ -90,8 +90,7 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingListModal,
     component: SettingListModal,
-    rewrite: '/settings',
-    exact: true,
+    rewrite: '/',
   },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
