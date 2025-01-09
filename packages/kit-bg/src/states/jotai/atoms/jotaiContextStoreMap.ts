@@ -17,6 +17,7 @@ export enum EJotaiContextStoreNames {
   universalSearch = 'universalSearch',
   earn = 'earn',
   sendConfirm = 'sendConfirm',
+  signatureConfirm = 'signatureConfirm',
 }
 export type IJotaiContextStoreData = {
   storeName: EJotaiContextStoreNames;

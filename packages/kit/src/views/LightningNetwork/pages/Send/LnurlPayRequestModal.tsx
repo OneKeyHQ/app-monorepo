@@ -8,7 +8,7 @@ import { Page, Toast, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
 import { isLightningAddress } from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/lnurl';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -61,7 +61,7 @@ function LnurlPayRequestModal() {
   }, [lnurlDetails?.url]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const sendConfirm = useSendConfirm({ accountId, networkId });
+  const signatureConfirm = useSignatureConfirm({ accountId, networkId });
 
   const {
     showContinueOperate,
@@ -157,7 +157,7 @@ function LnurlPayRequestModal() {
               : undefined,
           },
         ];
-        await sendConfirm.normalizeSendConfirm({
+        await signatureConfirm.normalizeSignatureConfirm({
           transfersInfo: newTransfersInfo,
           sameModal: true,
           onSuccess: () => {
@@ -200,7 +200,7 @@ function LnurlPayRequestModal() {
       transfersInfo,
       dappApprove,
       intl,
-      sendConfirm,
+      signatureConfirm,
       routeParams.isSendFlow,
     ],
   );
