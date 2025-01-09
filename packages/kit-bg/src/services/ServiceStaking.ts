@@ -364,6 +364,7 @@ class ServiceStaking extends ServiceBase {
       accountId: accountId ?? '',
       networkId,
       indexedAccountId,
+      btcOnlyTaproot: true,
     });
     if (account?.accountAddress) {
       requestParams.accountAddress = account.accountAddress;
@@ -425,6 +426,7 @@ class ServiceStaking extends ServiceBase {
         accountId: params.accountId,
         networkId: params.networkId,
         indexedAccountId: params.indexedAccountId,
+        btcOnlyTaproot: true,
       });
       if (earnAccount) {
         listParams.networkId = earnAccount.networkId;
@@ -799,8 +801,9 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
     indexedAccountId?: string;
+    btcOnlyTaproot?: boolean;
   }) {
-    const { accountId, networkId, indexedAccountId } = params;
+    const { accountId, networkId, indexedAccountId, btcOnlyTaproot } = params;
     if (!accountId && !indexedAccountId) {
       return null;
     }
@@ -822,6 +825,7 @@ class ServiceStaking extends ServiceBase {
       }
       if (
         networkUtils.isBTCNetwork(networkId) &&
+        btcOnlyTaproot &&
         !isTaprootAddress(account?.address)
       ) {
         return null;
@@ -845,7 +849,7 @@ class ServiceStaking extends ServiceBase {
         });
       let deriveType = globalDeriveType;
       // only support taproot for earn
-      if (networkUtils.isBTCNetwork(networkId)) {
+      if (networkUtils.isBTCNetwork(networkId) && btcOnlyTaproot) {
         deriveType = 'BIP86';
       }
       const networkAccount =
