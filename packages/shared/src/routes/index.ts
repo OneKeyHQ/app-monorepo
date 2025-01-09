@@ -35,3 +35,4 @@ export * from './tabMarket';
 export * from './staking';
 export * from './walletAddress';
 export * from './tabEarn';
+export * from './signatureConfirm';

@@ -55,6 +55,7 @@ import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
@@ -177,4 +178,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNostr: ServiceNostr;
   serviceUniversalSearch: ServiceUniversalSearch;
   serviceStaking: ServiceStaking;
+  serviceSignatureConfirm: ServiceSignatureConfirm;
 }

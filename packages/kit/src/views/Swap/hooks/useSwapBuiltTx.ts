@@ -36,7 +36,7 @@ import {
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useSendConfirm } from '../../../hooks/useSendConfirm';
+import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
@@ -78,7 +78,7 @@ export function useSwapBuildTx() {
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const [, setSettings] = useSettingsAtom();
-  const { navigationToSendConfirm } = useSendConfirm({
+  const { navigationToSignatureConfirm } = useSignatureConfirm({
     accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
     networkId: swapFromAddressInfo.networkId ?? '',
   });
@@ -335,7 +335,7 @@ export function useSwapBuildTx() {
         receivingAddress: swapToAddressInfo.address,
         swapBuildResData: { result: selectQuote },
       };
-      await navigationToSendConfirm({
+      await navigationToSignatureConfirm({
         wrappedInfo,
         swapInfo,
         isInternalSwap: true,
@@ -357,7 +357,7 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     setSwapBuildTxFetching,
-    navigationToSendConfirm,
+    navigationToSignatureConfirm,
     handleBuildTxSuccess,
     handleTxFail,
     syncRecentTokenPairs,
@@ -577,7 +577,7 @@ export function useSwapBuildTx() {
             }
             const createBuildTxRes = await createBuildTx();
             if (createBuildTxRes) {
-              await navigationToSendConfirm({
+              await navigationToSignatureConfirm({
                 isInternalSwap: true,
                 transfersInfo: createBuildTxRes.transferInfo
                   ? [createBuildTxRes.transferInfo]
@@ -650,7 +650,7 @@ export function useSwapBuildTx() {
                 resetApproveIsMax: isMax,
               },
             }));
-            await navigationToSendConfirm({
+            await navigationToSignatureConfirm({
               approvesInfo: [approveInfo],
               isInternalSwap: true,
               onSuccess: handleApproveTxSuccess,
@@ -672,14 +672,14 @@ export function useSwapBuildTx() {
       isBatchTransfer,
       setSwapBuildTxFetching,
       createBuildTx,
-      navigationToSendConfirm,
+      navigationToSignatureConfirm,
+      handleBuildTxSuccess,
       cancelBuildTx,
       syncRecentTokenPairs,
       slippageItem.value,
       isFirstTimeSwap,
       pageType,
       setPersistSettings,
-      handleBuildTxSuccess,
       setSwapShouldRefreshQuote,
       setInAppNotificationAtom,
       handleApproveTxSuccess,
@@ -702,7 +702,7 @@ export function useSwapBuildTx() {
       const createBuildTxRes = await createBuildTx();
       try {
         if (createBuildTxRes) {
-          await navigationToSendConfirm({
+          await navigationToSignatureConfirm({
             isInternalSwap: true,
             transfersInfo: createBuildTxRes.transferInfo
               ? [createBuildTxRes.transferInfo]
@@ -758,7 +758,7 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     setSwapBuildTxFetching,
     createBuildTx,
-    navigationToSendConfirm,
+    navigationToSignatureConfirm,
     handleBuildTxSuccess,
     cancelBuildTx,
     syncRecentTokenPairs,
