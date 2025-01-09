@@ -1193,12 +1193,17 @@ function SendDataInputContainer() {
     navigation.push(EModalSettingRoutes.SettingProtectModal);
   }, [navigation]);
 
+  const isEnableTransferAllowList = useMemo(
+    () => settings.transferAllowList ?? true,
+    [settings.transferAllowList],
+  );
   const renderHeaderRight = useCallback(
     () => (
       <HeaderIconButton
         key="allowList"
         titlePlacement="bottom"
-        icon="SettingsOutline"
+        color="$iconSuccess"
+        icon="ShieldCheckDoneSolid"
         testID="setting"
         onPress={navigateToSettingProtection}
       />
@@ -1210,7 +1215,7 @@ function SendDataInputContainer() {
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
-        headerRight={renderHeaderRight}
+        headerRight={isEnableTransferAllowList ? renderHeaderRight : undefined}
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
