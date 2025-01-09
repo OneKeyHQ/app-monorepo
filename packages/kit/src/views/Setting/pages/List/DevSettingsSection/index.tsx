@@ -311,6 +311,9 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem name="showPrimeTest" title="开启 Prime" subtitle="">
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
 
       <ListItem
         title="Bg Api 可序列化检测"

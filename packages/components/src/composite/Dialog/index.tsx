@@ -526,13 +526,17 @@ export function DialogLoadingView({
   );
 }
 
-function dialogLoading(props: { title: string }) {
+export type IDialogLoadingProps = {
+  title: string;
+  showExitButton?: boolean;
+};
+function dialogLoading(props: IDialogLoadingProps) {
   return dialogShow({
     ...props,
     dismissOnOverlayPress: false,
     // disableSwipeGesture: true,
     disableDrag: true,
-    showExitButton: false,
+    showExitButton: props.showExitButton ?? false,
     showFooter: false,
     showConfirmButton: false,
     showCancelButton: false,

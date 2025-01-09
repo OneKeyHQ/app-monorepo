@@ -19,6 +19,7 @@ import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
@@ -75,6 +76,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     },
   },
   onboardingRouterConfig,
+  {
+    name: EModalRoutes.PrimeModal,
+    children: PrimeRouter,
+  },
   {
     name: EModalRoutes.FirmwareUpdateModal,
     children: ModalFirmwareUpdateStack,

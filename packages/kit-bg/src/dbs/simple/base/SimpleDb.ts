@@ -26,6 +26,7 @@ import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
+import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -35,6 +36,8 @@ import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversal
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 
 export class SimpleDb {
+  prime = new SimpleDbEntityPrime();
+
   browserTabs = new SimpleDbEntityBrowserTabs();
 
   browserBookmarks = new SimpleDbEntityBrowserBookmarks();

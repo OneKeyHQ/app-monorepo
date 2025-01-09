@@ -45,6 +45,7 @@ import type ServiceNostr from '../services/ServiceNostr';
 import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
+import type ServicePrime from '../services/ServicePrime';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
@@ -154,6 +155,8 @@ class BackgroundApiProxy
   serviceNotification = this._createProxyService(
     'serviceNotification',
   ) as ServiceNotification;
+
+  servicePrime = this._createProxyService('servicePrime') as ServicePrime;
 
   serviceQrWallet = this._createProxyService(
     'serviceQrWallet',

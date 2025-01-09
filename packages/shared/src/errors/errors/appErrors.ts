@@ -142,6 +142,19 @@ export class PasswordPromptDialogCancel extends OneKeyError {
   override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
 }
 
+export class PrimeLoginDialogCancelError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeLoginDialogCancelError',
+        defaultKey: ETranslations.global_cancel,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PrimeLoginDialogCancelError;
+}
+
 export class FailedToTransfer extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
