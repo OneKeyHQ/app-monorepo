@@ -43,7 +43,7 @@ export type IStakeProviderInfo = {
   nextLaunchLeft?: string;
 
   lidoStTokenRate?: string;
-  type?: 'native' | 'liquid';
+  type?: 'native' | 'liquid' | 'lending';
   isStaking?: boolean;
 
   unstakingTime?: number;
