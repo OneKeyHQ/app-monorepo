@@ -6,10 +6,11 @@ import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+
 import { usePrimeAuth } from './usePrimeAuth';
 
 import type { CustomerInfo, Package } from '@revenuecat/purchases-js';
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
 export function usePrimePayment(): IUsePrimePayment {
@@ -49,6 +50,11 @@ export function usePrimePayment(): IUsePrimePayment {
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
     console.log('customerInfo >>>>>> ', user?.privyUserId, customerInfo);
+
+    const appUserId = Purchases.getSharedInstance().getAppUserId();
+    if (appUserId !== user?.privyUserId) {
+      throw new Error('AppUserId not match');
+    }
 
     setPrimePersistAtom((prev) => {
       const newData: IPrimeUserInfo = {
