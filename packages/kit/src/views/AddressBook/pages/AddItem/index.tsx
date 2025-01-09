@@ -16,6 +16,7 @@ const defaultValues: IAddressItem = {
   name: '',
   address: '',
   networkId: getNetworkIdsMap().btc,
+  isAllowListed: false,
 };
 
 const AddItemPage = () => {

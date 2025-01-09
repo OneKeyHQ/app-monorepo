@@ -2,13 +2,20 @@ import { type FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type {
+  ICheckboxProps,
+  ICheckedState,
+  ISizableTextProps,
+} from '@onekeyhq/components';
 import {
+  Checkbox,
   Form,
   Icon,
   IconButton,
   Input,
   Page,
   SizableText,
+  Stack,
   XStack,
   useForm,
 } from '@onekeyhq/components';
@@ -48,6 +55,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
       networkId: item.networkId,
       name: item.name,
       address: { raw: item.address, resolved: '' } as IAddressInputValue,
+      isAllowListed: item.isAllowListed,
     },
     mode: 'onChange',
     reValidateMode: 'onChange',
@@ -76,6 +84,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
         name: values.name,
         networkId: values.networkId,
         address: values.address.resolved ?? '',
+        isAllowListed: values.isAllowListed ?? false,
       });
     },
     [onSubmit],
@@ -206,18 +215,46 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
           </Form.Field>
         </Form>
       </Page.Body>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.address_book_add_address_button_save,
-        })}
-        confirmButtonProps={{
-          variant: 'primary',
-          loading: form.formState.isSubmitting,
-          disabled: !form.formState.isValid || pending,
-          onPress: form.handleSubmit(onSave),
-          testID: 'address-form-save',
-        }}
-      />
+      <Page.Footer>
+        <Stack
+          flexDirection="column"
+          $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
+        >
+          <Form form={form}>
+            <XStack px="$5">
+              <Form.Field name="isAllowListed">
+                <Checkbox
+                  containerProps={{
+                    flex: 1,
+                  }}
+                  label={intl.formatMessage({
+                    id: ETranslations.adress_book_add_address_add_to_allowlist,
+                  })}
+                  labelProps={
+                    {
+                      size: '$bodyLgMedium',
+                    } as const
+                  }
+                />
+              </Form.Field>
+            </XStack>
+          </Form>
+          <XStack mx="$5" />
+          <Page.FooterActions
+            flex={1}
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.address_book_add_address_button_save,
+            })}
+            confirmButtonProps={{
+              variant: 'primary',
+              loading: form.formState.isSubmitting,
+              disabled: !form.formState.isValid || pending,
+              onPress: form.handleSubmit(onSave),
+              testID: 'address-form-save',
+            }}
+          />
+        </Stack>
+      </Page.Footer>
     </Page>
   );
 };

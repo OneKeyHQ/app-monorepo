@@ -36,6 +36,7 @@ export const ListItemIconButton = ({ item }: IListItemIconButtonProps) => {
                 name: item.name,
                 address: item.address,
                 networkId: item.networkId,
+                isAllowListed: item.isAllowListed,
               });
             }
           },
