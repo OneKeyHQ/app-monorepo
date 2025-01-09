@@ -13,6 +13,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
+  useDecodedTxsAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
   usePreCheckTxStatusAtom,
@@ -81,6 +82,7 @@ function TxConfirmActions(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
+  const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
   const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
 
@@ -312,6 +314,7 @@ function TxConfirmActions(props: IProps) {
     if (sendTxStatus.isSubmitting) return true;
     if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
       return true;
+    if (isBuildingDecodedTxs) return true;
 
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
     if (preCheckTxStatus.errorMessage) return true;
@@ -320,6 +323,7 @@ function TxConfirmActions(props: IProps) {
     sendTxStatus.isSubmitting,
     sendTxStatus.isInsufficientNativeBalance,
     nativeTokenInfo.isLoading,
+    isBuildingDecodedTxs,
     sendSelectedFeeInfo,
     sendFeeStatus.errMessage,
     preCheckTxStatus.errorMessage,
