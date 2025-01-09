@@ -8,8 +8,9 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { usePrimeAuth } from './usePrimeAuth';
 
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type { CustomerInfo, Package } from '@revenuecat/purchases-js';
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
 export function usePrimePayment(): IUsePrimePayment {
   const { isReady: isAuthReady, user } = usePrimeAuth();
@@ -27,8 +28,12 @@ export function usePrimePayment(): IUsePrimePayment {
     if (process.env.NODE_ENV !== 'production') {
       Purchases.setLogLevel(LogLevel.Verbose);
     }
+    const devSettings =
+      await backgroundApiProxy.serviceDevSetting.getDevSetting();
     let apiKey = process.env.REVENUECAT_API_KEY_WEB;
-    apiKey = 'rcb_sb_gxqFGxelBplIYJuYPhcnRhjfA';
+    if (devSettings?.settings?.usePrimeSandboxPayment) {
+      apiKey = process.env.REVENUECAT_API_KEY_WEB_SANDBOX;
+    }
     if (!apiKey) {
       throw new Error('No REVENUECAT api key found');
     }

@@ -25,6 +25,7 @@ export interface IDevSettings {
   // show trading view
   showTradingView?: boolean;
   showPrimeTest?: boolean;
+  usePrimeSandboxPayment?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

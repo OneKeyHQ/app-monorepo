@@ -24,6 +24,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'PRIVY_APP_ID',
     'PRIVY_MOBILE_CLIENT_ID',
     'REVENUECAT_API_KEY_WEB',
+    'REVENUECAT_API_KEY_WEB_SANDBOX',
     'REVENUECAT_API_KEY_APPLE',
     'REVENUECAT_API_KEY_GOOGLE',
   ];
