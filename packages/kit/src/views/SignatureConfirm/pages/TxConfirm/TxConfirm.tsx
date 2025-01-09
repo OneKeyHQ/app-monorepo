@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -12,6 +13,7 @@ import {
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { calculateTxExtraFee } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -58,6 +60,7 @@ function TxConfirm() {
     updateNativeTokenInfo,
     updatePreCheckTxStatus,
     updateSendFeeStatus,
+    updateExtraFeeInfo,
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
@@ -88,6 +91,13 @@ function TxConfirm() {
             unsignedTxs: reactiveUnsignedTxs,
             transferPayload,
           });
+        let extraFeeNativeTotal = new BigNumber(0);
+        for (const decodedTx of r) {
+          const extraFeeNative = calculateTxExtraFee({ decodedTx });
+          extraFeeNativeTotal = extraFeeNativeTotal.plus(extraFeeNative);
+        }
+
+        updateExtraFeeInfo({ feeNative: extraFeeNativeTotal.toFixed() });
 
         updateDecodedTxs({
           decodedTxs: r,
@@ -104,6 +114,7 @@ function TxConfirm() {
         accountId,
         networkId,
         transferPayload,
+        updateExtraFeeInfo,
       ],
       {
         watchLoading: true,
