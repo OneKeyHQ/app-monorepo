@@ -1,15 +1,21 @@
-import { useCallback, useEffect } from 'react';
+// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
+// eslint-disable-next-line import/order
+import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
+
+import { useCallback, useEffect, useRef } from 'react';
 
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
+import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { usePrimeAuth } from './usePrimeAuth';
 
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import type { CustomerInfo, Package } from '@revenuecat/purchases-js';
 import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
@@ -18,6 +24,7 @@ export function usePrimePayment(): IUsePrimePayment {
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
 
   const isReady = isAuthReady;
+  const configureDonePromise = useRef(createPromiseTarget<boolean>());
 
   const getCustomerInfo = useCallback(async () => {
     if (!isReady) {
@@ -85,6 +92,8 @@ export function usePrimePayment(): IUsePrimePayment {
       // Grant user access to the entitlement "gold_entitlement"
       // grantEntitlementAccess();
     }
+
+    configureDonePromise.current.resolveTarget(true);
     return customerInfo;
   }, [isReady, setPrimePersistAtom, user?.privyUserId]);
 
@@ -110,6 +119,7 @@ export function usePrimePayment(): IUsePrimePayment {
   }, [isReady, user?.isLoggedIn]);
 
   const getPaywallPackagesWeb = useCallback(async () => {
+    await configureDonePromise.current.ready;
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
@@ -146,31 +156,36 @@ export function usePrimePayment(): IUsePrimePayment {
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
-      if (!isReady) {
-        throw new Error('PrimeAuth Not ready');
+      try {
+        if (!isReady) {
+          throw new Error('PrimeAuth Not ready');
+        }
+        // const offerings = await this.getPaywallOfferings();
+        // const paywallPackage = offerings?.all?.monthly?.packagesById?.[packageId];
+        const packages = await getPaywallPackagesWeb();
+        const paywallPackage = packages.packages.find(
+          (p) => p.identifier === packageId,
+        );
+        if (!paywallPackage) {
+          throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
+        }
+        // TODO check package user is Matched to privyUserId
+        // TODO check if user has already purchased
+        const purchase = await Purchases.getSharedInstance().purchase({
+          rcPackage: paywallPackage,
+          customerEmail: email,
+          selectedLocale: locale,
+        });
+        // test credit card
+        // https://docs.stripe.com/testing#testing-interactively
+        // Mastercard: 5555555555554444
+        // visa: 4242424242424242
+        console.log('purchase >>>>>> ', purchase);
+        return purchase;
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        throw error;
       }
-      // const offerings = await this.getPaywallOfferings();
-      // const paywallPackage = offerings?.all?.monthly?.packagesById?.[packageId];
-      const packages = await getPaywallPackagesWeb();
-      const paywallPackage = packages.packages.find(
-        (p) => p.identifier === packageId,
-      );
-      if (!paywallPackage) {
-        throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
-      }
-      // TODO check package user is Matched to privyUserId
-      // TODO check if user has already purchased
-      const purchase = await Purchases.getSharedInstance().purchase({
-        rcPackage: paywallPackage,
-        customerEmail: email,
-        selectedLocale: locale,
-      });
-      // test credit card
-      // https://docs.stripe.com/testing#testing-interactively
-      // Mastercard: 5555555555554444
-      // visa: 4242424242424242
-      console.log('purchase >>>>>> ', purchase);
-      return purchase;
     },
     [getPaywallPackagesWeb, isReady],
   );

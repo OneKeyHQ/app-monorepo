@@ -1,5 +1,29 @@
 # origin check support file and extension
 
+
+## Protocol check
+
 ```js
-if( "undefined"!=typeof window && 0>["localhost","127.0.0.1"].indexOf(window.location.hostname) && 0>["https:","chrome-extension:","file:"].indexOf(window.location.protocol) )throw new Fe("Embedded wallet is only available over HTTPS/CHROME-EXTENSION/FILE");
+"https:"!==window.location.protocol
 ```
+
+to 
+
+```js
+0>["https:","chrome-extension:","file:"].indexOf(window.location.protocol)
+```
+
+## Error message
+
+```js
+Embedded wallet is only available over HTTPS
+``` 
+
+to 
+
+```js
+Embedded wallet is only available over HTTPS/CHROME-EXTENSION/FILE
+```
+
+
+

@@ -16,6 +16,7 @@ import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuth } from '../../hooks/usePrimeAuth';
+import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
@@ -26,6 +27,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const isPrime = user?.primeSubscription?.isActive;
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
+  const { getCustomerInfo } = usePrimePayment();
 
   const userInfo = (
     <Stack px="$2" py="$2.5" gap="$1">
@@ -86,7 +88,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               Toast.message({
                 title: 'Please try again later',
               });
-              await fetchPrimeUserInfo();
+              await Promise.all([fetchPrimeUserInfo(), getCustomerInfo()]);
             }
           }}
         />
