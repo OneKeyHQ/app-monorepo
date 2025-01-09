@@ -93,7 +93,7 @@ function LnurlWithdrawModal() {
       const { serviceLightning } = backgroundApiProxy;
       const formValue = useFormReturn.getValues();
 
-      const amount = new BigNumber(formValue.amount).times(1000).toNumber(); // convert to millisatoshis
+      const amount = new BigNumber(formValue.amount).toNumber();
       try {
         const invoice = await serviceLightning.createInvoice({
           networkId,
