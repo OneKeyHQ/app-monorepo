@@ -296,6 +296,7 @@ class ServiceAccountProfile extends ServiceBase {
           address: resolveAddress,
         });
       result.addressBookName = addressBookItem?.name;
+      result.isAllowListed = addressBookItem?.isAllowListed;
     }
     if (enableWalletName && resolveAddress) {
       // handleWalletAccountName
