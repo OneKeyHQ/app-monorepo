@@ -11,6 +11,7 @@ import {
   Button,
   Dialog,
   Form,
+  HeaderIconButton,
   Input,
   Page,
   SizableText,
@@ -48,6 +49,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type {
   EModalSendRoutes,
@@ -1186,10 +1189,28 @@ function SendDataInputContainer() {
     [],
   );
 
+  const navigateToSettingProtection = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingProtectModal);
+  }, [navigation]);
+
+  const renderHeaderRight = useCallback(
+    () => (
+      <HeaderIconButton
+        key="allowList"
+        titlePlacement="bottom"
+        icon="SettingsOutline"
+        testID="setting"
+        onPress={navigateToSettingProtection}
+      />
+    ),
+    [navigateToSettingProtection],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
+        headerRight={renderHeaderRight}
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror

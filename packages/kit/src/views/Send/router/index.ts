@@ -48,6 +48,10 @@ const DeriveTypesAddress = LazyLoadPage(
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
 );
 
+const SettingProtectionModal = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/Setting/pages/Protection'),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
@@ -95,5 +99,9 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendSelectDeriveAddress,
     component: DeriveTypesAddress,
+  },
+  {
+    name: EModalSendRoutes.SettingProtectModal,
+    component: SettingProtectionModal,
   },
 ];

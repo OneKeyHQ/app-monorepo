@@ -19,12 +19,12 @@ const SettingProtectionModal = () => {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.settings_protection })}
       />
       <Page.Body>
-        <YStack>
+        <YStack pb="$10">
           <SectionList.SectionHeader
             title={intl.formatMessage({
               id: ETranslations.settings_token_risk_protection,

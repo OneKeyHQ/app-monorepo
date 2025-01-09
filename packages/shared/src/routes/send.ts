@@ -35,6 +35,8 @@ export enum EModalSendRoutes {
   LnurlWithdraw = 'LnurlWithdraw',
   LnurlAuth = 'LnurlAuth',
   WeblnSendPayment = 'WeblnSendPayment',
+
+  SettingProtectModal = 'SettingProtectModal',
 }
 
 export type IModalSendParamList = {
@@ -134,4 +136,5 @@ export type IModalSendParamList = {
     tokenMap?: Record<string, ITokenFiat>;
     token?: IToken;
   };
+  [EModalSendRoutes.SettingProtectModal]: undefined;
 };
