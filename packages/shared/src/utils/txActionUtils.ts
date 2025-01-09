@@ -338,6 +338,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
             }),
       address: action.to,
       tags: [],
+      navigable: isInternalSwap || isInternalStake,
     };
 
     components.push(toAddressComponent);
@@ -446,6 +447,7 @@ function convertFunctionCallActionToSignatureConfirmComponent({
     }),
     address: action.to,
     tags: [],
+    navigable: true,
   };
 
   return [component, interactWithContractComponent];
@@ -463,6 +465,7 @@ function convertUnknownActionToSignatureConfirmComponent({
     }),
     address: action.to,
     tags: [],
+    navigable: true,
   };
 
   return [interactWithContractComponent];
