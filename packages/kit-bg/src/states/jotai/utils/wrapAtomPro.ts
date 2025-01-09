@@ -1,0 +1,128 @@
+import { atom } from 'jotai';
+
+import appGlobals from '@onekeyhq/shared/src/appGlobals';
+import type { IGlobalStatesSyncBroadcastParams } from '@onekeyhq/shared/src/background/backgroundUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { JOTAI_RESET } from '../types';
+
+import jotaiVerify from './jotaiVerify';
+
+import type { EAtomNames } from '../atomNames';
+import type {
+  IJotaiAtomSetWithoutProxy,
+  IJotaiSetter,
+  IJotaiWritableAtomPro,
+} from '../types';
+
+export function wrapAtomPro(
+  name: EAtomNames,
+  baseAtom: IJotaiWritableAtomPro<
+    unknown,
+    [update: unknown],
+    Promise<void> | undefined
+  >,
+) {
+  const doSet = async ({
+    payload,
+    proxyToBg,
+    set,
+  }: {
+    payload: any;
+    proxyToBg: boolean;
+    set: IJotaiSetter;
+  }) => {
+    if (proxyToBg && platformEnv.isExtensionUi) {
+      await appGlobals.$jotaiBgSync?.proxyStateUpdateActionFromUiToBg({
+        name,
+        payload,
+      });
+      return;
+    }
+    await set(baseAtom, payload);
+    if (platformEnv.isExtensionBackground) {
+      await appGlobals.$jotaiBgSync?.broadcastStateUpdateFromBgToUi({
+        name,
+        payload,
+      });
+    }
+  };
+  const proAtom = atom(
+    (get) => get(baseAtom),
+    async (get, set, update) => {
+      jotaiVerify.ensureNotPromise(update);
+
+      let nextValue = update;
+      if (typeof update === 'function') {
+        let prevValue = get(baseAtom);
+
+        if (prevValue instanceof Promise) {
+          prevValue = await prevValue;
+        }
+        jotaiVerify.ensureNotPromise(prevValue);
+
+        nextValue = (
+          update as (
+            prev: any | Promise<any>,
+          ) => any | Promise<any> | typeof JOTAI_RESET
+        )(prevValue);
+      }
+
+      if (nextValue instanceof Promise) {
+        nextValue = await nextValue;
+      }
+      jotaiVerify.ensureNotPromise(nextValue);
+
+      let proxyToBg = false;
+      if (platformEnv.isExtensionUi && name) {
+        proxyToBg = true;
+        const nextValueFromBg = nextValue as IGlobalStatesSyncBroadcastParams;
+        if (
+          nextValueFromBg?.$$isFromBgStatesSyncBroadcast &&
+          nextValueFromBg?.name === name
+        ) {
+          nextValue = nextValueFromBg.payload;
+          proxyToBg = false;
+        }
+        const nextValueFromUiInit = nextValue as IJotaiAtomSetWithoutProxy;
+        if (
+          nextValueFromUiInit?.$$isForceSetAtomWithoutProxy &&
+          nextValueFromUiInit.name === name
+        ) {
+          nextValue = nextValueFromUiInit.payload;
+          proxyToBg = false;
+        }
+      }
+
+      if (nextValue === JOTAI_RESET) {
+        await doSet({
+          proxyToBg,
+          set,
+          payload: baseAtom.initialValue,
+        });
+        return;
+      }
+      if (nextValue instanceof Promise) {
+        return nextValue.then(async (resolvedValue) =>
+          doSet({
+            proxyToBg,
+            set,
+            payload: resolvedValue,
+          }),
+        );
+      }
+
+      await doSet({
+        proxyToBg,
+        set,
+        payload: nextValue,
+      });
+    },
+  ) as IJotaiWritableAtomPro<
+    unknown,
+    [update: unknown],
+    Promise<void> | undefined
+  >;
+
+  return proAtom;
+}

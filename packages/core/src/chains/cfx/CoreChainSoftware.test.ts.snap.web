@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`CFX Core tests signTransaction 1`] = `
+{
+  "digest": "0x830f7330fe140d0515381cad22f7796b2e2f7a5c451641797f7bb4ee5aed7eeb",
+  "rawTx": "0xf86de980843b9aca00825208941a8348d02ae925bb86e4a4ac031ec42c28a4b5dc80808404d712bf8204058001a0c57de20f6d4c8c3785e675cfc76a5fad0fcb6e80bb15edb020ee8c71dfb54b27a003158bbebc413d8ecbd69475f60d8b6b1156c18aeb46d4afd7028a96cdcedfa3",
+  "txid": "0xf94d5db32cdfd3c644274c17003a975a2082eb4fffcea4900b5e8a9c10a11884",
+}
+`;

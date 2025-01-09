@@ -1,0 +1,92 @@
+{
+  "cli": {
+    "version": ">= 5.4.0"
+  },
+  "build": {
+    "base": {
+      "node": "20.0.0",
+      "android": {
+        "image": "ubuntu-22.04-jdk-17-ndk-r25b",
+        "ndk": "25.1.8937393",
+        "env": {
+          "PLATFORM": "android"
+        }
+      },
+      "ios": {
+        "image": "macos-sonoma-14.5-xcode-15.4",
+        "resourceClass": "large",
+        "env": { 
+          "PLATFORM": "ios"
+        }
+      }
+    },
+    "production-store": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "app-bundle",
+        "gradleCommand": ":app:bundleGoogleRelease",
+        "env": {
+          "ANDROID_CHANNEL": "google"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "universal",
+        "buildConfiguration": "Release",
+        "credentialsSource": "local"
+      }
+    },
+    "production": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleProdRelease",
+        "env": {
+          "ANDROID_CHANNEL": "direct"
+        }
+      },
+      "ios": {
+        "enterpriseProvisioning": "adhoc",
+        "buildConfiguration": "Release",
+        "distribution": "internal",
+        "credentialsSource": "local"
+      }
+    },
+    "production-huawei": {
+      "extends": "base",
+      "distribution": "store",
+      "env": {
+        "ENVIRONMENT": "production"
+      },
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleProdRelease",
+        "env": {
+          "ANDROID_CHANNEL": "huawei"
+        }
+      }
+    }
+  },
+  "submit": {
+    "production-store": {
+      "ios": {
+        "ascAppId": "1609559473",
+        "appleTeamId": "BVJ3FU5H2K",
+        "ascApiKeyIssuerId": "bbc48cd1-0ffa-4bb7-994d-fab6a5eff73e",
+        "ascApiKeyId": "KAV3B73J8L",
+        "ascApiKeyPath": "./AscApiKey.p8"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./pc-api-8644398719570171123-0-dcae07e2afab.json",
+        "track": "internal"
+      }
+    }
+  }
+}

@@ -1,0 +1,155 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`hashMessage ETH_SIGN should hash message 1`] = `"0x879a053d4800c6354e76c7985a865d2922c82fb5b3f4577b2fe08b998954f2e0"`;
+
+exports[`hashMessage PERSONAL_SIGN should hash message 1`] = `"0xaf1dee894786c304604a039b041463c9ab8defb393403ea03cf2c85b1eb8cbfd"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-1" (type "number") 1`] = `"0x4401c8323e5bef2e92610abb1fdec4b8d6672a233a3ab50c621a62193e7c998d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-1" (type "number") 2`] = `"0xfcd1b6665a3f16f3a0cb888ef9b86c66adaf7e65380225937c0fcd662f7b684b"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-1" (type "number") 3`] = `"0xe8bda03b0ed158c7dcef63cbdc670c62c7edab055c91489d7ab0cd3b0056b005"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-255" (type "number") 1`] = `"0x3c1ad1a3f6eabb3af2dee3c08282d988cadb0553b77cc20d71c3ce1cdfbc3ac8"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-255" (type "number") 2`] = `"0xaba3a954e6f9a8ad5fe36dff7559301ac22d643e8a6101f66631ac6b1b63d4bb"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-9007199254740991" (type "number") 1`] = `"0x0258bedb71140dbb942d7249f9eee22ecf400a98d5efb6d700ce67a7522ea5c6"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-9007199254740991" (type "number") 2`] = `"0x05770f527520e29c71a473d53acf69c509cccc5df4add1422ab4b486198d6b6c"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-9007199254740991" (type "number") 3`] = `"0x5f606ed3c7828a019719fbca5bc370d928a62d9075ee530511445a2ba1c0e74d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "-9007199254740991" (type "number") 4`] = `"0x7366b92e80656a5c9fed18f245a6db941e7e2835c2a99ea453c0fcd141e0f8a2"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 1`] = `"0x5611bafe7fef082941c84a60b14c9c9bc65e75b6c3a8bdde354ea7c19224133c"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 2`] = `"0xfcd1b6665a3f16f3a0cb888ef9b86c66adaf7e65380225937c0fcd662f7b684b"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 3`] = `"0xe8bda03b0ed158c7dcef63cbdc670c62c7edab055c91489d7ab0cd3b0056b005"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 4`] = `"0x83a255171acdbdc915af829b403e5e99bdd55d0c2029f8b257575d7e4cbf2afc"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 5`] = `"0x2f8a2fd51e374f6fc3b8e4ac4066fec930950b1aa930d2fcc8fb584d136b4f7a"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 6`] = `"0xce16fba9359f3d8139c16d981c2690f124268cb440abb068c102c65e30385cef"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 7`] = `"0xdd566f7d217abd96a3dcea1219edd2bde24c8d579336f069871a49ece82c78a7"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 8`] = `"0x686fb61f0afb05d69bd879972afed7426967a5e91003e083d5eafb2cb1ccd6ee"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "number") 9`] = `"0xf57c2405e30bca7599fa9475502c7dc1fa363a71c8d7472d614dcfd1cde00b1a"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "string") 1`] = `"0x83a255171acdbdc915af829b403e5e99bdd55d0c2029f8b257575d7e4cbf2afc"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "string") 2`] = `"0x2f8a2fd51e374f6fc3b8e4ac4066fec930950b1aa930d2fcc8fb584d136b4f7a"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "string") 3`] = `"0xce16fba9359f3d8139c16d981c2690f124268cb440abb068c102c65e30385cef"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "string") 4`] = `"0xdd566f7d217abd96a3dcea1219edd2bde24c8d579336f069871a49ece82c78a7"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "string") 5`] = `"0x686fb61f0afb05d69bd879972afed7426967a5e91003e083d5eafb2cb1ccd6ee"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0" (type "string") 6`] = `"0xf57c2405e30bca7599fa9475502c7dc1fa363a71c8d7472d614dcfd1cde00b1a"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x0" (type "string") 1`] = `"0xc30aa32927edb07cccab59a6c3abf65ee117521b26f834aff85e5a34e6bf2ea9"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x0" (type "string") 2`] = `"0x83a255171acdbdc915af829b403e5e99bdd55d0c2029f8b257575d7e4cbf2afc"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x0" (type "string") 3`] = `"0x2f8a2fd51e374f6fc3b8e4ac4066fec930950b1aa930d2fcc8fb584d136b4f7a"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x0" (type "string") 4`] = `"0xce16fba9359f3d8139c16d981c2690f124268cb440abb068c102c65e30385cef"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x0" (type "string") 5`] = `"0xdd566f7d217abd96a3dcea1219edd2bde24c8d579336f069871a49ece82c78a7"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x0" (type "string") 6`] = `"0x686fb61f0afb05d69bd879972afed7426967a5e91003e083d5eafb2cb1ccd6ee"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x0" (type "string") 7`] = `"0xf57c2405e30bca7599fa9475502c7dc1fa363a71c8d7472d614dcfd1cde00b1a"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x10" (type "string") 1`] = `"0xc7aadc43dcbb4f7fd58f426049c2fa422d065883e967ec01f256d58567167b11"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x10" (type "string") 2`] = `"0x5c2842cbfc7e0add14e27be5d2c6d30c411315c6871b22fcc7069615918547ed"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0x10" (type "string") 3`] = `"0x069f13801896fb0f05589f2a15923974e0264816a616cb34b02f2282dfb12709"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0xabcd" (type "string") 1`] = `"0xd5e8696cb740e35c144507351af314795d69d0c36f5cdf6574a7f9209e3a8666"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB" (type "string") 1`] = `"0xa5d8feac2c7ff1c292f0be3c188dbd6cce61130ad1eef656249b21ade1ca65db"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB" (type "string") 2`] = `"0x04c21f11808f1da08fcc268b752f1b27ff3398234a08c4e4ec3350518c03555d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbBbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB" (type "string") 1`] = `"0x04c21f11808f1da08fcc268b752f1b27ff3398234a08c4e4ec3350518c03555d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "1" (type "number") 1`] = `"0x4401c8323e5bef2e92610abb1fdec4b8d6672a233a3ab50c621a62193e7c998d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "1" (type "number") 2`] = `"0x697bffaeae39feb99d6b71f258d98b10866c06cc310b9c743874eceeec070471"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "1" (type "number") 3`] = `"0x6784884ceb54b5bdb6e98d01ba0337be8c6c9bab90def27831627b17918b2a6c"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "10" (type "Buffer") 1`] = `"0x76b2b458c966fbaa1dc0d7b4c3009ed5b7b97de8b43de21b1dac0c0edf9c623f"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "10" (type "Buffer") 2`] = `"0xbb642556b26ef28c9c696fbec251698ed7bf3f52023b08dbdc572c51db88505d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "10" (type "Buffer") 3`] = `"0x2cf5c45e3cde944fc49d8f455b51f64a979823d8b21c8d279f306a49bb115b52"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "10" (type "number") 1`] = `"0x3c31fca92be441e22718ba88923050d735f37c60c917402597dbf9f30f633c61"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "10" (type "number") 2`] = `"0x7b0c4e6740e5b789fbbfc73bf849644964772e92b729f185b9878dfb8a10145e"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "10" (type "number") 3`] = `"0xf6611663d3091a084cc322008c498fb532b861ec1bd47710872d9ad7a2881d02"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "10" (type "number") 4`] = `"0x9f281012b499c5b4353a06a1b39b86656c9ce3e42188412436885c14ec884181"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "10" (type "string") 1`] = `"0x76b2b458c966fbaa1dc0d7b4c3009ed5b7b97de8b43de21b1dac0c0edf9c623f"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "255" (type "number") 1`] = `"0x79267da6a6f7227661909939b3a4a79f4f7681f87e0e908d6cd67ecbde55d4be"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "255" (type "number") 2`] = `"0xaba3a954e6f9a8ad5fe36dff7559301ac22d643e8a6101f66631ac6b1b63d4bb"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "9007199254740991" (type "number") 1`] = `"0xbb669a6dff00537ffaff31ce4aa19fc958e08f41834fbf06bf1270e71eee758f"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "9007199254740991" (type "number") 2`] = `"0x4401c8323e5bef2e92610abb1fdec4b8d6672a233a3ab50c621a62193e7c998d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "9007199254740991" (type "number") 3`] = `"0xad8c4da9883cd143b0a9a846b759eded4c90f114977e7441840dd688a7bfe319"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "9007199254740991" (type "number") 4`] = `"0x8bb1142b6a6e87f047da15d74b1296b39e37807ab15afb148d147e9d4a9d5423"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "9007199254740991" (type "number") 5`] = `"0x1ef0acca406eaa1e059780db0590c23d6d3ef04a923e08a4a15baa15cf9043b7"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "9007199254740991" (type "number") 6`] = `"0x05770f527520e29c71a473d53acf69c509cccc5df4add1422ab4b486198d6b6c"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "9007199254740991" (type "number") 7`] = `"0x5329c4b59ad6f387865835702708bf22942655839fcf5b253d6078f7b2cfc19b"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "9007199254740991" (type "number") 8`] = `"0x7366b92e80656a5c9fed18f245a6db941e7e2835c2a99ea453c0fcd141e0f8a2"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "Hello!" (type "string") 1`] = `"0x77273fe101105a2ee5b7404e3510b6dce57a614f9b71a21ca56f1ef045f938dd"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "false" (type "boolean") 1`] = `"0x5611bafe7fef082941c84a60b14c9c9bc65e75b6c3a8bdde354ea7c19224133c"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "false" (type "string") 1`] = `"0x4401c8323e5bef2e92610abb1fdec4b8d6672a233a3ab50c621a62193e7c998d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "true" (type "boolean") 1`] = `"0x4401c8323e5bef2e92610abb1fdec4b8d6672a233a3ab50c621a62193e7c998d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "true" (type "string") 1`] = `"0x4401c8323e5bef2e92610abb1fdec4b8d6672a233a3ab50c621a62193e7c998d"`;
+
+exports[`hashMessage TYPE_DATA_V1 should hash "😁" (type "string") 1`] = `"0xa71914f88ee19b3e0108d7495053a591858052850cebd62120ea2ccfefb7c651"`;
+
+exports[`hashMessage TYPE_DATA_V3 should hash a minimal valid typed message 1`] = `"0x8d4a3f4082945b7879e2b55f181c31a77c8c0a464b70669458abbaaf99de4c38"`;
+
+exports[`hashMessage TYPE_DATA_V3 should hash a typed message with a domain separator that uses all fields 1`] = `"0x54ffed5209a17ac210ef3823740b3852ee9cd518b84ee39f0a3fa7f2f9b4205b"`;
+
+exports[`hashMessage TYPE_DATA_V3 should hash a typed message with data 1`] = `"0xd2669f23b7849020ad41bcbff5b51372793f91320e0f901641945568ed7322be"`;
+
+exports[`hashMessage TYPE_DATA_V3 should hash a typed message with extra domain seperator fields 1`] = `"0x2323c742c20093ee44c2a0abef2b950062a3d70b3453ef4995a072dba9e47d7d"`;
+
+exports[`hashMessage TYPE_DATA_V3 should hash a typed message with only custom domain seperator fields 1`] = `"0x3efa3ef0305f56ba5bba62000500e29fe82c5314bca2f958c64e31b2498560f8"`;
+
+exports[`hashMessage TYPE_DATA_V4 should hash a minimal valid typed message 1`] = `"0x8d4a3f4082945b7879e2b55f181c31a77c8c0a464b70669458abbaaf99de4c38"`;
+
+exports[`hashMessage TYPE_DATA_V4 should hash a typed message with a domain separator that uses all fields 1`] = `"0x54ffed5209a17ac210ef3823740b3852ee9cd518b84ee39f0a3fa7f2f9b4205b"`;
+
+exports[`hashMessage TYPE_DATA_V4 should hash a typed message with data 1`] = `"0xd2669f23b7849020ad41bcbff5b51372793f91320e0f901641945568ed7322be"`;
+
+exports[`hashMessage TYPE_DATA_V4 should hash a typed message with extra domain seperator fields 1`] = `"0x2323c742c20093ee44c2a0abef2b950062a3d70b3453ef4995a072dba9e47d7d"`;
+
+exports[`hashMessage TYPE_DATA_V4 should hash a typed message with only custom domain seperator fields 1`] = `"0x3efa3ef0305f56ba5bba62000500e29fe82c5314bca2f958c64e31b2498560f8"`;

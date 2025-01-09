@@ -1,0 +1,14 @@
+diff --git a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/service/NotificationsService.kt b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/service/NotificationsService.kt
+index 85deee1..4b440da 100644
+--- a/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/service/NotificationsService.kt
++++ b/node_modules/expo-notifications/android/src/main/java/expo/modules/notifications/service/NotificationsService.kt
+@@ -454,7 +454,8 @@ open class NotificationsService : BroadcastReceiver() {
+       // [notification trampolines](https://developer.android.com/about/versions/12/behavior-changes-12#identify-notification-trampolines)
+       // are not allowed. If the notification wants to open foreground app,
+       // we should use the dedicated Activity pendingIntent.
+-      if (action.opensAppToForeground()) {
++      // https://github.com/expo/expo/pull/30207
++      if (action.opensAppToForeground() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+         val notificationResponse = getNotificationResponseFromBroadcastIntent(intent)
+         return ExpoHandlingDelegate.createPendingIntentForOpeningApp(context, intent, notificationResponse)
+       }

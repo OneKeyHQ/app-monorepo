@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24">
+  <path stroke="currentColor" stroke-linejoin="round" stroke-width="2"
+    d="M22 15c-4.861 0-7 2.139-7 7 0-4.861-2.139-7-7-7 4.861 0 7-2.139 7-7 0 4.861 2.139 7 7 7ZM11 6.5c-3.125 0-4.5 1.375-4.5 4.5 0-3.125-1.375-4.5-4.5-4.5 3.125 0 4.5-1.375 4.5-4.5 0 3.125 1.375 4.5 4.5 4.5Z"
+    clip-rule="evenodd" />
+</svg>

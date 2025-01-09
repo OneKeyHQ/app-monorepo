@@ -1,0 +1,17 @@
+{
+  "root": "src",
+  "rules": [
+    "actions/**",
+    "composite/**",
+    "content/**",
+    "forms/**",
+    "hocs/**",
+    "hooks/**",
+    "layouts/**",
+    "locale/**",
+    "optimization/**",
+    "primitives/**",
+    "types/**",
+    "utils/**"
+  ]
+}

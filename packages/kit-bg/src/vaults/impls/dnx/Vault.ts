@@ -1,0 +1,547 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import BigNumber from 'bignumber.js';
+import { isEmpty } from 'lodash';
+
+import { EOutputsTypeForCoinSelect } from '@onekeyhq/core/src/chains/btc/types';
+import type {
+  IEncodedTxDnx,
+  IUnspentOutput,
+} from '@onekeyhq/core/src/chains/dnx/types';
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
+import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { coinSelect } from '@onekeyhq/core/src/utils/coinSelectUtils';
+import {
+  InsufficientBalance,
+  NotImplemented,
+  OneKeyInternalError,
+} from '@onekeyhq/shared/src/errors';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import type { IServerNetwork } from '@onekeyhq/shared/types';
+import type {
+  IAddressValidation,
+  IFetchAccountDetailsResp,
+  IGeneralInputValidation,
+  INetworkAccountAddressDetail,
+  IPrivateKeyValidation,
+  IXprvtValidation,
+  IXpubValidation,
+} from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
+import type { IOnChainHistoryTx } from '@onekeyhq/shared/types/history';
+import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
+import {
+  EDecodedTxActionType,
+  EDecodedTxDirection,
+  EDecodedTxStatus,
+} from '@onekeyhq/shared/types/tx';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxExtraInfo,
+  IDecodedTxTransferInfo,
+} from '@onekeyhq/shared/types/tx';
+
+import { VaultBase } from '../../base/VaultBase';
+
+import { KeyringExternal } from './KeyringExternal';
+import { KeyringHardware } from './KeyringHardware';
+import { KeyringHd } from './KeyringHd';
+import { KeyringImported } from './KeyringImported';
+import { KeyringWatching } from './KeyringWatching';
+import { ClientDnx } from './sdkDnx/ClientDnx';
+
+import type { IDBUtxoAccount, IDBWalletType } from '../../../dbs/local/types';
+import type { KeyringBase } from '../../base/KeyringBase';
+import type {
+  IBroadcastTransactionByCustomRpcParams,
+  IBuildAccountAddressDetailParams,
+  IBuildDecodedTxParams,
+  IBuildEncodedTxParams,
+  IBuildUnsignedTxParams,
+  IGetPrivateKeyFromImportedParams,
+  IGetPrivateKeyFromImportedResult,
+  ITransferInfo,
+  IUpdateUnsignedTxParams,
+  IValidateGeneralInputParams,
+} from '../../types';
+
+const DEFAULT_TX_FEE = 1_000_000;
+
+export default class Vault extends VaultBase {
+  override coreApi = coreChainApi.dynex.hd;
+
+  override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
+    hd: KeyringHd,
+    qr: undefined,
+    hw: KeyringHardware,
+    imported: KeyringImported,
+    watching: KeyringWatching,
+    external: KeyringExternal,
+  };
+
+  override async buildAccountAddressDetail(
+    params: IBuildAccountAddressDetailParams,
+  ): Promise<INetworkAccountAddressDetail> {
+    const { account, networkId } = params;
+    const { address } = account;
+    return {
+      networkId,
+      normalizedAddress: address,
+      displayAddress: address,
+      address,
+      baseAddress: address,
+      isValid: true,
+      allowEmptyAddress: false,
+    };
+  }
+
+  override buildEncodedTx(
+    params: IBuildEncodedTxParams,
+  ): Promise<IEncodedTxDnx> {
+    const { transfersInfo } = params;
+
+    if (transfersInfo && !isEmpty(transfersInfo)) {
+      if (transfersInfo.length === 1) {
+        return this._buildEncodedTxFromTransfer({
+          transferInfo: transfersInfo[0],
+        });
+      }
+      throw new OneKeyInternalError('Batch transfers not supported');
+    }
+
+    throw new OneKeyInternalError();
+  }
+
+  async _buildEncodedTxFromTransfer(params: { transferInfo: ITransferInfo }) {
+    const { transferInfo } = params;
+    const { tokenInfo } = transferInfo;
+
+    if (!transferInfo.to) {
+      throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
+    }
+
+    if (!tokenInfo) {
+      throw new Error(
+        'buildEncodedTx ERROR: transferInfo.tokenInfo is missing',
+      );
+    }
+
+    const network = await this.getNetwork();
+
+    const unspentOutputs = await this._collectUnspentOutputs();
+    const { inputs, finalAmount } = this._collectInputs({
+      unspentOutputs,
+      amount: new BigNumber(transferInfo.amount)
+        .shiftedBy(network.decimals)
+        .toFixed(),
+      fee: new BigNumber(DEFAULT_TX_FEE).toFixed(),
+      network,
+    });
+
+    return {
+      from: transferInfo.from,
+      to: transferInfo.to,
+      amount: new BigNumber(finalAmount).shiftedBy(-network.decimals).toFixed(),
+      paymentId: transferInfo.paymentId,
+      fee: new BigNumber(DEFAULT_TX_FEE)
+        .shiftedBy(-network.feeMeta.decimals)
+        .toFixed(),
+      inputs,
+    };
+  }
+
+  _collectUnspentOutputs = memoizee(
+    async () => {
+      try {
+        const { utxoList } =
+          await this.backgroundApi.serviceAccountProfile.fetchAccountDetails({
+            networkId: this.networkId,
+            accountId: this.accountId,
+            withUTXOList: true,
+            withFrozenBalance: true,
+          });
+        if (!utxoList) {
+          throw new OneKeyInternalError('Failed to get UTXO list.');
+        }
+        return utxoList.map((utxo) => ({
+          prevIndex: utxo.vout,
+          globalIndex: utxo.globalIndex,
+          txPubkey: utxo.txPubkey,
+          prevOutPubkey: utxo.prevOutPubkey,
+          amount: Number(utxo.value),
+        }));
+      } catch (e) {
+        throw new OneKeyInternalError('Failed to get UTXO list.');
+      }
+    },
+    {
+      promise: true,
+      max: 1,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 30 }),
+    },
+  );
+
+  _collectInputs({
+    unspentOutputs,
+    amount,
+    fee,
+    network,
+  }: {
+    amount: string;
+    fee: string;
+    unspentOutputs: IUnspentOutput[];
+    network: IServerNetwork;
+  }) {
+    let finalAmount = new BigNumber(amount);
+    const totalUnspentOutputsAmount = unspentOutputs.reduce(
+      (acc, output) => acc.plus(output.amount),
+      new BigNumber(0),
+    );
+
+    if (totalUnspentOutputsAmount.lte(fee)) {
+      throw new InsufficientBalance({
+        info: {
+          symbol: network.symbol,
+        },
+      });
+    }
+
+    if (totalUnspentOutputsAmount.lt(new BigNumber(finalAmount).plus(fee))) {
+      finalAmount = totalUnspentOutputsAmount.minus(fee);
+    }
+
+    const inputsForCoinSelect = unspentOutputs.map((output) => ({
+      txId: '',
+      vout: 0,
+      value: output.amount,
+      address: '',
+      path: '',
+      ...output,
+      amount: new BigNumber(output.amount).toFixed(),
+    }));
+
+    const outputsForCoinSelect = [
+      {
+        type: EOutputsTypeForCoinSelect.Payment,
+        address: '',
+        value: finalAmount.plus(fee).toNumber(),
+      },
+    ];
+
+    const { inputs: inputsFromCoinSelect } = coinSelect({
+      inputsForCoinSelect,
+      outputsForCoinSelect,
+      feeRate: '0',
+    });
+
+    return {
+      finalAmount: finalAmount.toFixed(),
+      inputs:
+        inputsFromCoinSelect?.map((input) => {
+          const tempInput = input as unknown as IUnspentOutput;
+          return {
+            globalIndex: tempInput.globalIndex,
+            prevIndex: tempInput.prevIndex,
+            prevOutPubkey: tempInput.prevOutPubkey,
+            txPubkey: tempInput.txPubkey,
+            amount: tempInput.amount,
+          };
+        }) ?? [],
+    };
+  }
+
+  override async buildDecodedTx(
+    params: IBuildDecodedTxParams,
+  ): Promise<IDecodedTx> {
+    const { unsignedTx } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxDnx;
+    const account = await this.getAccount();
+
+    let action: IDecodedTxAction = {
+      type: EDecodedTxActionType.UNKNOWN,
+      unknownAction: {
+        from: encodedTx.from,
+        to: encodedTx.to,
+      },
+    };
+
+    const nativeToken = await this.backgroundApi.serviceToken.getNativeToken({
+      networkId: this.networkId,
+      accountId: this.accountId,
+    });
+
+    if (nativeToken) {
+      const transfer: IDecodedTxTransferInfo = {
+        from: encodedTx.from,
+        to: encodedTx.to,
+        tokenIdOnNetwork: nativeToken.address,
+        icon: nativeToken.logoURI ?? '',
+        name: nativeToken.name,
+        symbol: nativeToken.symbol,
+        amount: encodedTx.amount,
+        isNFT: false,
+        isNative: true,
+      };
+
+      action = await this.buildTxTransferAssetAction({
+        from: transfer.from,
+        to: transfer.to,
+        transfers: [transfer],
+      });
+    }
+
+    const decodedTx: IDecodedTx = {
+      txid: '',
+      owner: account.address,
+      signer: encodedTx.from || account.address,
+      nonce: 0,
+      to: encodedTx.to,
+      actions: [action],
+      status: EDecodedTxStatus.Pending,
+      networkId: this.networkId,
+      accountId: this.accountId,
+      xpub: (account as IDBUtxoAccount).xpub,
+      encodedTx,
+      extraInfo: {
+        paymentId: encodedTx.paymentId,
+      },
+    };
+
+    return decodedTx;
+  }
+
+  override async buildOnChainHistoryTxExtraInfo({
+    onChainHistoryTx,
+  }: {
+    onChainHistoryTx: IOnChainHistoryTx;
+  }): Promise<IDecodedTxExtraInfo | null> {
+    return {
+      paymentId: onChainHistoryTx.paymentId,
+    };
+  }
+
+  override async buildUnsignedTx(
+    params: IBuildUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    const encodedTx = params.encodedTx ?? (await this.buildEncodedTx(params));
+    if (encodedTx) {
+      return this._buildUnsignedTxFromEncodedTx(encodedTx as IEncodedTxDnx);
+    }
+    throw new OneKeyInternalError();
+  }
+
+  async _buildUnsignedTxFromEncodedTx(encodedTx: IEncodedTxDnx) {
+    return { encodedTx };
+  }
+
+  override updateUnsignedTx(
+    params: IUpdateUnsignedTxParams,
+  ): Promise<IUnsignedTxPro> {
+    return Promise.resolve(params.unsignedTx);
+  }
+
+  override validateAddress(address: string): Promise<IAddressValidation> {
+    return this._validateAddressCache(address);
+  }
+
+  _validateAddressCache = memoizee(
+    async (address: string) => {
+      try {
+        const res =
+          await this.backgroundApi.serviceValidator.serverValidateAddress({
+            networkId: this.networkId,
+            address,
+          });
+
+        if (res.data.data.isValid) {
+          return {
+            normalizedAddress: address,
+            displayAddress: address,
+            isValid: true,
+          };
+        }
+      } catch (e) {
+        console.log(e);
+      }
+
+      return {
+        normalizedAddress: '',
+        displayAddress: '',
+        isValid: false,
+      };
+    },
+    {
+      primitive: true,
+      maxAge: timerUtils.getTimeDurationMs({ minute: 3 }),
+      max: 10,
+    },
+  );
+
+  override validateXpub(xpub: string): Promise<IXpubValidation> {
+    throw new NotImplemented();
+  }
+
+  override getPrivateKeyFromImported(
+    params: IGetPrivateKeyFromImportedParams,
+  ): Promise<IGetPrivateKeyFromImportedResult> {
+    throw new NotImplemented();
+  }
+
+  override validateXprvt(xprvt: string): Promise<IXprvtValidation> {
+    throw new NotImplemented();
+  }
+
+  override validatePrivateKey(
+    privateKey: string,
+  ): Promise<IPrivateKeyValidation> {
+    throw new NotImplemented();
+  }
+
+  override validateGeneralInput(
+    params: IValidateGeneralInputParams,
+  ): Promise<IGeneralInputValidation> {
+    throw new NotImplemented();
+  }
+
+  override async fillTokensDetails({
+    tokensDetails,
+  }: {
+    tokensDetails: IFetchTokenDetailItem[];
+  }): Promise<IFetchTokenDetailItem[]> {
+    const filledTokensDetails: IFetchTokenDetailItem[] = [];
+    for (const token of tokensDetails) {
+      if (token.info.isNative) {
+        if (await this._checkHasLocalTxOutInPending()) {
+          filledTokensDetails.push({
+            ...token,
+            balance: '0',
+            balanceParsed: '0',
+            frozenBalance: token.balance,
+            frozenBalanceParsed: token.balanceParsed,
+            totalBalance: token.balance,
+            totalBalanceParsed: token.balanceParsed,
+          });
+        } else {
+          filledTokensDetails.push({
+            ...token,
+            frozenBalance: '0',
+            frozenBalanceParsed: '0',
+            totalBalance: token.balance,
+            totalBalanceParsed: token.balanceParsed,
+          });
+        }
+      } else {
+        filledTokensDetails.push(token);
+      }
+    }
+
+    return filledTokensDetails;
+  }
+
+  override async fillAccountDetails({
+    accountDetails,
+  }: {
+    accountDetails: IFetchAccountDetailsResp;
+  }): Promise<IFetchAccountDetailsResp> {
+    if (await this._checkHasLocalTxOutInPending()) {
+      return {
+        ...accountDetails,
+        balance: '0',
+        balanceParsed: '0',
+        frozenBalance: accountDetails.balance,
+        frozenBalanceParsed: accountDetails.balanceParsed,
+        totalBalance: accountDetails.balance,
+        totalBalanceParsed: accountDetails.balanceParsed,
+      };
+    }
+
+    return {
+      ...accountDetails,
+      frozenBalance: '0',
+      frozenBalanceParsed: '0',
+      totalBalance: accountDetails.balance,
+      totalBalanceParsed: accountDetails.balanceParsed,
+    };
+  }
+
+  async _checkHasLocalTxOutInPending() {
+    let hasLocalTxOutInPending = false;
+    const accountAddress = await this.getAccountAddress();
+    const xpub = await this.getAccountXpub();
+
+    let pendingTxs =
+      await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs({
+        networkId: this.networkId,
+        accountAddress,
+        xpub,
+      });
+
+    if (pendingTxs.length > 0) {
+      await this.backgroundApi.serviceHistory.fetchAccountHistory({
+        networkId: this.networkId,
+        accountId: this.accountId,
+      });
+
+      pendingTxs =
+        await this.backgroundApi.serviceHistory.getAccountLocalHistoryPendingTxs(
+          {
+            networkId: this.networkId,
+            accountAddress,
+            xpub,
+          },
+        );
+    }
+
+    for (let i = 0, len = pendingTxs.length; i < len; i = +1) {
+      const item = pendingTxs[i];
+      const action = item.decodedTx.actions[0];
+      if (
+        action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+        action.assetTransfer?.sends[0].isNative
+      ) {
+        hasLocalTxOutInPending = true;
+        break;
+      }
+    }
+
+    return hasLocalTxOutInPending;
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const start = performance.now();
+    const client = new ClientDnx({ url: params.rpcUrl });
+    const bestBlockNumber = await client.getBlockCount();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber,
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    const client = new ClientDnx({ url: rpcUrl });
+    await client.broadcastTransaction({
+      rawTx: signedTx.rawTx,
+    });
+    console.log('broadcastTransaction END:', {
+      txid: signedTx.txid,
+      rawTx: signedTx.rawTx,
+    });
+    return {
+      ...params.signedTx,
+      txid: signedTx.txid,
+    };
+  }
+}

@@ -1,0 +1,262 @@
+import { useState } from 'react';
+
+import {
+  Input,
+  SizableText,
+  Stack,
+  Toast,
+  VerificationCodeInput,
+  YStack,
+} from '@onekeyhq/components';
+
+import { Layout } from './utils/Layout';
+
+function VerificationCodeInputDemo() {
+  const [code, setCode] = useState('');
+  return (
+    <YStack>
+      <VerificationCodeInput
+        length={6}
+        onChange={setCode}
+        onComplete={(completeCode) => {
+          Toast.success({
+            title: 'Complete',
+            message: completeCode,
+          });
+        }}
+      />
+      <SizableText>{code}</SizableText>
+    </YStack>
+  );
+}
+
+const InputGallery = () => (
+  <Layout
+    description=".."
+    suggestions={['...']}
+    boundaryConditions={['...']}
+    elements={[
+      {
+        title: 'Sizes',
+        element: (
+          <Stack gap="$4">
+            <Input
+              size="small"
+              placeholder="Placeholder"
+              onPaste={() => {
+                alert('onPaste');
+              }}
+            />
+            <Input size="medium" placeholder="Placeholder" />
+            <Input size="large" placeholder="Placeholder" />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Input with icon',
+        element: (
+          <Stack gap="$4">
+            <Input
+              size="small"
+              placeholder="Placeholder"
+              leftIconName="SearchOutline"
+            />
+            <Input
+              size="medium"
+              placeholder="Placeholder"
+              leftIconName="SearchOutline"
+            />
+            <Input
+              size="large"
+              placeholder="Placeholder"
+              leftIconName="SearchOutline"
+            />
+          </Stack>
+        ),
+      },
+      {
+        title: 'Input with actions',
+        element: (
+          <Stack gap="$4">
+            <Input
+              size="small"
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+                {
+                  iconName: 'TouchIdOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+            <Input
+              size="medium"
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+                {
+                  iconName: 'TouchIdOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+            <Input
+              size="large"
+              disabled
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                  loading: true,
+                },
+              ]}
+            />
+            <Input
+              size="large"
+              readonly
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                  loading: true,
+                },
+              ]}
+            />
+            <Input
+              size="large"
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  iconName: 'EyeOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+                {
+                  iconName: 'ArrowRightOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+            <Input
+              size="small"
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  label: 'Paste',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+            <Input
+              size="medium"
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  label: 'Paste',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+            <Input
+              size="large"
+              placeholder="Placeholder"
+              addOns={[
+                {
+                  label: 'Paste',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+          </Stack>
+        ),
+      },
+      {
+        title: 'States',
+        element: (
+          <Stack gap="$4">
+            <Input
+              size="medium"
+              value="Disabled"
+              disabled
+              placeholder="Placeholder"
+              leftIconName="SearchOutline"
+              addOns={[
+                {
+                  iconName: 'XCircleOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+            <Input
+              size="medium"
+              value="Readonly"
+              editable={false}
+              placeholder="Placeholder"
+              leftIconName="SearchOutline"
+              addOns={[
+                {
+                  iconName: 'XCircleOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+            <Input
+              size="medium"
+              value="Error"
+              error
+              placeholder="Placeholder"
+              leftIconName="SearchOutline"
+              addOns={[
+                {
+                  iconName: 'XCircleOutline',
+                  onPress: () => {
+                    console.log('clicked');
+                  },
+                },
+              ]}
+            />
+          </Stack>
+        ),
+      },
+      {
+        title: 'VerificationCodeInput',
+        element: <VerificationCodeInputDemo />,
+      },
+    ]}
+  />
+);
+
+export default InputGallery;

@@ -1,0 +1,144 @@
+diff --git a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
+index 3ee3d72..44ce0c1 100644
+--- a/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
++++ b/node_modules/react-native-camera-kit/ios/ReactNativeCameraKit/RealCamera.swift
+@@ -17,7 +17,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     var previewView: UIView { cameraPreview }
+ 
+     private let cameraPreview = RealPreviewView(frame: .zero)
+-    private let session = AVCaptureSession()
++    private var session: AVCaptureSession? = AVCaptureSession()
+     // Communicate with the session and other session objects on this queue.
+     private let sessionQueue = DispatchQueue(label: "com.tesla.react-native-camera-kit")
+ 
+@@ -76,8 +76,10 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+     func cameraRemovedFromSuperview() {
+         sessionQueue.async {
+             if self.setupResult == .success {
+-                self.session.stopRunning()
++                self.session?.stopRunning()
++                self.session = nil
+                 self.removeObservers()
++                // self.cameraPreview.previewLayer.removeFromSuperlayer()
+             }
+         }
+ 
+@@ -102,7 +104,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+ 
+         self.initializeMotionManager()
+ 
+-        // Setup the capture session.
++        // Setup the capture session?.
+         // In general, it is not safe to mutate an AVCaptureSession or any of its inputs, outputs, or connections from multiple threads at the same time.
+         // Why not do all of this on the main queue?
+         // Because -[AVCaptureSession startRunning] is a blocking call which can take a long time. We dispatch session setup to the sessionQueue
+@@ -113,7 +115,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+             self.addObservers()
+ 
+             if self.setupResult == .success {
+-                self.session.startRunning()
++                self.session?.startRunning()
+ 
+                 // We need to reapply the configuration after starting the camera
+                 self.update(torchMode: self.torchMode)
+@@ -274,21 +276,21 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+             }
+ 
+             self.removeObservers()
+-            self.session.beginConfiguration()
++            self.session?.beginConfiguration()
+ 
+             // Remove the existing device input first, since using the front and back camera simultaneously is not supported.
+-            self.session.removeInput(currentViewDeviceInput)
++            self.session?.removeInput(currentViewDeviceInput)
+ 
+-            if self.session.canAddInput(videoDeviceInput) {
+-                self.session.addInput(videoDeviceInput)
++            if self.session?.canAddInput(videoDeviceInput) == true {
++                self.session?.addInput(videoDeviceInput)
+                 self.resetZoom(forDevice: videoDevice)
+                 self.videoDeviceInput = videoDeviceInput
+             } else {
+                 // If it fails, put back current camera
+-                self.session.addInput(currentViewDeviceInput)
++                self.session?.addInput(currentViewDeviceInput)
+             }
+ 
+-            self.session.commitConfiguration()
++            self.session?.commitConfiguration()
+             self.addObservers()
+ 
+             // We need to reapply the configuration after reloading the camera
+@@ -378,10 +380,9 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+         guard self.scannerFrameSize != scannerFrameSize else { return }
+         self.sessionQueue.async {
+             self.scannerFrameSize = scannerFrameSize
+-            if !self.session.isRunning {
++             if !(self.session?.isRunning ?? false) {
+                 return
+             }
+-
+             DispatchQueue.main.async {
+                 var visibleRect: CGRect?
+                 if scannerFrameSize != nil && scannerFrameSize != .zero {
+@@ -474,12 +475,12 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+             return .sessionConfigurationFailed
+         }
+ 
+-        session.beginConfiguration()
++        session?.beginConfiguration()
+ 
+-        session.sessionPreset = .photo
++        session?.sessionPreset = .photo
+ 
+-        if session.canAddInput(videoDeviceInput) {
+-            session.addInput(videoDeviceInput)
++        if session?.canAddInput(videoDeviceInput) == true {
++            session?.addInput(videoDeviceInput)
+ 
+             self.videoDeviceInput = videoDeviceInput
+             self.resetZoom(forDevice: videoDevice)
+@@ -487,8 +488,8 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+             return .sessionConfigurationFailed
+         }
+ 
+-        if session.canAddOutput(photoOutput) {
+-            session.addOutput(photoOutput)
++        if session?.canAddOutput(photoOutput) == true {
++            session?.addOutput(photoOutput)
+ 
+             if let photoOutputConnection = self.photoOutput.connection(with: .video) {
+                 if photoOutputConnection.isVideoStabilizationSupported {
+@@ -499,8 +500,8 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+             return .sessionConfigurationFailed
+         }
+ 
+-        if self.session.canAddOutput(metadataOutput) {
+-            self.session.addOutput(metadataOutput)
++        if self.session?.canAddOutput(metadataOutput) == true {
++            self.session?.addOutput(metadataOutput)
+             metadataOutput.setMetadataObjectsDelegate(self, queue: DispatchQueue.main)
+ 
+             let availableTypes = self.metadataOutput.availableMetadataObjectTypes
+@@ -511,7 +512,7 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+             metadataOutput.metadataObjectTypes = filteredTypes
+         }
+ 
+-        session.commitConfiguration()
++        session?.commitConfiguration()
+ 
+         return .success
+     }
+@@ -676,9 +677,9 @@ class RealCamera: NSObject, CameraProtocol, AVCaptureMetadataOutputObjectsDelega
+         // Automatically try to restart the session running if media services were reset and the last start running succeeded.
+         if error.code == .mediaServicesWereReset {
+             sessionQueue.async {
+-                if self.isSessionRunning {
+-                    self.session.startRunning()
+-                    self.isSessionRunning = self.session.isRunning
++                if self.isSessionRunning == true {
++                    self.session?.startRunning()
++                    self.isSessionRunning = self.session?.isRunning ?? false
+                 }
+             }
+         }

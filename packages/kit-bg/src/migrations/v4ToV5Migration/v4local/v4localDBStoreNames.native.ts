@@ -1,0 +1,21 @@
+// NetworkSchema,
+// TokenSchema,
+// WalletSchema,
+// AccountSchema,
+// ContextSchema,
+// CredentialSchema,
+// HistoryEntrySchema,
+// DeviceSchema,
+// AccountDerivationSchema,
+// CustomFeeSchema,
+
+export enum EV4LocalDBStoreNames {
+  Context = 'Context',
+  Credential = 'Credential',
+  Wallet = 'Wallet',
+  Account = 'Account',
+  Device = 'Device',
+  AccountDerivation = 'AccountDerivation',
+  Network = 'Network',
+  // CustomFee = 'custom_fee',
+}

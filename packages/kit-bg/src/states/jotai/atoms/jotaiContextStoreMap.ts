@@ -1,0 +1,61 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import { useCallback } from 'react';
+
+import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { EAtomNames } from '../atomNames';
+import { globalAtom } from '../utils';
+
+export enum EJotaiContextStoreNames {
+  accountSelector = 'accountSelector',
+  urlAccountHomeTokenList = 'urlAccountHomeTokenList',
+  homeTokenList = 'homeTokenList',
+  discoveryBrowser = 'discoveryBrowser',
+  swap = 'swap',
+  swapModal = 'swapModal',
+  marketWatchList = 'marketWatchList',
+  universalSearch = 'universalSearch',
+  earn = 'earn',
+  sendConfirm = 'sendConfirm',
+}
+export type IJotaiContextStoreData = {
+  storeName: EJotaiContextStoreNames;
+  accountSelectorInfo?: {
+    sceneName: EAccountSelectorSceneName;
+    sceneUrl?: string;
+    enabledNum: number[];
+  };
+};
+export type IJotaiContextStoreMapValue = IJotaiContextStoreData & {
+  count: number; // provider mirror counts
+};
+export type IJotaiContextStoreMap = {
+  // check buildJotaiContextStoreId()
+  [storeId: string]: IJotaiContextStoreMapValue;
+};
+export const {
+  target: jotaiContextStoreMapAtom,
+  use: useJotaiContextStoreMapAtom,
+} = globalAtom<IJotaiContextStoreMap>({
+  name: EAtomNames.jotaiContextStoreMapAtom,
+  initialValue: {},
+});
+
+let memoMap: IJotaiContextStoreMap = {};
+
+export function useJotaiContextTrackerMap() {
+  const [, setMap] = useJotaiContextStoreMapAtom();
+
+  const setMapFinal = useCallback(
+    (mapUpdate: IJotaiContextStoreMap) => {
+      memoMap = mapUpdate;
+      setMap(mapUpdate);
+    },
+    [setMap],
+  );
+  return { setMap: setMapFinal };
+}
+
+export function getJotaiContextTrackerMap() {
+  return memoMap;
+}

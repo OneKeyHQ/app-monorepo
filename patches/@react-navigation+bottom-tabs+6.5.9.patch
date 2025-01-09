@@ -1,0 +1,69 @@
+diff --git a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
+index 2b0dc1c..4d55161 100644
+--- a/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
++++ b/node_modules/@react-navigation/bottom-tabs/lib/module/views/BottomTabView.js
+@@ -53,7 +53,14 @@ export default function BottomTabView(props) {
+   const {
+     routes
+   } = state;
+-  return /*#__PURE__*/React.createElement(SafeAreaProviderCompat, null, /*#__PURE__*/React.createElement(MaybeScreenContainer, {
++  const { tabBarPosition = 'bottom' } = descriptors[focusedRouteKey].options;
++  return /*#__PURE__*/React.createElement(SafeAreaProviderCompat, {
++    style: tabBarPosition === 'left'
++      ? styles.left
++      : tabBarPosition === 'right'
++        ? styles.right
++        : null
++  }, /*#__PURE__*/React.createElement(MaybeScreenContainer, {
+     enabled: detachInactiveScreens,
+     hasTwoStates: true,
+     style: styles.container
+@@ -120,6 +127,12 @@ const styles = StyleSheet.create({
+   container: {
+     flex: 1,
+     overflow: 'hidden'
++  },
++  left: {
++    flexDirection: 'row-reverse',
++  },
++  right: {
++    flexDirection: 'row',
+   }
+ });
+ //# sourceMappingURL=BottomTabView.js.map
+\ No newline at end of file
+diff --git a/node_modules/@react-navigation/bottom-tabs/src/views/BottomTabView.tsx b/node_modules/@react-navigation/bottom-tabs/src/views/BottomTabView.tsx
+index f50d37a..bcb1093 100644
+--- a/node_modules/@react-navigation/bottom-tabs/src/views/BottomTabView.tsx
++++ b/node_modules/@react-navigation/bottom-tabs/src/views/BottomTabView.tsx
+@@ -87,9 +87,18 @@ export default function BottomTabView(props: Props) {
+   };
+ 
+   const { routes } = state;
++  const { tabBarPosition = 'bottom' } = descriptors[focusedRouteKey].options;
+ 
+   return (
+-    <SafeAreaProviderCompat>
++    <SafeAreaProviderCompat
++      style={
++        tabBarPosition === 'left'
++          ? styles.left
++          : tabBarPosition === 'right'
++            ? styles.right
++            : null
++      }
++    >
+       <MaybeScreenContainer
+         enabled={detachInactiveScreens}
+         hasTwoStates
+@@ -167,4 +176,10 @@ const styles = StyleSheet.create({
+     flex: 1,
+     overflow: 'hidden',
+   },
++  left: {
++    flexDirection: 'row-reverse',
++  },
++  right: {
++    flexDirection: 'row',
++  },
+ });

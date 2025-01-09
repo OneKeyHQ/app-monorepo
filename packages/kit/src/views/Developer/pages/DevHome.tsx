@@ -1,0 +1,199 @@
+import { memo, useCallback, useMemo } from 'react';
+
+import { RefreshControl, useWindowDimensions } from 'react-native';
+
+import type { IPageNavigationProp } from '@onekeyhq/components';
+import {
+  Icon,
+  Image,
+  ListView,
+  Page,
+  ScrollView,
+  SizableText,
+  Skeleton,
+  Stack,
+  Tab,
+  XStack,
+} from '@onekeyhq/components';
+import { getTokens } from '@onekeyhq/components/src/hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { ITabHomeParamList } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { useAccountSelectorActions } from '../../../states/jotai/contexts/accountSelector';
+
+import HeaderView from './HeaderView';
+
+const FirstRoute = () => (
+  <ScrollView>
+    <Stack bg="#ff4081" height="$100">
+      <SizableText>demo1</SizableText>
+    </Stack>
+  </ScrollView>
+);
+const SecondRoute = () => (
+  <ListView
+    data={new Array(70).fill({})}
+    renderItem={({ index }) => (
+      <SizableText color="$text" key={index}>
+        demo2 ${index}
+      </SizableText>
+    )}
+    estimatedItemSize={50}
+  />
+);
+
+const OtherRoute = () => (
+  <ScrollView>
+    <Stack bg="#ff4081" height="$100">
+      <SizableText>demo3</SizableText>
+    </Stack>
+  </ScrollView>
+);
+
+const ListRoute = () => (
+  <ListView
+    data={new Array(50).fill({})}
+    renderItem={({ index }) => (
+      <Stack style={{ padding: 20 }}>
+        <SizableText>Row: {index}</SizableText>
+      </Stack>
+    )}
+    estimatedItemSize={100}
+  />
+);
+
+function HomePage() {
+  const screenWidth = useWindowDimensions().width;
+  const sideBarWidth = getTokens().size.sideBarWidth.val;
+  const actions = useAccountSelectorActions();
+
+  const onRefresh = useCallback(() => {
+    // tabsViewRef?.current?.setRefreshing(true);
+  }, []);
+
+  const data = useMemo(
+    () => [
+      {
+        title: 'Label',
+        page: memo(FirstRoute, () => true),
+      },
+      {
+        title: 'chain',
+        page: memo(SecondRoute, () => true),
+      },
+      {
+        title: 'Label',
+        page: memo(ListRoute, () => true),
+      },
+      {
+        title: 'Label',
+        page: memo(OtherRoute, () => true),
+      },
+    ],
+    [],
+  );
+
+  const renderHeaderView = useCallback(() => <HeaderView />, []);
+
+  const navigation = useAppNavigation<IPageNavigationProp<ITabHomeParamList>>();
+
+  const navigateAccountManagerStacks = useCallback(() => {
+    void actions.current.showAccountSelector({
+      navigation,
+      activeWallet: undefined,
+      num: 0,
+      sceneName: EAccountSelectorSceneName.home,
+    });
+  }, [actions, navigation]);
+
+  return useMemo(
+    () => (
+      <Page>
+        <Page.Header
+          headerTitle={() => (
+            <XStack
+              role="button"
+              alignItems="center"
+              p="$1.5"
+              mx="$-1.5"
+              borderRadius="$2"
+              hoverStyle={{
+                bg: '$bgHover',
+              }}
+              pressStyle={{
+                bg: '$bgActive',
+              }}
+              onPress={navigateAccountManagerStacks}
+              maxWidth="$40"
+            >
+              <Image size="$6" borderRadius="$1">
+                <Image.Source src="https://placehold.co/120x120?text=A" />
+                <Image.Fallback>
+                  <Skeleton w="$6" h="$6" />
+                </Image.Fallback>
+              </Image>
+              <SizableText
+                flex={1}
+                size="$bodyMdMedium"
+                pl="$2"
+                pr="$1"
+                numberOfLines={1}
+              >
+                Account 1
+              </SizableText>
+              <Icon
+                name="ChevronGrabberVerOutline"
+                size="$5"
+                color="$iconSubdued"
+              />
+            </XStack>
+          )}
+        />
+        <Page.Body alignItems="center">
+          <Tab
+            data={data}
+            ListHeaderComponent={<>{renderHeaderView()}</>}
+            initialScrollIndex={3}
+            $md={{
+              width: '100%',
+            }}
+            $gtMd={{
+              width: screenWidth - sideBarWidth - 150,
+            }}
+            refreshControl={
+              <RefreshControl refreshing={false} onRefresh={onRefresh} />
+            }
+            showsVerticalScrollIndicator={false}
+          />
+        </Page.Body>
+      </Page>
+    ),
+    [
+      data,
+      renderHeaderView,
+      screenWidth,
+      sideBarWidth,
+      onRefresh,
+      navigateAccountManagerStacks,
+    ],
+  );
+}
+
+function HomePageContainer() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <HomePage />
+    </AccountSelectorProviderMirror>
+  );
+}
+
+export default HomePageContainer;

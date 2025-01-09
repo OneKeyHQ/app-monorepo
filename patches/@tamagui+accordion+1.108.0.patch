@@ -1,0 +1,85 @@
+diff --git a/node_modules/@tamagui/accordion/dist/cjs/Accordion.js b/node_modules/@tamagui/accordion/dist/cjs/Accordion.js
+index 2eb8c7a..2465e18 100644
+--- a/node_modules/@tamagui/accordion/dist/cjs/Accordion.js
++++ b/node_modules/@tamagui/accordion/dist/cjs/Accordion.js
+@@ -296,6 +296,7 @@ const AccordionTriggerFrame = (0, import_web2.styled)(import_collapsible.Collaps
+     import_web.View,
+     {
+       position: "absolute",
++      width: "100%",
+       onLayout,
+       children
+     }
+diff --git a/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js b/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
+index a75a2ce..0cb377e 100644
+--- a/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
++++ b/node_modules/@tamagui/accordion/dist/cjs/Accordion.native.js
+@@ -410,7 +410,12 @@ var AccordionTriggerFrame = (0, import_web2.styled)(import_collapsible.Collapsib
+   }, [
+     itemContext.open
+   ]);
++  const isOpenRef = React.useRef(itemContext.open);
++  isOpenRef.current = itemContext.open;
+   var onLayout = (0, import_web.useEvent)(function(param) {
++    if (!isOpenRef.current.open) { 
++      setHeight(0);
++    }
+     var nativeEvent = param.nativeEvent;
+     nativeEvent.layout.height && setHeight(nativeEvent.layout.height);
+   });
+@@ -420,6 +425,7 @@ var AccordionTriggerFrame = (0, import_web2.styled)(import_collapsible.Collapsib
+   }, rest), {
+     children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)(import_web.View, {
+       position: "absolute",
++      width: "100%",
+       //@ts-ignore
+       onLayout,
+       children
+diff --git a/node_modules/@tamagui/accordion/dist/esm/Accordion.js b/node_modules/@tamagui/accordion/dist/esm/Accordion.js
+index 30bfee5..0fb3201 100644
+--- a/node_modules/@tamagui/accordion/dist/esm/Accordion.js
++++ b/node_modules/@tamagui/accordion/dist/esm/Accordion.js
+@@ -281,6 +281,7 @@ const AccordionTriggerFrame = styled(Collapsible.Trigger, {
+     View,
+     {
+       position: "absolute",
++      width: "100%",
+       onLayout,
+       children
+     }
+diff --git a/node_modules/@tamagui/accordion/dist/esm/Accordion.mjs b/node_modules/@tamagui/accordion/dist/esm/Accordion.mjs
+index 370f0d5..5dc4aff 100644
+--- a/node_modules/@tamagui/accordion/dist/esm/Accordion.mjs
++++ b/node_modules/@tamagui/accordion/dist/esm/Accordion.mjs
+@@ -328,6 +328,7 @@ const AccordionTriggerFrame = styled(Collapsible.Trigger, {
+       ...rest,
+       children: /* @__PURE__ */jsx(View, {
+         position: "absolute",
++        width: "100%",
+         onLayout,
+         children
+       })
+diff --git a/node_modules/@tamagui/accordion/dist/jsx/Accordion.js b/node_modules/@tamagui/accordion/dist/jsx/Accordion.js
+index 30bfee5..0fb3201 100644
+--- a/node_modules/@tamagui/accordion/dist/jsx/Accordion.js
++++ b/node_modules/@tamagui/accordion/dist/jsx/Accordion.js
+@@ -281,6 +281,7 @@ const AccordionTriggerFrame = styled(Collapsible.Trigger, {
+     View,
+     {
+       position: "absolute",
++      width: "100%",
+       onLayout,
+       children
+     }
+diff --git a/node_modules/@tamagui/accordion/dist/jsx/Accordion.mjs b/node_modules/@tamagui/accordion/dist/jsx/Accordion.mjs
+index 370f0d5..5dc4aff 100644
+--- a/node_modules/@tamagui/accordion/dist/jsx/Accordion.mjs
++++ b/node_modules/@tamagui/accordion/dist/jsx/Accordion.mjs
+@@ -328,6 +328,7 @@ const AccordionTriggerFrame = styled(Collapsible.Trigger, {
+       ...rest,
+       children: /* @__PURE__ */jsx(View, {
+         position: "absolute",
++        width: "100%",
+         onLayout,
+         children
+       })
