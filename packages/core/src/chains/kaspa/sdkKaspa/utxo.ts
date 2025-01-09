@@ -9,11 +9,23 @@ import { UnspentOutput } from './types';
 import type { RestAPIClient } from './clientRestApi';
 import type { IKaspaUTXOResponse, IKaspaUnspentOutputInfo } from './types';
 
-function sortUXTO(utxos: IKaspaUnspentOutputInfo[]) {
+type ISortKey = 'daaScore' | 'satoshis';
+
+function sortUXTO(
+  utxos: IKaspaUnspentOutputInfo[],
+  sortPriority: ISortKey = 'daaScore',
+) {
+  const sortFns = {
+    daaScore: (a: IKaspaUnspentOutputInfo, b: IKaspaUnspentOutputInfo) =>
+      a.blockDaaScore - b.blockDaaScore,
+    satoshis: (a: IKaspaUnspentOutputInfo, b: IKaspaUnspentOutputInfo) =>
+      new BigNumber(b.satoshis).minus(a.satoshis).toNumber(),
+  };
+
   return utxos.sort(
-    (a: IKaspaUnspentOutputInfo, b: IKaspaUnspentOutputInfo): number =>
-      a.blockDaaScore - b.blockDaaScore ||
-      new BigNumber(b.satoshis).minus(a.satoshis).toNumber() ||
+    (a, b) =>
+      sortFns[sortPriority](a, b) ||
+      sortFns[sortPriority === 'daaScore' ? 'satoshis' : 'daaScore'](a, b) ||
       a.txid.localeCompare(b.txid) ||
       a.vout - b.vout,
   );
@@ -69,7 +81,10 @@ export function selectUTXOs(
   prioritys?: { satoshis: boolean };
   mass: number;
 } {
-  const sortedUtxos = sortUXTO(confirmUtxos);
+  const sortedUtxos = sortUXTO(
+    confirmUtxos,
+    prioritys?.satoshis ? 'satoshis' : 'daaScore',
+  );
 
   const selectedUtxos: IKaspaUnspentOutputInfo[] = [];
   const utxoIds: string[] = [];

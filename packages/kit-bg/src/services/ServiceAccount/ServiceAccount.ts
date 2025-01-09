@@ -2810,6 +2810,7 @@ class ServiceAccount extends ServiceBase {
           appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
             networkId,
             indexedAccountId,
+            deriveType,
             promiseId,
             autoCreateAddress: accountUtils.isHdWallet({ walletId }),
           });

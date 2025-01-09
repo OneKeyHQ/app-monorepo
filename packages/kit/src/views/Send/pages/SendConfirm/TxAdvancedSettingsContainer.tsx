@@ -107,14 +107,14 @@ function TxAdvancedSettingsContainer(props: IProps) {
   const canEditNonce = useMemo(
     () =>
       unsignedTxs.length === 1 &&
-      !unsignedTxs[0].isInternalSwap &&
+      !unsignedTxs[0]?.isInternalSwap &&
       vaultSettings?.canEditNonce &&
       settings.isCustomNonceEnabled &&
-      !isNil(unsignedTxs[0].nonce),
+      !isNil(unsignedTxs[0]?.nonce),
     [settings.isCustomNonceEnabled, unsignedTxs, vaultSettings?.canEditNonce],
   );
 
-  const currentNonce = new BigNumber(unsignedTxs[0].nonce ?? 0).toFixed();
+  const currentNonce = new BigNumber(unsignedTxs[0]?.nonce ?? 0).toFixed();
 
   const form = useForm({
     defaultValues: {

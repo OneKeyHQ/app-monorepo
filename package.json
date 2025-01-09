@@ -244,10 +244,10 @@
     "@walletconnect/core": "2.11.2",
     "fs": "npm:@favware/skip-dependency@1.2.1",
     "react-native-webview": "npm:@onekeyfe/react-native-webview@13.8.2",
-    "@sentry/browser": "npm:8.42.0",
-    "@sentry/core": "npm:8.42.0",
-    "@sentry/react": "npm:8.42.0",
-    "@sentry/types": "npm:8.42.0",
-    "@sentry/utils": "npm:8.42.0"
+    "@sentry/browser": "8.42.0",
+    "@sentry/core": "8.42.0",
+    "@sentry/react": "8.42.0",
+    "@sentry/types": "8.42.0",
+    "@sentry/utils": "8.42.0"
   }
 }
