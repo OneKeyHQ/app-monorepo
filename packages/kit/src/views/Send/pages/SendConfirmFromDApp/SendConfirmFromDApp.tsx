@@ -15,10 +15,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
-import type {
-  EModalSendRoutes,
-  IModalSendParamList,
-} from '@onekeyhq/shared/src/routes';
+import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 
 import type {
   NavigationAction,
@@ -141,20 +138,21 @@ function SendConfirmFromDApp() {
             encodedTx: newEncodedTx,
             transfersInfo,
           });
-        const params: IModalSendParamList[EModalSendRoutes.SendConfirm] = {
-          networkId,
-          accountId,
-          unsignedTxs: [unsignedTx],
-          sourceInfo: $sourceInfo,
-          signOnly,
-          useFeeInTx,
-          feeInfoEditable,
-          onSuccess: (result) => sendConfirmCallback(result, undefined),
-          onFail: (error) => sendConfirmCallback(null, error),
-          // @ts-ignore
-          _disabledAnimationOfNavigate: true,
-          _$t,
-        };
+        const params: IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxConfirm] =
+          {
+            networkId,
+            accountId,
+            unsignedTxs: [unsignedTx],
+            sourceInfo: $sourceInfo,
+            signOnly,
+            useFeeInTx,
+            feeInfoEditable,
+            onSuccess: (result) => sendConfirmCallback(result, undefined),
+            onFail: (error) => sendConfirmCallback(null, error),
+            // @ts-ignore
+            _disabledAnimationOfNavigate: true,
+            _$t,
+          };
         // replace router to SendConfirm
         action = StackActions.replace(signatureConfirmRoute, params);
       }

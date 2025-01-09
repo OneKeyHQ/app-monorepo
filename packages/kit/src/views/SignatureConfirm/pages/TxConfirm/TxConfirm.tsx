@@ -31,6 +31,7 @@ import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
 import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
+import SourceInfo from '../../components/SourceInfo/SourceInfo';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
@@ -217,6 +218,7 @@ function TxConfirm() {
     return (
       <>
         <SignatureConfirmAlert networkId={networkId} />
+        <SourceInfo sourceInfo={sourceInfo} />
         <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         {stakingInfo ? <StakingInfo data={stakingInfo} /> : null}
@@ -227,6 +229,7 @@ function TxConfirm() {
     isBuildingDecodedTxs,
     decodedTxs,
     networkId,
+    sourceInfo,
     accountId,
     swapInfo,
     stakingInfo,
