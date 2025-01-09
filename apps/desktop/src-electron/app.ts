@@ -51,8 +51,6 @@ import {
   startServices,
 } from './service';
 
-initSentry();
-
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
 
@@ -962,6 +960,7 @@ if (!singleInstance && !process.mas) {
 
   app.name = APP_NAME;
   app.on('ready', async () => {
+    initSentry();
     const locale = await initLocale();
     logger.info('locale >>>> ', locale);
     startServices();
