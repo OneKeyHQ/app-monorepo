@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
+import { SolanaMessageFormat } from '@onekeyfe/hd-transport';
 
 import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import type {
@@ -125,14 +126,14 @@ export class KeyringHardware extends KeyringHardwareBase {
 
         const ret: ICoreApiGetAddressItem[] = [];
         for (let i = 0; i < publicKeys.length; i += 1) {
-          const item = publicKeys[i];
+          const item = publicKeys[i] as { path: string; address: string };
           const { path, address } = item;
           const { normalizedAddress } = await this.vault.validateAddress(
             address || '',
           );
           const addressInfo: ICoreApiGetAddressItem = {
             address: normalizedAddress || address || '',
-            path,
+            path: path,
             publicKey: '',
           };
           ret.push(addressInfo);
@@ -172,7 +173,7 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const isVersionedTransaction = transaction instanceof VersionedTransaction;
 
-    const result = await convertDeviceResponse(async () =>
+    const response = await convertDeviceResponse(async () =>
       sdk.solSignTransaction(connectId, deviceId, {
         path,
         rawTx: isVersionedTransaction
@@ -181,8 +182,8 @@ export class KeyringHardware extends KeyringHardwareBase {
         ...deviceCommonParams,
       }),
     );
+    const { signature } = response;
 
-    const { signature } = result;
     if (signature) {
       transaction.addSignature(
         feePayerPublicKey,
@@ -225,27 +226,25 @@ export class KeyringHardware extends KeyringHardwareBase {
     const result = await Promise.all(
       params.messages.map(
         async (payload: { type: string; message: string }) => {
-          const response = await HardwareSDK.solSignOffchainMessage(
-            connectId,
-            deviceId,
-            {
-              ...params.deviceParams?.deviceCommonParams,
-              path: dbAccount.path,
-              messageHex: Buffer.from(payload.message).toString('hex'),
-              // @ts-expect-error
-              messageFormat: OffchainMessage.guessMessageFormat(
-                Buffer.from(payload.message),
-              ),
-            },
+          const response = await convertDeviceResponse(async () =>
+            HardwareSDK.solSignMessage(
+              connectId,
+              deviceId,
+              {
+                ...params.deviceParams?.deviceCommonParams,
+                path: dbAccount.path,
+                messageHex: Buffer.from(payload.message).toString('hex'),
+                messageFormat: OffchainMessage.guessMessageFormat(
+                  Buffer.from(payload.message),
+                ) as SolanaMessageFormat | undefined,
+              },
+            ),
           );
-
-          if (!response.success) {
-            throw convertDeviceError(response.payload);
-          }
-          return response.payload?.signature;
+          const { signature } = response;
+          return signature;
         },
       ),
     );
-    return result.map((ret) => bs58.encode(Buffer.from(ret, 'hex')));
+    return result.map((ret) => (ret ? bs58.encode(Buffer.from(ret, 'hex')) : ''));
   }
 }
