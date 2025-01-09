@@ -37,6 +37,7 @@ export interface IDisplayComponentAddress {
     value: string;
     displayType: IBadgeType;
   }[];
+  navigable?: boolean;
 }
 
 export interface IDisplayComponentAmount {

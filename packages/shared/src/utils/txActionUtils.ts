@@ -396,6 +396,7 @@ function convertTokenApproveActionToSignatureConfirmComponent({
         label: isRevoke ? 'Revoke from' : 'Approve To',
         address: action.spender,
         tags: [],
+        navigable: true,
       };
 
   return [approveComponent, spenderComponent].filter(Boolean);
