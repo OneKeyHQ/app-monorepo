@@ -134,3 +134,10 @@ export const { atom: txAdvancedSettingsAtom, use: useTxAdvancedSettingsAtom } =
     nonce: '',
     dataChanged: false,
   });
+
+export const { atom: extraFeeInfoAtom, use: useExtraFeeInfoAtom } =
+  contextAtom<{
+    feeNative: string;
+  }>({
+    feeNative: '0',
+  });

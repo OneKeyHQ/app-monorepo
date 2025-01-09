@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useRoute } from '@react-navigation/core';
+import BigNumber from 'bignumber.js';
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -12,6 +13,7 @@ import {
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { calculateTxExtraFee } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -29,6 +31,7 @@ import TxConfirmActions from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
 import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
+import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import SourceInfo from '../../components/SourceInfo/SourceInfo';
@@ -58,6 +61,7 @@ function TxConfirm() {
     updateNativeTokenInfo,
     updatePreCheckTxStatus,
     updateSendFeeStatus,
+    updateExtraFeeInfo,
   } = useSignatureConfirmActions().current;
 
   const [settings] = useSettingsPersistAtom();
@@ -88,6 +92,13 @@ function TxConfirm() {
             unsignedTxs: reactiveUnsignedTxs,
             transferPayload,
           });
+        let extraFeeNativeTotal = new BigNumber(0);
+        for (const decodedTx of r) {
+          const extraFeeNative = calculateTxExtraFee({ decodedTx });
+          extraFeeNativeTotal = extraFeeNativeTotal.plus(extraFeeNative);
+        }
+
+        updateExtraFeeInfo({ feeNative: extraFeeNativeTotal.toFixed() });
 
         updateDecodedTxs({
           decodedTxs: r,
@@ -104,6 +115,7 @@ function TxConfirm() {
         accountId,
         networkId,
         transferPayload,
+        updateExtraFeeInfo,
       ],
       {
         watchLoading: true,
@@ -220,6 +232,11 @@ function TxConfirm() {
         <SignatureConfirmAlert networkId={networkId} />
         <SourceInfo sourceInfo={sourceInfo} />
         <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
+        <TxConfirmExtraInfo
+          accountId={accountId}
+          networkId={networkId}
+          unsignedTxs={unsignedTxs}
+        />
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         {stakingInfo ? <StakingInfo data={stakingInfo} /> : null}
         <TxAdvancedSettings accountId={accountId} networkId={networkId} />
@@ -231,6 +248,7 @@ function TxConfirm() {
     networkId,
     sourceInfo,
     accountId,
+    unsignedTxs,
     swapInfo,
     stakingInfo,
   ]);

@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -8,6 +9,7 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
@@ -407,4 +409,24 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
   if (feeInfo.feeSol) {
     return feeInfo.common.baseFee;
   }
+}
+
+export function calculateTxExtraFee({ decodedTx }: { decodedTx: IDecodedTx }) {
+  let extraFeeNative = new BigNumber(0);
+
+  if (
+    decodedTx.extraInfo &&
+    (decodedTx.extraInfo as IDecodedTxExtraSol).createTokenAccountFee
+  ) {
+    extraFeeNative = extraFeeNative.plus(
+      new BigNumber(
+        (decodedTx.extraInfo as IDecodedTxExtraSol).createTokenAccountFee
+          ?.amount ?? '0',
+      ),
+    );
+
+    return extraFeeNative.toFixed();
+  }
+
+  return extraFeeNative;
 }
