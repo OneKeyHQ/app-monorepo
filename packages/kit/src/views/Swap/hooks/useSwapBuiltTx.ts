@@ -647,7 +647,7 @@ export function useSwapBuildTx() {
                   swapInfo: createBuildTxRes.swapInfo,
                 });
               } else {
-                await navigationToSendConfirm({
+                await navigationToSignatureConfirm({
                   isInternalSwap: true,
                   transfersInfo: createBuildTxRes.transferInfo
                     ? [createBuildTxRes.transferInfo]
@@ -683,6 +683,9 @@ export function useSwapBuildTx() {
                   isFirstTimeSwap: false,
                 }));
               }
+            } else {
+              setSwapBuildTxFetching(false);
+              setSwapShouldRefreshQuote(true);
             }
           } catch (e) {
             console.error(e);
@@ -773,7 +776,7 @@ export function useSwapBuildTx() {
       try {
         if (createBuildTxRes) {
           if (!createBuildTxRes.skipSendTransAction) {
-            await navigationToSendConfirm({
+            await navigationToSignatureConfirm({
               isInternalSwap: true,
               transfersInfo: createBuildTxRes.transferInfo
                 ? [createBuildTxRes.transferInfo]
@@ -810,6 +813,9 @@ export function useSwapBuildTx() {
             ...prev,
             isFirstTimeSwap: false,
           }));
+        } else {
+          setSwapBuildTxFetching(false);
+          setSwapShouldRefreshQuote(true);
         }
       } catch (e) {
         setSwapBuildTxFetching(false);
