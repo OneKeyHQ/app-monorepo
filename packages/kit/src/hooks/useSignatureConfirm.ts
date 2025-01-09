@@ -4,13 +4,17 @@ import { useCallback } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type {
   IApproveInfo,
   ITransferInfo,
   ITransferPayload,
   IWrappedInfo,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSignatureConfirmRoutes,
+} from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
@@ -46,12 +50,12 @@ type IBuildUnsignedTxParams = {
   isInternalSwap?: boolean;
 };
 
-function useSendConfirm(params: IParams) {
+function useSignatureConfirm(params: IParams) {
   const { accountId, networkId } = params;
 
   const navigation = useAppNavigation();
 
-  const normalizeSendConfirm = useCallback(
+  const normalizeSignatureConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       const {
         sameModal,
@@ -117,8 +121,8 @@ function useSendConfirm(params: IParams) {
         }
 
         const target = params.isInternalSwap
-          ? EModalSendRoutes.SendConfirmFromSwap
-          : EModalSendRoutes.SendConfirm;
+          ? EModalSignatureConfirmRoutes.TxConfirmFromSwap
+          : EModalSignatureConfirmRoutes.TxConfirm;
 
         if (sameModal) {
           navigation.push(target, {
@@ -134,7 +138,7 @@ function useSendConfirm(params: IParams) {
             feeInfoEditable,
           });
         } else {
-          navigation.pushModal(EModalRoutes.SendModal, {
+          navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
             screen: target,
             params: {
               accountId,
@@ -161,7 +165,7 @@ function useSendConfirm(params: IParams) {
     [accountId, navigation, networkId],
   );
 
-  const lightningSendConfirm = useCallback(
+  const lightningSignatureConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       const { onSuccess, onFail, onCancel } = params;
 
@@ -182,7 +186,7 @@ function useSendConfirm(params: IParams) {
         if (lnurlDetails) {
           switch (lnurlDetails.tag) {
             case 'login':
-              navigation.push(EModalSendRoutes.LnurlAuth, {
+              navigation.push(EModalSignatureConfirmRoutes.LnurlAuth, {
                 networkId,
                 accountId,
                 lnurlDetails,
@@ -190,7 +194,7 @@ function useSendConfirm(params: IParams) {
               });
               break;
             case 'payRequest':
-              navigation.push(EModalSendRoutes.LnurlPayRequest, {
+              navigation.push(EModalSignatureConfirmRoutes.LnurlPayRequest, {
                 networkId,
                 accountId,
                 transfersInfo,
@@ -202,7 +206,7 @@ function useSendConfirm(params: IParams) {
               });
               break;
             case 'withdrawRequest':
-              navigation.push(EModalSendRoutes.LnurlWithdraw, {
+              navigation.push(EModalSignatureConfirmRoutes.LnurlWithdraw, {
                 networkId,
                 accountId,
                 lnurlDetails,
@@ -227,26 +231,26 @@ function useSendConfirm(params: IParams) {
       }
 
       // send invoice
-      await normalizeSendConfirm(params);
+      await normalizeSignatureConfirm(params);
     },
-    [accountId, navigation, networkId, normalizeSendConfirm],
+    [accountId, navigation, networkId, normalizeSignatureConfirm],
   );
 
-  const navigationToSendConfirm = useCallback(
+  const navigationToSignatureConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
-        await lightningSendConfirm(params);
+        await lightningSignatureConfirm(params);
       } else {
-        await normalizeSendConfirm(params);
+        await normalizeSignatureConfirm(params);
       }
     },
-    [networkId, normalizeSendConfirm, lightningSendConfirm],
+    [networkId, normalizeSignatureConfirm, lightningSignatureConfirm],
   );
 
   return {
-    navigationToSendConfirm,
-    normalizeSendConfirm,
+    navigationToSignatureConfirm,
+    normalizeSignatureConfirm,
   };
 }
 
-export { useSendConfirm };
+export { useSignatureConfirm };

@@ -28,7 +28,7 @@ import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import {
   EDAppConnectionModal,
   EModalRoutes,
-  EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -302,7 +302,10 @@ class ServiceDApp extends ServiceBase {
   }): Promise<ISignedTxPro> {
     return this.openModal({
       request,
-      screens: [EModalRoutes.SendModal, EModalSendRoutes.SendConfirmFromDApp],
+      screens: [
+        EModalRoutes.SignatureConfirmModal,
+        EModalSignatureConfirmRoutes.TxConfirmFromDApp,
+      ],
       params: {
         encodedTx,
         transfersInfo,

@@ -32,7 +32,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
@@ -140,7 +140,7 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
-  const sendConfirm = useSendConfirm({
+  const signatureConfirm = useSignatureConfirm({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
@@ -522,7 +522,7 @@ function SendDataInputContainer() {
               : tokenInfo?.address,
           });
 
-          await sendConfirm.navigationToSendConfirm({
+          await signatureConfirm.navigationToSignatureConfirm({
             transfersInfo,
             sameModal: true,
             onSuccess,
@@ -573,7 +573,7 @@ function SendDataInputContainer() {
       onCancel,
       onFail,
       onSuccess,
-      sendConfirm,
+      signatureConfirm,
       tokenDetails,
       tokenInfo?.address,
       txMessageLinkedString,
@@ -1311,4 +1311,6 @@ const SendDataInputContainerWithProvider = memo(() => (
 SendDataInputContainerWithProvider.displayName =
   'SendDataInputContainerWithProvider';
 
-export { SendDataInputContainer, SendDataInputContainerWithProvider };
+export { SendDataInputContainer };
+
+export default SendDataInputContainerWithProvider;

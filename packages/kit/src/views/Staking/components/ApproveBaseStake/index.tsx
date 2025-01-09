@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -91,7 +91,7 @@ export const ApproveBaseStake = ({
 }: PropsWithChildren<IApproveBaseStakeProps>) => {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const { navigationToSendConfirm } = useSendConfirm({
+  const { navigationToSignatureConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
   });
@@ -190,7 +190,7 @@ export const ApproveBaseStake = ({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
-    await navigationToSendConfirm({
+    await navigationToSignatureConfirm({
       approvesInfo: [
         {
           owner: account.address,
@@ -210,7 +210,12 @@ export const ApproveBaseStake = ({
         setApproving(false);
       },
     });
-  }, [amountValue, approveTarget, navigationToSendConfirm, trackAllowance]);
+  }, [
+    amountValue,
+    approveTarget,
+    navigationToSignatureConfirm,
+    trackAllowance,
+  ]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
