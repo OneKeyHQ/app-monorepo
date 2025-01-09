@@ -26,6 +26,7 @@ export const useHandleClaim = ({
     async ({
       details,
       symbol,
+      claimAmount,
       provider,
       isReward,
       stakingInfo,
@@ -33,6 +34,7 @@ export const useHandleClaim = ({
     }: {
       symbol: string;
       provider: string;
+      claimAmount: string;
       isReward?: boolean;
       details?: IStakeProtocolDetails;
       stakingInfo?: IStakingInfo;
@@ -50,7 +52,7 @@ export const useHandleClaim = ({
       }
       if (isReward) {
         await handleUniversalClaim({
-          amount: details.rewards ?? '0',
+          amount: claimAmount,
           symbol,
           provider,
           stakingInfo,
@@ -76,12 +78,12 @@ export const useHandleClaim = ({
           networkId,
           details,
           onSuccess,
-          amount: stakingConfig.claimWithAmount ? details.claimable : undefined,
+          amount: stakingConfig.claimWithAmount ? claimAmount : undefined,
         });
         return;
       }
       await handleUniversalClaim({
-        amount: details.claimable ?? '0',
+        amount: claimAmount,
         symbol,
         provider,
         stakingInfo,

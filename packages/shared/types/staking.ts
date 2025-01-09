@@ -234,6 +234,8 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   overflow?: string;
+  rewardNum?: Record<string, string>;
+  rewardAssets?: Record<string, IToken>;
 };
 
 export type IStakeProtocolListItem = {
