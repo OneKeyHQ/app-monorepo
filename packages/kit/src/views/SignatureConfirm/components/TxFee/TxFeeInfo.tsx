@@ -20,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
+  useExtraFeeInfoAtom,
   useIsSinglePresetAtom,
   useNativeTokenInfoAtom,
   useNativeTokenTransferAmountToUpdateAtom,
@@ -86,6 +87,7 @@ function TxFeeInfo(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [sendTxStatus] = useSendTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
+  const [extraFeeInfo] = useExtraFeeInfoAtom();
   const {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
@@ -912,9 +914,11 @@ function TxFeeInfo(props: IProps) {
         ? false
         : new BigNumber(nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0)
             .plus(selectedFee?.totalNative ?? 0)
+            .plus(extraFeeInfo.feeNative ?? 0)
             .gt(nativeTokenInfo.balance ?? 0),
     });
   }, [
+    extraFeeInfo.feeNative,
     nativeTokenInfo,
     nativeTokenInfo.balance,
     nativeTokenInfo.isLoading,
