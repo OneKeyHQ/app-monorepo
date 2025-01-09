@@ -16,6 +16,7 @@ import {
   contextAtomMethod,
   customFeeAtom,
   decodedTxsAtom,
+  extraFeeInfoAtom,
   isSinglePresetAtom,
   nativeTokenInfoAtom,
   nativeTokenTransferAmountAtom,
@@ -182,6 +183,12 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
       });
     },
   );
+
+  updateExtraFeeInfo = contextAtomMethod(
+    (get, set, payload: { feeNative: string }) => {
+      set(extraFeeInfoAtom(), payload);
+    },
+  );
 }
 
 const createActions = memoFn(() => {
@@ -207,6 +214,7 @@ export function useSignatureConfirmActions() {
   const updateTokenApproveInfo = actions.updateTokenApproveInfo.use();
   const updateTxAdvancedSettings = actions.updateTxAdvancedSettings.use();
   const updateDecodedTxs = actions.updateDecodedTxs.use();
+  const updateExtraFeeInfo = actions.updateExtraFeeInfo.use();
   return useRef({
     updateUnsignedTxs,
     updateSendSelectedFee,
@@ -222,5 +230,6 @@ export function useSignatureConfirmActions() {
     updateTokenApproveInfo,
     updateTxAdvancedSettings,
     updateDecodedTxs,
+    updateExtraFeeInfo,
   });
 }
