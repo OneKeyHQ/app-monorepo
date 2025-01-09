@@ -2,11 +2,7 @@
 // eslint-disable-next-line max-classes-per-file
 import { PureComponent } from 'react';
 
-import { SafeAreaView } from 'react-native';
-
-import { SizableText } from '@onekeyhq/components/src/primitives/SizeableText';
-
-import type { FallbackRender } from '@sentry/react';
+import { SafeAreaView, Text } from 'react-native';
 
 type IErrorBoundaryProps = {
   children: React.ReactNode;
@@ -43,7 +39,7 @@ class ErrorBoundarySimple extends ErrorBoundaryBase {
     if (this.state.error) {
       return (
         <SafeAreaView>
-          <SizableText>{this.state.error.message}</SizableText>
+          <Text>{this.state.error.message}</Text>
         </SafeAreaView>
       );
     }
@@ -51,7 +47,7 @@ class ErrorBoundarySimple extends ErrorBoundaryBase {
   }
 }
 
-const sentryErrorBoundaryFallback: FallbackRender = ({
+function SentryErrorBoundaryFallback({
   error,
   componentStack,
   eventId,
@@ -61,13 +57,15 @@ const sentryErrorBoundaryFallback: FallbackRender = ({
   componentStack: string;
   eventId: string;
   resetError(): void;
-}) => (
-  <SafeAreaView>
-    <SizableText>
-      {(error as Error | undefined)?.message ||
-        'unknown error by error boundary'}
-    </SizableText>
-  </SafeAreaView>
-);
+}) {
+  return (
+    <SafeAreaView>
+      <Text>
+        {(error as Error | undefined)?.message ||
+          'unknown error by error boundary'}
+      </Text>
+    </SafeAreaView>
+  );
+}
 
-export { ErrorBoundaryBase, ErrorBoundarySimple, sentryErrorBoundaryFallback };
+export { ErrorBoundaryBase, ErrorBoundarySimple, SentryErrorBoundaryFallback };
