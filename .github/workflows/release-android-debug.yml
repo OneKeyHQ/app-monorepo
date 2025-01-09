@@ -15,6 +15,10 @@ jobs:
         node-version: [20.x]
 
     steps:
+      # https://github.com/orgs/community/discussions/25678
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
+      
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
@@ -97,6 +101,10 @@ jobs:
           yarn app:web-embed:build
           cd apps/mobile/android
           ./gradlew assembleDebug
+
+      # https://github.com/orgs/community/discussions/25678
+      - name: Delete huge unnecessary tools folder
+        run: rm -rf /opt/hostedtoolcache
       
       - name: Upload Main Debug APK
         uses: actions/upload-artifact@v3
@@ -118,4 +126,13 @@ jobs:
             name: release-huawei-debug
             path: |
                 ./apps/mobile/android/app/build/outputs/apk/huawei/debug
-
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: false
+          android: true
+          dotnet: false
+          haskell: false
+          large-packages: false
+          docker-images: false
+          swap-storage: false
