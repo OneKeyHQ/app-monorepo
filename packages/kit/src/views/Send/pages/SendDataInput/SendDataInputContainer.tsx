@@ -14,7 +14,9 @@ import {
   HeaderIconButton,
   Input,
   Page,
+  Popover,
   SizableText,
+  Stack,
   TextArea,
   TextAreaInput,
   XStack,
@@ -1199,13 +1201,24 @@ function SendDataInputContainer() {
   );
   const renderHeaderRight = useCallback(
     () => (
-      <HeaderIconButton
-        key="allowList"
-        titlePlacement="bottom"
-        color="$iconSuccess"
-        icon="ShieldCheckDoneSolid"
-        testID="setting"
-        onPress={navigateToSettingProtection}
+      <Popover
+        title={'Allowlist enabled'}
+        renderTrigger={
+          <HeaderIconButton
+            key="allowList"
+            titlePlacement="bottom"
+            color="$iconSuccess"
+            icon="ShieldCheckDoneSolid"
+            testID="setting"
+          />
+        }
+        renderContent={({ closePopover }) => (
+          <Stack gap="$4" p="$5">
+            <SizableText>
+            You can only transfer funds to allowlist address in Address book or transferred address. If you understand the risks, you can disable it in Settings >> Protection.
+            </SizableText>
+          </Stack>
+        )}
       />
     ),
     [navigateToSettingProtection],
