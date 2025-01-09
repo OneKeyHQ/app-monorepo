@@ -244,6 +244,7 @@ export type IAddressQueryResult = {
   resolveOptions?: string[];
   addressInteractionStatus?: IAddressInteractionStatus;
   isContract?: boolean;
+  isAllowListed?: boolean;
 };
 
 type IAddressInputBadgeGroupProps = {
