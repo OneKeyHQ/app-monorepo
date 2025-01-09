@@ -4,11 +4,13 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import BiologyAuthSwitch from '../components/BiologyAuthSwitch';
 
 interface IBiologyAuthSwitchContainerProps {
@@ -19,6 +21,7 @@ const BiologyAuthSwitchContainer = ({
   skipAuth,
 }: IBiologyAuthSwitchContainerProps) => {
   const intl = useIntl();
+  const { title } = useBiometricAuthInfo();
   const [{ isSupport }] = usePasswordBiologyAuthInfoAtom();
   const [settings] = useSettingsPersistAtom();
   const onChange = useCallback(
@@ -29,6 +32,18 @@ const BiologyAuthSwitchContainer = ({
           skipAuth,
         );
       } catch (e) {
+        const error = e as { message?: string; name?: string };
+        if (error?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+          Toast.error({
+            title: intl.formatMessage(
+              {
+                id: ETranslations.auth_biometric_cancel,
+              },
+              { biometric: title },
+            ),
+          });
+          return;
+        }
         Toast.error({
           title: intl.formatMessage({
             id: platformEnv.isDesktopWin
@@ -38,7 +53,7 @@ const BiologyAuthSwitchContainer = ({
         });
       }
     },
-    [intl, skipAuth],
+    [intl, skipAuth, title],
   );
   return (
     <BiologyAuthSwitch

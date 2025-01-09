@@ -12,6 +12,7 @@ import {
 import {
   BIOLOGY_AUTH_ATTEMPTS_FACE,
   BIOLOGY_AUTH_ATTEMPTS_FINGERPRINT,
+  BIOLOGY_AUTH_CANCEL_ERROR,
   EPasswordMode,
   PASSCODE_PROTECTION_ATTEMPTS,
   PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX,
@@ -220,7 +221,7 @@ const PasswordVerifyContainer = ({
           }
         }
       } catch (e: any) {
-        const error = e as { message?: string; cause?: string };
+        const error = e as { message?: string; cause?: string; name?: string };
         let message = error?.message;
         if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           message = intl.formatMessage(
@@ -235,6 +236,14 @@ const PasswordVerifyContainer = ({
           message = intl.formatMessage({
             id: ETranslations.prime_incorrect_password,
           });
+        }
+        if (error?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+          message = intl.formatMessage(
+            {
+              id: ETranslations.auth_biometric_cancel,
+            },
+            { biometric: title },
+          );
         }
         if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           setVerifyPeriodBiologyEnable(false);
