@@ -5,7 +5,6 @@ import RevenueCatUI from 'react-native-purchases-ui';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
@@ -44,8 +43,16 @@ export function usePrimePayment(): IUsePrimePayment {
         console.error(e);
       }
     }
+    const appUserId = await Purchases.getAppUserID();
+    if (appUserId !== user?.privyUserId) {
+      throw new Error('AppUserId not match');
+    }
     const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
-    console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
+    console.log(
+      'customerInfo >>>>> ',
+      appUserId,
+      JSON.stringify(customerInfo, null, 2),
+    );
     setPrimePersistAtom((prev) =>
       perfUtils.buildNewValueIfChanged(prev, {
         ...prev,

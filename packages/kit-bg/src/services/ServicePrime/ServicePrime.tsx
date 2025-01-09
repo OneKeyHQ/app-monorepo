@@ -24,8 +24,8 @@ import {
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
 
-import type { IPrimeLoginDialogKeys } from '../../states/jotai/atoms/prime';
 import type { AxiosInstance } from 'axios';
+import type { IPrimeLoginDialogKeys } from '../../states/jotai/atoms/prime';
 
 class ServicePrime extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -74,6 +74,10 @@ class ServicePrime extends ServiceBase {
       '/prime/v1/user/info',
     );
     const serverUserInfo = result?.data?.data;
+    console.log(
+      'serverPrimeUserInfo >>>>> ',
+      JSON.stringify(serverUserInfo, null, 2),
+    );
     let primeSubscription: IPrimeSubscriptionInfo | undefined;
     if (serverUserInfo.isPrime) {
       primeSubscription = {

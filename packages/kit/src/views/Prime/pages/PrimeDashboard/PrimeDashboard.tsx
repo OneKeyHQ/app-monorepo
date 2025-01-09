@@ -438,6 +438,13 @@ export default function PrimeDashboard() {
               >
                 CustomerInfo
               </Button>
+              <Button
+                onPress={() => {
+                  void fetchPrimeUserInfo().then(console.log);
+                }}
+              >
+                ServerPrimeUserInfo
+              </Button>
             </XStack>
           </Page.Body>
           <Page.Footer
