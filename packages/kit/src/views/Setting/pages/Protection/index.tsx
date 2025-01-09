@@ -48,6 +48,23 @@ const SettingProtectionModal = () => {
               id: ETranslations.settings_token_risk_reminder_desc,
             })}
           </SizableText>
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.settings_protection_allowlist_title,
+            })}
+          >
+            <Switch
+              size={ESwitchSize.small}
+              value={settings.transferAllowlist ?? true}
+              onChange={async (value) => {
+                setSettings((v) => ({ ...v, transferAllowlist: !!value }));
+              }}
+            />
+          </ListItem>
+          <SizableText px="$5" size="$bodySm" color="$textSubdued">
+            When enabled, you can only transfer funds to whitelist address in
+            Address Book.
+          </SizableText>
           <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader
             title={intl.formatMessage({

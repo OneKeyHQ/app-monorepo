@@ -60,17 +60,25 @@ const useParseQRCode = () => {
     [clipboard, intl],
   );
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
-    async (value, options) => {
+    async (value, params) => {
+      if (!params) {
+        return {
+          type: EQRCodeHandlerType.UNKNOWN,
+          data: {} as IBaseValue,
+          raw: value,
+        };
+      }
+      const { defaultHandler, ...options } = params;
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
         value,
         options,
       );
-      if (
-        result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
-        (result.data as IAnimationValue).fullData
-      ) {
-        rootNavigationRef?.current?.goBack();
-      }
+      // if (
+      //   result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
+      //   (result.data as IAnimationValue).fullData
+      // ) {
+      //   rootNavigationRef?.current?.goBack();
+      // }
 
       if (!options?.autoHandleResult) {
         return result;
@@ -213,7 +221,11 @@ const useParseQRCode = () => {
           });
           break;
         default: {
-          showCopyDialog(value);
+          if (defaultHandler) {
+            defaultHandler(value);
+          } else {
+            showCopyDialog(value);
+          }
         }
       }
       return result;

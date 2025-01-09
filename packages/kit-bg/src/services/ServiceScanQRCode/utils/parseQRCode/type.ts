@@ -131,6 +131,7 @@ export enum EQRCodeHandlerNames {
 
 export type IQRCodeHandlerParseOutsideOptions = {
   handlers: EQRCodeHandlerNames[];
+  defaultHandler?: (value: string) => void;
   autoHandleResult?: boolean;
   account?: INetworkAccount;
   tokens?: ITokenData;

@@ -27,6 +27,7 @@ export type ISettingsPersistAtom = {
   protectCreateTransaction: boolean;
   protectCreateOrRemoveWallet: boolean;
   tokenRiskReminder: boolean;
+  transferAllowlist: boolean;
   spendDustUTXO: boolean;
   inscriptionProtection: boolean;
   isFirstTimeSwap: boolean;
@@ -55,6 +56,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   protectCreateTransaction: false,
   protectCreateOrRemoveWallet: false,
   tokenRiskReminder: true,
+  transferAllowlist: true,
   spendDustUTXO: false,
   inscriptionProtection: true,
   isFirstTimeSwap: true,
