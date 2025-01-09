@@ -37,6 +37,44 @@ class BuildDoneNotifyPlugin {
   }
 }
 
+const baseResolve = ({ platform, configName }) => ({
+  mainFields: ['browser', 'module', 'main'],
+  aliasFields: ['browser', 'module', 'main'],
+  extensions: createResolveExtensions({ platform, configName }),
+  symlinks: true,
+  alias: {
+    'react-native$': 'react-native-web',
+    'react-native/Libraries/Components/View/ViewStylePropTypes$':
+      'react-native-web/dist/exports/View/ViewStylePropTypes',
+    'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':
+      'react-native-web/dist/vendor/react-native/NativeEventEmitter/RCTDeviceEventEmitter',
+    'react-native/Libraries/vendor/emitter/EventEmitter$':
+      'react-native-web/dist/vendor/react-native/emitter/EventEmitter',
+    'react-native/Libraries/vendor/emitter/EventSubscriptionVendor$':
+      'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
+    'react-native/Libraries/EventEmitter/NativeEventEmitter$':
+      'react-native-web/dist/vendor/react-native/NativeEventEmitter',
+  },
+  fallback: {
+    'crypto': require.resolve(
+      '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
+    ),
+    stream: require.resolve('stream-browserify'),
+    path: false,
+    https: false,
+    http: false,
+    net: false,
+    zlib: false,
+    tls: false,
+    child_process: false,
+    process: false,
+    fs: false,
+    util: false,
+    os: false,
+    buffer: require.resolve('buffer/'),
+  },
+});
+
 const basePlugins = [
   isDev && new ProgressBarPlugin(),
   new webpack.DefinePlugin({
@@ -54,6 +92,15 @@ const basePlugins = [
   }),
   isDev && new BuildDoneNotifyPlugin(),
 ].filter(Boolean);
+
+const baseExperiments = {
+  asyncWebAssembly: true,
+};
+
+const basePerformance = {
+  maxAssetSize: 600_000,
+  maxEntrypointSize: 600_000,
+};
 
 module.exports = ({ platform, basePath, configName }) => ({
   entry: path.join(basePath, 'index.js'),
@@ -315,47 +362,13 @@ module.exports = ({ platform, basePath, configName }) => ({
       },
     ],
   },
-  resolve: {
-    mainFields: ['browser', 'module', 'main'],
-    aliasFields: ['browser', 'module', 'main'],
-    extensions: createResolveExtensions({ platform, configName }),
-    symlinks: true,
-    alias: {
-      'react-native$': 'react-native-web',
-      'react-native/Libraries/Components/View/ViewStylePropTypes$':
-        'react-native-web/dist/exports/View/ViewStylePropTypes',
-      'react-native/Libraries/EventEmitter/RCTDeviceEventEmitter$':
-        'react-native-web/dist/vendor/react-native/NativeEventEmitter/RCTDeviceEventEmitter',
-      'react-native/Libraries/vendor/emitter/EventEmitter$':
-        'react-native-web/dist/vendor/react-native/emitter/EventEmitter',
-      'react-native/Libraries/vendor/emitter/EventSubscriptionVendor$':
-        'react-native-web/dist/vendor/react-native/emitter/EventSubscriptionVendor',
-      'react-native/Libraries/EventEmitter/NativeEventEmitter$':
-        'react-native-web/dist/vendor/react-native/NativeEventEmitter',
-    },
-    fallback: {
-      'crypto': require.resolve(
-        '@onekeyhq/shared/src/modules3rdParty/cross-crypto/index.js',
-      ),
-      stream: require.resolve('stream-browserify'),
-      path: false,
-      https: false,
-      http: false,
-      net: false,
-      zlib: false,
-      tls: false,
-      child_process: false,
-      process: false,
-      fs: false,
-      util: false,
-      os: false,
-      buffer: require.resolve('buffer/'),
-    },
-  },
-  experiments: {
-    asyncWebAssembly: true,
-  },
-  performance: { maxAssetSize: 600_000, maxEntrypointSize: 600_000 },
+  resolve: baseResolve({ platform, configName }),
+  experiments: baseExperiments,
+  performance: basePerformance,
 });
 
 module.exports.basePlugins = basePlugins;
+module.exports.baseResolve = baseResolve;
+module.exports.basePlugins = basePlugins;
+module.exports.baseExperiments = baseExperiments;
+module.exports.basePerformance = basePerformance;
