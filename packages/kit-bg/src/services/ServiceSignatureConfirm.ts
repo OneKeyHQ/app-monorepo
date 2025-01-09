@@ -85,8 +85,6 @@ class ServiceSignatureConfirm extends ServiceBase {
         });
     }
 
-    console.log('r', r);
-
     return r;
   }
 
