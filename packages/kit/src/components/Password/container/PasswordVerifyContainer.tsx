@@ -350,9 +350,6 @@ const PasswordVerifyContainer = ({
               PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
                 nextAttempts.toString()
               ];
-            // message = `${
-            //   PASSCODE_PROTECTION_ATTEMPTS - nextAttempts
-            // } more failed attempts will reset the device`;
             message = intl.formatMessage(
               {
                 id: ETranslations.auth_passcode_failed_alert,
@@ -363,6 +360,7 @@ const PasswordVerifyContainer = ({
             );
             setPasswordPersist((v) => ({
               ...v,
+              passwordErrorAttempts: nextAttempts,
               passwordErrorProtectionTime: Date.now() + timeMinutes * 60 * 1000, // 2s for animation
             }));
             setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);
