@@ -64,6 +64,8 @@ export type IStakeProviderInfo = {
   buttonStake: boolean;
   buttonUnstake: boolean;
   alerts: string[];
+
+  apys?: IRewardApys;
 };
 
 export type IStakeBaseParams = {
@@ -247,6 +249,15 @@ export type IStakeProtocolListItem = {
     logoURI: string;
   };
   isEarning: boolean;
+};
+
+export type IRewardApys = {
+  rate: string;
+  rewards: Record<string, string>;
+  netApy: string;
+  dailyNetApy: string;
+  weeklyNetApy: string;
+  monthlyNetApy: string;
 };
 
 export type IBabylonPortfolioStatus =

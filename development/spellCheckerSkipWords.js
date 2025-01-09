@@ -782,4 +782,6 @@ module.exports = [
   'biometrics',
   'Biometric',
   'Morpho',
+  'Apy',
+  'Apys',
 ];
