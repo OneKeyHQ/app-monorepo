@@ -8,8 +8,7 @@ import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
 export function PrimeUserInfo() {
   const { user, privy } = usePrimeAuth();
-  // TODO: get isPrime from backend
-  const isPrime = true;
+  const isPrime = user?.primeSubscription?.isActive;
 
   return (
     <XStack
@@ -36,7 +35,7 @@ export function PrimeUserInfo() {
         ellipsizeMode="middle"
         ellipse
       >
-        long_email_address_for_testing_ellipsis_mode
+        long_email_address_for_testing_ellipsis_mode---
         {user?.email}
       </SizableText>
       {isPrime ? (

@@ -1,9 +1,17 @@
-import type { Package, PurchaseResult } from '@revenuecat/purchases-js';
-import type { PurchasesPackage } from '@revenuecat/purchases-typescript-internal';
+import type {
+  CustomerInfo as CustomerInfoWeb,
+  Package,
+  PurchaseResult,
+} from '@revenuecat/purchases-js';
+import type {
+  CustomerInfo as CustomerInfoNative,
+  PurchasesPackage,
+} from '@revenuecat/purchases-typescript-internal';
 import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 export type IUsePrimePayment = {
   isReady: boolean;
+  getCustomerInfo: () => Promise<CustomerInfoWeb | CustomerInfoNative>;
   getPaywallPackagesNative:
     | (() => Promise<{
         packages: PurchasesPackage[];

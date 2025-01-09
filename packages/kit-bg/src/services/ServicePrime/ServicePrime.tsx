@@ -11,7 +11,11 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
+import type {
+  IPrimeServerUserInfo,
+  IPrimeSubscriptionInfo,
+  IPrimeUserInfo,
+} from '@onekeyhq/shared/types/prime/primeTypes';
 
 import { getEndpointInfo } from '../../endpoints';
 import {
@@ -42,7 +46,7 @@ class ServicePrime extends ServiceBase {
       const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
       if (authToken) {
         // TODO use cookie instead of simpleDb
-        config.headers['OneKey-Prime-Token'] = `${authToken}`;
+        config.headers['X-Onekey-Request-Token'] = `${authToken}`;
       }
       return config;
     });
@@ -66,10 +70,25 @@ class ServicePrime extends ServiceBase {
       return primePersistAtom.get();
     }
     const client = await this.getPrimeClient();
-    const result = await client.get<IApiClientResponse<IPrimeUserInfo>>(
-      '/api/prime/user-info',
+    const result = await client.get<IApiClientResponse<IPrimeServerUserInfo>>(
+      '/prime/v1/user/info',
     );
-    return result?.data?.data;
+    const serverUserInfo = result?.data?.data;
+    let primeSubscription: IPrimeSubscriptionInfo | undefined;
+    if (serverUserInfo.isPrime && serverUserInfo.primeExpiredAt > 0) {
+      primeSubscription = {
+        isActive: true,
+        expiresAt: serverUserInfo.primeExpiredAt,
+      };
+    } else {
+      primeSubscription = undefined;
+    }
+    await primePersistAtom.set((v) => ({
+      ...v,
+      isLoggedIn: true,
+      primeSubscription,
+    }));
+    return primePersistAtom.get();
   }
 
   async setPrimePersistAtomNotLoggedIn() {
@@ -78,6 +97,7 @@ class ServicePrime extends ServiceBase {
       privyUserId: undefined,
       email: undefined,
       primeSubscription: undefined,
+      subscriptionManageUrl: undefined,
     }));
   }
 

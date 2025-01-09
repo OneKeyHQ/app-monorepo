@@ -5,13 +5,16 @@ import RevenueCatUI from 'react-native-purchases-ui';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService.android';
+import googlePlayService from '@onekeyhq/shared/src/googlePlayService/googlePlayService';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
 import { usePrimeAuth } from './usePrimeAuth';
 
-import type { PurchasesPackage } from '@revenuecat/purchases-typescript-internal';
+import type {
+  CustomerInfo,
+  PurchasesPackage,
+} from '@revenuecat/purchases-typescript-internal';
 import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
 import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
@@ -21,6 +24,37 @@ export function usePrimePayment(): IUsePrimePayment {
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
 
   const isReady = isPaymentReady && isAuthReady;
+
+  const getCustomerInfo = useCallback(async () => {
+    if (!isReady) {
+      throw new Error('PrimeAuth Not ready');
+    }
+    if (!user?.privyUserId) {
+      throw new Error('User not logged in');
+    }
+    try {
+      await Purchases.logOut();
+    } catch (e) {
+      console.error(e);
+    }
+    if (user?.privyUserId) {
+      try {
+        await Purchases.logIn(user.privyUserId);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
+    console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
+    setPrimePersistAtom((prev) =>
+      perfUtils.buildNewValueIfChanged(prev, {
+        ...prev,
+        subscriptionManageUrl: customerInfo.managementURL || '',
+      }),
+    );
+
+    return customerInfo;
+  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
 
   // TODO move to jotai context
   useEffect(() => {
@@ -53,30 +87,10 @@ export function usePrimePayment(): IUsePrimePayment {
   useEffect(() => {
     void (async () => {
       if (isReady && user?.privyUserId) {
-        try {
-          await Purchases.logOut();
-        } catch (e) {
-          console.error(e);
-        }
-        if (user?.privyUserId) {
-          await Purchases.logIn(user.privyUserId);
-        }
-        const customerInfo = await Purchases.getCustomerInfo();
-        console.log(
-          'customerInfo >>>>> ',
-          JSON.stringify(customerInfo, null, 2),
-        );
-        if (customerInfo.managementURL) {
-          setPrimePersistAtom((prev) =>
-            perfUtils.buildNewValueIfChanged(prev, {
-              ...prev,
-              subscriptionManageUrl: customerInfo.managementURL || '',
-            }),
-          );
-        }
+        await getCustomerInfo();
       }
     })();
-  }, [isReady, user?.privyUserId, setPrimePersistAtom]);
+  }, [getCustomerInfo, isReady, user?.privyUserId]);
 
   const getPaywallPackagesNative = useCallback(async () => {
     if (!isReady) {
@@ -107,9 +121,17 @@ export function usePrimePayment(): IUsePrimePayment {
         throw new Error('PrimeAuth native not ready!!!');
       }
 
-      // TODO VPN required or device not support google play service
-      if (!(await googlePlayService.isAvailable())) {
-        throw new Error('Google Play Service is not available on this device');
+      if (platformEnv.isNativeAndroid) {
+        // if (platformEnv.isNativeAndroidGooglePlay) {
+        //   // TODO VPN required or device not support google play service
+        //   if (!(await googlePlayService.isAvailable())) {
+        //     throw new Error(
+        //       'Google Play Service is not available on this device',
+        //     );
+        //   }
+        // } else {
+        //   throw new Error('Android web purchase not supported yet');
+        // }
       }
 
       // const { packages } = await getPaywallPackagesNative();
@@ -126,17 +148,16 @@ export function usePrimePayment(): IUsePrimePayment {
       // const customerInfo = await Purchases.getCustomerInfo();
       // console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
 
-      // const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
-      //   // offering: offeringYearly,
-      //   offering: offeringMonthly,
-      //   // offering: offering // Optional Offering object obtained through getOfferings
-      // });
+      const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
+        // offering: offeringYearly,
+        // offering: offering // Optional Offering object obtained through getOfferings
+      });
 
-      const paywallResult: PAYWALL_RESULT =
-        await RevenueCatUI.presentPaywallIfNeeded({
-          // offering: offering, // Optional Offering object obtained through getOfferings
-          requiredEntitlementIdentifier: 'Prime',
-        });
+      // const paywallResult: PAYWALL_RESULT =
+      //   await RevenueCatUI.presentPaywallIfNeeded({
+      //     // offering: offering, // Optional Offering object obtained through getOfferings
+      //     requiredEntitlementIdentifier: 'Prime',
+      //   });
 
       console.log(
         'paywallResult >>>>> ',
@@ -148,7 +169,7 @@ export function usePrimePayment(): IUsePrimePayment {
       errorToastUtils.toastIfError(error);
       throw error;
     }
-  }, [isReady, getPaywallPackagesNative]);
+  }, [isReady]);
 
   return {
     isReady,
@@ -156,5 +177,6 @@ export function usePrimePayment(): IUsePrimePayment {
     getPaywallPackagesNative,
     getPaywallPackagesWeb: undefined,
     purchasePaywallPackageWeb: undefined,
+    getCustomerInfo,
   };
 }

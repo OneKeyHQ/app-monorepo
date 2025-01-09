@@ -11,7 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-
+import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import { usePrimeAuth } from '../../hooks/usePrimeAuth';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
@@ -20,8 +20,8 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose: () => void;
 }) {
   const { user, logout, updateEmail } = usePrimeAuth();
-  // TODO: get isPrime from backend
-  const isPrime = true;
+  const isPrime = user?.primeSubscription?.isActive;
+  const primeExpiredAt = user?.primeSubscription?.expiresAt;
 
   const userInfo = (
     <Stack px="$2" py="$2.5" gap="$1">
@@ -39,9 +39,11 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           </Badge>
         )}
       </XStack>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        Ends on December 31, 2023.
-      </SizableText>
+      {primeExpiredAt && isPrime ? (
+        <SizableText size="$bodyMd" color="$textSubdued">
+          Ends on {formatDateFns(new Date(primeExpiredAt))}
+        </SizableText>
+      ) : null}
     </Stack>
   );
   return (
@@ -58,16 +60,18 @@ function PrimeUserInfoMoreButtonDropDownMenu({
         icon="PasswordOutline"
         onClose={handleActionListClose}
       />
-      <ActionList.Item
-        label="Manage subscription"
-        icon="CreditCardOutline"
-        onClose={handleActionListClose}
-        onPress={() => {
-          if (user.subscriptionManageUrl) {
-            openUrlUtils.openUrlExternal(user.subscriptionManageUrl);
-          }
-        }}
-      />
+      {isPrime ? (
+        <ActionList.Item
+          label="Manage subscription"
+          icon="CreditCardOutline"
+          onClose={handleActionListClose}
+          onPress={() => {
+            if (user.subscriptionManageUrl) {
+              openUrlUtils.openUrlExternal(user.subscriptionManageUrl);
+            }
+          }}
+        />
+      ) : null}
       <Divider mx="$2" my="$1" />
       <ActionList.Item
         label="Log out"
