@@ -813,4 +813,4 @@ function SendReplaceTxContainer() {
   );
 }
 
-export { SendReplaceTxContainer };
+export default SendReplaceTxContainer;

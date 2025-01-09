@@ -1,6 +1,7 @@
 import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
 import type { IDecodedTxExtraDnx } from '@onekeyhq/core/src/chains/dnx/types';
 import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightning/types';
+import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 import type { IDecodedTxExtraTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -8,6 +9,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
+import type { ITransactionData, ITransactionDisplay } from './signatureConfirm';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -62,6 +64,7 @@ export enum EReplaceTxMethod {
 export type ISendTxBaseParams = {
   networkId: string;
   accountId: string;
+  accountAddress?: string;
 };
 
 export type IDecodedTxInteractInfo = {
@@ -92,7 +95,8 @@ export type IDecodedTxExtraInfo =
   | IDecodedTxExtraLightning
   | IDecodedTxExtraXrp
   | IDecodedTxExtraDnx
-  | IDecodedTxExtraTron;
+  | IDecodedTxExtraTron
+  | IDecodedTxExtraSol;
 
 export type IDecodedTx = {
   txid: string; // blockHash
@@ -137,6 +141,11 @@ export type IDecodedTx = {
   nativeAmountValue?: string;
 
   originalTxId?: string; // for ton
+
+  // for signature confirm page display
+  txDisplay?: ITransactionDisplay;
+  txABI?: ITransactionData;
+  isLocalParsed?: boolean;
 };
 
 export type IDecodedTxActionBase = {
@@ -240,3 +249,10 @@ export enum EBtcF2poolReplaceState {
   ACCELERATED_PENDING = 1,
   ACCELERATED_CONFIRMED = 2,
 }
+
+export type IParseTransactionParams = {
+  networkId: string;
+  accountId: string;
+  encodedTx: IEncodedTx;
+  accountAddress?: string;
+};

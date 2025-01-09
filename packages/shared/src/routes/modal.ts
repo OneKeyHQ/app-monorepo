@@ -19,6 +19,7 @@ import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalShortcutsParamList } from './shortcuts';
+import type { IModalSignatureConfirmParamList } from './signatureConfirm';
 import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
@@ -53,6 +54,7 @@ export enum EModalRoutes {
   WalletAddress = 'WalletAddress',
   NotificationsModal = 'NotificationsModal',
   ShortcutsModal = 'ShortcutsModal',
+  SignatureConfirmModal = 'SignatureConfirmModal',
 }
 
 export type IModalParamList = {
@@ -83,4 +85,5 @@ export type IModalParamList = {
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.ShortcutsModal]: IModalShortcutsParamList;
+  [EModalRoutes.SignatureConfirmModal]: IModalSignatureConfirmParamList;
 };

@@ -23,6 +23,7 @@ import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
+import { ModalSignatureConfirmStack } from '../../views/SignatureConfirm/router';
 import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
@@ -90,6 +91,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SendModal,
     children: ModalSendStack,
+  },
+  {
+    name: EModalRoutes.SignatureConfirmModal,
+    children: ModalSignatureConfirmStack,
   },
   {
     name: EModalRoutes.ReceiveModal,
