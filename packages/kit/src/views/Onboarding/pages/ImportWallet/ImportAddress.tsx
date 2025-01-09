@@ -282,13 +282,60 @@ function ImportAddress() {
     [method, isKeyExportEnabled],
   );
 
+  const onSubmit = useCallback(async () => {
+    await form.handleSubmit(async (values) => {
+      const data: {
+        name?: string;
+        input: string;
+        networkId: string;
+        deriveType?: IAccountDeriveTypes;
+        shouldCheckDuplicateName?: boolean;
+      } = isPublicKeyImport
+        ? {
+            name: values.accountName,
+            input: values.publicKeyValue ?? '',
+            networkId: values.networkId ?? '',
+            deriveType: values.deriveType,
+            shouldCheckDuplicateName: true,
+          }
+        : {
+            name: values.accountName,
+            input: values.addressValue.resolved ?? '',
+            networkId: values.networkId ?? '',
+            shouldCheckDuplicateName: true,
+          };
+      const r = await backgroundApiProxy.serviceAccount.addWatchingAccount(
+        data,
+      );
+
+      const accountId = r?.accounts?.[0]?.id;
+      if (accountId) {
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.global_success }),
+        });
+      }
+
+      void actions.current.updateSelectedAccountForSingletonAccount({
+        num: 0,
+        networkId: values.networkId,
+        walletId: WALLET_TYPE_WATCHING,
+        othersWalletAccountId: accountId,
+      });
+      navigation.popStack();
+
+      defaultLogger.account.wallet.importWallet({
+        importMethod: 'address',
+      });
+    })();
+  }, [actions, form, intl, isPublicKeyImport, navigation]);
+
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_import_address })}
       />
       <Page.Body px="$5">
-        <Form form={form}>
+        <Form form={form} onSubmit={onSubmit}>
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.global_network })}
             name="networkId"
@@ -433,51 +480,7 @@ function ImportAddress() {
         confirmButtonProps={{
           disabled: !isEnable,
         }}
-        onConfirm={async () => {
-          await form.handleSubmit(async (values) => {
-            const data: {
-              name?: string;
-              input: string;
-              networkId: string;
-              deriveType?: IAccountDeriveTypes;
-              shouldCheckDuplicateName?: boolean;
-            } = isPublicKeyImport
-              ? {
-                  name: values.accountName,
-                  input: values.publicKeyValue ?? '',
-                  networkId: values.networkId ?? '',
-                  deriveType: values.deriveType,
-                  shouldCheckDuplicateName: true,
-                }
-              : {
-                  name: values.accountName,
-                  input: values.addressValue.resolved ?? '',
-                  networkId: values.networkId ?? '',
-                  shouldCheckDuplicateName: true,
-                };
-            const r =
-              await backgroundApiProxy.serviceAccount.addWatchingAccount(data);
-
-            const accountId = r?.accounts?.[0]?.id;
-            if (accountId) {
-              Toast.success({
-                title: intl.formatMessage({ id: ETranslations.global_success }),
-              });
-            }
-
-            void actions.current.updateSelectedAccountForSingletonAccount({
-              num: 0,
-              networkId: values.networkId,
-              walletId: WALLET_TYPE_WATCHING,
-              othersWalletAccountId: accountId,
-            });
-            navigation.popStack();
-
-            defaultLogger.account.wallet.importWallet({
-              importMethod: 'address',
-            });
-          })();
-        }}
+        onConfirm={onSubmit}
       />
     </Page>
   );

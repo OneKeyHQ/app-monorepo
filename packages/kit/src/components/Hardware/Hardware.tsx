@@ -396,7 +396,7 @@ export function EnterPhase({
           type="warning"
         />
       </Stack>
-      <Form form={form}>
+      <Form form={form} onSubmit={handleSubmit}>
         <Form.Field
           name="passphrase"
           label={intl.formatMessage({ id: ETranslations.global_passphrase })}

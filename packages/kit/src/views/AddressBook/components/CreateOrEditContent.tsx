@@ -1,4 +1,4 @@
-import { type FC, useCallback } from 'react';
+import { type FC, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -81,6 +81,8 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
     [onSubmit],
   );
 
+  const handleSave = useMemo(() => form.handleSubmit(onSave), [form, onSave]);
+
   const { result: addressBookEnabledNetworkIds } = usePromiseResult(
     async () => {
       const resp =
@@ -96,7 +98,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
     <Page>
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body p="$4">
-        <Form form={form}>
+        <Form form={form} onSubmit={handleSave}>
           <Form.Field
             label={intl.formatMessage({
               id: ETranslations.address_book_add_address_chain,
@@ -214,7 +216,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
           variant: 'primary',
           loading: form.formState.isSubmitting,
           disabled: !form.formState.isValid || pending,
-          onPress: form.handleSubmit(onSave),
+          onPress: handleSave,
           testID: 'address-form-save',
         }}
       />

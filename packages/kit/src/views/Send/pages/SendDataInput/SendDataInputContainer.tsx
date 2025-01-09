@@ -1205,7 +1205,7 @@ function SendDataInputContainer() {
             },
           }}
         >
-          <Form form={form}>
+          <Form form={form} onSubmit={handleOnConfirm}>
             {isNFT ? (
               <Form.Field
                 label={intl.formatMessage({ id: ETranslations.global_nft })}

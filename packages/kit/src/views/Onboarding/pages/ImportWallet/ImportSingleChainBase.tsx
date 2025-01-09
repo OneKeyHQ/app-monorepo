@@ -170,11 +170,16 @@ export function ImportSingleChainBase({
 
   const { start } = useScanQrCode();
 
+  const handleSubmit = useCallback(
+    async () => onConfirm(form),
+    [form, onConfirm],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header title={title} />
       <Page.Body px="$5">
-        <Form form={form}>
+        <Form form={form} onSubmit={handleSubmit}>
           <Form.Field
             label={intl.formatMessage({ id: ETranslations.global_network })}
             name="networkId"
@@ -276,7 +281,7 @@ export function ImportSingleChainBase({
             !validateResult?.isValid ||
             !!Object.values(form.formState.errors).length,
         }}
-        onConfirm={async () => onConfirm(form)}
+        onConfirm={handleSubmit}
       />
     </Page>
   );
