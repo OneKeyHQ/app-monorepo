@@ -21,11 +21,6 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'GITHUB_SHA',
     'STORYBOOK_ENABLED',
     'WALLETCONNECT_PROJECT_ID',
-    'PRIVY_APP_ID',
-    'PRIVY_MOBILE_CLIENT_ID',
-    'REVENUECAT_API_KEY_WEB',
-    'REVENUECAT_API_KEY_APPLE',
-    'REVENUECAT_API_KEY_GOOGLE',
   ];
 
   if (platform === developmentConsts.platforms.app) {

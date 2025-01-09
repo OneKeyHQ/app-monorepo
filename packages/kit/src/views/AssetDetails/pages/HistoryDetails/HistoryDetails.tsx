@@ -6,6 +6,7 @@ import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Button,
   Divider,
   Page,
@@ -19,11 +20,13 @@ import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { SpeedUpAction } from '@onekeyhq/kit/src/components/TxHistoryListView/SpeedUpAction';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReplaceTx } from '@onekeyhq/kit/src/hooks/useReplaceTx';
 import { openTransactionDetailsUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
+import { withBrowserProvider } from '@onekeyhq/kit/src/views/Discovery/pages/Browser/WithBrowserProvider';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
 import { IMPL_DOT } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -424,7 +427,15 @@ function HistoryDetails() {
     navigation.popStack();
   }, [navigation]);
 
-  const { handleReplaceTx, canReplaceTx, canCancelTx } = useReplaceTx({
+  const {
+    handleReplaceTx,
+    handleCheckSpeedUpState,
+    canReplaceTx,
+    canCancelTx,
+    cancelTxEnabled,
+    speedUpCancelEnabled,
+    checkSpeedUpStateEnabled,
+  } = useReplaceTx({
     historyTx,
     onSuccess: handleReplaceTxSuccess,
     isConfirmed:
@@ -726,32 +737,32 @@ function HistoryDetails() {
   ]);
 
   const renderReplaceTxActions = useCallback(() => {
-    if (!canReplaceTx) return null;
+    if (!canReplaceTx && !checkSpeedUpStateEnabled) return null;
 
-    return (
-      <XStack ml="$5">
-        {canCancelTx ? (
-          <XStack gap="$2">
-            <Button
-              size="small"
-              variant="primary"
-              onPress={() =>
-                handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
-              }
-            >
-              {intl.formatMessage({ id: ETranslations.global_speed_up })}
-            </Button>
-            <Button
-              size="small"
-              variant="secondary"
-              onPress={() =>
-                handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
-              }
-            >
-              {intl.formatMessage({ id: ETranslations.global_cancel })}
-            </Button>
-          </XStack>
-        ) : (
+    const renderCancelActions = () => (
+      <XStack gap="$2">
+        <SpeedUpAction
+          networkId={networkId}
+          onSpeedUp={() =>
+            handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
+          }
+        />
+        {cancelTxEnabled ? (
+          <Button
+            size="small"
+            onPress={() =>
+              handleReplaceTx({ replaceType: EReplaceTxType.Cancel })
+            }
+          >
+            {intl.formatMessage({ id: ETranslations.global_cancel })}
+          </Button>
+        ) : null}
+      </XStack>
+    );
+
+    const renderSpeedUpCancelAction = () => (
+      <>
+        {speedUpCancelEnabled ? (
           <Button
             size="small"
             variant="primary"
@@ -759,12 +770,48 @@ function HistoryDetails() {
               handleReplaceTx({ replaceType: EReplaceTxType.SpeedUp })
             }
           >
-            {intl.formatMessage({ id: ETranslations.speed_up_cancellation })}
+            {intl.formatMessage({
+              id: ETranslations.speed_up_cancellation,
+            })}
           </Button>
-        )}
+        ) : null}
+      </>
+    );
+
+    const renderCheckSpeedUpState = () => (
+      <Button
+        size="small"
+        variant="primary"
+        onPress={() => handleCheckSpeedUpState()}
+      >
+        {intl.formatMessage({
+          id: ETranslations.tx_accelerate_order_inquiry_label,
+        })}
+      </Button>
+    );
+
+    const renderReplaceButtons = () => {
+      if (!canReplaceTx) return null;
+      return canCancelTx ? renderCancelActions() : renderSpeedUpCancelAction();
+    };
+
+    return (
+      <XStack ml="$5">
+        {renderReplaceButtons()}
+        {checkSpeedUpStateEnabled ? renderCheckSpeedUpState() : null}
       </XStack>
     );
-  }, [canCancelTx, canReplaceTx, handleReplaceTx, intl]);
+  }, [
+    canCancelTx,
+    canReplaceTx,
+    cancelTxEnabled,
+    speedUpCancelEnabled,
+    checkSpeedUpStateEnabled,
+    handleReplaceTx,
+    handleCheckSpeedUpState,
+    networkId,
+    intl,
+  ]);
 
   const renderTxStatus = useCallback(() => {
     const { key, color } = getTxStatusTextProps(
@@ -775,6 +822,17 @@ function HistoryDetails() {
         <SizableText size="$bodyMdMedium" color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
+        {historyTx?.replacedType &&
+        txDetails?.status === EOnChainHistoryTxStatus.Pending ? (
+          <Badge badgeSize="sm" badgeType="info" ml="$2">
+            {intl.formatMessage({
+              id:
+                historyTx?.replacedType === EReplaceTxType.SpeedUp
+                  ? ETranslations.global_sped_up
+                  : ETranslations.global_cancelling,
+            })}
+          </Badge>
+        ) : null}
         {renderReplaceTxActions()}
       </XStack>
     );
@@ -783,6 +841,7 @@ function HistoryDetails() {
     intl,
     renderReplaceTxActions,
     txDetails?.status,
+    historyTx?.replacedType,
   ]);
 
   const renderTxFlow = useCallback(() => {
@@ -1159,4 +1218,4 @@ function HistoryDetails() {
   );
 }
 
-export default HistoryDetails;
+export default withBrowserProvider(HistoryDetails);

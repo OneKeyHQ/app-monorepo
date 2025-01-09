@@ -14,12 +14,12 @@ import type { IModalKeyTagParamList } from './keyTag';
 import type { ILiteCardParamList } from './liteCard';
 import type { IModalNotificationsParamList } from './notifications';
 import type { IOnboardingParamList } from './onboarding';
-import type { IPrimeParamList } from './prime';
 import type { IModalReceiveParamList } from './receive';
 import type { IScanQrCodeModalParamList } from './scanQrCode';
 import type { IModalSendParamList } from './send';
 import type { IModalSettingParamList } from './setting';
 import type { IModalShortcutsParamList } from './shortcuts';
+import type { IModalSignatureConfirmParamList } from './signatureConfirm';
 import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
 import type { ITestModalPagesParam } from './testModal';
@@ -35,7 +35,6 @@ export enum EModalRoutes {
   SwapModal = 'SwapModal',
   AccountManagerStacks = 'AccountManagerStacks',
   OnboardingModal = 'OnboardingModal',
-  PrimeModal = 'PrimeModal',
   FirmwareUpdateModal = 'FirmwareUpdateModal',
   AssetSelectorModal = 'AssetSelectorModal',
   ChainSelectorModal = 'ChainSelectorModal',
@@ -55,6 +54,7 @@ export enum EModalRoutes {
   WalletAddress = 'WalletAddress',
   NotificationsModal = 'NotificationsModal',
   ShortcutsModal = 'ShortcutsModal',
+  SignatureConfirmModal = 'SignatureConfirmModal',
 }
 
 export type IModalParamList = {
@@ -66,7 +66,6 @@ export type IModalParamList = {
   [EModalRoutes.SwapModal]: IModalSwapParamList;
   [EModalRoutes.AccountManagerStacks]: IAccountManagerStacksParamList;
   [EModalRoutes.OnboardingModal]: IOnboardingParamList;
-  [EModalRoutes.PrimeModal]: IPrimeParamList;
   [EModalRoutes.FirmwareUpdateModal]: IModalFirmwareUpdateParamList;
   [EModalRoutes.AssetSelectorModal]: IAssetSelectorParamList;
   [EModalRoutes.ChainSelectorModal]: IChainSelectorParamList;
@@ -86,4 +85,5 @@ export type IModalParamList = {
   [EModalRoutes.WalletAddress]: IModalWalletAddressParamList;
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.ShortcutsModal]: IModalShortcutsParamList;
+  [EModalRoutes.SignatureConfirmModal]: IModalSignatureConfirmParamList;
 };

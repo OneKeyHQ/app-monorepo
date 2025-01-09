@@ -317,7 +317,7 @@ const DialogGallery = () => (
         ),
       },
       {
-        title: 'Dialog.show & Dialog.confirm & Dialog.cancel & Dialog.loading',
+        title: 'Dialog.show & Dialog.confirm & Dialog.cancel',
         element: (
           <YStack gap="$4">
             <Button
@@ -359,15 +359,6 @@ const DialogGallery = () => (
               }
             >
               Dialog.cancel
-            </Button>
-            <Button
-              onPress={() =>
-                Dialog.loading({
-                  title: 'confirm',
-                })
-              }
-            >
-              Dialog.loading
             </Button>
           </YStack>
         ),

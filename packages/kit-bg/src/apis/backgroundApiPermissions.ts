@@ -28,6 +28,7 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
         'http://192.168.50.36:3008',
         'http://192.168.124.2:3008',
         'http://192.168.0.104:3008',
+        'http://10.44.35.136:3008',
       ]
     : []),
 ].filter(Boolean);
@@ -44,6 +45,7 @@ export const PROVIDER_API_PRIVATE_WHITE_LIST_METHOD = [
   'wallet_sendSiteMetadata',
   'wallet_scanQrcode',
   'wallet_isShowFloatingButton',
+  'wallet_saveFloatingIconSettings',
   'wallet_disableFloatingButton',
   'wallet_hideFloatingButtonOnSite',
   'wallet_detectRiskLevel',

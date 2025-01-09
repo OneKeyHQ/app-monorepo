@@ -1,10 +1,7 @@
 /* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
 
-import type {
-  IDialogLoadingProps,
-  IQrcodeDrawType,
-} from '@onekeyhq/components';
+import type { IQrcodeDrawType } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -54,8 +51,6 @@ export enum EAppEventBusNames {
   WalletConnectOpenModal = 'WalletConnectOpenModal',
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
-  ShowDialogLoading = 'ShowDialogLoading',
-  HideDialogLoading = 'HideDialogLoading',
   ShowToast = 'ShowToast',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   HideAirGapQrcode = 'HideAirGapQrcode',
@@ -91,6 +86,8 @@ export enum EAppEventBusNames {
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',
+  ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
+  CreateAddressByDialog = 'CreateAddressByDialog',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -102,8 +99,6 @@ export enum EAppEventBusNames {
 
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
-  [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
-  [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.WalletRemove]: {
@@ -266,6 +261,16 @@ export interface IAppEventBusPayload {
     enabled: boolean;
   };
   [EAppEventBusNames.RefreshNetInfo]: undefined;
+  [EAppEventBusNames.ShowSwitchAccountSelector]: {
+    networkId: string;
+  };
+  [EAppEventBusNames.CreateAddressByDialog]: {
+    networkId: string;
+    indexedAccountId: string;
+    promiseId: number;
+    autoCreateAddress: boolean;
+    deriveType: IAccountDeriveTypes;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

@@ -45,7 +45,6 @@ import type ServiceNostr from '../services/ServiceNostr';
 import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
-import type ServicePrime from '../services/ServicePrime';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
@@ -53,6 +52,7 @@ import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
@@ -156,8 +156,6 @@ class BackgroundApiProxy
     'serviceNotification',
   ) as ServiceNotification;
 
-  servicePrime = this._createProxyService('servicePrime') as ServicePrime;
-
   serviceQrWallet = this._createProxyService(
     'serviceQrWallet',
   ) as ServiceQrWallet;
@@ -249,6 +247,10 @@ class BackgroundApiProxy
   serviceCustomRpc = this._createProxyService(
     'serviceCustomRpc',
   ) as ServiceCustomRpc;
+
+  serviceSignatureConfirm = this._createProxyService(
+    'serviceSignatureConfirm',
+  ) as ServiceSignatureConfirm;
 }
 
 export default BackgroundApiProxy;

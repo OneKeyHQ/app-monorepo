@@ -199,7 +199,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     if (options?.verifyPassword) {
       const { verifyPassword } = options;
       ensureSensitiveTextEncoded(verifyPassword);
-      if (!this.checkPassword(ctx, verifyPassword)) {
+      if (!(await this.checkPassword(ctx, verifyPassword))) {
         throw new WrongPassword();
       }
     }
@@ -262,7 +262,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }
 
   // ---------------------------------------------- credential
-  checkPassword(context: IDBContext, password: string): boolean {
+  async checkPassword(context: IDBContext, password: string): Promise<boolean> {
     if (!context) {
       console.error('Unable to get main context.');
       return false;
@@ -271,12 +271,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return false;
     }
     try {
-      return (
-        decryptVerifyString({
-          password,
-          verifyString: context.verifyString,
-        }) === DEFAULT_VERIFY_STRING
-      );
+      const decrypted = await decryptVerifyString({
+        password,
+        verifyString: context.verifyString,
+      });
+      return decrypted === DEFAULT_VERIFY_STRING;
     } catch {
       return false;
     }
@@ -286,13 +285,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const ctx = await this.getContext();
     if (ctx && ctx.verifyString !== DEFAULT_VERIFY_STRING) {
       ensureSensitiveTextEncoded(password);
-      const isValid = this.checkPassword(ctx, password);
+      const isValid = await this.checkPassword(ctx, password);
       if (isValid) {
         return;
       }
-      if (!isValid) {
-        throw new WrongPassword();
-      }
+      throw new WrongPassword();
     }
     throw new PasswordNotSet();
   }
@@ -340,35 +337,37 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       tx,
       recordPairs: credentialsRecordPairs,
       name: ELocalDBStoreNames.Credential,
-      updater: (credential) => {
+      updater: async (credential) => {
         if (credential.id.startsWith('imported')) {
           // Ton mnemonic credential
           if (accountUtils.isTonMnemonicCredentialId(credential.id)) {
-            const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
-              rs: credential.credential,
-              password: oldPassword,
-            });
-            credential.credential = encryptRevealableSeed({
+            const revealableSeed: IBip39RevealableSeed =
+              await decryptRevealableSeed({
+                rs: credential.credential,
+                password: oldPassword,
+              });
+            credential.credential = await encryptRevealableSeed({
               rs: revealableSeed,
               password: newPassword,
             });
           } else {
             const importedCredential: ICoreImportedCredential =
-              decryptImportedCredential({
+              await decryptImportedCredential({
                 credential: credential.credential,
                 password: oldPassword,
               });
-            credential.credential = encryptImportedCredential({
+            credential.credential = await encryptImportedCredential({
               credential: importedCredential,
               password: newPassword,
             });
           }
         } else {
-          const revealableSeed: IBip39RevealableSeed = decryptRevealableSeed({
-            rs: credential.credential,
-            password: oldPassword,
-          });
-          credential.credential = encryptRevealableSeed({
+          const revealableSeed: IBip39RevealableSeed =
+            await decryptRevealableSeed({
+              rs: credential.credential,
+              password: oldPassword,
+            });
+          credential.credential = await encryptRevealableSeed({
             rs: revealableSeed,
             password: newPassword,
           });
@@ -440,7 +439,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // update context verifyString
       await this.txUpdateContextVerifyString({
         tx,
-        verifyString: encryptVerifyString({ password: newPassword }),
+        verifyString: await encryptVerifyString({ password: newPassword }),
       });
     });
   }

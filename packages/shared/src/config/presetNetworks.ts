@@ -1647,6 +1647,64 @@ const azero: IServerNetwork = {
   'backendIndex': false,
 };
 
+const dtc: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '9798',
+  'id': 'evm--9798',
+  'name': 'DataTradeChain',
+  'symbol': 'DTT',
+  'code': 'dtc',
+  'shortcode': 'dtc',
+  'shortname': 'DTC',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'dtt',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dtc.png',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const sonic: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '146',
+  'id': 'evm--146',
+  'name': 'Sonic',
+  'symbol': 'S',
+  'code': 'sonic',
+  'shortcode': 'sonic',
+  'shortname': 'sonic',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 's',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/sonic.png',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -2623,6 +2681,8 @@ export const presetNetworksMap = {
   zircuit,
   neox,
   azero,
+  dtc,
+  sonic,
 
   // cosmos
   celestia,
@@ -2781,6 +2841,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   zircuit,
   neox,
   azero,
+  dtc,
+  sonic,
   // cosmos
   celestia,
   secret,

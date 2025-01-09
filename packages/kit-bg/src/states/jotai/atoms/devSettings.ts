@@ -22,9 +22,6 @@ export interface IDevSettings {
   disableNumberShortcuts?: boolean;
   disableSearchAndAccountSelectorShortcuts?: boolean;
   webviewDebuggingEnabled?: boolean;
-  // show trading view
-  showTradingView?: boolean;
-  showPrimeTest?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;

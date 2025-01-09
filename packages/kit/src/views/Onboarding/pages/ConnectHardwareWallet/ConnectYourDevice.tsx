@@ -1,4 +1,3 @@
-/* eslint-disable react/no-unstable-nested-components */
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 

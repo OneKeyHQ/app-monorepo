@@ -164,6 +164,8 @@ export type IVaultSettings = {
   defaultFeePresetIndex: number;
   checkFeeDetailEnabled?: boolean;
   replaceTxEnabled: boolean;
+  cancelTxEnabled?: boolean;
+  speedUpCancelEnabled?: boolean;
   // Get the interval time for polling the fee API, in seconds
   estimatedFeePollingInterval: number;
 
@@ -529,6 +531,7 @@ export interface IBuildDecodedTxParams {
   feeInfo?: ISendSelectedFeeInfo;
   transferPayload?: ITransferPayload;
   saveToLocalHistory?: boolean;
+  isToContract?: boolean;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;

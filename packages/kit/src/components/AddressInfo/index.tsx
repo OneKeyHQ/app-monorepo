@@ -20,6 +20,7 @@ type IProps = {
   networkId: string;
   address: string;
   allowClickAccountNameSwitch?: boolean;
+  withWrapper?: boolean;
 };
 
 type ISwitchHomeAccountButtonProps = {
@@ -115,7 +116,13 @@ function SwitchHomeAccountContainer(props: ISwitchHomeAccountButtonProps) {
 }
 
 function AddressInfo(props: IProps) {
-  const { accountId, networkId, address, allowClickAccountNameSwitch } = props;
+  const {
+    accountId,
+    networkId,
+    address,
+    allowClickAccountNameSwitch,
+    withWrapper = true,
+  } = props;
   const addressQueryResult = usePromiseResult(
     () =>
       backgroundApiProxy.serviceAccountProfile.queryAddress({
@@ -144,7 +151,7 @@ function AddressInfo(props: IProps) {
     ? SwitchHomeAccountContainer
     : Stack;
 
-  return (
+  return withWrapper ? (
     <XStack gap="$2" flex={1} flexWrap="wrap">
       {addressQueryResult.walletAccountName ? (
         <AccountNameContainer
@@ -162,6 +169,24 @@ function AddressInfo(props: IProps) {
         </Badge>
       ) : null}
     </XStack>
+  ) : (
+    <>
+      {addressQueryResult.walletAccountName ? (
+        <AccountNameContainer
+          walletAccountName={addressQueryResult.walletAccountName}
+          accountId={addressQueryResult.walletAccountId}
+        >
+          <Badge badgeType="success" badgeSize="sm">
+            {addressQueryResult.walletAccountName}
+          </Badge>
+        </AccountNameContainer>
+      ) : null}
+      {addressQueryResult.addressBookName ? (
+        <Badge badgeType="success" badgeSize="sm">
+          {addressQueryResult.addressBookName}
+        </Badge>
+      ) : null}
+    </>
   );
 }
 

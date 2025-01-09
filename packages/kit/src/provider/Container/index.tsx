@@ -14,7 +14,7 @@ import { Bootstrap } from '../Bootstrap';
 import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
-import { DialogLoadingContainer } from './DialogLoadingContainer';
+import { CreateAddressContainer } from './CreateAddressContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
 import { FlipperPluginsContainer } from './FlipperPluginsContainer';
 import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
@@ -24,7 +24,6 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
-import { PrimeLoginContainer } from './PrimeLoginContainer';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -96,9 +95,8 @@ export function Container() {
           <JotaiContextRootProvidersAutoMount />
           <Bootstrap />
           <AirGapQrcodeDialogContainer />
+          <CreateAddressContainer />
           <HardwareUiStateContainer />
-          <PrimeLoginContainer />
-          <DialogLoadingContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />

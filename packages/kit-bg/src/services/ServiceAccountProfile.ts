@@ -1,7 +1,4 @@
-import qs from 'querystring';
-
 import BigNumber from 'bignumber.js';
-import { isNil, omit, omitBy } from 'lodash';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {

@@ -1,7 +1,7 @@
 import {
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   encodeKeyPrefix,
-  encodeSensitiveText,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import type { IBiologyAuth } from '@onekeyhq/shared/src/biologyAuth/types';
@@ -9,6 +9,7 @@ import secureStorageInstance from '@onekeyhq/shared/src/storage/instance/secureS
 
 import { settingsPersistAtom } from '../../states/jotai/atoms/settings';
 
+const biologyAuthNativeError = 'biology_native_error';
 class BiologyAuthUtils implements IBiologyAuth {
   isSupportBiologyAuth() {
     return biologyAuth.isSupportBiologyAuth();
@@ -24,9 +25,9 @@ class BiologyAuthUtils implements IBiologyAuth {
 
   savePassword = async (password: string) => {
     if (!secureStorageInstance.supportSecureStorage()) return;
-    let text = decodeSensitiveText({ encodedText: password });
+    let text = await decodeSensitiveTextAsync({ encodedText: password });
     const settings = await settingsPersistAtom.get();
-    text = encodeSensitiveText({
+    text = await encodeSensitiveTextAsync({
       text,
       key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
     });
@@ -40,11 +41,11 @@ class BiologyAuthUtils implements IBiologyAuth {
     let text = await secureStorageInstance.getSecureItem('password');
     if (text) {
       const settings = await settingsPersistAtom.get();
-      text = decodeSensitiveText({
+      text = await decodeSensitiveTextAsync({
         encodedText: text,
         key: `${encodeKeyPrefix}${settings.sensitiveEncodeKey}`,
       });
-      text = encodeSensitiveText({ text });
+      text = await encodeSensitiveTextAsync({ text });
       return text;
     }
     throw new Error('No password');
@@ -56,4 +57,4 @@ class BiologyAuthUtils implements IBiologyAuth {
   };
 }
 const biologyAuthUtils = new BiologyAuthUtils();
-export { biologyAuthUtils };
+export { biologyAuthUtils, biologyAuthNativeError };

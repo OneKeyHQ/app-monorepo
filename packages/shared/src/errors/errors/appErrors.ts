@@ -142,19 +142,6 @@ export class PasswordPromptDialogCancel extends OneKeyError {
   override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
 }
 
-export class PrimeLoginDialogCancelError extends OneKeyError {
-  constructor(props?: IOneKeyError | string) {
-    super(
-      normalizeErrorProps(props, {
-        defaultMessage: 'PrimeLoginDialogCancelError',
-        defaultKey: ETranslations.global_cancel,
-      }),
-    );
-  }
-
-  override className = EOneKeyErrorClassNames.PrimeLoginDialogCancelError;
-}
-
 export class FailedToTransfer extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
@@ -332,6 +319,30 @@ export class InvalidAccount extends OneKeyError {
         defaultMessage: 'InvalidAccount',
         defaultKey: ETranslations.send_engine_account_not_activated,
       }),
+    );
+  }
+}
+
+export type INetworkFeeInsufficientInfo = {
+  symbol: string;
+};
+
+export class NetworkFeeInsufficient extends OneKeyError<INetworkFeeInsufficientInfo> {
+  constructor(props?: IOneKeyError<INetworkFeeInsufficientInfo>) {
+    super(
+      normalizeErrorProps(
+        {
+          ...props,
+          info: {
+            'crypto': props?.info?.symbol,
+          },
+        },
+        {
+          defaultMessage: 'NetworkFeeInsufficient',
+          defaultKey:
+            ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+        },
+      ),
     );
   }
 }

@@ -19,11 +19,11 @@ import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
-import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
+import { ModalSignatureConfirmStack } from '../../views/SignatureConfirm/router';
 import { StakingModalRouter } from '../../views/Staking/router';
 import { ModalSwapStack } from '../../views/Swap/router';
 import { TestModalRouter } from '../../views/TestModal/router';
@@ -77,10 +77,6 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   },
   onboardingRouterConfig,
   {
-    name: EModalRoutes.PrimeModal,
-    children: PrimeRouter,
-  },
-  {
     name: EModalRoutes.FirmwareUpdateModal,
     children: ModalFirmwareUpdateStack,
   },
@@ -95,6 +91,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SendModal,
     children: ModalSendStack,
+  },
+  {
+    name: EModalRoutes.SignatureConfirmModal,
+    children: ModalSignatureConfirmStack,
   },
   {
     name: EModalRoutes.ReceiveModal,

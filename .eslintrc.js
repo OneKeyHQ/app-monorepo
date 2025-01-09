@@ -1,5 +1,3 @@
-require('./development/lint/eslint-rule-force-async-bg-api');
-
 const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {
   // eslint-disable-next-line global-require
@@ -8,7 +6,6 @@ const jsRules = {
   'no-use-before-define': 'off',
   'no-shadow': 'off',
   'import/no-extraneous-dependencies': 'off',
-  // 'force-async-bg-api': 'error', // TODO not working
   'no-restricted-exports': 'off',
   'func-names': 'off',
   'import/no-named-as-default-member': 'off',
@@ -171,7 +168,6 @@ const tsRules = {
 
 const resolveExtensions = (platform) =>
   ['.ts', '.tsx', '.js', '.jsx'].map((ext) => `${platform}${ext}`);
-
 module.exports = {
   plugins: [
     'spellcheck',

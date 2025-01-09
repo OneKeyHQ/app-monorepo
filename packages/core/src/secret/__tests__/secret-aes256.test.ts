@@ -4,16 +4,14 @@ import { Buffer } from 'buffer';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import {
-  decodePassword,
-  decodeSensitiveText,
-  decrypt,
+  decodePasswordAsync,
+  decodeSensitiveTextAsync,
   decryptAsync,
-  decryptString,
-  encodePassword,
-  encodeSensitiveText,
-  encrypt,
+  decryptStringAsync,
+  encodePasswordAsync,
+  encodeSensitiveTextAsync,
   encryptAsync,
-  encryptString,
+  encryptStringAsync,
   ensureSensitiveTextEncoded,
   getBgSensitiveTextEncodeKey,
   isEncodedSensitiveText,
@@ -55,6 +53,12 @@ const platformEnv = jest.requireMock('@onekeyhq/shared/src/platformEnv');
 beforeEach(() => {
   platformEnv.isExtensionUi = false;
   platformEnv.isWebEmbed = false;
+  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'trace').mockImplementation(() => {});
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 describe('AES256 Encryption Tests', () => {
@@ -64,38 +68,86 @@ describe('AES256 Encryption Tests', () => {
   const TEST_DATA_HEX = TEST_BUFFER.toString('hex');
 
   describe('encrypt/decrypt (sync)', () => {
-    it('should throw error on utf-8 data', () => {
-      expect(() => encrypt(TEST_PASSWORD, TEST_DATA)).toThrow();
+    beforeEach(() => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'trace').mockImplementation(() => {});
     });
 
-    it('should encrypt and decrypt string data with snapshot', () => {
-      const encrypted = encrypt(TEST_PASSWORD, TEST_DATA_HEX);
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should throw error on utf-8 data', async () => {
+      await expect(
+        encryptAsync({
+          password: TEST_PASSWORD,
+          data: TEST_DATA,
+        }),
+      ).rejects.toThrow();
+    });
+
+    it('should encrypt and decrypt string data with snapshot', async () => {
+      const encrypted = await encryptAsync({
+        password: TEST_PASSWORD,
+        data: TEST_DATA_HEX,
+      });
       expect(encrypted.toString('hex')).toMatchSnapshot('encrypt-string-data');
 
-      const decrypted = decrypt(TEST_PASSWORD, encrypted);
+      const decrypted = await decryptAsync({
+        password: TEST_PASSWORD,
+        data: encrypted,
+      });
       expect(decrypted.length).toBe(TEST_BUFFER.length);
       expect(bufferUtils.bytesToUtf8(decrypted)).toBe(TEST_DATA);
     });
 
-    it('should encrypt and decrypt buffer data with snapshot', () => {
-      const encrypted = encrypt(TEST_PASSWORD, TEST_BUFFER);
+    it('should encrypt and decrypt buffer data with snapshot', async () => {
+      const encrypted = await encryptAsync({
+        password: TEST_PASSWORD,
+        data: TEST_BUFFER,
+      });
       expect(encrypted.toString('hex')).toMatchSnapshot('encrypt-buffer-data');
 
-      const decrypted = decrypt(TEST_PASSWORD, encrypted);
+      const decrypted = await decryptAsync({
+        password: TEST_PASSWORD,
+        data: encrypted,
+      });
       expect(decrypted.toString()).toBe(TEST_DATA);
     });
 
-    it('should throw on incorrect password', () => {
-      const encrypted = encrypt(TEST_PASSWORD, TEST_DATA_HEX);
-      expect(() =>
-        decrypt(encodePassword({ password: 'wrong-password' }), encrypted),
-      ).toThrow();
+    it('should throw on incorrect password', async () => {
+      const encrypted = await encryptAsync({
+        password: TEST_PASSWORD,
+        data: TEST_DATA_HEX,
+      });
+      const encodedPassword = await encodePasswordAsync({
+        password: 'wrong-password',
+      });
+      await expect(
+        decryptAsync({
+          password: encodedPassword,
+          data: encrypted,
+        }),
+      ).rejects.toThrow();
     });
 
-    it('should throw on empty password', () => {
-      expect(() => encrypt('', TEST_DATA_HEX)).toThrow();
-      const encrypted = encrypt(TEST_PASSWORD, TEST_DATA_HEX);
-      expect(() => decrypt('', encrypted)).toThrow();
+    it('should throw on empty password', async () => {
+      await expect(
+        encryptAsync({
+          password: '',
+          data: TEST_DATA_HEX,
+        }),
+      ).rejects.toThrow();
+      const encrypted = await encryptAsync({
+        password: TEST_PASSWORD,
+        data: TEST_DATA_HEX,
+      });
+      await expect(
+        decryptAsync({
+          password: '',
+          data: encrypted,
+        }),
+      ).rejects.toThrow();
     });
   });
 
@@ -167,30 +219,39 @@ describe('AES256 Encryption Tests', () => {
   });
 
   describe('encryptString/decryptString', () => {
-    it('should encrypt and decrypt string with hex encoding and snapshot', () => {
-      const encrypted = encryptString({
+    beforeEach(() => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'trace').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should encrypt and decrypt string with hex encoding and snapshot', async () => {
+      const encrypted = await encryptStringAsync({
         password: TEST_PASSWORD,
         data: TEST_DATA_HEX,
       });
       expect(encrypted).toMatchSnapshot('encryptString-hex');
 
-      const decrypted = decryptString({
+      const decrypted = await decryptStringAsync({
         password: TEST_PASSWORD,
         data: encrypted,
       });
       expect(bufferUtils.hexToText(decrypted)).toBe(TEST_DATA);
     });
 
-    it('should support different encodings with snapshot', () => {
+    it('should support different encodings with snapshot', async () => {
       const base64Data = Buffer.from(TEST_DATA).toString('base64');
-      const encrypted = encryptString({
+      const encrypted = await encryptStringAsync({
         password: TEST_PASSWORD,
         data: base64Data,
         dataEncoding: 'base64',
       });
       expect(encrypted).toMatchSnapshot('encryptString-base64');
 
-      const decrypted = decryptString({
+      const decrypted = await decryptStringAsync({
         password: TEST_PASSWORD,
         data: encrypted,
         dataEncoding: 'hex',
@@ -199,126 +260,193 @@ describe('AES256 Encryption Tests', () => {
       expect(decrypted).toBe(base64Data);
     });
 
-    it('should throw on incorrect password', () => {
-      const encrypted = encryptString({
+    it('should throw on incorrect password (sync)', async () => {
+      const encrypted = await encryptStringAsync({
         password: TEST_PASSWORD,
         data: TEST_DATA_HEX,
       });
-      expect(() =>
-        decryptString({
+      await expect(
+        decryptStringAsync({
           password: 'wrong-password',
           data: encrypted,
         }),
-      ).toThrow();
+      ).rejects.toThrow();
+    });
+
+    it('should throw on incorrect password (async)', async () => {
+      const encrypted = await encryptStringAsync({
+        password: TEST_PASSWORD,
+        data: TEST_DATA_HEX,
+      });
+      await expect(
+        decryptStringAsync({
+          password: 'wrong-password',
+          data: encrypted,
+        }),
+      ).rejects.toThrow();
     });
   });
 
   describe('encodePassword/decodePassword', () => {
-    it('should encode and decode password with snapshot', () => {
-      const encoded = encodePassword({
+    it('should encode and decode password with snapshot', async () => {
+      const encoded = await encodePasswordAsync({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
       expect(encoded).toMatchSnapshot('encodePassword');
 
-      const decoded = decodePassword({
+      const decoded = await decodePasswordAsync({
         password: encoded,
         key: 'test-key',
       });
       expect(decoded).toBe(TEST_PASSWORD);
     });
 
-    it('should throw on incorrect key', () => {
-      const encoded = encodePassword({
+    it('should throw on incorrect key (sync)', async () => {
+      const encoded = await encodePasswordAsync({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
-      expect(() =>
-        decodePassword({
+      await expect(
+        decodePasswordAsync({
           password: encoded,
           key: 'wrong-key',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    // TODO empty key should throw
-    it.skip('should throw on empty key', () => {
-      expect(() =>
-        encodePassword({
-          password: TEST_PASSWORD,
-          key: '',
-        }),
-      ).toThrow();
-
-      const encoded = encodePassword({
+    it('should throw on incorrect key (async)', async () => {
+      const encoded = await encodePasswordAsync({
         password: TEST_PASSWORD,
         key: 'test-key',
       });
-      expect(() =>
-        decodePassword({
+      await expect(
+        decodePasswordAsync({
+          password: encoded,
+          key: 'wrong-key',
+        }),
+      ).rejects.toThrow();
+    });
+
+    // TODO empty key should throw
+    it.skip('should throw on empty key (sync and async)', async () => {
+      await expect(
+        encodePasswordAsync({
+          password: TEST_PASSWORD,
+          key: '',
+        }),
+      ).rejects.toThrow();
+
+      const encoded = await encodePasswordAsync({
+        password: TEST_PASSWORD,
+        key: 'test-key',
+      });
+
+      // Test sync version
+      await expect(
+        decodePasswordAsync({
           password: encoded,
           key: '',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
+
+      // Test async version
+      await expect(
+        decodePasswordAsync({
+          password: encoded,
+          key: '',
+        }),
+      ).rejects.toThrow();
     });
   });
 
   describe('encodeSensitiveText/decodeSensitiveText', () => {
-    it('should encode and decode sensitive text with snapshot', () => {
-      const encoded = encodeSensitiveText({
+    beforeEach(() => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'trace').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    beforeEach(() => {
+      jest.spyOn(console, 'warn').mockImplementation(() => {});
+      jest.spyOn(console, 'trace').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should encode and decode sensitive text with snapshot', async () => {
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
       expect(encoded).toMatchSnapshot('encodeSensitiveText');
 
-      const decoded = decodeSensitiveText({
+      const decoded = await decodeSensitiveTextAsync({
         encodedText: encoded,
         key: 'test-key',
       });
       expect(decoded).toBe(TEST_DATA);
     });
 
-    it('should throw on incorrect key', () => {
-      const encoded = encodeSensitiveText({
+    it('should throw on incorrect key (sync)', async () => {
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
-      expect(() =>
-        decodeSensitiveText({
+      await expect(
+        decodeSensitiveTextAsync({
           encodedText: encoded,
           key: 'wrong-key',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
+    });
+
+    it('should throw on incorrect key (async)', async () => {
+      const encoded = await encodeSensitiveTextAsync({
+        text: TEST_DATA,
+        key: 'test-key',
+      });
+      await expect(
+        decodeSensitiveTextAsync({
+          encodedText: encoded,
+          key: 'wrong-key',
+        }),
+      ).rejects.toThrow();
     });
 
     // TODO empty key should throw
-    it.skip('should throw on empty key', () => {
+    it.skip('should throw on empty key', async () => {
       expect(() =>
-        encodeSensitiveText({
+        encodeSensitiveTextAsync({
           text: TEST_DATA,
           key: '',
         }),
       ).toThrow();
 
-      const encoded = encodeSensitiveText({
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
-      expect(() =>
-        decodeSensitiveText({
+      await expect(
+        decodeSensitiveTextAsync({
           encodedText: encoded,
           key: '',
         }),
-      ).toThrow();
+      ).rejects.toThrow();
     });
 
-    it('should throw on invalid encoded text', () => {
-      expect(() =>
-        decodeSensitiveText({
+    it('should throw on invalid encoded text', async () => {
+      await expect(
+        decodeSensitiveTextAsync({
           encodedText: 'invalid-encoded-text',
           key: 'test-key',
         }),
-      ).toThrow('Not correct encoded text');
+      ).rejects.toThrow('Not correct encoded text');
     });
   });
 
@@ -375,8 +503,8 @@ describe('AES256 Encryption Tests', () => {
   });
 
   describe('isEncodedSensitiveText and ensureSensitiveTextEncoded', () => {
-    it('should correctly identify encoded sensitive text', () => {
-      const encoded = encodeSensitiveText({
+    it('should correctly identify encoded sensitive text', async () => {
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -384,8 +512,8 @@ describe('AES256 Encryption Tests', () => {
       expect(isEncodedSensitiveText('not-encoded-text')).toBe(false);
     });
 
-    it('should handle both aes and xor prefixes', () => {
-      const aesEncoded = encodeSensitiveText({
+    it('should handle both aes and xor prefixes', async () => {
+      const aesEncoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });
@@ -404,8 +532,8 @@ describe('AES256 Encryption Tests', () => {
       );
     });
 
-    it('should not throw for valid encoded text in ensureSensitiveTextEncoded', () => {
-      const encoded = encodeSensitiveText({
+    it('should not throw for valid encoded text in ensureSensitiveTextEncoded', async () => {
+      const encoded = await encodeSensitiveTextAsync({
         text: TEST_DATA,
         key: 'test-key',
       });

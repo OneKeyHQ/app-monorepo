@@ -5,7 +5,7 @@
 // @ts-expect-error
 import { bech32, mnemonicToRootKeypair, toPublic } from 'cardano-crypto.js';
 
-import { decrypt, mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
+import { mnemonicFromEntropy } from '@onekeyhq/core/src/secret';
 
 import { DERIVATION_SCHEME, HARDENED_THRESHOLD } from './constants';
 
@@ -30,7 +30,7 @@ export async function getRootKey(
   password: string,
   hdCredential: ICoreHdCredentialEncryptHex,
 ): Promise<Buffer> {
-  const mnemonic = mnemonicFromEntropy(hdCredential, password);
+  const mnemonic: string = await mnemonicFromEntropy(hdCredential, password);
   const rootKey = await mnemonicToRootKeypair(mnemonic, DERIVATION_SCHEME);
   return rootKey;
 }

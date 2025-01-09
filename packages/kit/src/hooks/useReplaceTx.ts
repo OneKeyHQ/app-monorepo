@@ -2,15 +2,18 @@ import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, useMedia } from '@onekeyhq/components';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { showBtcSpeedUpTxDialog } from '../components/TxHistoryListView/showBtcSpeedUpTxDialog';
 
 import useAppNavigation from './useAppNavigation';
 import { usePromiseResult } from './usePromiseResult';
@@ -26,6 +29,8 @@ function useReplaceTx({
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
 
   const canReplaceTx = usePromiseResult(async () => {
     if (!historyTx) return false;
@@ -43,12 +48,42 @@ function useReplaceTx({
 
     if (!vaultSettings.replaceTxEnabled) return false;
 
-    return backgroundApiProxy.serviceHistory.isEarliestLocalPendingTx({
+    return backgroundApiProxy.serviceHistory.canAccelerateTx({
       accountId,
       networkId,
       encodedTx,
+      txId: historyTx.decodedTx.txid,
     });
   }, [historyTx, isConfirmed]).result;
+
+  const { result: cancelTxConfig } = usePromiseResult(async () => {
+    const defaultConfig = {
+      cancelTxEnabled: false,
+      speedUpCancelEnabled: false,
+      checkSpeedUpStateEnabled: false,
+    };
+    if (!historyTx) return defaultConfig;
+    if (isConfirmed) return defaultConfig;
+    const { networkId } = historyTx.decodedTx;
+
+    const vaultSettings =
+      await backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId,
+      });
+
+    const checkSpeedUpStateEnabled =
+      await backgroundApiProxy.serviceHistory.checkTxSpeedUpStateEnabled({
+        networkId,
+        accountId: historyTx.decodedTx.accountId,
+        historyTx,
+      });
+
+    return {
+      cancelTxEnabled: vaultSettings.cancelTxEnabled,
+      speedUpCancelEnabled: vaultSettings.speedUpCancelEnabled,
+      checkSpeedUpStateEnabled,
+    };
+  }, [historyTx, isConfirmed]);
 
   const canCancelTx = historyTx
     ? historyTx.replacedType !== EReplaceTxType.Cancel
@@ -85,22 +120,85 @@ function useReplaceTx({
 
       if (!replaceEncodedTx) return;
 
-      navigation.pushModal(EModalRoutes.SendModal, {
-        screen: EModalSendRoutes.SendReplaceTx,
-        params: {
-          accountId,
-          networkId,
-          replaceType,
-          replaceEncodedTx,
-          historyTx,
-          onSuccess,
-        },
-      });
+      if (networkUtils.isBTCNetwork(networkId)) {
+        showBtcSpeedUpTxDialog({
+          title: intl.formatMessage(
+            {
+              id: ETranslations.tx_accelerate_speed_up_with_accelerator_dialog_title,
+            },
+            {
+              accelerator: 'F2Pool',
+            },
+          ),
+          description: intl.formatMessage({
+            id: ETranslations.tx_accelerate_speed_up_with_accelerator_dialog_desc,
+          }),
+          onConfirm: async () => {
+            // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
+            handleOpenWebSite({
+              switchToMultiTabBrowser: gtMd,
+              navigation,
+              useCurrentWindow: false,
+              webSite: {
+                url: `https://www.f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
+                title: 'F2Pool',
+              },
+            });
+          },
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SendModal, {
+          screen: EModalSendRoutes.SendReplaceTx,
+          params: {
+            accountId,
+            networkId,
+            replaceType,
+            replaceEncodedTx,
+            historyTx,
+            onSuccess,
+          },
+        });
+      }
     },
-    [canReplaceTx, historyTx, intl, navigation, onSuccess],
+    [
+      canReplaceTx,
+      historyTx,
+      intl,
+      navigation,
+      onSuccess,
+      handleOpenWebSite,
+      gtMd,
+    ],
   );
 
-  return { canReplaceTx, canCancelTx, handleReplaceTx };
+  const handleCheckSpeedUpState = useCallback(async () => {
+    if (!historyTx) return;
+    const { networkId, txid } = historyTx.decodedTx;
+    if (!cancelTxConfig?.checkSpeedUpStateEnabled) return;
+    if (!networkUtils.isBTCNetwork(networkId)) {
+      return;
+    }
+    // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
+    handleOpenWebSite({
+      switchToMultiTabBrowser: gtMd,
+      navigation,
+      useCurrentWindow: false,
+      webSite: {
+        url: `https://www.f2pool.com/user/tx-acc?query=${txid}`,
+        title: 'F2Pool',
+      },
+    });
+  }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation, gtMd]);
+
+  return {
+    canReplaceTx,
+    canCancelTx,
+    cancelTxEnabled: cancelTxConfig?.cancelTxEnabled,
+    speedUpCancelEnabled: cancelTxConfig?.speedUpCancelEnabled,
+    checkSpeedUpStateEnabled: cancelTxConfig?.checkSpeedUpStateEnabled,
+    handleReplaceTx,
+    handleCheckSpeedUpState,
+  };
 }
 
 export { useReplaceTx };

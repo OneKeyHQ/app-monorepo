@@ -49,13 +49,13 @@ import type ServiceNostr from '../services/ServiceNostr';
 import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
-import type ServicePrime from '../services/ServicePrime';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
 import type ServiceSignature from '../services/ServiceSignature';
+import type ServiceSignatureConfirm from '../services/ServiceSignatureConfirm';
 import type ServiceSpotlight from '../services/ServiceSpotlight';
 import type ServiceStaking from '../services/ServiceStaking';
 import type ServiceSwap from '../services/ServiceSwap';
@@ -152,7 +152,6 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceDappSide: ServiceDappSide;
   serviceWalletConnect: ServiceWalletConnect;
   serviceNotification: ServiceNotification;
-  servicePrime: ServicePrime;
   serviceQrWallet: ServiceQrWallet;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
@@ -179,4 +178,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceNostr: ServiceNostr;
   serviceUniversalSearch: ServiceUniversalSearch;
   serviceStaking: ServiceStaking;
+  serviceSignatureConfirm: ServiceSignatureConfirm;
 }

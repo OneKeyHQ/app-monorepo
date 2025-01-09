@@ -22,6 +22,7 @@ import type { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import type { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import type { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import type { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
+import type { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
 import type { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import type { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import type { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
@@ -30,7 +31,6 @@ import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTok
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
-import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -56,8 +56,6 @@ export class SimpleDbProxy
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.backgroundApiProxy.callBackground(method, ...params);
   }
-
-  prime = this._createProxyService('prime') as SimpleDbEntityPrime;
 
   browserTabs = this._createProxyService(
     'browserTabs',
@@ -142,6 +140,10 @@ export class SimpleDbProxy
   floatingIconDomainBlockList = this._createProxyService(
     'floatingIconDomainBlockList',
   ) as SimpleDbEntityFloatingIconDomainBlockList;
+
+  floatingIconSettings = this._createProxyService(
+    'floatingIconSettings',
+  ) as SimpleDbEntityFloatingIconSettings;
 
   universalSearch = this._createProxyService(
     'universalSearch',

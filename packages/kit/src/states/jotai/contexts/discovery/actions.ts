@@ -674,28 +674,34 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
-      const isNewWindow = !useCurrentWindow;
-
-      if (!useCurrentWindow) {
-        const disabledAddedNewTab = get(disabledAddedNewTabAtom());
-        if (disabledAddedNewTab) {
-          Toast.message({
-            title: appLocale.intl.formatMessage(
-              { id: ETranslations.explore_toast_tab_limit_reached },
-              { number: '20' },
-            ),
-          });
-          return;
-        }
+      let delayTime = 0;
+      if (shouldPopNavigation) {
+        delayTime = 300;
       }
-      this.setDisplayHomePage.call(set, false);
-      void this.openMatchDApp.call(set, {
-        webSite,
-        dApp,
-        isNewWindow,
-        tabId,
-      });
-      if (platformEnv.isDesktop || switchToMultiTabBrowser) {
+      setTimeout(() => {
+        const isNewWindow = !useCurrentWindow;
+
+        if (!useCurrentWindow) {
+          const disabledAddedNewTab = get(disabledAddedNewTabAtom());
+          if (disabledAddedNewTab) {
+            Toast.message({
+              title: appLocale.intl.formatMessage(
+                { id: ETranslations.explore_toast_tab_limit_reached },
+                { number: '20' },
+              ),
+            });
+            return;
+          }
+        }
+        this.setDisplayHomePage.call(set, false);
+        void this.openMatchDApp.call(set, {
+          webSite,
+          dApp,
+          isNewWindow,
+          tabId,
+        });
+      }, delayTime);
+      if (switchToMultiTabBrowser || platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
         navigation.switchTab(ETabRoutes.Discovery);

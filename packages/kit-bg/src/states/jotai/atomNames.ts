@@ -37,9 +37,6 @@ export enum EAtomNames {
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
-  primePersistAtom = 'primePersistAtom',
-  primeInitAtom = 'primeInitAtom',
-  primeLoginDialogAtom = 'primeLoginDialogAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
