@@ -266,9 +266,10 @@ function convertAssetTransferActionToSignatureConfirmComponent({
   const isInternalStake = !!unsignedTx.stakingInfo;
 
   action.sends.forEach((send) => {
-    // TODO: i18n
     const assetsLabel = isInternalSwap
-      ? 'Pay'
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.global_pay,
+        })
       : appLocale.intl.formatMessage({
           id: ETranslations.global_asset,
         });
@@ -358,9 +359,10 @@ function convertTokenApproveActionToSignatureConfirmComponent({
   let approveLabel = '';
 
   if (isMultiTxs) {
-    // TODO: i18n
     approveLabel = isRevoke
-      ? 'Revoke'
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.global_revoke,
+        })
       : appLocale.intl.formatMessage({
           id: ETranslations.global_approve,
         });
@@ -393,8 +395,13 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     ? null
     : {
         type: EParseTxComponentType.Address,
-        // TODO: i18n
-        label: isRevoke ? 'Revoke from' : 'Approve To',
+        label: isRevoke
+          ? appLocale.intl.formatMessage({
+              id: ETranslations.sig_revoke_from_label,
+            })
+          : appLocale.intl.formatMessage({
+              id: ETranslations.sig_approve_to_label,
+            }),
         address: action.spender,
         tags: [],
         navigable: true,
@@ -599,8 +606,13 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
     ) {
       const isRevoke = new BigNumber(action.tokenApprove.amount).isZero();
 
-      // TODO: i18n
-      return isRevoke ? 'Revoke Approval' : 'Approval';
+      return isRevoke
+        ? appLocale.intl.formatMessage({
+            id: ETranslations.sig_revoke_approval_label,
+          })
+        : appLocale.intl.formatMessage({
+            id: ETranslations.sig_approval_label,
+          });
     }
 
     if (
