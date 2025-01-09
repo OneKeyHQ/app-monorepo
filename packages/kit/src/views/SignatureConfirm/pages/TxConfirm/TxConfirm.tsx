@@ -31,6 +31,7 @@ import TxConfirmActions from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
 import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
+import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import SourceInfo from '../../components/SourceInfo/SourceInfo';
@@ -231,6 +232,11 @@ function TxConfirm() {
         <SignatureConfirmAlert networkId={networkId} />
         <SourceInfo sourceInfo={sourceInfo} />
         <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
+        <TxConfirmExtraInfo
+          accountId={accountId}
+          networkId={networkId}
+          unsignedTxs={unsignedTxs}
+        />
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         {stakingInfo ? <StakingInfo data={stakingInfo} /> : null}
         <TxAdvancedSettings accountId={accountId} networkId={networkId} />
@@ -242,6 +248,7 @@ function TxConfirm() {
     networkId,
     sourceInfo,
     accountId,
+    unsignedTxs,
     swapInfo,
     stakingInfo,
   ]);
