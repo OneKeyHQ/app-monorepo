@@ -27,14 +27,16 @@ export const useHandleClaim = ({
       details,
       symbol,
       claimAmount,
-      provider,
+      claimTokenAddress,
       isReward,
+      provider,
       stakingInfo,
       onSuccess,
     }: {
       symbol: string;
       provider: string;
       claimAmount: string;
+      claimTokenAddress?: string;
       isReward?: boolean;
       details?: IStakeProtocolDetails;
       stakingInfo?: IStakingInfo;
@@ -56,6 +58,7 @@ export const useHandleClaim = ({
           symbol,
           provider,
           stakingInfo,
+          claimTokenAddress,
         });
         return;
       }
@@ -86,6 +89,7 @@ export const useHandleClaim = ({
         amount: claimAmount,
         symbol,
         provider,
+        claimTokenAddress,
         stakingInfo,
       });
     },

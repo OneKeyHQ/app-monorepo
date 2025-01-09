@@ -115,6 +115,7 @@ export type IStakeClaimBaseParams = {
   provider: string;
   amount?: string;
   identity?: string;
+  claimTokenAddress?: string;
 };
 
 export type IStakeHistoryParams = {

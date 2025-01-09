@@ -189,6 +189,7 @@ const ProtocolDetailsPage = () => {
         symbol,
         provider,
         claimAmount: claimTokenInfo.amount,
+        claimTokenAddress,
         isReward,
         details: result,
         stakingInfo: {

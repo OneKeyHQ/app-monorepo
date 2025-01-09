@@ -274,7 +274,12 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildClaimTransaction(params: IStakeClaimBaseParams) {
-    const { networkId, accountId, ...rest } = params;
+    const {
+      networkId,
+      accountId,
+      claimTokenAddress: rewardTokenAddress,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -296,6 +301,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
+      rewardTokenAddress,
       ...rest,
     });
     return resp.data.data;
