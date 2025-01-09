@@ -90,6 +90,8 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingListModal,
     component: SettingListModal,
+    rewrite: '/settings',
+    exact: true,
   },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
@@ -118,6 +120,7 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
+    rewrite: '/protection',
   },
   {
     name: EModalSettingRoutes.SettingClearAppCache,
