@@ -17,7 +17,10 @@ import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/He
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalSignatureConfirmRoutes,
+} from '@onekeyhq/shared/src/routes';
 import type {
   EModalAssetDetailRoutes,
   IModalAssetDetailsParamList,
@@ -189,8 +192,8 @@ export default function NFTDetails() {
 
   const handleSendPress = useCallback(() => {
     if (!nft) return;
-    navigation.pushModal(EModalRoutes.SendModal, {
-      screen: EModalSendRoutes.SendDataInput,
+    navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+      screen: EModalSignatureConfirmRoutes.TxDataInput,
       params: {
         networkId,
         accountId,
