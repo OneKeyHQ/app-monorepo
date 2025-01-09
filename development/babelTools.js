@@ -154,6 +154,10 @@ function normalizeConfig({ platform, config }) {
     ['@babel/plugin-proposal-export-namespace-from'],
     ['@babel/plugin-proposal-nullish-coalescing-operator'],
     ['@babel/plugin-proposal-class-static-block'],
+    [
+      developmentConsts.platforms.web,
+      developmentConsts.platforms.webEmbed,
+    ].includes(platform) && ['@babel/plugin-transform-optional-chaining'],
     isDev && !isJest && !isNative && ['react-refresh/babel'],
     // Need to adapt to the new version of the metro build system.
     isDev &&
