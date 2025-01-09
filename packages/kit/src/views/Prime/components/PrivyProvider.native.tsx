@@ -19,6 +19,8 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
   if (!clientId) {
     throw new Error('PRIVY_MOBILE_CLIENT_ID is not set');
   }
+  // throw new Error('PRIVY_MOBILE_CLIENT_ID is not set');
+
 
   return (
     <PrivyProviderBase appId={appId} clientId={clientId}>
