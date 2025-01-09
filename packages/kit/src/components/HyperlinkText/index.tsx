@@ -10,17 +10,16 @@ import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import useParseQRCode from '../../views/ScanQrCode/hooks/useParseQRCode';
 
-export interface IFormattedMessageProps {
+export type IHyperlinkTextProps = {
   id: ETranslations;
   defaultMessage?: string;
-  textProps: ISizableTextProps;
-}
+} & ISizableTextProps;
 
-export function FormattedMessage({
+export function HyperlinkText({
   id,
   defaultMessage,
-  textProps,
-}: IFormattedMessageProps) {
+  ...textProps
+}: IHyperlinkTextProps) {
   const intl = useIntl();
   const parseQRCode = useParseQRCode();
   const text = useMemo(
@@ -73,7 +72,7 @@ export function FormattedMessage({
           },
         },
       ),
-    [defaultMessage, id, intl],
+    [defaultMessage, id, intl, parseQRCode],
   );
   return <SizableText {...textProps}>{text}</SizableText>;
 }
