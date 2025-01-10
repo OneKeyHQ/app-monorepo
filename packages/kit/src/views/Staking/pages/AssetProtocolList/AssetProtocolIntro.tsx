@@ -12,9 +12,11 @@ export const AssetProtocolContent = ({
   const intl = useIntl();
   let showNativeStaking = true;
   let showLiquidStaking = true;
+  let showLendingStaking = true;
   if (providerTypes && providerTypes.length > 0) {
     showNativeStaking = providerTypes.includes('native');
     showLiquidStaking = providerTypes.includes('liquid');
+    showLendingStaking = providerTypes.includes('lending');
   }
   return (
     <YStack flex={1}>
@@ -46,6 +48,20 @@ export const AssetProtocolContent = ({
                   <SizableText size="$bodyMd" color="$textSubdued">
                     {intl.formatMessage({
                       id: ETranslations.earn_what_is_liquid_staking_desc,
+                    })}
+                  </SizableText>
+                </YStack>
+              ) : null}
+              {showLendingStaking ? (
+                <YStack gap={6}>
+                  <SizableText size="$bodyLgMedium">
+                    {intl.formatMessage({
+                      id: ETranslations.earn_what_is_lending,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.earn_what_is_lending_desc,
                     })}
                   </SizableText>
                 </YStack>
