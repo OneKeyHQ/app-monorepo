@@ -356,6 +356,7 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     symbol: string;
     provider: string;
+    vault?: string;
   }) {
     const { networkId, accountId, indexedAccountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -365,6 +366,7 @@ class ServiceStaking extends ServiceBase {
       symbol: string;
       provider: string;
       publicKey?: string;
+      vault?: string;
     } = { networkId, ...rest };
     const account = await this.getEarnAccount({
       accountId: accountId ?? '',

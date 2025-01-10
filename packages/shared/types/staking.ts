@@ -66,6 +66,7 @@ export type IStakeProviderInfo = {
   alerts: string[];
 
   apys?: IRewardApys;
+  vault?: string;
 };
 
 export type IStakeBaseParams = {
