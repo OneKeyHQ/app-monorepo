@@ -1,7 +1,8 @@
 import { useIntl } from 'react-intl';
 
-import { Badge, XStack } from '@onekeyhq/components';
+import { Badge, IconButton, XStack } from '@onekeyhq/components';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
+import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDisplayComponentAddress } from '@onekeyhq/shared/types/signatureConfirm';
 
@@ -22,9 +23,38 @@ function Address(props: IProps) {
         {component.label ||
           intl.formatMessage({ id: ETranslations.copy_address_modal_title })}
       </SignatureConfirmItem.Label>
-      <SignatureConfirmItem.Value>
-        {component.address}
-      </SignatureConfirmItem.Value>
+      {component.navigable ? (
+        <XStack alignItems="flex-start" justifyContent="space-between" flex={1}>
+          <SignatureConfirmItem.Value
+            flex={1}
+            maxWidth="$96"
+            style={{ wordBreak: 'break-all' }}
+          >
+            {component.address}
+          </SignatureConfirmItem.Value>
+          <XStack gap="$3" ml="$5">
+            <IconButton
+              title={intl.formatMessage({
+                id: ETranslations.global_view_in_blockchain_explorer,
+              })}
+              variant="tertiary"
+              icon="OpenOutline"
+              size="small"
+              onPress={() =>
+                openExplorerAddressUrl({
+                  networkId,
+                  address: component.address,
+                })
+              }
+            />
+          </XStack>
+        </XStack>
+      ) : (
+        <SignatureConfirmItem.Value style={{ wordBreak: 'break-all' }}>
+          {component.address}
+        </SignatureConfirmItem.Value>
+      )}
+
       <XStack gap="$1" flexWrap="wrap" flex={1}>
         {accountId && networkId && showAddressLocalTags ? (
           <AddressInfo

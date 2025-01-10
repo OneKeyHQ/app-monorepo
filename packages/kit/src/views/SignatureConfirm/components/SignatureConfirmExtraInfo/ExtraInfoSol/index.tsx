@@ -4,8 +4,11 @@ import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function TxExtraInfoSol() {
+  const intl = useIntl();
   const [{ decodedTxs }] = useDecodedTxsAtom();
 
   const decodedTx = decodedTxs?.[0];
@@ -14,10 +17,13 @@ function TxExtraInfoSol() {
 
   if (!decodedTx || !extraInfo || !extraInfo.createTokenAccountFee) return null;
 
-  // TODO: i18n
   return (
     <SignatureConfirmItem>
-      <SignatureConfirmItem.Label>Account Rent</SignatureConfirmItem.Label>
+      <SignatureConfirmItem.Label>
+        {intl.formatMessage({
+          id: ETranslations.sig_account_rent_label,
+        })}
+      </SignatureConfirmItem.Label>
       <SignatureConfirmItem.Value>
         {`${extraInfo.createTokenAccountFee.amount} ${extraInfo.createTokenAccountFee.symbol}`}
       </SignatureConfirmItem.Value>
