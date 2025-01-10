@@ -20,7 +20,13 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   @backgroundMethod()
   async addSwapHistoryItem(item: ISwapTxHistory) {
     const data = await this.getRawData();
-    if (data?.histories?.find((i) => i.txInfo.txId === item.txInfo.txId)) {
+    if (
+      data?.histories?.find((i) =>
+        i.txInfo.useOrderId
+          ? i.txInfo.orderId === item.txInfo.orderId
+          : i.txInfo.txId === item.txInfo.txId,
+      )
+    ) {
       return;
     }
     const histories = [item, ...(data?.histories ?? [])];
@@ -34,9 +40,17 @@ export class SimpleDbEntitySwapHistory extends SimpleDbEntityBase<ISwapTxHistory
   async updateSwapHistoryItem(item: ISwapTxHistory, oldTxId?: string) {
     const data = await this.getRawData();
     const histories = data?.histories ?? [];
-    let index = histories.findIndex((i) => i.txInfo.txId === item.txInfo.txId);
+    let index = histories.findIndex((i) =>
+      item.txInfo.useOrderId
+        ? i.txInfo.orderId === item.txInfo.orderId
+        : i.txInfo.txId === item.txInfo.txId,
+    );
     if (oldTxId) {
-      index = histories.findIndex((i) => i.txInfo.txId === oldTxId);
+      index = histories.findIndex((i) =>
+        item.txInfo.useOrderId
+          ? i.txInfo.orderId === oldTxId
+          : i.txInfo.txId === oldTxId,
+      );
     }
     if (index !== -1) {
       histories[index] = item;

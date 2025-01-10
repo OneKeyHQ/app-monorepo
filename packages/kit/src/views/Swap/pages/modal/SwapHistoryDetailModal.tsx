@@ -174,10 +174,12 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        <SwapTxHistoryViewInBrowser
-          item={txHistory}
-          onViewInBrowser={onViewInBrowser}
-        />
+        {txHistory.txInfo.txId ? (
+          <SwapTxHistoryViewInBrowser
+            item={txHistory}
+            onViewInBrowser={onViewInBrowser}
+          />
+        ) : null}
       </Stack>
     );
   }, [intl, md, onViewInBrowser, txHistory]);
@@ -317,13 +319,15 @@ const SwapHistoryDetailModal = () => {
               }
               showCopy
             />
-            <InfoItem
-              label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_transaction_hash,
-              })}
-              renderContent={txHistory.txInfo.txId}
-              showCopy
-            />
+            {txHistory.txInfo.txId ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_transaction_hash,
+                })}
+                renderContent={txHistory.txInfo.txId}
+                showCopy
+              />
+            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_network_fee,

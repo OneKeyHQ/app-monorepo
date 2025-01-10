@@ -417,7 +417,10 @@ export function useSwapBuildTx() {
                   type:
                     unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
                   message: unSignedMessage,
-                  payload: [swapFromAddressInfo.address, unSignedMessage],
+                  payload: [
+                    swapFromAddressInfo.address.toLowerCase(),
+                    unSignedMessage,
+                  ],
                 },
                 walletInternalSign: true,
               })) as string;
