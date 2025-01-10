@@ -45,7 +45,7 @@ const AddItemPage = () => {
           }),
         });
         appNavigation.pop();
-        route?.params.onConfirm?.();
+        route?.params?.onConfirm?.();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
       }
