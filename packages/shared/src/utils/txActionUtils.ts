@@ -339,7 +339,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
             }),
       address: action.to,
       tags: [],
-      navigable: isInternalSwap || isInternalStake,
+      isNavigable: isInternalSwap || isInternalStake,
     };
 
     components.push(toAddressComponent);
@@ -351,9 +351,11 @@ function convertAssetTransferActionToSignatureConfirmComponent({
 function convertTokenApproveActionToSignatureConfirmComponent({
   action,
   isMultiTxs,
+  networkId,
 }: {
   action: IDecodedTxActionTokenApprove;
   isMultiTxs?: boolean;
+  networkId: string;
 }) {
   const isRevoke = new BigNumber(action.amount).isZero();
   let approveLabel = '';
@@ -389,6 +391,7 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     amountParsed: action.amount,
     isEditable: !isRevoke && !isMultiTxs,
     isInfiniteAmount: action.isInfiniteAmount,
+    networkId,
   };
 
   const spenderComponent: IDisplayComponentAddress | null = isMultiTxs
@@ -404,7 +407,7 @@ function convertTokenApproveActionToSignatureConfirmComponent({
             }),
         address: action.spender,
         tags: [],
-        navigable: true,
+        isNavigable: true,
       };
 
   return [approveComponent, spenderComponent].filter(Boolean);
@@ -412,14 +415,17 @@ function convertTokenApproveActionToSignatureConfirmComponent({
 
 function convertTokenActiveActionToSignatureConfirmComponent({
   action,
+  networkId,
 }: {
   action: IDecodedTxActionTokenActivate;
+  networkId: string;
 }) {
   const component: IDisplayComponentToken = {
     type: EParseTxComponentType.Token,
     label: appLocale.intl.formatMessage({
       id: ETranslations.global_asset,
     }),
+    networkId,
     // @ts-ignore
     token: {
       // @ts-ignore
@@ -454,7 +460,7 @@ function convertFunctionCallActionToSignatureConfirmComponent({
     }),
     address: action.to,
     tags: [],
-    navigable: true,
+    isNavigable: true,
   };
 
   return [component, interactWithContractComponent];
@@ -472,7 +478,7 @@ function convertUnknownActionToSignatureConfirmComponent({
     }),
     address: action.to,
     tags: [],
-    navigable: true,
+    isNavigable: true,
   };
 
   return [interactWithContractComponent];
@@ -487,7 +493,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
   unsignedTx: IUnsignedTxPro;
   isMultiTxs?: boolean;
 }): IDisplayComponent[] {
-  const { actions } = decodedTx;
+  const { actions, networkId } = decodedTx;
   const components: IDisplayComponent[] = [];
 
   for (const action of actions) {
@@ -509,6 +515,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
         ...convertTokenApproveActionToSignatureConfirmComponent({
           action: action.tokenApprove,
           isMultiTxs,
+          networkId,
         }),
       );
     } else if (
@@ -518,6 +525,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
       components.push(
         ...convertTokenActiveActionToSignatureConfirmComponent({
           action: action.tokenActivate,
+          networkId,
         }),
       );
     } else if (
