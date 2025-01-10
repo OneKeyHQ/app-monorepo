@@ -170,7 +170,7 @@ export class WrongPassword extends OneKeyError {
       normalizeErrorProps(props, {
         defaultMessage: 'WrongPassword',
         defaultKey: ETranslations.send_engine_incorrect_passcode,
-        defaultAutoToast: true,
+        defaultAutoToast: false,
       }),
     );
   }
