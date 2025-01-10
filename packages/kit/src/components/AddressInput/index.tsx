@@ -196,6 +196,7 @@ export type IAddressInputValue = {
   validateError?: {
     type?: Exclude<IAddressValidateStatus, 'valid'>;
     message?: string;
+    translationId?: ETranslations;
   };
 };
 
@@ -427,24 +428,16 @@ export function AddressInput(props: IAddressInputProps) {
       if (!status) return;
       const message: Record<
         Exclude<IAddressValidateStatus, 'valid'>,
-        string
+        ETranslations
       > = {
-        'unknown': intl.formatMessage({
-          id: ETranslations.send_check_request_error,
-        }),
-        'prohibit-send-to-self': intl.formatMessage({
-          id: ETranslations.send_cannot_send_to_self,
-        }),
-        'invalid': intl.formatMessage({
-          id: ETranslations.send_address_invalid,
-        }),
-        'address-not-allowlist': intl.formatMessage({
-          id: ETranslations.send_address_not_allowlist_error,
-        }),
-      };
+        'unknown': ETranslations.send_check_request_error,
+        'prohibit-send-to-self': ETranslations.send_cannot_send_to_self,
+        'invalid': ETranslations.send_address_invalid,
+        'address-not-allowlist': ETranslations.send_address_not_allowlist_error,
+      } as const;
       return message[status];
     },
-    [intl],
+    [],
   );
 
   useEffect(() => {
@@ -463,7 +456,7 @@ export function AddressInput(props: IAddressInputProps) {
         pending: false,
         validateError: {
           type: queryResult.validStatus,
-          message: getValidateMessage(queryResult.validStatus),
+          translationId: getValidateMessage(queryResult.validStatus),
         },
         isContract: queryResult.isContract,
       });

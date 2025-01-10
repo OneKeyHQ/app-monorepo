@@ -31,6 +31,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -71,11 +72,11 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
-import { HyperlinkText } from '../../../../components/HyperlinkText';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { showContractWarningDialog } from './ContractWarningDialog';
+import { FormErrorHyperlinkText } from './FormErrorHyperlinkText';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -1221,7 +1222,7 @@ function SendDataInputContainer() {
         </SizableText>
       </XStack>
     ),
-    [],
+    [intl],
   );
   const { gtMd } = useMedia();
   const PopoverTitle = useMemo(
@@ -1342,6 +1343,7 @@ function SendDataInputContainer() {
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.global_recipient })}
               name="to"
+              ErrorMessageComponent={FormErrorHyperlinkText}
               rules={{
                 required: true,
                 validate: (value: IAddressInputValue) => {

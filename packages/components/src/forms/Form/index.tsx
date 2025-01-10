@@ -1,4 +1,9 @@
-import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import type {
+  ComponentType,
+  PropsWithChildren,
+  ReactElement,
+  ReactNode,
+} from 'react';
 import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
 import { noop } from 'lodash';
@@ -9,14 +14,7 @@ import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HeightTransition } from '../../content';
-import {
-  Label,
-  SizableText,
-  Stack,
-  View,
-  XStack,
-  YStack,
-} from '../../primitives';
+import { Label, SizableText, Stack, XStack, YStack } from '../../primitives';
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
@@ -93,6 +91,10 @@ export function FieldDescription(props: ISizableTextProps) {
   );
 }
 
+export type IErrorMessageComponentProps = ComponentType<
+  { translationId: ETranslations } & ISizableTextProps
+>;
+
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
     testID?: string;
@@ -110,6 +112,7 @@ type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
     optional?: boolean;
     labelAddon?: string | ReactElement;
     errorMessageAlign?: 'left' | 'center' | 'right';
+    ErrorMessageComponent?: IErrorMessageComponentProps;
   }>;
 
 function Field({
@@ -124,6 +127,7 @@ function Field({
   horizontal = false,
   testID = '',
   labelAddon,
+  ErrorMessageComponent = SizableText,
 }: IFieldProps) {
   const intl = useIntl();
   const {
@@ -140,7 +144,9 @@ function Field({
     }
     return null;
   }, [labelAddon]);
-  const error = errors[name] as unknown as Error;
+  const error = errors[name] as unknown as Error & {
+    translationId: ETranslations;
+  };
   // if (error) {
   //   debugger;
   // }
@@ -201,15 +207,18 @@ function Field({
                 }}
                 textAlign={errorMessageAlign}
               >
-                <SizableText
+                <ErrorMessageComponent
+                  translationId={error?.translationId}
                   color="$textCritical"
                   size="$bodyMd"
                   textAlign={errorMessageAlign}
                   key={error?.message}
                   testID={`${testID}-message`}
                 >
-                  {error.message}
-                </SizableText>
+                  {error?.translationId
+                    ? intl.formatMessage({ id: error?.translationId })
+                    : error.message}
+                </ErrorMessageComponent>
               </SizableText>
             ) : null}
           </HeightTransition>
