@@ -17,21 +17,18 @@ function getEarnProviderEnumKey(
   return undefined;
 }
 
-function isLidoProvider({ providerName }: { providerName: string }) {
-  return providerName.toLowerCase() === 'lido';
+function createProviderCheck(provider: EEarnProviderEnum) {
+  return ({ providerName }: { providerName: string }) =>
+    providerName.toLowerCase() === provider.toLowerCase();
 }
 
-function isBabylonProvider({ providerName }: { providerName: string }) {
-  return providerName.toLowerCase() === 'babylon';
-}
+const isLidoProvider = createProviderCheck(EEarnProviderEnum.Lido);
 
-function isEverstakeProvider({ providerName }: { providerName: string }) {
-  return providerName.toLowerCase() === 'everstake';
-}
+const isBabylonProvider = createProviderCheck(EEarnProviderEnum.Babylon);
 
-function isMorphoProvider({ providerName }: { providerName: string }) {
-  return providerName.toLowerCase() === 'morpho';
-}
+const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
+
+const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
 
 export default {
   getEarnProviderEnumKey,
