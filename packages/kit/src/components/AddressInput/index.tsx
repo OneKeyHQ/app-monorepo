@@ -25,6 +25,10 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -397,18 +401,31 @@ export function AddressInput(props: IAddressInputProps) {
   );
 
   useEffect(() => {
-    void queryAddress({
-      address: inputText,
-      networkId,
-      accountId,
-      enableAddressBook,
-      enableAddressInteractionStatus,
-      enableNameResolve,
-      enableWalletName,
-      enableVerifySendFundToSelf,
-      enableAddressContract,
-      enableAddressNotAllowList,
-    });
+    const queryResultFunc = () => {
+      void queryAddress({
+        address: inputText,
+        networkId,
+        accountId,
+        enableAddressBook,
+        enableAddressInteractionStatus,
+        enableNameResolve,
+        enableWalletName,
+        enableVerifySendFundToSelf,
+        enableAddressContract,
+        enableAddressNotAllowList,
+      });
+    };
+    void queryResultFunc();
+    appEventBus.on(
+      EAppEventBusNames.TriggerAddressInputValidate,
+      queryResultFunc,
+    );
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.TriggerAddressInputValidate,
+        queryResultFunc,
+      );
+    };
   }, [
     inputText,
     networkId,
