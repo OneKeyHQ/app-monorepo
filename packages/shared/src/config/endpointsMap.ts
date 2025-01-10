@@ -26,11 +26,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Lightning,
       env: 'test',
     }),
-    // earn: buildServiceEndpoint({
-    //   serviceName: EServiceEndpointEnum.Earn,
-    //   env: 'test',
-    // }),
-    earn: 'http://127.0.0.1:7777',
+    earn: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Earn,
+      env: 'test',
+    }),
     notification: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Notification,
       env: 'test',

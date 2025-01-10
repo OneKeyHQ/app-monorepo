@@ -83,7 +83,9 @@ function ProfitInfo({
                 </SizableText>
                 {apys ? (
                   <Popover
-                    title="Reward"
+                    title={intl.formatMessage({
+                      id: ETranslations.earn_rewards,
+                    })}
                     renderTrigger={
                       <IconButton
                         icon="InfoCircleOutline"

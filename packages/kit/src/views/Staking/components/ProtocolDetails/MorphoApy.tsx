@@ -1,8 +1,10 @@
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IRewardApys } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -23,6 +25,7 @@ export function MorphoApy({
   apys: IRewardApys;
   rewardAssets?: Record<string, IToken>;
 }) {
+  const intl = useIntl();
   const showNativeApy = isPositiveNumber(apys.rate);
   const showTotalApy = isPositiveNumber(apys.netApy);
   const rewardTokenEntries = Object.entries(apys.rewards ?? {}).filter(
@@ -37,7 +40,9 @@ export function MorphoApy({
             <XStack gap="$2" alignItems="center">
               <Icon name="ChartTrendingUpOutline" size="$5" />
               <SizableText color="$textSubdued" size="$bodyMd">
-                Native APY
+                {intl.formatMessage({
+                  id: ETranslations.earn_native_apy,
+                })}
               </SizableText>
             </XStack>
             <SizableText color="$textSubdued">
@@ -70,7 +75,9 @@ export function MorphoApy({
             <XStack gap="$2" alignItems="center">
               <Icon name="CoinsAddOutline" size="$5" />
               <SizableText color="$textSubdued" size="$bodyMd">
-                Total APY
+                {intl.formatMessage({
+                  id: ETranslations.earn_total_apy,
+                })}
               </SizableText>
             </XStack>
             <SizableText color="$textSuccess">
@@ -90,7 +97,9 @@ export function MorphoApy({
       >
         <YStack flex={1} alignItems="center" justifyContent="space-between">
           <SizableText color="$textSubdued" size="$bodySm">
-            Last day
+            {intl.formatMessage({
+              id: ETranslations.earn_last_day,
+            })}
           </SizableText>
           <SizableText color="$text" size="$bodyMdMedium">
             {isPositiveNumber(apys.dailyNetApy)
@@ -100,7 +109,9 @@ export function MorphoApy({
         </YStack>
         <YStack flex={1} alignItems="center" justifyContent="space-between">
           <SizableText color="$textSubdued" size="$bodySm">
-            Last week
+            {intl.formatMessage({
+              id: ETranslations.earn_last_week,
+            })}
           </SizableText>
           <SizableText color="$text" size="$bodyMdMedium">
             {isPositiveNumber(apys.weeklyNetApy)
@@ -110,7 +121,9 @@ export function MorphoApy({
         </YStack>
         <YStack flex={1} alignItems="center" justifyContent="space-between">
           <SizableText color="$textSubdued" size="$bodySm">
-            Last month
+            {intl.formatMessage({
+              id: ETranslations.earn_last_month,
+            })}
           </SizableText>
           <SizableText color="$text" size="$bodyMdMedium">
             {isPositiveNumber(apys.monthlyNetApy)
