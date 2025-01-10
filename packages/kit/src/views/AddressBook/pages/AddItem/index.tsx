@@ -1,5 +1,6 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
@@ -7,10 +8,15 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalAddressBookRoutes,
+  IModalAddressBookParamList,
+} from '@onekeyhq/shared/src/routes/addressBook';
 
 import { CreateOrEditContent } from '../../components/CreateOrEditContent';
 
 import type { IAddressItem } from '../../type';
+import type { RouteProp } from '@react-navigation/core';
 
 const defaultValues: IAddressItem = {
   name: '',
@@ -22,6 +28,13 @@ const defaultValues: IAddressItem = {
 const AddItemPage = () => {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
+  const route =
+    useRoute<
+      RouteProp<
+        IModalAddressBookParamList,
+        EModalAddressBookRoutes.EditItemModal
+      >
+    >();
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
       try {
@@ -38,13 +51,17 @@ const AddItemPage = () => {
     },
     [appNavigation, intl],
   );
+  const item = useMemo(
+    () => ({ ...defaultValues, ...route.params }),
+    [route.params],
+  );
   return (
     <CreateOrEditContent
       title={intl.formatMessage({
         id: ETranslations.address_book_add_address_title,
       })}
       onSubmit={onSubmit}
-      item={defaultValues}
+      item={item}
     />
   );
 };
