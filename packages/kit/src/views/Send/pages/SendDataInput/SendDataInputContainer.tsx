@@ -1222,7 +1222,7 @@ function SendDataInputContainer() {
           icon="ShieldCheckDoneSolid"
           testID="setting"
         />
-        <SizableText size="$bodyLg">
+        <SizableText size="$headingLg">
           {intl.formatMessage({
             id: ETranslations.allowlist_enabled_popover_title,
           })}
@@ -1250,6 +1250,8 @@ function SendDataInputContainer() {
           <YStack p="$5" $md={{ pt: 0 }} gap="$2.5">
             {gtMd ? PopoverTitle : null}
             <HyperlinkText
+              color="$textSubdued"
+              size="$bodyLg"
               translationId={ETranslations.allowlist_enabled_popover_content}
               onLinkPress={closePopover}
             />
