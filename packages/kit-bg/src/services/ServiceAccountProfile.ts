@@ -300,8 +300,11 @@ class ServiceAccountProfile extends ServiceBase {
           address: resolveAddress,
         });
       result.addressBookId = addressBookItem?.id;
-      result.addressBookName = addressBookItem?.name;
       result.isAllowListed = addressBookItem?.isAllowListed;
+      result.addressBookName =
+        addressBookItem?.name && addressBookItem?.isAllowListed
+          ? `AllowListed / ${addressBookItem?.name}`
+          : addressBookItem?.name;
     }
 
     if (enableWalletName && resolveAddress) {
