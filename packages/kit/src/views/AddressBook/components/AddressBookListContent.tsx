@@ -5,12 +5,15 @@ import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Empty,
+  Icon,
   IconButton,
   SearchBar,
   SectionList,
   SizableText,
   Stack,
+  XStack,
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -69,6 +72,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
   onPress,
   showActions,
 }) => {
+  const intl = useIntl();
   const renderAvatar = useCallback(
     () => (
       <Stack
@@ -87,12 +91,24 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
     [item.name],
   );
 
+  const renderBadges = useCallback(
+    () => (
+      <Badge badgeType="success" badgeSize="sm" gap="$1.5">
+        <Icon name="ShieldCheckDoneOutline" color="$iconSuccess" size="$4" />
+        <SizableText size="$bodySmMedium" color="$iconSuccess">
+          {intl.formatMessage({ id: ETranslations.address_label_allowlist })}
+        </SizableText>
+      </Badge>
+    ),
+    [intl],
+  );
   return (
     <ListItem
       title={item.name}
       titleMatch={item.nameMatch}
       subtitle={item.address}
       subTitleMatch={item.addressMatch}
+      renderBadges={renderBadges}
       renderAvatar={renderAvatar}
       onPress={() => onPress?.(item)}
       testID={`address-item-${item.address || ''}`}

@@ -1242,7 +1242,7 @@ function SendDataInputContainer() {
             iconProps={{
               color: '$iconSuccess',
             }}
-            icon="ShieldCheckDoneSolid"
+            icon="ShieldCheckDoneOutline"
             testID="setting"
           />
         }
