@@ -20,6 +20,7 @@ import {
   TextArea,
   TextAreaInput,
   XStack,
+  YStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
@@ -70,6 +71,7 @@ import type { IAccountNFT } from '@onekeyhq/shared/types/nft';
 import { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
+import { HyperlinkText } from '../../../../components/HyperlinkText';
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
@@ -1199,29 +1201,77 @@ function SendDataInputContainer() {
     () => settings.transferAllowList ?? true,
     [settings.transferAllowList],
   );
+  // TODO: Add title for large screen popover
+  const popoverTitle = useMemo(
+    () => (
+      <XStack gap="$2">
+        <HeaderIconButton
+          key="allowList"
+          titlePlacement="bottom"
+          iconProps={{
+            color: '$iconSuccess',
+          }}
+          icon="ShieldCheckDoneSolid"
+          testID="setting"
+        />
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.allowlist_enabled_popover_title,
+          })}
+        </SizableText>
+      </XStack>
+    ),
+    [],
+  );
+  const { gtMd } = useMedia();
+  const PopoverTitle = useMemo(
+    () => (
+      <XStack gap="$2">
+        <HeaderIconButton
+          key="allowList"
+          titlePlacement="bottom"
+          iconProps={{
+            color: '$iconSuccess',
+          }}
+          icon="ShieldCheckDoneSolid"
+          testID="setting"
+        />
+        <SizableText size="$bodyLg">
+          {intl.formatMessage({
+            id: ETranslations.allowlist_enabled_popover_title,
+          })}
+        </SizableText>
+      </XStack>
+    ),
+    [],
+  );
   const renderHeaderRight = useCallback(
     () => (
       <Popover
-        title={'Allowlist enabled'}
+        title={PopoverTitle}
         renderTrigger={
           <HeaderIconButton
             key="allowList"
             titlePlacement="bottom"
-            color="$iconSuccess"
+            iconProps={{
+              color: '$iconSuccess',
+            }}
             icon="ShieldCheckDoneSolid"
             testID="setting"
           />
         }
         renderContent={({ closePopover }) => (
-          <Stack gap="$4" p="$5">
-            <SizableText>
-            You can only transfer funds to allowlist address in Address book or transferred address. If you understand the risks, you can disable it in Settings >> Protection.
-            </SizableText>
-          </Stack>
+          <YStack p="$5" $md={{ pt: 0 }} gap="$2.5">
+            {gtMd ? PopoverTitle : null}
+            <HyperlinkText
+              id={ETranslations.allowlist_enabled_popover_content}
+              onLinkPress={closePopover}
+            />
+          </YStack>
         )}
       />
     ),
-    [navigateToSettingProtection],
+    [PopoverTitle, gtMd],
   );
 
   return (

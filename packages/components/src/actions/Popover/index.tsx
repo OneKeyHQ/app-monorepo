@@ -38,7 +38,7 @@ import type {
 } from 'tamagui';
 
 export interface IPopoverProps extends TMPopoverProps {
-  title: string;
+  title: string | ReactElement;
   usingSheet?: boolean;
   renderTrigger: ReactNode;
   openPopover?: () => void;
@@ -328,16 +328,20 @@ function RawPopover({
                 borderCurve="continuous"
                 gap="$2"
               >
-                <SizableText
-                  size="$headingXl"
-                  color="$text"
-                  flexShrink={1}
-                  style={{
-                    wordBreak: 'break-all',
-                  }}
-                >
-                  {title}
-                </SizableText>
+                {typeof title === 'string' ? (
+                  <SizableText
+                    size="$headingXl"
+                    color="$text"
+                    flexShrink={1}
+                    style={{
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    {title}
+                  </SizableText>
+                ) : (
+                  title
+                )}
                 <IconButton
                   icon="CrossedSmallOutline"
                   size="small"

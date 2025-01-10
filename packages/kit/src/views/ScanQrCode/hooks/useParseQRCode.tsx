@@ -29,6 +29,7 @@ import {
   EModalRoutes,
   EModalSendRoutes,
   EOnboardingPages,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
@@ -101,6 +102,15 @@ const useParseQRCode = () => {
               });
             }
           }
+          break;
+        case EQRCodeHandlerType.SEND_PROTECTION:
+          // navigation.push(ERootRoutes.Modal, {
+          //   screen: EModalRoutes.SendModal,
+          //   params: EModalSendRoutes.Protection,
+          // });
+          navigation.pushModal(EModalRoutes.SendModal, {
+            screen: EModalSendRoutes.SettingProtectModal,
+          });
           break;
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:

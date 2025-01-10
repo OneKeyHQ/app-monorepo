@@ -13,11 +13,13 @@ import useParseQRCode from '../../views/ScanQrCode/hooks/useParseQRCode';
 export type IHyperlinkTextProps = {
   id: ETranslations;
   defaultMessage?: string;
+  onLinkPress?: (url: string) => void;
 } & ISizableTextProps;
 
 export function HyperlinkText({
   id,
   defaultMessage,
+  onLinkPress,
   ...textProps
 }: IHyperlinkTextProps) {
   const intl = useIntl();
@@ -29,7 +31,6 @@ export function HyperlinkText({
         {
           url: (params: React.ReactNode[]) => {
             const [link, chunks] = params;
-            console.log(chunks);
             return (
               <SizableText
                 cursor="pointer"
@@ -37,8 +38,14 @@ export function HyperlinkText({
                 pressStyle={{ bg: '$bgActive' }}
                 onPress={() => {
                   if (typeof link === 'string') {
+                    setTimeout(() => {
+                      onLinkPress?.(link);
+                    }, 0);
                     void parseQRCode.parse(link, {
-                      handlers: [EQRCodeHandlerNames.marketDetail],
+                      handlers: [
+                        EQRCodeHandlerNames.marketDetail,
+                        EQRCodeHandlerNames.sendProtection,
+                      ],
                       qrWalletScene: false,
                       autoHandleResult: true,
                       defaultHandler: openUrlInApp,
@@ -56,20 +63,17 @@ export function HyperlinkText({
           bold: ([string]) => (
             <SizableText size="$headingLg">{string}</SizableText>
           ),
-          text: (chunks) => {
-            console.log('chunks', chunks);
-            return (
-              <>
-                {chunks.map((chunk, index) =>
-                  typeof chunk === 'string' ? (
-                    <SizableText key={index}>{chunk}</SizableText>
-                  ) : (
-                    chunk
-                  ),
-                )}
-              </>
-            );
-          },
+          text: (chunks) => (
+            <>
+              {chunks.map((chunk, index) =>
+                typeof chunk === 'string' ? (
+                  <SizableText key={index}>{chunk}</SizableText>
+                ) : (
+                  chunk
+                ),
+              )}
+            </>
+          ),
         },
       ),
     [defaultMessage, id, intl, parseQRCode],
