@@ -1,6 +1,7 @@
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
+  BaseUSDC,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumMatic,
   SepoliaMatic,
@@ -80,6 +81,21 @@ const stakingConfig: IStakingConfig = {
           MATIC: {
             ...commonStakeConfigs.MATIC,
             claimWithTx: true,
+          },
+        },
+      },
+    },
+  },
+  [getNetworkIdsMap().base]: {
+    providers: {
+      [EEarnProviderEnum.Morpho]: {
+        supportedSymbols: ['USDC'],
+        configs: {
+          USDC: {
+            enabled: true,
+            tokenAddress: BaseUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
           },
         },
       },

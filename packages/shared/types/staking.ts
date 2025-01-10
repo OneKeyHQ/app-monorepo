@@ -43,7 +43,7 @@ export type IStakeProviderInfo = {
   nextLaunchLeft?: string;
 
   lidoStTokenRate?: string;
-  type?: 'native' | 'liquid';
+  type?: 'native' | 'liquid' | 'lending';
   isStaking?: boolean;
 
   unstakingTime?: number;
@@ -64,6 +64,8 @@ export type IStakeProviderInfo = {
   buttonStake: boolean;
   buttonUnstake: boolean;
   alerts: string[];
+
+  apys?: IRewardApys;
 };
 
 export type IStakeBaseParams = {
@@ -115,6 +117,7 @@ export type IStakeClaimBaseParams = {
   provider: string;
   amount?: string;
   identity?: string;
+  claimTokenAddress?: string;
 };
 
 export type IStakeHistoryParams = {
@@ -234,6 +237,8 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   overflow?: string;
+  rewardNum?: Record<string, string>;
+  rewardAssets?: Record<string, IToken>;
 };
 
 export type IStakeProtocolListItem = {
@@ -244,6 +249,15 @@ export type IStakeProtocolListItem = {
     logoURI: string;
   };
   isEarning: boolean;
+};
+
+export type IRewardApys = {
+  rate: string;
+  rewards: Record<string, string>;
+  netApy: string;
+  dailyNetApy: string;
+  weeklyNetApy: string;
+  monthlyNetApy: string;
 };
 
 export type IBabylonPortfolioStatus =

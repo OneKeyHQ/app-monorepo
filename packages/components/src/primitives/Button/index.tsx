@@ -1,3 +1,4 @@
+import type { ButtonHTMLAttributes } from 'react';
 import { useMemo } from 'react';
 
 import {
@@ -18,6 +19,7 @@ import type { IIconProps, IKeyOfIcons } from '../Icon';
 import type { ColorTokens, FontSizeTokens, ThemeableStackProps } from 'tamagui';
 
 export interface IButtonProps extends ThemeableStackProps {
+  type?: ButtonHTMLAttributes<HTMLButtonElement>['type'];
   size?: 'small' | 'medium' | 'large';
   variant?: 'secondary' | 'tertiary' | 'primary' | 'destructive';
   icon?: IKeyOfIcons;
@@ -145,10 +147,11 @@ const useSizeStyles = (size: IButtonProps['size']) =>
 export const ButtonFrame = styled(ThemeableStack, {
   tag: 'button',
   role: 'button',
+  type: 'button',
   flexDirection: 'row',
   justifyContent: 'center',
   alignItems: 'center',
-});
+} as IButtonProps);
 
 function ButtonIcon({
   variant,
