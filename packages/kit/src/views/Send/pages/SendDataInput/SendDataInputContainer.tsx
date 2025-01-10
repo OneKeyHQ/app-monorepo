@@ -76,7 +76,7 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { showContractWarningDialog } from './ContractWarningDialog';
-import { FormErrorHyperlinkText } from './FormErrorHyperlinkText';
+import { SendDataInputErrorHyperlinkText } from './SendDataInputErrorHyperlinkText';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -280,6 +280,8 @@ function SendDataInputContainer() {
 
   const form = useForm({
     defaultValues: {
+      accountId,
+      networkId,
       to: { raw: address } as IAddressInputValue,
       amount: sendAmount,
       nftAmount: sendAmount || '1',
@@ -433,6 +435,9 @@ function SendDataInputContainer() {
                 accountId: data.accountId,
                 networkId: data.networkId,
               });
+              // TODO: need remove
+              form.setValue('accountId', data.accountId);
+              form.setValue('networkId', data.networkId);
             }
             setTokenInfo(data);
             navigation.popStack();
@@ -447,6 +452,7 @@ function SendDataInputContainer() {
     allTokens.keys,
     allTokens.tokens,
     currentAccount.accountId,
+    form,
     isAllNetworks,
     isSelectTokenDisabled,
     map,
@@ -1202,8 +1208,9 @@ function SendDataInputContainer() {
     () => settings.transferAllowList ?? true,
     [settings.transferAllowList],
   );
+  const { gtMd } = useMedia();
   // TODO: Add title for large screen popover
-  const popoverTitle = useMemo(
+  const PopoverTitle = useMemo(
     () => (
       <XStack gap="$2">
         <HeaderIconButton
@@ -1224,28 +1231,6 @@ function SendDataInputContainer() {
     ),
     [intl],
   );
-  const { gtMd } = useMedia();
-  const PopoverTitle = useMemo(
-    () => (
-      <XStack gap="$2">
-        <HeaderIconButton
-          key="allowList"
-          titlePlacement="bottom"
-          iconProps={{
-            color: '$iconSuccess',
-          }}
-          icon="ShieldCheckDoneSolid"
-          testID="setting"
-        />
-        <SizableText size="$bodyLg">
-          {intl.formatMessage({
-            id: ETranslations.allowlist_enabled_popover_title,
-          })}
-        </SizableText>
-      </XStack>
-    ),
-    [],
-  );
   const renderHeaderRight = useCallback(
     () => (
       <Popover
@@ -1265,7 +1250,7 @@ function SendDataInputContainer() {
           <YStack p="$5" $md={{ pt: 0 }} gap="$2.5">
             {gtMd ? PopoverTitle : null}
             <HyperlinkText
-              id={ETranslations.allowlist_enabled_popover_content}
+              translationId={ETranslations.allowlist_enabled_popover_content}
               onLinkPress={closePopover}
             />
           </YStack>
@@ -1343,7 +1328,7 @@ function SendDataInputContainer() {
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.global_recipient })}
               name="to"
-              ErrorMessageComponent={FormErrorHyperlinkText}
+              ErrorMessageComponent={SendDataInputErrorHyperlinkText}
               rules={{
                 required: true,
                 validate: (value: IAddressInputValue) => {
@@ -1352,7 +1337,8 @@ function SendDataInputContainer() {
                   }
                   if (!value.resolved) {
                     return (
-                      value.validateError?.message ??
+                      value.validateError?.translationId ||
+                      value.validateError?.message ||
                       intl.formatMessage({
                         id: ETranslations.send_address_invalid,
                       })

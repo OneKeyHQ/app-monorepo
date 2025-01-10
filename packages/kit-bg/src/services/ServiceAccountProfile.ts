@@ -299,17 +299,9 @@ class ServiceAccountProfile extends ServiceBase {
             : undefined,
           address: resolveAddress,
         });
+      result.addressBookId = addressBookItem?.id;
       result.addressBookName = addressBookItem?.name;
       result.isAllowListed = addressBookItem?.isAllowListed;
-    }
-
-    if (enableAddressNotAllowList) {
-      const isEnableTransferAllowList =
-        await serviceSetting.getIsEnableTransferAllowList();
-      if (isEnableTransferAllowList && !result.isAllowListed) {
-        result.validStatus = 'address-not-allowlist';
-        return result;
-      }
     }
 
     if (enableWalletName && resolveAddress) {
@@ -361,6 +353,19 @@ class ServiceAccountProfile extends ServiceBase {
         ),
         result,
       });
+    }
+
+    if (enableAddressNotAllowList) {
+      // Check if it's user's own account by checking if there's a matching wallet account ID
+      const isSelfAccount = !!result.walletAccountId;
+      if (!isSelfAccount) {
+        const isEnableTransferAllowList =
+          await serviceSetting.getIsEnableTransferAllowList();
+        if (isEnableTransferAllowList && !result.isAllowListed) {
+          result.validStatus = 'address-not-allowlist';
+          return result;
+        }
+      }
     }
     return result;
   }

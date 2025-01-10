@@ -91,9 +91,12 @@ export function FieldDescription(props: ISizableTextProps) {
   );
 }
 
-export type IErrorMessageComponentProps = ComponentType<
-  { translationId: ETranslations } & ISizableTextProps
->;
+export type IErrorMessageComponentProps = {
+  translationId: ETranslations;
+} & ISizableTextProps;
+
+export type IErrorMessageComponentType =
+  ComponentType<IErrorMessageComponentProps>;
 
 type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
@@ -112,7 +115,7 @@ type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
     optional?: boolean;
     labelAddon?: string | ReactElement;
     errorMessageAlign?: 'left' | 'center' | 'right';
-    ErrorMessageComponent?: IErrorMessageComponentProps;
+    ErrorMessageComponent?: IErrorMessageComponentType;
   }>;
 
 function Field({
@@ -208,16 +211,14 @@ function Field({
                 textAlign={errorMessageAlign}
               >
                 <ErrorMessageComponent
-                  translationId={error?.translationId}
+                  translationId={error?.message as ETranslations}
                   color="$textCritical"
                   size="$bodyMd"
                   textAlign={errorMessageAlign}
                   key={error?.message}
                   testID={`${testID}-message`}
                 >
-                  {error?.translationId
-                    ? intl.formatMessage({ id: error?.translationId })
-                    : error.message}
+                  {error?.message}
                 </ErrorMessageComponent>
               </SizableText>
             ) : null}

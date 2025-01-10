@@ -241,6 +241,7 @@ export type IAddressQueryResult = {
   validStatus?: IAddressValidateStatus;
   walletAccountName?: string;
   walletAccountId?: string; // accountId or indexedAccountId
+  addressBookId?: string;
   addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
@@ -451,12 +452,14 @@ export function AddressInput(props: IAddressInputProps) {
         isContract: queryResult.isContract,
       });
     } else {
+      const translationId = getValidateMessage(queryResult.validStatus);
       onChange?.({
         raw: queryResult.input,
         pending: false,
         validateError: {
           type: queryResult.validStatus,
-          translationId: getValidateMessage(queryResult.validStatus),
+          translationId,
+          message: intl.formatMessage({ id: translationId }),
         },
         isContract: queryResult.isContract,
       });

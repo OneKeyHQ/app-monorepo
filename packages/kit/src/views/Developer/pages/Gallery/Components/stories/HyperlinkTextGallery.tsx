@@ -15,7 +15,7 @@ const HyperlinkTextGallery = () => (
         element: (
           <YStack gap="$3">
             <HyperlinkText
-              id={ETranslations.hardware_software_cannot_be_upgrade}
+              translationId={ETranslations.hardware_software_cannot_be_upgrade}
             />
           </YStack>
         ),
