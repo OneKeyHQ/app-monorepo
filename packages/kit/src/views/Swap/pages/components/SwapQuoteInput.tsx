@@ -3,7 +3,7 @@ import { memo } from 'react';
 import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
 
-import { IconButton, SizableText, YStack } from '@onekeyhq/components';
+import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -57,7 +57,7 @@ const SwapQuoteInput = ({
   useSwapApproving();
 
   return (
-    <YStack>
+    <YStack gap="$2">
       <SwapInputContainer
         token={fromToken}
         direction={ESwapDirectionType.FROM}
@@ -91,26 +91,45 @@ const SwapQuoteInput = ({
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
       />
-      <YStack pt="$3.5">
+      <Stack
+        bg="$bgApp"
+        borderRadius="$full"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          zIndex: 10,
+        }}
+      >
         <IconButton
-          alignSelf="flex-end"
+          alignSelf="center"
+          bg="$bgSubdued"
           icon="SwitchVerOutline"
-          size="small"
-          zIndex={2}
+          size="medium"
           disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
-          mb="$-3"
+          hoverStyle={{
+            bg: '$bgStrongHover',
+          }}
+          pressStyle={{
+            bg: '$bgStrongActive',
+          }}
+          borderRadius="$full"
+          borderWidth="$1.5"
+          borderColor="$bgApp"
         />
-        <SwapInputContainer
-          token={toToken}
-          inputLoading={swapQuoteLoading || quoteEventFetching}
-          selectTokenLoading={selectLoading}
-          direction={ESwapDirectionType.TO}
-          amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
-          onSelectToken={onSelectToken}
-          balance={toTokenBalance}
-        />
-      </YStack>
+      </Stack>
+      <SwapInputContainer
+        token={toToken}
+        inputLoading={swapQuoteLoading || quoteEventFetching}
+        selectTokenLoading={selectLoading}
+        direction={ESwapDirectionType.TO}
+        amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
+        onSelectToken={onSelectToken}
+        balance={toTokenBalance}
+      />
+
       {platformEnv.isNativeIOS ? (
         <InputAccessoryView nativeID={SwapAmountInputAccessoryViewID}>
           <SizableText h="$0" />
