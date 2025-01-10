@@ -339,7 +339,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
             }),
       address: action.to,
       tags: [],
-      navigable: isInternalSwap || isInternalStake,
+      isNavigable: isInternalSwap || isInternalStake,
     };
 
     components.push(toAddressComponent);
@@ -404,7 +404,7 @@ function convertTokenApproveActionToSignatureConfirmComponent({
             }),
         address: action.spender,
         tags: [],
-        navigable: true,
+        isNavigable: true,
       };
 
   return [approveComponent, spenderComponent].filter(Boolean);
@@ -454,7 +454,7 @@ function convertFunctionCallActionToSignatureConfirmComponent({
     }),
     address: action.to,
     tags: [],
-    navigable: true,
+    isNavigable: true,
   };
 
   return [component, interactWithContractComponent];
@@ -472,7 +472,7 @@ function convertUnknownActionToSignatureConfirmComponent({
     }),
     address: action.to,
     tags: [],
-    navigable: true,
+    isNavigable: true,
   };
 
   return [interactWithContractComponent];
