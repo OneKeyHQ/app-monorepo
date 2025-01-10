@@ -45,11 +45,12 @@ const AddItemPage = () => {
           }),
         });
         appNavigation.pop();
+        route?.params.onConfirm?.();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
       }
     },
-    [appNavigation, intl],
+    [appNavigation, intl, route?.params],
   );
   const item = useMemo(
     () => ({ ...defaultValues, ...route.params }),

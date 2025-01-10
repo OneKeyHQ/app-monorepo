@@ -38,11 +38,12 @@ const EditItemPage = () => {
           }),
         });
         navigation.pop();
+        route?.params.onConfirm?.();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
       }
     },
-    [navigation, intl],
+    [intl, navigation, route?.params],
   );
 
   const onRemove = useCallback(

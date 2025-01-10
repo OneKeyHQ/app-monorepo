@@ -41,6 +41,15 @@ export function SendDataInputErrorHyperlinkText(
           networkId,
           address,
           name: addressBookName,
+          onConfirm: () => {
+            // TODO: hack
+            setTimeout(() => {
+              form.setValue('to', `${address}`);
+              setTimeout(() => {
+                void form.setValue('to', address);
+              }, 50);
+            }, 50);
+          },
         },
       });
     }
