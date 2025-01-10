@@ -53,6 +53,7 @@ const ProtocolDetailsPage = () => {
         accountId,
         networkId,
         indexedAccountId,
+        btcOnlyTaproot: true,
       }),
     [accountId, indexedAccountId, networkId],
   );

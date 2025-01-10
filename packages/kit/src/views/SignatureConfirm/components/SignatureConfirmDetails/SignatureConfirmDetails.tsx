@@ -13,6 +13,7 @@ import {
   Address,
   Assets,
   Default,
+  Divider,
   Network,
 } from '../SignatureConfirmComponents';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
@@ -50,6 +51,8 @@ function SignatureConfirmDetails(props: IProps) {
 
     return txDisplayComponents.map(({ component, txIndex }) => {
       switch (component.type) {
+        case EParseTxComponentType.Divider:
+          return <Divider />;
         case EParseTxComponentType.Default:
           return <Default component={component} />;
         case EParseTxComponentType.Approve:

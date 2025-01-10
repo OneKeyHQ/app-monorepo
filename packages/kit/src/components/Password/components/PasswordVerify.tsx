@@ -29,7 +29,7 @@ import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import { getPasswordKeyboardType } from '../utils';
 
-import PassCodeInput, { AUTO_FOCUS_DELAY_MS } from './PassCodeInput';
+import PassCodeInput from './PassCodeInput';
 
 import type { AuthenticationType } from 'expo-local-authentication';
 

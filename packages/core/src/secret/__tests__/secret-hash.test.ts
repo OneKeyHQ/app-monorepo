@@ -1,4 +1,4 @@
-import { hmacSHA256, hmacSHA512, sha256, hash160 } from '../hash';
+import { hash160, hmacSHA256, hmacSHA512, sha256 } from '../hash';
 
 describe('Hash Functions', () => {
   describe('hmacSHA256', () => {

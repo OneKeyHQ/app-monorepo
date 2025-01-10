@@ -198,6 +198,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
         if (isNil(token.info.decimals)) {
           throw new Error('token decimals is required.');
         }
+        if (isBuildingDecodedTxs) return;
         showApproveEditor({
           accountId,
           networkId,
