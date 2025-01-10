@@ -316,6 +316,7 @@ const PasswordVerifyContainer = ({
         let message = intl.formatMessage({
           id: ETranslations.auth_error_password_incorrect,
         });
+        let skipProtection = false;
         if (isLock && enablePasswordErrorProtection) {
           let nextAttempts = passwordErrorAttempts + 1;
           if (!unlockPeriodPasswordArray.includes(finalPassword)) {
@@ -326,6 +327,7 @@ const PasswordVerifyContainer = ({
             setUnlockPeriodPasswordArray((v) => [...v, finalPassword]);
           } else {
             nextAttempts = passwordErrorAttempts;
+            skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
             // reset app
@@ -344,7 +346,8 @@ const PasswordVerifyContainer = ({
               }
             }
           } else if (
-            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
+            !skipProtection
           ) {
             const timeMinutes =
               PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
