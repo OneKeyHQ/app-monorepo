@@ -12,6 +12,7 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
+  IEarnRewardUnit,
   IRewardApys,
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
@@ -25,6 +26,7 @@ import { MorphoApy } from './MorphoApy';
 type IProfitInfoProps = {
   apr?: string;
   apys?: IRewardApys;
+  rewardUnit: IEarnRewardUnit;
   rewardAssets?: Record<string, IToken>;
   earningsIn24h?: string;
   rewardToken?: string;
@@ -47,6 +49,7 @@ function ProfitInfo({
   unstakingPeriod,
   stakingTime,
   earnPoints,
+  rewardUnit,
 }: IProfitInfoProps) {
   const intl = useIntl();
 
@@ -77,9 +80,7 @@ function ProfitInfo({
             >
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {`${apr}% ${intl.formatMessage({
-                    id: ETranslations.global_apr,
-                  })}`}
+                  {`${apr}% ${rewardUnit}`}
                 </SizableText>
                 {apys ? (
                   <Popover
@@ -196,6 +197,7 @@ export const ProfitSection = ({
     unstakingPeriod: details.unstakingPeriod,
     stakingTime: details.provider.stakingTime,
     nextLaunchLeft: details.provider.nextLaunchLeft,
+    rewardUnit: details.provider.rewardUnit,
   };
   return <ProfitInfo {...props} />;
 };
