@@ -37,6 +37,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
+import { PrimeHeaderIconButton } from '../../views/Prime/components/PrimeHeaderIconButton';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 
 import { UniversalSearchInput } from './UniversalSearchInput';
@@ -170,6 +171,10 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
+    const primeButton =
+      devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
+        <PrimeHeaderIconButton key="prime" />
+      ) : null;
     let notificationsButton: ReactNode | null = (
       <Stack key="notifications" testID="headerRightNotificationsButton">
         <HeaderIconButton
@@ -237,9 +242,12 @@ export function HeaderRight({
     }
 
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [layoutExtView, notificationsButton, settingsButton].filter(
-        Boolean,
-      );
+      return [
+        layoutExtView,
+        primeButton,
+        notificationsButton,
+        settingsButton,
+      ].filter(Boolean);
     }
 
     // notifications is not supported on web currently
@@ -249,20 +257,22 @@ export function HeaderRight({
 
     return [
       scanButton,
+      primeButton,
       notificationsButton,
       settingsButton,
       searchInput,
     ].filter(Boolean);
   }, [
+    media.gtMd,
     intl,
     openSettingPage,
     onScanButtonPressed,
+    devSettings.enabled,
+    devSettings?.settings?.showPrimeTest,
     openNotificationsModal,
     firstTimeGuideOpened,
     badge,
-    media.gtMd,
     sceneName,
-    devSettings.enabled,
   ]);
   return (
     <HeaderButtonGroup
