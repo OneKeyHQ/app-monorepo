@@ -14,7 +14,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
-  IAnimationValue,
   IBaseValue,
   IChainValue,
   IMarketDetailValue,
@@ -28,8 +27,8 @@ import {
   EAssetSelectorRoutes,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSettingRoutes,
   EOnboardingPages,
-  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
@@ -104,12 +103,8 @@ const useParseQRCode = () => {
           }
           break;
         case EQRCodeHandlerType.SEND_PROTECTION:
-          // navigation.push(ERootRoutes.Modal, {
-          //   screen: EModalRoutes.SendModal,
-          //   params: EModalSendRoutes.Protection,
-          // });
-          navigation.pushModal(EModalRoutes.SendModal, {
-            screen: EModalSendRoutes.SettingProtectModal,
+          navigation.pushModal(EModalRoutes.SettingModal, {
+            screen: EModalSettingRoutes.SettingProtectModal,
           });
           break;
         case EQRCodeHandlerType.BITCOIN:
