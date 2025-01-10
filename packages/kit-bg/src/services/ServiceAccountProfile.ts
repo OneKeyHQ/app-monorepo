@@ -5,6 +5,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -303,7 +305,9 @@ class ServiceAccountProfile extends ServiceBase {
       result.isAllowListed = addressBookItem?.isAllowListed;
       result.addressBookName =
         addressBookItem?.name && addressBookItem?.isAllowListed
-          ? `AllowListed / ${addressBookItem?.name}`
+          ? `${appLocale.intl.formatMessage({
+              id: ETranslations.address_label_allowlist,
+            })} / ${addressBookItem?.name}`
           : addressBookItem?.name;
     }
 
