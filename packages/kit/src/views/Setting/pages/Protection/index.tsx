@@ -62,8 +62,9 @@ const SettingProtectionModal = () => {
             />
           </ListItem>
           <SizableText px="$5" size="$bodySm" color="$textSubdued">
-            When enabled, you can only transfer funds to whitelist address in
-            Address Book.
+            {intl.formatMessage({
+              id: ETranslations.settings_protection_allowlist_content,
+            })}
           </SizableText>
           <Divider my="$5" mx="$5" />
           <SectionList.SectionHeader
