@@ -1136,6 +1136,13 @@ class ServiceStaking extends ServiceBase {
       params,
     );
   }
+
+  @backgroundMethod()
+  async getFetchHistoryPollingInterval({ networkId }: { networkId: string }) {
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    return vaultSettings.stakingResultPollingInterval ?? 30;
+  }
 }
 
 export default ServiceStaking;

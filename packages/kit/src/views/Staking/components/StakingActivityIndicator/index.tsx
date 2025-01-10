@@ -103,6 +103,18 @@ export const StakingTransactionIndicator = ({
     }
   }, [isFocused, run]);
 
+  const { result: pollingInterval } = usePromiseResult(
+    async () => {
+      const time =
+        await backgroundApiProxy.serviceStaking.getFetchHistoryPollingInterval({
+          networkId,
+        });
+      return timerUtils.getTimeDurationMs({ seconds: time });
+    },
+    [networkId],
+    { initResult: timerUtils.getTimeDurationMs({ seconds: 30 }) },
+  );
+
   usePromiseResult(
     async () => {
       if (!isPending) {
@@ -118,7 +130,7 @@ export const StakingTransactionIndicator = ({
     },
     [accountId, isPending, networkId, run],
     {
-      pollingInterval: timerUtils.getTimeDurationMs({ seconds: 50 }),
+      pollingInterval,
     },
   );
 
