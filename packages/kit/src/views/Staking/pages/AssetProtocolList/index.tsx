@@ -27,6 +27,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalStakingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolListItem } from '@onekeyhq/shared/types/staking';
 
 import {
@@ -122,12 +123,30 @@ function ProviderTypeBadge({
   if (!type) {
     return null;
   }
-  const stakeType = type === 'native' ? 'locked' : 'liquid';
-  const label =
-    type === 'native'
-      ? intl.formatMessage({ id: ETranslations.earn_native_staking })
-      : intl.formatMessage({ id: ETranslations.earn_liquid_staking });
-  return <StakeTypeBadge stakeType={stakeType} label={label} />;
+
+  const getStakeType = () => {
+    switch (type) {
+      case 'native':
+        return 'locked';
+      case 'lending':
+        return 'lending';
+      default:
+        return 'liquid';
+    }
+  };
+
+  const getLabelText = () => {
+    switch (type) {
+      case 'native':
+        return intl.formatMessage({ id: ETranslations.earn_native_staking });
+      case 'lending':
+        return intl.formatMessage({ id: ETranslations.earn_lending });
+      default:
+        return intl.formatMessage({ id: ETranslations.earn_liquid_staking });
+    }
+  };
+
+  return <StakeTypeBadge stakeType={getStakeType()} label={getLabelText()} />;
 }
 
 function AssetProtocolListContent({
@@ -154,6 +173,9 @@ function AssetProtocolListContent({
         indexedAccountId,
         symbol: symbol.toUpperCase(),
         provider: item.provider.name,
+        vault: earnUtils.isMorphoProvider({ providerName: item.provider.name })
+          ? item.provider.vault
+          : undefined,
       });
     },
     [appNavigation, accountId, indexedAccountId, symbol],

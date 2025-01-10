@@ -43,7 +43,7 @@ const ProtocolDetailsPage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.ProtocolDetails
   >();
-  const { accountId, networkId, indexedAccountId, symbol, provider } =
+  const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
     route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
@@ -65,8 +65,9 @@ const ProtocolDetailsPage = () => {
         indexedAccountId,
         symbol,
         provider,
+        vault,
       }),
-    [accountId, networkId, indexedAccountId, symbol, provider],
+    [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
 

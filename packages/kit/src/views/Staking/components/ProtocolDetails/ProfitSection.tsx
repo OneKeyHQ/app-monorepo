@@ -88,7 +88,7 @@ function ProfitInfo({
                     })}
                     renderTrigger={
                       <IconButton
-                        icon="InfoCircleOutline"
+                        icon="CoinsAddOutline"
                         size="small"
                         variant="tertiary"
                       />

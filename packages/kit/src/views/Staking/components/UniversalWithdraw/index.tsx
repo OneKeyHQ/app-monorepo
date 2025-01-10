@@ -102,6 +102,11 @@ export const UniversalWithdraw = ({
 
   const intl = useIntl();
 
+  const isInsufficientBalance = useMemo<boolean>(
+    () => new BigNumber(amountValue).gt(balance),
+    [amountValue, balance],
+  );
+
   const isMorphoProvider = earnUtils.isMorphoProvider({
     providerName: providerName ?? '',
   });
@@ -222,8 +227,9 @@ export const UniversalWithdraw = ({
     () =>
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
-      isCheckAmountMessageError,
-    [amountValue, isCheckAmountMessageError],
+      isCheckAmountMessageError ||
+      isInsufficientBalance,
+    [amountValue, isCheckAmountMessageError, isInsufficientBalance],
   );
 
   const editable = initialAmount === undefined;
@@ -275,6 +281,15 @@ export const UniversalWithdraw = ({
           icon="InfoCircleOutline"
           type="critical"
           title={checkAmountMessage}
+        />
+      ) : null}
+      {isInsufficientBalance ? (
+        <Alert
+          icon="InfoCircleOutline"
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.earn_insufficient_staked_balance,
+          })}
         />
       ) : null}
       <CalculationList>
