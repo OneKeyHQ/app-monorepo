@@ -49,6 +49,30 @@ export const initSentry = () => {
           'integrity-failure',
         ],
       }),
+      Sentry.electronBreadcrumbsIntegration({
+        app: (name) => !name.startsWith('remote-'),
+        autoUpdater: true,
+        webContents: (name) =>
+          ['dom-ready', 'context-menu', 'load-url', 'destroyed'].includes(name),
+        browserWindow: (name) =>
+          [
+            'closed',
+            'close',
+            'unresponsive',
+            'responsive',
+            'show',
+            'blur',
+            'focus',
+            'hide',
+            'maximize',
+            'minimize',
+            'restore',
+            'enter-full-screen',
+            'leave-full-screen',
+          ].includes(name),
+        screen: false,
+        powerMonitor: true,
+      }),
     ],
   });
 };

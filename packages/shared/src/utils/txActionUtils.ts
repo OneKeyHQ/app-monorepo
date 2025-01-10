@@ -266,9 +266,10 @@ function convertAssetTransferActionToSignatureConfirmComponent({
   const isInternalStake = !!unsignedTx.stakingInfo;
 
   action.sends.forEach((send) => {
-    // TODO: i18n
     const assetsLabel = isInternalSwap
-      ? 'Pay'
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.global_pay,
+        })
       : appLocale.intl.formatMessage({
           id: ETranslations.global_asset,
         });
@@ -338,6 +339,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
             }),
       address: action.to,
       tags: [],
+      isNavigable: isInternalSwap || isInternalStake,
     };
 
     components.push(toAddressComponent);
@@ -349,17 +351,20 @@ function convertAssetTransferActionToSignatureConfirmComponent({
 function convertTokenApproveActionToSignatureConfirmComponent({
   action,
   isMultiTxs,
+  networkId,
 }: {
   action: IDecodedTxActionTokenApprove;
   isMultiTxs?: boolean;
+  networkId: string;
 }) {
   const isRevoke = new BigNumber(action.amount).isZero();
   let approveLabel = '';
 
   if (isMultiTxs) {
-    // TODO: i18n
     approveLabel = isRevoke
-      ? 'Revoke'
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.global_revoke,
+        })
       : appLocale.intl.formatMessage({
           id: ETranslations.global_approve,
         });
@@ -386,16 +391,23 @@ function convertTokenApproveActionToSignatureConfirmComponent({
     amountParsed: action.amount,
     isEditable: !isRevoke && !isMultiTxs,
     isInfiniteAmount: action.isInfiniteAmount,
+    networkId,
   };
 
   const spenderComponent: IDisplayComponentAddress | null = isMultiTxs
     ? null
     : {
         type: EParseTxComponentType.Address,
-        // TODO: i18n
-        label: isRevoke ? 'Revoke from' : 'Approve To',
+        label: isRevoke
+          ? appLocale.intl.formatMessage({
+              id: ETranslations.sig_revoke_from_label,
+            })
+          : appLocale.intl.formatMessage({
+              id: ETranslations.sig_approve_to_label,
+            }),
         address: action.spender,
         tags: [],
+        isNavigable: true,
       };
 
   return [approveComponent, spenderComponent].filter(Boolean);
@@ -403,14 +415,17 @@ function convertTokenApproveActionToSignatureConfirmComponent({
 
 function convertTokenActiveActionToSignatureConfirmComponent({
   action,
+  networkId,
 }: {
   action: IDecodedTxActionTokenActivate;
+  networkId: string;
 }) {
   const component: IDisplayComponentToken = {
     type: EParseTxComponentType.Token,
     label: appLocale.intl.formatMessage({
       id: ETranslations.global_asset,
     }),
+    networkId,
     // @ts-ignore
     token: {
       // @ts-ignore
@@ -445,6 +460,7 @@ function convertFunctionCallActionToSignatureConfirmComponent({
     }),
     address: action.to,
     tags: [],
+    isNavigable: true,
   };
 
   return [component, interactWithContractComponent];
@@ -462,6 +478,7 @@ function convertUnknownActionToSignatureConfirmComponent({
     }),
     address: action.to,
     tags: [],
+    isNavigable: true,
   };
 
   return [interactWithContractComponent];
@@ -476,7 +493,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
   unsignedTx: IUnsignedTxPro;
   isMultiTxs?: boolean;
 }): IDisplayComponent[] {
-  const { actions } = decodedTx;
+  const { actions, networkId } = decodedTx;
   const components: IDisplayComponent[] = [];
 
   for (const action of actions) {
@@ -498,6 +515,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
         ...convertTokenApproveActionToSignatureConfirmComponent({
           action: action.tokenApprove,
           isMultiTxs,
+          networkId,
         }),
       );
     } else if (
@@ -507,6 +525,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
       components.push(
         ...convertTokenActiveActionToSignatureConfirmComponent({
           action: action.tokenActivate,
+          networkId,
         }),
       );
     } else if (
@@ -595,8 +614,13 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
     ) {
       const isRevoke = new BigNumber(action.tokenApprove.amount).isZero();
 
-      // TODO: i18n
-      return isRevoke ? 'Revoke Approval' : 'Approval';
+      return isRevoke
+        ? appLocale.intl.formatMessage({
+            id: ETranslations.sig_revoke_approval_label,
+          })
+        : appLocale.intl.formatMessage({
+            id: ETranslations.sig_approval_label,
+          });
     }
 
     if (

@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 type IListItemTypography = string | ReactElement;
 
@@ -82,7 +83,10 @@ export const StakeShouldUnderstand = ({
 }) => {
   const intl = useIntl();
   let items: IListItemTypography[] = [];
-  if (provider === 'everstake' && ['sol', 'eth', 'apt'].includes(symbol)) {
+  if (
+    earnUtils.isEverstakeProvider({ providerName: provider }) &&
+    ['sol', 'eth', 'apt'].includes(symbol)
+  ) {
     items = [
       createTypography(
         intl.formatMessage(
@@ -125,7 +129,10 @@ export const StakeShouldUnderstand = ({
         unstakingPeriod,
       ),
     ];
-  } else if (provider === 'everstake' && ['atom', 'matic'].includes(symbol)) {
+  } else if (
+    earnUtils.isEverstakeProvider({ providerName: provider }) &&
+    ['atom', 'matic'].includes(symbol)
+  ) {
     items = [
       createTypography(
         intl.formatMessage(
@@ -168,7 +175,10 @@ export const StakeShouldUnderstand = ({
         unstakingPeriod,
       ),
     ];
-  } else if (provider === 'lido' && ['eth', 'matic'].includes(symbol)) {
+  } else if (
+    earnUtils.isLidoProvider({ providerName: provider }) &&
+    ['eth', 'matic'].includes(symbol)
+  ) {
     items = [
       createTypography(
         intl.formatMessage(
@@ -222,7 +232,7 @@ export const StakeShouldUnderstand = ({
         unstakingPeriod,
       ),
     ];
-  } else if (provider === 'babylon') {
+  } else if (earnUtils.isBabylonProvider({ providerName: provider })) {
     items = [
       intl.formatMessage({
         id: ETranslations.earn_stake_through_onekey_earn_points,
@@ -238,13 +248,43 @@ export const StakeShouldUnderstand = ({
         unstakingPeriod,
       ),
     ];
+  } else if (earnUtils.isMorphoProvider({ providerName: provider })) {
+    items = [
+      createTypography(
+        intl.formatMessage(
+          { id: ETranslations.earn_earn_up_to_number_per_year },
+          {
+            number: (
+              <SizableText color="$textSuccess">{apr ?? '-'}%</SizableText>
+            ),
+          },
+        ),
+        true,
+      ),
+      createTypography(
+        intl.formatMessage(
+          { id: ETranslations.earn_receive_token },
+          {
+            token: (
+              <SizableText color="$textSuccess">{receiveSymbol}</SizableText>
+            ),
+          },
+        ),
+        true,
+      ),
+      intl.formatMessage({
+        id: ETranslations.earn_rewards_dynamic_real_time,
+      }),
+    ];
   } else {
     items = [
       createTypography(
         intl.formatMessage(
           { id: ETranslations.earn_earn_up_to_number_per_year },
           {
-            number: <SizableText color="$textSuccess">{apr ?? 4}</SizableText>,
+            number: (
+              <SizableText color="$textSuccess">{apr ?? '-'}%</SizableText>
+            ),
           },
         ),
         true,

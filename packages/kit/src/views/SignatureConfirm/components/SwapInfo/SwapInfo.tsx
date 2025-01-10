@@ -130,7 +130,7 @@ function SwapInfo(props: IProps) {
   return (
     <Stack>
       <XStack flexWrap="wrap" testID="swap-info" pt="$5">
-        <SignatureConfirmItem mb="$5" compact>
+        <SignatureConfirmItem mb="$5" compactAll>
           <SignatureConfirmItem.Label>
             {intl.formatMessage({
               id: ETranslations.swap_history_detail_provider,
@@ -148,7 +148,7 @@ function SwapInfo(props: IProps) {
         </SignatureConfirmItem>
 
         {tokenRate ? (
-          <SignatureConfirmItem mb="$5" compact>
+          <SignatureConfirmItem mb="$5" compactAll>
             <SignatureConfirmItem.Label>
               {intl.formatMessage({
                 id: ETranslations.swap_history_detail_rate,
@@ -159,7 +159,7 @@ function SwapInfo(props: IProps) {
         ) : null}
 
         {unSupportSlippage ? null : (
-          <SignatureConfirmItem mb="$5" compact>
+          <SignatureConfirmItem mb="$5" compactAll>
             <SignatureConfirmItem.Label>
               {intl.formatMessage({
                 id: ETranslations.swap_page_provider_slippage_tolerance,
@@ -172,7 +172,7 @@ function SwapInfo(props: IProps) {
         )}
 
         {serviceFee ? (
-          <SignatureConfirmItem mb="$5" compact>
+          <SignatureConfirmItem mb="$5" compactAll>
             <SignatureConfirmItem.Label>
               {intl.formatMessage({
                 id: ETranslations.swap_history_detail_service_fee,

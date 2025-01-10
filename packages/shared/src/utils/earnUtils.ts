@@ -17,6 +17,23 @@ function getEarnProviderEnumKey(
   return undefined;
 }
 
+function createProviderCheck(provider: EEarnProviderEnum) {
+  return ({ providerName }: { providerName: string }) =>
+    providerName.toLowerCase() === provider.toLowerCase();
+}
+
+const isLidoProvider = createProviderCheck(EEarnProviderEnum.Lido);
+
+const isBabylonProvider = createProviderCheck(EEarnProviderEnum.Babylon);
+
+const isEverstakeProvider = createProviderCheck(EEarnProviderEnum.Everstake);
+
+const isMorphoProvider = createProviderCheck(EEarnProviderEnum.Morpho);
+
 export default {
   getEarnProviderEnumKey,
+  isMorphoProvider,
+  isLidoProvider,
+  isBabylonProvider,
+  isEverstakeProvider,
 };
