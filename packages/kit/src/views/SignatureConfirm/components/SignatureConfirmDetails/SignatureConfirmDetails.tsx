@@ -1,6 +1,6 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import { flatMap } from 'lodash';
+import { find, flatMap } from 'lodash';
 
 import {
   useDecodedTxsAtom,
@@ -30,6 +30,21 @@ function SignatureConfirmDetails(props: IProps) {
   const [{ decodedTxs }] = useDecodedTxsAtom();
 
   const isMultiTxs = decodedTxs?.length > 1;
+
+  const isBridge = useMemo(() => {
+    const swapTx = find(unsignedTxs, 'swapInfo');
+
+    if (!swapTx || !swapTx.swapInfo) return false;
+
+    try {
+      return (
+        swapTx.swapInfo.sender.accountInfo.networkId !==
+        swapTx.swapInfo.receiver.accountInfo.networkId
+      );
+    } catch (e) {
+      return false;
+    }
+  }, [unsignedTxs]);
 
   const renderSignatureConfirmDetails = useCallback(() => {
     let txDisplayComponents: {
@@ -63,14 +78,33 @@ function SignatureConfirmDetails(props: IProps) {
               networkId={networkId}
               editable={!isMultiTxs}
               approveInfo={unsignedTxs?.[txIndex]?.approveInfo}
+              showNetwork={isBridge}
             />
           );
         case EParseTxComponentType.Assets:
-          return <Assets component={component} networkId={networkId} />;
+          return (
+            <Assets
+              component={component}
+              networkId={networkId}
+              showNetwork={isBridge}
+            />
+          );
         case EParseTxComponentType.Token:
-          return <Assets.Token component={component} networkId={networkId} />;
+          return (
+            <Assets.Token
+              component={component}
+              networkId={networkId}
+              showNetwork={isBridge}
+            />
+          );
         case EParseTxComponentType.NFT:
-          return <Assets.NFT component={component} networkId={networkId} />;
+          return (
+            <Assets.NFT
+              component={component}
+              networkId={networkId}
+              showNetwork={isBridge}
+            />
+          );
         case EParseTxComponentType.Network:
           return <Network component={component} />;
         case EParseTxComponentType.Address:
@@ -86,7 +120,7 @@ function SignatureConfirmDetails(props: IProps) {
           return null;
       }
     });
-  }, [accountId, decodedTxs, isMultiTxs, networkId, unsignedTxs]);
+  }, [accountId, decodedTxs, isMultiTxs, networkId, unsignedTxs, isBridge]);
 
   return (
     <SignatureConfirmItem gap="$5">

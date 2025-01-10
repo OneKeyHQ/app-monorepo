@@ -37,7 +37,7 @@ export interface IDisplayComponentAddress {
     value: string;
     displayType: IBadgeType;
   }[];
-  navigable?: boolean;
+  isNavigable?: boolean;
 }
 
 export interface IDisplayComponentAmount {
@@ -61,6 +61,8 @@ export interface IDisplayComponentToken {
   } & ITokenFiat;
   amount: string;
   amountParsed: string;
+  networkId: string;
+  showNetwork: boolean;
 }
 
 export interface IDisplayComponentAssets {
@@ -87,6 +89,8 @@ export interface IDisplayComponentApprove {
   balanceParsed?: string;
   isEditable: boolean;
   isInfiniteAmount: boolean;
+  networkId: string;
+  showNetwork: boolean;
 }
 
 export interface IDisplayComponentDefault {
