@@ -220,7 +220,9 @@ function AssetProtocolListContent({
             align="right"
             primary={
               Number(item.provider.apr) > 0
-                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}% APR`
+                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}% ${
+                    item.provider.rewardUnit
+                  }`
                 : null
             }
             secondary={
