@@ -84,7 +84,6 @@ function TxConfirm() {
         if (!reactiveUnsignedTxs || reactiveUnsignedTxs.length === 0) {
           return [];
         }
-
         const r =
           await backgroundApiProxy.serviceSignatureConfirm.buildDecodedTxs({
             accountId,
@@ -92,6 +91,7 @@ function TxConfirm() {
             unsignedTxs: reactiveUnsignedTxs,
             transferPayload,
           });
+
         let extraFeeNativeTotal = new BigNumber(0);
         for (const decodedTx of r) {
           const extraFeeNative = calculateTxExtraFee({ decodedTx });
