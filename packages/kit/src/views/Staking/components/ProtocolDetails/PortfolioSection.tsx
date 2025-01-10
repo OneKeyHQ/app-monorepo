@@ -1,5 +1,6 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -132,6 +133,8 @@ type IPortfolioInfoProps = {
   pendingActiveTooltip?: string;
   claimable?: string;
   rewards?: string;
+  rewardNum?: Record<string, string>;
+  rewardAssets?: Record<string, IToken>;
 
   tooltipForClaimable?: string;
   labelForClaimable?: string;
@@ -142,7 +145,12 @@ type IPortfolioInfoProps = {
   showDetailWithdrawalRequested: boolean;
   unbondingDelegationList?: IUnbondingDelegationListItem[];
 
-  onClaim?: (params?: { isReward?: boolean }) => void;
+  onClaim?: (params?: {
+    amount: string;
+    claimTokenAddress?: string;
+    isReward?: boolean;
+    isMorphoClaim?: boolean;
+  }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
 };
@@ -182,11 +190,12 @@ function PortfolioInfo({
   token,
   active,
   pendingInactive,
-  pendingInactivePeriod,
   pendingActive,
   pendingActiveTooltip,
   claimable,
   rewards,
+  rewardNum,
+  rewardAssets,
 
   tooltipForClaimable,
   labelForClaimable,
@@ -203,173 +212,239 @@ function PortfolioInfo({
   unbondingDelegationList,
 }: IPortfolioInfoProps) {
   const intl = useIntl();
-  if (
-    Number(pendingInactive) > 0 ||
-    Number(claimable) > 0 ||
-    Number(pendingActive) > 0 ||
-    Number(babylonOverflow) > 0 ||
-    Number(active) > 0
-  ) {
-    const isLessThanMinClaimable = Boolean(
-      minClaimableNum && rewards && Number(rewards) < Number(minClaimableNum),
-    );
+
+  const showPortfolio = useMemo(() => {
+    const isPositive = (value?: string | number) =>
+      new BigNumber(value || 0).isGreaterThan(0);
+
+    const hasMultipleRewards =
+      rewardNum &&
+      Object.keys(rewardNum).length > 1 &&
+      Object.values(rewardNum).some((value) =>
+        new BigNumber(value).isGreaterThan(0),
+      );
+
     return (
-      <>
-        <YStack gap="$6">
-          <XStack justifyContent="space-between">
-            <SizableText size="$headingLg">
-              {intl.formatMessage({ id: ETranslations.earn_portfolio })}
-            </SizableText>
-            {onPortfolioDetails !== undefined ? (
-              <Button
-                variant="tertiary"
-                iconAfter="ChevronRightOutline"
-                onPress={onPortfolioDetails}
-              >
-                {intl.formatMessage({ id: ETranslations.global_details })}
-              </Button>
-            ) : null}
-          </XStack>
-          <YStack gap="$3">
-            {pendingActive && Number(pendingActive) ? (
-              <PortfolioItem
-                tokenImageUri={token.logoURI}
-                tokenSymbol={token.symbol}
-                amount={pendingActive}
-                tooltip={pendingActiveTooltip}
-                statusText={intl.formatMessage({
-                  id: ETranslations.earn_pending_activation,
-                })}
-              />
-            ) : null}
-            {active && Number(active) ? (
-              <PortfolioItem
-                tokenImageUri={token.logoURI}
-                tokenSymbol={token.symbol}
-                amount={active}
-                statusText={intl.formatMessage({
-                  id: ETranslations.earn_active,
-                })}
-              />
-            ) : null}
-            {unbondingDelegationList?.length && pendingInactive ? (
-              <PortfolioItem
-                tokenImageUri={token.logoURI}
-                tokenSymbol={token.symbol}
-                amount={pendingInactive}
-                statusText={intl.formatMessage({
-                  id: ETranslations.earn_withdrawal_requested,
-                })}
-                renderTooltipContent={
-                  <YStack p="$5" gap="$4">
-                    {showDetailWithdrawalRequested ? (
-                      <>
-                        {unbondingDelegationList.map(
-                          ({ amount, timestampLeft }, index) => (
-                            <PendingInactiveItem
-                              key={index}
-                              tokenSymbol={token.symbol}
-                              pendingInactive={amount}
-                              pendingInactivePeriod={timestampLeft}
-                            />
-                          ),
-                        )}
-                        <SizableText size="$bodySm" color="$textSubdued">
-                          {intl.formatMessage({
-                            id: ETranslations.earn_staked_assets_available_after_period,
-                          })}
-                        </SizableText>
-                      </>
-                    ) : (
-                      <SizableText size="$bodyLg">
-                        {intl.formatMessage(
-                          {
-                            id: ETranslations.earn_withdrawal_up_to_number_days,
-                          },
-                          {
-                            number:
-                              unbondingDelegationList[0]?.timestampLeft || 1,
-                          },
-                        )}
-                      </SizableText>
-                    )}
-                  </YStack>
-                }
-              />
-            ) : null}
-            {claimable && Number(claimable) > 0 ? (
-              <PortfolioItem
-                tokenImageUri={token.logoURI}
-                tokenSymbol={token.symbol}
-                amount={claimable}
-                statusText={
-                  labelForClaimable ??
-                  intl.formatMessage({
-                    id: ETranslations.earn_claimable,
-                  })
-                }
-                useLoading
-                onPress={onClaim}
-                buttonText={intl.formatMessage({
-                  id: ETranslations.earn_claim,
-                })}
-                tooltip={tooltipForClaimable}
-              />
-            ) : null}
-            {rewards && Number(rewards) > 0 ? (
-              <PortfolioItem
-                tokenImageUri={token.logoURI}
-                tokenSymbol={token.symbol}
-                amount={rewards}
-                statusText={intl.formatMessage({
-                  id: ETranslations.earn_rewards,
-                })}
-                onPress={() => onClaim?.({ isReward: true })}
-                useLoading
-                buttonText={intl.formatMessage({
-                  id: ETranslations.earn_claim,
-                })}
-                tooltip={
-                  isLessThanMinClaimable
-                    ? intl.formatMessage(
-                        {
-                          id: ETranslations.earn_minimum_claim_tooltip,
-                        },
-                        { number: minClaimableNum, symbol: token.symbol },
-                      )
-                    : undefined
-                }
-                disabled={isLessThanMinClaimable}
-              />
-            ) : null}
-            {Number(babylonOverflow) > 0 ? (
-              <Alert
-                fullBleed
-                borderRadius="$3"
-                borderWidth={StyleSheet.hairlineWidth}
-                borderColor="$borderCautionSubdued"
-                type="critical"
-                title={intl.formatMessage(
-                  {
-                    id: ETranslations.earn_overflow_number_alert,
-                  },
-                  { number: babylonOverflow },
-                )}
-                action={{
-                  primary: intl.formatMessage({
-                    id: ETranslations.global_withdraw,
-                  }),
-                  onPrimaryPress: onWithdraw,
-                }}
-              />
-            ) : null}
-          </YStack>
-        </YStack>
-        <Divider />
-      </>
+      [pendingInactive, claimable, pendingActive, babylonOverflow, active].some(
+        isPositive,
+      ) || hasMultipleRewards
     );
+  }, [
+    pendingInactive,
+    claimable,
+    pendingActive,
+    babylonOverflow,
+    active,
+    rewardNum,
+  ]);
+
+  const isLessThanMinClaimable = Boolean(
+    minClaimableNum && rewards && Number(rewards) < Number(minClaimableNum),
+  );
+
+  if (!showPortfolio) {
+    return null;
   }
-  return null;
+
+  return (
+    <>
+      <YStack gap="$6">
+        <XStack justifyContent="space-between">
+          <SizableText size="$headingLg">
+            {intl.formatMessage({ id: ETranslations.earn_portfolio })}
+          </SizableText>
+          {onPortfolioDetails !== undefined ? (
+            <Button
+              variant="tertiary"
+              iconAfter="ChevronRightOutline"
+              onPress={onPortfolioDetails}
+            >
+              {intl.formatMessage({ id: ETranslations.global_details })}
+            </Button>
+          ) : null}
+        </XStack>
+        <YStack gap="$3">
+          {pendingActive && Number(pendingActive) ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={pendingActive}
+              tooltip={pendingActiveTooltip}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_pending_activation,
+              })}
+            />
+          ) : null}
+          {active && Number(active) ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={active}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_active,
+              })}
+            />
+          ) : null}
+          {unbondingDelegationList?.length && pendingInactive ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={pendingInactive}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_withdrawal_requested,
+              })}
+              renderTooltipContent={
+                <YStack p="$5" gap="$4">
+                  {showDetailWithdrawalRequested ? (
+                    <>
+                      {unbondingDelegationList.map(
+                        ({ amount, timestampLeft }, index) => (
+                          <PendingInactiveItem
+                            key={index}
+                            tokenSymbol={token.symbol}
+                            pendingInactive={amount}
+                            pendingInactivePeriod={timestampLeft}
+                          />
+                        ),
+                      )}
+                      <SizableText size="$bodySm" color="$textSubdued">
+                        {intl.formatMessage({
+                          id: ETranslations.earn_staked_assets_available_after_period,
+                        })}
+                      </SizableText>
+                    </>
+                  ) : (
+                    <SizableText size="$bodyLg">
+                      {intl.formatMessage(
+                        {
+                          id: ETranslations.earn_withdrawal_up_to_number_days,
+                        },
+                        {
+                          number:
+                            unbondingDelegationList[0]?.timestampLeft || 1,
+                        },
+                      )}
+                    </SizableText>
+                  )}
+                </YStack>
+              }
+            />
+          ) : null}
+          {claimable && Number(claimable) > 0 ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={claimable}
+              statusText={
+                labelForClaimable ??
+                intl.formatMessage({
+                  id: ETranslations.earn_claimable,
+                })
+              }
+              useLoading
+              onPress={() => onClaim?.({ amount: claimable })}
+              buttonText={intl.formatMessage({
+                id: ETranslations.earn_claim,
+              })}
+              tooltip={tooltipForClaimable}
+            />
+          ) : null}
+          {rewards && Number(rewards) > 0 ? (
+            <PortfolioItem
+              tokenImageUri={token.logoURI}
+              tokenSymbol={token.symbol}
+              amount={rewards}
+              statusText={intl.formatMessage({
+                id: ETranslations.earn_rewards,
+              })}
+              onPress={() => onClaim?.({ amount: rewards, isReward: true })}
+              useLoading
+              buttonText={intl.formatMessage({
+                id: ETranslations.earn_claim,
+              })}
+              tooltip={
+                isLessThanMinClaimable
+                  ? intl.formatMessage(
+                      {
+                        id: ETranslations.earn_minimum_claim_tooltip,
+                      },
+                      { number: minClaimableNum, symbol: token.symbol },
+                    )
+                  : undefined
+              }
+              disabled={isLessThanMinClaimable}
+            />
+          ) : null}
+          {rewardNum && Object.keys(rewardNum).length > 0
+            ? Object.entries(rewardNum).map(([rewardTokenAddress, amount]) => {
+                const rewardToken = rewardAssets?.[rewardTokenAddress];
+
+                // defensive check
+                // if the reward token info is missing, log a warning and return null
+                if (!rewardToken?.symbol || !rewardToken?.logoURI) {
+                  console.warn(
+                    `Missing token info for reward token: ${rewardTokenAddress}`,
+                  );
+                  return null;
+                }
+
+                // check if the reward amount is a valid value
+                const rewardAmount = new BigNumber(amount || '0');
+                if (rewardAmount.isNaN() || rewardAmount.lte(0)) {
+                  return null;
+                }
+
+                return (
+                  <PortfolioItem
+                    key={rewardTokenAddress}
+                    tokenImageUri={rewardToken.logoURI}
+                    tokenSymbol={rewardToken.symbol}
+                    amount={amount}
+                    statusText={intl.formatMessage({
+                      id: ETranslations.earn_rewards,
+                    })}
+                    onPress={() =>
+                      onClaim?.({
+                        amount,
+                        isMorphoClaim: true,
+                        claimTokenAddress: rewardTokenAddress,
+                      })
+                    }
+                    useLoading
+                    buttonText={intl.formatMessage({
+                      id: ETranslations.earn_claim,
+                    })}
+                    disabled={false}
+                  />
+                );
+              })
+            : null}
+          {Number(babylonOverflow) > 0 ? (
+            <Alert
+              fullBleed
+              borderRadius="$3"
+              borderWidth={StyleSheet.hairlineWidth}
+              borderColor="$borderCautionSubdued"
+              type="critical"
+              title={intl.formatMessage(
+                {
+                  id: ETranslations.earn_overflow_number_alert,
+                },
+                { number: babylonOverflow },
+              )}
+              action={{
+                primary: intl.formatMessage({
+                  id: ETranslations.global_withdraw,
+                }),
+                onPrimaryPress: onWithdraw,
+              }}
+            />
+          ) : null}
+        </YStack>
+      </YStack>
+      <Divider />
+    </>
+  );
 }
 
 export const PortfolioSection = ({
@@ -380,7 +455,11 @@ export const PortfolioSection = ({
   unbondingDelegationList,
 }: {
   details?: IStakeProtocolDetails;
-  onClaim?: (params?: { isReward?: boolean }) => void;
+  onClaim?: (params?: {
+    amount: string;
+    claimTokenAddress?: string;
+    isReward?: boolean;
+  }) => void;
   onWithdraw?: () => void;
   onPortfolioDetails?: () => void;
   unbondingDelegationList: IEarnUnbondingDelegationList;
@@ -442,6 +521,8 @@ export const PortfolioSection = ({
     pendingActiveTooltip,
     claimable: details.claimable,
     rewards: details.rewards,
+    rewardNum: details.rewardNum,
+    rewardAssets: details.rewardAssets,
     active: details.active,
     minClaimableNum: details.provider.minClaimableAmount,
     babylonOverflow:

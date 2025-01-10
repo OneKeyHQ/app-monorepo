@@ -21,6 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
@@ -101,6 +102,10 @@ export const UniversalWithdraw = ({
 
   const intl = useIntl();
 
+  const isMorphoProvider = earnUtils.isMorphoProvider({
+    providerName: providerName ?? '',
+  });
+
   const onPress = useCallback(async () => {
     Dialog.show({
       renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
@@ -111,7 +116,12 @@ export const UniversalWithdraw = ({
           'asset': tokenSymbol?.toUpperCase() ?? '',
         },
       ),
-      renderContent: (
+      description: isMorphoProvider
+        ? intl.formatMessage({
+            id: ETranslations.earn_withdrawal_processed_immediately,
+          })
+        : undefined,
+      renderContent: isMorphoProvider ? null : (
         <WithdrawShouldUnderstand withdrawalPeriod={unstakingPeriod ?? 3} />
       ),
       onConfirm: async (inst) => {
@@ -134,6 +144,7 @@ export const UniversalWithdraw = ({
     tokenSymbol,
     providerName,
     unstakingPeriod,
+    isMorphoProvider,
   ]);
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');

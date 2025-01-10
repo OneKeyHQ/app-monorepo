@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
+  EParseTxComponentType,
   EParseTxType,
   type IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
@@ -65,6 +66,9 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (r[0] && r[0].txDisplay && r[0].isLocalParsed) {
       // add network and account info as leading components
+      r[0].txDisplay.components.unshift({
+        type: EParseTxComponentType.Divider,
+      });
 
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({

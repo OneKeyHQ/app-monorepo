@@ -12,6 +12,7 @@ import {
 import {
   BIOLOGY_AUTH_ATTEMPTS_FACE,
   BIOLOGY_AUTH_ATTEMPTS_FINGERPRINT,
+  BIOLOGY_AUTH_CANCEL_ERROR,
   EPasswordMode,
   PASSCODE_PROTECTION_ATTEMPTS,
   PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX,
@@ -220,7 +221,7 @@ const PasswordVerifyContainer = ({
           }
         }
       } catch (e: any) {
-        const error = e as { message?: string; cause?: string };
+        const error = e as { message?: string; cause?: string; name?: string };
         let message = error?.message;
         if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           message = intl.formatMessage(
@@ -235,6 +236,14 @@ const PasswordVerifyContainer = ({
           message = intl.formatMessage({
             id: ETranslations.prime_incorrect_password,
           });
+        }
+        if (error?.name === BIOLOGY_AUTH_CANCEL_ERROR) {
+          message = intl.formatMessage(
+            {
+              id: ETranslations.auth_biometric_cancel,
+            },
+            { biometric: title },
+          );
         }
         if (verifyPeriodBiologyAuthAttempts >= biologyAuthAttempts) {
           setVerifyPeriodBiologyEnable(false);
@@ -307,6 +316,7 @@ const PasswordVerifyContainer = ({
         let message = intl.formatMessage({
           id: ETranslations.auth_error_password_incorrect,
         });
+        let skipProtection = false;
         if (isLock && enablePasswordErrorProtection) {
           let nextAttempts = passwordErrorAttempts + 1;
           if (!unlockPeriodPasswordArray.includes(finalPassword)) {
@@ -317,6 +327,7 @@ const PasswordVerifyContainer = ({
             setUnlockPeriodPasswordArray((v) => [...v, finalPassword]);
           } else {
             nextAttempts = passwordErrorAttempts;
+            skipProtection = true;
           }
           if (nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS) {
             // reset app
@@ -335,15 +346,13 @@ const PasswordVerifyContainer = ({
               }
             }
           } else if (
-            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX
+            nextAttempts >= PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX &&
+            !skipProtection
           ) {
             const timeMinutes =
               PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP[
                 nextAttempts.toString()
               ];
-            // message = `${
-            //   PASSCODE_PROTECTION_ATTEMPTS - nextAttempts
-            // } more failed attempts will reset the device`;
             message = intl.formatMessage(
               {
                 id: ETranslations.auth_passcode_failed_alert,
@@ -354,6 +363,7 @@ const PasswordVerifyContainer = ({
             );
             setPasswordPersist((v) => ({
               ...v,
+              passwordErrorAttempts: nextAttempts,
               passwordErrorProtectionTime: Date.now() + timeMinutes * 60 * 1000, // 2s for animation
             }));
             setPasswordErrorProtectionTimeMinutesSurplus(timeMinutes);

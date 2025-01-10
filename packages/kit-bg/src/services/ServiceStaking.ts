@@ -274,7 +274,12 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildClaimTransaction(params: IStakeClaimBaseParams) {
-    const { networkId, accountId, ...rest } = params;
+    const {
+      networkId,
+      accountId,
+      claimTokenAddress: rewardTokenAddress,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -296,6 +301,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
+      rewardTokenAddress,
       ...rest,
     });
     return resp.data.data;
@@ -364,6 +370,7 @@ class ServiceStaking extends ServiceBase {
       accountId: accountId ?? '',
       networkId,
       indexedAccountId,
+      btcOnlyTaproot: true,
     });
     if (account?.accountAddress) {
       requestParams.accountAddress = account.accountAddress;
@@ -425,6 +432,7 @@ class ServiceStaking extends ServiceBase {
         accountId: params.accountId,
         networkId: params.networkId,
         indexedAccountId: params.indexedAccountId,
+        btcOnlyTaproot: true,
       });
       if (earnAccount) {
         listParams.networkId = earnAccount.networkId;
@@ -799,8 +807,9 @@ class ServiceStaking extends ServiceBase {
     accountId: string;
     networkId: string;
     indexedAccountId?: string;
+    btcOnlyTaproot?: boolean;
   }) {
-    const { accountId, networkId, indexedAccountId } = params;
+    const { accountId, networkId, indexedAccountId, btcOnlyTaproot } = params;
     if (!accountId && !indexedAccountId) {
       return null;
     }
@@ -822,6 +831,7 @@ class ServiceStaking extends ServiceBase {
       }
       if (
         networkUtils.isBTCNetwork(networkId) &&
+        btcOnlyTaproot &&
         !isTaprootAddress(account?.address)
       ) {
         return null;
@@ -845,7 +855,7 @@ class ServiceStaking extends ServiceBase {
         });
       let deriveType = globalDeriveType;
       // only support taproot for earn
-      if (networkUtils.isBTCNetwork(networkId)) {
+      if (networkUtils.isBTCNetwork(networkId) && btcOnlyTaproot) {
         deriveType = 'BIP86';
       }
       const networkAccount =

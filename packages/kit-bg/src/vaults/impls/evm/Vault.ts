@@ -458,9 +458,19 @@ export default class Vault extends VaultBase {
       params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const accountAddress = await this.getAccountAddress();
-    const finalActions = mergeAssetTransferActions(
-      [action, extraNativeTransferAction].filter(Boolean),
-    );
+
+    let finalActions: IDecodedTxAction[] = [];
+
+    if (
+      action?.type === EDecodedTxActionType.UNKNOWN &&
+      extraNativeTransferAction
+    ) {
+      finalActions = [extraNativeTransferAction];
+    } else {
+      finalActions = mergeAssetTransferActions(
+        [action, extraNativeTransferAction].filter(Boolean),
+      );
+    }
 
     const decodedTx: IDecodedTx = {
       txid: '',

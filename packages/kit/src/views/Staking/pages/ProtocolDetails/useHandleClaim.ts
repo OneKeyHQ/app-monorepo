@@ -1,7 +1,11 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { showMorphoClaimDialog } from '@onekeyhq/kit/src/views/Staking/components/ProtocolDetails/showMorphoClaimDialog';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import type {
   IStakeProtocolDetails,
@@ -17,6 +21,7 @@ export const useHandleClaim = ({
   accountId?: string;
   networkId: string;
 }) => {
+  const intl = useIntl();
   const appNavigation = useAppNavigation();
   const handleUniversalClaim = useUniversalClaim({
     networkId,
@@ -26,14 +31,20 @@ export const useHandleClaim = ({
     async ({
       details,
       symbol,
-      provider,
+      claimAmount,
+      claimTokenAddress,
       isReward,
+      isMorphoClaim,
+      provider,
       stakingInfo,
       onSuccess,
     }: {
       symbol: string;
       provider: string;
+      claimAmount: string;
+      claimTokenAddress?: string;
       isReward?: boolean;
+      isMorphoClaim?: boolean;
       details?: IStakeProtocolDetails;
       stakingInfo?: IStakingInfo;
       onSuccess?: () => void;
@@ -50,10 +61,31 @@ export const useHandleClaim = ({
       }
       if (isReward) {
         await handleUniversalClaim({
-          amount: details.rewards ?? '0',
+          amount: claimAmount,
           symbol,
           provider,
           stakingInfo,
+          claimTokenAddress,
+        });
+        return;
+      }
+      if (isMorphoClaim) {
+        showMorphoClaimDialog({
+          title: intl.formatMessage({
+            id: ETranslations.earn_claim_rewards,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.earn_claim_rewards_morpho_desc,
+          }),
+          onConfirm: async () => {
+            await handleUniversalClaim({
+              amount: claimAmount,
+              symbol,
+              provider,
+              stakingInfo,
+              claimTokenAddress,
+            });
+          },
         });
         return;
       }
@@ -76,17 +108,18 @@ export const useHandleClaim = ({
           networkId,
           details,
           onSuccess,
-          amount: stakingConfig.claimWithAmount ? details.claimable : undefined,
+          amount: stakingConfig.claimWithAmount ? claimAmount : undefined,
         });
         return;
       }
       await handleUniversalClaim({
-        amount: details.claimable ?? '0',
+        amount: claimAmount,
         symbol,
         provider,
+        claimTokenAddress,
         stakingInfo,
       });
     },
-    [appNavigation, accountId, networkId, handleUniversalClaim],
+    [appNavigation, accountId, networkId, handleUniversalClaim, intl],
   );
 };
