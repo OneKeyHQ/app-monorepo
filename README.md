@@ -39,7 +39,7 @@
 
 - ✅ Public: Production-ready
 
-We really need your support, star or watch this repo for latest updates.
+We really need your support, star, or watch this repo for the latest updates.
 
 <kbd><img src="https://github.com/rayston92/graph_bed/blob/e3b2c938fc5b17d68531f69178908afb16266e6a/img/onekey_monorepo_star.gif?raw=true" alt="Star this repo"/></kbd>
 
@@ -60,7 +60,7 @@ yarn
 
 ## 🧑‍💻 Develop
 
-Execute the following commands in the root directory to develop different business code
+Execute the following commands in the root directory to develop different business codes
 
 - `yarn app:web`: Develop web mode, which starts a static server on port 3000 locally
 - `yarn app:ios`: connect to iphone device via USB for development debugging
