@@ -108,7 +108,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
       titleMatch={item.nameMatch}
       subtitle={item.address}
       subTitleMatch={item.addressMatch}
-      renderBadges={renderBadges}
+      renderBadges={item.isAllowListed ? renderBadges : undefined}
       renderAvatar={renderAvatar}
       onPress={() => onPress?.(item)}
       testID={`address-item-${item.address || ''}`}
