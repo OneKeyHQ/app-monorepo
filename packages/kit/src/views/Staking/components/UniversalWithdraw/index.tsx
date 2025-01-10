@@ -288,7 +288,7 @@ export const UniversalWithdraw = ({
           icon="InfoCircleOutline"
           type="critical"
           title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_claimable_balance,
+            id: ETranslations.earn_insufficient_staked_balance,
           })}
         />
       ) : null}
