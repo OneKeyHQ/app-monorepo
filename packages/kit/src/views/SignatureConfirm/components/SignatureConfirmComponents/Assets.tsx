@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/components';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
   useDecodedTxsAtom,
   useSignatureConfirmActions,
@@ -77,6 +78,10 @@ function SignatureAssetDetailItem({
   tokenProps?: Omit<ITokenProps, 'size' | 'showNetworkIcon'>;
   handleEdit?: () => void;
 } & ISignatureConfirmItemType) {
+  const { network } = useAccountData({
+    networkId: tokenProps?.networkId,
+  });
+
   const renderDetails = useCallback(() => {
     if (isLoading) {
       return <Skeleton.HeadingMd />;
@@ -133,6 +138,11 @@ function SignatureAssetDetailItem({
           >
             {renderDetails()}
           </XStack>
+          {showNetwork ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {network?.name}
+            </SizableText>
+          ) : null}
         </YStack>
       </XStack>
     </SignatureConfirmItem>
@@ -140,7 +150,7 @@ function SignatureAssetDetailItem({
 }
 
 function AssetsToken(props: IAssetsTokenProps) {
-  const { component, ...rest } = props;
+  const { component, showNetwork, ...rest } = props;
   return (
     <SignatureAssetDetailItem
       label={component.label}
@@ -149,16 +159,18 @@ function AssetsToken(props: IAssetsTokenProps) {
       tokenProps={{
         tokenImageUri: component.token.info.logoURI,
         isNFT: false,
-        networkId: component.token.info.networkId,
+        networkId: component.networkId ?? component.token.info.networkId,
       }}
       type="token"
+      showNetwork={component.showNetwork ?? showNetwork}
       {...rest}
     />
   );
 }
 
 function AssetsTokenApproval(props: IAssetsApproveProps) {
-  const { component, accountId, networkId, approveInfo, ...rest } = props;
+  const { component, accountId, networkId, approveInfo, showNetwork, ...rest } =
+    props;
   const { token } = component;
   const { updateTokenApproveInfo } = useSignatureConfirmActions().current;
   const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
@@ -191,7 +203,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
       tokenProps={{
         tokenImageUri: component.token.info.logoURI,
         isNFT: false,
-        networkId: component.token.info.networkId,
+        networkId: component.networkId ?? component.token.info.networkId,
       }}
       type="token"
       handleEdit={() => {
@@ -211,6 +223,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
           approveInfo,
         });
       }}
+      showNetwork={component.showNetwork ?? showNetwork}
       {...rest}
     />
   );
