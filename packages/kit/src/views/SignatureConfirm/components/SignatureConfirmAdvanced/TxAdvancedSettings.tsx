@@ -28,9 +28,9 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { TxDataViewer } from '../SignatureConfirmDataViewer';
-import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 type IProps = {
   accountId: string;
