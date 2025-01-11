@@ -16,6 +16,7 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
@@ -143,9 +144,33 @@ function BasicStakePage() {
   }, [provider]);
 
   const showEstReceive = useMemo<boolean>(
-    () => provider.name.toLowerCase() === EEarnProviderEnum.Lido.toLowerCase(),
+    () =>
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      }) ||
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      }),
     [provider],
   );
+
+  const estReceiveTokenRate = useMemo(() => {
+    if (
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.lidoStTokenRate;
+    }
+    if (
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.morphoTokenRate;
+    }
+    return '1';
+  }, [provider]);
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
@@ -222,7 +247,7 @@ function BasicStakePage() {
           isDisabled={isReachBabylonCap}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
-          estReceiveTokenRate={provider.lidoStTokenRate}
+          estReceiveTokenRate={estReceiveTokenRate}
           onConfirm={onConfirm}
           minTransactionFee={provider.minTransactionFee}
           estimateFeeResp={estimateFeeResp}
