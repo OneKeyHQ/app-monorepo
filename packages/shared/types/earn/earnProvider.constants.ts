@@ -35,7 +35,7 @@ const earnTradeDefaultSetSOL = {
 };
 
 export const isSupportStaking = (symbol: string) =>
-  ['BTC', 'SBTC', 'ETH', 'SOL', 'APT', 'ATOM', 'MATIC'].includes(
+  ['BTC', 'SBTC', 'ETH', 'SOL', 'APT', 'ATOM', 'MATIC', 'USDC'].includes(
     symbol.toUpperCase(),
   );
 
