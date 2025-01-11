@@ -375,6 +375,7 @@ export interface IInvestment {
   staked: string;
   stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
+  rewardNum?: Record<string, string>;
 }
 export interface IEarnInvestmentItem {
   name: string;
