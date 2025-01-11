@@ -42,7 +42,9 @@ const BasicApproveBaseStakePage = () => {
         amount,
         stakingInfo: {
           label: EEarnLabels.Stake,
-          protocol: provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           send: { token: token.info, amount },
           tags: [actionTag],

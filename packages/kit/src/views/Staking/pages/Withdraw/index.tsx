@@ -52,7 +52,9 @@ const WithdrawPage = () => {
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Withdraw,
-          protocol: provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           tags: [actionTag],
         },

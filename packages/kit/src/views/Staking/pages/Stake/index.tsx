@@ -86,7 +86,9 @@ function BasicStakePage() {
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Stake,
-          protocol: provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           send: { token: tokenInfo, amount },
           tags: [actionTag],

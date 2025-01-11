@@ -13,6 +13,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalClaim } from '../../components/UniversalClaim';
@@ -48,7 +49,9 @@ const ClaimPage = () => {
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Claim,
-          protocol: provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           receive: { token: tokenInfo, amount },
           tags: [actionTag],
