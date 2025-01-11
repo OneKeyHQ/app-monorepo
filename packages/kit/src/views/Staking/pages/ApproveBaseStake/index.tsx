@@ -40,7 +40,7 @@ const BasicApproveBaseStakePage = () => {
       await handleStake({
         amount,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
+          label: EEarnLabels.Stake,
           protocol: provider.name,
           protocolLogoURI: provider.logoURI,
           send: { token: token.info, amount },
