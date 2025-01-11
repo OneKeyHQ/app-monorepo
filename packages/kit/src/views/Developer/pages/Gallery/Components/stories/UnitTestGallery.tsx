@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { Button, Stack, TextAreaInput } from '@onekeyhq/components';
 
@@ -20,29 +20,6 @@ interface IMockIt extends IMockFunction {
   todo: (name: string) => void;
   concurrent: (name: string, fn: () => void) => void;
   failing: (name: string, fn: () => void) => void;
-}
-
-interface IMockExpect {
-  (val: unknown): {
-    toBe: (expected: unknown) => void;
-    toEqual: (expected: unknown) => void;
-    toBeInstanceOf: (expected: Function) => void;
-    toMatch: (pattern: RegExp | string) => void;
-    toMatchSnapshot: (name?: string) => void;
-    toHaveLength: (expected: number) => void;
-    toBeDefined: () => void;
-    toThrow: (expected?: unknown) => void;
-    rejects: {
-      toThrow: (expected?: unknown) => Promise<void>;
-    };
-    anything: () => boolean;
-    any: (constructor: Function) => boolean;
-    arrayContaining: (arr: unknown[]) => boolean;
-    assertions: (num: number) => void;
-    objectContaining: (obj: Record<string, unknown>) => boolean;
-    stringContaining: (str: string) => boolean;
-    stringMatching: (regex: RegExp) => boolean;
-  };
 }
 
 interface IGlobalWithTest {
@@ -116,9 +93,9 @@ function UnitTestGallery() {
       const { countOnly, logs, errors } = options;
 
       const mockIt = ((testName: string, testFn: () => void) => {
-        testCount++;
+        testCount += 1;
         if (!countOnly) {
-          logs?.push(`\nit: ${testName}...`);
+          logs?.push(`\nit: ${String(testName)}...`);
           setProgress((prev) => ({ ...prev, currentTest: testCount }));
           try {
             testFn();
@@ -126,7 +103,7 @@ function UnitTestGallery() {
           } catch (err: unknown) {
             logs?.push('FAILED');
             const errMsg = err instanceof Error ? err.message : String(err);
-            errors?.push(`(it error) ${testName}: ${errMsg}`);
+            errors?.push(`(it error) ${String(testName)}: ${errMsg}`);
           }
         }
       }) as IMockIt;
@@ -149,14 +126,14 @@ function UnitTestGallery() {
       const { countOnly, logs, errors } = options;
 
       const mockDescribe = ((suiteName: string, suiteFn: () => void) => {
-        suiteCount++;
+        suiteCount += 1;
         if (!countOnly) {
-          logs?.push(`\n--- describe: ${suiteName} ---`);
+          logs?.push(`\n--- describe: ${String(suiteName)} ---`);
           setProgress((prev) => ({ ...prev, currentSuite: suiteCount }));
         }
 
-        const originalIt = (globalThis as any).it;
-        (globalThis as any).it = createMockIt(options);
+        const originalIt = (globalThis as unknown as { it?: IMockIt }).it;
+        (globalThis as unknown as { it: IMockIt }).it = createMockIt(options);
 
         try {
           suiteFn();
@@ -167,7 +144,7 @@ function UnitTestGallery() {
           }
         }
 
-        (globalThis as any).it = originalIt;
+        (globalThis as unknown as { it?: IMockIt }).it = originalIt;
       }) as IMockDescribe;
 
       // Add required Jest.Describe properties
@@ -180,7 +157,11 @@ function UnitTestGallery() {
 
     // First pass - count total suites and tests
     const global = globalThis as unknown as IGlobalWithTest;
-    global.describe = createMockDescribe({ countOnly: true, logs: testLogs, errors: testErrors });
+    global.describe = createMockDescribe({
+      countOnly: true,
+      logs: testLogs,
+      errors: testErrors,
+    });
 
     try {
       await import('@onekeyhq/core/src/secret/__tests__/secret.test');
@@ -199,29 +180,40 @@ function UnitTestGallery() {
     testCount = 0;
 
     // Second pass - actual test execution
-    global.describe = createMockDescribe({ logs: testLogs, errors: testErrors });
+    global.describe = createMockDescribe({
+      logs: testLogs,
+      errors: testErrors,
+    });
 
     global.expect = ((val: unknown) => ({
       toBe: (expected: any) => {
         if (val !== expected) {
-          throw new Error(`Expected ${val} to be ${expected}`);
+          throw new Error(`Expected ${String(val)} to be ${String(expected)}`);
         }
       },
-      toEqual: (expected: any) => {
+      toEqual: (expected: unknown) => {
         const valString = JSON.stringify(val);
         const expString = JSON.stringify(expected);
         if (valString !== expString) {
-          throw new Error(`Expected ${valString} to equal ${expString}`);
+          throw new Error(
+            `Expected ${String(valString)} to equal ${String(expString)}`,
+          );
         }
       },
-      toBeInstanceOf: (type: any) => {
+      toBeInstanceOf: (type: { new (...args: any[]): unknown }) => {
         if (!(val instanceof type)) {
-          throw new Error(`Expected ${val} to be instance of ${type.name}`);
+          throw new Error(
+            `Expected ${String(val)} to be instance of ${String(
+              type?.name ?? 'unknown',
+            )}`,
+          );
         }
       },
       toMatch: (pattern: RegExp) => {
         if (!pattern.test(String(val))) {
-          throw new Error(`Expected ${val} to match ${pattern}`);
+          throw new Error(
+            `Expected ${String(val)} to match ${String(pattern)}`,
+          );
         }
       },
       toMatchSnapshot: (name?: string) => {
@@ -231,7 +223,7 @@ function UnitTestGallery() {
           } skipped in RN environment)`,
         );
       },
-      toThrow: (ErrorType?: any) => {
+      toThrow: (ErrorType?: { new (...args: any[]): Error }) => {
         try {
           if (typeof val === 'function') {
             val();
@@ -243,8 +235,9 @@ function UnitTestGallery() {
             err instanceof Error &&
             !(err instanceof ErrorType)
           ) {
+            const errorTypeName = ErrorType?.name ?? 'unknown';
             throw new Error(
-              `Expected error to be instance of ${ErrorType.name}`,
+              `Expected error to be instance of ${String(errorTypeName)}`,
             );
           }
         }
@@ -252,7 +245,11 @@ function UnitTestGallery() {
       toHaveLength: (length: number) => {
         const arrayLike = val as { length?: number };
         if (arrayLike?.length !== length) {
-          throw new Error(`Expected length of ${arrayLike?.length} to be ${length}`);
+          throw new Error(
+            `Expected length of ${String(arrayLike?.length)} to be ${String(
+              length,
+            )}`,
+          );
         }
       },
       toBeDefined: () => {
@@ -261,14 +258,15 @@ function UnitTestGallery() {
         }
       },
       rejects: {
-        toThrow: async (ErrorType?: any) => {
+        toThrow: async (ErrorType?: { new (...args: any[]): Error }) => {
           try {
             await val;
             throw new Error('Expected promise to reject');
           } catch (err) {
             if (ErrorType && !(err instanceof ErrorType)) {
+              const errorTypeName = ErrorType?.name ?? 'unknown';
               throw new Error(
-                `Expected error to be instance of ${ErrorType.name}`,
+                `Expected error to be instance of ${String(errorTypeName)}`,
               );
             }
           }
@@ -276,10 +274,12 @@ function UnitTestGallery() {
       },
       // Additional Jest matchers required by the type system
       anything: () => true,
-      any: (constructor: Function) => val instanceof constructor,
+      any: (constructor: { new (...args: any[]): unknown }) =>
+        val instanceof constructor,
       arrayContaining: (arr: unknown[]) =>
-        Array.isArray(val) && arr.every((item) => (val as unknown[]).includes(item)),
-      assertions: (num: number) => {},
+        Array.isArray(val) &&
+        arr.every((item) => (val as unknown[]).includes(item)),
+      assertions: () => {},
       objectContaining: (obj: Record<string, unknown>) => {
         const record = val as Record<string, unknown>;
         for (const key in obj) {
@@ -296,9 +296,7 @@ function UnitTestGallery() {
     try {
       // Dynamically import the test file
       // Remove .ts extension for TypeScript resolution
-      const testModule = await import(
-        '@onekeyhq/core/src/secret/__tests__/secret.test'
-      );
+      await import('@onekeyhq/core/src/secret/__tests__/secret.test');
 
       // Log test module import success
       testLogs.push('\nTest module imported successfully');
