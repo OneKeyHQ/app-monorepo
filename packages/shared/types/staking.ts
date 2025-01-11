@@ -66,6 +66,8 @@ export type IStakeProviderInfo = {
   alerts: string[];
 
   apys?: IRewardApys;
+  vault?: string;
+  rewardUnit: IEarnRewardUnit;
 };
 
 export type IStakeBaseParams = {
@@ -307,6 +309,7 @@ export interface IEarnAccountToken {
   balanceParsed: string;
   address: string;
   price: string;
+  rewardUnit: IEarnRewardUnit;
 }
 
 export type IEarnAccountResponse = {
@@ -329,6 +332,7 @@ export type IEarnAccountTokenResponse = {
   accounts: IEarnAccount[];
 };
 
+export type IEarnRewardUnit = 'APY' | 'APR';
 export type IAvailableAsset = {
   name: string;
   symbol: string;
@@ -336,6 +340,7 @@ export type IAvailableAsset = {
   apr: string;
   tags: string[];
   networkId: string;
+  rewardUnit: IEarnRewardUnit;
 };
 
 export interface IEarnAtomData {

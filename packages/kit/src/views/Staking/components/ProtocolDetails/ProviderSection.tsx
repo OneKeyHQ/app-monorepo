@@ -33,6 +33,9 @@ type IProviderInfoProps = {
   babylonConfirmedCap?: {
     value: string;
   };
+  poolFee?: {
+    value: string;
+  };
 };
 
 function ProviderInfo({
@@ -42,6 +45,7 @@ function ProviderInfo({
   network,
   babylonConfirmedCap,
   babylonStakingCap,
+  poolFee,
 }: IProviderInfoProps) {
   const intl = useIntl();
   let minOrMaxStakingItem: { label: string; value: string } | undefined;
@@ -129,6 +133,16 @@ function ProviderInfo({
             {babylonConfirmedCap.value} BTC
           </GridItem>
         ) : null}
+        {poolFee?.value ? (
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.earn_commission })}
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_commission_tooltip,
+            })}
+          >
+            {poolFee.value}%
+          </GridItem>
+        ) : null}
       </XStack>
     </YStack>
   );
@@ -179,6 +193,11 @@ export const ProviderSection = ({
             .toFixed(),
         };
       }
+    }
+    if (details.provider.poolFee) {
+      providerProps.poolFee = {
+        value: details.provider.poolFee,
+      };
     }
   }
   if (details.network) {

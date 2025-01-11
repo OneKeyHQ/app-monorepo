@@ -272,6 +272,19 @@ export const StakeShouldUnderstand = ({
         ),
         true,
       ),
+      createTypography(
+        intl.formatMessage(
+          { id: ETranslations.earn_rewards_automatically_restaked },
+          {
+            automatically: (
+              <SizableText color="$textSuccess">
+                {intl.formatMessage({ id: ETranslations.earn_automatically })}
+              </SizableText>
+            ),
+          },
+        ),
+        true,
+      ),
       intl.formatMessage({
         id: ETranslations.earn_rewards_dynamic_real_time,
       }),
