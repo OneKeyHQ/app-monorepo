@@ -136,6 +136,15 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
+  setTabsByIds = contextAtomMethod((get, set, ids: string[]) => {
+    const tabMap = get(webTabsMapAtom());
+    const tabs = [];
+    for (const id of ids) {
+      tabs.push(tabMap[id]);
+    }
+    this.buildWebTabs.call(set, { data: tabs });
+  });
+
   setTabs = contextAtomMethod((get, set, tabs?: IWebTab[]) => {
     const newTabs = tabs ?? get(webTabsAtom())?.tabs;
     loggerForEmptyData(newTabs, 'setTabs');
@@ -895,6 +904,7 @@ export function useBrowserTabActions() {
   const addBlankWebTab = actions.addBlankWebTab.use();
   const buildWebTabs = actions.buildWebTabs.use();
   const setTabs = actions.setTabs.use();
+  const setTabsByIds = actions.setTabsByIds.use();
   const setWebTabData = actions.setWebTabData.use();
   const getWebTabById = actions.getWebTabById.use();
   const closeWebTab = actions.closeWebTab.use();
@@ -910,6 +920,7 @@ export function useBrowserTabActions() {
     addBlankWebTab,
     buildWebTabs,
     setTabs,
+    setTabsByIds,
     setWebTabData,
     getWebTabById,
     closeWebTab,
