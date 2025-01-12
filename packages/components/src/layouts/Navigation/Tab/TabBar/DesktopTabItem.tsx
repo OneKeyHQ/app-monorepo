@@ -41,6 +41,35 @@ export interface IDesktopTabItemProps {
   onClose?: () => void;
 }
 
+function DesktopTabItemImage({
+  avatarSrc,
+  selected,
+}: {
+  avatarSrc?: string;
+  selected?: boolean;
+}) {
+  return useMemo(
+    () => (
+      <Image borderRadius="$1" size="$4.5" m="$px">
+        {avatarSrc ? <Image.Source src={avatarSrc} /> : null}
+        <Image.Fallback bg="$bgSidebar">
+          <Icon
+            size="$4.5"
+            name="GlobusOutline"
+            color={selected ? '$iconActive' : '$iconSubdued'}
+          />
+        </Image.Fallback>
+        {avatarSrc ? (
+          <Image.Loading delayMs={100}>
+            <Skeleton width="100%" height="100%" />
+          </Image.Loading>
+        ) : null}
+      </Image>
+    ),
+    [avatarSrc, selected],
+  );
+}
+
 export function DesktopTabItem(
   props: IDesktopTabItemProps & GetProps<typeof Stack>,
 ) {
@@ -131,21 +160,7 @@ export function DesktopTabItem(
           />
         ) : null}
         {showAvatar ? (
-          <Image borderRadius="$1" size="$4.5" m="$px">
-            {avatarSrc ? <Image.Source src={avatarSrc} /> : null}
-            <Image.Fallback bg="$bgSidebar">
-              <Icon
-                size="$4.5"
-                name="GlobusOutline"
-                color={selected ? '$iconActive' : '$iconSubdued'}
-              />
-            </Image.Fallback>
-            {avatarSrc ? (
-              <Image.Loading>
-                <Skeleton width="100%" height="100%" />
-              </Image.Loading>
-            ) : null}
-          </Image>
+          <DesktopTabItemImage avatarSrc={avatarSrc} selected={selected} />
         ) : null}
         {label ? (
           <SizableText

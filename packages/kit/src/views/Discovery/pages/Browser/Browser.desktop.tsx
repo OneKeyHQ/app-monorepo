@@ -44,13 +44,16 @@ function DesktopBrowser() {
         headerRight={HeaderRightToolBar}
       />
       <Page.Body>
-        {tabs.map((t) => (
-          <DesktopBrowserContent
-            key={t.id}
-            id={t.id}
-            activeTabId={activeTabId}
-          />
-        ))}
+        {tabs
+          .slice()
+          .sort((a, b) => a.id.localeCompare(b.id))
+          .map((t) => (
+            <DesktopBrowserContent
+              key={t.id}
+              id={t.id}
+              activeTabId={activeTabId}
+            />
+          ))}
       </Page.Body>
     </Page>
   );

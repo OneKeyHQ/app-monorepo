@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 import { useThrottledCallback } from 'use-debounce';
@@ -228,18 +228,28 @@ function DesktopBrowserContent({
   activeTabId: string | null;
 }) {
   const { tab } = useWebTabDataById(id);
+  console.log(tab);
   const isActive = activeTabId === id;
-  const { addBrowserHistory } = useBrowserHistoryAction().current;
-  return (
-    <Freeze key={id} freeze={!isActive}>
-      {platformEnv.isDesktop ? <Find id={id} /> : null}
-      <WebContent
-        id={id}
-        url={tab.url}
-        isCurrent={isActive}
-        addBrowserHistory={(siteInfo) => addBrowserHistory(siteInfo)}
-      />
-    </Freeze>
+  const browserHistoryAction = useBrowserHistoryAction();
+  const handleAddBrowserHistory = useCallback(
+    (siteInfo: { url: string; title: string }) => {
+      void browserHistoryAction.current.addBrowserHistory(siteInfo);
+    },
+    [browserHistoryAction],
+  );
+  return useMemo(
+    () => (
+      <Freeze key={id} freeze={!isActive}>
+        {platformEnv.isDesktop ? <Find id={id} /> : null}
+        <WebContent
+          id={id}
+          url={tab.url}
+          isCurrent={isActive}
+          addBrowserHistory={handleAddBrowserHistory}
+        />
+      </Freeze>
+    ),
+    [handleAddBrowserHistory, id, isActive, tab.url],
   );
 }
 
