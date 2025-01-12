@@ -18,7 +18,7 @@ export function SendDataInputErrorHyperlinkText(
   const form = useFormContext();
   const navigation = useAppNavigation();
 
-  const onLinkPress = useCallback(async () => {
+  const onAction = useCallback(async () => {
     const values = form.getValues();
     const { to, accountId, networkId } = values;
     const address = typeof to === 'string' ? to : (to as { raw: string }).raw;
@@ -64,7 +64,7 @@ export function SendDataInputErrorHyperlinkText(
         contactId: '#',
         contactAddress: '#',
       }}
-      onLinkPress={onLinkPress}
+      onAction={onAction}
     />
   );
 }

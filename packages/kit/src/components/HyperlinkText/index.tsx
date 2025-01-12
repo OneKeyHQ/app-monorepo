@@ -13,7 +13,7 @@ import useParseQRCode from '../../views/ScanQrCode/hooks/useParseQRCode';
 export type IHyperlinkTextProps = {
   translationId?: ETranslations;
   defaultMessage?: string;
-  onLinkPress?: (url: string) => void;
+  onAction?: (url: string) => void;
   values?: Record<string, string>;
   autoHandleResult?: boolean;
 } & ISizableTextProps;
@@ -21,7 +21,7 @@ export type IHyperlinkTextProps = {
 export function HyperlinkText({
   translationId,
   defaultMessage,
-  onLinkPress,
+  onAction,
   children,
   values,
   autoHandleResult = true,
@@ -50,7 +50,7 @@ export function HyperlinkText({
                     onPress={() => {
                       if (typeof link === 'string') {
                         setTimeout(() => {
-                          onLinkPress?.(link);
+                          onAction?.(link);
                         }, 0);
                         void parseQRCode.parse(link, {
                           handlers: [
@@ -98,7 +98,7 @@ export function HyperlinkText({
       children,
       defaultMessage,
       intl,
-      onLinkPress,
+      onAction,
       parseQRCode,
       textProps,
       translationId,

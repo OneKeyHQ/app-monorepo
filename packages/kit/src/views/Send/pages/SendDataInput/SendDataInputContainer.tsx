@@ -1253,7 +1253,7 @@ function SendDataInputContainer() {
               color="$textSubdued"
               size="$bodyLg"
               translationId={ETranslations.allowlist_enabled_popover_content}
-              onLinkPress={closePopover}
+              onAction={closePopover}
             />
           </YStack>
         )}
