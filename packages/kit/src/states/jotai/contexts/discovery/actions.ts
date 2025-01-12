@@ -285,7 +285,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             const saveSetCurrentWebTab = () => {
               this.setCurrentWebTab.call(set, newActiveTab.id);
             };
-            saveSetCurrentWebTab();
             // Refresh the list after closing WebView in Electron to improve list fluidity
             if (platformEnv.isNative) {
               saveSetCurrentWebTab();
