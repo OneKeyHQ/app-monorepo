@@ -125,7 +125,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const result = buildWebTabData(newTabs);
       // Should update tabs
       if (!isEqual(result.keys, webTabs.keys) || options?.forceUpdate) {
-        set(webTabsAtom(), { keys: result.keys, tabs: result.data });
+        set(webTabsAtom(), { keys: result.keys, tabs: result.data.slice() });
       }
 
       set(webTabsMapAtom(), () => result.map);
