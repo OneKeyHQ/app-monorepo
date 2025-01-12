@@ -228,7 +228,6 @@ function DesktopBrowserContent({
   activeTabId: string | null;
 }) {
   const { tab } = useWebTabDataById(id);
-  console.log(tab);
   const isActive = activeTabId === id;
   const browserHistoryAction = useBrowserHistoryAction();
   const handleAddBrowserHistory = useCallback(
