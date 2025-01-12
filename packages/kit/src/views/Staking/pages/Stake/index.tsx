@@ -95,6 +95,11 @@ function BasicStakePage() {
         },
         term: btcStakingTerm,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
+        morphoVault: earnUtils.isMorphoProvider({
+          providerName: provider.name,
+        })
+          ? provider.vault
+          : undefined,
         onSuccess: async (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({

@@ -51,6 +51,11 @@ const BasicApproveBaseStakePage = () => {
         },
         symbol: token.info.symbol.toUpperCase(),
         provider: provider.name,
+        morphoVault: earnUtils.isMorphoProvider({
+          providerName: provider.name,
+        })
+          ? provider.vault
+          : undefined,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({

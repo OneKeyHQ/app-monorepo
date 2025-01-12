@@ -82,6 +82,7 @@ export type IStakeBaseParams = {
   feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
+  morphoVault?: string; // morpho vault
 };
 
 export type IWithdrawBaseParams = {
@@ -94,6 +95,7 @@ export type IWithdrawBaseParams = {
   identity?: string; // sol pubkey
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
+  morphoVault?: string; // morpho vault
 };
 
 export type IUnstakePushParams = {

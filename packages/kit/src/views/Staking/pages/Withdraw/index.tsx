@@ -48,6 +48,11 @@ const WithdrawPage = () => {
       await handleWithdraw({
         amount,
         identity,
+        morphoVault: earnUtils.isMorphoProvider({
+          providerName: provider.name,
+        })
+          ? provider.vault
+          : undefined,
         symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
