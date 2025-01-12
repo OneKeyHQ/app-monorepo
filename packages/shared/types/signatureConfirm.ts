@@ -13,6 +13,7 @@ export enum EParseTxComponentType {
   Assets = 'assets',
   Approve = 'tokenApproval',
   Divider = 'divider',
+  InternalAssets = 'internalAssets',
 }
 
 export enum EParseTxType {
@@ -68,6 +69,16 @@ export interface IDisplayComponentToken {
 export interface IDisplayComponentAssets {
   type: EParseTxComponentType.Assets;
   label: string;
+  assets: (
+    | IDisplayComponentInternalAssets
+    | IDisplayComponentNFT
+    | IDisplayComponentToken
+  )[];
+}
+
+export interface IDisplayComponentInternalAssets {
+  type: EParseTxComponentType.InternalAssets;
+  label: string;
   name: string;
   icon: string;
   symbol: string;
@@ -102,6 +113,7 @@ export interface IDisplayComponentDefault {
 export type IDisplayComponent =
   | IDisplayComponentDivider
   | IDisplayComponentAssets
+  | IDisplayComponentInternalAssets
   | IDisplayComponentToken
   | IDisplayComponentApprove
   | IDisplayComponentNFT

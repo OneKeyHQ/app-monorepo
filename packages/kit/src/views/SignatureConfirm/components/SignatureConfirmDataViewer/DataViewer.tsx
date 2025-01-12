@@ -1,4 +1,4 @@
-import { ScrollView, SizableText } from '@onekeyhq/components';
+import { ScrollView, SizableText, Stack } from '@onekeyhq/components';
 
 function DataViewer({ data }: { data: string }) {
   return (
@@ -9,14 +9,16 @@ function DataViewer({ data }: { data: string }) {
       bg="$bgSubdued"
       h="$60"
     >
-      <SizableText
-        size="$bodySm"
-        style={{
-          wordBreak: 'break-all',
-        }}
-      >
-        {data}
-      </SizableText>
+      <Stack pb="$6">
+        <SizableText
+          size="$bodySm"
+          style={{
+            wordBreak: 'break-all',
+          }}
+        >
+          {data}
+        </SizableText>
+      </Stack>
     </ScrollView>
   );
 }
