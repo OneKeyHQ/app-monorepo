@@ -71,7 +71,7 @@ function DesktopCustomTabBar() {
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
 
-  const { result, run } = usePromiseResult(async () => {
+  const { result, setResult, run } = usePromiseResult(async () => {
     const tabsWithConnectedAccount = await Promise.all(
       (tabs ?? []).map(async (tab) => {
         const origin = tab?.url ? new URL(tab.url).origin : null;
@@ -309,10 +309,13 @@ function DesktopCustomTabBar() {
         }
       };
       reloadTimeStamp();
-      setTabsByIds([...pinnedTabs, ...unpinnedTabs].map(({ id }) => id));
+      setResult({ pinnedTabs, unpinnedTabs });
+      setTimeout(() => {
+        setTabsByIds([...pinnedTabs, ...unpinnedTabs].map(({ id }) => id));
+      }, 0);
       defaultLogger.discovery.browser.tabDragSorting();
     },
-    [setTabsByIds, sections],
+    [setTabsByIds, setResult, sections],
   );
 
   return (

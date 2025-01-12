@@ -138,11 +138,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   setTabsByIds = contextAtomMethod((get, set, ids: string[]) => {
     const tabMap = get(webTabsMapAtom());
-    const tabs = [];
+    const tabs: IWebTab[] = [];
     for (const id of ids) {
       tabs.push(tabMap[id]);
     }
-    this.buildWebTabs.call(set, { data: tabs });
+    this.buildWebTabs.call(set, {
+      data: tabs,
+    });
   });
 
   setTabs = contextAtomMethod((get, set, tabs?: IWebTab[]) => {
