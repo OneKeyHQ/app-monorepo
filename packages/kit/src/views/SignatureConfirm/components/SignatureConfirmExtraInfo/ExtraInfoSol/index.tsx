@@ -1,11 +1,12 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 function TxExtraInfoSol() {
   const intl = useIntl();

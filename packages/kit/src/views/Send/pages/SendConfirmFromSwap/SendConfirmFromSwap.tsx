@@ -13,6 +13,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type {
   IFeeInfoUnit,
   IGasEIP1559,
@@ -73,6 +74,11 @@ function SendConfirmFromSwap() {
           unsignedTx.feeInfo = prevTxFeeInfo;
         }
         const isLastTx = i === len - 1;
+        const isFirstTx = i === 0;
+
+        if (!isFirstTx) {
+          await waitAsync(300);
+        }
 
         const result: ISendTxOnSuccessData[] = await new Promise((resolve) => {
           appNavigation.push(signatureConfirmRoute, {

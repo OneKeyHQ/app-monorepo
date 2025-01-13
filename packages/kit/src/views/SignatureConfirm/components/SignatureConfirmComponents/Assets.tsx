@@ -13,17 +13,20 @@ import {
 } from '@onekeyhq/components';
 import type { ITokenProps } from '@onekeyhq/kit/src/components/Token';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import {
   useDecodedTxsAtom,
   useSignatureConfirmActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IDisplayComponentApprove,
-  IDisplayComponentAssets,
-  IDisplayComponentNFT,
-  IDisplayComponentToken,
+import {
+  EParseTxComponentType,
+  type IDisplayComponentApprove,
+  type IDisplayComponentAssets,
+  type IDisplayComponentInternalAssets,
+  type IDisplayComponentNFT,
+  type IDisplayComponentToken,
 } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { showApproveEditor } from '../ApproveEditor';
@@ -33,6 +36,7 @@ type IAssetsCommonProps = {
   networkId: string;
   showNetwork?: boolean;
   editable?: boolean;
+  hideLabel?: boolean;
 } & ISignatureConfirmItemType;
 
 type IAssetsTokenProps = IAssetsCommonProps & {
@@ -47,6 +51,10 @@ type IAssetsApproveProps = IAssetsCommonProps & {
 
 type IAssetsNFTProps = IAssetsCommonProps & {
   component: IDisplayComponentNFT;
+};
+
+type IInternalAssetsProps = IAssetsCommonProps & {
+  component: IDisplayComponentInternalAssets;
 };
 
 type IAssetsProps = IAssetsCommonProps & {
@@ -65,6 +73,7 @@ function SignatureAssetDetailItem({
   tokenProps,
   isLoading,
   handleEdit,
+  hideLabel,
   ...rest
 }: {
   type?: 'token' | 'nft';
@@ -76,7 +85,12 @@ function SignatureAssetDetailItem({
   isLoading?: boolean;
   tokenProps?: Omit<ITokenProps, 'size' | 'showNetworkIcon'>;
   handleEdit?: () => void;
+  hideLabel?: boolean;
 } & ISignatureConfirmItemType) {
+  const { network } = useAccountData({
+    networkId: tokenProps?.networkId,
+  });
+
   const renderDetails = useCallback(() => {
     if (isLoading) {
       return <Skeleton.HeadingMd />;
@@ -94,7 +108,9 @@ function SignatureAssetDetailItem({
 
   return (
     <SignatureConfirmItem {...rest}>
-      <SignatureConfirmItem.Label>{label}</SignatureConfirmItem.Label>
+      {!hideLabel ? (
+        <SignatureConfirmItem.Label>{label}</SignatureConfirmItem.Label>
+      ) : null}
       <XStack gap="$3" alignItems="center">
         <Token
           size="lg"
@@ -133,6 +149,11 @@ function SignatureAssetDetailItem({
           >
             {renderDetails()}
           </XStack>
+          {showNetwork ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {network?.name}
+            </SizableText>
+          ) : null}
         </YStack>
       </XStack>
     </SignatureConfirmItem>
@@ -140,7 +161,7 @@ function SignatureAssetDetailItem({
 }
 
 function AssetsToken(props: IAssetsTokenProps) {
-  const { component, ...rest } = props;
+  const { component, showNetwork, ...rest } = props;
   return (
     <SignatureAssetDetailItem
       label={component.label}
@@ -149,16 +170,18 @@ function AssetsToken(props: IAssetsTokenProps) {
       tokenProps={{
         tokenImageUri: component.token.info.logoURI,
         isNFT: false,
-        networkId: component.token.info.networkId,
+        networkId: component.networkId ?? component.token.info.networkId,
       }}
       type="token"
+      showNetwork={component.showNetwork ?? showNetwork}
       {...rest}
     />
   );
 }
 
 function AssetsTokenApproval(props: IAssetsApproveProps) {
-  const { component, accountId, networkId, approveInfo, ...rest } = props;
+  const { component, accountId, networkId, approveInfo, showNetwork, ...rest } =
+    props;
   const { token } = component;
   const { updateTokenApproveInfo } = useSignatureConfirmActions().current;
   const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
@@ -191,7 +214,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
       tokenProps={{
         tokenImageUri: component.token.info.logoURI,
         isNFT: false,
-        networkId: component.token.info.networkId,
+        networkId: component.networkId ?? component.token.info.networkId,
       }}
       type="token"
       handleEdit={() => {
@@ -211,6 +234,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
           approveInfo,
         });
       }}
+      showNetwork={component.showNetwork ?? showNetwork}
       {...rest}
     />
   );
@@ -236,7 +260,7 @@ function AssetsNFT(props: IAssetsNFTProps) {
   );
 }
 
-function Assets(props: IAssetsProps) {
+function AssetsInternalAssets(props: IInternalAssetsProps) {
   const { component, ...rest } = props;
   return (
     <SignatureAssetDetailItem
@@ -254,9 +278,44 @@ function Assets(props: IAssetsProps) {
   );
 }
 
+function Assets(props: IAssetsProps) {
+  const { component, ...rest } = props;
+  return (
+    <SignatureConfirmItem {...rest}>
+      <SignatureConfirmItem.Label>{component.label}</SignatureConfirmItem.Label>
+      <YStack gap="$1">
+        {component.assets.map((asset, index) => {
+          if (asset.type === EParseTxComponentType.InternalAssets) {
+            return (
+              <AssetsInternalAssets
+                hideLabel
+                key={index}
+                component={asset}
+                {...rest}
+              />
+            );
+          }
+          if (asset.type === EParseTxComponentType.NFT) {
+            return (
+              <AssetsNFT hideLabel key={index} component={asset} {...rest} />
+            );
+          }
+          if (asset.type === EParseTxComponentType.Token) {
+            return (
+              <AssetsToken hideLabel key={index} component={asset} {...rest} />
+            );
+          }
+          return null;
+        })}
+      </YStack>
+    </SignatureConfirmItem>
+  );
+}
+
 Assets.Token = AssetsToken;
 Assets.TokenApproval = AssetsTokenApproval;
 
 Assets.NFT = AssetsNFT;
+Assets.InternalAssets = AssetsInternalAssets;
 
 export { Assets };

@@ -13,6 +13,7 @@ export enum EParseTxComponentType {
   Assets = 'assets',
   Approve = 'tokenApproval',
   Divider = 'divider',
+  InternalAssets = 'internalAssets',
 }
 
 export enum EParseTxType {
@@ -37,7 +38,7 @@ export interface IDisplayComponentAddress {
     value: string;
     displayType: IBadgeType;
   }[];
-  navigable?: boolean;
+  isNavigable?: boolean;
 }
 
 export interface IDisplayComponentAmount {
@@ -61,10 +62,22 @@ export interface IDisplayComponentToken {
   } & ITokenFiat;
   amount: string;
   amountParsed: string;
+  networkId: string;
+  showNetwork: boolean;
 }
 
 export interface IDisplayComponentAssets {
   type: EParseTxComponentType.Assets;
+  label: string;
+  assets: (
+    | IDisplayComponentInternalAssets
+    | IDisplayComponentNFT
+    | IDisplayComponentToken
+  )[];
+}
+
+export interface IDisplayComponentInternalAssets {
+  type: EParseTxComponentType.InternalAssets;
   label: string;
   name: string;
   icon: string;
@@ -87,6 +100,8 @@ export interface IDisplayComponentApprove {
   balanceParsed?: string;
   isEditable: boolean;
   isInfiniteAmount: boolean;
+  networkId: string;
+  showNetwork: boolean;
 }
 
 export interface IDisplayComponentDefault {
@@ -98,6 +113,7 @@ export interface IDisplayComponentDefault {
 export type IDisplayComponent =
   | IDisplayComponentDivider
   | IDisplayComponentAssets
+  | IDisplayComponentInternalAssets
   | IDisplayComponentToken
   | IDisplayComponentApprove
   | IDisplayComponentNFT

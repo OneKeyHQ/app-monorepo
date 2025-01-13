@@ -242,6 +242,8 @@ export type IVaultSettings = {
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
 
   stakingConfig?: IStakingConfig;
+  stakingResultPollingInterval?: number;
+
   editApproveAmountEnabled?: boolean;
   useRemoteTxId?: boolean;
   isNativeTokenContractAddressEmpty?: boolean;

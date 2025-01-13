@@ -13,7 +13,7 @@ function useTxTrack({
   accountId,
   networkId,
   timeout = timerUtils.getTimeDurationMs({ minute: 60 }),
-  interval = timerUtils.getTimeDurationMs({ seconds: 30 }),
+  interval = timerUtils.getTimeDurationMs({ seconds: 5 }),
 }: {
   accountId: string;
   networkId: string;

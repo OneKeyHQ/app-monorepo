@@ -23,7 +23,7 @@ function Address(props: IProps) {
         {component.label ||
           intl.formatMessage({ id: ETranslations.copy_address_modal_title })}
       </SignatureConfirmItem.Label>
-      {component.navigable ? (
+      {component.isNavigable ? (
         <XStack alignItems="flex-start" justifyContent="space-between" flex={1}>
           <SignatureConfirmItem.Value
             flex={1}
