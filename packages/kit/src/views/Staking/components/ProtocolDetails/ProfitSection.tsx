@@ -13,10 +13,10 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnRewardUnit,
+  IEarnTokenItem,
   IRewardApys,
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { formatStakingDistanceToNowStrict } from '../utils';
 
@@ -27,10 +27,11 @@ type IProfitInfoProps = {
   apr?: string;
   apys?: IRewardApys;
   rewardUnit: IEarnRewardUnit;
-  rewardAssets?: Record<string, IToken>;
+  rewardAssets?: Record<string, IEarnTokenItem>;
   earningsIn24h?: string;
   rewardToken?: string;
   rewardTokens?: string;
+  receiptToken?: string;
   updateFrequency?: string;
   unstakingPeriod?: number;
   earnPoints?: boolean;
@@ -45,6 +46,7 @@ function ProfitInfo({
   earningsIn24h,
   rewardToken,
   rewardTokens,
+  receiptToken,
   updateFrequency,
   unstakingPeriod,
   stakingTime,
@@ -121,13 +123,13 @@ function ProfitInfo({
               </NumberSizeableText>
             </GridItem>
           ) : null}
-          {rewardTokens ? (
+          {receiptToken || rewardTokens ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_reward_tokens,
               })}
             >
-              {rewardTokens}
+              {receiptToken || rewardTokens}
             </GridItem>
           ) : null}
           {updateFrequency ? (
@@ -192,6 +194,7 @@ export const ProfitSection = ({
     earningsIn24h: details.earnings24h,
     rewardToken: details.rewardToken,
     rewardTokens: details.rewardToken,
+    receiptToken: details.provider.receiptToken,
     // updateFrequency: details.updateFrequency,
     earnPoints: details.provider.earnPoints,
     unstakingPeriod: details.unstakingPeriod,
