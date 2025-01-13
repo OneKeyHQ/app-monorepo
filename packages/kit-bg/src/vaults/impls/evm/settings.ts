@@ -4,6 +4,7 @@ import {
   BaseUSDC,
   EMPTY_NATIVE_TOKEN_ADDRESS,
   EthereumMatic,
+  EthereumUSDC,
   SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
@@ -81,6 +82,17 @@ const stakingConfig: IStakingConfig = {
           MATIC: {
             ...commonStakeConfigs.MATIC,
             claimWithTx: true,
+          },
+        },
+      },
+      [EEarnProviderEnum.Morpho]: {
+        supportedSymbols: ['USDC'],
+        configs: {
+          USDC: {
+            enabled: true,
+            tokenAddress: EthereumUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
           },
         },
       },

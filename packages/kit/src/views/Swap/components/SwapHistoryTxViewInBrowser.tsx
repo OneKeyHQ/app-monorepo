@@ -151,7 +151,7 @@ const SwapTxHistoryViewInBrowser = ({
   const fromTxExplorer = useCallback(async () => {
     const logo = item.baseInfo.fromNetwork?.logoURI;
     let url = '';
-    if (item.baseInfo.fromNetwork?.networkId) {
+    if (item.baseInfo.fromNetwork?.networkId && item.txInfo.txId) {
       url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
         networkId: item.baseInfo.fromNetwork?.networkId,
         type: 'transaction',
@@ -204,9 +204,10 @@ const SwapTxHistoryViewInBrowser = ({
 
   const providerExplorer = useMemo(() => {
     const logo = item.swapInfo.provider?.providerLogo;
-    const url = item.swapInfo.socketBridgeScanUrl
-      ? `${item.swapInfo.socketBridgeScanUrl}${item.txInfo.txId}`
-      : '';
+    const url =
+      item.swapInfo.socketBridgeScanUrl && item.txInfo.txId
+        ? `${item.swapInfo.socketBridgeScanUrl}${item.txInfo.txId}`
+        : '';
     return {
       name: item.swapInfo.provider.providerName,
       url,

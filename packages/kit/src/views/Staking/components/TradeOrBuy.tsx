@@ -47,7 +47,7 @@ function BasicTradeOrBuy({
     const { importFromToken, swapTabSwitchType } = getImportFromToken({
       networkId,
       isSupportSwap,
-      tokenSymbol: token.symbol,
+      tokenAddress: token.address,
     });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
