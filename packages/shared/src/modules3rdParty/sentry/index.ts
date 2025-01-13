@@ -24,6 +24,8 @@ export const initSentry = () => {
 
 export const nativeCrash = () => {};
 
+export const addBreadcrumb = () => {};
+
 export const withSentryHOC = (
   Component: ComponentType<any>,
   errorBoundaryFallback?: FallbackRender,
