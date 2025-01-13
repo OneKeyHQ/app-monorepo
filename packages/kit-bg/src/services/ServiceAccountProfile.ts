@@ -364,13 +364,21 @@ class ServiceAccountProfile extends ServiceBase {
 
     if (enableAddressNotAllowList) {
       // Check if it's user's own account by checking if there's a matching wallet account ID
-      const isSelfAccount = !!result.walletAccountId;
-      if (!isSelfAccount) {
-        const isEnableTransferAllowList =
-          await serviceSetting.getIsEnableTransferAllowList();
-        if (isEnableTransferAllowList && !result.isAllowListed) {
-          result.validStatus = 'address-not-allowlist';
-          return result;
+      if (result.walletAccountId) {
+        const accountParams = { accountId: result.walletAccountId };
+        const isOwnAccount =
+          accountUtils.isHdAccount(accountParams) ||
+          accountUtils.isHwAccount(accountParams) ||
+          accountUtils.isQrAccount(accountParams) ||
+          accountUtils.isImportedAccount(accountParams) ||
+          accountUtils.isExternalAccount(accountParams);
+        if (!isOwnAccount) {
+          const isEnableTransferAllowList =
+            await serviceSetting.getIsEnableTransferAllowList();
+          if (isEnableTransferAllowList && !result.isAllowListed) {
+            result.validStatus = 'address-not-allowlist';
+            return result;
+          }
         }
       }
     }
