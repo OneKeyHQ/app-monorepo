@@ -22,6 +22,7 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -51,6 +52,7 @@ import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthNativeError, biologyAuthUtils } from './biologyAuthUtils';
 import {
+  BIOLOGY_AUTH_CANCEL_ERROR,
   EPasswordMode,
   EPasswordPromptType,
   PASSCODE_LENGTH,
@@ -86,8 +88,10 @@ export default class ServicePassword extends ServiceBase {
     success: boolean;
   }) {
     if (!authRes.success) {
-      if (authRes.warning) {
-        const nativeError = new Error(authRes.warning);
+      if (authRes.warning || authRes.error === BIOLOGY_AUTH_CANCEL_ERROR) {
+        const nativeError = new Error(
+          authRes.error === BIOLOGY_AUTH_CANCEL_ERROR ? '' : authRes.warning,
+        );
         nativeError.name = authRes.error;
         nativeError.cause = biologyAuthNativeError;
         throw nativeError;

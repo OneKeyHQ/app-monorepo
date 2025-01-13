@@ -49,9 +49,7 @@ const SwapInputActions = ({
           opacity: 0,
           x: 4,
         }}
-        gap="$1"
-        alignItems="center"
-        pb="$2"
+        gap="$0.5"
       >
         {showActionBuy ? (
           <ActionBuy

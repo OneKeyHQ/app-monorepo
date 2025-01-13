@@ -46,6 +46,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IEarnAccount,
   IEarnAccountToken,
+  IEarnRewardUnit,
 } from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -65,7 +66,7 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
-const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
+const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 const getNumberColor = (
   value: string | number,
   defaultColor: ISizableTextProps['color'] = '$textSuccess',
@@ -211,7 +212,7 @@ function RecommendedItem({
         </SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
-        {buildAprText(token.apr)}
+        {buildAprText(token.apr, token.rewardUnit)}
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
         {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
@@ -535,7 +536,10 @@ function AvailableAssets() {
           }}
         >
           {assets.map(
-            ({ name, logoURI, apr, networkId, symbol, tags = [] }, index) => (
+            (
+              { name, logoURI, apr, networkId, symbol, rewardUnit, tags = [] },
+              index,
+            ) => (
               <ListItem
                 userSelect="none"
                 key={name}
@@ -599,7 +603,7 @@ function AvailableAssets() {
                     flexGrow: 1,
                     flexBasis: 0,
                   }}
-                  primary={buildAprText(apr)}
+                  primary={buildAprText(apr, rewardUnit)}
                 />
               </ListItem>
             ),

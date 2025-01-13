@@ -1,15 +1,35 @@
 import BigNumber from 'bignumber.js';
+import { findIndex, isEmpty } from 'lodash';
 
-import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
+import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IDecodedTx,
+  IDecodedTxAction,
+  IDecodedTxActionAssetTransfer,
+  IDecodedTxActionFunctionCall,
+  IDecodedTxActionTokenActivate,
+  IDecodedTxActionTokenApprove,
+  IDecodedTxActionUnknown,
+} from '@onekeyhq/shared/types/tx';
 import {
   EDecodedTxActionType,
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
 
+import { EParseTxComponentType } from '../../types/signatureConfirm';
 import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
 
+import type {
+  IDisplayComponent,
+  IDisplayComponentAddress,
+  IDisplayComponentApprove,
+  IDisplayComponentDefault,
+  IDisplayComponentInternalAssets,
+  IDisplayComponentNetwork,
+  IDisplayComponentToken,
+} from '../../types/signatureConfirm';
 import type { ISwapTxInfo } from '../../types/swap/types';
 
 export function buildTxActionDirection({
@@ -194,4 +214,426 @@ export function getStakingActionLabel({
         id: ETranslations.global_unknown,
       });
   }
+}
+
+export function convertAddressToSignatureConfirmAddress({
+  address,
+  label,
+}: {
+  address: string;
+  label?: string;
+}): IDisplayComponentAddress {
+  return {
+    type: EParseTxComponentType.Address,
+    label:
+      label ??
+      appLocale.intl.formatMessage({
+        id: ETranslations.copy_address_modal_title,
+      }),
+    address,
+    tags: [],
+  };
+}
+
+export function convertNetworkToSignatureConfirmNetwork({
+  networkId,
+  label,
+}: {
+  networkId: string;
+  label?: string;
+}): IDisplayComponentNetwork {
+  return {
+    type: EParseTxComponentType.Network,
+    label:
+      label ??
+      appLocale.intl.formatMessage({
+        id: ETranslations.network__network,
+      }),
+    networkId,
+  };
+}
+
+function convertAssetTransferActionToSignatureConfirmComponent({
+  action,
+  unsignedTx,
+}: {
+  action: IDecodedTxActionAssetTransfer;
+  unsignedTx: IUnsignedTxPro;
+}) {
+  const components: IDisplayComponent[] = [];
+
+  const isInternalSwap = !!unsignedTx.swapInfo;
+  const isInternalStake = !!unsignedTx.stakingInfo;
+
+  action.sends.forEach((send) => {
+    const assetsLabel = isInternalSwap
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.global_pay,
+        })
+      : appLocale.intl.formatMessage({
+          id: ETranslations.global_asset,
+        });
+
+    const assetsComponent: IDisplayComponentInternalAssets = {
+      type: EParseTxComponentType.InternalAssets,
+      label: assetsLabel,
+      name: send.name,
+      icon: send.icon,
+      symbol: send.symbol,
+      amount: '',
+      amountParsed: send.amount,
+      networkId: send.networkId,
+      isNFT: send.isNFT,
+    };
+
+    components.push(assetsComponent);
+  });
+
+  action.receives.forEach((receive) => {
+    const assetsLabel = isInternalSwap
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.global_receive,
+        })
+      : appLocale.intl.formatMessage({
+          id: ETranslations.global_asset,
+        });
+
+    const assetsComponent: IDisplayComponentInternalAssets = {
+      type: EParseTxComponentType.InternalAssets,
+      label: assetsLabel,
+      name: receive.name,
+      icon: receive.icon,
+      symbol: receive.symbol,
+      amount: '',
+      amountParsed: receive.amount,
+      networkId: receive.networkId,
+      isNFT: receive.isNFT,
+    };
+
+    components.push(assetsComponent);
+  });
+
+  if (isInternalSwap && unsignedTx.swapInfo) {
+    const receiveAddressComponent: IDisplayComponentAddress = {
+      type: EParseTxComponentType.Address,
+      label: appLocale.intl.formatMessage({
+        id: ETranslations.swap_history_detail_received_address,
+      }),
+      address: unsignedTx.swapInfo.receivingAddress,
+      tags: [],
+    };
+
+    components.push(receiveAddressComponent);
+  }
+
+  if (action.to) {
+    const toAddressComponent: IDisplayComponentAddress = {
+      type: EParseTxComponentType.Address,
+      label:
+        isInternalSwap || isInternalStake
+          ? appLocale.intl.formatMessage({
+              id: ETranslations.interact_with_contract,
+            })
+          : appLocale.intl.formatMessage({
+              id: ETranslations.global_to,
+            }),
+      address: action.to,
+      tags: [],
+      isNavigable: isInternalSwap || isInternalStake,
+    };
+
+    components.push(toAddressComponent);
+  }
+
+  return components;
+}
+
+function convertTokenApproveActionToSignatureConfirmComponent({
+  action,
+  isMultiTxs,
+  networkId,
+}: {
+  action: IDecodedTxActionTokenApprove;
+  isMultiTxs?: boolean;
+  networkId: string;
+}) {
+  const isRevoke = new BigNumber(action.amount).isZero();
+  let approveLabel = '';
+
+  if (isMultiTxs) {
+    approveLabel = isRevoke
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.global_revoke,
+        })
+      : appLocale.intl.formatMessage({
+          id: ETranslations.global_approve,
+        });
+  } else {
+    approveLabel = appLocale.intl.formatMessage({
+      id: ETranslations.global_asset,
+    });
+  }
+
+  const approveComponent: IDisplayComponentApprove = {
+    type: EParseTxComponentType.Approve,
+    label: approveLabel,
+    // @ts-ignore
+    token: {
+      info: {
+        symbol: action.symbol,
+        name: action.name,
+        address: action.tokenIdOnNetwork,
+        isNative: false,
+        decimals: action.decimals,
+        logoURI: action.icon,
+      },
+    },
+    amountParsed: action.amount,
+    isEditable: !isRevoke && !isMultiTxs,
+    isInfiniteAmount: action.isInfiniteAmount,
+    networkId,
+  };
+
+  const spenderComponent: IDisplayComponentAddress | null = isMultiTxs
+    ? null
+    : {
+        type: EParseTxComponentType.Address,
+        label: isRevoke
+          ? appLocale.intl.formatMessage({
+              id: ETranslations.sig_revoke_from_label,
+            })
+          : appLocale.intl.formatMessage({
+              id: ETranslations.sig_approve_to_label,
+            }),
+        address: action.spender,
+        tags: [],
+        isNavigable: true,
+      };
+
+  return [approveComponent, spenderComponent].filter(Boolean);
+}
+
+function convertTokenActiveActionToSignatureConfirmComponent({
+  action,
+  networkId,
+}: {
+  action: IDecodedTxActionTokenActivate;
+  networkId: string;
+}) {
+  const component: IDisplayComponentToken = {
+    type: EParseTxComponentType.Token,
+    label: appLocale.intl.formatMessage({
+      id: ETranslations.global_asset,
+    }),
+    networkId,
+    // @ts-ignore
+    token: {
+      // @ts-ignore
+      info: {
+        symbol: action.symbol,
+        name: action.name,
+        address: action.tokenIdOnNetwork,
+        decimals: action.decimals,
+        logoURI: action.icon,
+      },
+    },
+  };
+
+  return [component];
+}
+
+function convertFunctionCallActionToSignatureConfirmComponent({
+  action,
+}: {
+  action: IDecodedTxActionFunctionCall;
+}) {
+  const component: IDisplayComponentDefault = {
+    type: EParseTxComponentType.Default,
+    label: 'Operation',
+    value: action.functionName,
+  };
+
+  const interactWithContractComponent: IDisplayComponentAddress = {
+    type: EParseTxComponentType.Address,
+    label: appLocale.intl.formatMessage({
+      id: ETranslations.interact_with_contract,
+    }),
+    address: action.to,
+    tags: [],
+    isNavigable: true,
+  };
+
+  return [component, interactWithContractComponent];
+}
+
+function convertUnknownActionToSignatureConfirmComponent({
+  action,
+}: {
+  action: IDecodedTxActionUnknown;
+}) {
+  const interactWithContractComponent: IDisplayComponentAddress = {
+    type: EParseTxComponentType.Address,
+    label: appLocale.intl.formatMessage({
+      id: ETranslations.interact_with_contract,
+    }),
+    address: action.to,
+    tags: [],
+    isNavigable: true,
+  };
+
+  return [interactWithContractComponent];
+}
+
+export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
+  decodedTx,
+  isMultiTxs,
+  unsignedTx,
+}: {
+  decodedTx: IDecodedTx;
+  unsignedTx: IUnsignedTxPro;
+  isMultiTxs?: boolean;
+}): IDisplayComponent[] {
+  const { actions, networkId } = decodedTx;
+  const components: IDisplayComponent[] = [];
+
+  for (const action of actions) {
+    if (
+      action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      action.assetTransfer
+    ) {
+      components.push(
+        ...convertAssetTransferActionToSignatureConfirmComponent({
+          action: action.assetTransfer,
+          unsignedTx,
+        }),
+      );
+    } else if (
+      action.type === EDecodedTxActionType.TOKEN_APPROVE &&
+      action.tokenApprove
+    ) {
+      components.push(
+        ...convertTokenApproveActionToSignatureConfirmComponent({
+          action: action.tokenApprove,
+          isMultiTxs,
+          networkId,
+        }),
+      );
+    } else if (
+      action.type === EDecodedTxActionType.TOKEN_ACTIVATE &&
+      action.tokenActivate
+    ) {
+      components.push(
+        ...convertTokenActiveActionToSignatureConfirmComponent({
+          action: action.tokenActivate,
+          networkId,
+        }),
+      );
+    } else if (
+      action.type === EDecodedTxActionType.FUNCTION_CALL &&
+      action.functionCall
+    ) {
+      components.push(
+        ...convertFunctionCallActionToSignatureConfirmComponent({
+          action: action.functionCall,
+        }),
+      );
+    } else if (
+      action.type === EDecodedTxActionType.UNKNOWN &&
+      action.unknownAction
+    ) {
+      components.push(
+        ...convertUnknownActionToSignatureConfirmComponent({
+          action: action.unknownAction,
+        }),
+      );
+    }
+  }
+
+  return components;
+}
+
+export function convertDecodedTxActionsToSignatureConfirmTxDisplayTitle({
+  decodedTxs,
+  unsignedTxs,
+}: {
+  decodedTxs: IDecodedTx[];
+  unsignedTxs: IUnsignedTxPro[];
+}) {
+  const swapTxIndex = findIndex(unsignedTxs, (tx) => !!tx.swapInfo);
+  const stakingTxIndex = findIndex(unsignedTxs, (tx) => !!tx.stakingInfo);
+
+  const swapUnsignedTx = unsignedTxs[swapTxIndex];
+  const stakingUnsignedTx = unsignedTxs[stakingTxIndex];
+
+  if (swapUnsignedTx && swapUnsignedTx.swapInfo) {
+    const isBridge =
+      swapUnsignedTx.swapInfo.sender.accountInfo.networkId !==
+      swapUnsignedTx.swapInfo.receiver.accountInfo.networkId;
+    return isBridge
+      ? appLocale.intl.formatMessage({
+          id: ETranslations.swap_page_bridge,
+        })
+      : appLocale.intl.formatMessage({
+          id: ETranslations.swap_page_swap,
+        });
+  }
+
+  if (stakingUnsignedTx && stakingUnsignedTx.stakingInfo) {
+    return getStakingActionLabel({
+      stakingInfo: stakingUnsignedTx.stakingInfo,
+    });
+  }
+
+  // only swap tx may have multiple txs
+  const actions = decodedTxs[0].actions;
+
+  for (const action of actions) {
+    if (
+      action.type === EDecodedTxActionType.ASSET_TRANSFER &&
+      action.assetTransfer
+    ) {
+      const sends = action.assetTransfer.sends;
+      const receives = action.assetTransfer.receives;
+
+      if (!isEmpty(sends) && isEmpty(receives)) {
+        return appLocale.intl.formatMessage({
+          id: ETranslations.global_send,
+        });
+      }
+
+      if (isEmpty(sends) && !isEmpty(receives)) {
+        return appLocale.intl.formatMessage({
+          id: ETranslations.global_receive,
+        });
+      }
+    }
+
+    if (
+      action.type === EDecodedTxActionType.TOKEN_APPROVE &&
+      action.tokenApprove
+    ) {
+      const isRevoke = new BigNumber(action.tokenApprove.amount).isZero();
+
+      return isRevoke
+        ? appLocale.intl.formatMessage({
+            id: ETranslations.sig_revoke_approval_label,
+          })
+        : appLocale.intl.formatMessage({
+            id: ETranslations.sig_approval_label,
+          });
+    }
+
+    if (
+      action.type === EDecodedTxActionType.FUNCTION_CALL &&
+      action.functionCall
+    ) {
+      return appLocale.intl.formatMessage({
+        id: ETranslations.transaction__contract_interaction,
+      });
+    }
+  }
+
+  return appLocale.intl.formatMessage({
+    id: ETranslations.transaction__contract_interaction,
+  });
 }

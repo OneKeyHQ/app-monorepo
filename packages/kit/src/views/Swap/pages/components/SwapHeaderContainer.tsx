@@ -44,7 +44,7 @@ function CustomTabItem({
       }}
       {...(isSelected
         ? {
-            bg: '$bgActive',
+            bg: '$bgSubdued',
           }
         : {
             hoverStyle: {

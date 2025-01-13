@@ -43,7 +43,8 @@ export type IStakeProviderInfo = {
   nextLaunchLeft?: string;
 
   lidoStTokenRate?: string;
-  type?: 'native' | 'liquid';
+  morphoTokenRate?: string;
+  type?: 'native' | 'liquid' | 'lending';
   isStaking?: boolean;
 
   unstakingTime?: number;
@@ -64,6 +65,10 @@ export type IStakeProviderInfo = {
   buttonStake: boolean;
   buttonUnstake: boolean;
   alerts: string[];
+
+  apys?: IRewardApys;
+  vault?: string;
+  rewardUnit: IEarnRewardUnit;
 };
 
 export type IStakeBaseParams = {
@@ -77,6 +82,7 @@ export type IStakeBaseParams = {
   feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
+  morphoVault?: string; // morpho vault
 };
 
 export type IWithdrawBaseParams = {
@@ -89,6 +95,7 @@ export type IWithdrawBaseParams = {
   identity?: string; // sol pubkey
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
+  morphoVault?: string; // morpho vault
 };
 
 export type IUnstakePushParams = {
@@ -115,6 +122,7 @@ export type IStakeClaimBaseParams = {
   provider: string;
   amount?: string;
   identity?: string;
+  claimTokenAddress?: string;
 };
 
 export type IStakeHistoryParams = {
@@ -234,6 +242,8 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   overflow?: string;
+  rewardNum?: Record<string, string>;
+  rewardAssets?: Record<string, IToken>;
 };
 
 export type IStakeProtocolListItem = {
@@ -244,6 +254,15 @@ export type IStakeProtocolListItem = {
     logoURI: string;
   };
   isEarning: boolean;
+};
+
+export type IRewardApys = {
+  rate: string;
+  rewards: Record<string, string>;
+  netApy: string;
+  dailyNetApy: string;
+  weeklyNetApy: string;
+  monthlyNetApy: string;
 };
 
 export type IBabylonPortfolioStatus =
@@ -293,6 +312,7 @@ export interface IEarnAccountToken {
   balanceParsed: string;
   address: string;
   price: string;
+  rewardUnit: IEarnRewardUnit;
 }
 
 export type IEarnAccountResponse = {
@@ -315,6 +335,7 @@ export type IEarnAccountTokenResponse = {
   accounts: IEarnAccount[];
 };
 
+export type IEarnRewardUnit = 'APY' | 'APR';
 export type IAvailableAsset = {
   name: string;
   symbol: string;
@@ -322,6 +343,7 @@ export type IAvailableAsset = {
   apr: string;
   tags: string[];
   networkId: string;
+  rewardUnit: IEarnRewardUnit;
 };
 
 export interface IEarnAtomData {
@@ -356,6 +378,7 @@ export interface IInvestment {
   staked: string;
   stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
+  rewardNum?: Record<string, string>;
 }
 export interface IEarnInvestmentItem {
   name: string;

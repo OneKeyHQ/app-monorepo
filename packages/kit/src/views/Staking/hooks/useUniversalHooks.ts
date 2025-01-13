@@ -4,7 +4,7 @@ import BigNumber from 'bignumber.js';
 
 import type { IEncodedTxBtc } from '@onekeyhq/core/src/chains/btc/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
@@ -61,13 +61,17 @@ export function useUniversalStake({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
+  const { navigationToSignatureConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
   return useCallback(
     async ({
       amount,
       symbol,
       term,
       feeRate,
+      morphoVault,
       provider,
       stakingInfo,
       onSuccess,
@@ -77,6 +81,7 @@ export function useUniversalStake({
       symbol: string;
       term?: number;
       feeRate?: number;
+      morphoVault?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -91,6 +96,7 @@ export function useUniversalStake({
           term,
           provider,
           feeRate,
+          morphoVault,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
@@ -114,7 +120,7 @@ export function useUniversalStake({
         orderId: stakeTx.orderId,
       });
 
-      await navigationToSendConfirm({
+      await navigationToSignatureConfirm({
         encodedTx,
         stakingInfo: stakeInfoWithOrderId,
         onSuccess: async (data) => {
@@ -130,7 +136,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [navigationToSendConfirm, accountId, networkId],
+    [navigationToSignatureConfirm, accountId, networkId],
   );
 }
 
@@ -141,13 +147,17 @@ export function useUniversalWithdraw({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
+  const { navigationToSignatureConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
   return useCallback(
     async ({
       amount,
       symbol,
       provider,
       identity,
+      morphoVault,
       stakingInfo,
       onSuccess,
       onFail,
@@ -156,6 +166,7 @@ export function useUniversalWithdraw({
       symbol: string;
       provider: string;
       identity?: string;
+      morphoVault?: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -217,6 +228,7 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
+            morphoVault,
           });
       }
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
@@ -239,7 +251,7 @@ export function useUniversalWithdraw({
         orderId: stakeTx.orderId,
       });
 
-      await navigationToSendConfirm({
+      await navigationToSignatureConfirm({
         encodedTx,
         stakingInfo,
         signOnly: stakingConfig?.withdrawSignOnly,
@@ -271,7 +283,7 @@ export function useUniversalWithdraw({
         onFail,
       });
     },
-    [accountId, networkId, navigationToSendConfirm],
+    [accountId, networkId, navigationToSignatureConfirm],
   );
 }
 
@@ -282,13 +294,17 @@ export function useUniversalClaim({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSendConfirm } = useSendConfirm({ accountId, networkId });
+  const { navigationToSignatureConfirm } = useSignatureConfirm({
+    accountId,
+    networkId,
+  });
   const showClaimEstimateGasAlert = useShowClaimEstimateGasAlert();
   return useCallback(
     async ({
       identity,
       amount,
       provider,
+      claimTokenAddress,
       symbol,
       stakingInfo,
       onSuccess,
@@ -298,6 +314,7 @@ export function useUniversalClaim({
       amount: string;
       symbol: string;
       provider: string;
+      claimTokenAddress?: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -311,6 +328,7 @@ export function useUniversalClaim({
             provider,
             amount,
             identity,
+            claimTokenAddress,
           });
         const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
           networkId,
@@ -332,7 +350,7 @@ export function useUniversalClaim({
           orderId: stakeTx.orderId,
         });
 
-        await navigationToSendConfirm({
+        await navigationToSignatureConfirm({
           encodedTx,
           stakingInfo,
           onSuccess: async (data) => {
@@ -371,6 +389,11 @@ export function useUniversalClaim({
       }
       await continueClaim();
     },
-    [navigationToSendConfirm, accountId, networkId, showClaimEstimateGasAlert],
+    [
+      navigationToSignatureConfirm,
+      accountId,
+      networkId,
+      showClaimEstimateGasAlert,
+    ],
   );
 }

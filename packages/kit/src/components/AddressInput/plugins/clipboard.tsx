@@ -2,7 +2,7 @@ import { type FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, useClipboard } from '@onekeyhq/components';
+import { IconButton, Toast, useClipboard } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EInputAddressChangeType } from '@onekeyhq/shared/types/address';
@@ -20,7 +20,15 @@ export const ClipboardPlugin: FC<IAddressPluginProps> = ({
     const text = await getClipboard();
     onChange?.(text);
     onInputTypeChange?.(EInputAddressChangeType.Paste);
-  }, [getClipboard, onChange, onInputTypeChange]);
+
+    if (text?.length) {
+      Toast.success({
+        title: intl.formatMessage({
+          id: ETranslations.feedback_address_pasted_text,
+        }),
+      });
+    }
+  }, [getClipboard, intl, onChange, onInputTypeChange]);
   return platformEnv.isExtensionUiPopup ||
     platformEnv.isExtensionUiSidePanel ? null : (
     <IconButton

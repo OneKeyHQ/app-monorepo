@@ -16,6 +16,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
@@ -43,7 +44,7 @@ const ProtocolDetailsPage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.ProtocolDetails
   >();
-  const { accountId, networkId, indexedAccountId, symbol, provider } =
+  const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
     route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
@@ -53,6 +54,7 @@ const ProtocolDetailsPage = () => {
         accountId,
         networkId,
         indexedAccountId,
+        btcOnlyTaproot: true,
       }),
     [accountId, indexedAccountId, networkId],
   );
@@ -64,8 +66,9 @@ const ProtocolDetailsPage = () => {
         indexedAccountId,
         symbol,
         provider,
+        vault,
       }),
-    [accountId, networkId, indexedAccountId, symbol, provider],
+    [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
 
@@ -170,20 +173,38 @@ const ProtocolDetailsPage = () => {
     networkId,
   });
   const onClaim = useCallback(
-    async (params?: { isReward?: boolean }) => {
+    async (params?: {
+      amount: string;
+      claimTokenAddress?: string;
+      isReward?: boolean;
+      isMorphoClaim?: boolean;
+    }) => {
       if (!result) return;
-      const { isReward } = params ?? {};
-      const amount = isReward ? result.rewards : result.claimable;
+      const { amount, claimTokenAddress, isReward, isMorphoClaim } =
+        params ?? {};
+      let claimTokenInfo = { token: result.token.info, amount: amount ?? '0' };
+      if (claimTokenAddress) {
+        const rewardToken = result.rewardAssets?.[claimTokenAddress];
+        if (!rewardToken) {
+          throw new Error('Reward token not found');
+        }
+        claimTokenInfo = { token: rewardToken, amount: amount ?? '0' };
+      }
       await handleClaim({
-        details: result,
-        isReward,
         symbol,
         provider,
+        claimAmount: claimTokenInfo.amount,
+        claimTokenAddress,
+        isReward,
+        isMorphoClaim,
+        details: result,
         stakingInfo: {
           label: EEarnLabels.Claim,
-          protocol: result.provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: result.provider.name,
+          }),
           protocolLogoURI: result.provider.logoURI,
-          receive: { token: result.token.info, amount: amount ?? '0' },
+          receive: claimTokenInfo,
           tags: [buildLocalTxStatusSyncId(result)],
         },
       });

@@ -7,9 +7,13 @@ import { AppState } from 'react-native';
 import { Page, Spinner, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
-import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EModalSendRoutes,
+  IModalSendParamList,
+} from '@onekeyhq/shared/src/routes';
+import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type {
   IFeeInfoUnit,
   IGasEIP1559,
@@ -34,6 +38,8 @@ function SendConfirmFromSwap() {
 
   const { networkId, accountId, unsignedTxs, onSuccess, onFail, onCancel } =
     route.params;
+
+  const signatureConfirmRoute = EModalSignatureConfirmRoutes.TxConfirm;
 
   const handleConfirmMultiTxsOnHwOrExternal = useCallback(
     async (
@@ -68,9 +74,14 @@ function SendConfirmFromSwap() {
           unsignedTx.feeInfo = prevTxFeeInfo;
         }
         const isLastTx = i === len - 1;
+        const isFirstTx = i === 0;
+
+        if (!isFirstTx) {
+          await waitAsync(300);
+        }
 
         const result: ISendTxOnSuccessData[] = await new Promise((resolve) => {
-          appNavigation.push(EModalSendRoutes.SendConfirm, {
+          appNavigation.push(signatureConfirmRoute, {
             ...route.params,
             popStack: false,
             unsignedTxs: [unsignedTx],
@@ -97,7 +108,15 @@ function SendConfirmFromSwap() {
         }
       }
     },
-    [unsignedTxs, appNavigation, route.params, onSuccess, onFail, onCancel],
+    [
+      unsignedTxs,
+      appNavigation,
+      signatureConfirmRoute,
+      route.params,
+      onSuccess,
+      onFail,
+      onCancel,
+    ],
   );
 
   const navigationToSendConfirm = useCallback(async () => {
@@ -140,7 +159,7 @@ function SendConfirmFromSwap() {
     navigationToNext.current = true;
 
     if (!batchEstimateButSingleConfirm) {
-      action = StackActions.replace(EModalSendRoutes.SendConfirm, {
+      action = StackActions.replace(signatureConfirmRoute, {
         ...route.params,
         // @ts-ignore
         _disabledAnimationOfNavigate: true,
@@ -160,6 +179,7 @@ function SendConfirmFromSwap() {
     navigation,
     networkId,
     route.params,
+    signatureConfirmRoute,
     unsignedTxs,
   ]);
 
@@ -183,4 +203,4 @@ function SendConfirmFromSwap() {
     </Page>
   );
 }
-export { SendConfirmFromSwap };
+export default SendConfirmFromSwap;

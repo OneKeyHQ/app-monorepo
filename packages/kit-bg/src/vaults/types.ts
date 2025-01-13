@@ -242,6 +242,8 @@ export type IVaultSettings = {
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
 
   stakingConfig?: IStakingConfig;
+  stakingResultPollingInterval?: number;
+
   editApproveAmountEnabled?: boolean;
   useRemoteTxId?: boolean;
   isNativeTokenContractAddressEmpty?: boolean;
@@ -531,6 +533,7 @@ export interface IBuildDecodedTxParams {
   feeInfo?: ISendSelectedFeeInfo;
   transferPayload?: ITransferPayload;
   saveToLocalHistory?: boolean;
+  isToContract?: boolean;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;

@@ -26,8 +26,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-  EModalSendRoutes,
   EModalSettingRoutes,
+  EModalSignatureConfirmRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -131,8 +131,8 @@ const useParseQRCode = () => {
                   networkId: network.id,
                   accountId: account.id,
                 });
-              navigation.pushModal(EModalRoutes.SendModal, {
-                screen: EModalSendRoutes.SendDataInput,
+              navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                screen: EModalSignatureConfirmRoutes.TxDataInput,
                 params: {
                   accountId: account.id,
                   networkId: network.id,
@@ -155,8 +155,8 @@ const useParseQRCode = () => {
                 tokens: options?.tokens,
                 onSelect: async (token) => {
                   await timerUtils.wait(600);
-                  navigation.pushModal(EModalRoutes.SendModal, {
-                    screen: EModalSendRoutes.SendDataInput,
+                  navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                    screen: EModalSignatureConfirmRoutes.TxDataInput,
                     params: {
                       accountId: account.id,
                       networkId: network.id,
