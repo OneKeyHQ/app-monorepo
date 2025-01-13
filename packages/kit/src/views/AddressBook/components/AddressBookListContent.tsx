@@ -9,6 +9,7 @@ import {
   Empty,
   Icon,
   IconButton,
+  MatchSizeableText,
   SearchBar,
   SectionList,
   SizableText,
@@ -91,33 +92,50 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
     [item.name],
   );
 
-  const renderBadges = useCallback(
-    () => (
-      <Badge badgeType="success" badgeSize="sm" gap="$1.5">
-        <Icon name="ShieldCheckDoneOutline" color="$iconSuccess" size="$4" />
-        <SizableText size="$bodySmMedium" color="$iconSuccess">
-          {intl.formatMessage({ id: ETranslations.address_label_allowlist })}
-        </SizableText>
-      </Badge>
-    ),
-    [intl],
-  );
-
   const handlePress = useCallback(() => {
     onPress?.(item);
   }, [item, onPress]);
 
   return (
     <ListItem
-      title={item.name}
-      titleMatch={item.nameMatch}
-      subtitle={item.address}
-      subTitleMatch={item.addressMatch}
-      renderBadges={item.isAllowListed ? renderBadges : undefined}
       renderAvatar={renderAvatar}
       onPress={handlePress}
       testID={`address-item-${item.address || ''}`}
     >
+      <ListItem.Text
+        flexGrow={1}
+        flexBasis={0}
+        primary={
+          <XStack gap="$1" alignItems="center">
+            <MatchSizeableText size="$bodyLgMedium" match={item.nameMatch}>
+              {item.name}
+            </MatchSizeableText>
+            {item.isAllowListed ? (
+              <Badge badgeType="success" badgeSize="sm" gap="$1.5">
+                <Icon
+                  name="ShieldCheckDoneOutline"
+                  color="$iconSuccess"
+                  size="$4"
+                />
+                <SizableText size="$bodySmMedium" color="$iconSuccess">
+                  {intl.formatMessage({
+                    id: ETranslations.address_label_allowlist,
+                  })}
+                </SizableText>
+              </Badge>
+            ) : null}
+          </XStack>
+        }
+        secondary={
+          <MatchSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            match={item.addressMatch}
+          >
+            {item.address}
+          </MatchSizeableText>
+        }
+      />
       {showActions ? (
         <ListItemIconButton id={item.id} address={item.address} />
       ) : null}
