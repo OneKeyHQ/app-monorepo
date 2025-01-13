@@ -260,11 +260,10 @@ export const ApproveBaseStake = ({
 
             rewards.push({
               amount: rewardAmount.toFixed(),
-              token: rewardToken,
-              // TODO: Add fiat value
-              // fiatValue: new BigNumber(rewardToken.price).gt(0)
-              //   ? rewardAmount.multipliedBy(rewardToken.price).toFixed()
-              //   : undefined,
+              token: rewardToken.info,
+              fiatValue: new BigNumber(rewardToken.price).gt(0)
+                ? rewardAmount.multipliedBy(rewardToken.price).toFixed()
+                : undefined,
             });
           }
         });

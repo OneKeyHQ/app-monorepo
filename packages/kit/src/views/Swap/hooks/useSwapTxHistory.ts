@@ -28,7 +28,7 @@ export function useSwapTxHistoryActions() {
       gasFeeFiatValue,
       swapTxInfo,
     }: {
-      txId: string;
+      txId?: string;
       gasFeeInNative?: string;
       gasFeeFiatValue?: string;
       swapTxInfo: ISwapTxInfo;
@@ -61,9 +61,14 @@ export function useSwapTxHistoryActions() {
           },
           txInfo: {
             txId,
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            useOrderId: !!swapTxInfo.swapBuildResData.ctx.cowSwapOrderId,
             gasFeeFiatValue,
             gasFeeInNative,
-            orderId: swapTxInfo.swapBuildResData.swftOrder?.orderId,
+            orderId:
+              swapTxInfo.swapBuildResData.swftOrder?.orderId ??
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              swapTxInfo.swapBuildResData.ctx.cowSwapOrderId,
             sender: swapTxInfo.accountAddress,
             receiver: swapTxInfo.receivingAddress,
           },

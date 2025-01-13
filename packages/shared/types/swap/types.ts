@@ -12,6 +12,7 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 
 export enum EProtocolOfExchange {
@@ -261,6 +262,15 @@ export interface IFetchQuoteResult {
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
+  cowSwapQuoteResult?: any;
+  swapShouldSignedData?: {
+    unSignedMessage: string;
+    unSignedInfo: {
+      origin: string;
+      scope: string;
+      signedType: EMessageTypesEth;
+    };
+  };
   protocolNoRouterInfo?: string;
   supportUrl?: string;
   isAntiMEV?: boolean;
@@ -510,6 +520,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
   timestamp?: number;
   dealReceiveAmount?: string;
   blockNumber?: number;
+  txId?: string;
 }
 
 export interface ISwapCheckSupportResponse {
@@ -542,7 +553,8 @@ export interface ISwapTxHistory {
     toNetwork?: ISwapNetwork;
   };
   txInfo: {
-    txId: string;
+    txId?: string;
+    useOrderId?: boolean;
     orderId?: string; // swft orderId
     sender: string;
     receiver: string;
