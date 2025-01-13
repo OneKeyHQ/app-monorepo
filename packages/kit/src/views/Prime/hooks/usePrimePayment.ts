@@ -16,8 +16,13 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePrimeAuth } from './usePrimeAuth';
 
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import type { CustomerInfo, Package } from '@revenuecat/purchases-js';
+
 import type { IUsePrimePayment } from './usePrimePaymentTypes';
+import type {
+  CustomerInfo,
+  Package,
+  PurchaseParams,
+} from '@revenuecat/purchases-js';
 
 export function usePrimePayment(): IUsePrimePayment {
   const { isReady: isAuthReady, user } = usePrimeAuth();
@@ -169,13 +174,16 @@ export function usePrimePayment(): IUsePrimePayment {
         if (!paywallPackage) {
           throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
         }
-        // TODO check package user is Matched to privyUserId
-        // TODO check if user has already purchased
-        const purchase = await Purchases.getSharedInstance().purchase({
+        const purchaseParams: PurchaseParams = {
           rcPackage: paywallPackage,
           customerEmail: email,
           selectedLocale: locale,
-        });
+        };
+        // TODO check package user is Matched to privyUserId
+        // TODO check if user has already purchased
+        const purchase = await Purchases.getSharedInstance().purchase(
+          purchaseParams,
+        );
         // test credit card
         // https://docs.stripe.com/testing#testing-interactively
         // Mastercard: 5555555555554444

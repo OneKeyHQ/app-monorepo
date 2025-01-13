@@ -72,7 +72,7 @@ jobs:
         uses: OneKeyHQ/actions/build-plist-edit@main
         with:
           buildNumber: ${{ env.BUILD_NUMBER }}
-          versionName: ${{ steps.dotenv.outputs.version }}
+          versionName: ${{ env.BUILD_APP_VERSION }}
           projectName: OneKeyWallet
           dir: ./apps/mobile
 
@@ -80,7 +80,7 @@ jobs:
         uses: OneKeyHQ/actions/build-plist-edit@main
         with:
           buildNumber: ${{ env.BUILD_NUMBER }}
-          versionName: ${{ steps.dotenv.outputs.version }}
+          versionName: ${{ env.BUILD_APP_VERSION }}
           projectName: ServiceExtension
           dir: ./apps/mobile
 

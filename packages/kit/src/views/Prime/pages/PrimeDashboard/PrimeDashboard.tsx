@@ -7,6 +7,7 @@ import type { IKeyOfIcons, IXStackProps } from '@onekeyhq/components';
 import {
   Badge,
   Button,
+  Dialog,
   Icon,
   IconButton,
   LottieView,
@@ -34,6 +35,12 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
 import type { Package } from '@revenuecat/purchases-js';
+
+function showDebugMessageByDialog(obj: any) {
+  Dialog.debugMessage({
+    debugMessage: obj,
+  });
+}
 
 function PrimeBanner() {
   return (
@@ -407,14 +414,14 @@ export default function PrimeDashboard() {
               </Button>
               <Button
                 onPress={() => {
-                  void getAccessToken().then(console.log);
+                  void getAccessToken().then(showDebugMessageByDialog);
                 }}
               >
                 Get Access Token
               </Button>
               <Button
                 onPress={() => {
-                  console.log({
+                  showDebugMessageByDialog({
                     ready: privy.isReady,
                     authenticated: privy.authenticated,
                     nativeUser: privy?.native?.user,
@@ -433,17 +440,27 @@ export default function PrimeDashboard() {
               </Button>
               <Button
                 onPress={() => {
-                  void getCustomerInfo().then(console.log);
+                  void getCustomerInfo().then(showDebugMessageByDialog);
                 }}
               >
                 CustomerInfo
               </Button>
               <Button
                 onPress={() => {
-                  void fetchPrimeUserInfo().then(console.log);
+                  void fetchPrimeUserInfo().then(showDebugMessageByDialog);
                 }}
               >
                 ServerPrimeUserInfo
+              </Button>
+              <Button
+                onPress={() => {
+                  void getPaywallPackagesNative?.().then(
+                    showDebugMessageByDialog,
+                  );
+                  void getPaywallPackagesWeb?.().then(showDebugMessageByDialog);
+                }}
+              >
+                PaywallPackages
               </Button>
             </XStack>
           </Page.Body>

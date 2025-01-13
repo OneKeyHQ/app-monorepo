@@ -10,12 +10,12 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
 import { usePrimeAuth } from './usePrimeAuth';
 
+import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type {
   CustomerInfo,
   PurchasesPackage,
 } from '@revenuecat/purchases-typescript-internal';
 import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
 
 export function usePrimePayment(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);

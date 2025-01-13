@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { usePrimeAuth } from './usePrimeAuth';

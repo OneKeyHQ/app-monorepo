@@ -63,6 +63,27 @@ runs:
       with:
         path: .env.version
 
+    - name: Setup ENV 
+      shell: bash
+      run: |
+        # Generate app version ------- start
+        app_version=${{ steps.dotenv.outputs.version }}
+        echo '$app_version='$app_version
+        echo "BUILD_APP_VERSION=$app_version" >> $GITHUB_ENV
+        # Generate app version ------- end
+
+        # Generate github tag ------- start
+        github_ref="${github_ref////-}"
+        github_ref="${github_ref/refs-heads-/}"
+        github_ref="${github_ref/refs-tags-/}"
+        echo '$github_ref='$github_ref
+        echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
+        # echo "::set-env name=GITHUB_TAG::$github_ref"
+        # Generate github tag ------- end
+      env:
+        github_ref: ${{ github.ref }}
+        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
     - name: Setup ENV BUILD_NUMBER to 1
       if: ${{ !github.event.workflow_run }}
       shell: bash
@@ -70,6 +91,10 @@ runs:
         # Generate build number ------- start
         echo "BUILD_NUMBER=1" >> $GITHUB_ENV
         # Generate build number ------- end
+      env:
+        github_ref: ${{ github.ref }}
+        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
 
     - name: Setup ENV BUILD_NUMBER by workflow_run
       if: ${{ github.event.workflow_run }}
@@ -85,12 +110,6 @@ runs:
         echo '$build_number='$build_number
         echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
         # Generate build number ------- end
-
-        github_ref="${github_ref////-}"
-        github_ref="${github_ref/refs-heads-/}"
-        github_ref="${github_ref/refs-tags-/}"
-        echo '$github_ref='$github_ref
-        echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
       env:
         github_ref: ${{ github.ref }}
         workflow_run_number: ${{ github.event.workflow_run.run_number}}
@@ -111,6 +130,9 @@ runs:
         REVENUECAT_API_KEY_GOOGLE: ${{ inputs.revenuecat_api_key_google }}
       run: |
         echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> ${TARGET_ENV_FILE}
+        echo "GITHUB_TAG=${{ env.GITHUB_TAG }}" >> ${TARGET_ENV_FILE}
+        echo "CI_BUILD_APP_VERSION=${{ env.BUILD_APP_VERSION }}" >> ${TARGET_ENV_FILE}
+        echo "CI_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ${TARGET_ENV_FILE}
         echo "ENABLE_ANALYZER=1" >> ${TARGET_ENV_FILE}
         echo "ENABLE_ANALYZER_HTML_REPORT=1" >> ${TARGET_ENV_FILE}
         echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> ${TARGET_ENV_FILE}

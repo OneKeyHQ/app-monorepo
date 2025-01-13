@@ -24,8 +24,8 @@ import {
 } from '../../states/jotai/atoms/prime';
 import ServiceBase from '../ServiceBase';
 
-import type { AxiosInstance } from 'axios';
 import type { IPrimeLoginDialogKeys } from '../../states/jotai/atoms/prime';
+import type { AxiosInstance } from 'axios';
 
 class ServicePrime extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -63,11 +63,17 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async apiFetchPrimeUserInfo(): Promise<IPrimeUserInfo> {
+  async apiFetchPrimeUserInfo(): Promise<{
+    userInfo: IPrimeUserInfo;
+    serverUserInfo: IPrimeServerUserInfo | undefined;
+  }> {
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
       await this.setPrimePersistAtomNotLoggedIn();
-      return primePersistAtom.get();
+      return {
+        userInfo: await primePersistAtom.get(),
+        serverUserInfo: undefined,
+      };
     }
     const client = await this.getPrimeClient();
     const result = await client.get<IApiClientResponse<IPrimeServerUserInfo>>(
@@ -92,7 +98,10 @@ class ServicePrime extends ServiceBase {
       isLoggedIn: true,
       primeSubscription,
     }));
-    return primePersistAtom.get();
+    return {
+      userInfo: await primePersistAtom.get(),
+      serverUserInfo,
+    };
   }
 
   async setPrimePersistAtomNotLoggedIn() {

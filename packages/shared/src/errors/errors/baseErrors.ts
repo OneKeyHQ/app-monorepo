@@ -9,6 +9,7 @@ import type {
 } from '@onekeyhq/shared/src/locale';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
+import { normalizeErrorProps } from '../utils/errorUtils';
 
 import type { IOneKeyAPIBaseResponse } from '../../../types/request';
 import type {
@@ -17,7 +18,6 @@ import type {
   IOneKeyHardwareErrorPayload,
   IOneKeyJsError,
 } from '../types/errorTypes';
-import { normalizeErrorProps } from '../utils/errorUtils';
 
 // const fakeMessage = 'FAKE_MESSAGE:F43E2460-AB7F-4EA5-9651-7D38C189AB45';
 
