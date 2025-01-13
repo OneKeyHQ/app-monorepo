@@ -1,5 +1,6 @@
 /* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
+import { cloneDeep } from 'lodash';
 
 import type { IQrcodeDrawType } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -334,22 +335,10 @@ class AppEventBus extends CrossEventEmitter {
     type: T,
     payload: IAppEventBusPayload[T],
   ): boolean {
+    void this.emitToRemote(type, payload);
     if (this.shouldEmitToSelf) {
-      defaultLogger.app.eventBus.emitToSelf({
-        eventName: type,
-      });
-      try {
-        // @ts-ignore
-        if (payload?.$$isRemoteEvent) {
-          // @ts-ignore
-          delete payload.$$isRemoteEvent;
-        }
-      } catch (e) {
-        // ignore
-      }
       this.emitToSelf(type, payload);
     }
-    void this.emitToRemote(type, payload);
     return true;
   }
 
@@ -388,21 +377,44 @@ class AppEventBus extends CrossEventEmitter {
     return super.removeListener(type, listener);
   }
 
-  emitToSelf(type: EAppEventBusNames, ...args: any[]) {
-    super.emit(type, ...args);
-    return true;
-  }
-
-  async emitToRemote(type: string, payload: any) {
+  emitToSelf(type: EAppEventBusNames, payload: any) {
+    defaultLogger.app.eventBus.emitToSelf({
+      eventName: type,
+    });
+    const payloadCloned = cloneDeep(payload);
     try {
-      if (payload) {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payloadCloned?.$$isRemoteEvent) {
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        payload.$$isRemoteEvent = true;
+        payloadCloned.$$isRemoteEvent = undefined;
       }
     } catch (e) {
       // ignore
     }
+    super.emit(type, payloadCloned);
+    return true;
+  }
+
+  // 
+
+  async emitToRemote(type: string, payload: any) {
+    const convertToRemoteEventPayload = (p: any) => {
+      const payloadCloned = cloneDeep(p);
+      try {
+        if (payloadCloned) {
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          payloadCloned.$$isRemoteEvent = true;
+        }
+      } catch (e) {
+        // ignore
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return payloadCloned;
+    };
+
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
       throw new Error('offscreen or webembed event bus not support yet.');
@@ -412,12 +424,18 @@ class AppEventBus extends CrossEventEmitter {
     }
     if (platformEnv.isExtensionUi) {
       // request background
-      return this.broadcastMethods.uiToBg(type, payload);
+      return this.broadcastMethods.uiToBg(
+        type,
+        convertToRemoteEventPayload(payload),
+      );
     }
     if (platformEnv.isExtensionBackground) {
       // requestToOffscreen
       // requestToAllUi
-      return this.broadcastMethods.bgToUi(type, payload);
+      return this.broadcastMethods.bgToUi(
+        type,
+        convertToRemoteEventPayload(payload),
+      );
     }
   }
 }
