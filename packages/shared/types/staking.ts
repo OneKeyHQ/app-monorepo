@@ -50,6 +50,8 @@ export type IStakeProviderInfo = {
   unstakingTime?: number;
   stakingTime?: number;
 
+  receiptToken?: string;
+
   // native token only
   minTransactionFee?: string;
 
