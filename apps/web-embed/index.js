@@ -1,4 +1,5 @@
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { ConfigProvider } from '@onekeyhq/components';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter, Route, Routes } from 'react-router-dom';
@@ -11,11 +12,13 @@ const root = createRoot(container);
 
 root.render(
   <React.StrictMode>
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<PageWebEmbedApi />} />
-        <Route path="/prime/login" element={<PagePrivyLogin />} />
-      </Routes>
-    </HashRouter>
+    <ConfigProvider theme="light" locale="en-us" onLocaleChange={() => {}}>
+      <HashRouter>
+        <Routes>
+          <Route path="/" element={<PageWebEmbedApi />} />
+          <Route path="/prime/login" element={<PagePrivyLogin />} />
+        </Routes>
+      </HashRouter>
+    </ConfigProvider>
   </React.StrictMode>,
 );

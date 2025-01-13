@@ -1,3 +1,5 @@
+import { Button } from '@onekeyhq/components';
+
 export default function PagePrivyLogin() {
-  return <div>PagePrivyLogin</div>;
+  return <Button>PagePrivyLogin</Button>;
 }

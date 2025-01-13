@@ -1,3 +1,5 @@
+import { useLayoutEffect } from 'react';
+
 import { setBgSensitiveTextEncodeKey } from '@onekeyhq/core/src/secret';
 import type { IBackgroundApiWebembedCallMessage } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import webembedApi from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApi';
@@ -40,7 +42,11 @@ const init = (times = 0) => {
     });
 };
 
-init();
-
-printMessageToBody('web-embed init...');
-printMessageToBody(`${globalThis.location.href}`);
+export default () => {
+  useLayoutEffect(() => {
+    init();
+    printMessageToBody('web-embed init...');
+    printMessageToBody(`${globalThis.location.href}`);
+  }, []);
+  return null;
+};
