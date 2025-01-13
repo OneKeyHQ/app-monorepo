@@ -37,6 +37,8 @@ const EditItemPage = () => {
       >
     >();
 
+  const { onConfirm, ...addressBookParams } = params || ({} as typeof params);
+
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
       try {
@@ -47,12 +49,12 @@ const EditItemPage = () => {
           }),
         });
         navigation.pop();
-        params?.onConfirm?.();
+        onConfirm?.();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
       }
     },
-    [intl, navigation, params],
+    [intl, navigation, onConfirm],
   );
 
   const onRemove = useCallback(
@@ -96,17 +98,17 @@ const EditItemPage = () => {
 
   const { result: item, isLoading } = usePromiseResult(
     async () => {
-      if (params.id) {
+      if (addressBookParams.id) {
         const addressBookItem =
-          await backgroundApiProxy.serviceAddressBook.findItemById(params.id);
+          await backgroundApiProxy.serviceAddressBook.findItemById(addressBookParams.id);
         return {
           ...addressBookItem,
-          ...params,
+          ...addressBookParams,
         };
       }
-      return { ...defaultValues, ...params };
+      return { ...defaultValues, ...addressBookParams };
     },
-    [params],
+    [addressBookParams],
     {
       initResult: {
         address: '',

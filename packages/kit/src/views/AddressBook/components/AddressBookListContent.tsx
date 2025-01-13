@@ -151,7 +151,7 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
                 id: ETranslations.address_book_add_address_title,
               }),
               onPress: () => {
-                navigation.push(EModalAddressBookRoutes.AddItemModal);
+                navigation.push(EModalAddressBookRoutes.EditItemModal);
               },
               testID: 'address-book-add-button',
             }

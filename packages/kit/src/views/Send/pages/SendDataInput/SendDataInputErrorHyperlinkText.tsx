@@ -37,14 +37,9 @@ export function SendDataInputErrorHyperlinkText(
 
     if (!isAllowListed) {
       navigation.pushModal(EModalRoutes.AddressBookModal, {
-        screen: addressBookId
-          ? EModalAddressBookRoutes.EditItemModal
-          : EModalAddressBookRoutes.AddItemModal,
+        screen:  EModalAddressBookRoutes.EditItemModal
         params: {
           id: addressBookId,
-          networkId,
-          address,
-          name: addressBookName,
           isAllowListed: true,
           onConfirm: () => {
             appEventBus.emit(
