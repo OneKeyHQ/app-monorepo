@@ -12,7 +12,7 @@ const root = createRoot(container);
 
 root.render(
   <React.StrictMode>
-    <ConfigProvider theme="light" locale="en-us" onLocaleChange={() => {}}>
+    <ConfigProvider theme="light" locale="en-us">
       <HashRouter>
         <Routes>
           <Route path="/" element={<PageWebEmbedApi />} />
