@@ -16,6 +16,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
@@ -43,7 +44,7 @@ const ProtocolDetailsPage = () => {
     IModalStakingParamList,
     EModalStakingRoutes.ProtocolDetails
   >();
-  const { accountId, networkId, indexedAccountId, symbol, provider } =
+  const { accountId, networkId, indexedAccountId, symbol, provider, vault } =
     route.params;
   const appNavigation = useAppNavigation();
   const [stakeLoading, setStakeLoading] = useState(false);
@@ -65,8 +66,9 @@ const ProtocolDetailsPage = () => {
         indexedAccountId,
         symbol,
         provider,
+        vault,
       }),
-    [accountId, networkId, indexedAccountId, symbol, provider],
+    [accountId, networkId, indexedAccountId, symbol, provider, vault],
     { watchLoading: true, revalidateOnFocus: true },
   );
 
@@ -198,7 +200,9 @@ const ProtocolDetailsPage = () => {
         details: result,
         stakingInfo: {
           label: EEarnLabels.Claim,
-          protocol: result.provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: result.provider.name,
+          }),
           protocolLogoURI: result.provider.logoURI,
           receive: claimTokenInfo,
           tags: [buildLocalTxStatusSyncId(result)],

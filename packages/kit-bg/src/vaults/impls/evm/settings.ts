@@ -223,6 +223,7 @@ const settings: IVaultSettings = {
   customRpcEnabled: true,
 
   stakingConfig,
+  stakingResultPollingInterval: 5,
 
   withTxMessage: true,
 
