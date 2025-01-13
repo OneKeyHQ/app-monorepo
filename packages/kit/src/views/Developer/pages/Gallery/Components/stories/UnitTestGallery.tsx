@@ -88,23 +88,25 @@ function UnitTestGallery() {
     let testCount = 0;
 
     const createMockIt = (
-      options: { countOnly?: boolean; logs?: string[]; errors?: string[] } = {},
+      options: { logs?: string[]; errors?: string[] } = {},
     ) => {
-      const { countOnly, logs, errors } = options;
+      const { logs, errors } = options;
 
       const mockIt = ((testName: string, testFn: () => void) => {
         testCount += 1;
-        if (!countOnly) {
-          logs?.push(`\nit: ${String(testName)}...`);
-          setProgress((prev) => ({ ...prev, currentTest: testCount }));
-          try {
-            testFn();
-            logs?.push('PASSED');
-          } catch (err: unknown) {
-            logs?.push('FAILED');
-            const errMsg = err instanceof Error ? err.message : String(err);
-            errors?.push(`(it error) ${String(testName)}: ${errMsg}`);
-          }
+        logs?.push(`\nit: ${String(testName)}...`);
+        setProgress((prev) => ({
+          ...prev,
+          currentTest: testCount,
+          totalTests: Math.max(prev.totalTests, testCount)
+        }));
+        try {
+          testFn();
+          logs?.push('PASSED');
+        } catch (err: unknown) {
+          logs?.push('FAILED');
+          const errMsg = err instanceof Error ? err.message : String(err);
+          errors?.push(`(it error) ${String(testName)}: ${errMsg}`);
         }
       }) as IMockIt;
 
@@ -121,16 +123,18 @@ function UnitTestGallery() {
     };
 
     const createMockDescribe = (
-      options: { countOnly?: boolean; logs?: string[]; errors?: string[] } = {},
+      options: { logs?: string[]; errors?: string[] } = {},
     ) => {
-      const { countOnly, logs, errors } = options;
+      const { logs, errors } = options;
 
       const mockDescribe = ((suiteName: string, suiteFn: () => void) => {
         suiteCount += 1;
-        if (!countOnly) {
-          logs?.push(`\n--- describe: ${String(suiteName)} ---`);
-          setProgress((prev) => ({ ...prev, currentSuite: suiteCount }));
-        }
+        logs?.push(`\n--- describe: ${String(suiteName)} ---`);
+        setProgress((prev) => ({
+          ...prev,
+          currentSuite: suiteCount,
+          totalSuites: Math.max(prev.totalSuites, suiteCount)
+        }));
 
         const originalIt = (globalThis as unknown as { it?: IMockIt }).it;
         (globalThis as unknown as { it: IMockIt }).it = createMockIt(options);
@@ -138,10 +142,8 @@ function UnitTestGallery() {
         try {
           suiteFn();
         } catch (err: unknown) {
-          if (!countOnly) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            errors?.push(`(describe error) ${errMsg}`);
-          }
+          const errMsg = err instanceof Error ? err.message : String(err);
+          errors?.push(`(describe error) ${errMsg}`);
         }
 
         (globalThis as unknown as { it?: IMockIt }).it = originalIt;
@@ -155,31 +157,8 @@ function UnitTestGallery() {
       return mockDescribe;
     };
 
-    // First pass - count total suites and tests
+    // Set up test environment
     const global = globalThis as unknown as IGlobalWithTest;
-    global.describe = createMockDescribe({
-      countOnly: true,
-      logs: testLogs,
-      errors: testErrors,
-    });
-
-    try {
-      await import('@onekeyhq/core/src/secret/__tests__/secret.test');
-    } catch (e: any) {
-      // Ignore errors in counting pass
-    }
-
-    setProgress((prev) => ({
-      ...prev,
-      totalSuites: suiteCount,
-      totalTests: testCount,
-    }));
-
-    // Reset counters for actual test run
-    suiteCount = 0;
-    testCount = 0;
-
-    // Second pass - actual test execution
     global.describe = createMockDescribe({
       logs: testLogs,
       errors: testErrors,
