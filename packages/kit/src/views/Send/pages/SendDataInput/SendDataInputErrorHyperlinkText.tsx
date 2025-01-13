@@ -14,45 +14,43 @@ export function SendDataInputErrorHyperlinkText(
   const form = useFormContext();
   const navigation = useAppNavigation();
 
-  const onAction = useCallback(async () => {
-    const values = form.getValues();
-    const { to, accountId, networkId } = values;
-    const address = typeof to === 'string' ? to : (to as { raw: string }).raw;
-    if (!address) {
-      return;
-    }
-    const { addressBookId, addressBookName, isAllowListed } =
-      await backgroundApiProxy.serviceAccountProfile.queryAddress({
-        accountId,
-        networkId,
-        address,
-        enableAddressBook: true,
-        enableWalletName: true,
-        skipValidateAddress: true,
-      });
+  const onAction = useCallback(
+    async (actionId: string) => {
+      if (actionId === 'to_edit_address_book_page') {
+        const values = form.getValues();
+        const { to, accountId, networkId } = values;
+        const address =
+          typeof to === 'string' ? to : (to as { raw: string }).raw;
+        if (!address) {
+          return;
+        }
+        const { addressBookId, addressBookName, isAllowListed } =
+          await backgroundApiProxy.serviceAccountProfile.queryAddress({
+            accountId,
+            networkId,
+            address,
+            enableAddressBook: true,
+            enableWalletName: true,
+            skipValidateAddress: true,
+          });
 
-    if (!isAllowListed) {
-      navigation.pushModal(EModalRoutes.AddressBookModal, {
-        screen: EModalAddressBookRoutes.EditItemModal,
-        params: {
-          id: addressBookId,
-          address: address ?? '',
-          networkId,
-          name: addressBookName ?? '',
-          isAllowListed: true,
-        },
-      });
-    }
-  }, [form, navigation]);
+        if (!isAllowListed) {
+          navigation.pushModal(EModalRoutes.AddressBookModal, {
+            screen: EModalAddressBookRoutes.EditItemModal,
+            params: {
+              id: addressBookId,
+              address: address ?? '',
+              networkId,
+              name: addressBookName ?? '',
+              isAllowListed: true,
+            },
+          });
+        }
+      }
+    },
+    [form, navigation],
+  );
   return (
-    <HyperlinkText
-      {...props}
-      autoHandleResult={false}
-      values={{
-        contactId: '#',
-        contactAddress: '#',
-      }}
-      onAction={onAction}
-    />
+    <HyperlinkText {...props} autoHandleResult={false} onAction={onAction} />
   );
 }

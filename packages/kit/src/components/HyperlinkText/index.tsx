@@ -39,6 +39,24 @@ export function HyperlinkText({
             },
             {
               ...values,
+              action: (params: React.ReactNode[]) => {
+                const [actionId, chunks] = params;
+                return (
+                  <SizableText
+                    {...textProps}
+                    cursor="pointer"
+                    hoverStyle={{ bg: '$bgHover' }}
+                    pressStyle={{ bg: '$bgActive' }}
+                    onPress={() => {
+                      if (typeof actionId === 'string') {
+                        onAction?.(actionId);
+                      }
+                    }}
+                  >
+                    {chunks}
+                  </SizableText>
+                );
+              },
               url: (params: React.ReactNode[]) => {
                 const [link, chunks] = params;
                 return (
