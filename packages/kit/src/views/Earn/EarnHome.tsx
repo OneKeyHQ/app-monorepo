@@ -649,7 +649,6 @@ function BasicEarnHome() {
       const fetchAndUpdateAction = async () => {
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
-            assets,
             accountId: account?.id ?? '',
             networkId: network?.id ?? '',
           });

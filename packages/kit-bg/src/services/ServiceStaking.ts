@@ -17,6 +17,7 @@ import type {
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
+import { earnMainnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -558,11 +559,9 @@ class ServiceStaking extends ServiceBase {
   async getEarnAvailableAccountsParams({
     accountId,
     networkId,
-    assets,
   }: {
     accountId: string;
     networkId: string;
-    assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccounts({
       accountId,
@@ -574,12 +573,12 @@ class ServiceStaking extends ServiceBase {
       publicKey?: string;
     }[] = [];
 
-    assets.forEach((asset) => {
-      const account = accounts.find((i) => i.networkId === asset.networkId);
+    earnMainnetNetworkIds.forEach((mainnetNetworkId) => {
+      const account = accounts.find((i) => i.networkId === mainnetNetworkId);
       if (account?.apiAddress) {
         accountParams.push({
           accountAddress: account?.apiAddress,
-          networkId: asset.networkId,
+          networkId: mainnetNetworkId,
           publicKey: account?.pub,
         });
       }
@@ -639,16 +638,13 @@ class ServiceStaking extends ServiceBase {
   async fetchAllNetworkAssets({
     accountId,
     networkId,
-    assets,
   }: {
     accountId: string;
     networkId: string;
-    assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccountsParams({
       accountId,
       networkId,
-      assets,
     });
     return this.getAccountAsset(accounts);
   }
