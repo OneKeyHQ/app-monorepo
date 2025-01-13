@@ -65,7 +65,7 @@ const SwapAccountAddressContainer = ({
               onClickNetwork?.(type);
             }}
           >
-            <Image w={18} h={18} source={{ uri: networkInfo.logoURI }} />
+            <Image w={16} h={16} source={{ uri: networkInfo.logoURI }} />
             <SizableText size="$bodyMd" color="$text">
               {networkInfo.name}
             </SizableText>
@@ -83,7 +83,7 @@ const SwapAccountAddressContainer = ({
   ]);
 
   return (
-    <XStack pb="$2" alignItems="center" gap="$1">
+    <XStack alignItems="center" gap="$1">
       <SizableText
         size="$bodyMd"
         mr="$1"
