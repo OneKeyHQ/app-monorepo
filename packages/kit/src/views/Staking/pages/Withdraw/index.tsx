@@ -183,6 +183,7 @@ const WithdrawPage = () => {
           payWithToken={details.rewardToken}
           payWithTokenRate={payWithTokenRate}
           estimateFeeResp={estimateFeeResp}
+          morphoVault={provider.vault}
         />
       </Page.Body>
     </Page>

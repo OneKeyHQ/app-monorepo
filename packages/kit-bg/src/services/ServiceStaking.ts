@@ -689,6 +689,7 @@ class ServiceStaking extends ServiceBase {
     provider,
     action,
     amount,
+    morphoVault,
   }: {
     accountId?: string;
     networkId?: string;
@@ -696,6 +697,7 @@ class ServiceStaking extends ServiceBase {
     provider?: string;
     action: 'stake' | 'unstake' | 'claim';
     amount?: string;
+    morphoVault?: string;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new Error('networkId or accountId or provider not found');
@@ -714,6 +716,7 @@ class ServiceStaking extends ServiceBase {
         provider: provider || '',
         action,
         amount,
+        vault: morphoVault,
       },
     });
     const { code, message } = result.data;
