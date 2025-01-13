@@ -1,8 +1,8 @@
-import { useLayoutEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export const useVisible = (delayMs: number) => {
   const [visible, setVisible] = useState(!(delayMs > 0));
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (delayMs > 0) {
       const timerId = setTimeout(() => {
         setVisible(true);
