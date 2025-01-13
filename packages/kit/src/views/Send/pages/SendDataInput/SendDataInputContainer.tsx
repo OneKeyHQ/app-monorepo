@@ -1330,7 +1330,7 @@ function SendDataInputContainer() {
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.global_recipient })}
               name="to"
-              ErrorMessageComponent={SendDataInputErrorHyperlinkText}
+              renderErrorMessage={SendDataInputErrorHyperlinkText}
               rules={{
                 required: true,
                 validate: (value: IAddressInputValue) => {
@@ -1339,6 +1339,7 @@ function SendDataInputContainer() {
                   }
                   if (!value.resolved) {
                     return (
+                      // Use translationId for error message formatting if available, therwise use direct message
                       value.validateError?.translationId ||
                       value.validateError?.message ||
                       intl.formatMessage({

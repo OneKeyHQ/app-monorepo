@@ -91,14 +91,13 @@ export function FieldDescription(props: ISizableTextProps) {
   );
 }
 
-export type IErrorMessageComponentProps = {
-  translationId: ETranslations;
-} & ISizableTextProps;
+export interface IFieldErrorProps {
+  error?: { message: string };
+  errorMessageAlign?: IFieldProps['errorMessageAlign'];
+  testID?: IFieldProps['testID'];
+}
 
-export type IErrorMessageComponentType =
-  ComponentType<IErrorMessageComponentProps>;
-
-type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
+export type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
     testID?: string;
     label?: string;
@@ -115,7 +114,7 @@ type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
     optional?: boolean;
     labelAddon?: string | ReactElement;
     errorMessageAlign?: 'left' | 'center' | 'right';
-    ErrorMessageComponent?: IErrorMessageComponentType;
+    renderErrorMessage?: (props: IFieldErrorProps) => ReactElement;
   }>;
 
 function Field({
@@ -130,7 +129,7 @@ function Field({
   horizontal = false,
   testID = '',
   labelAddon,
-  ErrorMessageComponent = SizableText,
+  renderErrorMessage,
 }: IFieldProps) {
   const intl = useIntl();
   const {
@@ -210,16 +209,19 @@ function Field({
                 }}
                 textAlign={errorMessageAlign}
               >
-                <ErrorMessageComponent
-                  translationId={error?.message as ETranslations}
-                  color="$textCritical"
-                  size="$bodyMd"
-                  textAlign={errorMessageAlign}
-                  key={error?.message}
-                  testID={`${testID}-message`}
-                >
-                  {error?.message}
-                </ErrorMessageComponent>
+                {renderErrorMessage ? (
+                  renderErrorMessage({ error })
+                ) : (
+                  <SizableText
+                    color="$textCritical"
+                    size="$bodyMd"
+                    textAlign={errorMessageAlign}
+                    key={error?.message}
+                    testID={`${testID}-message`}
+                  >
+                    {error?.message}
+                  </SizableText>
+                )}
               </SizableText>
             ) : null}
           </HeightTransition>

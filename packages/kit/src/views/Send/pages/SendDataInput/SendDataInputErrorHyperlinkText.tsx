@@ -1,16 +1,19 @@
 import { useCallback } from 'react';
 
-import type { IErrorMessageComponentType } from '@onekeyhq/components';
+import type { IFieldErrorProps } from '@onekeyhq/components';
 import { useFormContext } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 
-export function SendDataInputErrorHyperlinkText(
-  props: IErrorMessageComponentType,
-) {
+export function SendDataInputErrorHyperlinkText({
+  error,
+  errorMessageAlign,
+  testID,
+}: IFieldErrorProps) {
   const form = useFormContext();
   const navigation = useAppNavigation();
 
@@ -51,6 +54,15 @@ export function SendDataInputErrorHyperlinkText(
     [form, navigation],
   );
   return (
-    <HyperlinkText {...props} autoHandleResult={false} onAction={onAction} />
+    <HyperlinkText
+      color="$textCritical"
+      size="$bodyMd"
+      textAlign={errorMessageAlign}
+      key={error?.message}
+      testID={`${testID ?? ''}-message`}
+      translationId={error?.message as ETranslations}
+      autoHandleResult={false}
+      onAction={onAction}
+    />
   );
 }
