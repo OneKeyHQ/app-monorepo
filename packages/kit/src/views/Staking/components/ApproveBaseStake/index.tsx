@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -66,6 +66,12 @@ type IApproveBaseStakeProps = {
   providerName?: string;
   providerLogo?: string;
   onConfirm?: (amount: string) => Promise<void>;
+};
+
+type ITokenAnnualReward = {
+  amount: string;
+  fiatValue?: string;
+  token: IToken;
 };
 
 export const ApproveBaseStake = ({
@@ -221,29 +227,88 @@ export const ApproveBaseStake = ({
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
 
-  const estAnnualRewardsState = useMemo(() => {
-    if (Number(amountValue) > 0 && Number(apr) > 0) {
-      const amountBN = BigNumber(amountValue)
-        .multipliedBy(apr ?? 0)
-        .dividedBy(100);
-      return {
-        amount: amountBN.toFixed(),
-        fiatValue:
-          Number(price) > 0
-            ? amountBN.multipliedBy(price).toFixed()
+  const estimatedAnnualRewards = useMemo<ITokenAnnualReward[]>(() => {
+    const amountBN = new BigNumber(amountValue);
+    if (amountBN.isNaN() || amountBN.lte(0)) return [];
+
+    const rewards: ITokenAnnualReward[] = [];
+
+    if (details.provider.apys) {
+      // handle base token reward
+      const baseRateBN = new BigNumber(details.provider.apys.rate);
+      if (baseRateBN.gt(0)) {
+        const baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+
+        rewards.push({
+          amount: baseAmount.toFixed(),
+          fiatValue: new BigNumber(price).gt(0)
+            ? baseAmount.multipliedBy(price).toFixed()
             : undefined,
-      };
+          token: details.token.info,
+        });
+      }
+
+      // handle extra token reward
+      const { rewards: extraRewards } = details.provider.apys;
+      if (extraRewards && details.rewardAssets) {
+        Object.entries(extraRewards).forEach(([tokenAddress, apy]) => {
+          const rewardToken = details.rewardAssets?.[tokenAddress];
+          const apyBN = new BigNumber(apy);
+
+          if (rewardToken && apyBN.gt(0)) {
+            const rewardAmount = amountBN.multipliedBy(apyBN).dividedBy(100);
+
+            rewards.push({
+              amount: rewardAmount.toFixed(),
+              token: rewardToken,
+              // TODO: Add fiat value
+              // fiatValue: new BigNumber(rewardToken.price).gt(0)
+              //   ? rewardAmount.multipliedBy(rewardToken.price).toFixed()
+              //   : undefined,
+            });
+          }
+        });
+      }
+    } else {
+      // handle single token reward
+      const aprBN = new BigNumber(apr ?? 0);
+      if (aprBN.gt(0)) {
+        const rewardAmount = amountBN.multipliedBy(aprBN).dividedBy(100);
+
+        rewards.push({
+          amount: rewardAmount.toFixed(),
+          fiatValue: new BigNumber(price).gt(0)
+            ? rewardAmount.multipliedBy(price).toFixed()
+            : undefined,
+          token,
+        });
+      }
     }
-  }, [amountValue, apr, price]);
+
+    return rewards;
+  }, [amountValue, apr, price, details, token]);
+
+  const totalAnnualRewardsFiatValue = useMemo(() => {
+    if (!estimatedAnnualRewards.length) return undefined;
+
+    return estimatedAnnualRewards
+      .reduce((total, reward) => {
+        if (reward.fiatValue) {
+          return total.plus(reward.fiatValue);
+        }
+        return total;
+      }, new BigNumber(0))
+      .toFixed();
+  }, [estimatedAnnualRewards]);
 
   const daysSpent = useMemo(() => {
-    if (estAnnualRewardsState?.fiatValue && estimateFeeResp?.feeFiatValue) {
+    if (totalAnnualRewardsFiatValue && estimateFeeResp?.feeFiatValue) {
       return calcDaysSpent(
-        estAnnualRewardsState?.fiatValue,
+        totalAnnualRewardsFiatValue,
         estimateFeeResp.feeFiatValue,
       );
     }
-  }, [estimateFeeResp?.feeFiatValue, estAnnualRewardsState?.fiatValue]);
+  }, [estimateFeeResp?.feeFiatValue, totalAnnualRewardsFiatValue]);
 
   const onSubmit = useCallback(async () => {
     const showDialog = () => {
@@ -281,9 +346,9 @@ export const ApproveBaseStake = ({
         showCancelButton: false,
       });
     };
-    if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
+    if (totalAnnualRewardsFiatValue && estimateFeeResp) {
       const daySpent = calcDaysSpent(
-        estAnnualRewardsState.fiatValue,
+        totalAnnualRewardsFiatValue,
         estimateFeeResp.feeFiatValue,
       );
       if (daySpent && daySpent > 5) {
@@ -299,7 +364,7 @@ export const ApproveBaseStake = ({
   }, [
     onConfirm,
     amountValue,
-    estAnnualRewardsState,
+    totalAnnualRewardsFiatValue,
     estimateFeeResp,
     showEstimateGasAlert,
     details,
@@ -349,20 +414,27 @@ export const ApproveBaseStake = ({
         />
       ) : null}
       <CalculationList>
-        {estAnnualRewardsState ? (
-          <CalculationListItem>
+        {estimatedAnnualRewards.length > 0 ? (
+          <CalculationListItem
+            alignItems={
+              estimatedAnnualRewards.length > 1 ? 'flex-start' : 'center'
+            }
+          >
             <CalculationListItem.Label>
               {intl.formatMessage({
                 id: ETranslations.earn_est_annual_rewards,
               })}
             </CalculationListItem.Label>
             <CalculationListItem.Value>
-              <ValuePriceListItem
-                tokenSymbol={token.symbol}
-                fiatSymbol={symbol}
-                amount={estAnnualRewardsState.amount}
-                fiatValue={estAnnualRewardsState.fiatValue}
-              />
+              {estimatedAnnualRewards.map((reward) => (
+                <ValuePriceListItem
+                  key={reward.token.address}
+                  tokenSymbol={reward.token.symbol}
+                  fiatSymbol={symbol}
+                  amount={reward.amount}
+                  fiatValue={reward.fiatValue}
+                />
+              ))}
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
@@ -418,7 +490,7 @@ export const ApproveBaseStake = ({
         {estimateFeeResp ? (
           <EstimateNetworkFee
             estimateFeeResp={estimateFeeResp}
-            isVisible={!!estAnnualRewardsState?.fiatValue}
+            isVisible={!!totalAnnualRewardsFiatValue}
             onPress={() => {
               showEstimateGasAlert({
                 daysConsumed: daysSpent,

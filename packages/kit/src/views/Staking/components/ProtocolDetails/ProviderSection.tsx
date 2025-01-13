@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString } from '../../utils/utils';
@@ -133,7 +134,8 @@ function ProviderInfo({
             {babylonConfirmedCap.value} BTC
           </GridItem>
         ) : null}
-        {poolFee?.value ? (
+        {poolFee?.value &&
+        earnUtils.isMorphoProvider({ providerName: validator?.name ?? '' }) ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.earn_commission })}
             tooltip={intl.formatMessage({

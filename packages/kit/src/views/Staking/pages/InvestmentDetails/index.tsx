@@ -58,6 +58,19 @@ function ListSkeletonItem() {
 }
 
 const isTrue = (value: number | string) => Number(value) > 0;
+const hasPositiveReward = ({
+  rewardNum,
+}: {
+  rewardNum: Record<string, string> | undefined;
+}): boolean => {
+  if (!rewardNum) {
+    return false;
+  }
+  return Object.values(rewardNum).some((value) =>
+    new BigNumber(value).isGreaterThan(0),
+  );
+};
+
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
@@ -114,6 +127,7 @@ function BasicInvestmentDetails() {
         claimable,
         overflow,
         providerName,
+        rewardNum,
       },
     }: {
       item: IInvestment & { providerName: string };
@@ -161,7 +175,7 @@ function BasicInvestmentDetails() {
               </NumberSizeableText>
             </YStack>
             <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
-              {isTrue(claimable) ? (
+              {isTrue(claimable) || hasPositiveReward({ rewardNum }) ? (
                 <Badge
                   badgeType="info"
                   badgeSize="sm"
