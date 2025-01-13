@@ -9,7 +9,12 @@ import {
   TextArea,
   YStack,
 } from '@onekeyhq/components';
-import { hmacSHA256, hmacSHA512, sha256, hash160 } from '@onekeyhq/core/src/secret/hash';
+import {
+  hash160,
+  hmacSHA256,
+  hmacSHA512,
+  sha256,
+} from '@onekeyhq/core/src/secret/hash';
 
 const SecretHashGallery: FC = () => {
   const [hmac256Key, setHmac256Key] = useState('test-key');
