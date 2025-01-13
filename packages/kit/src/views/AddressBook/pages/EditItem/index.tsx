@@ -37,8 +37,6 @@ const EditItemPage = () => {
       >
     >();
 
-  const isCreate = !!params.id;
-
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
       try {
@@ -98,12 +96,17 @@ const EditItemPage = () => {
 
   const { result: item, isLoading } = usePromiseResult(
     async () => {
-      if (isCreate) {
-        return { ...defaultValues, ...params };
+      if (params.id) {
+        const addressBookItem =
+          await backgroundApiProxy.serviceAddressBook.findItemById(params.id);
+        return {
+          ...addressBookItem,
+          ...params,
+        };
       }
-      return backgroundApiProxy.serviceAddressBook.findItemById(params.id);
+      return { ...defaultValues, ...params };
     },
-    [isCreate, params],
+    [params],
     {
       initResult: {
         address: '',
