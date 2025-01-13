@@ -65,9 +65,12 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (r[0] && r[0].txDisplay && r[0].isLocalParsed) {
       // add network and account info as leading components
-      r[0].txDisplay.components.unshift({
-        type: EParseTxComponentType.Divider,
-      });
+
+      if (r[0].txDisplay.components.length > 0) {
+        r[0].txDisplay.components.unshift({
+          type: EParseTxComponentType.Divider,
+        });
+      }
 
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
