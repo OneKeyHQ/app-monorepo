@@ -404,7 +404,7 @@ class AppEventBus extends CrossEventEmitter {
     return true;
   }
 
-  // 
+  //
 
   async emitToRemote(type: string, payload: any) {
     const convertToRemoteEventPayload = (p: any) => {
