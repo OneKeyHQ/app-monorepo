@@ -27,10 +27,10 @@ import type {
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
-import TxConfirmActions from '../../components/SignatureConfirmActions';
+import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
-import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
-import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
+import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
+import { TxConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
@@ -229,9 +229,9 @@ function TxConfirm() {
 
     return (
       <>
-        <SignatureConfirmAlert networkId={networkId} />
+        <TxConfirmAlert networkId={networkId} />
         <SourceInfo sourceInfo={sourceInfo} />
-        <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
+        <TxConfirmDetails accountId={accountId} networkId={networkId} />
         <TxConfirmExtraInfo
           accountId={accountId}
           networkId={networkId}

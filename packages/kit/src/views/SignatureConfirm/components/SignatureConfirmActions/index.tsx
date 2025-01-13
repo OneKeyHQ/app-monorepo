@@ -8,4 +8,4 @@
  * - Manages transaction submission flow
  */
 
-export { default } from './TxConfirmActions';
+export { default as TxConfirmActions } from './TxConfirmActions';

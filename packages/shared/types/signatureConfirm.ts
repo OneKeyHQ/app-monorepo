@@ -1,4 +1,5 @@
 import type { IBadgeType } from '@onekeyhq/components';
+import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
 
 import type { IAccountNFT } from './nft';
 import type { IToken, ITokenFiat } from './token';
@@ -18,6 +19,10 @@ export enum EParseTxComponentType {
 
 export enum EParseTxType {
   Unknown = 'unknown',
+}
+
+export enum EParseMessageType {
+  Permit = 'permit',
 }
 
 export interface IDisplayComponentDivider {
@@ -128,10 +133,17 @@ export interface ITransactionData {
   hexSignature: string;
 }
 
-export interface ITransactionDisplay {
+export interface ISignatureConfirmDisplay {
   title: string;
   components: IDisplayComponent[];
   alerts: string[];
+}
+
+export interface IParseTransactionParams {
+  networkId: string;
+  accountId: string;
+  encodedTx: IEncodedTx;
+  accountAddress?: string;
 }
 
 export interface IParseTransactionResp {
@@ -146,6 +158,19 @@ export interface IParseTransactionResp {
     };
     data: ITransactionData;
   };
-  display: ITransactionDisplay;
+  display: ISignatureConfirmDisplay;
+  type: EParseTxType;
+}
+
+export interface IParseMessageParams {
+  accountId: string;
+  networkId: string;
+  accountAddress?: string;
+  unsignedMessage: IUnsignedMessage;
+}
+
+export interface IParseMessageResp {
+  accountAddress: string;
+  display: ISignatureConfirmDisplay;
   type: EParseTxType;
 }

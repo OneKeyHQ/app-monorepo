@@ -273,7 +273,10 @@ class ServiceDApp extends ServiceBase {
     }
     return this.openModal({
       request,
-      screens: [EModalRoutes.DAppConnectionModal, 'SignMessageModal'],
+      screens: [
+        EModalRoutes.SignatureConfirmModal,
+        EModalSignatureConfirmRoutes.MessageConfirm,
+      ],
       params: {
         unsignedMessage,
         accountId,
