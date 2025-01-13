@@ -132,7 +132,6 @@ interface IListItemTextProps extends IStackProps {
   secondaryTextProps?: ISizableTextProps;
   primaryMatch?: IFuseResultMatch;
   secondaryMatch?: IFuseResultMatch;
-  renderBadges?: () => ReactElement;
 }
 
 const ListItemText = (props: IListItemTextProps) => {
@@ -144,7 +143,6 @@ const ListItemText = (props: IListItemTextProps) => {
     secondaryTextProps,
     primaryMatch,
     secondaryMatch,
-    renderBadges,
     ...rest
   } = props;
 
@@ -213,10 +211,7 @@ const ListItemText = (props: IListItemTextProps) => {
   return (
     <Stack {...rest} justifyContent={getJustifyContent()}>
       <>
-        <XStack gap="$1">
-          {primary ? renderPrimary() : null}
-          {renderBadges?.()}
-        </XStack>
+        {primary ? renderPrimary() : null}
         {secondary ? renderSecondary() : null}
       </>
     </Stack>
@@ -268,7 +263,6 @@ export type IListItemProps = PropsWithChildren<{
   checkMark?: boolean;
   onPress?: () => void | Promise<void>;
   childrenBefore?: ComponentType | ReactNode;
-  renderBadges?: () => ReactElement;
 }>;
 
 const renderWithFallback = (
@@ -310,7 +304,6 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
     renderItemText,
     titleMatch,
     subTitleMatch,
-    renderBadges,
     ...rest
   } = props;
 
@@ -371,7 +364,6 @@ const ListItemComponent = Stack.styleable<IListItemProps>((props, ref) => {
             ...subtitleProps,
             testID: `select-item-subtitle-${rest.testID || ''}`,
           },
-          renderBadges,
         },
         renderItemText,
       )}
