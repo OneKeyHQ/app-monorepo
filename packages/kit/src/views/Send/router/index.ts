@@ -118,8 +118,4 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
     name: EModalSendRoutes.SendSelectDeriveAddress,
     component: DeriveTypesAddress,
   },
-  {
-    name: EModalSendRoutes.SettingProtectModal,
-    component: SettingProtectionModal,
-  },
 ];
