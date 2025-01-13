@@ -96,7 +96,6 @@ export enum EAppEventBusNames {
   // StoreInitedFromPersistor = 'StoreInitedFromPersistor',
   // Unlocked = 'Unlocked',
   // HttpServerRequest = 'HttpServerRequest',
-  TriggerAddressInputValidate = 'TriggerAddressInputValidate',
 }
 
 export interface IAppEventBusPayload {
@@ -273,7 +272,6 @@ export interface IAppEventBusPayload {
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
   };
-  [EAppEventBusNames.TriggerAddressInputValidate]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {
