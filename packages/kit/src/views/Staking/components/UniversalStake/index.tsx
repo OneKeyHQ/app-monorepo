@@ -425,7 +425,7 @@ export const UniversalStake = ({
         {apr && Number(apr) > 0 ? (
           <CalculationListItem>
             <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.global_apr })}
+              {details.provider.rewardUnit}
             </CalculationListItem.Label>
             <CalculationListItem.Value color="$textSuccess">
               {`${apr}%`}

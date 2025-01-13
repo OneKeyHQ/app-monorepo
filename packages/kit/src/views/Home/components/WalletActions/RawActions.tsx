@@ -28,7 +28,7 @@ export type IActionItemsProps = {
   showButtonStyle?: boolean;
   hiddenIfDisabled?: boolean;
   verticalContainerProps?: IStackProps;
-} & Partial<IButtonProps & IIconButtonProps>;
+} & Partial<Omit<IButtonProps, 'type'> & Omit<IIconButtonProps, 'type'>>;
 
 function ActionItem({
   icon = 'PlaceholderOutline',

@@ -181,7 +181,8 @@ class ServiceStaking extends ServiceBase {
   async buildStakeTransaction(
     params: IStakeBaseParams,
   ): Promise<IStakeTxResponse> {
-    const { networkId, accountId, provider, symbol, ...rest } = params;
+    const { networkId, accountId, provider, symbol, morphoVault, ...rest } =
+      params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -203,6 +204,7 @@ class ServiceStaking extends ServiceBase {
       networkId,
       symbol,
       provider,
+      vault: morphoVault,
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
@@ -213,7 +215,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -234,6 +236,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
+      vault: morphoVault,
       ...rest,
     });
     return resp.data.data;
@@ -356,6 +359,7 @@ class ServiceStaking extends ServiceBase {
     networkId: string;
     symbol: string;
     provider: string;
+    vault?: string;
   }) {
     const { networkId, accountId, indexedAccountId, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
@@ -365,6 +369,7 @@ class ServiceStaking extends ServiceBase {
       symbol: string;
       provider: string;
       publicKey?: string;
+      vault?: string;
     } = { networkId, ...rest };
     const account = await this.getEarnAccount({
       accountId: accountId ?? '',
@@ -1135,6 +1140,13 @@ class ServiceStaking extends ServiceBase {
     await this.backgroundApi.simpleDb.earnOrders.updateOrderStatusByTxId(
       params,
     );
+  }
+
+  @backgroundMethod()
+  async getFetchHistoryPollingInterval({ networkId }: { networkId: string }) {
+    const vaultSettings =
+      await this.backgroundApi.serviceNetwork.getVaultSettings({ networkId });
+    return vaultSettings.stakingResultPollingInterval ?? 30;
   }
 }
 

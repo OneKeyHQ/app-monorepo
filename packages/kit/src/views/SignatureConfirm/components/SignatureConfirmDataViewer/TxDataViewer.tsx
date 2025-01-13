@@ -26,7 +26,7 @@ function TxDataViewer(props: IProps) {
 
   const items = showEmptyData
     ? dataGroup
-    : dataGroup.filter((item) => item.data !== '');
+    : dataGroup.filter((item) => item.data);
 
   return (
     <YStack gap="$2.5">

@@ -5,8 +5,10 @@ import { StyleSheet } from 'react-native';
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IRewardApys } from '@onekeyhq/shared/types/staking';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IEarnTokenItem,
+  IRewardApys,
+} from '@onekeyhq/shared/types/staking';
 
 const formatApy = (apy: string | number | undefined): string => {
   if (!apy) return '0';
@@ -23,7 +25,7 @@ export function MorphoApy({
   rewardAssets,
 }: {
   apys: IRewardApys;
-  rewardAssets?: Record<string, IToken>;
+  rewardAssets?: Record<string, IEarnTokenItem>;
 }) {
   const intl = useIntl();
   const showNativeApy = isPositiveNumber(apys.rate);
@@ -61,9 +63,9 @@ export function MorphoApy({
               justifyContent="space-between"
             >
               <XStack gap="$2" alignItems="center">
-                <Token tokenImageUri={token?.logoURI ?? ''} size="xs" />
+                <Token tokenImageUri={token?.info?.logoURI ?? ''} size="xs" />
                 <SizableText color="$textSubdued" size="$bodyMd">
-                  {token?.symbol ?? ''}
+                  {token?.info?.symbol ?? ''}
                 </SizableText>
               </XStack>
               <SizableText color="$textSubdued">+{formatApy(apy)}%</SizableText>

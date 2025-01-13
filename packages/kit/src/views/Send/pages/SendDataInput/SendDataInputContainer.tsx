@@ -709,15 +709,15 @@ function SendDataInputContainer() {
     displayAmountFormItem,
   ]);
 
-  const maxBalance = useMemo(
-    () => tokenDetails?.balanceParsed ?? '0',
-    [tokenDetails?.balanceParsed],
-  );
+  const maxBalance = useMemo(() => {
+    const balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    return balance.isNaN() ? '0' : balance.toFixed();
+  }, [tokenDetails?.balanceParsed]);
 
-  const maxBalanceFiat = useMemo(
-    () => tokenDetails?.fiatValue ?? '0',
-    [tokenDetails?.fiatValue],
-  );
+  const maxBalanceFiat = useMemo(() => {
+    const balanceFiat = new BigNumber(tokenDetails?.fiatValue ?? '0');
+    return balanceFiat.isNaN() ? '0' : balanceFiat.toFixed();
+  }, [tokenDetails?.fiatValue]);
 
   const renderTokenDataInputForm = useCallback(
     () => (
