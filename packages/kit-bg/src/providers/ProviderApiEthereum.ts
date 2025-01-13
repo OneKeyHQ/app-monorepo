@@ -825,6 +825,15 @@ class ProviderApiEthereum extends ProviderApiBase {
           message: `Unrecognized chain ID ${params.chainId}. Try adding the chain using wallet_addEthereumChain first.`,
         });
       }
+      const accountsInfo =
+        await this.backgroundApi.serviceDApp.dAppGetConnectedAccountsInfo(
+          request,
+        );
+      if (!accountsInfo) {
+        // if not found connected accounts, connect first
+        await this.eth_requestAccounts(request);
+      }
+
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
