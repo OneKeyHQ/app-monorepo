@@ -17,7 +17,6 @@ import {
   Spinner,
   Stack,
   Unspaced,
-  XStack,
   withStaticProperties,
 } from '@onekeyhq/components';
 import type { IIconButtonProps } from '@onekeyhq/components/src/actions';
