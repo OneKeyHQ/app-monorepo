@@ -217,6 +217,7 @@ function BasicInvestmentDetails() {
       />
       <Page.Body>
         <SectionList
+          ListFooterComponent={<YStack height="$5" />}
           ListEmptyComponent={
             isLoading ? (
               <YStack>
