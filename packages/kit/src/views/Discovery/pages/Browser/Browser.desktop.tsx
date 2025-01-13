@@ -45,12 +45,12 @@ function DesktopBrowser() {
       />
       <Page.Body>
         {tabs.map((t) => (
-            <DesktopBrowserContent
-              key={t.id}
-              id={t.id}
-              activeTabId={activeTabId}
-            />
-          ))}
+          <DesktopBrowserContent
+            key={t.id}
+            id={t.id}
+            activeTabId={activeTabId}
+          />
+        ))}
       </Page.Body>
     </Page>
   );
