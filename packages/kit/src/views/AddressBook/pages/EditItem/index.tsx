@@ -29,22 +29,13 @@ const defaultValues: IAddressItem = {
 function EditItemPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const { params } =
+  const { params: addressBookParams } =
     useRoute<
       RouteProp<
         IModalAddressBookParamList,
         EModalAddressBookRoutes.EditItemModal
       >
     >();
-
-  const { onConfirm, addressBookParams } = useMemo(() => {
-    const { onConfirm: onSaveHandler, ...restAddressBookParams } =
-      params || ({} as typeof params);
-    return {
-      onConfirm: onSaveHandler,
-      addressBookParams: restAddressBookParams,
-    };
-  }, [params]);
 
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
@@ -61,12 +52,11 @@ function EditItemPage() {
           }),
         });
         navigation.pop();
-        onConfirm?.();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
       }
     },
-    [intl, navigation, onConfirm],
+    [intl, navigation],
   );
 
   const onRemove = useCallback(

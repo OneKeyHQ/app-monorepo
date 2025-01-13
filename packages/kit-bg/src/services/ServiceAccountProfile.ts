@@ -388,7 +388,7 @@ class ServiceAccountProfile extends ServiceBase {
       }
 
       // Check if address is in allowlist when allowlist feature is enabled
-      const isEnableTransferAllowList = 
+      const isEnableTransferAllowList =
         await serviceSetting.getIsEnableTransferAllowList();
       if (isEnableTransferAllowList && !result.isAllowListed) {
         result.validStatus = 'address-not-allowlist';

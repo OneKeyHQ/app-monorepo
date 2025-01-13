@@ -25,10 +25,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -400,32 +397,20 @@ export function AddressInput(props: IAddressInputProps) {
     300,
   );
 
+  // Query address validation when text changes
   useEffect(() => {
-    const queryResultFunc = () => {
-      void queryAddress({
-        address: inputText,
-        networkId,
-        accountId,
-        enableAddressBook,
-        enableAddressInteractionStatus,
-        enableNameResolve,
-        enableWalletName,
-        enableVerifySendFundToSelf,
-        enableAddressContract,
-        enableAddressNotAllowList,
-      });
-    };
-    void queryResultFunc();
-    appEventBus.on(
-      EAppEventBusNames.TriggerAddressInputValidate,
-      queryResultFunc,
-    );
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.TriggerAddressInputValidate,
-        queryResultFunc,
-      );
-    };
+    void queryAddress({
+      address: inputText,
+      networkId,
+      accountId,
+      enableAddressBook,
+      enableAddressInteractionStatus,
+      enableNameResolve,
+      enableWalletName,
+      enableVerifySendFundToSelf,
+      enableAddressContract,
+      enableAddressNotAllowList,
+    });
   }, [
     inputText,
     networkId,
@@ -439,6 +424,45 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressNotAllowList,
     refreshNum,
     queryAddress,
+  ]);
+
+  // When focus state changes, re-query address validation
+  // Store previous focus state for comparison
+  const prevIsFocused = useRef<boolean | undefined>();
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (
+      prevIsFocused.current !== undefined &&
+      prevIsFocused.current !== isFocused
+    ) {
+      void queryAddress({
+        address: inputText,
+        networkId,
+        accountId,
+        enableAddressBook,
+        enableAddressInteractionStatus,
+        enableNameResolve,
+        enableWalletName,
+        enableVerifySendFundToSelf,
+        enableAddressContract,
+        enableAddressNotAllowList,
+      });
+    }
+    prevIsFocused.current = isFocused;
+  }, [
+    inputText,
+    networkId,
+    accountId,
+    enableNameResolve,
+    enableAddressBook,
+    enableWalletName,
+    enableAddressInteractionStatus,
+    enableAddressContract,
+    enableVerifySendFundToSelf,
+    enableAddressNotAllowList,
+    refreshNum,
+    queryAddress,
+    isFocused,
   ]);
 
   const getValidateMessage = useCallback(

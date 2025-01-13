@@ -44,12 +44,6 @@ export function SendDataInputErrorHyperlinkText(
           networkId,
           name: addressBookName ?? '',
           isAllowListed: true,
-          onConfirm: () => {
-            appEventBus.emit(
-              EAppEventBusNames.TriggerAddressInputValidate,
-              undefined,
-            );
-          },
         },
       });
     }

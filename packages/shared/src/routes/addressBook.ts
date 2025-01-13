@@ -8,9 +8,7 @@ export enum EModalAddressBookRoutes {
 
 export type IModalAddressBookParamList = {
   [EModalAddressBookRoutes.ListItemModal]: undefined;
-  [EModalAddressBookRoutes.EditItemModal]: IAddressItem & {
-    onConfirm?: () => void;
-  };
+  [EModalAddressBookRoutes.EditItemModal]: IAddressItem;
   [EModalAddressBookRoutes.PickItemModal]: {
     networkId?: string;
     onPick?: (item: IAddressItem) => void;
