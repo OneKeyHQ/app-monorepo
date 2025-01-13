@@ -60,6 +60,8 @@ type IUniversalWithdrawProps = {
 
   estimateFeeResp?: IEarnEstimateFeeResp;
 
+  morphoVault?: string;
+
   onConfirm?: (amount: string) => Promise<void>;
 };
 
@@ -81,6 +83,7 @@ export const UniversalWithdraw = ({
   unstakingPeriod,
   providerLabel,
   decimals,
+  morphoVault,
   // pay with
   showPayWith,
   payWithToken,
@@ -101,11 +104,6 @@ export const UniversalWithdraw = ({
   ] = useSettingsPersistAtom();
 
   const intl = useIntl();
-
-  const isInsufficientBalance = useMemo<boolean>(
-    () => new BigNumber(amountValue).gt(balance),
-    [amountValue, balance],
-  );
 
   const isMorphoProvider = earnUtils.isMorphoProvider({
     providerName: providerName ?? '',
@@ -164,6 +162,7 @@ export const UniversalWithdraw = ({
       provider: providerName,
       action: 'unstake',
       amount,
+      morphoVault,
     });
     setCheckoutAmountMessage(message);
   }, 300);
@@ -227,9 +226,8 @@ export const UniversalWithdraw = ({
     () =>
       isNaN(amountValue) ||
       BigNumber(amountValue).isLessThanOrEqualTo(0) ||
-      isCheckAmountMessageError ||
-      isInsufficientBalance,
-    [amountValue, isCheckAmountMessageError, isInsufficientBalance],
+      isCheckAmountMessageError,
+    [amountValue, isCheckAmountMessageError],
   );
 
   const editable = initialAmount === undefined;
@@ -281,15 +279,6 @@ export const UniversalWithdraw = ({
           icon="InfoCircleOutline"
           type="critical"
           title={checkAmountMessage}
-        />
-      ) : null}
-      {isInsufficientBalance ? (
-        <Alert
-          icon="InfoCircleOutline"
-          type="critical"
-          title={intl.formatMessage({
-            id: ETranslations.earn_insufficient_staked_balance,
-          })}
         />
       ) : null}
       <CalculationList>

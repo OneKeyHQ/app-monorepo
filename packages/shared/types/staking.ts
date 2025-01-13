@@ -132,6 +132,7 @@ export type IStakeHistoryParams = {
   networkId: string;
   symbol: string;
   provider: string;
+  morphoVault?: string;
 };
 
 export type IStakeHistory = {

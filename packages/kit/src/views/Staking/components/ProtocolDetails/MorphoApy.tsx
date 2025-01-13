@@ -47,7 +47,7 @@ export function MorphoApy({
                 })}
               </SizableText>
             </XStack>
-            <SizableText color="$textSubdued">
+            <SizableText size="$bodyMdMedium" color="$textSubdued">
               +{formatApy(apys.rate)}%
             </SizableText>
           </XStack>
@@ -68,7 +68,9 @@ export function MorphoApy({
                   {token?.info?.symbol ?? ''}
                 </SizableText>
               </XStack>
-              <SizableText color="$textSubdued">+{formatApy(apy)}%</SizableText>
+              <SizableText size="$bodyMdMedium" color="$textSubdued">
+                +{formatApy(apy)}%
+              </SizableText>
             </XStack>
           );
         })}
@@ -82,7 +84,7 @@ export function MorphoApy({
                 })}
               </SizableText>
             </XStack>
-            <SizableText color="$textSuccess">
+            <SizableText size="$bodyMdMedium" color="$textSuccess">
               = {formatApy(apys.netApy)}%
             </SizableText>
           </XStack>
