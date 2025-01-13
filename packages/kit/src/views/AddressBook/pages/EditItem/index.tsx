@@ -6,6 +6,8 @@ import { useIntl } from 'react-intl';
 import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAddressBookRoutes,
@@ -17,16 +19,25 @@ import { CreateOrEditContent } from '../../components/CreateOrEditContent';
 import type { IAddressItem } from '../../type';
 import type { RouteProp } from '@react-navigation/core';
 
+const defaultValues: IAddressItem = {
+  name: '',
+  address: '',
+  networkId: getNetworkIdsMap().btc,
+  isAllowListed: false,
+};
+
 const EditItemPage = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const route =
+  const { params } =
     useRoute<
       RouteProp<
         IModalAddressBookParamList,
         EModalAddressBookRoutes.EditItemModal
       >
     >();
+
+  const isCreate = !!params.id;
 
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
@@ -38,12 +49,12 @@ const EditItemPage = () => {
           }),
         });
         navigation.pop();
-        route?.params?.onConfirm?.();
+        params?.onConfirm?.();
       } catch (e) {
         Toast.error({ title: (e as Error).message });
       }
     },
-    [intl, navigation, route?.params],
+    [intl, navigation, params],
   );
 
   const onRemove = useCallback(
@@ -85,12 +96,30 @@ const EditItemPage = () => {
     [navigation, intl],
   );
 
-  return (
+  const { result: item, isLoading } = usePromiseResult(
+    async () => {
+      if (isCreate) {
+        return { ...defaultValues, ...params };
+      }
+      return backgroundApiProxy.serviceAddressBook.findItemById(params.id);
+    },
+    [isCreate, params],
+    {
+      initResult: {
+        address: '',
+        name: '',
+        networkId: '',
+      },
+      watchLoading: true,
+    },
+  );
+
+  return isLoading ? null : (
     <CreateOrEditContent
       title={intl.formatMessage({
         id: ETranslations.address_book_edit_address_title,
       })}
-      item={route.params}
+      item={item}
       onSubmit={onSubmit}
       onRemove={onRemove}
     />

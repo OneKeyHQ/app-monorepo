@@ -102,6 +102,11 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
     ),
     [intl],
   );
+
+  const handlePress = useCallback(() => {
+    onPress?.(item);
+  }, [item, onPress]);
+
   return (
     <ListItem
       title={item.name}
@@ -110,10 +115,12 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
       subTitleMatch={item.addressMatch}
       renderBadges={item.isAllowListed ? renderBadges : undefined}
       renderAvatar={renderAvatar}
-      onPress={() => onPress?.(item)}
+      onPress={handlePress}
       testID={`address-item-${item.address || ''}`}
     >
-      {showActions ? <ListItemIconButton item={item} /> : null}
+      {showActions ? (
+        <ListItemIconButton id={item.id} address={item.address} />
+      ) : null}
     </ListItem>
   );
 };
