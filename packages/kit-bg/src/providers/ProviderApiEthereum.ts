@@ -831,12 +831,9 @@ class ProviderApiEthereum extends ProviderApiBase {
         );
       if (!accountsInfo) {
         // if not found connected accounts, connect first
-        try {
-          await this.eth_requestAccounts(request);
-        } catch {
-          // ignore connect error
-        }
+        await this.eth_requestAccounts(request);
       }
+
       await this.backgroundApi.serviceDApp.switchConnectedNetwork({
         origin: request.origin ?? '',
         scope: request.scope ?? this.providerName,
