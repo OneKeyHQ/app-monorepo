@@ -16,7 +16,6 @@ import {
   Page,
   Popover,
   SizableText,
-  Stack,
   TextArea,
   TextAreaInput,
   XStack,
