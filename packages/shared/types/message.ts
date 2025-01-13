@@ -6,6 +6,11 @@ export enum EMessageTypesEth {
   TYPED_DATA_V4 = 'TYPED_DATA_V4', // 4
 }
 
+export enum ESigningScheme {
+  EIP712 = 'eip712',
+  ETHSIGN = 'ethsign',
+}
+
 export enum EMessageTypesAptos {
   SIGN_MESSAGE = 'aptosSignMessage',
 }
