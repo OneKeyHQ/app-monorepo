@@ -298,7 +298,7 @@ function DesktopCustomTabBar() {
         const isPinnedDiff = fromItem.isPinned ? 1 : -1;
         if (!beforeTimestamp && afterTimestamp) {
           fromItem.timestamp =
-            afterTimestamp + isPinnedDiff * -TIMESTAMP_DIFF_MULTIPLIER;
+            afterTimestamp + isPinnedDiff * - TIMESTAMP_DIFF_MULTIPLIER;
         } else if (!afterTimestamp && beforeTimestamp) {
           fromItem.timestamp =
             beforeTimestamp + isPinnedDiff * TIMESTAMP_DIFF_MULTIPLIER;
@@ -311,7 +311,7 @@ function DesktopCustomTabBar() {
       reloadTimeStamp();
       setResult({ pinnedTabs, unpinnedTabs });
       setTimeout(() => {
-        setTabsByIds([...pinnedTabs, ...unpinnedTabs].map(({ id }) => id));
+        setTabsByIds({ pinnedTabs, unpinnedTabs });
       }, 0);
       defaultLogger.discovery.browser.tabDragSorting();
     },

@@ -136,16 +136,40 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  setTabsByIds = contextAtomMethod((get, set, ids: string[]) => {
-    const tabMap = get(webTabsMapAtom());
-    const tabs: IWebTab[] = [];
-    for (const id of ids) {
-      tabs.push(tabMap[id]);
-    }
-    this.buildWebTabs.call(set, {
-      data: tabs,
-    });
-  });
+  setTabsByIds = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        pinnedTabs,
+        unpinnedTabs,
+      }: {
+        pinnedTabs: { id: string; timestamp?: number }[];
+        unpinnedTabs: { id: string; timestamp?: number }[];
+      },
+    ) => {
+      const tabMap = get(webTabsMapAtom());
+      const tabs: IWebTab[] = [];
+      const now = Date.now();
+      for (const { id, timestamp } of pinnedTabs) {
+        tabs.push({
+          ...tabMap[id],
+          timestamp: timestamp ?? now,
+          isPinned: true,
+        });
+      }
+      for (const { id, timestamp } of unpinnedTabs) {
+        tabs.push({
+          ...tabMap[id],
+          timestamp: timestamp ?? now,
+          isPinned: false,
+        });
+      }
+      this.buildWebTabs.call(set, {
+        data: tabs,
+      });
+    },
+  );
 
   setTabs = contextAtomMethod((get, set, tabs?: IWebTab[]) => {
     const newTabs = tabs ?? get(webTabsAtom())?.tabs;
