@@ -128,6 +128,7 @@ function BasicInvestmentDetails() {
         overflow,
         providerName,
         rewardNum,
+        vault,
       },
     }: {
       item: IInvestment & { providerName: string };
@@ -146,6 +147,7 @@ function BasicInvestmentDetails() {
               networkId: tokenInfo.networkId,
               symbol: tokenInfo.symbol.toUpperCase(),
               provider: providerName,
+              vault,
             });
           }
         }}

@@ -21,6 +21,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
+  IEarnTokenItem,
   IEarnUnbondingDelegationList,
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
@@ -134,7 +135,7 @@ type IPortfolioInfoProps = {
   claimable?: string;
   rewards?: string;
   rewardNum?: Record<string, string>;
-  rewardAssets?: Record<string, IToken>;
+  rewardAssets?: Record<string, IEarnTokenItem>;
 
   tooltipForClaimable?: string;
   labelForClaimable?: string;
@@ -381,7 +382,7 @@ function PortfolioInfo({
 
                 // defensive check
                 // if the reward token info is missing, log a warning and return null
-                if (!rewardToken?.symbol || !rewardToken?.logoURI) {
+                if (!rewardToken?.info?.symbol || !rewardToken?.info?.logoURI) {
                   console.warn(
                     `Missing token info for reward token: ${rewardTokenAddress}`,
                   );
@@ -397,8 +398,8 @@ function PortfolioInfo({
                 return (
                   <PortfolioItem
                     key={rewardTokenAddress}
-                    tokenImageUri={rewardToken.logoURI}
-                    tokenSymbol={rewardToken.symbol}
+                    tokenImageUri={rewardToken.info?.logoURI}
+                    tokenSymbol={rewardToken.info?.symbol}
                     amount={amount}
                     statusText={intl.formatMessage({
                       id: ETranslations.earn_rewards,

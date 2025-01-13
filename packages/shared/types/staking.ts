@@ -211,6 +211,15 @@ export type IStakeTxCosmosAmino = {
   readonly memo: string;
 };
 
+export type IEarnTokenItem = {
+  balance: string;
+  balanceParsed: string;
+  fiatValue: string;
+  price: string;
+  price24h: string;
+  info: IToken;
+};
+
 export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
@@ -224,14 +233,7 @@ export type IStakeProtocolDetails = {
   provider: IStakeProviderInfo;
   totalStaked?: string;
   stakingCap?: string;
-  token: {
-    balance: string;
-    balanceParsed: string;
-    fiatValue: string;
-    price: string;
-    price24h: string;
-    info: IToken;
-  };
+  token: IEarnTokenItem;
   network?: {
     name: string;
   };
@@ -243,7 +245,7 @@ export type IStakeProtocolDetails = {
   unstakingPeriod?: number;
   overflow?: string;
   rewardNum?: Record<string, string>;
-  rewardAssets?: Record<string, IToken>;
+  rewardAssets?: Record<string, IEarnTokenItem>;
 };
 
 export type IStakeProtocolListItem = {
@@ -379,6 +381,7 @@ export interface IInvestment {
   stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
   rewardNum?: Record<string, string>;
+  vault?: string;
 }
 export interface IEarnInvestmentItem {
   name: string;
