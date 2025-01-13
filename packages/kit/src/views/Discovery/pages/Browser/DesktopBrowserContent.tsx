@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 
 import { Freeze } from 'react-freeze';
 import { useThrottledCallback } from 'use-debounce';
@@ -220,7 +220,7 @@ function BasicFind({ id }: { id: string }) {
 
 const Find = memo(BasicFind);
 
-function DesktopBrowserContent({
+function BasicDesktopBrowserContent({
   id,
   activeTabId,
 }: {
@@ -236,20 +236,18 @@ function DesktopBrowserContent({
     },
     [browserHistoryAction],
   );
-  return useMemo(
-    () => (
-      <Freeze key={id} freeze={!isActive}>
-        {platformEnv.isDesktop ? <Find id={id} /> : null}
-        <WebContent
-          id={id}
-          url={tab.url}
-          isCurrent={isActive}
-          addBrowserHistory={handleAddBrowserHistory}
-        />
-      </Freeze>
-    ),
-    [handleAddBrowserHistory, id, isActive, tab.url],
+  return (
+    <Freeze key={id} freeze={!isActive}>
+      {platformEnv.isDesktop ? <Find id={id} /> : null}
+      <WebContent
+        id={id}
+        url={tab.url}
+        isCurrent={isActive}
+        addBrowserHistory={handleAddBrowserHistory}
+      />
+    </Freeze>
   );
 }
 
+const DesktopBrowserContent = memo(BasicDesktopBrowserContent);
 export default DesktopBrowserContent;

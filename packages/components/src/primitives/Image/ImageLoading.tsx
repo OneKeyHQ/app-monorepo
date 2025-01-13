@@ -1,8 +1,9 @@
-import { useContext, useEffect, useState } from 'react';
+import { useContext } from 'react';
 
 import { Stack } from '../Stack';
 
 import { ImageContext } from './context';
+import { useVisible } from './useVisible';
 
 import type { IImageLoadingProps } from './type';
 
@@ -12,19 +13,7 @@ export function ImageLoading({
   ...props
 }: IImageLoadingProps) {
   const { loading } = useContext(ImageContext);
-  const [visible, setVisible] = useState(!(delayMs > 0));
-
-  useEffect(() => {
-    let timerId: ReturnType<typeof setTimeout>;
-    if (delayMs > 0) {
-      timerId = setTimeout(() => {
-        setVisible(true);
-      }, delayMs);
-    }
-    return () => {
-      clearTimeout(timerId);
-    };
-  }, [delayMs]);
+  const visible = useVisible(delayMs);
 
   return loading && visible ? (
     <Stack

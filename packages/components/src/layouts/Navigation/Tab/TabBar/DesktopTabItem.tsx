@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -41,34 +41,33 @@ export interface IDesktopTabItemProps {
   onClose?: () => void;
 }
 
-function DesktopTabItemImage({
+function BasicDesktopTabItemImage({
   avatarSrc,
   selected,
 }: {
   avatarSrc?: string;
   selected?: boolean;
 }) {
-  return useMemo(
-    () => (
-      <Image borderRadius="$1" size="$4.5" m="$px">
-        {avatarSrc ? <Image.Source src={avatarSrc} /> : null}
-        <Image.Fallback bg="$bgSidebar">
-          <Icon
-            size="$4.5"
-            name="GlobusOutline"
-            color={selected ? '$iconActive' : '$iconSubdued'}
-          />
-        </Image.Fallback>
-        {avatarSrc ? (
-          <Image.Loading delayMs={100}>
-            <Skeleton width="100%" height="100%" />
-          </Image.Loading>
-        ) : null}
-      </Image>
-    ),
-    [avatarSrc, selected],
+  return (
+    <Image borderRadius="$1" size="$4.5" m="$px">
+      {avatarSrc ? <Image.Source src={avatarSrc} /> : null}
+      <Image.Fallback bg="$bgSidebar" delayMs={80}>
+        <Icon
+          size="$4.5"
+          name="GlobusOutline"
+          color={selected ? '$iconActive' : '$iconSubdued'}
+        />
+      </Image.Fallback>
+      {avatarSrc ? (
+        <Image.Loading delayMs={80}>
+          <Skeleton width="100%" height="100%" />
+        </Image.Loading>
+      ) : null}
+    </Image>
   );
 }
+
+const DesktopTabItemImage = memo(BasicDesktopTabItemImage);
 
 export function DesktopTabItem(
   props: IDesktopTabItemProps & GetProps<typeof Stack>,
