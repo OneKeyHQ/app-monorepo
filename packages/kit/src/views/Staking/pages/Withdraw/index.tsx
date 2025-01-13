@@ -14,6 +14,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -47,11 +48,18 @@ const WithdrawPage = () => {
       await handleWithdraw({
         amount,
         identity,
+        morphoVault: earnUtils.isMorphoProvider({
+          providerName: provider.name,
+        })
+          ? provider.vault
+          : undefined,
         symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Withdraw,
-          protocol: provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           tags: [actionTag],
         },
@@ -79,9 +87,33 @@ const WithdrawPage = () => {
   const providerLabel = useProviderLabel(provider.name);
 
   const showPayWith = useMemo<boolean>(
-    () => provider.name.toLowerCase() === 'lido',
+    () =>
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      }) ||
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      }),
     [provider],
   );
+
+  const payWithTokenRate = useMemo(() => {
+    if (
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.lidoStTokenRate;
+    }
+    if (
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.morphoTokenRate;
+    }
+    return '1';
+  }, [provider]);
 
   const hideReceived = useMemo<boolean>(
     () =>
@@ -149,7 +181,7 @@ const WithdrawPage = () => {
           providerLabel={providerLabel}
           showPayWith={showPayWith}
           payWithToken={details.rewardToken}
-          payWithTokenRate={provider.lidoStTokenRate}
+          payWithTokenRate={payWithTokenRate}
           estimateFeeResp={estimateFeeResp}
         />
       </Page.Body>

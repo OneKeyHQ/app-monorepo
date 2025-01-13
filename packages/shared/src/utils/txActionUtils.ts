@@ -25,8 +25,8 @@ import type {
   IDisplayComponent,
   IDisplayComponentAddress,
   IDisplayComponentApprove,
-  IDisplayComponentAssets,
   IDisplayComponentDefault,
+  IDisplayComponentInternalAssets,
   IDisplayComponentNetwork,
   IDisplayComponentToken,
 } from '../../types/signatureConfirm';
@@ -274,8 +274,8 @@ function convertAssetTransferActionToSignatureConfirmComponent({
           id: ETranslations.global_asset,
         });
 
-    const assetsComponent: IDisplayComponentAssets = {
-      type: EParseTxComponentType.Assets,
+    const assetsComponent: IDisplayComponentInternalAssets = {
+      type: EParseTxComponentType.InternalAssets,
       label: assetsLabel,
       name: send.name,
       icon: send.icon,
@@ -298,8 +298,8 @@ function convertAssetTransferActionToSignatureConfirmComponent({
           id: ETranslations.global_asset,
         });
 
-    const assetsComponent: IDisplayComponentAssets = {
-      type: EParseTxComponentType.Assets,
+    const assetsComponent: IDisplayComponentInternalAssets = {
+      type: EParseTxComponentType.InternalAssets,
       label: assetsLabel,
       name: receive.name,
       icon: receive.icon,
