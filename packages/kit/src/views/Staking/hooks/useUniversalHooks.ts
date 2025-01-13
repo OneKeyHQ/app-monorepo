@@ -71,6 +71,7 @@ export function useUniversalStake({
       symbol,
       term,
       feeRate,
+      morphoVault,
       provider,
       stakingInfo,
       onSuccess,
@@ -80,6 +81,7 @@ export function useUniversalStake({
       symbol: string;
       term?: number;
       feeRate?: number;
+      morphoVault?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -94,6 +96,7 @@ export function useUniversalStake({
           term,
           provider,
           feeRate,
+          morphoVault,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
@@ -154,6 +157,7 @@ export function useUniversalWithdraw({
       symbol,
       provider,
       identity,
+      morphoVault,
       stakingInfo,
       onSuccess,
       onFail,
@@ -162,6 +166,7 @@ export function useUniversalWithdraw({
       symbol: string;
       provider: string;
       identity?: string;
+      morphoVault?: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -223,6 +228,7 @@ export function useUniversalWithdraw({
             accountId,
             symbol,
             provider,
+            morphoVault,
           });
       }
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
