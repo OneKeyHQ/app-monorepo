@@ -76,7 +76,7 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { showContractWarningDialog } from './ContractWarningDialog';
-import { SendDataInputErrorHyperlinkText } from './SendDataInputErrorHyperlinkText';
+import { renderSendDataInputErrorHyperlinkText } from './SendDataInputErrorHyperlinkText';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -1330,7 +1330,7 @@ function SendDataInputContainer() {
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.global_recipient })}
               name="to"
-              renderErrorMessage={SendDataInputErrorHyperlinkText}
+              renderErrorMessage={renderSendDataInputErrorHyperlinkText}
               rules={{
                 required: true,
                 validate: (value: IAddressInputValue) => {

@@ -66,3 +66,7 @@ export function SendDataInputErrorHyperlinkText({
     />
   );
 }
+
+export const renderSendDataInputErrorHyperlinkText = (
+  props: IFieldErrorProps,
+) => <SendDataInputErrorHyperlinkText {...props} />;

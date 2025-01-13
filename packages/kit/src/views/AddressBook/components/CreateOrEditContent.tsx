@@ -26,6 +26,7 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -226,7 +227,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
               <Form.Field name="isAllowListed">
                 <Checkbox
                   containerProps={{
-                    flex: 1,
+                    flex: platformEnv.isNative ? undefined : 1,
                   }}
                   label={intl.formatMessage({
                     id: ETranslations.adress_book_add_address_add_to_allowlist,
@@ -242,7 +243,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
           </Form>
           <XStack mx="$5" />
           <Page.FooterActions
-            flex={1}
+            flex={platformEnv.isNative ? undefined : 1}
             onConfirmText={intl.formatMessage({
               id: ETranslations.address_book_add_address_button_save,
             })}
