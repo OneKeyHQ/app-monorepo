@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -26,7 +26,7 @@ const defaultValues: IAddressItem = {
   isAllowListed: false,
 };
 
-const EditItemPage = () => {
+function EditItemPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { params } =
@@ -37,12 +37,24 @@ const EditItemPage = () => {
       >
     >();
 
-  const { onConfirm, ...addressBookParams } = params || ({} as typeof params);
+  const { onConfirm, addressBookParams } = useMemo(() => {
+    const { onConfirm: onSaveHandler, ...restAddressBookParams } =
+      params || ({} as typeof params);
+    return {
+      onConfirm: onSaveHandler,
+      addressBookParams: restAddressBookParams,
+    };
+  }, [params]);
 
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
+      const { serviceAddressBook } = backgroundApiProxy;
       try {
-        await backgroundApiProxy.serviceAddressBook.updateItem(item);
+        if (item.id) {
+          await serviceAddressBook.updateItem(item);
+        } else {
+          await serviceAddressBook.addItem(item);
+        }
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.address_book_add_address_toast_save_success,
@@ -100,7 +112,9 @@ const EditItemPage = () => {
     async () => {
       if (addressBookParams.id) {
         const addressBookItem =
-          await backgroundApiProxy.serviceAddressBook.findItemById(addressBookParams.id);
+          await backgroundApiProxy.serviceAddressBook.findItemById(
+            addressBookParams.id,
+          );
         return {
           ...addressBookItem,
           ...addressBookParams,
@@ -129,6 +143,6 @@ const EditItemPage = () => {
       onRemove={onRemove}
     />
   );
-};
+}
 
 export default EditItemPage;

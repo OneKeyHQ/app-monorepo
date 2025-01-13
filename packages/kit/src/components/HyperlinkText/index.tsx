@@ -95,6 +95,7 @@ export function HyperlinkText({
           )
         : (children as string),
     [
+      autoHandleResult,
       children,
       defaultMessage,
       intl,

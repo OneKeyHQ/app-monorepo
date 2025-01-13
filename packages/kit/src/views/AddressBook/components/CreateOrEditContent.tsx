@@ -102,7 +102,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   );
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title={title} headerRight={headerRight} />
       <Page.Body p="$4">
         <Form form={form}>
@@ -217,6 +217,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
       </Page.Body>
       <Page.Footer>
         <Stack
+          bg="$bgApp"
           flexDirection="column"
           $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
         >
