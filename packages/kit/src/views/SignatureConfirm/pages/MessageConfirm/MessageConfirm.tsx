@@ -19,12 +19,17 @@ import {
   type ISignatureConfirmDisplay,
 } from '@onekeyhq/shared/types/signatureConfirm';
 
+import {
+  DAppRiskyAlert,
+  DAppSiteMark,
+} from '../../../DAppConnection/components/DAppRequestLayout';
+import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
+import { MessageConfirmActions } from '../../components/SignatureConfirmActions';
 import { MessageConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { SignatureConfirmItem } from '../../components/SignatureConfirmItem';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
-import SourceInfo from '../../components/SourceInfo/SourceInfo';
 
 export function useDappCloseHandler(
   dappApprove: ReturnType<typeof useDappApproveAction>,
@@ -54,6 +59,13 @@ function MessageConfirm() {
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
+
+  const {
+    showContinueOperate,
+    continueOperate,
+    setContinueOperate,
+    urlSecurityInfo,
+  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', unsignedMessage });
 
   const isSignTypedDataV3orV4Method =
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
@@ -93,10 +105,15 @@ function MessageConfirm() {
             }),
           ];
 
-      // @ts-expect-error
-      const [m] = await promiseAllSettledEnhanced(requests, {
-        continueOnError: true,
-      });
+      const resp = await promiseAllSettledEnhanced(
+        // @ts-ignore
+        requests,
+        {
+          continueOnError: true,
+        },
+      );
+
+      const m = resp[0] as IParseMessageResp;
 
       let p: ISignatureConfirmDisplay;
 
@@ -154,23 +171,38 @@ function MessageConfirm() {
 
     return (
       <SignatureConfirmItem gap="$5">
-        <MessageConfirmAlert />
-        <SourceInfo sourceInfo={$sourceInfo} />
-        <MessageConfirmDetails
-          accountId={accountId}
-          networkId={networkId}
-          displayComponents={parsedMessage.components}
-        />
-        <MessageDataViewer unsignedMessage={unsignedMessage} />
+        <SignatureConfirmItem gap="$2.5">
+          <DAppRiskyAlert
+            origin={origin}
+            urlSecurityInfo={urlSecurityInfo}
+            alertProps={{
+              fullBleed: false,
+              borderTopWidth: 1,
+            }}
+          />
+          <MessageConfirmAlert
+            messageDisplay={parsedMessage}
+            unsignedMessage={unsignedMessage}
+          />
+          <DAppSiteMark origin={origin} urlSecurityInfo={urlSecurityInfo} />
+        </SignatureConfirmItem>
+        <SignatureConfirmItem gap="$5">
+          <MessageConfirmDetails
+            accountId={accountId}
+            networkId={networkId}
+            displayComponents={parsedMessage.components}
+          />
+          <MessageDataViewer unsignedMessage={unsignedMessage} />
+        </SignatureConfirmItem>
       </SignatureConfirmItem>
     );
   }, [
     isLoading,
     parsedMessage,
-    $sourceInfo,
+    urlSecurityInfo,
+    unsignedMessage,
     accountId,
     networkId,
-    unsignedMessage,
   ]);
 
   const handleOnClose = useCallback(
@@ -186,6 +218,15 @@ function MessageConfirm() {
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header title={parsedMessage?.title} />
       <Page.Body>{renderMessageConfirmContent()}</Page.Body>
+      <MessageConfirmActions
+        accountId={accountId}
+        networkId={networkId}
+        unsignedMessage={unsignedMessage}
+        messageDisplay={parsedMessage}
+        showContinueOperate={showContinueOperate}
+        continueOperate={continueOperate}
+        setContinueOperate={setContinueOperate}
+      />
     </Page>
   );
 }

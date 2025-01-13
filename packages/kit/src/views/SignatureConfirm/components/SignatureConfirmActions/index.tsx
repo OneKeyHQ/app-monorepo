@@ -9,3 +9,4 @@
  */
 
 export { default as TxConfirmActions } from './TxConfirmActions';
+export { default as MessageConfirmActions } from './MessageConfirmActions';
