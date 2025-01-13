@@ -313,7 +313,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getStakeHistory(params: IStakeHistoryParams) {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -327,6 +327,7 @@ class ServiceStaking extends ServiceBase {
       params: {
         accountAddress,
         networkId,
+        vault: morphoVault,
         ...rest,
       },
     });
