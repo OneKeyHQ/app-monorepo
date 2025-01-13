@@ -51,7 +51,7 @@ function BasicDesktopTabItemImage({
   return (
     <Image borderRadius="$1" size="$4.5" m="$px">
       {avatarSrc ? <Image.Source src={avatarSrc} /> : null}
-      <Image.Fallback bg="$bgSidebar" delayMs={80}>
+      <Image.Fallback bg="$bgSidebar" delayMs={180}>
         <Icon
           size="$4.5"
           name="GlobusOutline"
@@ -59,7 +59,7 @@ function BasicDesktopTabItemImage({
         />
       </Image.Fallback>
       {avatarSrc ? (
-        <Image.Loading delayMs={80}>
+        <Image.Loading delayMs={180}>
           <Skeleton width="100%" height="100%" />
         </Image.Loading>
       ) : null}
