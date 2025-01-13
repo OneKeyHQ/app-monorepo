@@ -312,12 +312,21 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     if (enableWalletName && resolveAddress) {
-      // handleWalletAccountName
-      const walletAccountItems =
-        await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
-          networkId,
-          address: resolveAddress,
-        });
+      let walletAccountItems: {
+        walletName: string;
+        accountName: string;
+        accountId: string;
+      }[] = [];
+      try {
+        // handleWalletAccountName
+        walletAccountItems =
+          await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
+            networkId,
+            address: resolveAddress,
+          });
+      } catch (e) {
+        console.error(e);
+      }
 
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
@@ -372,14 +381,15 @@ class ServiceAccountProfile extends ServiceBase {
           accountUtils.isQrAccount(accountParams) ||
           accountUtils.isImportedAccount(accountParams) ||
           accountUtils.isExternalAccount(accountParams);
-        if (!isOwnAccount) {
-          const isEnableTransferAllowList =
-            await serviceSetting.getIsEnableTransferAllowList();
-          if (isEnableTransferAllowList && !result.isAllowListed) {
-            result.validStatus = 'address-not-allowlist';
-            return result;
-          }
+        if (isOwnAccount) {
+          return result;
         }
+      }
+      const isEnableTransferAllowList =
+        await serviceSetting.getIsEnableTransferAllowList();
+      if (isEnableTransferAllowList && !result.isAllowListed) {
+        result.validStatus = 'address-not-allowlist';
+        return result;
       }
     }
     return result;
