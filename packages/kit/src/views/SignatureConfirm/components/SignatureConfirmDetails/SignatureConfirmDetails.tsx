@@ -6,7 +6,10 @@ import {
   useDecodedTxsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import type { IDisplayComponent } from '@onekeyhq/shared/types/signatureConfirm';
+import type {
+  IDisplayComponent,
+  IDisplayComponentAssets,
+} from '@onekeyhq/shared/types/signatureConfirm';
 import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 
 import {
@@ -52,16 +55,73 @@ function SignatureConfirmDetails(props: IProps) {
       txIndex: number;
     }[] = [];
 
+    const isLocalParsed = decodedTxs[0]?.isLocalParsed;
+
     for (let i = 0; i < decodedTxs.length; i += 1) {
       const decodedTx = decodedTxs[i];
-      const components = decodedTx.txDisplay?.components?.map((component) => ({
-        component,
-        txIndex: i,
-      }));
 
-      if (components) {
-        txDisplayComponents = flatMap(txDisplayComponents.concat(components));
+      const components = decodedTx.txDisplay?.components ?? [];
+      let finalComponents: IDisplayComponent[] = [];
+
+      // merge token/nft components to assets component with same label
+      if (isLocalParsed) {
+        let currentLabel = '';
+        let currentAssets: IDisplayComponentAssets | null = null;
+
+        for (let j = 0; j < components.length; j += 1) {
+          const component = components[j];
+
+          if (
+            component.type === EParseTxComponentType.Token ||
+            component.type === EParseTxComponentType.NFT ||
+            component.type === EParseTxComponentType.InternalAssets
+          ) {
+            if (currentLabel === component.label) {
+              if (currentAssets) {
+                currentAssets.assets.push(component);
+              } else {
+                currentLabel = component.label;
+                currentAssets = {
+                  type: EParseTxComponentType.Assets,
+                  label: component.label,
+                  assets: [component],
+                };
+              }
+            } else {
+              if (currentAssets) {
+                finalComponents.push(currentAssets);
+              }
+              currentLabel = component.label;
+              currentAssets = {
+                type: EParseTxComponentType.Assets,
+                label: component.label,
+                assets: [component],
+              };
+            }
+          } else {
+            if (currentAssets) {
+              finalComponents.push(currentAssets);
+              currentAssets = null;
+            }
+            finalComponents.push(component);
+          }
+        }
+
+        if (currentAssets) {
+          finalComponents.push(currentAssets);
+        }
+      } else {
+        finalComponents = components;
       }
+
+      txDisplayComponents = flatMap(
+        txDisplayComponents.concat(
+          finalComponents.map((component) => ({
+            component,
+            txIndex: i,
+          })),
+        ),
+      );
     }
 
     return txDisplayComponents.map(({ component, txIndex }) => {
@@ -84,6 +144,14 @@ function SignatureConfirmDetails(props: IProps) {
         case EParseTxComponentType.Assets:
           return (
             <Assets
+              component={component}
+              networkId={networkId}
+              showNetwork={isBridge}
+            />
+          );
+        case EParseTxComponentType.InternalAssets:
+          return (
+            <Assets.InternalAssets
               component={component}
               networkId={networkId}
               showNetwork={isBridge}

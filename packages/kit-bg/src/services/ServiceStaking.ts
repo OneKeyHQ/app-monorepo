@@ -181,7 +181,8 @@ class ServiceStaking extends ServiceBase {
   async buildStakeTransaction(
     params: IStakeBaseParams,
   ): Promise<IStakeTxResponse> {
-    const { networkId, accountId, provider, symbol, ...rest } = params;
+    const { networkId, accountId, provider, symbol, morphoVault, ...rest } =
+      params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -203,6 +204,7 @@ class ServiceStaking extends ServiceBase {
       networkId,
       symbol,
       provider,
+      vault: morphoVault,
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
@@ -213,7 +215,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async buildUnstakeTransaction(params: IWithdrawBaseParams) {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -234,6 +236,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
+      vault: morphoVault,
       ...rest,
     });
     return resp.data.data;

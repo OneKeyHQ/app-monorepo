@@ -14,6 +14,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -40,14 +41,21 @@ const BasicApproveBaseStakePage = () => {
       await handleStake({
         amount,
         stakingInfo: {
-          label: EEarnLabels.Unknown,
-          protocol: provider.name,
+          label: EEarnLabels.Stake,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           send: { token: token.info, amount },
           tags: [actionTag],
         },
         symbol: token.info.symbol.toUpperCase(),
         provider: provider.name,
+        morphoVault: earnUtils.isMorphoProvider({
+          providerName: provider.name,
+        })
+          ? provider.vault
+          : undefined,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
@@ -62,9 +70,33 @@ const BasicApproveBaseStakePage = () => {
   const intl = useIntl();
 
   const showEstReceive = useMemo<boolean>(
-    () => provider.name.toLowerCase() === 'lido',
+    () =>
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      }) ||
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      }),
     [provider],
   );
+
+  const estReceiveTokenRate = useMemo(() => {
+    if (
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.lidoStTokenRate;
+    }
+    if (
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.morphoTokenRate;
+    }
+    return '1';
+  }, [provider]);
 
   const providerLabel = useProviderLabel(provider.name);
 
@@ -103,7 +135,7 @@ const BasicApproveBaseStakePage = () => {
           providerLabel={providerLabel}
           showEstReceive={showEstReceive}
           estReceiveToken={details.rewardToken}
-          estReceiveTokenRate={provider.lidoStTokenRate}
+          estReceiveTokenRate={estReceiveTokenRate}
           approveTarget={{
             accountId,
             networkId,

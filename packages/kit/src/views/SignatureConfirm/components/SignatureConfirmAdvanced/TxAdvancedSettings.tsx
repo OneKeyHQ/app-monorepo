@@ -21,12 +21,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useDecodedTxsAtom,
+  useSendSelectedFeeInfoAtom,
   useSignatureConfirmActions,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { TxDataViewer } from '../SignatureConfirmDataViewer';
 
@@ -74,7 +76,7 @@ function TxAdvancedSettings(props: IProps) {
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [settings] = useSettingsPersistAtom();
   const { updateTxAdvancedSettings } = useSignatureConfirmActions().current;
-
+  const [selectedFee] = useSendSelectedFeeInfoAtom();
   const vaultSettings = usePromiseResult(
     async () =>
       backgroundApiProxy.serviceNetwork.getVaultSettings({ networkId }),
@@ -91,23 +93,39 @@ function TxAdvancedSettings(props: IProps) {
     [unsignedTxs],
   );
 
-  const txContent = useMemo(() => {
+  const { result: txContent } = usePromiseResult(async () => {
     if (!unsignedTxs || unsignedTxs.length === 0) {
       return '';
     }
-    return unsignedTxs.reduce((acc, unsignedTx) => {
-      try {
-        const tx = JSON.stringify(
-          unsignedTx.encodedTx as IEncodedTxEvm,
-          null,
-          2,
-        );
-        return acc ? `${acc}\n\n${tx}` : tx;
-      } catch {
-        return acc;
+
+    let txString = '';
+
+    for (let i = 0; i < unsignedTxs.length; i += 1) {
+      const unsignedTx = unsignedTxs[i];
+      const unsignedTxWithFeeInfo =
+        await backgroundApiProxy.serviceSend.updateUnsignedTx({
+          unsignedTx,
+          feeInfo: selectedFee?.feeInfos[i]?.feeInfo,
+          networkId,
+          accountId,
+        });
+
+      const encodedTx = unsignedTxWithFeeInfo.encodedTx as IEncodedTxEvm;
+
+      if (!isNil(encodedTx.nonce)) {
+        encodedTx.nonce = hexUtils.hexlify(encodedTx.nonce);
       }
-    }, '');
-  }, [unsignedTxs]);
+
+      try {
+        const tx = JSON.stringify(encodedTx, null, 2);
+        txString = txString ? `${txString}\n\n${tx}` : tx;
+      } catch {
+        // ignore
+      }
+    }
+
+    return txString;
+  }, [unsignedTxs, selectedFee?.feeInfos, accountId, networkId]);
 
   const abiContent = useMemo(() => {
     if (!decodedTxs || decodedTxs.length === 0) {
@@ -263,7 +281,7 @@ function TxAdvancedSettings(props: IProps) {
         </Form>
         <TxDataViewer
           dataGroup={[
-            { title: 'DATA', data: txContent },
+            { title: 'DATA', data: txContent ?? '' },
             { title: 'ABI', data: abiContent },
             { title: 'HEX', data: hexContent },
           ]}
