@@ -371,8 +371,9 @@ class ServiceAccountProfile extends ServiceBase {
       });
     }
 
+    // Check if address is in allowlist
     if (enableAddressNotAllowList) {
-      // Check if it's user's own account by checking if there's a matching wallet account ID
+      // Skip allowlist check if it's user's own account
       if (result.walletAccountId) {
         const accountParams = { accountId: result.walletAccountId };
         const isOwnAccount =
@@ -385,7 +386,9 @@ class ServiceAccountProfile extends ServiceBase {
           return result;
         }
       }
-      const isEnableTransferAllowList =
+
+      // Check if address is in allowlist when allowlist feature is enabled
+      const isEnableTransferAllowList = 
         await serviceSetting.getIsEnableTransferAllowList();
       if (isEnableTransferAllowList && !result.isAllowListed) {
         result.validStatus = 'address-not-allowlist';
