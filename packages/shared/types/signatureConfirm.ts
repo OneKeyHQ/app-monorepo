@@ -166,7 +166,7 @@ export interface IParseMessageParams {
   accountId: string;
   networkId: string;
   accountAddress?: string;
-  unsignedMessage: IUnsignedMessage;
+  message: string;
 }
 
 export interface IParseMessageResp {

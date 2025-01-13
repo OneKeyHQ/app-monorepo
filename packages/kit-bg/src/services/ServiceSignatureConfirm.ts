@@ -216,7 +216,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseMessage(params: IParseMessageParams) {
-    const { accountId, networkId, unsignedMessage } = params;
+    const { accountId, networkId, message } = params;
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
       accountAddress =
@@ -226,7 +226,7 @@ class ServiceSignatureConfirm extends ServiceBase {
         });
     }
 
-    let messageToParse = unsignedMessage.message;
+    let messageToParse = message;
     try {
       messageToParse = JSON.parse(messageToParse);
     } catch (e) {
@@ -237,7 +237,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       EServiceEndpointEnum.Wallet,
     );
     const resp = await client.post<{ data: IParseMessageResp }>(
-      '/wallet/v1/account/parse-transaction',
+      '/wallet/v1/account/parse-signature',
       {
         networkId,
         accountAddress,

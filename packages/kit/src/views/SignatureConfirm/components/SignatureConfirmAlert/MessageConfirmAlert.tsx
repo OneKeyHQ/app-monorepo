@@ -16,11 +16,12 @@ import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureC
 
 interface IProps {
   unsignedMessage: IUnsignedMessage;
+  isRiskSignMethod: boolean;
   messageDisplay: ISignatureConfirmDisplay | undefined;
 }
 
 function MessageConfirmAlert(props: IProps) {
-  const { messageDisplay, unsignedMessage } = props;
+  const { messageDisplay, unsignedMessage, isRiskSignMethod } = props;
   const intl = useIntl();
 
   const isSignTypedDataV3orV4Method =
@@ -31,31 +32,44 @@ function MessageConfirmAlert(props: IProps) {
   const isOrderSignMethod = isPrimaryTypeOrderSign({ unsignedMessage });
 
   const renderLocalParsedMessageAlert = useCallback(() => {
-    if (!isSignTypedDataV3orV4Method) {
-      return null;
+    if (isSignTypedDataV3orV4Method) {
+      let type: IAlertProps['type'] = 'default';
+      let messageType = 'signTypedData';
+
+      if (isPermitSignMethod || isOrderSignMethod) {
+        type = 'warning';
+        messageType = isPermitSignMethod ? 'permit' : 'order';
+      }
+
+      return (
+        <Alert
+          title={intl.formatMessage(
+            {
+              id: ETranslations.dapp_connect_permit_sign_alert,
+            },
+            { type: messageType },
+          )}
+          type={type}
+          icon="InfoSquareSolid"
+        />
+      );
     }
 
-    let type: IAlertProps['type'] = 'default';
-    let messageType = 'signTypedData';
-
-    if (isPermitSignMethod || isOrderSignMethod) {
-      type = 'warning';
-      messageType = isPermitSignMethod ? 'permit' : 'order';
+    if (isRiskSignMethod) {
+      return (
+        <Alert
+          type="critical"
+          title={intl.formatMessage({
+            id: ETranslations.dapp_connect_risk_sign,
+          })}
+          icon="ErrorSolid"
+        />
+      );
     }
 
-    return (
-      <Alert
-        title={intl.formatMessage(
-          {
-            id: ETranslations.dapp_connect_permit_sign_alert,
-          },
-          { type: messageType },
-        )}
-        type={type}
-        icon="InfoSquareSolid"
-      />
-    );
+    return null;
   }, [
+    isRiskSignMethod,
     isSignTypedDataV3orV4Method,
     isPermitSignMethod,
     isOrderSignMethod,
@@ -68,17 +82,21 @@ function MessageConfirmAlert(props: IProps) {
       return renderLocalParsedMessageAlert();
     }
 
-    return alerts.map((alert) => (
-      <Alert
-        key={alert}
-        description={alert}
-        type="warning"
-        icon="InfoSquareOutline"
-      />
-    ));
+    return (
+      <YStack gap="$2.5">
+        {alerts.map((alert) => (
+          <Alert
+            key={alert}
+            description={alert}
+            type="warning"
+            icon="InfoSquareOutline"
+          />
+        ))}
+      </YStack>
+    );
   }, [messageDisplay?.alerts, renderLocalParsedMessageAlert]);
 
-  return <YStack gap="$2.5">{renderMessageAlerts()}</YStack>;
+  return renderMessageAlerts();
 }
 
 export default memo(MessageConfirmAlert);

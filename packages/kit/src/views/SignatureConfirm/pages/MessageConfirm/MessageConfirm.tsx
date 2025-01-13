@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -65,11 +65,14 @@ function MessageConfirm() {
     continueOperate,
     setContinueOperate,
     urlSecurityInfo,
+    isRiskSignMethod,
   } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', unsignedMessage });
 
   const isSignTypedDataV3orV4Method =
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V4;
+
+  const typedData = JSON.stringify(unsignedMessage);
 
   const { result: parsedMessage, isLoading } = usePromiseResult(
     async () => {
@@ -87,13 +90,13 @@ function MessageConfirm() {
               networkId,
               accountId,
               accountAddress,
-              unsignedMessage,
+              message: unsignedMessage.message,
             }),
             backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
               networkId,
               accountId,
               origin: $sourceInfo?.origin ?? '',
-              typedData: JSON.stringify(unsignedMessage),
+              typedData,
             }),
           ]
         : [
@@ -101,7 +104,7 @@ function MessageConfirm() {
               networkId,
               accountId,
               accountAddress,
-              unsignedMessage,
+              message: unsignedMessage.message,
             }),
           ];
 
@@ -113,7 +116,7 @@ function MessageConfirm() {
         },
       );
 
-      const m = resp[0] as IParseMessageResp;
+      const m = resp[0] as unknown as IParseMessageResp;
 
       let p: ISignatureConfirmDisplay;
 
@@ -151,9 +154,10 @@ function MessageConfirm() {
     [
       networkId,
       accountId,
-      unsignedMessage,
-      $sourceInfo?.origin,
       isSignTypedDataV3orV4Method,
+      unsignedMessage.message,
+      $sourceInfo?.origin,
+      typedData,
     ],
     {
       watchLoading: true,
@@ -172,19 +176,27 @@ function MessageConfirm() {
     return (
       <SignatureConfirmItem gap="$5">
         <SignatureConfirmItem gap="$2.5">
-          <DAppRiskyAlert
-            origin={origin}
-            urlSecurityInfo={urlSecurityInfo}
-            alertProps={{
-              fullBleed: false,
-              borderTopWidth: 1,
-            }}
-          />
+          {$sourceInfo?.origin ? (
+            <DAppRiskyAlert
+              origin={$sourceInfo.origin}
+              urlSecurityInfo={urlSecurityInfo}
+              alertProps={{
+                fullBleed: false,
+                borderTopWidth: 1,
+              }}
+            />
+          ) : null}
           <MessageConfirmAlert
             messageDisplay={parsedMessage}
             unsignedMessage={unsignedMessage}
+            isRiskSignMethod={isRiskSignMethod}
           />
-          <DAppSiteMark origin={origin} urlSecurityInfo={urlSecurityInfo} />
+          {$sourceInfo?.origin ? (
+            <DAppSiteMark
+              origin={$sourceInfo.origin}
+              urlSecurityInfo={urlSecurityInfo}
+            />
+          ) : null}
         </SignatureConfirmItem>
         <SignatureConfirmItem gap="$5">
           <MessageConfirmDetails
@@ -199,8 +211,10 @@ function MessageConfirm() {
   }, [
     isLoading,
     parsedMessage,
+    $sourceInfo?.origin,
     urlSecurityInfo,
     unsignedMessage,
+    isRiskSignMethod,
     accountId,
     networkId,
   ]);
@@ -217,7 +231,7 @@ function MessageConfirm() {
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header title={parsedMessage?.title} />
-      <Page.Body>{renderMessageConfirmContent()}</Page.Body>
+      <Page.Body px="$5">{renderMessageConfirmContent()}</Page.Body>
       <MessageConfirmActions
         accountId={accountId}
         networkId={networkId}
@@ -231,4 +245,4 @@ function MessageConfirm() {
   );
 }
 
-export default MessageConfirm;
+export default memo(MessageConfirm);

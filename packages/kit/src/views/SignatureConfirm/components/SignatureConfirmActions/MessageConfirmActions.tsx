@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -142,7 +142,8 @@ function MessageConfirmActions(props: IProps) {
         onCancel={() => dappApprove.reject()}
         confirmButtonProps={{
           loading: isLoading,
-          disabled: !continueOperate || !continueOperateLocal,
+          disabled:
+            showTakeRiskAlert && (!continueOperate || !continueOperateLocal),
           variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
       >

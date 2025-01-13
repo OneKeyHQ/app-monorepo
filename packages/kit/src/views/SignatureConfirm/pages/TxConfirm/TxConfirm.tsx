@@ -235,12 +235,14 @@ function TxConfirm() {
     return (
       <>
         <TxConfirmAlert networkId={networkId} />
-        <Stack mb="$5">
-          <DAppSiteMark
-            origin={sourceInfo?.origin ?? ''}
-            urlSecurityInfo={urlSecurityInfo}
-          />
-        </Stack>
+        {sourceInfo?.origin ? (
+          <Stack mb="$5">
+            <DAppSiteMark
+              origin={sourceInfo.origin}
+              urlSecurityInfo={urlSecurityInfo}
+            />
+          </Stack>
+        ) : null}
         <TxConfirmDetails accountId={accountId} networkId={networkId} />
         <TxConfirmExtraInfo
           accountId={accountId}
@@ -256,7 +258,7 @@ function TxConfirm() {
     isBuildingDecodedTxs,
     decodedTxs,
     networkId,
-    sourceInfo?.origin,
+    sourceInfo,
     urlSecurityInfo,
     accountId,
     unsignedTxs,
