@@ -259,8 +259,6 @@ function BaseSortableListView<T>(
   );
 }
 
-export { ISortableListViewProps, ISortableListViewRef };
-
 export const SortableListView = withStaticProperties(
   forwardRef(BaseSortableListView) as typeof BaseSortableListView,
   {
@@ -269,3 +267,5 @@ export const SortableListView = withStaticProperties(
     ShadowDecorator,
   },
 );
+
+export * from './types';

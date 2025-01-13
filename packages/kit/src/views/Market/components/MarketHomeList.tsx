@@ -416,11 +416,13 @@ function BasicMarketHomeList({
   tabIndex = 0,
   showMoreAction = false,
   ordered,
+  draggable,
 }: {
   tabIndex?: number;
   category: IMarketCategory;
   showMoreAction?: boolean;
   ordered?: boolean;
+  draggable?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -1048,11 +1050,13 @@ function BasicMarketHomeList({
 
       <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         <Table
+          draggable
           headerRowProps={HEADER_ROW_PROPS}
           showBackToTopButton
           stickyHeaderHiddenOnScroll
           onRow={onRow}
           onHeaderRow={onHeaderRow}
+          keyExtractor={(item) => item.coingeckoId}
           rowProps={rowProps}
           showHeader={gtMd}
           columns={columns}

@@ -8,9 +8,11 @@ import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
+import { SortableListView } from '../../layouts/SortableListView';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import type { IListViewProps, IListViewRef } from '../../layouts';
+import type { IRenderItemParams } from '../../layouts/SortableListView';
 import type { ISizableTextProps, IStackProps } from '../../primitives';
 import type {
   ListRenderItemInfo,
@@ -116,6 +118,7 @@ function TableRow<T>({
   rowProps,
   pressStyle = false,
   showSkeleton = false,
+  dataSet,
 }: {
   pressStyle?: boolean;
   item: T;
@@ -124,8 +127,10 @@ function TableRow<T>({
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
   showSkeleton?: boolean;
   onRow?: ITableProps<T>['onRow'];
+  dataSet?: Record<string, any>;
   rowProps?: ITableProps<T>['rowProps'];
 }) {
+  console.log('index---', index);
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
   const handlePress = useCallback(() => {
     onRowEvents?.onPress?.();
@@ -136,6 +141,7 @@ function TableRow<T>({
       minHeight={60}
       onPress={handlePress}
       borderRadius="$3"
+      dataSet={dataSet}
       {...itemPressStyle}
       {...rowProps}
     >
@@ -212,6 +218,9 @@ export interface ITableProps<T> {
   estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
   rowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
+  // Whether the column can be dragged to reorder. default value is false
+  draggable?: boolean;
+  keyExtractor: (item: T, index: number) => string;
   onHeaderRow?: (
     column: ITableColumn<T>,
     index: number,
@@ -356,6 +365,7 @@ function BasicTable<T>({
   onHeaderRow,
   onRow,
   rowProps,
+  keyExtractor,
   contentContainerStyle,
   headerRowProps,
   renderScrollComponent,
@@ -365,6 +375,7 @@ function BasicTable<T>({
   stickyHeader = true,
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
+  draggable = false,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
   const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
@@ -415,43 +426,103 @@ function BasicTable<T>({
       ) : null,
     [columns, headerRowProps, onHeaderRow, rowProps, showHeader],
   );
-  const list = useMemo(
-    () => (
-      <ListView
-        ref={listViewRef}
-        contentContainerStyle={contentContainerStyle}
-        stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
-        estimatedItemSize={estimatedItemSize}
-        // @ts-ignore
-        estimatedListSize={estimatedListSize}
-        onScroll={showBackToTopButton ? handleScroll : undefined}
-        scrollEventThrottle={100}
-        data={dataSource}
-        renderItem={handleRenderItem}
-        ListHeaderComponent={
-          <>
-            {TableHeaderComponent}
-            {stickyHeader ? null : headerRow}
-          </>
-        }
-        ListFooterComponent={TableFooterComponent}
-        ListEmptyComponent={TableEmptyComponent}
-        extraData={extraData}
-        renderScrollComponent={renderScrollComponent}
+
+  const renderPlaceholder = useCallback(
+    ({ item }: { item: T }) => <XStack h={60} borderRadius="$3" />,
+    [],
+  );
+
+  const handleSortableListView = useCallback(
+    ({ item, drag, dragProps, index }: IRenderItemParams<T>) => (
+      <TableRow
+        pressStyle
+        dataSet={dragProps}
+        item={item}
+        index={index}
+        columns={columns}
+        onRow={onRow}
+        rowProps={rowProps}
       />
     ),
+    [columns, onRow, rowProps],
+  );
+
+  const layoutList = useMemo(() => {
+    let offset = 0;
+    const layouts: { offset: number; length: number; index: number }[] = [];
+    dataSource?.forEach?.((d) => {
+      const height = 60;
+      layouts.push({ offset, length: height, index: layouts.length });
+      offset += height;
+    });
+    return layouts;
+  }, [dataSource]);
+  const list = useMemo(
+    () =>
+      draggable ? (
+        <SortableListView
+          ref={listViewRef}
+          contentContainerStyle={contentContainerStyle}
+          stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
+          estimatedItemSize={estimatedItemSize}
+          // @ts-ignore
+          estimatedListSize={estimatedListSize}
+          onScroll={showBackToTopButton ? handleScroll : undefined}
+          scrollEventThrottle={100}
+          data={dataSource}
+          renderItem={handleSortableListView}
+          getItemLayout={(_, index) => layoutList[index]}
+          renderPlaceholder={renderPlaceholder}
+          ListHeaderComponent={
+            <>
+              {TableHeaderComponent}
+              {stickyHeader ? null : headerRow}
+            </>
+          }
+          keyExtractor={keyExtractor}
+          ListFooterComponent={TableFooterComponent}
+          ListEmptyComponent={TableEmptyComponent}
+          extraData={extraData}
+          renderScrollComponent={renderScrollComponent}
+        />
+      ) : (
+        <ListView
+          ref={listViewRef}
+          contentContainerStyle={contentContainerStyle}
+          stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
+          estimatedItemSize={estimatedItemSize}
+          // @ts-ignore
+          estimatedListSize={estimatedListSize}
+          onScroll={showBackToTopButton ? handleScroll : undefined}
+          scrollEventThrottle={100}
+          data={dataSource}
+          renderItem={handleRenderItem}
+          ListHeaderComponent={
+            <>
+              {TableHeaderComponent}
+              {stickyHeader ? null : headerRow}
+            </>
+          }
+          ListFooterComponent={TableFooterComponent}
+          ListEmptyComponent={TableEmptyComponent}
+          extraData={extraData}
+          renderScrollComponent={renderScrollComponent}
+        />
+      ),
     [
       TableEmptyComponent,
       TableFooterComponent,
       TableHeaderComponent,
       contentContainerStyle,
       dataSource,
+      draggable,
       estimatedItemSize,
       estimatedListSize,
       extraData,
       handleRenderItem,
       handleScroll,
       headerRow,
+      renderPlaceholder,
       renderScrollComponent,
       showBackToTopButton,
       stickyHeader,

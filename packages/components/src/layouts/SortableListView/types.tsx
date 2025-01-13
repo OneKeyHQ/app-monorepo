@@ -7,6 +7,10 @@ import type { FlatList } from 'react-native-gesture-handler';
 
 export type ISortableListViewRef<T> = FlatList<T>;
 
+export type IRenderItemParams<T> = RenderItemParams<T> & {
+  dragProps: Record<string, any> | undefined;
+};
+
 export type ISortableListViewProps<T> = Omit<
   DraggableFlatListProps<T>,
   | 'data'
@@ -23,11 +27,7 @@ export type ISortableListViewProps<T> = Omit<
   StackStyle & {
     data: T[];
     keyExtractor: (item: T, index: number) => string;
-    renderItem: (
-      params: RenderItemParams<T> & {
-        dragProps: Record<string, any> | undefined;
-      },
-    ) => React.ReactNode;
+    renderItem: (params: IRenderItemParams<T>) => React.ReactNode;
     getItemLayout: (
       item: ArrayLike<T> | undefined | null,
       index: number,
