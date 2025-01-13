@@ -8,6 +8,7 @@ import {
   DUST_AMOUNT,
   MAX_BLOCK_SIZE,
   MAX_ORPHAN_TX_MASS,
+  MAX_UTXO_SIZE,
   isValidAddress,
   privateKeyFromWIF,
   selectUTXOs,
@@ -135,13 +136,31 @@ export default class Vault extends VaultBase {
         specifiedFeeRate,
       });
       txn = toTransaction(encodedTx);
+      if (encodedTx.inputs.length > MAX_UTXO_SIZE) {
+        const totalAmount = encodedTx.inputs
+          .sort((a, b) =>
+            new BigNumber(b.satoshis).minus(a.satoshis).toNumber(),
+          )
+          .slice(0, MAX_UTXO_SIZE)
+          .reduce((acc, input) => acc.plus(input.satoshis), new BigNumber(0));
+        const tokenInfo = transferInfo.tokenInfo ?? (await this.getNetwork());
+
+        const totalAmountStr = totalAmount
+          .shiftedBy(-tokenInfo.decimals)
+          .toFixed(0);
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage(
+            {
+              id: ETranslations.feedback_kaspa_utxo_limit_exceeded_text,
+            },
+            {
+              amount: totalAmountStr,
+              symbol: tokenInfo?.symbol ?? 'KAS',
+            },
+          ),
+        );
+      }
       const massAndSize = txn.getMassAndSize();
-      // if (
-      //   massAndSize.mass > MAX_ORPHAN_TX_MASS ||
-      //   massAndSize.txSize > MAX_BLOCK_SIZE
-      // ) {
-      //   throw new OneKeyInternalError('Transaction size is too large');
-      // }
       encodedTx.feeInfo.limit = massAndSize.mass.toString();
       encodedTx.mass = massAndSize.mass;
     }
