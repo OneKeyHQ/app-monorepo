@@ -6,4 +6,5 @@
  * - Transaction parameters and metadata
  */
 
-export { default } from './SignatureConfirmDetails';
+export { default as TxConfirmDetails } from './TxConfirmDetails';
+export { default as MessageConfirmDetails } from './MessageConfirmDetails';
