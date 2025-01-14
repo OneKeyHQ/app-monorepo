@@ -122,6 +122,7 @@ function TableRow<T>({
   rowProps,
   showSkeleton = false,
   draggable = false,
+  isActive = false,
 }: {
   columns: ITableProps<T>['columns'];
   dataSet?: Record<string, any>;
@@ -134,6 +135,7 @@ function TableRow<T>({
   pressStyle?: boolean;
   rowProps?: ITableProps<T>['rowProps'];
   showSkeleton?: boolean;
+  isActive?: boolean;
 }) {
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
   const handlePress = useCallback(() => {
@@ -439,9 +441,10 @@ function BasicTable<T>({
   );
 
   const renderSortableItem = useCallback(
-    ({ item, drag, dragProps, index }: IRenderItemParams<T>) => (
+    ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => (
       <TableRow
         pressStyle
+        isActive={isActive}
         draggable={draggable}
         dataSet={dragProps}
         drag={drag}
