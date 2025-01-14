@@ -59,7 +59,7 @@ export function SendDataInputErrorHyperlinkText({
       size="$bodyMd"
       textAlign={errorMessageAlign}
       key={error?.message}
-      testID={`${testID ?? ''}-message`}
+      testID={testID ? `${testID}-message` : undefined}
       translationId={error?.message as ETranslations}
       autoHandleResult={false}
       onAction={onAction}
