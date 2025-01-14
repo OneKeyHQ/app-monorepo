@@ -1,6 +1,13 @@
 import { useCallback } from 'react';
 
+import {
+  OrderBalance,
+  hashify,
+  normalizeBuyTokenBalance,
+  timestamp,
+} from '@cowprotocol/contracts';
 import BigNumber from 'bignumber.js';
+import { ethers } from 'ethers';
 import { cloneDeep } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -403,34 +410,77 @@ export function useSwapBuildTx() {
           selectQuoteRes.swapShouldSignedData &&
           swapFromAddressInfo.accountInfo?.account?.id
         ) {
-          const { unSignedInfo, unSignedMessage } =
+          const { unSignedInfo, unSignedMessage, unSignedData } =
             selectQuoteRes.swapShouldSignedData;
-          if (unSignedMessage) {
-            const signHash =
-              (await backgroundApiProxy.serviceDApp.openSignMessageModal({
-                accountId: swapFromAddressInfo.accountInfo?.account?.id,
-                networkId: swapFromAddressInfo.networkId,
-                request: {
-                  origin: unSignedInfo.origin,
-                  scope: unSignedInfo.scope as IInjectedProviderNamesStrings,
-                },
-                unsignedMessage: {
-                  type:
-                    unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
-                  message: unSignedMessage,
-                  payload: [
-                    swapFromAddressInfo.address.toLowerCase(),
-                    unSignedMessage,
-                  ],
-                },
-                walletInternalSign: true,
-              })) as string;
-            if (signHash) {
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              selectQuoteRes.quoteResultCtx.signedResult = {
-                signature: signHash,
-                signingScheme: ESigningScheme.EIP712,
+          const unSignedOrder: {
+            sellTokenBalance: string;
+            buyTokenBalance: string;
+            validTo: number;
+            appData: string;
+            receiver: string;
+          } =
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
+          if ((unSignedMessage || unSignedData) && unSignedOrder) {
+            unSignedOrder.receiver = swapToAddressInfo.address;
+            let dataMessage = unSignedMessage;
+            if (!dataMessage && unSignedData) {
+              const normalizeData = {
+                ...unSignedOrder,
+                sellTokenBalance:
+                  (unSignedOrder.sellTokenBalance as OrderBalance) ??
+                  OrderBalance.ERC20,
+                buyTokenBalance: normalizeBuyTokenBalance(
+                  unSignedOrder.buyTokenBalance as OrderBalance,
+                ),
+                validTo: timestamp(unSignedOrder.validTo),
+                appData: hashify(unSignedOrder.appData),
               };
+              const populated =
+                await ethers.utils._TypedDataEncoder.resolveNames(
+                  unSignedData.domain,
+                  unSignedData.types,
+                  normalizeData,
+                  async (value: string) => value,
+                );
+              dataMessage = JSON.stringify(
+                ethers.utils._TypedDataEncoder.getPayload(
+                  populated.domain,
+                  unSignedData.types,
+                  populated.value,
+                ),
+              );
+            }
+            if (dataMessage) {
+              const signHash =
+                (await backgroundApiProxy.serviceDApp.openSignMessageModal({
+                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                  networkId: swapFromAddressInfo.networkId,
+                  request: {
+                    origin: unSignedInfo.origin,
+                    scope: unSignedInfo.scope as IInjectedProviderNamesStrings,
+                  },
+                  unsignedMessage: {
+                    type:
+                      unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
+                    message: dataMessage,
+                    payload: [
+                      swapFromAddressInfo.address.toLowerCase(),
+                      dataMessage,
+                    ],
+                  },
+                  walletInternalSign: true,
+                })) as string;
+              if (signHash) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                selectQuoteRes.quoteResultCtx.cowSwapUnSignedOrder =
+                  unSignedOrder;
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                selectQuoteRes.quoteResultCtx.signedResult = {
+                  signature: signHash,
+                  signingScheme: ESigningScheme.EIP712,
+                };
+              }
             }
           }
         }
@@ -553,7 +603,7 @@ export function useSwapBuildTx() {
 
           const swapInfo: ISwapTxInfo = {
             sender: {
-              amount: selectQuoteRes.fromAmount,
+              amount: res.result.fromAmount ?? selectQuoteRes.fromAmount,
               token: fromToken,
               accountInfo: {
                 accountId: swapFromAddressInfo.accountInfo?.account?.id,
@@ -561,7 +611,7 @@ export function useSwapBuildTx() {
               },
             },
             receiver: {
-              amount: selectQuoteRes.toAmount,
+              amount: res.result.toAmount ?? selectQuoteRes.toAmount,
               token: toToken,
               accountInfo: {
                 accountId: swapToAddressInfo.accountInfo?.account?.id,
