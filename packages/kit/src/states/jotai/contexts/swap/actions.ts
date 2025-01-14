@@ -666,6 +666,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   txId: undefined,
                   status: ESwapApproveTransactionStatus.FAILED,
                 };
+              } else {
+                // update quote list
+                const quoteList = get(swapQuoteListAtom());
+                const updateQuoteList = quoteList.filter(
+                  (quote) =>
+                    quote.info.provider !== preApproveTx.provider ||
+                    quote.quoteId !== preApproveTx.quoteId,
+                );
+                set(swapQuoteListAtom(), [...updateQuoteList]);
               }
               await backgroundApiProxy.serviceSwap.setApprovingTransaction(
                 newApproveTx,

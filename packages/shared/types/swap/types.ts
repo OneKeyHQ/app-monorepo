@@ -169,6 +169,7 @@ export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
   provider: string;
+  quoteId: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
@@ -273,11 +274,13 @@ export interface IFetchQuoteResult {
   };
   protocolNoRouterInfo?: string;
   supportUrl?: string;
+  orderSupportUrl?: string;
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   gasLimit?: number;
   slippage?: number;
+  providerDisableBatchTransfer?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -571,6 +574,7 @@ export interface ISwapTxHistory {
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     orderId?: string;
     supportUrl?: string;
+    orderSupportUrl?: string;
   };
   date: {
     created: number;
