@@ -476,7 +476,6 @@ function BasicTable<T>({
           ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
-          estimatedItemSize={estimatedItemSize}
           // @ts-ignore
           estimatedListSize={estimatedListSize}
           onScrollOffsetChange={
