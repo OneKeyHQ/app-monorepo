@@ -14,10 +14,8 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
-  IActionListItemProps,
   IElement,
   IStackStyle,
   ITableColumn,
@@ -155,9 +153,6 @@ function MdPlaceholder() {
 }
 
 type IKeyOfMarketToken = keyof IMarketToken;
-const TouchableContainer = platformEnv.isNative
-  ? Fragment
-  : TouchableWithoutFeedback;
 
 function MarketMdColumn({
   item,
@@ -318,96 +313,88 @@ function MarketMdColumn({
     [handleMdItemAction, toDetailPage],
   );
   return (
-    <TouchableContainer
-      containerStyle={{ flex: 1 }}
-      style={{ flex: 1 }}
-      {...(platformEnv.isNative ? undefined : pressEvents)}
+    <XStack
+      height={60}
+      flex={1}
+      justifyContent="space-between"
+      userSelect="none"
+      gap="$2"
+      px="$5"
     >
-      <XStack
-        height={60}
-        flex={1}
-        justifyContent="space-between"
-        userSelect="none"
-        gap="$2"
-        px="$5"
-        {...listItemPressStyle}
-        {...(platformEnv.isNative ? pressEvents : undefined)}
-      >
-        <XStack gap="$3" ai="center">
-          <MarketTokenIcon uri={item.image} size="$10" />
-          <YStack>
-            <SizableText size="$bodyLgMedium" userSelect="none">
-              {item.symbol.toUpperCase()}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued" userSelect="none">
-              {`VOL `}
-              <NumberSizeableText
-                userSelect="none"
-                size="$bodySm"
-                formatter="marketCap"
-                color="$textSubdued"
-                formatterOptions={{ currency }}
-              >
-                {item.totalVolume}
-              </NumberSizeableText>
-            </SizableText>
-          </YStack>
-        </XStack>
-        <XStack ai="center" gap="$5" flexShrink={1}>
-          {mdColumnKeys[0] === 'price' ? (
-            <MarketTokenPrice
-              numberOfLines={1}
-              flexShrink={1}
-              size="$bodyLgMedium"
-              price={String(item[mdColumnKeys[0]])}
-              tokenName={item.name}
-              tokenSymbol={item.symbol}
-              lastUpdated={item.lastUpdated}
-            />
-          ) : (
+      <XStack gap="$3" ai="center">
+        <MarketTokenIcon uri={item.image} size="$10" />
+        <YStack>
+          <SizableText size="$bodyLgMedium" userSelect="none">
+            {item.symbol.toUpperCase()}
+          </SizableText>
+          <SizableText size="$bodySm" color="$textSubdued" userSelect="none">
+            {`VOL `}
             <NumberSizeableText
               userSelect="none"
-              flexShrink={1}
-              numberOfLines={1}
-              size="$bodyLgMedium"
+              size="$bodySm"
               formatter="marketCap"
+              color="$textSubdued"
               formatterOptions={{ currency }}
             >
-              {item[mdColumnKeys[0]] as string}
+              {item.totalVolume}
             </NumberSizeableText>
-          )}
-          {item[mdColumnKeys[1]] ? (
-            <XStack
-              width="$20"
-              height="$8"
-              jc="center"
-              ai="center"
-              backgroundColor={
-                Number(item.priceChangePercentage24H) > 0
-                  ? '$bgSuccessStrong'
-                  : '$bgCriticalStrong'
-              }
-              borderRadius="$2"
-            >
-              <NumberSizeableText
-                adjustsFontSizeToFit
-                numberOfLines={platformEnv.isNative ? 1 : 2}
-                px="$1"
-                userSelect="none"
-                size="$bodyMdMedium"
-                color="white"
-                formatter="priceChange"
-                formatterOptions={{ showPlusMinusSigns: true }}
-              >
-                {item[mdColumnKeys[1]] as string}
-              </NumberSizeableText>
-            </XStack>
-          ) : (
-            <MdPlaceholder />
-          )}
-        </XStack>
+          </SizableText>
+        </YStack>
       </XStack>
-    </TouchableContainer>
+      <XStack ai="center" gap="$5" flexShrink={1}>
+        {mdColumnKeys[0] === 'price' ? (
+          <MarketTokenPrice
+            numberOfLines={1}
+            flexShrink={1}
+            size="$bodyLgMedium"
+            price={String(item[mdColumnKeys[0]])}
+            tokenName={item.name}
+            tokenSymbol={item.symbol}
+            lastUpdated={item.lastUpdated}
+          />
+        ) : (
+          <NumberSizeableText
+            userSelect="none"
+            flexShrink={1}
+            numberOfLines={1}
+            size="$bodyLgMedium"
+            formatter="marketCap"
+            formatterOptions={{ currency }}
+          >
+            {item[mdColumnKeys[0]] as string}
+          </NumberSizeableText>
+        )}
+        {item[mdColumnKeys[1]] ? (
+          <XStack
+            width="$20"
+            height="$8"
+            jc="center"
+            ai="center"
+            backgroundColor={
+              Number(item.priceChangePercentage24H) > 0
+                ? '$bgSuccessStrong'
+                : '$bgCriticalStrong'
+            }
+            borderRadius="$2"
+          >
+            <NumberSizeableText
+              adjustsFontSizeToFit
+              numberOfLines={platformEnv.isNative ? 1 : 2}
+              px="$1"
+              userSelect="none"
+              size="$bodyMdMedium"
+              color="white"
+              formatter="priceChange"
+              formatterOptions={{ showPlusMinusSigns: true }}
+            >
+              {item[mdColumnKeys[1]] as string}
+            </NumberSizeableText>
+          </XStack>
+        ) : (
+          <MdPlaceholder />
+        )}
+      </XStack>
+    </XStack>
   );
 }
 
@@ -968,9 +955,9 @@ function BasicMarketHomeList({
 
   const onRow = useCallback(
     (record: IMarketToken) => ({
-      onPress: md ? undefined : () => toDetailPage(record),
+      onPress: () => toDetailPage(record),
     }),
-    [md, toDetailPage],
+    [toDetailPage],
   );
 
   const onHeaderRow = useCallback(
@@ -1050,7 +1037,7 @@ function BasicMarketHomeList({
 
       <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         <Table
-          draggable
+          draggable={draggable}
           headerRowProps={HEADER_ROW_PROPS}
           showBackToTopButton
           stickyHeaderHiddenOnScroll

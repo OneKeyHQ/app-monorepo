@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { IconButton } from '../../actions/IconButton';
@@ -111,26 +112,29 @@ export interface ITableColumn<T> {
 }
 
 function TableRow<T>({
-  item,
-  index,
   columns,
-  onRow,
-  rowProps,
-  pressStyle = false,
-  showSkeleton = false,
   dataSet,
+  drag,
+  index,
+  item,
+  onRow,
+  pressStyle = false,
+  rowProps,
+  showSkeleton = false,
+  draggable = false,
 }: {
-  pressStyle?: boolean;
-  item: T;
-  index: number;
   columns: ITableProps<T>['columns'];
-  onHeaderRow?: ITableProps<T>['onHeaderRow'];
-  showSkeleton?: boolean;
-  onRow?: ITableProps<T>['onRow'];
   dataSet?: Record<string, any>;
+  drag?: () => void;
+  draggable?: boolean;
+  index: number;
+  item: T;
+  onHeaderRow?: ITableProps<T>['onHeaderRow'];
+  onRow?: ITableProps<T>['onRow'];
+  pressStyle?: boolean;
   rowProps?: ITableProps<T>['rowProps'];
+  showSkeleton?: boolean;
 }) {
-  console.log('index---', index);
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
   const handlePress = useCallback(() => {
     onRowEvents?.onPress?.();
@@ -141,7 +145,8 @@ function TableRow<T>({
       minHeight={60}
       onPress={handlePress}
       borderRadius="$3"
-      dataSet={dataSet}
+      dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
+      onPressIn={platformEnv.isNative && draggable ? drag : undefined}
       {...itemPressStyle}
       {...rowProps}
     >
@@ -432,11 +437,13 @@ function BasicTable<T>({
     [],
   );
 
-  const handleSortableListView = useCallback(
+  const renderSortableItem = useCallback(
     ({ item, drag, dragProps, index }: IRenderItemParams<T>) => (
       <TableRow
         pressStyle
+        draggable={draggable}
         dataSet={dragProps}
+        drag={drag}
         item={item}
         index={index}
         columns={columns}
@@ -444,23 +451,13 @@ function BasicTable<T>({
         rowProps={rowProps}
       />
     ),
-    [columns, onRow, rowProps],
+    [columns, draggable, onRow, rowProps],
   );
-
-  const layoutList = useMemo(() => {
-    let offset = 0;
-    const layouts: { offset: number; length: number; index: number }[] = [];
-    dataSource?.forEach?.((d) => {
-      const height = 60;
-      layouts.push({ offset, length: height, index: layouts.length });
-      offset += height;
-    });
-    return layouts;
-  }, [dataSource]);
   const list = useMemo(
     () =>
       draggable ? (
         <SortableListView
+          enabled
           ref={listViewRef}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
@@ -470,8 +467,12 @@ function BasicTable<T>({
           onScroll={showBackToTopButton ? handleScroll : undefined}
           scrollEventThrottle={100}
           data={dataSource}
-          renderItem={handleSortableListView}
-          getItemLayout={(_, index) => layoutList[index]}
+          renderItem={renderSortableItem}
+          getItemLayout={(_, index) => ({
+            length: 60,
+            offset: index * 60,
+            index,
+          })}
           renderPlaceholder={renderPlaceholder}
           ListHeaderComponent={
             <>
@@ -521,7 +522,9 @@ function BasicTable<T>({
       extraData,
       handleRenderItem,
       handleScroll,
+      renderSortableItem,
       headerRow,
+      keyExtractor,
       renderPlaceholder,
       renderScrollComponent,
       showBackToTopButton,
