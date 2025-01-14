@@ -16,6 +16,7 @@ import {
   EModalStakingRoutes,
   type IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
@@ -187,7 +188,7 @@ const ProtocolDetailsPage = () => {
         if (!rewardToken) {
           throw new Error('Reward token not found');
         }
-        claimTokenInfo = { token: rewardToken, amount: amount ?? '0' };
+        claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
       }
       await handleClaim({
         symbol,
@@ -199,7 +200,9 @@ const ProtocolDetailsPage = () => {
         details: result,
         stakingInfo: {
           label: EEarnLabels.Claim,
-          protocol: result.provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: result.provider.name,
+          }),
           protocolLogoURI: result.provider.logoURI,
           receive: claimTokenInfo,
           tags: [buildLocalTxStatusSyncId(result)],
@@ -235,6 +238,7 @@ const ProtocolDetailsPage = () => {
         symbol,
         provider,
         stakeTag: buildLocalTxStatusSyncId(result),
+        morphoVault: vault,
       });
     };
   }, [
@@ -243,6 +247,7 @@ const ProtocolDetailsPage = () => {
     networkId,
     symbol,
     provider,
+    vault,
     result,
   ]);
 

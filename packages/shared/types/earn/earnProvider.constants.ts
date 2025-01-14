@@ -1,4 +1,5 @@
 import { getNetworkIdsMap } from '../../src/config/networkIds';
+import { EthereumMatic, EthereumUSDC } from '../../src/consts/addresses';
 import { ESwapTabSwitchType } from '../swap/types';
 
 import type { ISwapTokenBase } from '../swap/types';
@@ -35,17 +36,26 @@ const earnTradeDefaultSetSOL = {
 };
 
 export const isSupportStaking = (symbol: string) =>
-  ['BTC', 'SBTC', 'ETH', 'SOL', 'APT', 'ATOM', 'MATIC'].includes(
+  ['BTC', 'SBTC', 'ETH', 'SOL', 'APT', 'ATOM', 'MATIC', 'USDC'].includes(
     symbol.toUpperCase(),
   );
 
+export const earnMainnetNetworkIds = [
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().base,
+  getNetworkIdsMap().cosmoshub,
+  getNetworkIdsMap().apt,
+  getNetworkIdsMap().sol,
+  getNetworkIdsMap().btc,
+];
+
 export function getImportFromToken({
   networkId,
-  tokenSymbol,
+  tokenAddress,
   isSupportSwap = true,
 }: {
   networkId: string;
-  tokenSymbol: string;
+  tokenAddress: string;
   isSupportSwap: boolean;
 }) {
   let importFromToken: ISwapTokenBase | undefined;
@@ -62,7 +72,10 @@ export function getImportFromToken({
     case networkIdsMap.eth:
     case networkIdsMap.holesky:
     case networkIdsMap.sepolia: {
-      if (tokenSymbol === 'MATIC') {
+      if (
+        tokenAddress.toLowerCase() === EthereumMatic.toLowerCase() ||
+        tokenAddress.toLowerCase() === EthereumUSDC.toLowerCase()
+      ) {
         importFromToken = earnTradeDefaultSetETH;
       } else {
         importFromToken = earnTradeDefaultSetUSDC;

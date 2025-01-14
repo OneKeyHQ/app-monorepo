@@ -43,11 +43,14 @@ export type IStakeProviderInfo = {
   nextLaunchLeft?: string;
 
   lidoStTokenRate?: string;
+  morphoTokenRate?: string;
   type?: 'native' | 'liquid' | 'lending';
   isStaking?: boolean;
 
   unstakingTime?: number;
   stakingTime?: number;
+
+  receiptToken?: string;
 
   // native token only
   minTransactionFee?: string;
@@ -81,6 +84,7 @@ export type IStakeBaseParams = {
   feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
+  morphoVault?: string; // morpho vault
 };
 
 export type IWithdrawBaseParams = {
@@ -93,6 +97,7 @@ export type IWithdrawBaseParams = {
   identity?: string; // sol pubkey
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
+  morphoVault?: string; // morpho vault
 };
 
 export type IUnstakePushParams = {
@@ -127,6 +132,7 @@ export type IStakeHistoryParams = {
   networkId: string;
   symbol: string;
   provider: string;
+  morphoVault?: string;
 };
 
 export type IStakeHistory = {
@@ -208,6 +214,15 @@ export type IStakeTxCosmosAmino = {
   readonly memo: string;
 };
 
+export type IEarnTokenItem = {
+  balance: string;
+  balanceParsed: string;
+  fiatValue: string;
+  price: string;
+  price24h: string;
+  info: IToken;
+};
+
 export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
@@ -221,14 +236,7 @@ export type IStakeProtocolDetails = {
   provider: IStakeProviderInfo;
   totalStaked?: string;
   stakingCap?: string;
-  token: {
-    balance: string;
-    balanceParsed: string;
-    fiatValue: string;
-    price: string;
-    price24h: string;
-    info: IToken;
-  };
+  token: IEarnTokenItem;
   network?: {
     name: string;
   };
@@ -240,7 +248,7 @@ export type IStakeProtocolDetails = {
   unstakingPeriod?: number;
   overflow?: string;
   rewardNum?: Record<string, string>;
-  rewardAssets?: Record<string, IToken>;
+  rewardAssets?: Record<string, IEarnTokenItem>;
 };
 
 export type IStakeProtocolListItem = {
@@ -375,6 +383,8 @@ export interface IInvestment {
   staked: string;
   stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
+  rewardNum?: Record<string, string>;
+  vault?: string;
 }
 export interface IEarnInvestmentItem {
   name: string;

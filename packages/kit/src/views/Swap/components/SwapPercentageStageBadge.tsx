@@ -32,7 +32,9 @@ const SwapPercentageStageBadge = ({
     }}
     {...props}
   >
-    <Badge.Text>{stage}%</Badge.Text>
+    <Badge.Text size="$bodySmMedium" color="$textSubdued">
+      {stage}%
+    </Badge.Text>
   </Badge>
 );
 

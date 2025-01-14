@@ -156,8 +156,8 @@ const SwapInputContainer = ({
     [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
   );
   return (
-    <YStack>
-      <XStack justifyContent="space-between">
+    <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
+      <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
         <SwapAccountAddressContainer
           type={direction}
           onClickNetwork={onSelectToken}
@@ -171,6 +171,8 @@ const SwapInputContainer = ({
         />
       </XStack>
       <AmountInput
+        borderRadius="$0"
+        borderWidth="$0"
         onChange={onAmountChange}
         value={amountValue}
         onFocus={onFromInputFocus}
