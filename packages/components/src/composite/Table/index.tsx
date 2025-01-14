@@ -396,14 +396,19 @@ function BasicTable<T>({
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
+
+  const handleScrollOffsetChange = useCallback((offset: number) => {
+    const isShow = offset > 0;
+    if (isShowBackToTopButtonRef.current !== isShow) {
+      setIsShowBackToTopButton(isShow);
+    }
+  }, []);
+
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const isShow = event.nativeEvent.contentOffset.y > 0;
-      if (isShowBackToTopButtonRef.current !== isShow) {
-        setIsShowBackToTopButton(isShow);
-      }
+      handleScrollOffsetChange(event.nativeEvent.contentOffset.y);
     },
-    [],
+    [handleScrollOffsetChange],
   );
 
   const handleScrollToTop = useCallback(() => {
@@ -468,13 +473,13 @@ function BasicTable<T>({
       draggable ? (
         <SortableListView
           enabled
-          ref={listViewRef}
+          ref={listViewRef as unknown as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
           estimatedItemSize={estimatedItemSize}
           // @ts-ignore
           estimatedListSize={estimatedListSize}
-          onScroll={showBackToTopButton ? handleScroll : undefined}
+          onScrollOffsetChange={handleScrollOffsetChange}
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={renderSortableItem}
@@ -522,25 +527,26 @@ function BasicTable<T>({
         />
       ),
     [
-      TableEmptyComponent,
-      TableFooterComponent,
-      TableHeaderComponent,
-      contentContainerStyle,
-      dataSource,
       draggable,
+      contentContainerStyle,
+      stickyHeaderHiddenOnScroll,
       estimatedItemSize,
       estimatedListSize,
-      extraData,
-      handleRenderItem,
-      handleScroll,
-      renderSortableItem,
-      headerRow,
-      keyExtractor,
-      renderPlaceholder,
-      renderScrollComponent,
       showBackToTopButton,
+      handleScroll,
+      dataSource,
+      renderSortableItem,
+      renderPlaceholder,
+      TableHeaderComponent,
       stickyHeader,
-      stickyHeaderHiddenOnScroll,
+      headerRow,
+      onDragEnd,
+      keyExtractor,
+      TableFooterComponent,
+      TableEmptyComponent,
+      extraData,
+      renderScrollComponent,
+      handleRenderItem,
     ],
   );
 
