@@ -13,6 +13,7 @@ import {
 } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export const MAX_UINT48_STRING = '281474976710655';
 
@@ -29,7 +30,9 @@ function DateTime(props: IProps) {
     const timestamp = new BigNumber(component.value ?? 0);
 
     if (timestamp.gte(MAX_UINT48_STRING)) {
-      return 'Forever';
+      return intl.formatMessage({
+        id: ETranslations.global_forever,
+      });
     }
 
     let timestampInMs =
@@ -42,7 +45,7 @@ function DateTime(props: IProps) {
       return intlFormatDistance(new Date(timestampInMs.toNumber()), now);
     }
     return formatDate(new Date(timestampInMs.toNumber()));
-  }, [component.value, component.format]);
+  }, [component.value, component.format, intl]);
 
   return (
     <SignatureConfirmItem>
