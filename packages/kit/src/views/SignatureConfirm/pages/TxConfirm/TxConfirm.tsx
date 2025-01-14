@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -228,7 +228,7 @@ function TxConfirm() {
     }
 
     return (
-      <>
+      <YStack gap="$5">
         <SignatureConfirmAlert networkId={networkId} />
         <SourceInfo sourceInfo={sourceInfo} />
         <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
@@ -240,7 +240,7 @@ function TxConfirm() {
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         {stakingInfo ? <StakingInfo data={stakingInfo} /> : null}
         <TxAdvancedSettings accountId={accountId} networkId={networkId} />
-      </>
+      </YStack>
     );
   }, [
     isBuildingDecodedTxs,

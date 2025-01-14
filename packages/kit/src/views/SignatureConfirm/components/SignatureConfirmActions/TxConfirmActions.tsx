@@ -4,7 +4,12 @@ import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
+import {
+  Page,
+  Toast,
+  usePageUnMounted,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -85,6 +90,7 @@ function TxConfirmActions(props: IProps) {
   const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
   const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
+  const { bottom } = useSafeAreaInsets();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -353,6 +359,9 @@ function TxConfirmActions(props: IProps) {
         }
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
+        {...(bottom && {
+          mb: bottom,
+        })}
       >
         <TxFeeInfo
           accountId={accountId}

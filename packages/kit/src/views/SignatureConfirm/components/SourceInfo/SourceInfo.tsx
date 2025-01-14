@@ -1,6 +1,5 @@
 import { memo } from 'react';
 
-import { Stack } from '@onekeyhq/components';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
@@ -22,12 +21,10 @@ function SourceInfo(props: IProps) {
   }
 
   return (
-    <Stack mb="$5">
-      <DAppSiteMark
-        origin={sourceInfo.origin}
-        urlSecurityInfo={urlSecurityInfo}
-      />
-    </Stack>
+    <DAppSiteMark
+      origin={sourceInfo.origin}
+      urlSecurityInfo={urlSecurityInfo}
+    />
   );
 }
 

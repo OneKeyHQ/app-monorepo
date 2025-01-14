@@ -1038,7 +1038,7 @@ function TxFeeInfo(props: IProps) {
     () => (
       <NumberSizeableText
         size="$bodyMd"
-        color="$textSubdued"
+        color="$text"
         formatter="balance"
         formatterOptions={{
           tokenSymbol: txFee?.common.nativeSymbol,
@@ -1056,7 +1056,7 @@ function TxFeeInfo(props: IProps) {
         (
         <NumberSizeableText
           size="$bodyMd"
-          color="$textSubdued"
+          color="$text"
           formatter="value"
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
@@ -1087,8 +1087,8 @@ function TxFeeInfo(props: IProps) {
         mb: '$0',
       }}
     >
-      <XStack gap="$2" alignItems="center" pb="$1">
-        <SizableText size="$bodyMdMedium">
+      <XStack gap="$1" alignItems="center" pb="$1">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_est_network_fee,
           })}
