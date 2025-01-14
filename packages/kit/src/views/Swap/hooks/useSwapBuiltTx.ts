@@ -420,7 +420,7 @@ export function useSwapBuildTx() {
             receiver: string;
           } =
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            selectQuoteRes.quoteResultCtx.cowSwapUnSignedOrder;
+            selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
           if ((unSignedMessage || unSignedData) && unSignedOrder) {
             unSignedOrder.receiver = swapToAddressInfo.address;
             let dataMessage = unSignedMessage;
