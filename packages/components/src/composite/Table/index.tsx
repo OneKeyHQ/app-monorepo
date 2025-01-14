@@ -24,6 +24,8 @@ import type {
   NativeSyntheticEvent,
 } from 'react-native';
 
+const DEFAULT_ROW_HEIGHT = 60;
+
 function Column<T>({
   children,
   width,
@@ -148,7 +150,7 @@ function TableRow<T>({
   const isDragging = pressStyle && isActive;
   return (
     <XStack
-      minHeight={60}
+      minHeight={DEFAULT_ROW_HEIGHT}
       onPress={handlePress}
       bg={isDragging ? '$bgActive' : '$bgApp'}
       borderRadius="$3"
@@ -384,7 +386,7 @@ function BasicTable<T>({
   renderScrollComponent,
   onDragEnd,
   showHeader = true,
-  estimatedItemSize = 60,
+  estimatedItemSize = DEFAULT_ROW_HEIGHT,
   estimatedListSize = { width: 370, height: 525 },
   stickyHeader = true,
   stickyHeaderHiddenOnScroll = false,
@@ -447,7 +449,7 @@ function BasicTable<T>({
   );
 
   const renderPlaceholder = useCallback(
-    ({ item }: { item: T }) => <XStack h={60} borderRadius="$3" />,
+    () => <XStack h={DEFAULT_ROW_HEIGHT} borderRadius="$3" />,
     [],
   );
 
@@ -457,7 +459,7 @@ function BasicTable<T>({
     }
     return typeof estimatedItemSize === 'number'
       ? estimatedItemSize
-      : (getTokenValue(estimatedItemSize, 'size') as number) || 60;
+      : (getTokenValue(estimatedItemSize, 'size') as number);
   }, [estimatedItemSize]);
 
   const renderSortableItem = useCallback(
@@ -495,8 +497,8 @@ function BasicTable<T>({
           data={dataSource}
           renderItem={renderSortableItem}
           getItemLayout={(_, index) => ({
-            length: itemSize,
-            offset: index * itemSize,
+            length: itemSize || DEFAULT_ROW_HEIGHT,
+            offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
             index,
           })}
           renderPlaceholder={renderPlaceholder}
