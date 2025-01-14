@@ -500,6 +500,13 @@ const SecretHashGallery = LazyLoadPage(
     ),
 );
 
+const SecretCryptoFunctionGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SecretCryptoFunctionGallery'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -727,5 +734,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentSecretHash,
     component: SecretHashGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentSecretCryptoFunction,
+    component: SecretCryptoFunctionGallery,
   },
 ];
