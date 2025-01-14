@@ -1,4 +1,4 @@
-import type { StackStyle } from '@tamagui/web/types/types';
+import type { StackStyle, Tokens } from '@tamagui/web/types/types';
 import type {
   DragEndParams,
   DraggableFlatListProps,
@@ -28,6 +28,7 @@ export type ISortableListViewProps<T> = Omit<
   | 'ListFooterComponentStyle'
 > &
   StackStyle & {
+    ref: any;
     data: T[];
     keyExtractor: (item: T, index: number) => string;
     renderItem: (params: IRenderItemParams<T>) => React.ReactNode;
