@@ -168,6 +168,16 @@ class ProviderApiCosmos extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  public async babylonConnectWallet(request: IJsBridgeMessagePayload) {
+    const chainId = 'bbn-test-5';
+    const result = await this.enable(request, [chainId]);
+    if (!result) {
+      throw new Error('Failed to connect Babylon wallet');
+    }
+    return chainId;
+  }
+
+  @providerApiMethod()
   public enable(request: IJsBridgeMessagePayload, params: string[]) {
     const { origin } = request;
     if (!origin) {
@@ -230,6 +240,12 @@ class ProviderApiCosmos extends ProviderApiBase {
         accountId: account.id,
       }),
     };
+  }
+
+  @providerApiMethod()
+  public async babylonGetKey(request: IJsBridgeMessagePayload) {
+    const chainId = 'bbn-test-5';
+    return this.getKey(request, chainId);
   }
 
   @providerApiMethod()
