@@ -3,7 +3,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Checkbox, Page } from '@onekeyhq/components';
+import { Checkbox, Page, Toast } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -105,6 +105,11 @@ function MessageConfirmActions(props: IProps) {
         } catch {
           // noop
         }
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.feedback_sign_success,
+          }),
+        });
         close?.({ flag: EDAppModalPageStatus.Confirmed });
       } finally {
         setIsLoading(false);
@@ -116,6 +121,7 @@ function MessageConfirmActions(props: IProps) {
       networkId,
       dappApprove,
       accountId,
+      intl,
       $sourceInfo,
     ],
   );

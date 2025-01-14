@@ -1,5 +1,5 @@
-import type { IBadgeType } from '@onekeyhq/components';
-import type { IEncodedTx, IUnsignedMessage } from '@onekeyhq/core/src/types';
+import type { IBadgeType, IKeyOfIcons } from '@onekeyhq/components';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
 import type { IAccountNFT } from './nft';
 import type { IToken, ITokenFiat } from './token';
@@ -30,6 +30,11 @@ export enum EParseTxDateTimeFormat {
   Duration = 'duration',
 }
 
+export enum ETransferDirection {
+  In = 'in',
+  Out = 'out',
+}
+
 export interface IDisplayComponentDateTime {
   type: EParseTxComponentType.DateTime;
   label: string;
@@ -54,6 +59,8 @@ export interface IDisplayComponentAddress {
   tags: {
     value: string;
     displayType: IBadgeType;
+    icon?: IKeyOfIcons;
+    iconURL?: string;
   }[];
   isNavigable?: boolean;
 }
@@ -69,6 +76,7 @@ export interface IDisplayComponentNFT {
   label: string;
   nft: IAccountNFT;
   amount: string;
+  transferDirection?: ETransferDirection;
 }
 
 export interface IDisplayComponentToken {
@@ -81,6 +89,7 @@ export interface IDisplayComponentToken {
   amountParsed: string;
   networkId: string;
   showNetwork: boolean;
+  transferDirection?: ETransferDirection;
 }
 
 export interface IDisplayComponentAssets {
@@ -103,6 +112,7 @@ export interface IDisplayComponentInternalAssets {
   amountParsed: string;
   networkId?: string;
   isNFT?: boolean;
+  transferDirection?: ETransferDirection;
 }
 
 export interface IDisplayComponentApprove {

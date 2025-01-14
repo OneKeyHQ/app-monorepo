@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Badge, IconButton, XStack } from '@onekeyhq/components';
+import { Badge, Icon, IconButton, XStack } from '@onekeyhq/components';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -64,11 +64,20 @@ function Address(props: IProps) {
             withWrapper={false}
           />
         ) : null}
-        {component.tags?.map((tag) => (
-          <Badge key={tag.value} badgeType={tag.displayType}>
-            {tag.value}
-          </Badge>
-        ))}
+        {component.tags?.map((tag) =>
+          tag.icon ? (
+            <Badge key={tag.value} badgeType={tag.displayType}>
+              <XStack gap="$1" alignItems="center">
+                <Icon name={tag.icon} width={16} height={16} />
+                <Badge.Text>{tag.value}</Badge.Text>
+              </XStack>
+            </Badge>
+          ) : (
+            <Badge key={tag.value} badgeType={tag.displayType}>
+              {tag.value}
+            </Badge>
+          ),
+        )}
       </XStack>
     </SignatureConfirmItem>
   );
