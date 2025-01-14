@@ -41,10 +41,17 @@ const TxReplace = LazyLoadPage(
     ),
 );
 
-const TxConfirmModal = LazyLoadPage(
+const TxConfirm = LazyLoadPage(
   () =>
     import(
       '@onekeyhq/kit/src/views/SignatureConfirm/pages/TxConfirm/TxConfirm'
+    ),
+);
+
+const MessageConfirm = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirm'
     ),
 );
 
@@ -82,7 +89,11 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
 >[] = [
   {
     name: EModalSignatureConfirmRoutes.TxConfirm,
-    component: TxConfirmModal,
+    component: TxConfirm,
+  },
+  {
+    name: EModalSignatureConfirmRoutes.MessageConfirm,
+    component: MessageConfirm,
   },
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromDApp,

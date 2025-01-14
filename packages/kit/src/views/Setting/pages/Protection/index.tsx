@@ -19,12 +19,12 @@ const SettingProtectionModal = () => {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.settings_protection })}
       />
       <Page.Body>
-        <YStack>
+        <YStack pb="$10">
           <SectionList.SectionHeader
             title={intl.formatMessage({
               id: ETranslations.settings_token_risk_protection,
@@ -46,6 +46,24 @@ const SettingProtectionModal = () => {
           <SizableText px="$5" size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.settings_token_risk_reminder_desc,
+            })}
+          </SizableText>
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.settings_protection_allowlist_title,
+            })}
+          >
+            <Switch
+              size={ESwitchSize.small}
+              value={settings.transferAllowList ?? true}
+              onChange={async (value) => {
+                setSettings((v) => ({ ...v, transferAllowList: !!value }));
+              }}
+            />
+          </ListItem>
+          <SizableText px="$5" size="$bodySm" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.settings_protection_allowlist_content,
             })}
           </SizableText>
           <Divider my="$5" mx="$5" />

@@ -65,7 +65,7 @@ function DesktopCustomTabBar() {
     closeWebTab,
     setPinnedTab,
     closeAllWebTabs,
-    setTabs,
+    setTabsByIds,
     reOpenLastClosedTab,
   } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -310,10 +310,12 @@ function DesktopCustomTabBar() {
       };
       reloadTimeStamp();
       setResult({ pinnedTabs, unpinnedTabs });
-      setTabs([...pinnedTabs, ...unpinnedTabs]);
+      setTimeout(() => {
+        setTabsByIds({ pinnedTabs, unpinnedTabs });
+      }, 0);
       defaultLogger.discovery.browser.tabDragSorting();
     },
-    [setTabs, setResult, sections],
+    [setTabsByIds, setResult, sections],
   );
 
   return (

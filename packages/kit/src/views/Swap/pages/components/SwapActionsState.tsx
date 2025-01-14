@@ -142,6 +142,7 @@ const SwapActionsState = ({
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
+    currentQuoteRes?.providerDisableBatchTransfer,
   );
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,

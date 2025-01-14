@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -180,8 +180,15 @@ function AssetsToken(props: IAssetsTokenProps) {
 }
 
 function AssetsTokenApproval(props: IAssetsApproveProps) {
-  const { component, accountId, networkId, approveInfo, showNetwork, ...rest } =
-    props;
+  const {
+    component,
+    accountId,
+    networkId,
+    approveInfo,
+    showNetwork,
+    editable,
+    ...rest
+  } = props;
   const { token } = component;
   const { updateTokenApproveInfo } = useSignatureConfirmActions().current;
   const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
@@ -198,6 +205,11 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
     component.isInfiniteAmount,
     component.amountParsed,
   ]);
+
+  const isEditable = useMemo(
+    () => editable && component.isEditable,
+    [editable, component.isEditable],
+  );
 
   return (
     <SignatureAssetDetailItem
@@ -235,6 +247,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
         });
       }}
       showNetwork={component.showNetwork ?? showNetwork}
+      editable={isEditable}
       {...rest}
     />
   );

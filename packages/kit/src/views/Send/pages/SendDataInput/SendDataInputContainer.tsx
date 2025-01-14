@@ -11,12 +11,15 @@ import {
   Button,
   Dialog,
   Form,
+  HeaderIconButton,
   Input,
   Page,
+  Popover,
   SizableText,
   TextArea,
   TextAreaInput,
   XStack,
+  YStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
@@ -27,6 +30,7 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -48,6 +52,8 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
+  EModalSettingRoutes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type {
   EModalSendRoutes,
@@ -69,6 +75,7 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { showContractWarningDialog } from './ContractWarningDialog';
+import { renderSendDataInputErrorHyperlinkText } from './SendDataInputErrorHyperlinkText';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -272,6 +279,8 @@ function SendDataInputContainer() {
 
   const form = useForm({
     defaultValues: {
+      accountId,
+      networkId,
       to: { raw: address } as IAddressInputValue,
       amount: sendAmount,
       nftAmount: sendAmount || '1',
@@ -425,6 +434,9 @@ function SendDataInputContainer() {
                 accountId: data.accountId,
                 networkId: data.networkId,
               });
+              // TODO: need remove
+              form.setValue('accountId', data.accountId);
+              form.setValue('networkId', data.networkId);
             }
             setTokenInfo(data);
             navigation.popStack();
@@ -439,6 +451,7 @@ function SendDataInputContainer() {
     allTokens.keys,
     allTokens.tokens,
     currentAccount.accountId,
+    form,
     isAllNetworks,
     isSelectTokenDisabled,
     map,
@@ -1186,10 +1199,73 @@ function SendDataInputContainer() {
     [],
   );
 
+  const navigateToSettingProtection = useCallback(() => {
+    navigation.push(EModalSettingRoutes.SettingProtectModal);
+  }, [navigation]);
+
+  const isEnableTransferAllowList = useMemo(
+    () => settings.transferAllowList ?? true,
+    [settings.transferAllowList],
+  );
+  const { gtMd } = useMedia();
+  // TODO: Add title for large screen popover
+  const PopoverTitle = useMemo(
+    () => (
+      <XStack gap="$2">
+        <HeaderIconButton
+          key="allowList"
+          titlePlacement="bottom"
+          iconProps={{
+            color: '$iconSuccess',
+          }}
+          icon="ShieldCheckDoneSolid"
+          testID="setting"
+        />
+        <SizableText size="$headingLg">
+          {intl.formatMessage({
+            id: ETranslations.allowlist_enabled_popover_title,
+          })}
+        </SizableText>
+      </XStack>
+    ),
+    [intl],
+  );
+  const renderHeaderRight = useCallback(
+    () => (
+      <Popover
+        title={PopoverTitle}
+        renderTrigger={
+          <HeaderIconButton
+            key="allowList"
+            titlePlacement="bottom"
+            iconProps={{
+              color: '$iconSuccess',
+            }}
+            icon="ShieldCheckDoneOutline"
+            testID="setting"
+          />
+        }
+        renderContent={({ closePopover }) => (
+          <YStack p="$5" $md={{ pt: 0 }} gap="$2.5">
+            {gtMd ? PopoverTitle : null}
+            <HyperlinkText
+              color="$textSubdued"
+              size="$bodyLg"
+              translationId={ETranslations.allowlist_enabled_popover_content}
+              onAction={closePopover}
+            />
+          </YStack>
+        )}
+      />
+    ),
+    [PopoverTitle, gtMd],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
+        headerRight={isEnableTransferAllowList ? renderHeaderRight : undefined}
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
@@ -1253,6 +1329,7 @@ function SendDataInputContainer() {
             <Form.Field
               label={intl.formatMessage({ id: ETranslations.global_recipient })}
               name="to"
+              renderErrorMessage={renderSendDataInputErrorHyperlinkText}
               rules={{
                 required: true,
                 validate: (value: IAddressInputValue) => {
@@ -1261,7 +1338,9 @@ function SendDataInputContainer() {
                   }
                   if (!value.resolved) {
                     return (
-                      value.validateError?.message ??
+                      // Use translationId for error message formatting if available, therwise use direct message
+                      value.validateError?.translationId ||
+                      value.validateError?.message ||
                       intl.formatMessage({
                         id: ETranslations.send_address_invalid,
                       })
@@ -1278,6 +1357,7 @@ function SendDataInputContainer() {
                 enableVerifySendFundToSelf
                 enableAddressInteractionStatus
                 enableAddressContract
+                enableAllowListValidation
                 contacts={addressBookEnabledNetworkIds.includes(
                   currentAccount.networkId,
                 )}

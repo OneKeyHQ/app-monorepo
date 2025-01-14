@@ -62,6 +62,8 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SettingModal,
     children: ModalSettingStack,
+    rewrite: '/settings',
+    exact: true,
   },
   {
     name: EModalRoutes.SwapModal,

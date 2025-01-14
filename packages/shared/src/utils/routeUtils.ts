@@ -137,12 +137,16 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //   showParams: true,
     // },
 
-    // Settings Pages
-    // [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
-    //   {
-    //     showUrl: true,
-    //     showParams: true,
-    //   },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingProtectModal}`]:
+      {
+        showUrl: true,
+        showParams: false,
+      },
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isDev) {

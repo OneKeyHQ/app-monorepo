@@ -107,6 +107,12 @@ class ServiceSetting extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getIsEnableTransferAllowList() {
+    const { transferAllowList } = await settingsPersistAtom.get();
+    return transferAllowList ?? true;
+  }
+
+  @backgroundMethod()
   public async setProtectCreateTransaction(value: boolean) {
     await this.backgroundApi.servicePassword.promptPasswordVerify({
       reason: EReasonForNeedPassword.Security,

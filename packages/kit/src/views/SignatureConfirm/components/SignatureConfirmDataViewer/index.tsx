@@ -6,3 +6,4 @@
  */
 
 export * from './TxDataViewer';
+export * from './MessageDataViewer';

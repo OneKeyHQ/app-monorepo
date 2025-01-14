@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
@@ -56,6 +56,15 @@ const SwapQuoteInput = ({
   useSwapFromAccountNetworkSync();
   useSwapApproving();
 
+  const getTransform = useCallback(() => {
+    if (!platformEnv.isNative) {
+      return { transform: 'translate(-50%, -50%)' };
+    }
+    return {
+      transform: [{ translateX: -24 }, { translateY: -24 }],
+    };
+  }, []);
+
   return (
     <YStack gap="$2">
       <SwapInputContainer
@@ -98,8 +107,8 @@ const SwapQuoteInput = ({
           position: 'absolute',
           top: '50%',
           left: '50%',
-          transform: 'translate(-50%, -50%)',
           zIndex: 10,
+          ...getTransform(),
         }}
       >
         <IconButton

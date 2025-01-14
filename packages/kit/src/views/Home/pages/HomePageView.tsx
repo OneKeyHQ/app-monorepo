@@ -1,7 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing } from 'react-native';
+import { Animated, Easing, Keyboard } from 'react-native';
 
 import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -12,7 +12,6 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -153,12 +152,17 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
+  const handleSelectPageIndexChange = useCallback((pageIndex: number) => {
+    Keyboard.dismiss();
+  }, []);
+
   const renderTabs = useCallback(
     () => (
       <Tab
         disableRefresh={!platformEnv.isNative}
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
+        onSelectedPageIndex={handleSelectPageIndexChange}
         initialScrollIndex={0}
         initialHeaderHeight={220}
         contentItemWidth={CONTENT_ITEM_WIDTH}
@@ -167,7 +171,7 @@ export function HomePageView({
         onRefresh={onRefresh}
       />
     ),
-    [tabs, screenWidth, onRefresh],
+    [tabs, handleSelectPageIndexChange, screenWidth, onRefresh],
   );
 
   useEffect(() => {

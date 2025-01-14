@@ -5,12 +5,16 @@ import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Empty,
+  Icon,
   IconButton,
+  MatchSizeableText,
   SearchBar,
   SectionList,
   SizableText,
   Stack,
+  XStack,
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -69,6 +73,7 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
   onPress,
   showActions,
 }) => {
+  const intl = useIntl();
   const renderAvatar = useCallback(
     () => (
       <Stack
@@ -87,17 +92,53 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
     [item.name],
   );
 
+  const handlePress = useCallback(() => {
+    onPress?.(item);
+  }, [item, onPress]);
+
   return (
     <ListItem
-      title={item.name}
-      titleMatch={item.nameMatch}
-      subtitle={item.address}
-      subTitleMatch={item.addressMatch}
       renderAvatar={renderAvatar}
-      onPress={() => onPress?.(item)}
+      onPress={handlePress}
       testID={`address-item-${item.address || ''}`}
     >
-      {showActions ? <ListItemIconButton item={item} /> : null}
+      <ListItem.Text
+        flexGrow={1}
+        flexBasis={0}
+        primary={
+          <XStack gap="$1" alignItems="center">
+            <MatchSizeableText size="$bodyLgMedium" match={item.nameMatch}>
+              {item.name}
+            </MatchSizeableText>
+            {item.isAllowListed ? (
+              <Badge badgeType="success" badgeSize="sm" gap="$1.5">
+                <Icon
+                  name="ShieldCheckDoneOutline"
+                  color="$iconSuccess"
+                  size="$4"
+                />
+                <SizableText size="$bodySmMedium" color="$iconSuccess">
+                  {intl.formatMessage({
+                    id: ETranslations.address_label_allowlist,
+                  })}
+                </SizableText>
+              </Badge>
+            ) : null}
+          </XStack>
+        }
+        secondary={
+          <MatchSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            match={item.addressMatch}
+          >
+            {item.address}
+          </MatchSizeableText>
+        }
+      />
+      {showActions ? (
+        <ListItemIconButton id={item.id} address={item.address} />
+      ) : null}
     </ListItem>
   );
 };
@@ -128,7 +169,7 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
                 id: ETranslations.address_book_add_address_title,
               }),
               onPress: () => {
-                navigation.push(EModalAddressBookRoutes.AddItemModal);
+                navigation.push(EModalAddressBookRoutes.EditItemModal);
               },
               testID: 'address-book-add-button',
             }
