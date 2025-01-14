@@ -3,6 +3,7 @@ import {
   EGalleryRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  EModalSignatureConfirmRoutes,
   EModalStakingRoutes,
   ERootRoutes,
   ETabDeveloperRoutes,
@@ -146,6 +147,11 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
       {
         showUrl: true,
         showParams: false,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.TxConfirmFromDApp}`]:
+      {
+        showUrl: true,
+        showParams: true,
       },
   } as Record<string, IAllowSettingItem>;
 
