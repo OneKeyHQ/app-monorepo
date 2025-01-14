@@ -33,7 +33,6 @@ export type ISortableListViewProps<T> = Omit<
     data: T[];
     keyExtractor: (item: T, index: number) => string;
     renderItem: (params: IRenderItemParams<T>) => React.ReactNode;
-    estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
     getItemLayout: (
       item: ArrayLike<T> | undefined | null,
       index: number,

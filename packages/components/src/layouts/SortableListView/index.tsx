@@ -162,14 +162,14 @@ function BaseSortableListView<T>(
                 >
                   {renderItem({
                     item,
-                    drag: () => { },
+                    drag: () => {},
                     dragProps: Object.keys(dragHandleProps).reduce(
                       (acc, key) => {
                         const reloadKey = key.replace(/^data-/, '');
                         acc[reloadKey] = dragHandleProps[key];
                         return acc;
                       },
-                      {} as Record<string, any>
+                      {} as Record<string, any>,
                     ),
                     getIndex: () => index,
                     isActive: false,
@@ -231,6 +231,8 @@ function BaseSortableListView<T>(
           }
           return (
             <ListView
+              // This property is invalid in SortableListView
+              estimatedItemSize={undefined as any}
               // @ts-ignore
               ref={(_ref) => {
                 if (typeof ref === 'function') {

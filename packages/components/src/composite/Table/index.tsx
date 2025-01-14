@@ -496,7 +496,6 @@ function BasicTable<T>({
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={renderSortableItem}
-          estimatedItemSize={estimatedItemSize}
           getItemLayout={(_, index) => ({
             length: itemSize || DEFAULT_ROW_HEIGHT,
             offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
