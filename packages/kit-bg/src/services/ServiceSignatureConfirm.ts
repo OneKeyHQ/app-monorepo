@@ -13,13 +13,12 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EParseTxComponentType,
   EParseTxType,
+  type IParseMessageParams,
+  type IParseMessageResp,
+  type IParseTransactionParams,
   type IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
-import type {
-  IDecodedTx,
-  IParseTransactionParams,
-  ISendTxBaseParams,
-} from '@onekeyhq/shared/types/tx';
+import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
 
@@ -66,9 +65,12 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (r[0] && r[0].txDisplay && r[0].isLocalParsed) {
       // add network and account info as leading components
-      r[0].txDisplay.components.unshift({
-        type: EParseTxComponentType.Divider,
-      });
+
+      if (r[0].txDisplay.components.length > 0) {
+        r[0].txDisplay.components.unshift({
+          type: EParseTxComponentType.Divider,
+        });
+      }
 
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
@@ -204,6 +206,45 @@ class ServiceSignatureConfirm extends ServiceBase {
         networkId,
         accountAddress,
         encodedTx: encodedTxToParse,
+      },
+      {
+        headers:
+          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
+            accountId,
+          }),
+      },
+    );
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async parseMessage(params: IParseMessageParams) {
+    const { accountId, networkId, message } = params;
+    let accountAddress = params.accountAddress;
+    if (!accountAddress) {
+      accountAddress =
+        await this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        });
+    }
+
+    let messageToParse = message;
+    try {
+      messageToParse = JSON.parse(messageToParse);
+    } catch (e) {
+      // ignore
+    }
+
+    const client = await this.backgroundApi.serviceGas.getClient(
+      EServiceEndpointEnum.Wallet,
+    );
+    const resp = await client.post<{ data: IParseMessageResp }>(
+      '/wallet/v1/account/parse-signature',
+      {
+        networkId,
+        accountAddress,
+        data: messageToParse,
       },
       {
         headers:

@@ -447,23 +447,31 @@ function convertFunctionCallActionToSignatureConfirmComponent({
 }: {
   action: IDecodedTxActionFunctionCall;
 }) {
+  const components: IDisplayComponent[] = [];
+
   const component: IDisplayComponentDefault = {
     type: EParseTxComponentType.Default,
     label: 'Operation',
     value: action.functionName,
   };
 
-  const interactWithContractComponent: IDisplayComponentAddress = {
-    type: EParseTxComponentType.Address,
-    label: appLocale.intl.formatMessage({
-      id: ETranslations.interact_with_contract,
-    }),
-    address: action.to,
-    tags: [],
-    isNavigable: true,
-  };
+  components.push(component);
 
-  return [component, interactWithContractComponent];
+  if (action.to) {
+    const interactWithContractComponent: IDisplayComponentAddress = {
+      type: EParseTxComponentType.Address,
+      label: appLocale.intl.formatMessage({
+        id: ETranslations.interact_with_contract,
+      }),
+      address: action.to,
+      tags: [],
+      isNavigable: true,
+    };
+
+    components.push(interactWithContractComponent);
+  }
+
+  return components;
 }
 
 function convertUnknownActionToSignatureConfirmComponent({
@@ -471,6 +479,10 @@ function convertUnknownActionToSignatureConfirmComponent({
 }: {
   action: IDecodedTxActionUnknown;
 }) {
+  if (!action.to) {
+    return [];
+  }
+
   const interactWithContractComponent: IDisplayComponentAddress = {
     type: EParseTxComponentType.Address,
     label: appLocale.intl.formatMessage({

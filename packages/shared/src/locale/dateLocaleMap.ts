@@ -1,4 +1,5 @@
 import {
+  ar,
   bn,
   de,
   enUS,
@@ -45,6 +46,7 @@ const DateLocaleMap: Record<Exclude<ILocaleSymbol, 'system'>, Locale> = {
   'vi': vi,
   'id': id,
   'pt-BR': ptBR,
+  'ar': ar,
 };
 
 export { DateLocaleMap };

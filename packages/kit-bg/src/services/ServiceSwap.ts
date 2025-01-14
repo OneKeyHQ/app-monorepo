@@ -997,6 +997,12 @@ export default class ServiceSwap extends ServiceBase {
     await this.backgroundApi.simpleDb.swapHistory.deleteSwapHistoryItem(
       statuses,
     );
+    const inAppNotification = await inAppNotificationAtom.get();
+    const deleteHistoryIds = inAppNotification.swapHistoryPendingList
+      .filter((item) => statuses?.includes(item.status))
+      .map((item) =>
+        item.txInfo.useOrderId ? item.txInfo.orderId : item.txInfo.txId,
+      );
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
       swapHistoryPendingList: statuses
@@ -1005,6 +1011,9 @@ export default class ServiceSwap extends ServiceBase {
           )
         : [],
     }));
+    await Promise.all(
+      deleteHistoryIds.map((id) => this.cleanHistoryStateIntervals(id)),
+    );
   }
 
   @backgroundMethod()
@@ -1014,14 +1023,16 @@ export default class ServiceSwap extends ServiceBase {
     orderId?: string;
   }) {
     await this.backgroundApi.simpleDb.swapHistory.deleteOneSwapHistory(txInfo);
+    const deleteHistoryId = txInfo.useOrderId
+      ? txInfo.orderId ?? ''
+      : txInfo.txId ?? '';
     await inAppNotificationAtom.set((pre) => ({
       ...pre,
-      swapHistoryPendingList: pre.swapHistoryPendingList.filter((item) =>
-        item.txInfo.useOrderId
-          ? item.txInfo.orderId !== txInfo.orderId
-          : item.txInfo.txId !== txInfo.txId,
+      swapHistoryPendingList: pre.swapHistoryPendingList.filter(
+        (item) => item.txInfo.txId !== deleteHistoryId,
       ),
     }));
+    await this.cleanHistoryStateIntervals(deleteHistoryId);
   }
 
   @backgroundMethod()
