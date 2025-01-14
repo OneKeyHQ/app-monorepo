@@ -162,17 +162,18 @@ function BaseSortableListView<T>(
                 >
                   {renderItem({
                     item,
-                    drag: () => {},
+                    drag: () => { },
                     dragProps: Object.keys(dragHandleProps).reduce(
                       (acc, key) => {
                         const reloadKey = key.replace(/^data-/, '');
                         acc[reloadKey] = dragHandleProps[key];
                         return acc;
                       },
-                      {} as Record<string, any>,
+                      {} as Record<string, any>
                     ),
                     getIndex: () => index,
                     isActive: false,
+                    index,
                   })}
                 </div>
               </>
@@ -212,6 +213,7 @@ function BaseSortableListView<T>(
               dragProps: {},
               getIndex: () => rubric.source.index,
               isActive: true,
+              index: rubric.source.index,
             })}
           </div>
         )}
