@@ -142,11 +142,12 @@ function TableRow<T>({
     onRowEvents?.onPress?.();
   }, [onRowEvents]);
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
+  const isDragging = pressStyle && isActive;
   return (
     <XStack
       minHeight={60}
       onPress={handlePress}
-      bg="$bgApp"
+      bg={isDragging ? '$bgActive' : '$bgApp'}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onLongPress={platformEnv.isNative && draggable ? drag : undefined}
