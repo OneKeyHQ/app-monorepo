@@ -15,6 +15,7 @@ export enum EParseTxComponentType {
   Approve = 'tokenApproval',
   Divider = 'divider',
   InternalAssets = 'internalAssets',
+  DateTime = 'datetime',
 }
 
 export enum EParseTxType {
@@ -23,6 +24,17 @@ export enum EParseTxType {
 
 export enum EParseMessageType {
   Permit = 'permit',
+}
+
+export enum EParseTxDateTimeFormat {
+  Duration = 'duration',
+}
+
+export interface IDisplayComponentDateTime {
+  type: EParseTxComponentType.DateTime;
+  label: string;
+  timestamp: number;
+  format: string;
 }
 
 export interface IDisplayComponentDivider {
@@ -124,6 +136,7 @@ export type IDisplayComponent =
   | IDisplayComponentNFT
   | IDisplayComponentNetwork
   | IDisplayComponentAddress
+  | IDisplayComponentDateTime
   | IDisplayComponentDefault;
 
 export interface ITransactionData {
