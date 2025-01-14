@@ -924,6 +924,7 @@
   "global.firmware": "Firmware",
   "global.follow_the_system": "Follow the system",
   "global.for": "For",
+  "global.forever": "Forever",
   "global.from": "From",
   "global.from_provider": "From {provider}",
   "global.gas_price": "Gas price",

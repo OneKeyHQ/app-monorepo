@@ -929,6 +929,7 @@
   global_firmware = 'global.firmware',
   global_follow_the_system = 'global.follow_the_system',
   global_for = 'global.for',
+  global_forever = 'global.forever',
   global_from = 'global.from',
   global_from_provider = 'global.from_provider',
   global_gas_price = 'global.gas_price',

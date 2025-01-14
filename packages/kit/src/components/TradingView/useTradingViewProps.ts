@@ -31,7 +31,6 @@ const localeMap: Record<ILocaleJSONSymbol, string> = {
   'zh-CN': 'zh_CN',
   'zh-HK': 'zh_HK',
   'zh-TW': 'zh_TW',
-  ar: 'ar',
 };
 
 export const useTradingViewProps = ({
