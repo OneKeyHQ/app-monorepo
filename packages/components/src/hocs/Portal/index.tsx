@@ -87,7 +87,7 @@ function renderToPortal(
   };
 }
 
-function PortalRender(props: {
+function PortalBodyRender(props: {
   children: ReactNode;
   container?: EPortalContainerConstantName;
   destroyDelayMs?: number;
@@ -181,7 +181,7 @@ function PortalRender(props: {
       // try again in 600ms
       setTimeout(() => {
         defaultLogger.app.component.renderPortalFailed(
-          'PortalRender',
+          'PortalBodyRender',
           container,
         );
         updateRetryTimes((i) => i + 1);
@@ -196,7 +196,7 @@ function PortalRender(props: {
   return null;
 }
 
-const MemoPortalRender = memo(PortalRender);
+const MemoPortalBody = memo(PortalBodyRender);
 
 function PortalContainer(props: {
   name: string;
@@ -243,7 +243,7 @@ function PortalContainer(props: {
 
 export const Portal = withStaticProperties(PortalContainer, {
   Container: PortalContainer,
-  Body: MemoPortalRender,
+  Body: MemoPortalBody,
   Render: renderToPortal,
   Constant: EPortalContainerConstantName,
 });
