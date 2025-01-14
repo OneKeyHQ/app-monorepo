@@ -96,6 +96,7 @@ export function useSwapBuildTx() {
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
+    selectQuote?.providerDisableBatchTransfer,
   );
 
   const syncRecentTokenPairs = useCallback(
@@ -717,6 +718,7 @@ export function useSwapBuildTx() {
                 provider: selectQuote?.info.provider,
                 fromToken,
                 toToken,
+                quoteId: selectQuote?.quoteId ?? '',
                 amount,
                 useAddress: swapFromAddressInfo.address ?? '',
                 spenderAddress: allowanceInfo.allowanceTarget,
