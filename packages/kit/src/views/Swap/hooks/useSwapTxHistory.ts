@@ -89,6 +89,7 @@ export function useSwapTxHistoryActions() {
               swapTxInfo.swapBuildResData.result.fee?.otherFeeInfos ?? [],
             orderId: swapTxInfo.swapBuildResData.orderId,
             supportUrl: swapTxInfo.swapBuildResData.result.supportUrl,
+            orderSupportUrl: swapTxInfo.swapBuildResData.result.orderSupportUrl,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };
