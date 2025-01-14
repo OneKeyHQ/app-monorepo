@@ -536,7 +536,7 @@ export function AddressInput(props: IAddressInputProps) {
             <ClipboardPlugin
               onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
-              testID={`${rest.testID ?? ''}-clip`}
+              testID={rest.testID ? `${rest.testID}-clip` : undefined}
             />
           ) : null}
           {scan ? (
@@ -544,7 +544,7 @@ export function AddressInput(props: IAddressInputProps) {
               onInputTypeChange={onInputTypeChange}
               sceneName={scan.sceneName}
               onChange={onChangeText}
-              testID={`${rest.testID ?? ''}-scan`}
+              testID={rest.testID ? `${rest.testID}-scan` : undefined}
             />
           ) : null}
           {contacts || accountSelector ? (
@@ -559,7 +559,7 @@ export function AddressInput(props: IAddressInputProps) {
               onBeforeAccountSelectorOpen={
                 accountSelector?.onBeforeAccountSelectorOpen
               }
-              testID={`${rest.testID ?? ''}-selector`}
+              testID={rest.testID ? `${rest.testID}-selector` : undefined}
             />
           ) : null}
         </XStack>
