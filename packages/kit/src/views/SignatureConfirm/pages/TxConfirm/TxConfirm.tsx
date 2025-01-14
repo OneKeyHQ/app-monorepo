@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Page, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -27,14 +27,15 @@ import type {
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
-import TxConfirmActions from '../../components/SignatureConfirmActions';
+import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
+import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
+import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
-import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
-import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
+import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
+import { TxConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
-import SourceInfo from '../../components/SourceInfo/SourceInfo';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
@@ -72,6 +73,10 @@ function TxConfirm() {
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
+  });
+
+  const { urlSecurityInfo } = useRiskDetection({
+    origin: sourceInfo?.origin ?? '',
   });
 
   const { result: decodedTxs, isLoading: isBuildingDecodedTxs } =
@@ -229,9 +234,16 @@ function TxConfirm() {
 
     return (
       <>
-        <SignatureConfirmAlert networkId={networkId} />
-        <SourceInfo sourceInfo={sourceInfo} />
-        <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
+        <TxConfirmAlert networkId={networkId} />
+        {sourceInfo?.origin ? (
+          <Stack mb="$5">
+            <DAppSiteMark
+              origin={sourceInfo.origin}
+              urlSecurityInfo={urlSecurityInfo}
+            />
+          </Stack>
+        ) : null}
+        <TxConfirmDetails accountId={accountId} networkId={networkId} />
         <TxConfirmExtraInfo
           accountId={accountId}
           networkId={networkId}
@@ -247,6 +259,7 @@ function TxConfirm() {
     decodedTxs,
     networkId,
     sourceInfo,
+    urlSecurityInfo,
     accountId,
     unsignedTxs,
     swapInfo,

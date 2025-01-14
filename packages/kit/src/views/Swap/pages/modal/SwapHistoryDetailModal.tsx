@@ -349,6 +349,16 @@ const SwapHistoryDetailModal = () => {
                 label="Order ID"
                 renderContent={txHistory.txInfo.orderId}
                 showCopy
+                {...(txHistory.swapInfo.orderSupportUrl
+                  ? {
+                      openWithUrl: () =>
+                        onViewInBrowser(
+                          `${txHistory.swapInfo.orderSupportUrl ?? ''}${
+                            txHistory.txInfo.orderId ?? ''
+                          }`,
+                        ),
+                    }
+                  : {})}
               />
             ) : null}
             <InfoItem
@@ -386,6 +396,7 @@ const SwapHistoryDetailModal = () => {
     );
   }, [
     intl,
+    onViewInBrowser,
     renderNetworkFee,
     renderRate,
     renderSwapAssetsChange,

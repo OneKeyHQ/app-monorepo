@@ -14,6 +14,7 @@ import type {
 
 import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
+import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
@@ -169,6 +170,7 @@ export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
   provider: string;
+  quoteId: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
@@ -264,7 +266,12 @@ export interface IFetchQuoteResult {
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
   swapShouldSignedData?: {
-    unSignedMessage: string;
+    unSignedData?: {
+      normalizeData: NormalizedOrder;
+      domain: TypedDataDomain;
+      types: { Order: { name: string; type: string }[] };
+    };
+    unSignedMessage?: string;
     unSignedInfo: {
       origin: string;
       scope: string;
@@ -273,11 +280,13 @@ export interface IFetchQuoteResult {
   };
   protocolNoRouterInfo?: string;
   supportUrl?: string;
+  orderSupportUrl?: string;
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   gasLimit?: number;
   slippage?: number;
+  providerDisableBatchTransfer?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -571,6 +580,7 @@ export interface ISwapTxHistory {
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     orderId?: string;
     supportUrl?: string;
+    orderSupportUrl?: string;
   };
   date: {
     created: number;

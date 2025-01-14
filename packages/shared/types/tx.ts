@@ -9,7 +9,10 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
-import type { ITransactionData, ITransactionDisplay } from './signatureConfirm';
+import type {
+  ISignatureConfirmDisplay,
+  ITransactionData,
+} from './signatureConfirm';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -143,7 +146,7 @@ export type IDecodedTx = {
   originalTxId?: string; // for ton
 
   // for signature confirm page display
-  txDisplay?: ITransactionDisplay;
+  txDisplay?: ISignatureConfirmDisplay;
   txABI?: ITransactionData;
   isLocalParsed?: boolean;
 };
@@ -249,10 +252,3 @@ export enum EBtcF2poolReplaceState {
   ACCELERATED_PENDING = 1,
   ACCELERATED_CONFIRMED = 2,
 }
-
-export type IParseTransactionParams = {
-  networkId: string;
-  accountId: string;
-  encodedTx: IEncodedTx;
-  accountAddress?: string;
-};
