@@ -147,7 +147,7 @@ function TableRow<T>({
       bg="$bgApp"
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
-      onPressIn={platformEnv.isNative && draggable ? drag : undefined}
+      onLongPress={platformEnv.isNative && draggable ? drag : undefined}
       {...itemPressStyle}
       {...rowProps}
     >
