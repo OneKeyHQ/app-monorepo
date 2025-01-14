@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import type { FC } from 'react';
 import { useCallback, useState } from 'react';
 
@@ -7,7 +8,6 @@ import {
   Input,
   SizableText,
   Stack,
-  TextArea,
   YStack,
 } from '@onekeyhq/components';
 import {
@@ -17,7 +17,9 @@ import {
   sha256,
 } from '@onekeyhq/core/src/secret/hash';
 
-type TestCase = 'normal' | 'emptyKey' | 'emptyData';
+import { Layout } from './utils/Layout';
+
+type ITestCase = 'normal' | 'emptyKey' | 'emptyData';
 
 const HASH_TEST_SNAPSHOTS = {
   hmacSHA256: {
@@ -46,7 +48,7 @@ const HASH_TEST_SNAPSHOTS = {
   },
 } as const;
 
-const SecretHashGallery: FC = (): JSX.Element => {
+const SecretHash: FC = (): JSX.Element => {
   // HMAC SHA256 states
   const [hmac256Key, setHmac256Key] = useState('test-key');
   const [hmac256Data, setHmac256Data] = useState('test-data');
@@ -78,7 +80,7 @@ const SecretHashGallery: FC = (): JSX.Element => {
       setHmac256Output(resultHex);
 
       // Validate against test snapshots
-      let testCase: TestCase = 'normal';
+      let testCase: ITestCase = 'normal';
       if (key.length === 0) {
         testCase = 'emptyKey';
       } else if (data.length === 0) {
@@ -101,7 +103,7 @@ const SecretHashGallery: FC = (): JSX.Element => {
       setHmac512Output(resultHex);
 
       // Validate against test snapshots
-      let testCase: TestCase = 'normal';
+      let testCase: ITestCase = 'normal';
       if (key.length === 0) {
         testCase = 'emptyKey';
       } else if (data.length === 0) {
@@ -169,9 +171,9 @@ const SecretHashGallery: FC = (): JSX.Element => {
           Test hmacSHA256
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
-          <TextArea value={hmac256Output} editable={false} flex={1} />
-          {hmac256Valid !== undefined &&
-            (hmac256Valid ? (
+          <Input value={hmac256Output} editable={false} flex={1} />
+          {hmac256Valid !== undefined ? (
+            hmac256Valid ? (
               <Icon
                 name="TxStatusSuccessCircleIllus"
                 color="$iconSuccess"
@@ -183,7 +185,8 @@ const SecretHashGallery: FC = (): JSX.Element => {
                 color="$iconCritical"
                 size="$6"
               />
-            ))}
+            )
+          ) : null}
         </Stack>
       </Stack>
 
@@ -205,9 +208,9 @@ const SecretHashGallery: FC = (): JSX.Element => {
           Test hmacSHA512
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
-          <TextArea value={hmac512Output} editable={false} flex={1} />
-          {hmac512Valid !== undefined &&
-            (hmac512Valid ? (
+          <Input value={hmac512Output} editable={false} flex={1} />
+          {hmac512Valid !== undefined ? (
+            hmac512Valid ? (
               <Icon
                 name="TxStatusSuccessCircleIllus"
                 color="$iconSuccess"
@@ -219,7 +222,8 @@ const SecretHashGallery: FC = (): JSX.Element => {
                 color="$iconCritical"
                 size="$6"
               />
-            ))}
+            )
+          ) : null}
         </Stack>
       </Stack>
 
@@ -235,9 +239,9 @@ const SecretHashGallery: FC = (): JSX.Element => {
           Test sha256
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
-          <TextArea value={sha256Output} editable={false} flex={1} />
-          {sha256Valid !== undefined &&
-            (sha256Valid ? (
+          <Input value={sha256Output} editable={false} flex={1} />
+          {sha256Valid !== undefined ? (
+            sha256Valid ? (
               <Icon
                 name="TxStatusSuccessCircleIllus"
                 color="$iconSuccess"
@@ -249,7 +253,8 @@ const SecretHashGallery: FC = (): JSX.Element => {
                 color="$iconCritical"
                 size="$6"
               />
-            ))}
+            )
+          ) : null}
         </Stack>
       </Stack>
 
@@ -265,9 +270,9 @@ const SecretHashGallery: FC = (): JSX.Element => {
           Test hash160
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
-          <TextArea value={hash160Output} editable={false} flex={1} />
-          {hash160Valid !== undefined &&
-            (hash160Valid ? (
+          <Input value={hash160Output} editable={false} flex={1} />
+          {hash160Valid !== undefined ? (
+            hash160Valid ? (
               <Icon
                 name="TxStatusSuccessCircleIllus"
                 color="$iconSuccess"
@@ -279,11 +284,27 @@ const SecretHashGallery: FC = (): JSX.Element => {
                 color="$iconCritical"
                 size="$6"
               />
-            ))}
+            )
+          ) : null}
         </Stack>
       </Stack>
     </YStack>
   );
 };
 
+function SecretHashGallery() {
+  return (
+    <Layout
+      description=".."
+      suggestions={['...']}
+      boundaryConditions={['...']}
+      elements={[
+        {
+          title: 'Default',
+          element: <SecretHash />,
+        },
+      ]}
+    />
+  );
+}
 export default SecretHashGallery;

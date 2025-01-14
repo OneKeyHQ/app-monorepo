@@ -18,6 +18,7 @@ module.exports = [
   'Boardloader',
   'fs',
   'hdk',
+  'cbc',
   'dkey',
   'impls',
   'ttl',
