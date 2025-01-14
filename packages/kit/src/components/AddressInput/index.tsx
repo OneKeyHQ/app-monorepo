@@ -25,6 +25,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -196,6 +197,7 @@ export type IAddressInputValue = {
   validateError?: {
     type?: Exclude<IAddressValidateStatus, 'valid'>;
     message?: string;
+    translationId?: ETranslations;
   };
 };
 
@@ -230,6 +232,7 @@ type IAddressInputProps = Omit<
   enableAddressContract?: boolean;
   enableAddressInteractionStatus?: boolean; // for check address interaction
   enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
+  enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
 };
@@ -239,11 +242,14 @@ export type IAddressQueryResult = {
   validStatus?: IAddressValidateStatus;
   walletAccountName?: string;
   walletAccountId?: string; // accountId or indexedAccountId
+  addressBookId?: string;
   addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
   addressInteractionStatus?: IAddressInteractionStatus;
   isContract?: boolean;
+  isAllowListed?: boolean;
+  isEnableTransferAllowList?: boolean;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -334,6 +340,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAllowListValidation,
     onInputTypeChange,
     ...rest
   } = props;
@@ -390,6 +397,7 @@ export function AddressInput(props: IAddressInputProps) {
     300,
   );
 
+  // Query address validation when text changes
   useEffect(() => {
     void queryAddress({
       address: inputText,
@@ -401,6 +409,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableWalletName,
       enableVerifySendFundToSelf,
       enableAddressContract,
+      enableAllowListValidation,
     });
   }, [
     inputText,
@@ -412,8 +421,48 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAllowListValidation,
     refreshNum,
     queryAddress,
+  ]);
+
+  // When focus state changes, re-query address validation
+  // Store previous focus state for comparison
+  const prevIsFocused = useRef<boolean | undefined>();
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (
+      prevIsFocused.current !== undefined &&
+      prevIsFocused.current !== isFocused
+    ) {
+      void queryAddress({
+        address: inputText,
+        networkId,
+        accountId,
+        enableAddressBook,
+        enableAddressInteractionStatus,
+        enableNameResolve,
+        enableWalletName,
+        enableVerifySendFundToSelf,
+        enableAddressContract,
+        enableAllowListValidation,
+      });
+    }
+    prevIsFocused.current = isFocused;
+  }, [
+    inputText,
+    networkId,
+    accountId,
+    enableNameResolve,
+    enableAddressBook,
+    enableWalletName,
+    enableAddressInteractionStatus,
+    enableAddressContract,
+    enableVerifySendFundToSelf,
+    enableAllowListValidation,
+    refreshNum,
+    queryAddress,
+    isFocused,
   ]);
 
   const getValidateMessage = useCallback(
@@ -421,21 +470,16 @@ export function AddressInput(props: IAddressInputProps) {
       if (!status) return;
       const message: Record<
         Exclude<IAddressValidateStatus, 'valid'>,
-        string
+        ETranslations
       > = {
-        'unknown': intl.formatMessage({
-          id: ETranslations.send_check_request_error,
-        }),
-        'prohibit-send-to-self': intl.formatMessage({
-          id: ETranslations.send_cannot_send_to_self,
-        }),
-        'invalid': intl.formatMessage({
-          id: ETranslations.send_address_invalid,
-        }),
-      };
+        'unknown': ETranslations.send_check_request_error,
+        'prohibit-send-to-self': ETranslations.send_cannot_send_to_self,
+        'invalid': ETranslations.send_address_invalid,
+        'address-not-allowlist': ETranslations.send_address_not_allowlist_error,
+      } as const;
       return message[status];
     },
-    [intl],
+    [],
   );
 
   useEffect(() => {
@@ -449,12 +493,14 @@ export function AddressInput(props: IAddressInputProps) {
         isContract: queryResult.isContract,
       });
     } else {
+      const translationId = getValidateMessage(queryResult.validStatus);
       onChange?.({
         raw: queryResult.input,
         pending: false,
         validateError: {
           type: queryResult.validStatus,
-          message: getValidateMessage(queryResult.validStatus),
+          translationId,
+          message: intl.formatMessage({ id: translationId }),
         },
         isContract: queryResult.isContract,
       });
@@ -490,7 +536,7 @@ export function AddressInput(props: IAddressInputProps) {
             <ClipboardPlugin
               onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
-              testID={`${rest.testID ?? ''}-clip`}
+              testID={rest.testID ? `${rest.testID}-clip` : undefined}
             />
           ) : null}
           {scan ? (
@@ -498,7 +544,7 @@ export function AddressInput(props: IAddressInputProps) {
               onInputTypeChange={onInputTypeChange}
               sceneName={scan.sceneName}
               onChange={onChangeText}
-              testID={`${rest.testID ?? ''}-scan`}
+              testID={rest.testID ? `${rest.testID}-scan` : undefined}
             />
           ) : null}
           {contacts || accountSelector ? (
@@ -513,7 +559,7 @@ export function AddressInput(props: IAddressInputProps) {
               onBeforeAccountSelectorOpen={
                 accountSelector?.onBeforeAccountSelectorOpen
               }
-              testID={`${rest.testID ?? ''}-selector`}
+              testID={rest.testID ? `${rest.testID}-selector` : undefined}
             />
           ) : null}
         </XStack>

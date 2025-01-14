@@ -40,7 +40,7 @@ function NeedFirmwareUpgradeFromWebButton() {
 }
 
 export function getErrorAction(code: number | undefined, message: string) {
-  if (!message && isRequestIdMessage(message)) {
+  if (message && isRequestIdMessage(message)) {
     return <CopyButton message={message} />;
   }
 

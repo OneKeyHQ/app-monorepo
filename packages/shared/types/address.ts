@@ -126,7 +126,8 @@ export type IAddressValidateBaseStatus = 'valid' | 'invalid' | 'unknown';
 
 export type IAddressValidateStatus =
   | IAddressValidateBaseStatus
-  | 'prohibit-send-to-self';
+  | 'prohibit-send-to-self'
+  | 'address-not-allowlist';
 
 export type IQueryCheckAddressArgs = {
   networkId: string;
@@ -138,6 +139,7 @@ export type IQueryCheckAddressArgs = {
   enableAddressInteractionStatus?: boolean;
   enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
+  enableAllowListValidation?: boolean;
   skipValidateAddress?: boolean;
 };
 

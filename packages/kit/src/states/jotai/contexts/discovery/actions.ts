@@ -136,6 +136,41 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
+  setTabsByIds = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        pinnedTabs,
+        unpinnedTabs,
+      }: {
+        pinnedTabs: { id: string; timestamp?: number }[];
+        unpinnedTabs: { id: string; timestamp?: number }[];
+      },
+    ) => {
+      const tabMap = get(webTabsMapAtom());
+      const tabs: IWebTab[] = [];
+      const now = Date.now();
+      for (const { id, timestamp } of pinnedTabs) {
+        tabs.push({
+          ...tabMap[id],
+          timestamp: timestamp ?? now,
+          isPinned: true,
+        });
+      }
+      for (const { id, timestamp } of unpinnedTabs) {
+        tabs.push({
+          ...tabMap[id],
+          timestamp: timestamp ?? now,
+          isPinned: false,
+        });
+      }
+      this.buildWebTabs.call(set, {
+        data: tabs,
+      });
+    },
+  );
+
   setTabs = contextAtomMethod((get, set, tabs?: IWebTab[]) => {
     const newTabs = tabs ?? get(webTabsAtom())?.tabs;
     loggerForEmptyData(newTabs, 'setTabs');
@@ -282,13 +317,17 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (newActiveTabIndex >= 0) {
             const newActiveTab = tabs[newActiveTabIndex];
             newActiveTab.isActive = true;
+            const saveSetCurrentWebTab = () => {
+              this.setCurrentWebTab.call(set, newActiveTab.id);
+            };
             // Refresh the list after closing WebView in Electron to improve list fluidity
-            setTimeout(
-              () => {
-                this.setCurrentWebTab.call(set, newActiveTab.id);
-              },
-              platformEnv.isDesktop ? 200 : 0,
-            );
+            if (platformEnv.isNative) {
+              saveSetCurrentWebTab();
+            } else {
+              setTimeout(() => {
+                saveSetCurrentWebTab();
+              }, 200);
+            }
           }
         }
 
@@ -891,6 +930,7 @@ export function useBrowserTabActions() {
   const addBlankWebTab = actions.addBlankWebTab.use();
   const buildWebTabs = actions.buildWebTabs.use();
   const setTabs = actions.setTabs.use();
+  const setTabsByIds = actions.setTabsByIds.use();
   const setWebTabData = actions.setWebTabData.use();
   const getWebTabById = actions.getWebTabById.use();
   const closeWebTab = actions.closeWebTab.use();
@@ -906,6 +946,7 @@ export function useBrowserTabActions() {
     addBlankWebTab,
     buildWebTabs,
     setTabs,
+    setTabsByIds,
     setWebTabData,
     getWebTabById,
     closeWebTab,

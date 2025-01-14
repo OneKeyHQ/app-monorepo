@@ -17,6 +17,7 @@ export enum EQRCodeHandlerType {
   DEEPLINK = 'DEEPLINK',
   URL_ACCOUNT = 'URL_ACCOUNT',
   MARKET_DETAIL = 'MARKET_DETAIL',
+  SEND_PROTECTION = 'SEND_PROTECTION',
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
@@ -77,6 +78,7 @@ export interface IMarketDetailValue extends IBaseValue {
   origin: string;
   coinGeckoId?: string;
 }
+
 export interface IMigrateValue extends IBaseValue {
   address?: string;
 }
@@ -127,10 +129,12 @@ export enum EQRCodeHandlerNames {
   animation = 'animation',
   urlAccount = 'urlAccount',
   marketDetail = 'marketDetail',
+  sendProtection = 'sendProtection',
 }
 
 export type IQRCodeHandlerParseOutsideOptions = {
   handlers: EQRCodeHandlerNames[];
+  defaultHandler?: (value: string) => void;
   autoHandleResult?: boolean;
   account?: INetworkAccount;
   tokens?: ITokenData;

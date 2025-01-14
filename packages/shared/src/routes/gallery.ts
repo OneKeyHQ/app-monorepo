@@ -76,4 +76,5 @@ export enum EGalleryRoutes {
   PasswordKeyboardGallery = 'component-PasswordKeyboard',
   LetterAvatarGallery = 'component-LetterAvatar',
   SignatureConfirmationGallery = 'component-SignatureConfirmation',
+  HyperlinkTextGallery = 'component-HyperlinkText',
 }
