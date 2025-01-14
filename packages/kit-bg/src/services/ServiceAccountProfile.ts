@@ -5,6 +5,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -248,11 +250,15 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAllowListValidation,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
-    const { serviceValidator } = this.backgroundApi;
+    const { serviceValidator, serviceSetting } = this.backgroundApi;
+
     const address = rawAddress.trim();
-    const result: IAddressQueryResult = { input: rawAddress };
+    const result: IAddressQueryResult = {
+      input: rawAddress,
+    };
     if (!networkId) {
       return result;
     }
@@ -295,15 +301,32 @@ class ServiceAccountProfile extends ServiceBase {
             : undefined,
           address: resolveAddress,
         });
-      result.addressBookName = addressBookItem?.name;
+      result.addressBookId = addressBookItem?.id;
+      result.isAllowListed = addressBookItem?.isAllowListed;
+      result.addressBookName =
+        addressBookItem?.name && addressBookItem?.isAllowListed
+          ? `${appLocale.intl.formatMessage({
+              id: ETranslations.address_label_allowlist,
+            })} / ${addressBookItem?.name}`
+          : addressBookItem?.name;
     }
+
     if (enableWalletName && resolveAddress) {
-      // handleWalletAccountName
-      const walletAccountItems =
-        await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
-          networkId,
-          address: resolveAddress,
-        });
+      let walletAccountItems: {
+        walletName: string;
+        accountName: string;
+        accountId: string;
+      }[] = [];
+      try {
+        // handleWalletAccountName
+        walletAccountItems =
+          await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
+            networkId,
+            address: resolveAddress,
+          });
+      } catch (e) {
+        console.error(e);
+      }
 
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
@@ -346,6 +369,31 @@ class ServiceAccountProfile extends ServiceBase {
         ),
         result,
       });
+    }
+
+    // Check if address is in allowlist
+    if (enableAllowListValidation) {
+      // Skip allowlist check if it's user's own account
+      if (result.walletAccountId) {
+        const accountParams = { accountId: result.walletAccountId };
+        const isOwnAccount =
+          accountUtils.isHdAccount(accountParams) ||
+          accountUtils.isHwAccount(accountParams) ||
+          accountUtils.isQrAccount(accountParams) ||
+          accountUtils.isImportedAccount(accountParams) ||
+          accountUtils.isExternalAccount(accountParams);
+        if (isOwnAccount) {
+          return result;
+        }
+      }
+
+      // Check if address is in allowlist when allowlist feature is enabled
+      const isEnableTransferAllowList =
+        await serviceSetting.getIsEnableTransferAllowList();
+      if (isEnableTransferAllowList && !result.isAllowListed) {
+        result.validStatus = 'address-not-allowlist';
+        return result;
+      }
     }
     return result;
   }

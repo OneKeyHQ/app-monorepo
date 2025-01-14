@@ -271,6 +271,13 @@ class ServiceAddressBook extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async findItemById(id: string): Promise<IAddressItem | undefined> {
+    const items = await this.getItems();
+    const item = items.find((i) => i.id === id);
+    return item;
+  }
+
+  @backgroundMethod()
   public async stringifyItems() {
     const { serviceNetwork } = this.backgroundApi;
     const rawItems = await this.getItems();

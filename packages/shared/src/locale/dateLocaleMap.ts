@@ -1,5 +1,4 @@
 import {
-  ar,
   bn,
   de,
   enUS,

@@ -6,6 +6,7 @@ export type IAddressItem = {
   address: string;
   name: string;
   networkId: string;
+  isAllowListed?: boolean;
   createdAt?: number;
   updatedAt?: number;
 };

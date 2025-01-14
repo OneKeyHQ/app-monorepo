@@ -480,6 +480,13 @@ const SignatureConfirmationGallery = LazyLoadPage(
     ),
 );
 
+const HyperlinkTextGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HyperlinkTextGallery'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -695,5 +702,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.SignatureConfirmationGallery,
     component: SignatureConfirmationGallery,
+  },
+  {
+    name: EGalleryRoutes.HyperlinkTextGallery,
+    component: HyperlinkTextGallery,
   },
 ];
