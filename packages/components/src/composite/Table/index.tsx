@@ -2,7 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { useMedia, withStaticProperties } from 'tamagui';
+import { getTokenValue, useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
@@ -451,6 +451,15 @@ function BasicTable<T>({
     [],
   );
 
+  const itemSize = useMemo<number | undefined>(() => {
+    if (typeof estimatedItemSize === 'undefined') {
+      return undefined;
+    }
+    return typeof estimatedItemSize === 'number'
+      ? estimatedItemSize
+      : (getTokenValue(estimatedItemSize, 'size') as number);
+  }, [estimatedItemSize]);
+
   const renderSortableItem = useCallback(
     ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => (
       <TableRow
@@ -486,8 +495,8 @@ function BasicTable<T>({
           data={dataSource}
           renderItem={renderSortableItem}
           getItemLayout={(_, index) => ({
-            length: 60,
-            offset: index * 60,
+            length: itemSize,
+            offset: index * itemSize,
             index,
           })}
           renderPlaceholder={renderPlaceholder}
