@@ -15,6 +15,8 @@ export interface IModalRootNavigatorConfig<RouteName extends string> {
   children: IModalFlowNavigatorConfig<any, any>[];
   onMounted?: () => void;
   onUnmounted?: () => void;
+  rewrite?: string;
+  exact?: boolean;
 }
 
 interface IModalNavigatorProps<RouteName extends string> {

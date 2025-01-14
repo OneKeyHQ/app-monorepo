@@ -7,10 +7,6 @@ const AddressBookListModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AddressBook/pages/ListItem'),
 );
 
-const AddressBookAddItemModal = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/AddressBook/pages/AddItem'),
-);
-
 const AddressBookEditItemModal = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AddressBook/pages/EditItem'),
 );
@@ -26,10 +22,6 @@ export const ModalAddressBookRouter: IModalFlowNavigatorConfig<
   {
     name: EModalAddressBookRoutes.ListItemModal,
     component: AddressBookListModal,
-  },
-  {
-    name: EModalAddressBookRoutes.AddItemModal,
-    component: AddressBookAddItemModal,
   },
   {
     name: EModalAddressBookRoutes.EditItemModal,
