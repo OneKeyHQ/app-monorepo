@@ -1,10 +1,12 @@
 import type { StackStyle } from '@tamagui/web/types/types';
 import type {
+  DragEndParams,
   DraggableFlatListProps,
   RenderItemParams,
 } from 'react-native-draggable-flatlist';
 import type { FlatList } from 'react-native-gesture-handler';
 
+export type IDragEndParams<T> = DragEndParams<T>;
 export type ISortableListViewRef<T> = FlatList<T>;
 
 export type IRenderItemParams<T> = RenderItemParams<T> & {

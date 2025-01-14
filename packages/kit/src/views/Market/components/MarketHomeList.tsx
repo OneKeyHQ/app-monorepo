@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 
 import type {
+  IDragEndParams,
   IElement,
   IStackStyle,
   ITableColumn,
@@ -387,6 +388,7 @@ function BasicMarketHomeList({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const watchListAction = useWatchListAction();
 
   const updateAtRef = useRef(0);
 
@@ -962,6 +964,17 @@ function BasicMarketHomeList({
       : undefined;
   }, [gtMd, screenWidth]);
 
+  const handleDragEnd = useCallback(
+    ({ data }: IDragEndParams<IMarketToken>) => {
+      if (data?.length) {
+        watchListAction.saveWatchList(
+          data.map(({ coingeckoId }) => ({ coingeckoId })),
+        );
+      }
+    },
+    [watchListAction],
+  );
+
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
       <YStack flex={1} ai="center" jc="center">
@@ -1021,6 +1034,7 @@ function BasicMarketHomeList({
           rowProps={rowProps}
           showHeader={gtMd}
           columns={columns}
+          onDragEnd={handleDragEnd}
           dataSource={sortedListData as unknown as IMarketToken[]}
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}

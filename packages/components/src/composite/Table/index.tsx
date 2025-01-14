@@ -13,7 +13,10 @@ import { SortableListView } from '../../layouts/SortableListView';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import type { IListViewProps, IListViewRef } from '../../layouts';
-import type { IRenderItemParams } from '../../layouts/SortableListView';
+import type {
+  IRenderItemParams,
+  ISortableListViewProps,
+} from '../../layouts/SortableListView';
 import type { ISizableTextProps, IStackProps } from '../../primitives';
 import type {
   ListRenderItemInfo,
@@ -229,6 +232,7 @@ export interface ITableProps<T> {
   headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   // Whether the column can be dragged to reorder. default value is false
   draggable?: boolean;
+  onDragEnd?: ISortableListViewProps<T>['onDragEnd'];
   keyExtractor: (item: T, index: number) => string;
   onHeaderRow?: (
     column: ITableColumn<T>,
@@ -378,6 +382,7 @@ function BasicTable<T>({
   contentContainerStyle,
   headerRowProps,
   renderScrollComponent,
+  onDragEnd,
   showHeader = true,
   estimatedItemSize = 60,
   estimatedListSize = { width: 370, height: 525 },
@@ -485,6 +490,7 @@ function BasicTable<T>({
               {stickyHeader ? null : headerRow}
             </>
           }
+          onDragEnd={onDragEnd}
           keyExtractor={keyExtractor}
           ListFooterComponent={TableFooterComponent}
           ListEmptyComponent={TableEmptyComponent}
