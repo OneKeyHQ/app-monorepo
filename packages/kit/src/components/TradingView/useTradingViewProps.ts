@@ -14,6 +14,7 @@ const localeMap: Record<ILocaleJSONSymbol, string> = {
   bn: 'en',
   de: 'de',
   en: 'en',
+  ar: 'ar',
   'en-US': 'en',
   es: 'es',
   'fr-FR': 'fr',

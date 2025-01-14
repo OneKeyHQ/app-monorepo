@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatDate,
   intlFormatDistance,
@@ -13,7 +14,6 @@ import {
 } from '@onekeyhq/shared/types/signatureConfirm';
 
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export const MAX_UINT48_STRING = '281474976710655';
 

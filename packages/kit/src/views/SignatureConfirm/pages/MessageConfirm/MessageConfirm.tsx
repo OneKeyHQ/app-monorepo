@@ -19,8 +19,6 @@ import {
   type ISignatureConfirmDisplay,
 } from '@onekeyhq/shared/types/signatureConfirm';
 
-import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
-
 import {
   DAppRiskyAlert,
   DAppSiteMark,
@@ -32,6 +30,7 @@ import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { SignatureConfirmItem } from '../../components/SignatureConfirmItem';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
+import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
 export function useDappCloseHandler(
   dappApprove: ReturnType<typeof useDappApproveAction>,
