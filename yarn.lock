@@ -6792,6 +6792,7 @@ __metadata:
     rimraf: "npm:^5.0.5"
     rlp: "npm:^3.0.0"
     semver: "npm:7.5.4"
+    set-interval-async: "npm:^3.0.3"
     socket.io: "npm:^4.7.5"
     socket.io-client: "npm:^4.7.5"
     sonner: "npm:^1.4.41"
@@ -36017,6 +36018,13 @@ __metadata:
     functions-have-names: "npm:^1.2.3"
     has-property-descriptors: "npm:^1.0.0"
   checksum: 10/4975d17d90c40168eee2c7c9c59d023429f0a1690a89d75656306481ece0c3c1fb1ebcc0150ea546d1913e35fbd037bace91372c69e543e51fc5d1f31a9fa126
+  languageName: node
+  linkType: hard
+
+"set-interval-async@npm:^3.0.3":
+  version: 3.0.3
+  resolution: "set-interval-async@npm:3.0.3"
+  checksum: 10/c383e4289dacd10e64117a3e1f2f3fbd9aab455f21e03c28043010e4d5146118aed2dedafe94332ad617a38f77380d9f0f6db263a5598c132bf9e7621a465a3b
   languageName: node
   linkType: hard
 

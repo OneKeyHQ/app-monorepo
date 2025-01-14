@@ -126,6 +126,7 @@
     "react-native-web": "0.18.12",
     "react-render-tracker": "^0.7.6",
     "rlp": "^3.0.0",
+    "set-interval-async": "^3.0.3",
     "socket.io-client": "^4.7.5",
     "sonner": "^1.4.41",
     "stream-browserify": "^3.0.0",
