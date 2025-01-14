@@ -319,17 +319,7 @@ function TxConfirmActions(props: IProps) {
     [dappApprove, onCancelOnce, sourceInfo],
   );
 
-  const showTakeRiskAlert = useMemo(() => {
-    const decodedTx = decodedTxs[0];
-    if (
-      decodedTx &&
-      decodedTx.txType === EParseTxType.Approve &&
-      !isEmpty(decodedTx.txDisplay?.alerts)
-    ) {
-      return true;
-    }
-    return false;
-  }, [decodedTxs]);
+  const showTakeRiskAlert = useMemo(() => false, []);
 
   const isSubmitDisabled = useMemo(() => {
     if (showTakeRiskAlert && !continueOperate) return true;

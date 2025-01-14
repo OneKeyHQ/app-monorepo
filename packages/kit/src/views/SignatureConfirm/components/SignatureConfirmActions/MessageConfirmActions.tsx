@@ -42,7 +42,9 @@ function MessageConfirmActions(props: IProps) {
   } = props;
 
   const intl = useIntl();
-  const { $sourceInfo } = useDappQuery();
+  const { $sourceInfo, walletInternalSign } = useDappQuery<{
+    walletInternalSign?: boolean;
+  }>();
   const { network } = useAccountData({
     networkId,
   });

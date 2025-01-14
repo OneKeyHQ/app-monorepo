@@ -149,7 +149,6 @@ export type IDecodedTx = {
   // for signature confirm page display
   txDisplay?: ISignatureConfirmDisplay;
   txABI?: ITransactionData;
-  txType?: EParseTxType;
   isLocalParsed?: boolean;
 };
 
