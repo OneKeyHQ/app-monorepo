@@ -14,7 +14,7 @@ import { useAddressBookItems } from '../../hooks/useAddressBook';
 const HeaderRightComponent = () => {
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
-    navigation.push(EModalAddressBookRoutes.AddItemModal);
+    navigation.push(EModalAddressBookRoutes.EditItemModal);
   }, [navigation]);
   return (
     <IconButton

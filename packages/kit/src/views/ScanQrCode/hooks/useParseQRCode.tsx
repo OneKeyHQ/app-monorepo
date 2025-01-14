@@ -14,7 +14,6 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type {
-  IAnimationValue,
   IBaseValue,
   IChainValue,
   IMarketDetailValue,
@@ -27,7 +26,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-  EModalSendRoutes,
+  EModalSettingRoutes,
   EModalSignatureConfirmRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
@@ -61,17 +60,25 @@ const useParseQRCode = () => {
     [clipboard, intl],
   );
   const parse: IQRCodeHandlerParse<IBaseValue> = useCallback(
-    async (value, options) => {
+    async (value, params) => {
+      if (!params) {
+        return {
+          type: EQRCodeHandlerType.UNKNOWN,
+          data: {} as IBaseValue,
+          raw: value,
+        };
+      }
+      const { defaultHandler, ...options } = params;
       const result = await backgroundApiProxy.serviceScanQRCode.parse(
         value,
         options,
       );
-      if (
-        result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
-        (result.data as IAnimationValue).fullData
-      ) {
-        rootNavigationRef?.current?.goBack();
-      }
+      // if (
+      //   result.type !== EQRCodeHandlerType.ANIMATION_CODE ||
+      //   (result.data as IAnimationValue).fullData
+      // ) {
+      //   rootNavigationRef?.current?.goBack();
+      // }
 
       if (!options?.autoHandleResult) {
         return result;
@@ -94,6 +101,11 @@ const useParseQRCode = () => {
               });
             }
           }
+          break;
+        case EQRCodeHandlerType.SEND_PROTECTION:
+          navigation.pushModal(EModalRoutes.SettingModal, {
+            screen: EModalSettingRoutes.SettingProtectModal,
+          });
           break;
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:
@@ -214,7 +226,11 @@ const useParseQRCode = () => {
           });
           break;
         default: {
-          showCopyDialog(value);
+          if (defaultHandler) {
+            defaultHandler(value);
+          } else {
+            showCopyDialog(value);
+          }
         }
       }
       return result;
