@@ -144,6 +144,7 @@ function TableRow<T>({
     <XStack
       minHeight={60}
       onPress={handlePress}
+      bg="$bgApp"
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={platformEnv.isNative && draggable ? drag : undefined}

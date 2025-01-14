@@ -3,6 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
@@ -100,6 +101,11 @@ class ServiceMarket extends ServiceBase {
       },
     });
     const { data } = response.data;
+    if (data.tickers) {
+      data.tickers.forEach((ticker) => {
+        ticker.localId = generateUUID();
+      });
+    }
     return data;
   }
 
@@ -137,7 +143,11 @@ class ServiceMarket extends ServiceBase {
                 ).value.data.data
               : [],
         }))
-        .filter((i) => i.data.length);
+        .filter((i) => i.data.length)
+        .map((i) => ({
+          ...i,
+          localId: generateUUID(),
+        }));
     } catch (error) {
       console.error('fetchPools error', error);
       return [];
