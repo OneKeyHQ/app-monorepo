@@ -86,6 +86,9 @@ function ProfitInfo({
                 </SizableText>
                 {apys ? (
                   <Popover
+                    floatingPanelProps={{
+                      w: 320,
+                    }}
                     title={intl.formatMessage({
                       id: ETranslations.earn_rewards,
                     })}
@@ -99,6 +102,7 @@ function ProfitInfo({
                     renderContent={
                       <MorphoApy apys={apys} rewardAssets={rewardAssets} />
                     }
+                    placement="top"
                   />
                 ) : null}
               </XStack>
