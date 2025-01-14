@@ -10,7 +10,6 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { aesCbcDecrypt, aesCbcEncrypt } from '../../../secret/crypto-functions';
 
 import type { INostrEvent } from '../types';
-import { aesCbcDecrypt, aesCbcEncrypt } from '../../../secret/crypto-functions';
 
 export function validateEvent(event: INostrEvent): boolean {
   if (!(event instanceof Object)) return false;
