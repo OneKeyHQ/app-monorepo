@@ -3,12 +3,19 @@ import { useContext } from 'react';
 import { Stack } from '../Stack';
 
 import { ImageContext } from './context';
+import { useVisible } from './useVisible';
 
 import type { IImageLoadingProps } from './type';
 
-export function ImageLoading({ children, ...props }: IImageLoadingProps) {
+export function ImageLoading({
+  children,
+  delayMs = 0,
+  ...props
+}: IImageLoadingProps) {
   const { loading } = useContext(ImageContext);
-  return loading ? (
+  const visible = useVisible(delayMs);
+
+  return loading && visible ? (
     <Stack
       bg="$bgApp"
       position="absolute"

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -175,4 +175,7 @@ function DesktopCustomTabBarItem({
   );
 }
 
-export default DesktopCustomTabBarItem;
+export default memo(
+  DesktopCustomTabBarItem,
+  (prevProps, nextProps) => prevProps.id === nextProps.id,
+);
