@@ -49,11 +49,18 @@ export function useDappCloseHandler(
 }
 
 function MessageConfirm() {
-  const { $sourceInfo, unsignedMessage, accountId, networkId } = useDappQuery<{
+  const {
+    $sourceInfo,
+    unsignedMessage,
+    accountId,
+    networkId,
+    walletInternalSign,
+  } = useDappQuery<{
     unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
     indexedAccountId: string;
+    walletInternalSign?: boolean;
   }>();
 
   const dappApprove = useDappApproveAction({
@@ -176,29 +183,33 @@ function MessageConfirm() {
 
     return (
       <SignatureConfirmItem gap="$5">
-        <SignatureConfirmItem gap="$2.5">
-          {$sourceInfo?.origin ? (
-            <DAppRiskyAlert
-              origin={$sourceInfo.origin}
-              urlSecurityInfo={urlSecurityInfo}
-              alertProps={{
-                fullBleed: false,
-                borderTopWidth: 1,
-              }}
-            />
-          ) : null}
-          <MessageConfirmAlert
-            messageDisplay={parsedMessage}
-            unsignedMessage={unsignedMessage}
-            isRiskSignMethod={isRiskSignMethod}
-          />
-          {$sourceInfo?.origin ? (
-            <DAppSiteMark
-              origin={$sourceInfo.origin}
-              urlSecurityInfo={urlSecurityInfo}
-            />
-          ) : null}
-        </SignatureConfirmItem>
+        {!walletInternalSign ? (
+          <SignatureConfirmItem gap="$2.5">
+            {$sourceInfo?.origin ? (
+              <DAppRiskyAlert
+                origin={$sourceInfo.origin}
+                urlSecurityInfo={urlSecurityInfo}
+                alertProps={{
+                  fullBleed: false,
+                  borderTopWidth: 1,
+                }}
+              />
+            ) : null}
+            {!walletInternalSign ? (
+              <MessageConfirmAlert
+                messageDisplay={parsedMessage}
+                unsignedMessage={unsignedMessage}
+                isRiskSignMethod={isRiskSignMethod}
+              />
+            ) : null}
+            {$sourceInfo?.origin && !walletInternalSign ? (
+              <DAppSiteMark
+                origin={$sourceInfo.origin}
+                urlSecurityInfo={urlSecurityInfo}
+              />
+            ) : null}
+          </SignatureConfirmItem>
+        ) : null}
         <SignatureConfirmItem gap="$5">
           <MessageConfirmDetails
             accountId={accountId}
@@ -212,6 +223,7 @@ function MessageConfirm() {
   }, [
     isLoading,
     parsedMessage,
+    walletInternalSign,
     $sourceInfo?.origin,
     urlSecurityInfo,
     unsignedMessage,
@@ -241,6 +253,7 @@ function MessageConfirm() {
         showContinueOperate={showContinueOperate}
         continueOperate={continueOperate}
         setContinueOperate={setContinueOperate}
+        urlSecurityInfo={urlSecurityInfo}
       />
     </Page>
   );

@@ -17,6 +17,8 @@ import {
 } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { ISignatureConfirmDisplay } from '@onekeyhq/shared/types/signatureConfirm';
 
@@ -28,6 +30,7 @@ type IProps = {
   continueOperate: boolean;
   setContinueOperate: React.Dispatch<React.SetStateAction<boolean>>;
   showContinueOperate?: boolean;
+  urlSecurityInfo?: IHostSecurity;
 };
 
 function MessageConfirmActions(props: IProps) {
@@ -39,6 +42,7 @@ function MessageConfirmActions(props: IProps) {
     continueOperate: continueOperateLocal,
     setContinueOperate: setContinueOperateLocal,
     showContinueOperate: showContinueOperateLocal,
+    urlSecurityInfo,
   } = props;
 
   const intl = useIntl();
@@ -129,6 +133,14 @@ function MessageConfirmActions(props: IProps) {
   );
 
   const showTakeRiskAlert = useMemo(() => {
+    if (walletInternalSign) {
+      return false;
+    }
+
+    if (urlSecurityInfo?.level === EHostSecurityLevel.Security) {
+      return false;
+    }
+
     if (!isEmpty(messageDisplay?.alerts)) {
       return true;
     }
@@ -138,7 +150,12 @@ function MessageConfirmActions(props: IProps) {
     }
 
     return false;
-  }, [messageDisplay, showContinueOperateLocal]);
+  }, [
+    messageDisplay?.alerts,
+    showContinueOperateLocal,
+    urlSecurityInfo?.level,
+    walletInternalSign,
+  ]);
 
   return (
     <Page.Footer disableKeyboardAnimation>
