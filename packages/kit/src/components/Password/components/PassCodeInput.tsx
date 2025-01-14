@@ -98,7 +98,6 @@ function BasicPassCodeInput(
         onLayout={getCellOnLayoutHandler(index)}
       >
         <YStack
-          animation="50ms"
           w="$4"
           h="$4"
           backgroundColor={bg}
@@ -129,7 +128,6 @@ function BasicPassCodeInput(
       }, AUTO_FOCUS_DELAY_MS);
     }
   }, [clearCodeAndFocus]);
-
   return (
     <CodeField
       autoFocus={false}
@@ -155,6 +153,7 @@ function BasicPassCodeInput(
       textContentType="oneTimeCode"
       renderCell={renderCell}
       {...props}
+      secureTextEntry
       editable={editable}
     />
 
