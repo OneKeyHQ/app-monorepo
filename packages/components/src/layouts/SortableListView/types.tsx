@@ -11,6 +11,7 @@ export type ISortableListViewRef<T> = FlatList<T>;
 
 export type IRenderItemParams<T> = RenderItemParams<T> & {
   dragProps: Record<string, any> | undefined;
+  index: number;
 };
 
 export type ISortableListViewProps<T> = Omit<

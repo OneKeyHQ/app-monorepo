@@ -473,7 +473,7 @@ function BasicTable<T>({
       draggable ? (
         <SortableListView
           enabled
-          ref={listViewRef as unknown as any}
+          ref={listViewRef as any}
           contentContainerStyle={contentContainerStyle}
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
           estimatedItemSize={estimatedItemSize}
