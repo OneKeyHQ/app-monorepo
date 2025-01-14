@@ -38,6 +38,7 @@ import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
+import { EParseTxType } from '@onekeyhq/shared/types/signatureConfirm';
 import {
   EReplaceTxType,
   type IReplaceTxInfo,
@@ -46,7 +47,6 @@ import {
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import TxFeeInfo from '../TxFee';
-import { EParseTxType } from '@onekeyhq/shared/types/signatureConfirm';
 
 type IProps = {
   accountId: string;
