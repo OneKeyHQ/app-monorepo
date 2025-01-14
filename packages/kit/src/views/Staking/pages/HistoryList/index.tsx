@@ -164,7 +164,8 @@ const HistoryList = () => {
   >();
   const intl = useIntl();
   const labelFn = useEarnTxLabel();
-  const { accountId, networkId, symbol, provider, stakeTag } = route.params;
+  const { accountId, networkId, symbol, provider, stakeTag, morphoVault } =
+    route.params;
   const { result, isLoading, run } = usePromiseResult(
     async () => {
       // remote history items
@@ -174,6 +175,7 @@ const HistoryList = () => {
           networkId,
           symbol,
           provider,
+          morphoVault,
         });
       const listMap = groupBy(historyResp.list, (item) =>
         formatDate(new Date(item.timestamp * 1000), { hideTimeForever: true }),
@@ -228,7 +230,16 @@ const HistoryList = () => {
       }
       return { network: historyResp.network, sections, tokenMap };
     },
-    [accountId, networkId, symbol, provider, stakeTag, labelFn, intl],
+    [
+      accountId,
+      networkId,
+      symbol,
+      provider,
+      stakeTag,
+      morphoVault,
+      labelFn,
+      intl,
+    ],
     { watchLoading: true, pollingInterval: 30 * 1000 },
   );
 

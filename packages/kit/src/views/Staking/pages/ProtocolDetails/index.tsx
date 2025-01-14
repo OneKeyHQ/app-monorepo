@@ -188,7 +188,7 @@ const ProtocolDetailsPage = () => {
         if (!rewardToken) {
           throw new Error('Reward token not found');
         }
-        claimTokenInfo = { token: rewardToken, amount: amount ?? '0' };
+        claimTokenInfo = { token: rewardToken.info, amount: amount ?? '0' };
       }
       await handleClaim({
         symbol,
@@ -238,6 +238,7 @@ const ProtocolDetailsPage = () => {
         symbol,
         provider,
         stakeTag: buildLocalTxStatusSyncId(result),
+        morphoVault: vault,
       });
     };
   }, [
@@ -246,6 +247,7 @@ const ProtocolDetailsPage = () => {
     networkId,
     symbol,
     provider,
+    vault,
     result,
   ]);
 
