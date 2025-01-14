@@ -19,6 +19,8 @@ import {
   type ISignatureConfirmDisplay,
 } from '@onekeyhq/shared/types/signatureConfirm';
 
+import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
+
 import {
   DAppRiskyAlert,
   DAppSiteMark,
@@ -245,4 +247,11 @@ function MessageConfirm() {
   );
 }
 
-export default memo(MessageConfirm);
+const MessageConfirmWithProvider = memo(() => (
+  <SignatureConfirmProviderMirror>
+    <MessageConfirm />
+  </SignatureConfirmProviderMirror>
+));
+MessageConfirmWithProvider.displayName = 'MessageConfirmWithProvider';
+
+export default MessageConfirmWithProvider;

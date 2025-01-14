@@ -7,6 +7,7 @@ import { EParseTxComponentType } from '@onekeyhq/shared/types/signatureConfirm';
 import {
   Address,
   Assets,
+  DateTime,
   Default,
   Divider,
   Network,
@@ -38,6 +39,8 @@ function SignatureConfirmDetails(props: IProps) {
         return <Divider />;
       case EParseTxComponentType.Default:
         return <Default component={component} />;
+      case EParseTxComponentType.DateTime:
+        return <DateTime component={component} />;
       case EParseTxComponentType.Approve:
         return (
           <Assets.TokenApproval

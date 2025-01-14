@@ -33,7 +33,7 @@ export enum EParseTxDateTimeFormat {
 export interface IDisplayComponentDateTime {
   type: EParseTxComponentType.DateTime;
   label: string;
-  timestamp: number;
+  value: number;
   format: string;
 }
 
