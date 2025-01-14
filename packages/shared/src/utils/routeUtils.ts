@@ -153,6 +153,21 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.TxConfirmFromSwap}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.MessageConfirm}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.TxConfirm}`]:
+      {
+        showUrl: true,
+        showParams: true,
+      },
   } as Record<string, IAllowSettingItem>;
 
   if (platformEnv.isDev) {
