@@ -541,7 +541,6 @@ function BasicTable<T>({
       draggable,
       contentContainerStyle,
       stickyHeaderHiddenOnScroll,
-      estimatedItemSize,
       estimatedListSize,
       showBackToTopButton,
       handleScrollOffsetChange,
@@ -558,7 +557,9 @@ function BasicTable<T>({
       TableEmptyComponent,
       extraData,
       renderScrollComponent,
+      estimatedItemSize,
       handleRenderItem,
+      itemSize,
     ],
   );
 
