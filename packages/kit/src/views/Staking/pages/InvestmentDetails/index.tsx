@@ -36,6 +36,7 @@ import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IEarnInvestmentItem,
+  IEarnRewardNum,
   IInvestment,
 } from '@onekeyhq/shared/types/staking';
 
@@ -61,13 +62,13 @@ const isTrue = (value: number | string) => Number(value) > 0;
 const hasPositiveReward = ({
   rewardNum,
 }: {
-  rewardNum: Record<string, string> | undefined;
+  rewardNum: IEarnRewardNum | undefined;
 }): boolean => {
   if (!rewardNum) {
     return false;
   }
   return Object.values(rewardNum).some((value) =>
-    new BigNumber(value).isGreaterThan(0),
+    new BigNumber(value.claimableNow).isGreaterThan(0),
   );
 };
 
