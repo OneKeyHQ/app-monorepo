@@ -1,5 +1,4 @@
 import {
-  ar,
   bn,
   de,
   enUS,
@@ -25,7 +24,6 @@ import {
 import type { ILocaleSymbol } from './type';
 
 const DateLocaleMap: Record<Exclude<ILocaleSymbol, 'system'>, Locale> = {
-  ar,
   en: enUS,
   'en-US': enUS,
   'zh-CN': zhCN,
