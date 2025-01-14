@@ -14,6 +14,7 @@ import type {
 
 import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
+import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
@@ -265,7 +266,12 @@ export interface IFetchQuoteResult {
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
   swapShouldSignedData?: {
-    unSignedMessage: string;
+    unSignedData?: {
+      normalizeData: NormalizedOrder;
+      domain: TypedDataDomain;
+      types: { Order: { name: string; type: string }[] };
+    };
+    unSignedMessage?: string;
     unSignedInfo: {
       origin: string;
       scope: string;
