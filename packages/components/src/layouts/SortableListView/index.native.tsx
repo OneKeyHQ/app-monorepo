@@ -92,7 +92,6 @@ function BaseSortableListView<T>(
     [onDragEnd],
   );
 
-  console.log('native----')
   return (
     <DraggableFlatList<T>
       ref={ref}
