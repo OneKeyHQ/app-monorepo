@@ -784,4 +784,5 @@ module.exports = [
   'Morpho',
   'Apy',
   'Apys',
+  'hashify',
 ];

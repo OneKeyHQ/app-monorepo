@@ -2305,6 +2305,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@cowprotocol/contracts@npm:^1.7.0":
+  version: 1.7.0
+  resolution: "@cowprotocol/contracts@npm:1.7.0"
+  peerDependencies:
+    ethers: ^5.4.0
+  checksum: 10/a698a0ae70cfb63bb0aac1bc310b0070291dccbfaaa39e0b982145524983b572317aafd07cfdef0b5f95d669fcf0c3a5b0b9ab30fef2ea0e64edb58e5d677480
+  languageName: node
+  linkType: hard
+
 "@develar/schema-utils@npm:~2.6.5":
   version: 2.6.5
   resolution: "@develar/schema-utils@npm:2.6.5"
@@ -6647,6 +6656,7 @@ __metadata:
     "@babel/plugin-transform-optional-chaining": "npm:^7.25.9"
     "@babel/preset-env": "npm:^7.22.9"
     "@benfen/bfc.js": "npm:0.2.7"
+    "@cowprotocol/contracts": "npm:^1.7.0"
     "@emurgo/cardano-message-signing-nodejs": "npm:^1.0.1"
     "@emurgo/cardano-serialization-lib-nodejs": "npm:^11.5.0"
     "@expo/plist": "npm:^0.1.3"
