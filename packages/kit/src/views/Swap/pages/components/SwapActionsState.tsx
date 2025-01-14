@@ -453,7 +453,7 @@ const SwapActionsState = ({
 
   return (
     <>
-      {pageType !== EPageType.modal && !md ? (
+      {pageType !== EPageType.modal ? (
         actionComponent
       ) : (
         <PageFooter

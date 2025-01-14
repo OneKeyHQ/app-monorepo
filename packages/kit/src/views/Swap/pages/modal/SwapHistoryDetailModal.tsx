@@ -353,7 +353,9 @@ const SwapHistoryDetailModal = () => {
                   ? {
                       openWithUrl: () =>
                         onViewInBrowser(
-                          txHistory.swapInfo.orderSupportUrl ?? '',
+                          `${txHistory.swapInfo.orderSupportUrl ?? ''}${
+                            txHistory.txInfo.orderId ?? ''
+                          }`,
                         ),
                     }
                   : {})}

@@ -1,4 +1,10 @@
 /* eslint-disable import/order */
+import { setIntervalAsync, clearIntervalAsync } from 'set-interval-async';
+// @ts-ignore
+globalThis.setInterval = setIntervalAsync;
+// @ts-ignore
+globalThis.clearInterval = clearIntervalAsync;
+
 // walletconnect react-native-compat polyfill
 import './reactCreateElementShim';
 import './walletConnectCompact';
