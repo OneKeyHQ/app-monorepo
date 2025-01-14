@@ -582,7 +582,7 @@ function AvailableAssets() {
                   flexBasis={0}
                   primary={
                     <XStack gap="$2" alignItems="center">
-                      <SizableText size="$bodyLgMedium">{name}</SizableText>
+                      <SizableText size="$bodyLgMedium">{symbol}</SizableText>
                       <XStack gap="$1">
                         {tags.map((tag) => (
                           <Badge
