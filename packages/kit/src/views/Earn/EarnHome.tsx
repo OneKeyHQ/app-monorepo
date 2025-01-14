@@ -587,7 +587,7 @@ function AvailableAssets() {
                         {tags.map((tag) => (
                           <Badge
                             key={tag}
-                            badgeType="critical"
+                            badgeType="success"
                             badgeSize="sm"
                             userSelect="none"
                           >

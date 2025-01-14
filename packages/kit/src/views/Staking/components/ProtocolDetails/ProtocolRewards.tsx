@@ -103,6 +103,7 @@ function RewardItem({
           <Button
             size="small"
             variant="primary"
+            disabled={validClaimableNow.isZero()}
             onPress={() => {
               onClaim?.({
                 amount: validClaimableNow.toString(),
@@ -111,7 +112,9 @@ function RewardItem({
               });
             }}
           >
-            Claim
+            {intl.formatMessage({
+              id: ETranslations.earn_claim,
+            })}
           </Button>
         </XStack>
         <XStack>
