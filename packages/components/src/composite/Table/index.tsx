@@ -457,7 +457,7 @@ function BasicTable<T>({
     }
     return typeof estimatedItemSize === 'number'
       ? estimatedItemSize
-      : (getTokenValue(estimatedItemSize, 'size') as number);
+      : (getTokenValue(estimatedItemSize, 'size') as number) || 60;
   }, [estimatedItemSize]);
 
   const renderSortableItem = useCallback(
