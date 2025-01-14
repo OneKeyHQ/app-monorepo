@@ -1,10 +1,16 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isNil } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
+import {
+  Checkbox,
+  Page,
+  Stack,
+  Toast,
+  usePageUnMounted,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -40,6 +46,7 @@ import {
 
 import { usePreCheckFeeInfo } from '../../hooks/usePreCheckFeeInfo';
 import TxFeeInfo from '../TxFee';
+import { EParseTxType } from '@onekeyhq/shared/types/signatureConfirm';
 
 type IProps = {
   accountId: string;
@@ -71,6 +78,8 @@ function TxConfirmActions(props: IProps) {
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
+  const [continueOperate, setContinueOperate] = useState(false);
+
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
@@ -82,7 +91,7 @@ function TxConfirmActions(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
-  const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
+  const [{ isBuildingDecodedTxs, decodedTxs }] = useDecodedTxsAtom();
   const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
 
@@ -310,7 +319,21 @@ function TxConfirmActions(props: IProps) {
     [dappApprove, onCancelOnce, sourceInfo],
   );
 
+  const showTakeRiskAlert = useMemo(() => {
+    const decodedTx = decodedTxs[0];
+    if (
+      decodedTx &&
+      decodedTx.txType === EParseTxType.Approve &&
+      !isEmpty(decodedTx.txDisplay?.alerts)
+    ) {
+      return true;
+    }
+    return false;
+  }, [decodedTxs]);
+
   const isSubmitDisabled = useMemo(() => {
+    if (showTakeRiskAlert && !continueOperate) return true;
+
     if (sendTxStatus.isSubmitting) return true;
     if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
       return true;
@@ -319,7 +342,10 @@ function TxConfirmActions(props: IProps) {
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
     if (preCheckTxStatus.errorMessage) return true;
     if (txAdvancedSettings.dataChanged) return true;
+    return false;
   }, [
+    showTakeRiskAlert,
+    continueOperate,
     sendTxStatus.isSubmitting,
     sendTxStatus.isInsufficientNativeBalance,
     nativeTokenInfo.isLoading,
@@ -342,6 +368,7 @@ function TxConfirmActions(props: IProps) {
         confirmButtonProps={{
           disabled: isSubmitDisabled,
           loading: sendTxStatus.isSubmitting,
+          variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
         cancelButtonProps={{
           disabled: sendTxStatus.isSubmitting,
@@ -354,12 +381,36 @@ function TxConfirmActions(props: IProps) {
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
       >
-        <TxFeeInfo
-          accountId={accountId}
-          networkId={networkId}
-          useFeeInTx={useFeeInTx}
-          feeInfoEditable={feeInfoEditable}
-        />
+        <Stack
+          pb="$2.5"
+          $gtMd={{
+            pb: '$0',
+          }}
+        >
+          <TxFeeInfo
+            accountId={accountId}
+            networkId={networkId}
+            useFeeInTx={useFeeInTx}
+            feeInfoEditable={feeInfoEditable}
+            feeInfoWrapperProps={{
+              mb: showTakeRiskAlert ? '$2.5' : '0',
+              $gtMd: {
+                mb: '0',
+              },
+            }}
+          />
+          {showTakeRiskAlert ? (
+            <Checkbox
+              label={intl.formatMessage({
+                id: ETranslations.dapp_connect_proceed_at_my_own_risk,
+              })}
+              value={continueOperate}
+              onChange={(checked) => {
+                setContinueOperate(!!checked);
+              }}
+            />
+          ) : null}
+        </Stack>
       </Page.FooterActions>
     </Page.Footer>
   );

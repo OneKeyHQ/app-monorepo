@@ -10,6 +10,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
 import type {
+  EParseTxType,
   ISignatureConfirmDisplay,
   ITransactionData,
 } from './signatureConfirm';
@@ -148,6 +149,7 @@ export type IDecodedTx = {
   // for signature confirm page display
   txDisplay?: ISignatureConfirmDisplay;
   txABI?: ITransactionData;
+  txType?: EParseTxType;
   isLocalParsed?: boolean;
 };
 

@@ -20,6 +20,7 @@ export enum EParseTxComponentType {
 
 export enum EParseTxType {
   Unknown = 'unknown',
+  Approve = 'approveToken',
 }
 
 export enum EParseMessageType {
