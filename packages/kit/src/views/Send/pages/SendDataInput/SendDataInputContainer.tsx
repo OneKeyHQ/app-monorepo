@@ -1357,7 +1357,7 @@ function SendDataInputContainer() {
                 enableVerifySendFundToSelf
                 enableAddressInteractionStatus
                 enableAddressContract
-                enableAddressNotAllowList
+                enableAllowListValidation
                 contacts={addressBookEnabledNetworkIds.includes(
                   currentAccount.networkId,
                 )}

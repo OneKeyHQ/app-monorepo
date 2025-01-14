@@ -250,7 +250,7 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
-    enableAddressNotAllowList,
+    enableAllowListValidation,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
@@ -372,7 +372,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
 
     // Check if address is in allowlist
-    if (enableAddressNotAllowList) {
+    if (enableAllowListValidation) {
       // Skip allowlist check if it's user's own account
       if (result.walletAccountId) {
         const accountParams = { accountId: result.walletAccountId };

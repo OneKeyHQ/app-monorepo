@@ -139,7 +139,7 @@ export type IQueryCheckAddressArgs = {
   enableAddressInteractionStatus?: boolean;
   enableAddressContract?: boolean;
   enableVerifySendFundToSelf?: boolean;
-  enableAddressNotAllowList?: boolean;
+  enableAllowListValidation?: boolean;
   skipValidateAddress?: boolean;
 };
 

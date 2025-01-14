@@ -232,7 +232,7 @@ type IAddressInputProps = Omit<
   enableAddressContract?: boolean;
   enableAddressInteractionStatus?: boolean; // for check address interaction
   enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
-  enableAddressNotAllowList?: boolean; // Check address if it is on the allow list.
+  enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
 };
@@ -340,7 +340,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
-    enableAddressNotAllowList,
+    enableAllowListValidation,
     onInputTypeChange,
     ...rest
   } = props;
@@ -409,7 +409,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableWalletName,
       enableVerifySendFundToSelf,
       enableAddressContract,
-      enableAddressNotAllowList,
+      enableAllowListValidation,
     });
   }, [
     inputText,
@@ -421,7 +421,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
-    enableAddressNotAllowList,
+    enableAllowListValidation,
     refreshNum,
     queryAddress,
   ]);
@@ -445,7 +445,7 @@ export function AddressInput(props: IAddressInputProps) {
         enableWalletName,
         enableVerifySendFundToSelf,
         enableAddressContract,
-        enableAddressNotAllowList,
+        enableAllowListValidation,
       });
     }
     prevIsFocused.current = isFocused;
@@ -459,7 +459,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
-    enableAddressNotAllowList,
+    enableAllowListValidation,
     refreshNum,
     queryAddress,
     isFocused,
