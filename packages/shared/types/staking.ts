@@ -247,7 +247,7 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   overflow?: string;
-  rewardNum?: Record<string, string>;
+  rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
 };
 
@@ -376,6 +376,14 @@ export interface IInvestmentTokenInfo {
   networkId: string;
 }
 
+export type IEarnRewardNum = Record<
+  string,
+  {
+    claimableNow: string;
+    claimableNext: string;
+  }
+>;
+
 export interface IInvestment {
   active: string;
   claimable: string;
@@ -383,7 +391,7 @@ export interface IInvestment {
   staked: string;
   stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
-  rewardNum?: Record<string, string>;
+  rewardNum?: IEarnRewardNum;
   vault?: string;
 }
 export interface IEarnInvestmentItem {
