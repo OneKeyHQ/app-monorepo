@@ -479,7 +479,10 @@ function BasicTable<T>({
           estimatedItemSize={estimatedItemSize}
           // @ts-ignore
           estimatedListSize={estimatedListSize}
-          onScrollOffsetChange={handleScrollOffsetChange}
+          onScrollOffsetChange={
+            showBackToTopButton ? handleScrollOffsetChange : undefined
+          }
+          onScroll={showBackToTopButton ? handleScroll : undefined}
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={renderSortableItem}
@@ -533,6 +536,7 @@ function BasicTable<T>({
       estimatedItemSize,
       estimatedListSize,
       showBackToTopButton,
+      handleScrollOffsetChange,
       handleScroll,
       dataSource,
       renderSortableItem,
