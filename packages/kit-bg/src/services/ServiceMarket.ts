@@ -3,7 +3,7 @@ import {
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
@@ -102,8 +102,9 @@ class ServiceMarket extends ServiceBase {
     });
     const { data } = response.data;
     if (data.tickers) {
-      data.tickers.forEach((ticker) => {
-        ticker.localId = generateUUID();
+      const buildId = generateLocalIndexedIdFunc();
+      data.tickers.forEach((ticker, index) => {
+        ticker.localId = buildId(index);
       });
     }
     return data;
@@ -131,6 +132,7 @@ class ServiceMarket extends ServiceBase {
           return Promise.resolve({ data: { data: [] } });
         }),
       );
+      const buildId = generateLocalIndexedIdFunc();
       return keys
         .map((key, index) => ({
           ...detailPlatforms[key],
@@ -144,9 +146,9 @@ class ServiceMarket extends ServiceBase {
               : [],
         }))
         .filter((i) => i.data.length)
-        .map((i) => ({
+        .map((i, index) => ({
           ...i,
-          localId: generateUUID(),
+          localId: buildId(index),
         }));
     } catch (error) {
       console.error('fetchPools error', error);
