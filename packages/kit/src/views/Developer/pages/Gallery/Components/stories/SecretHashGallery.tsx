@@ -17,20 +17,28 @@ import {
   sha256,
 } from '@onekeyhq/core/src/secret/hash';
 
+type TestCase = 'normal' | 'emptyKey' | 'emptyData';
+
 const HASH_TEST_SNAPSHOTS = {
   hmacSHA256: {
     normal: '21a286fd6fd9f52676007c66d0f883db46d06158c266d33fb537c23bc618e567',
-    emptyData: '2711cc23e9ab1b8a9bc0fe991238da92671624a9ebdaf1c1abec06e7e9a14f9b',
-    emptyKey: '51931855b3cc798605f46274a97c2b8a4879b871bb814a0696031c8ba307f6a0',
+    emptyData:
+      '2711cc23e9ab1b8a9bc0fe991238da92671624a9ebdaf1c1abec06e7e9a14f9b',
+    emptyKey:
+      '51931855b3cc798605f46274a97c2b8a4879b871bb814a0696031c8ba307f6a0',
   },
   hmacSHA512: {
-    normal: '080e166f475f1c5d61f26b94d45a0cd822729a525e3a3865b87cdf58a36f039ea1948735aab3ad5027d553ad06487fb57d3a9034d2861300297d6cebf838f5bf',
-    emptyData: 'd79bf88724d52a1cccf5a0a3ca1b6c803c96dba1c0229b4aa1d7c449eae348fced07751c55d2dbb535b354e7f12dbeb060a4febc6c28c92fadc8f11fb4ee25e0',
-    emptyKey: '3886f0e449dda34f64d9cd3020edfa24fbb7e4e29962c072fe8018229465c4a1d196fce4ac5a378a42f2b63bab1f9208033dddd7d3acd8ce7907548caad93836',
+    normal:
+      '080e166f475f1c5d61f26b94d45a0cd822729a525e3a3865b87cdf58a36f039ea1948735aab3ad5027d553ad06487fb57d3a9034d2861300297d6cebf838f5bf',
+    emptyData:
+      'd79bf88724d52a1cccf5a0a3ca1b6c803c96dba1c0229b4aa1d7c449eae348fced07751c55d2dbb535b354e7f12dbeb060a4febc6c28c92fadc8f11fb4ee25e0',
+    emptyKey:
+      '3886f0e449dda34f64d9cd3020edfa24fbb7e4e29962c072fe8018229465c4a1d196fce4ac5a378a42f2b63bab1f9208033dddd7d3acd8ce7907548caad93836',
   },
   sha256: {
     normal: 'a186000422feab857329c684e9fe91412b1a5db084100b37a98cfc95b62aa867',
-    emptyData: 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
+    emptyData:
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855',
   },
   hash160: {
     normal: 'a54bc3b936756940bc8c80713f3ebb0efa870eed',
@@ -70,11 +78,12 @@ const SecretHashGallery: FC = (): JSX.Element => {
       setHmac256Output(resultHex);
 
       // Validate against test snapshots
-      const testCase = key.length === 0 
-        ? 'emptyKey' 
-        : data.length === 0 
-          ? 'emptyData' 
-          : 'normal';
+      let testCase: TestCase = 'normal';
+      if (key.length === 0) {
+        testCase = 'emptyKey';
+      } else if (data.length === 0) {
+        testCase = 'emptyData';
+      }
       const expected = HASH_TEST_SNAPSHOTS.hmacSHA256[testCase];
       setHmac256Valid(resultHex === expected);
     } catch (error) {
@@ -92,11 +101,12 @@ const SecretHashGallery: FC = (): JSX.Element => {
       setHmac512Output(resultHex);
 
       // Validate against test snapshots
-      const testCase = key.length === 0 
-        ? 'emptyKey' 
-        : data.length === 0 
-          ? 'emptyData' 
-          : 'normal';
+      let testCase: TestCase = 'normal';
+      if (key.length === 0) {
+        testCase = 'emptyKey';
+      } else if (data.length === 0) {
+        testCase = 'emptyData';
+      }
       const expected = HASH_TEST_SNAPSHOTS.hmacSHA512[testCase];
       setHmac512Valid(resultHex === expected);
     } catch (error) {
@@ -160,8 +170,20 @@ const SecretHashGallery: FC = (): JSX.Element => {
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
           <TextArea value={hmac256Output} editable={false} flex={1} />
-          {hmac256Valid === true && <Icon name="TxStatusSuccessCircleIllus" color="$iconSuccess" size="$6" />}
-          {hmac256Valid === false && <Icon name="TxStatusFailureCircleIllus" color="$iconCritical" size="$6" />}
+          {hmac256Valid !== undefined &&
+            (hmac256Valid ? (
+              <Icon
+                name="TxStatusSuccessCircleIllus"
+                color="$iconSuccess"
+                size="$6"
+              />
+            ) : (
+              <Icon
+                name="TxStatusFailureCircleIllus"
+                color="$iconCritical"
+                size="$6"
+              />
+            ))}
         </Stack>
       </Stack>
 
@@ -184,8 +206,20 @@ const SecretHashGallery: FC = (): JSX.Element => {
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
           <TextArea value={hmac512Output} editable={false} flex={1} />
-          {hmac512Valid === true && <Icon name="TxStatusSuccessCircleIllus" color="$iconSuccess" size="$6" />}
-          {hmac512Valid === false && <Icon name="TxStatusFailureCircleIllus" color="$iconCritical" size="$6" />}
+          {hmac512Valid !== undefined &&
+            (hmac512Valid ? (
+              <Icon
+                name="TxStatusSuccessCircleIllus"
+                color="$iconSuccess"
+                size="$6"
+              />
+            ) : (
+              <Icon
+                name="TxStatusFailureCircleIllus"
+                color="$iconCritical"
+                size="$6"
+              />
+            ))}
         </Stack>
       </Stack>
 
@@ -202,8 +236,20 @@ const SecretHashGallery: FC = (): JSX.Element => {
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
           <TextArea value={sha256Output} editable={false} flex={1} />
-          {sha256Valid === true && <Icon name="TxStatusSuccessCircleIllus" color="$iconSuccess" size="$6" />}
-          {sha256Valid === false && <Icon name="TxStatusFailureCircleIllus" color="$iconCritical" size="$6" />}
+          {sha256Valid !== undefined &&
+            (sha256Valid ? (
+              <Icon
+                name="TxStatusSuccessCircleIllus"
+                color="$iconSuccess"
+                size="$6"
+              />
+            ) : (
+              <Icon
+                name="TxStatusFailureCircleIllus"
+                color="$iconCritical"
+                size="$6"
+              />
+            ))}
         </Stack>
       </Stack>
 
@@ -220,8 +266,20 @@ const SecretHashGallery: FC = (): JSX.Element => {
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
           <TextArea value={hash160Output} editable={false} flex={1} />
-          {hash160Valid === true && <Icon name="TxStatusSuccessCircleIllus" color="$iconSuccess" size="$6" />}
-          {hash160Valid === false && <Icon name="TxStatusFailureCircleIllus" color="$iconCritical" size="$6" />}
+          {hash160Valid !== undefined &&
+            (hash160Valid ? (
+              <Icon
+                name="TxStatusSuccessCircleIllus"
+                color="$iconSuccess"
+                size="$6"
+              />
+            ) : (
+              <Icon
+                name="TxStatusFailureCircleIllus"
+                color="$iconCritical"
+                size="$6"
+              />
+            ))}
         </Stack>
       </Stack>
     </YStack>
