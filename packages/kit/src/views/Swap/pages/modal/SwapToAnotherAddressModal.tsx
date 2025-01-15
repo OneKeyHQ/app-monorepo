@@ -199,6 +199,9 @@ const SwapToAnotherAddressPage = () => {
         </Stack>
       </Page.Body>
       <Page.Footer
+        confirmButtonProps={{
+          disabled: !form.formState.isValid,
+        }}
         onConfirm={() => form.handleSubmit(handleOnConfirm)()}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_confirm,
