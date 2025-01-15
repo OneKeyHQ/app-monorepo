@@ -186,9 +186,10 @@ function BasicStakePage() {
       symbol: tokenInfo.symbol,
       action: 'stake',
       amount: '1',
+      morphoVault: provider.vault,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol]);
+  }, [networkId, provider.name, tokenInfo.symbol, provider.vault]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {

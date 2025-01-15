@@ -305,6 +305,7 @@ export function useUniversalClaim({
       amount,
       provider,
       claimTokenAddress,
+      morphoVault,
       symbol,
       stakingInfo,
       onSuccess,
@@ -315,6 +316,7 @@ export function useUniversalClaim({
       symbol: string;
       provider: string;
       claimTokenAddress?: string;
+      morphoVault?: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -374,6 +376,7 @@ export function useUniversalClaim({
             symbol,
             action: 'claim',
             amount,
+            morphoVault,
           });
         const tokenFiatValueBN = BigNumber(
           estimateFeeResp.token.price,
