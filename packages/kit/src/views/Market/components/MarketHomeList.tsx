@@ -344,6 +344,9 @@ function MarketMdColumn({
             <Badge
               badgeSize="sm"
               badgeType={isPositive ? 'success' : 'critical'}
+              px={0}
+              width={66}
+              jc="center"
             >
               <NumberSizeableText
                 adjustsFontSizeToFit
