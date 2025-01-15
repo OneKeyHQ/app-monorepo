@@ -133,9 +133,10 @@ const WithdrawPage = () => {
         provider.name.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
           : undefined,
+      morphoVault: provider.vault,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol, identity]);
+  }, [networkId, provider.name, tokenInfo.symbol, identity, provider.vault]);
 
   const { unstakingPeriod, showDetailWithdrawalRequested } = useMemo(() => {
     const showDetail = !!details?.provider?.unstakingTime;
