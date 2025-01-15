@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import {
   Empty,
   Icon,
-  IconButton,
   MatchSizeableText,
   SearchBar,
   SectionList,
@@ -21,6 +20,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { AccountAvatar } from '../../../components/AccountAvatar';
 
@@ -235,19 +235,23 @@ export const AddressBookListContent = ({
         <SectionList.SectionHeader
           title={section.title.toUpperCase()}
           justifyContent="space-between"
+          userSelect="none"
+          {...listItemPressStyle}
+          borderRadius="$2"
+          px="$3"
+          mx="$2"
+          onPress={() => onToggle(section.title)}
         >
-          <IconButton
+          <Icon
             size="small"
-            variant="tertiary"
             testID={`address-cat-${section.title.toUpperCase()}-${
               section.isFold ? 'fold' : 'unfold'
             }`}
-            icon={
+            name={
               section.isFold
                 ? 'ChevronRightSmallOutline'
                 : 'ChevronDownSmallSolid'
             }
-            onPress={() => onToggle(section.title)}
           />
         </SectionList.SectionHeader>
       ) : null,
