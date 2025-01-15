@@ -224,7 +224,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
         </Form>
         <YStack gap="$2.5" pt="$5">
           <TimeRow title="Adds on" time={item.createdAt} />
-          <TimeRow title="Last modify" time={item.createdAt} />
+          <TimeRow title="Last modify" time={item.updatedAt} />
         </YStack>
       </Page.Body>
       <Page.Footer>
