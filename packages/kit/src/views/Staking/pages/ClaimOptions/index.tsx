@@ -57,6 +57,7 @@ const ClaimOptions = () => {
         amount: item.amount,
         symbol: details.token.info.symbol,
         provider,
+        morphoVault: details.provider.vault,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
