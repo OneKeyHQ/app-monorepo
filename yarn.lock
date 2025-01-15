@@ -7042,7 +7042,7 @@ __metadata:
     expo-blur: "npm:12.9.1"
     expo-clipboard: "npm:5.0.1"
     expo-device: "npm:5.9.3"
-    expo-haptics: "npm:12.6.0"
+    expo-haptics: "npm:13.0.1"
     expo-image-manipulator: "npm:11.5.0"
     expo-image-picker: "npm:14.5.0"
     expo-intent-launcher: "npm:^10.5.2"
@@ -23494,12 +23494,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-haptics@npm:12.6.0":
-  version: 12.6.0
-  resolution: "expo-haptics@npm:12.6.0"
+"expo-haptics@npm:13.0.1":
+  version: 13.0.1
+  resolution: "expo-haptics@npm:13.0.1"
   peerDependencies:
     expo: "*"
-  checksum: 10/12c8c777da2b2dc13de5d9b7ad18eae9752101c7daa33a0c1d58ac3068203ce63b301ff78fb98a16e8e59fc39539304760f7734a0289497ddd94d73cda8bbc7b
+  checksum: 10/2ed8d292f89208b21fece50c2d21c4272833fd37cb769e382365a9502b844c33f582ceee374ad8d3c184cc75418ca9a6daf54005de281c0a952c7f2a39b026c9
   languageName: node
   linkType: hard
 
