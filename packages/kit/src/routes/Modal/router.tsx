@@ -188,4 +188,8 @@ export const fullModalRouter = [
     name: EModalRoutes.SendModal,
     children: ModalSendStack,
   },
+  {
+    name: EModalRoutes.SignatureConfirmModal,
+    children: ModalSignatureConfirmStack,
+  },
 ];
