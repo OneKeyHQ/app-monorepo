@@ -230,6 +230,7 @@ const settings: IVaultSettings = {
     [networkIdMap.mantle]: 1.2,
     [networkIdMap.mantapacific]: 1.2,
     [networkIdMap.blast]: 1.2,
+    [networkIdMap.hsk]: 1.2,
   },
 
   customRpcEnabled: true,
