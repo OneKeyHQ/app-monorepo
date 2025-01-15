@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   HeaderIconButton,
   Popover,
   SizableText,
@@ -23,6 +24,19 @@ function AddressSecurityHeaderRightButton() {
   );
   const { gtMd } = useMedia();
   const intl = useIntl();
+  const iconProps = useMemo(
+    () =>
+      isEnableTransferAllowList
+        ? ({
+            name: 'ShieldCheckDoneOutline',
+            color: '$iconSuccess',
+          } as const)
+        : ({
+            name: 'ShieldKeyholeOutline',
+            color: '$icon',
+          } as const),
+    [isEnableTransferAllowList],
+  );
   const PopoverTitle = useMemo(
     () => (
       <XStack gap="$2">
@@ -30,9 +44,9 @@ function AddressSecurityHeaderRightButton() {
           key="allowList"
           titlePlacement="bottom"
           iconProps={{
-            color: '$iconSuccess',
+            color: iconProps.color,
           }}
-          icon="ShieldCheckDoneSolid"
+          icon={iconProps.name}
           testID="setting"
         />
         <SizableText size="$headingLg">
@@ -42,7 +56,7 @@ function AddressSecurityHeaderRightButton() {
         </SizableText>
       </XStack>
     ),
-    [intl],
+    [iconProps.color, iconProps.name, intl],
   );
   return (
     <Popover
@@ -52,21 +66,32 @@ function AddressSecurityHeaderRightButton() {
           key="allowList"
           titlePlacement="bottom"
           iconProps={{
-            color: '$iconSuccess',
+            color: iconProps.color,
           }}
-          icon="ShieldCheckDoneOutline"
+          icon={iconProps.name}
           testID="setting"
         />
       }
       renderContent={({ closePopover }) => (
         <YStack p="$5" $md={{ pt: 0 }} gap="$2.5">
           {gtMd ? PopoverTitle : null}
-          <HyperlinkText
-            color="$textSubdued"
-            size="$bodyLg"
-            translationId={ETranslations.allowlist_enabled_popover_content}
-            onAction={closePopover}
-          />
+          <YStack gap="$1.5">
+            <XStack>
+              <Badge
+                flexShrink={1}
+                badgeSize="lg"
+                badgeType={isEnableTransferAllowList ? 'success' : 'default'}
+              >
+                <Badge.Text>Disable</Badge.Text>
+              </Badge>
+            </XStack>
+            <HyperlinkText
+              color="$textSubdued"
+              size="$bodyLg"
+              translationId={ETranslations.allowlist_enabled_popover_content}
+              onAction={closePopover}
+            />
+          </YStack>
         </YStack>
       )}
     />

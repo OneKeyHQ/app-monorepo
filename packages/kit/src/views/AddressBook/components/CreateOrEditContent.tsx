@@ -113,6 +113,15 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             })}
             name="networkId"
             rules={{ required: true }}
+            description={
+              networkId.startsWith('evm--') ? (
+                <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.address_book_add_address_add_to_evm_chains,
+                  })}
+                </SizableText>
+              ) : null
+            }
           >
             <ChainSelectorInput networkIds={addressBookEnabledNetworkIds} />
           </Form.Field>
@@ -189,18 +198,6 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                 });
               },
             }}
-            description={
-              networkId.startsWith('evm--') ? (
-                <XStack alignItems="center" mt="$1">
-                  <Icon size="$4" name="CheckRadioSolid" />
-                  <SizableText size="$bodyMd" ml="$1">
-                    {intl.formatMessage({
-                      id: ETranslations.address_book_add_address_add_to_evm_chains,
-                    })}
-                  </SizableText>
-                </XStack>
-              ) : null
-            }
             testID="address-form-address-field"
           >
             <AddressInput
