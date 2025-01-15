@@ -3,7 +3,7 @@ function interceptTimeout(
   checkProp: '$$onekeyDisabledSetTimeout' | '$$onekeyDisabledSetInterval',
 ) {
   const methodOld = global[method];
-  console.log('interceptTimeout methodOld', methodOld.toString())
+  console.log('interceptTimeout methodOld', methodOld.toString());
 
   // @ts-ignore
   global[method] = function (

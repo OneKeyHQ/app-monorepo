@@ -69,10 +69,17 @@ type IProps = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   tableLayout?: boolean;
+  feeInfoWrapperProps?: React.ComponentProps<typeof Stack>;
 };
 
 function TxFeeInfo(props: IProps) {
-  const { accountId, networkId, useFeeInTx, feeInfoEditable = true } = props;
+  const {
+    accountId,
+    networkId,
+    useFeeInTx,
+    feeInfoEditable = true,
+    feeInfoWrapperProps,
+  } = props;
   const intl = useIntl();
   const [txFeeInit, setTxFeeInit] = useState(false);
   const feeInTxUpdated = useRef(false);
@@ -1081,12 +1088,7 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   return (
-    <Stack
-      mb="$5"
-      $gtMd={{
-        mb: '$0',
-      }}
-    >
+    <Stack {...feeInfoWrapperProps}>
       <XStack gap="$2" alignItems="center" pb="$1">
         <SizableText size="$bodyMdMedium">
           {intl.formatMessage({
