@@ -30,7 +30,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
-import { TxDataViewer } from '../SignatureConfirmDataViewer';
+import { DataViewerTab } from '../SignatureConfirmDataViewer';
+import { AdvancedSettings } from './AdvancedSettings';
 
 type IProps = {
   accountId: string;
@@ -280,7 +281,7 @@ function TxAdvancedSettings(props: IProps) {
           </Form>
         ) : null}
 
-        <TxDataViewer
+        <DataViewerTab
           dataGroup={[
             { title: 'DATA', data: txContent ?? '' },
             { title: 'ABI', data: abiContent },
@@ -307,72 +308,7 @@ function TxAdvancedSettings(props: IProps) {
     return null;
   }
 
-  return (
-    <>
-      <YStack
-        pt="$5"
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderTopColor="$borderSubdued"
-      >
-        <Accordion type="multiple" collapsable>
-          <Accordion.Item value="advance">
-            <Accordion.Trigger
-              unstyled
-              flexDirection="row"
-              alignItems="center"
-              alignSelf="flex-start"
-              px="$1"
-              mx="$-1"
-              borderWidth={0}
-              bg="$transparent"
-              userSelect="none"
-              borderRadius="$1"
-              hoverStyle={{
-                bg: '$bgSubdued',
-              }}
-              pressStyle={{
-                bg: '$bgActive',
-              }}
-              focusVisibleStyle={{
-                outlineColor: '$focusRing',
-                outlineWidth: 2,
-                outlineStyle: 'solid',
-                outlineOffset: 0,
-              }}
-            >
-              {({ open }: { open: boolean }) => (
-                <>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.global_advanced_settings,
-                    })}
-                  </SizableText>
-                  <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      color="$iconSubdued"
-                      size="$5"
-                    />
-                  </YStack>
-                </>
-              )}
-            </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
-              <Accordion.Content
-                unstyled
-                animation="quick"
-                enterStyle={{ opacity: 0 }}
-                exitStyle={{ opacity: 0 }}
-                pt="$5"
-              >
-                {renderAdvancedSettings()}
-              </Accordion.Content>
-            </Accordion.HeightAnimator>
-          </Accordion.Item>
-        </Accordion>
-      </YStack>
-    </>
-  );
+  return <AdvancedSettings>{renderAdvancedSettings()}</AdvancedSettings>;
 }
 
 export { TxAdvancedSettings };

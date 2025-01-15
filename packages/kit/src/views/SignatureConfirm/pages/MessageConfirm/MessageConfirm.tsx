@@ -26,6 +26,7 @@ import {
 } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
 import { MessageConfirmActions } from '../../components/SignatureConfirmActions';
+import { MessageAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { MessageConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
@@ -239,6 +240,7 @@ function MessageConfirm() {
           displayComponents={parsedMessage.components}
         />
         <MessageDataViewer unsignedMessage={unsignedMessage} />
+        <MessageAdvancedSettings unsignedMessage={unsignedMessage} />
       </YStack>
     );
   }, [
