@@ -385,8 +385,7 @@ class ServiceAccountProfile extends ServiceBase {
           accountUtils.isHdAccount(accountParams) ||
           accountUtils.isHwAccount(accountParams) ||
           accountUtils.isQrAccount(accountParams) ||
-          accountUtils.isImportedAccount(accountParams) ||
-          accountUtils.isExternalAccount(accountParams);
+          accountUtils.isImportedAccount(accountParams);
         if (isOwnAccount) {
           return result;
         }
