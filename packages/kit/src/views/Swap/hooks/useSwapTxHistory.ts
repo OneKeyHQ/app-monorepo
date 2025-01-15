@@ -36,15 +36,15 @@ export function useSwapTxHistoryActions() {
       if (swapTxInfo) {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
-          currency: settingsAtom.currencyInfo.symbol,
+          currency: settingsAtom.currencyInfo?.symbol,
           accountInfo: {
             sender: {
               accountId: swapTxInfo.sender.accountInfo?.accountId,
-              networkId: swapTxInfo.sender.accountInfo.networkId,
+              networkId: swapTxInfo.sender.accountInfo?.networkId,
             },
             receiver: {
               accountId: swapTxInfo.receiver.accountInfo?.accountId,
-              networkId: swapTxInfo.receiver.accountInfo.networkId,
+              networkId: swapTxInfo.receiver.accountInfo?.networkId,
             },
           },
           baseInfo: {
@@ -62,13 +62,13 @@ export function useSwapTxHistoryActions() {
           txInfo: {
             txId,
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            useOrderId: !!swapTxInfo.swapBuildResData.ctx.cowSwapOrderId,
+            useOrderId: !!swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId,
             gasFeeFiatValue,
             gasFeeInNative,
             orderId:
               swapTxInfo.swapBuildResData.swftOrder?.orderId ??
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              swapTxInfo.swapBuildResData.ctx.cowSwapOrderId,
+              swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId,
             sender: swapTxInfo.accountAddress,
             receiver: swapTxInfo.receivingAddress,
           },
@@ -77,19 +77,20 @@ export function useSwapTxHistoryActions() {
             updated: Date.now(),
           },
           swapInfo: {
-            instantRate: swapTxInfo.swapBuildResData.result.instantRate ?? '0',
-            provider: swapTxInfo.swapBuildResData.result.info,
+            instantRate: swapTxInfo.swapBuildResData.result?.instantRate ?? '0',
+            provider: swapTxInfo.swapBuildResData.result?.info,
             socketBridgeScanUrl:
               swapTxInfo.swapBuildResData.socketBridgeScanUrl,
             oneKeyFee:
-              swapTxInfo.swapBuildResData.result.fee?.percentageFee ?? 0,
+              swapTxInfo.swapBuildResData.result?.fee?.percentageFee ?? 0,
             protocolFee:
-              swapTxInfo.swapBuildResData.result.fee?.protocolFees ?? 0,
+              swapTxInfo.swapBuildResData.result?.fee?.protocolFees ?? 0,
             otherFeeInfos:
-              swapTxInfo.swapBuildResData.result.fee?.otherFeeInfos ?? [],
+              swapTxInfo.swapBuildResData.result?.fee?.otherFeeInfos ?? [],
             orderId: swapTxInfo.swapBuildResData.orderId,
-            supportUrl: swapTxInfo.swapBuildResData.result.supportUrl,
-            orderSupportUrl: swapTxInfo.swapBuildResData.result.orderSupportUrl,
+            supportUrl: swapTxInfo.swapBuildResData.result?.supportUrl,
+            orderSupportUrl:
+              swapTxInfo.swapBuildResData.result?.orderSupportUrl,
           },
           ctx: swapTxInfo.swapBuildResData.ctx,
         };
