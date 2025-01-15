@@ -1,27 +1,9 @@
-import {
-  ImpactFeedbackStyle,
-  NotificationFeedbackType,
-  impactAsync,
-  notificationAsync,
-  selectionAsync,
-} from 'expo-haptics';
+import type { IHaptics } from './type';
 
-export function impactFeedback(style: ImpactFeedbackStyle) {
-  void impactAsync(ImpactFeedbackStyle);
-}
+export const Haptics: IHaptics = {
+  impact() {},
+  selection() {},
+  notification() {},
+};
 
-export function selectionFeedback() {
-  void selectionAsync();
-}
-
-export enum ENotificationFeedback {
-  Success = NotificationFeedbackType.Success,
-  Warning = NotificationFeedbackType.Warning,
-  Error = NotificationFeedbackType.Error,
-}
-
-export function notificationFeedback(type: NotificationFeedbackType) {
-  void notificationAsync(type);
-}
-
-export { ImpactFeedbackStyle, NotificationFeedbackType } from 'expo-haptics';
+export type * from './type';

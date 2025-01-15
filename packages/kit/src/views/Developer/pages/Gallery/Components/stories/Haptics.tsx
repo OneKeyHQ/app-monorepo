@@ -1,12 +1,10 @@
 import {
   Button,
+  Haptics,
   ImpactFeedbackStyle,
   NotificationFeedbackType,
   Stack,
   YStack,
-  impactFeedback,
-  notificationFeedback,
-  selectionFeedback,
 } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
@@ -21,19 +19,19 @@ const HapticsGallery = () => (
         title: 'Impact Feedback',
         element: (
           <YStack gap="$2">
-            <Button onPress={() => impactFeedback(ImpactFeedbackStyle.Light)}>
+            <Button onPress={() => Haptics.impact(ImpactFeedbackStyle.Light)}>
               Light Impact
             </Button>
-            <Button onPress={() => impactFeedback(ImpactFeedbackStyle.Medium)}>
+            <Button onPress={() => Haptics.impact(ImpactFeedbackStyle.Medium)}>
               Medium Impact
             </Button>
-            <Button onPress={() => impactFeedback(ImpactFeedbackStyle.Heavy)}>
+            <Button onPress={() => Haptics.impact(ImpactFeedbackStyle.Heavy)}>
               Heavy Impact
             </Button>
-            <Button onPress={() => impactFeedback(ImpactFeedbackStyle.Rigid)}>
+            <Button onPress={() => Haptics.impact(ImpactFeedbackStyle.Rigid)}>
               Rigid Impact
             </Button>
-            <Button onPress={() => impactFeedback(ImpactFeedbackStyle.Soft)}>
+            <Button onPress={() => Haptics.impact(ImpactFeedbackStyle.Soft)}>
               Soft Impact
             </Button>
           </YStack>
@@ -43,7 +41,7 @@ const HapticsGallery = () => (
         title: 'Selection Feedback',
         element: (
           <Stack gap="$2">
-            <Button onPress={() => selectionFeedback()}>
+            <Button onPress={() => Haptics.selection()}>
               Selection Feedback
             </Button>
           </Stack>
@@ -55,7 +53,7 @@ const HapticsGallery = () => (
           <YStack gap="$2">
             <Button
               onPress={() =>
-                notificationFeedback(NotificationFeedbackType.Success)
+                Haptics.notification(NotificationFeedbackType.Success)
               }
               variant="primary"
             >
@@ -63,7 +61,7 @@ const HapticsGallery = () => (
             </Button>
             <Button
               onPress={() =>
-                notificationFeedback(NotificationFeedbackType.Warning)
+                Haptics.notification(NotificationFeedbackType.Warning)
               }
               variant="destructive"
             >
@@ -71,7 +69,7 @@ const HapticsGallery = () => (
             </Button>
             <Button
               onPress={() =>
-                notificationFeedback(NotificationFeedbackType.Error)
+                Haptics.notification(NotificationFeedbackType.Error)
               }
               variant="destructive"
             >
