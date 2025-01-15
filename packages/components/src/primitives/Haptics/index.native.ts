@@ -20,4 +20,4 @@ export const Haptics: IHaptics = {
   },
 };
 
-export type * from './type';
+export * from './type';
