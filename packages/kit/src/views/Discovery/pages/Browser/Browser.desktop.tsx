@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -35,6 +35,12 @@ function DesktopBrowser() {
 
   useDAppNotifyChanges({ tabId: activeTabId });
 
+  // Sort tabs by id to maintain stable order and prevent re-renders
+  const orderTabs = useMemo(
+    () => [...tabs].sort((a, b) => a.id.localeCompare(b.id)),
+    [tabs],
+  );
+
   return (
     <Page>
       <Page.Header
@@ -44,7 +50,7 @@ function DesktopBrowser() {
         headerRight={HeaderRightToolBar}
       />
       <Page.Body>
-        {tabs.map((t) => (
+        {orderTabs.map((t) => (
           <DesktopBrowserContent
             key={t.id}
             id={t.id}

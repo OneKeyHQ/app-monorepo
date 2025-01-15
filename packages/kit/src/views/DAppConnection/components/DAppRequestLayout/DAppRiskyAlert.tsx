@@ -16,9 +16,11 @@ import { DAppRiskyAlertDetail } from './DAppRiskyAlertDetail';
 function DAppRiskyAlert({
   origin,
   urlSecurityInfo,
+  alertProps,
 }: {
   origin: string;
   urlSecurityInfo?: IHostSecurity;
+  alertProps?: React.ComponentProps<typeof Alert>;
 }) {
   const intl = useIntl();
   const riskStyle = useMemo(() => {
@@ -81,6 +83,7 @@ function DAppRiskyAlert({
           : undefined
       }
       borderTopWidth={0}
+      {...alertProps}
     />
   );
 }

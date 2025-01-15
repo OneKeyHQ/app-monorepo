@@ -174,10 +174,12 @@ const SwapHistoryDetailModal = () => {
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        <SwapTxHistoryViewInBrowser
-          item={txHistory}
-          onViewInBrowser={onViewInBrowser}
-        />
+        {txHistory.txInfo.txId ? (
+          <SwapTxHistoryViewInBrowser
+            item={txHistory}
+            onViewInBrowser={onViewInBrowser}
+          />
+        ) : null}
       </Stack>
     );
   }, [intl, md, onViewInBrowser, txHistory]);
@@ -317,13 +319,15 @@ const SwapHistoryDetailModal = () => {
               }
               showCopy
             />
-            <InfoItem
-              label={intl.formatMessage({
-                id: ETranslations.swap_history_detail_transaction_hash,
-              })}
-              renderContent={txHistory.txInfo.txId}
-              showCopy
-            />
+            {txHistory.txInfo.txId ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_transaction_hash,
+                })}
+                renderContent={txHistory.txInfo.txId}
+                showCopy
+              />
+            ) : null}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_network_fee,
@@ -345,6 +349,16 @@ const SwapHistoryDetailModal = () => {
                 label="Order ID"
                 renderContent={txHistory.txInfo.orderId}
                 showCopy
+                {...(txHistory.swapInfo.orderSupportUrl
+                  ? {
+                      openWithUrl: () =>
+                        onViewInBrowser(
+                          `${txHistory.swapInfo.orderSupportUrl ?? ''}${
+                            txHistory.txInfo.orderId ?? ''
+                          }`,
+                        ),
+                    }
+                  : {})}
               />
             ) : null}
             <InfoItem
@@ -382,6 +396,7 @@ const SwapHistoryDetailModal = () => {
     );
   }, [
     intl,
+    onViewInBrowser,
     renderNetworkFee,
     renderRate,
     renderSwapAssetsChange,
@@ -399,7 +414,7 @@ const SwapHistoryDetailModal = () => {
       }),
       onConfirm: async () => {
         await backgroundApiProxy.serviceSwap.cleanOneSwapHistory(
-          txHistory.txInfo.txId,
+          txHistory.txInfo,
         );
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -414,7 +429,7 @@ const SwapHistoryDetailModal = () => {
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, navigation, txHistory.txInfo.txId]);
+  }, [intl, navigation, txHistory.txInfo]);
 
   const headerRight = useCallback(
     () => (

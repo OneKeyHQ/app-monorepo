@@ -1,11 +1,18 @@
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  IUnsignedMessage,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
   ITransferInfo,
   ITransferPayload,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import type { IDappSourceInfo } from '@onekeyhq/shared/types';
+import type {
+  EAccountSelectorSceneName,
+  IDappSourceInfo,
+} from '@onekeyhq/shared/types';
 
 import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
@@ -23,6 +30,7 @@ import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 export enum EModalSignatureConfirmRoutes {
   TxDataInput = 'TxDataInput',
   TxConfirm = 'TxConfirm',
+  MessageConfirm = 'MessageConfirm',
   TxConfirmFromDApp = 'TxConfirmFromDApp',
   TxConfirmFromSwap = 'TxConfirmFromSwap',
 
@@ -65,6 +73,12 @@ export type IModalSignatureConfirmParamList = {
     onCancel?: () => void;
     transferPayload?: ITransferPayload;
     popStack?: boolean;
+  };
+  [EModalSignatureConfirmRoutes.MessageConfirm]: {
+    unsignedMessage: IUnsignedMessage;
+    accountId: string;
+    networkId: string;
+    sceneName?: EAccountSelectorSceneName;
   };
   [EModalSignatureConfirmRoutes.TxConfirmFromDApp]: undefined;
   [EModalSignatureConfirmRoutes.TxConfirmFromSwap]: {

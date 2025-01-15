@@ -5,6 +5,7 @@ import bitcoin from './bitcoin';
 import ethereum from './ethereum';
 import marketDetail from './marketDetail';
 import migrate from './migrate';
+import sendProtection from './sendProtection';
 import solana from './solana';
 import urlAccount from './urlAccount';
 import walletconnect from './walletconnect';
@@ -18,6 +19,7 @@ export const PARSE_HANDLERS = {
   [EQRCodeHandlerNames.animation]: animation,
   [EQRCodeHandlerNames.urlAccount]: urlAccount,
   [EQRCodeHandlerNames.marketDetail]: marketDetail,
+  [EQRCodeHandlerNames.sendProtection]: sendProtection,
 };
 
 export const PARSE_HANDLER_NAMES = {
@@ -30,6 +32,7 @@ export const PARSE_HANDLER_NAMES = {
     EQRCodeHandlerNames.animation,
     EQRCodeHandlerNames.urlAccount,
     EQRCodeHandlerNames.marketDetail,
+    EQRCodeHandlerNames.sendProtection,
   ],
   animation: [EQRCodeHandlerNames.animation],
   none: [],

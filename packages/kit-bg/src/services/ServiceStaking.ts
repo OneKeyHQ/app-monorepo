@@ -17,6 +17,7 @@ import type {
   EEarnProviderEnum,
   ISupportedSymbol,
 } from '@onekeyhq/shared/types/earn';
+import { earnMainnetNetworkIds } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountHistoryTx,
@@ -312,7 +313,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getStakeHistory(params: IStakeHistoryParams) {
-    const { networkId, accountId, ...rest } = params;
+    const { networkId, accountId, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -326,6 +327,7 @@ class ServiceStaking extends ServiceBase {
       params: {
         accountAddress,
         networkId,
+        vault: morphoVault,
         ...rest,
       },
     });
@@ -558,11 +560,9 @@ class ServiceStaking extends ServiceBase {
   async getEarnAvailableAccountsParams({
     accountId,
     networkId,
-    assets,
   }: {
     accountId: string;
     networkId: string;
-    assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccounts({
       accountId,
@@ -574,12 +574,12 @@ class ServiceStaking extends ServiceBase {
       publicKey?: string;
     }[] = [];
 
-    assets.forEach((asset) => {
-      const account = accounts.find((i) => i.networkId === asset.networkId);
+    earnMainnetNetworkIds.forEach((mainnetNetworkId) => {
+      const account = accounts.find((i) => i.networkId === mainnetNetworkId);
       if (account?.apiAddress) {
         accountParams.push({
           accountAddress: account?.apiAddress,
-          networkId: asset.networkId,
+          networkId: mainnetNetworkId,
           publicKey: account?.pub,
         });
       }
@@ -639,16 +639,13 @@ class ServiceStaking extends ServiceBase {
   async fetchAllNetworkAssets({
     accountId,
     networkId,
-    assets,
   }: {
     accountId: string;
     networkId: string;
-    assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccountsParams({
       accountId,
       networkId,
-      assets,
     });
     return this.getAccountAsset(accounts);
   }
@@ -689,6 +686,7 @@ class ServiceStaking extends ServiceBase {
     provider,
     action,
     amount,
+    morphoVault,
   }: {
     accountId?: string;
     networkId?: string;
@@ -696,6 +694,7 @@ class ServiceStaking extends ServiceBase {
     provider?: string;
     action: 'stake' | 'unstake' | 'claim';
     amount?: string;
+    morphoVault?: string;
   }) {
     if (!networkId || !accountId || !provider) {
       throw new Error('networkId or accountId or provider not found');
@@ -714,6 +713,7 @@ class ServiceStaking extends ServiceBase {
         provider: provider || '',
         action,
         amount,
+        vault: morphoVault,
       },
     });
     const { code, message } = result.data;

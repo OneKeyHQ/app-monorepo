@@ -147,7 +147,7 @@ export default class Vault extends VaultBase {
 
         const totalAmountStr = totalAmount
           .shiftedBy(-tokenInfo.decimals)
-          .toFixed(0);
+          .toFixed(0, BigNumber.ROUND_DOWN);
         throw new OneKeyInternalError(
           appLocale.intl.formatMessage(
             {

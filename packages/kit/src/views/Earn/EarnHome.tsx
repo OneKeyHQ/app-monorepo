@@ -582,12 +582,12 @@ function AvailableAssets() {
                   flexBasis={0}
                   primary={
                     <XStack gap="$2" alignItems="center">
-                      <SizableText size="$bodyLgMedium">{name}</SizableText>
+                      <SizableText size="$bodyLgMedium">{symbol}</SizableText>
                       <XStack gap="$1">
                         {tags.map((tag) => (
                           <Badge
                             key={tag}
-                            badgeType="critical"
+                            badgeType="success"
                             badgeSize="sm"
                             userSelect="none"
                           >
@@ -649,7 +649,6 @@ function BasicEarnHome() {
       const fetchAndUpdateAction = async () => {
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
-            assets,
             accountId: account?.id ?? '',
             networkId: network?.id ?? '',
           });

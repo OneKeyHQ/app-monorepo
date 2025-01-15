@@ -22,7 +22,7 @@ interface IProps {
   networkId: string;
 }
 
-function SignatureConfirmAlert(props: IProps) {
+function TxConfirmAlert(props: IProps) {
   const { networkId } = props;
   const intl = useIntl();
   const [{ decodedTxs }] = useDecodedTxsAtom();
@@ -113,4 +113,4 @@ function SignatureConfirmAlert(props: IProps) {
   );
 }
 
-export default memo(SignatureConfirmAlert);
+export default memo(TxConfirmAlert);

@@ -238,6 +238,7 @@ const ProtocolDetailsPage = () => {
         symbol,
         provider,
         stakeTag: buildLocalTxStatusSyncId(result),
+        morphoVault: vault,
       });
     };
   }, [
@@ -246,6 +247,7 @@ const ProtocolDetailsPage = () => {
     networkId,
     symbol,
     provider,
+    vault,
     result,
   ]);
 
