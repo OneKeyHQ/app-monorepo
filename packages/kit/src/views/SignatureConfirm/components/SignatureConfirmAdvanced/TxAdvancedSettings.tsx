@@ -223,8 +223,8 @@ function TxAdvancedSettings(props: IProps) {
   const renderAdvancedSettings = useCallback(
     () => (
       <YStack gap="$5">
-        <Form form={form}>
-          {canEditNonce ? (
+        {canEditNonce ? (
+          <Form form={form}>
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.global_nonce,
@@ -277,8 +277,9 @@ function TxAdvancedSettings(props: IProps) {
             >
               <Input flex={1} placeholder={currentNonce} />
             </Form.Field>
-          ) : null}
-        </Form>
+          </Form>
+        ) : null}
+
         <TxDataViewer
           dataGroup={[
             { title: 'DATA', data: txContent ?? '' },
@@ -309,7 +310,6 @@ function TxAdvancedSettings(props: IProps) {
   return (
     <>
       <YStack
-        mt="$5"
         pt="$5"
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
@@ -360,11 +360,10 @@ function TxAdvancedSettings(props: IProps) {
             <Accordion.HeightAnimator animation="quick">
               <Accordion.Content
                 unstyled
-                pt="$2.5"
-                gap="$5"
                 animation="quick"
                 enterStyle={{ opacity: 0 }}
                 exitStyle={{ opacity: 0 }}
+                pt="$5"
               >
                 {renderAdvancedSettings()}
               </Accordion.Content>

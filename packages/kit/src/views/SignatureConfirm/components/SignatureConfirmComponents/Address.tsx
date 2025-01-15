@@ -23,15 +23,16 @@ function Address(props: IProps) {
         {component.label ||
           intl.formatMessage({ id: ETranslations.copy_address_modal_title })}
       </SignatureConfirmItem.Label>
-      {component.isNavigable ? (
-        <XStack alignItems="flex-start" justifyContent="space-between" flex={1}>
-          <SignatureConfirmItem.Value
-            flex={1}
-            maxWidth="$96"
-            style={{ wordBreak: 'break-all' }}
-          >
-            {component.address}
-          </SignatureConfirmItem.Value>
+
+      <XStack alignItems="flex-start" justifyContent="space-between">
+        <SignatureConfirmItem.Value
+          flex={1}
+          maxWidth="$96"
+          style={{ wordBreak: 'break-all' }}
+        >
+          {component.address}
+        </SignatureConfirmItem.Value>
+        {component.isNavigable ? (
           <XStack gap="$3" ml="$5">
             <IconButton
               title={intl.formatMessage({
@@ -48,37 +49,36 @@ function Address(props: IProps) {
               }
             />
           </XStack>
-        </XStack>
-      ) : (
-        <SignatureConfirmItem.Value style={{ wordBreak: 'break-all' }}>
-          {component.address}
-        </SignatureConfirmItem.Value>
-      )}
-
-      <XStack gap="$1" flexWrap="wrap" flex={1}>
-        {accountId && networkId && showAddressLocalTags ? (
-          <AddressInfo
-            accountId={accountId}
-            networkId={networkId}
-            address={component.address}
-            withWrapper={false}
-          />
         ) : null}
-        {component.tags?.map((tag) =>
-          tag.icon ? (
-            <Badge key={tag.value} badgeType={tag.displayType}>
-              <XStack gap="$1" alignItems="center">
-                <Icon name={tag.icon} width={16} height={16} />
-                <Badge.Text>{tag.value}</Badge.Text>
-              </XStack>
-            </Badge>
-          ) : (
-            <Badge key={tag.value} badgeType={tag.displayType}>
-              {tag.value}
-            </Badge>
-          ),
-        )}
       </XStack>
+
+      {(accountId && networkId && showAddressLocalTags) ||
+      component.tags.length ? (
+        <XStack gap="$1" flexWrap="wrap" flex={1}>
+          {accountId && networkId && showAddressLocalTags ? (
+            <AddressInfo
+              accountId={accountId}
+              networkId={networkId}
+              address={component.address}
+              withWrapper={false}
+            />
+          ) : null}
+          {component.tags?.map((tag) =>
+            tag.icon ? (
+              <Badge key={tag.value} badgeType={tag.displayType}>
+                <XStack gap="$1" alignItems="center">
+                  <Icon name={tag.icon} width={16} height={16} />
+                  <Badge.Text>{tag.value}</Badge.Text>
+                </XStack>
+              </Badge>
+            ) : (
+              <Badge key={tag.value} badgeType={tag.displayType}>
+                {tag.value}
+              </Badge>
+            ),
+          )}
+        </XStack>
+      ) : null}
     </SignatureConfirmItem>
   );
 }

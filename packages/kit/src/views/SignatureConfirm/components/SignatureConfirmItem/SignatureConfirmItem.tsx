@@ -19,7 +19,6 @@ function SignatureConfirmItem(props: ISignatureConfirmItemType) {
   return (
     <YStack
       gap="$1"
-      flex={1}
       {...(compact && {
         $gtMd: {
           flexBasis: '50%',

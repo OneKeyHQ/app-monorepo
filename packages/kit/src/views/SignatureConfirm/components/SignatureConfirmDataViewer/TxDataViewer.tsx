@@ -40,11 +40,12 @@ function TxDataViewer(props: IProps) {
               userSelect="none"
               borderRadius="$1"
               hoverStyle={{
-                bg: '$bgSubdued',
+                bg: '$bgHover',
               }}
               pressStyle={{
                 bg: '$bgActive',
               }}
+              focusable
               focusVisibleStyle={{
                 outlineColor: '$focusRing',
                 outlineWidth: 2,
