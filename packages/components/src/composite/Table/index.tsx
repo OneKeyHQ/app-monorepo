@@ -24,7 +24,6 @@ import type {
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from 'react-native';
-import type { DragEndParams } from 'react-native-draggable-flatlist';
 
 const DEFAULT_ROW_HEIGHT = 60;
 
@@ -566,6 +565,7 @@ function BasicTable<T>({
       TableHeaderComponent,
       stickyHeader,
       headerRow,
+      handleDragBegin,
       onDragEnd,
       keyExtractor,
       TableFooterComponent,
