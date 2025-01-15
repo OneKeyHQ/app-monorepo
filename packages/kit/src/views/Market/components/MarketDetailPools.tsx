@@ -582,6 +582,7 @@ export function MarketDetailPools({
       dataSource={sortedListData as any}
       columns={columns as any}
       extraData={index}
+      keyExtractor={(item) => item.localId}
     />
   );
 }

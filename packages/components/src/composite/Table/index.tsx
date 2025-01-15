@@ -2,21 +2,29 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { useMedia, withStaticProperties } from 'tamagui';
+import { getTokenValue, useMedia, withStaticProperties } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
+import { SortableListView } from '../../layouts/SortableListView';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
 
 import type { IListViewProps, IListViewRef } from '../../layouts';
+import type {
+  IRenderItemParams,
+  ISortableListViewProps,
+} from '../../layouts/SortableListView';
 import type { ISizableTextProps, IStackProps } from '../../primitives';
 import type {
   ListRenderItemInfo,
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from 'react-native';
+
+const DEFAULT_ROW_HEIGHT = 60;
 
 function Column<T>({
   children,
@@ -109,33 +117,45 @@ export interface ITableColumn<T> {
 }
 
 function TableRow<T>({
-  item,
-  index,
   columns,
+  dataSet,
+  drag,
+  index,
+  item,
   onRow,
-  rowProps,
   pressStyle = false,
+  rowProps,
   showSkeleton = false,
+  draggable = false,
+  isActive = false,
 }: {
-  pressStyle?: boolean;
-  item: T;
-  index: number;
   columns: ITableProps<T>['columns'];
+  dataSet?: Record<string, any>;
+  drag?: () => void;
+  draggable?: boolean;
+  index: number;
+  item: T;
   onHeaderRow?: ITableProps<T>['onHeaderRow'];
-  showSkeleton?: boolean;
   onRow?: ITableProps<T>['onRow'];
+  pressStyle?: boolean;
   rowProps?: ITableProps<T>['rowProps'];
+  showSkeleton?: boolean;
+  isActive?: boolean;
 }) {
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
   const handlePress = useCallback(() => {
     onRowEvents?.onPress?.();
   }, [onRowEvents]);
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
+  const isDragging = pressStyle && isActive;
   return (
     <XStack
-      minHeight={60}
+      minHeight={DEFAULT_ROW_HEIGHT}
       onPress={handlePress}
+      bg={isDragging ? '$bgActive' : '$bgApp'}
       borderRadius="$3"
+      dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
+      onLongPress={platformEnv.isNative && draggable ? drag : undefined}
       {...itemPressStyle}
       {...rowProps}
     >
@@ -212,6 +232,10 @@ export interface ITableProps<T> {
   estimatedItemSize?: IListViewProps<T>['estimatedItemSize'];
   rowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
+  // Whether the column can be dragged to reorder. default value is false
+  draggable?: boolean;
+  onDragEnd?: ISortableListViewProps<T>['onDragEnd'];
+  keyExtractor: (item: T, index: number) => string;
   onHeaderRow?: (
     column: ITableColumn<T>,
     index: number,
@@ -356,29 +380,37 @@ function BasicTable<T>({
   onHeaderRow,
   onRow,
   rowProps,
+  keyExtractor,
   contentContainerStyle,
   headerRowProps,
   renderScrollComponent,
+  onDragEnd,
   showHeader = true,
-  estimatedItemSize = 60,
+  estimatedItemSize = DEFAULT_ROW_HEIGHT,
   estimatedListSize = { width: 370, height: 525 },
   stickyHeader = true,
   stickyHeaderHiddenOnScroll = false,
   showBackToTopButton = false,
+  draggable = false,
 }: ITableProps<T>) {
   const { gtMd } = useMedia();
   const [isShowBackToTopButton, setIsShowBackToTopButton] = useState(false);
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
+
+  const handleScrollOffsetChange = useCallback((offset: number) => {
+    const isShow = offset > 0;
+    if (isShowBackToTopButtonRef.current !== isShow) {
+      setIsShowBackToTopButton(isShow);
+    }
+  }, []);
+
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const isShow = event.nativeEvent.contentOffset.y > 0;
-      if (isShowBackToTopButtonRef.current !== isShow) {
-        setIsShowBackToTopButton(isShow);
-      }
+      handleScrollOffsetChange(event.nativeEvent.contentOffset.y);
     },
-    [],
+    [handleScrollOffsetChange],
   );
 
   const handleScrollToTop = useCallback(() => {
@@ -415,47 +447,121 @@ function BasicTable<T>({
       ) : null,
     [columns, headerRowProps, onHeaderRow, rowProps, showHeader],
   );
-  const list = useMemo(
-    () => (
-      <ListView
-        ref={listViewRef}
-        contentContainerStyle={contentContainerStyle}
-        stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
-        estimatedItemSize={estimatedItemSize}
-        // @ts-ignore
-        estimatedListSize={estimatedListSize}
-        onScroll={showBackToTopButton ? handleScroll : undefined}
-        scrollEventThrottle={100}
-        data={dataSource}
-        renderItem={handleRenderItem}
-        ListHeaderComponent={
-          <>
-            {TableHeaderComponent}
-            {stickyHeader ? null : headerRow}
-          </>
-        }
-        ListFooterComponent={TableFooterComponent}
-        ListEmptyComponent={TableEmptyComponent}
-        extraData={extraData}
-        renderScrollComponent={renderScrollComponent}
+
+  const renderPlaceholder = useCallback(
+    () => <XStack h={DEFAULT_ROW_HEIGHT} borderRadius="$3" />,
+    [],
+  );
+
+  const itemSize = useMemo<number | undefined>(() => {
+    if (typeof estimatedItemSize === 'undefined') {
+      return undefined;
+    }
+    return typeof estimatedItemSize === 'number'
+      ? estimatedItemSize
+      : (getTokenValue(estimatedItemSize, 'size') as number);
+  }, [estimatedItemSize]);
+
+  const renderSortableItem = useCallback(
+    ({ item, drag, dragProps, index, isActive }: IRenderItemParams<T>) => (
+      <TableRow
+        pressStyle
+        isActive={isActive}
+        draggable={draggable}
+        dataSet={dragProps}
+        drag={drag}
+        item={item}
+        index={index}
+        columns={columns}
+        onRow={onRow}
+        rowProps={rowProps}
       />
     ),
+    [columns, draggable, onRow, rowProps],
+  );
+  const list = useMemo(
+    () =>
+      draggable ? (
+        <SortableListView
+          enabled
+          ref={listViewRef as any}
+          contentContainerStyle={contentContainerStyle}
+          stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
+          // @ts-ignore
+          estimatedListSize={estimatedListSize}
+          onScrollOffsetChange={
+            showBackToTopButton ? handleScrollOffsetChange : undefined
+          }
+          onScroll={showBackToTopButton ? handleScroll : undefined}
+          scrollEventThrottle={100}
+          data={dataSource}
+          renderItem={renderSortableItem}
+          getItemLayout={(_, index) => ({
+            length: itemSize || DEFAULT_ROW_HEIGHT,
+            offset: index * (itemSize || DEFAULT_ROW_HEIGHT),
+            index,
+          })}
+          renderPlaceholder={renderPlaceholder}
+          ListHeaderComponent={
+            <>
+              {TableHeaderComponent}
+              {stickyHeader ? null : headerRow}
+            </>
+          }
+          onDragEnd={onDragEnd}
+          keyExtractor={keyExtractor}
+          ListFooterComponent={TableFooterComponent}
+          ListEmptyComponent={TableEmptyComponent}
+          extraData={extraData}
+          renderScrollComponent={renderScrollComponent}
+        />
+      ) : (
+        <ListView
+          ref={listViewRef}
+          contentContainerStyle={contentContainerStyle}
+          stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
+          estimatedItemSize={estimatedItemSize}
+          // @ts-ignore
+          estimatedListSize={estimatedListSize}
+          onScroll={showBackToTopButton ? handleScroll : undefined}
+          scrollEventThrottle={100}
+          data={dataSource}
+          renderItem={handleRenderItem}
+          ListHeaderComponent={
+            <>
+              {TableHeaderComponent}
+              {stickyHeader ? null : headerRow}
+            </>
+          }
+          ListFooterComponent={TableFooterComponent}
+          ListEmptyComponent={TableEmptyComponent}
+          extraData={extraData}
+          renderScrollComponent={renderScrollComponent}
+        />
+      ),
     [
-      TableEmptyComponent,
-      TableFooterComponent,
-      TableHeaderComponent,
+      draggable,
       contentContainerStyle,
-      dataSource,
-      estimatedItemSize,
-      estimatedListSize,
-      extraData,
-      handleRenderItem,
-      handleScroll,
-      headerRow,
-      renderScrollComponent,
-      showBackToTopButton,
-      stickyHeader,
       stickyHeaderHiddenOnScroll,
+      estimatedListSize,
+      showBackToTopButton,
+      handleScrollOffsetChange,
+      handleScroll,
+      dataSource,
+      renderSortableItem,
+      renderPlaceholder,
+      TableHeaderComponent,
+      stickyHeader,
+      headerRow,
+      onDragEnd,
+      keyExtractor,
+      TableFooterComponent,
+      TableEmptyComponent,
+      extraData,
+      renderScrollComponent,
+      estimatedItemSize,
+      handleRenderItem,
+      itemSize,
     ],
   );
 

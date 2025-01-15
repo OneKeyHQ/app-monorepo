@@ -736,6 +736,7 @@ function BatchCreateAccountPreviewPage({
             </Stack>
           }
           extraData={extraData}
+          keyExtractor={(item) => item.id}
         />
       </Page.Body>
       <Page.Footer>
