@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "Loyer du compte",
   "sig.approval_label": "Approbation",
   "sig.approve_to_label": "Approuver à",
+  "sig.interact_contract_label": "Contrat d'interaction",
   "sig.revoke_approval_label": "Révoquer l'approbation",
   "sig.revoke_from_label": "Révoquer de",
   "sig.sigature_request_label": "Demande de signature",
