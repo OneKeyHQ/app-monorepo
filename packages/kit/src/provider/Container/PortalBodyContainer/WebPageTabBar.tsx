@@ -8,7 +8,7 @@ import DesktopCustomTabBar from '../../../views/Discovery/pages/DesktopCustomTab
 export function WebPageTabBar() {
   const { gtMd } = useMedia();
   const memoDesktopCustomTabBar = useMemo(() => <DesktopCustomTabBar />, []);
-  return platformEnv.isDesktop || (platformEnv.isNative && gtMd) ? (
+  return (platformEnv.isDesktop || platformEnv.isNative) && gtMd ? (
     <Portal.Body container={Portal.Constant.WEB_TAB_BAR}>
       {memoDesktopCustomTabBar}
     </Portal.Body>

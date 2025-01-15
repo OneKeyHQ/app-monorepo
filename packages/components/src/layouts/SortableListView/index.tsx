@@ -173,6 +173,7 @@ function BaseSortableListView<T>(
                     ),
                     getIndex: () => index,
                     isActive: false,
+                    index,
                   })}
                 </div>
               </>
@@ -212,6 +213,7 @@ function BaseSortableListView<T>(
               dragProps: {},
               getIndex: () => rubric.source.index,
               isActive: true,
+              index: rubric.source.index,
             })}
           </div>
         )}
@@ -229,6 +231,8 @@ function BaseSortableListView<T>(
           }
           return (
             <ListView
+              // This property is invalid in SortableListView
+              estimatedItemSize={undefined as any}
               // @ts-ignore
               ref={(_ref) => {
                 if (typeof ref === 'function') {
@@ -259,8 +263,6 @@ function BaseSortableListView<T>(
   );
 }
 
-export { ISortableListViewProps, ISortableListViewRef };
-
 export const SortableListView = withStaticProperties(
   forwardRef(BaseSortableListView) as typeof BaseSortableListView,
   {
@@ -269,3 +271,5 @@ export const SortableListView = withStaticProperties(
     ShadowDecorator,
   },
 );
+
+export * from './types';

@@ -1,6 +1,6 @@
 import { memo, useCallback } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
@@ -28,7 +28,6 @@ import { MessageConfirmActions } from '../../components/SignatureConfirmActions'
 import { MessageConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
-import { SignatureConfirmItem } from '../../components/SignatureConfirmItem';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
@@ -182,9 +181,9 @@ function MessageConfirm() {
     }
 
     return (
-      <SignatureConfirmItem gap="$5">
+      <YStack gap="$5">
         {!walletInternalSign ? (
-          <SignatureConfirmItem gap="$2.5">
+          <>
             {$sourceInfo?.origin ? (
               <DAppRiskyAlert
                 origin={$sourceInfo.origin}
@@ -208,17 +207,16 @@ function MessageConfirm() {
                 urlSecurityInfo={urlSecurityInfo}
               />
             ) : null}
-          </SignatureConfirmItem>
+          </>
         ) : null}
-        <SignatureConfirmItem gap="$5">
-          <MessageConfirmDetails
-            accountId={accountId}
-            networkId={networkId}
-            displayComponents={parsedMessage.components}
-          />
-          <MessageDataViewer unsignedMessage={unsignedMessage} />
-        </SignatureConfirmItem>
-      </SignatureConfirmItem>
+
+        <MessageConfirmDetails
+          accountId={accountId}
+          networkId={networkId}
+          displayComponents={parsedMessage.components}
+        />
+        <MessageDataViewer unsignedMessage={unsignedMessage} />
+      </YStack>
     );
   }, [
     isLoading,
