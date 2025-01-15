@@ -1875,6 +1875,7 @@
   sig_account_rent_label = 'sig.account_rent_label',
   sig_approval_label = 'sig.approval_label',
   sig_approve_to_label = 'sig.approve_to_label',
+  sig_interact_contract_label = 'sig.interact_contract_label',
   sig_revoke_approval_label = 'sig.revoke_approval_label',
   sig_revoke_from_label = 'sig.revoke_from_label',
   sig_sigature_request_label = 'sig.sigature_request_label',

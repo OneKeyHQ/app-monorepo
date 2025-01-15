@@ -8,3 +8,4 @@
  */
 
 export * from './TxAdvancedSettings';
+export * from './MessageAdvancedSettings';

@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "Thuê tài khoản",
   "sig.approval_label": "Phê duyệt",
   "sig.approve_to_label": "Phê duyệt cho",
+  "sig.interact_contract_label": "Hợp đồng tương tác",
   "sig.revoke_approval_label": "Thu hồi phê duyệt",
   "sig.revoke_from_label": "Thu hồi từ",
   "sig.sigature_request_label": "Yêu cầu chữ ký",

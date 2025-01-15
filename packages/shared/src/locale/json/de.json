@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "Kontomiete",
   "sig.approval_label": "Genehmigung",
   "sig.approve_to_label": "Genehmigen zu",
+  "sig.interact_contract_label": "Interaktionsvertrag",
   "sig.revoke_approval_label": "Genehmigung widerrufen",
   "sig.revoke_from_label": "Widerrufen von",
   "sig.sigature_request_label": "Unterschriftenanfrage",

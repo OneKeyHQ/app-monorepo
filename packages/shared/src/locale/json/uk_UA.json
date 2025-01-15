@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "Оренда рахунку",
   "sig.approval_label": "Затвердження",
   "sig.approve_to_label": "Затвердити до",
+  "sig.interact_contract_label": "Взаємодія контракт",
   "sig.revoke_approval_label": "Скасувати затвердження",
   "sig.revoke_from_label": "Відкликати з",
   "sig.sigature_request_label": "Запит на підпис",

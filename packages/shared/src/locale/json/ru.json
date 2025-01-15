@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "Аренда счета",
   "sig.approval_label": "Одобрение",
   "sig.approve_to_label": "Утвердить для",
+  "sig.interact_contract_label": "Взаимодействие по контракту",
   "sig.revoke_approval_label": "Отозвать одобрение",
   "sig.revoke_from_label": "Отозвать у",
   "sig.sigature_request_label": "Запрос подписи",

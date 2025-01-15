@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "खाता किराया",
   "sig.approval_label": "अनुमोदन",
   "sig.approve_to_label": "अनुमोदन करने के लिए",
+  "sig.interact_contract_label": "इंटरैक्ट कॉन्ट्रैक्ट",
   "sig.revoke_approval_label": "अनुमोदन रद्द करें",
   "sig.revoke_from_label": "से रद्द करें",
   "sig.sigature_request_label": "हस्ताक्षर अनुरोध",
