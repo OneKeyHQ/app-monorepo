@@ -6,4 +6,4 @@ export const Haptics: IHaptics = {
   notification() {},
 };
 
-export type * from './type';
+export * from './type';
