@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "アカウントレンタル",
   "sig.approval_label": "承認",
   "sig.approve_to_label": "承認する",
+  "sig.interact_contract_label": "インタラクト契約",
   "sig.revoke_approval_label": "承認を取り消す",
   "sig.revoke_from_label": "取り消す",
   "sig.sigature_request_label": "署名リクエスト",

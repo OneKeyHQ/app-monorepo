@@ -110,7 +110,11 @@ function SignatureAssetDetailItem({
             +
           </SizableText>
         ) : null}
-        {amount ? <SizableText size="$headingMd">{amount}</SizableText> : null}
+        {amount ? (
+          <SizableText size="$headingMd">
+            {Number(amount).toString()}
+          </SizableText>
+        ) : null}
         {symbol ? <SizableText size="$bodyLg">{symbol}</SizableText> : null}
         {editable ? (
           <Icon name="PencilOutline" size="$4.5" color="$iconSubdued" />

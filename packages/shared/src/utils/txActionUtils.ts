@@ -337,7 +337,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       label:
         isInternalSwap || isInternalStake
           ? appLocale.intl.formatMessage({
-              id: ETranslations.interact_with_contract,
+              id: ETranslations.sig_interact_contract_label,
             })
           : appLocale.intl.formatMessage({
               id: ETranslations.global_to,
@@ -466,7 +466,7 @@ function convertFunctionCallActionToSignatureConfirmComponent({
     const interactWithContractComponent: IDisplayComponentAddress = {
       type: EParseTxComponentType.Address,
       label: appLocale.intl.formatMessage({
-        id: ETranslations.interact_with_contract,
+        id: ETranslations.sig_interact_contract_label,
       }),
       address: action.to,
       tags: [],
@@ -491,7 +491,7 @@ function convertUnknownActionToSignatureConfirmComponent({
   const interactWithContractComponent: IDisplayComponentAddress = {
     type: EParseTxComponentType.Address,
     label: appLocale.intl.formatMessage({
-      id: ETranslations.interact_with_contract,
+      id: ETranslations.sig_interact_contract_label,
     }),
     address: action.to,
     tags: [],

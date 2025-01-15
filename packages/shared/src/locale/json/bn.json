@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "অ্যাকাউন্ট ভাড়া",
   "sig.approval_label": "অনুমোদন",
   "sig.approve_to_label": "অনুমোদন করা",
+  "sig.interact_contract_label": "ইন্টারঅ্যাক্ট চুক্তি",
   "sig.revoke_approval_label": "অনুমোদন বাতিল করুন",
   "sig.revoke_from_label": "থেকে প্রত্যাহার করুন",
   "sig.sigature_request_label": "স্বাক্ষর অনুরোধ",

@@ -1870,6 +1870,7 @@
   "sig.account_rent_label": "계정 임대료",
   "sig.approval_label": "승인",
   "sig.approve_to_label": "승인하기",
+  "sig.interact_contract_label": "상호작용 계약",
   "sig.revoke_approval_label": "승인 취소",
   "sig.revoke_from_label": "철회하다",
   "sig.sigature_request_label": "서명 요청",
