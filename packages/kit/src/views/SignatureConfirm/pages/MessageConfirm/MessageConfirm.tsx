@@ -32,6 +32,8 @@ import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
+import { useIntl } from 'react-intl';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function useDappCloseHandler(
   dappApprove: ReturnType<typeof useDappApproveAction>,
@@ -63,6 +65,8 @@ function MessageConfirm() {
     indexedAccountId: string;
     walletInternalSign?: boolean;
   }>();
+
+  const intl = useIntl();
 
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
@@ -269,7 +273,12 @@ function MessageConfirm() {
 
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
-      <Page.Header title={parsedMessage?.title} />
+      <Page.Header
+        title={
+          parsedMessage?.title ||
+          intl.formatMessage({ id: ETranslations.sig_sigature_request_label })
+        }
+      />
       <Page.Body px="$5">{renderMessageConfirmContent()}</Page.Body>
       <MessageConfirmActions
         accountId={accountId}
