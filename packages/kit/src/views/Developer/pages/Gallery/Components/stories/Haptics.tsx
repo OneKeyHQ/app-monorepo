@@ -28,12 +28,6 @@ const HapticsGallery = () => (
             <Button onPress={() => Haptics.impact(ImpactFeedbackStyle.Heavy)}>
               Heavy Impact
             </Button>
-            <Button onPress={() => Haptics.impact(ImpactFeedbackStyle.Rigid)}>
-              Rigid Impact
-            </Button>
-            <Button onPress={() => Haptics.impact(ImpactFeedbackStyle.Soft)}>
-              Soft Impact
-            </Button>
           </YStack>
         ),
       },
