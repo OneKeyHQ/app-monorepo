@@ -57,6 +57,16 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     const watchList = [payload, ...newItems];
     this.syncToDb.call(set, watchList);
   });
+
+  saveWatchList = contextAtomMethod(
+    (get, set, payload: IMarketWatchListItem[]) => {
+      const prev = get(marketWatchListAtom());
+      if (!prev.isMounted) {
+        return;
+      }
+      this.syncToDb.call(set, payload);
+    },
+  );
 }
 
 const createActions = memoFn(() => new ContextJotaiActionsMarket());
@@ -67,11 +77,12 @@ export function useWatchListActions() {
   const removeFormWatchList = actions.removeFormWatchList.use();
   const moveToTop = actions.moveToTop.use();
   const isInWatchList = actions.isInWatchList.use();
-
+  const saveWatchList = actions.saveWatchList.use();
   return useRef({
     isInWatchList,
     addIntoWatchList,
     removeFormWatchList,
     moveToTop,
+    saveWatchList,
   });
 }

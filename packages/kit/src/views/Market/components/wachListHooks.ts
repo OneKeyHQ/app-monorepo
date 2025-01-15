@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IMarketWatchListItem } from '@onekeyhq/shared/types/market';
 
 import { useWatchListActions } from '../../../states/jotai/contexts/market';
 
@@ -45,13 +46,26 @@ export const useWatchListAction = () => {
     (coingeckoId: string) => actions.current.isInWatchList(coingeckoId),
     [actions],
   );
+
+  const saveWatchList = useCallback(
+    (payload: IMarketWatchListItem[]) => actions.current.saveWatchList(payload),
+    [actions],
+  );
+
   return useMemo(
     () => ({
       removeFormWatchList,
       addIntoWatchList,
       MoveToTop,
       isInWatchList,
+      saveWatchList,
     }),
-    [MoveToTop, addIntoWatchList, isInWatchList, removeFormWatchList],
+    [
+      MoveToTop,
+      addIntoWatchList,
+      isInWatchList,
+      removeFormWatchList,
+      saveWatchList,
+    ],
   );
 };
