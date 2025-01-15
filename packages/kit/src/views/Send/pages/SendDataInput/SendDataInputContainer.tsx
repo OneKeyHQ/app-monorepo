@@ -29,6 +29,7 @@ import {
   AddressInputField,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -1196,10 +1197,6 @@ function SendDataInputContainer() {
     [],
   );
 
-  const isEnableTransferAllowList = useMemo(
-    () => settings.transferAllowList ?? true,
-    [settings.transferAllowList],
-  );
   const { gtMd } = useMedia();
   // TODO: Add title for large screen popover
   const PopoverTitle = useMemo(
@@ -1258,7 +1255,7 @@ function SendDataInputContainer() {
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
-        headerRight={isEnableTransferAllowList ? renderHeaderRight : undefined}
+        headerRight={renderAddressSecurityHeaderRightButton}
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror

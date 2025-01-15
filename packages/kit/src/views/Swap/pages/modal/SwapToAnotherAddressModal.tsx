@@ -16,6 +16,7 @@ import {
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
 import { AddressInputField } from '@onekeyhq/kit/src/components/AddressInput';
+import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapManualSelectQuoteProvidersAtom,
@@ -128,6 +129,12 @@ const SwapToAnotherAddressPage = () => {
 
   return accountInfo && accountInfo?.network?.id ? (
     <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.address_book_edit_address_title,
+        })}
+        headerRight={renderAddressSecurityHeaderRightButton}
+      />
       <Page.Body px="$5" gap="$6">
         <Form form={form}>
           <AddressInputField
