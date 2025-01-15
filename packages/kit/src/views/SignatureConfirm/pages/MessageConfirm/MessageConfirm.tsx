@@ -1,4 +1,4 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
@@ -12,6 +12,7 @@ import {
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   EParseTxComponentType,
@@ -172,6 +173,28 @@ function MessageConfirm() {
     },
   );
 
+  const showMessageHeaderInfo = useMemo(
+    () => !walletInternalSign,
+    [walletInternalSign],
+  );
+
+  const showDAppRiskyAlert = useMemo(
+    () => $sourceInfo?.origin && !walletInternalSign,
+    [$sourceInfo?.origin, walletInternalSign],
+  );
+
+  const showMessageAlerts = useMemo(
+    () =>
+      !walletInternalSign &&
+      urlSecurityInfo?.level !== EHostSecurityLevel.Security,
+    [walletInternalSign, urlSecurityInfo?.level],
+  );
+
+  const showDAppSiteMark = useMemo(
+    () => $sourceInfo?.origin && !walletInternalSign,
+    [$sourceInfo?.origin, walletInternalSign],
+  );
+
   const renderMessageConfirmContent = useCallback(() => {
     if (isLoading) {
       return <SignatureConfirmLoading />;
@@ -183,11 +206,11 @@ function MessageConfirm() {
 
     return (
       <SignatureConfirmItem gap="$5">
-        {!walletInternalSign ? (
+        {showMessageHeaderInfo ? (
           <SignatureConfirmItem gap="$2.5">
-            {$sourceInfo?.origin ? (
+            {showDAppRiskyAlert ? (
               <DAppRiskyAlert
-                origin={$sourceInfo.origin}
+                origin={$sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
                 alertProps={{
                   fullBleed: false,
@@ -195,16 +218,16 @@ function MessageConfirm() {
                 }}
               />
             ) : null}
-            {!walletInternalSign ? (
+            {showMessageAlerts ? (
               <MessageConfirmAlert
                 messageDisplay={parsedMessage}
                 unsignedMessage={unsignedMessage}
                 isRiskSignMethod={isRiskSignMethod}
               />
             ) : null}
-            {$sourceInfo?.origin && !walletInternalSign ? (
+            {showDAppSiteMark ? (
               <DAppSiteMark
-                origin={$sourceInfo.origin}
+                origin={$sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
               />
             ) : null}
@@ -223,7 +246,10 @@ function MessageConfirm() {
   }, [
     isLoading,
     parsedMessage,
-    walletInternalSign,
+    showMessageHeaderInfo,
+    showDAppRiskyAlert,
+    showMessageAlerts,
+    showDAppSiteMark,
     $sourceInfo?.origin,
     urlSecurityInfo,
     unsignedMessage,
