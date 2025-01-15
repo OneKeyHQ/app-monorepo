@@ -101,10 +101,14 @@ function SignatureAssetDetailItem({
     return (
       <>
         {transferDirection === ETransferDirection.Out ? (
-          <SizableText size="$headingMd">-</SizableText>
+          <SizableText size="$headingMd" mr="$-1">
+            -
+          </SizableText>
         ) : null}
         {transferDirection === ETransferDirection.In ? (
-          <SizableText size="$headingMd">+</SizableText>
+          <SizableText size="$headingMd" mr="$-1">
+            +
+          </SizableText>
         ) : null}
         {amount ? <SizableText size="$headingMd">{amount}</SizableText> : null}
         {symbol ? <SizableText size="$bodyLg">{symbol}</SizableText> : null}
