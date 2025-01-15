@@ -16,7 +16,10 @@ import {
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
 
-import { EParseTxComponentType } from '../../types/signatureConfirm';
+import {
+  EParseTxComponentType,
+  ETransferDirection,
+} from '../../types/signatureConfirm';
 import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
@@ -284,6 +287,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       amountParsed: send.amount,
       networkId: send.networkId,
       isNFT: send.isNFT,
+      transferDirection: ETransferDirection.Out,
     };
 
     components.push(assetsComponent);
@@ -308,6 +312,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       amountParsed: receive.amount,
       networkId: receive.networkId,
       isNFT: receive.isNFT,
+      transferDirection: ETransferDirection.In,
     };
 
     components.push(assetsComponent);

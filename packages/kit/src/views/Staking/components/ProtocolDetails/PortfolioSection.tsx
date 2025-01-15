@@ -21,6 +21,7 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
+  IEarnRewardNum,
   IEarnTokenItem,
   IEarnUnbondingDelegationList,
   IStakeProtocolDetails,
@@ -28,6 +29,8 @@ import type {
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { formatStakingDistanceToNowStrict } from '../utils';
+
+import { ProtocolRewards } from './ProtocolRewards';
 
 type IPortfolioItemProps = {
   tokenImageUri?: string;
@@ -134,7 +137,7 @@ type IPortfolioInfoProps = {
   pendingActiveTooltip?: string;
   claimable?: string;
   rewards?: string;
-  rewardNum?: Record<string, string>;
+  rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
 
   tooltipForClaimable?: string;
@@ -221,8 +224,10 @@ function PortfolioInfo({
     const hasMultipleRewards =
       rewardNum &&
       Object.keys(rewardNum).length > 1 &&
-      Object.values(rewardNum).some((value) =>
-        new BigNumber(value).isGreaterThan(0),
+      Object.values(rewardNum).some(
+        (value) =>
+          new BigNumber(value.claimableNow).isGreaterThan(0) ||
+          new BigNumber(value.claimableNext).isGreaterThan(0),
       );
 
     return (
@@ -376,7 +381,7 @@ function PortfolioInfo({
               disabled={isLessThanMinClaimable}
             />
           ) : null}
-          {rewardNum && Object.keys(rewardNum).length > 0
+          {/* {rewardNum && Object.keys(rewardNum).length > 0
             ? Object.entries(rewardNum).map(([rewardTokenAddress, amount]) => {
                 const rewardToken = rewardAssets?.[rewardTokenAddress];
 
@@ -419,7 +424,15 @@ function PortfolioInfo({
                   />
                 );
               })
-            : null}
+            : null} */}
+          {rewardNum && Object.keys(rewardNum).length > 0 ? (
+            <ProtocolRewards
+              rewardNum={rewardNum}
+              rewardAssets={rewardAssets}
+              onClaim={onClaim}
+            />
+          ) : null}
+
           {Number(babylonOverflow) > 0 ? (
             <Alert
               fullBleed

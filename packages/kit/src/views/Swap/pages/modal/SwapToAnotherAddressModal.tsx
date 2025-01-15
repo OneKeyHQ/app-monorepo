@@ -154,6 +154,10 @@ const SwapToAnotherAddressPage = () => {
               networkId={accountInfo?.network?.id}
               enableAddressBook
               enableWalletName
+              enableVerifySendFundToSelf
+              enableAddressInteractionStatus
+              enableAddressContract
+              enableAllowListValidation
               accountId={accountInfo?.account?.id}
               contacts
               accountSelector={accountSelector}

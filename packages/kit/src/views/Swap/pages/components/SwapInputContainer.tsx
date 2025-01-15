@@ -1,8 +1,9 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import {
   useRateDifferenceAtom,
@@ -12,6 +13,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -59,6 +61,7 @@ const SwapInputContainer = ({
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [alerts] = useSwapAlertsAtom();
+  const intl = useIntl();
   const { address, accountInfo } = useSwapAddressInfo(direction);
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
@@ -104,7 +107,27 @@ const SwapInputContainer = ({
     fromTokenAmount,
     fromToken,
   ]);
-
+  const onRateDifferencePress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.swap_page_price_impact_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.swap_page_price_impact_content_1,
+      }),
+      renderContent: (
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.swap_page_price_impact_content_2,
+          })}
+        </SizableText>
+      ),
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_ok,
+      }),
+    });
+  }, [intl]);
   const valueMoreComponent = useMemo(() => {
     if (rateDifference && direction === ESwapDirectionType.TO) {
       let color = '$textSubdued';
@@ -118,13 +141,21 @@ const SwapInputContainer = ({
         color = '$textSuccess';
       }
       return (
-        <SizableText size="$bodyMd" color={color}>
+        <SizableText
+          size="$bodyMd"
+          color={color}
+          cursor="pointer"
+          onPress={onRateDifferencePress}
+          {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
+            textDecorationLine: 'underline',
+          })}
+        >
           {rateDifference.value}
         </SizableText>
       );
     }
     return null;
-  }, [direction, inputLoading, rateDifference]);
+  }, [direction, inputLoading, onRateDifferencePress, rateDifference]);
 
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);

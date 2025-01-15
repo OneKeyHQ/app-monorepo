@@ -123,7 +123,8 @@ function EditItemPage() {
     },
   );
 
-  return isLoading ? null : (
+  // isLoading is undefined initially, so we need to explicitly check if it's false
+  return isLoading === false ? (
     <CreateOrEditContent
       title={intl.formatMessage({
         id: ETranslations.address_book_edit_address_title,
@@ -132,7 +133,7 @@ function EditItemPage() {
       onSubmit={onSubmit}
       onRemove={onRemove}
     />
-  );
+  ) : null;
 }
 
 export default EditItemPage;

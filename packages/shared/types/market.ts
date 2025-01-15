@@ -104,6 +104,7 @@ export interface IMarketDetailLinks {
 }
 
 export interface IMarketDetailTicker {
+  localId: string;
   base: string;
   target: string;
   market: {
@@ -204,6 +205,7 @@ interface IMarketDetailPoolAttributes {
 
 export interface IMarketDetailPool {
   id: string;
+  localId: string;
   dexLogoUrl: string;
   dexName: string;
   baseTokenImageUrl: string;
