@@ -2,21 +2,16 @@ import { type FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  ICheckboxProps,
-  ICheckedState,
-  ISizableTextProps,
-} from '@onekeyhq/components';
 import {
   Checkbox,
   Form,
-  Icon,
   IconButton,
   Input,
   Page,
   SizableText,
   Stack,
   XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -27,6 +22,7 @@ import {
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -42,6 +38,20 @@ type ICreateOrEditContentProps = {
 type IFormValues = Omit<IAddressItem, 'address'> & {
   address: IAddressInputValue;
 };
+
+function TimeRow({ title, time }: { title: string; time?: number }) {
+  if (!time) {
+    return null;
+  }
+  return (
+    <XStack jc="space-between">
+      <SizableText color="$textSubdued" size="$bodyMd">
+        {title}
+      </SizableText>
+      <SizableText size="$bodyMd">{formatDate(new Date(time))}</SizableText>
+    </XStack>
+  );
+}
 
 export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   title,
@@ -212,6 +222,10 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             />
           </Form.Field>
         </Form>
+        <YStack gap="$2.5" pt="$5">
+          <TimeRow title="Adds on" time={item.createdAt} />
+          <TimeRow title="Last modify" time={item.createdAt} />
+        </YStack>
       </Page.Body>
       <Page.Footer>
         <Stack
