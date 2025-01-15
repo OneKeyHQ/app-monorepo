@@ -303,12 +303,17 @@ class ServiceAccountProfile extends ServiceBase {
         });
       result.addressBookId = addressBookItem?.id;
       result.isAllowListed = addressBookItem?.isAllowListed;
-      result.addressBookName =
-        addressBookItem?.name && addressBookItem?.isAllowListed
-          ? `${appLocale.intl.formatMessage({
-              id: ETranslations.address_label_allowlist,
-            })} / ${addressBookItem?.name}`
-          : addressBookItem?.name;
+      if (addressBookItem?.name) {
+        if (addressBookItem?.isAllowListed) {
+          result.addressBookName = `${appLocale.intl.formatMessage({
+            id: ETranslations.address_label_allowlist,
+          })} / ${addressBookItem?.name}`;
+        } else {
+          result.addressBookName = `${appLocale.intl.formatMessage({
+            id: ETranslations.global_contact,
+          })} / ${addressBookItem?.name}`;
+        }
+      }
     }
 
     if (enableWalletName && resolveAddress) {

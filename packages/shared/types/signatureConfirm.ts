@@ -182,7 +182,7 @@ export interface IParseTransactionResp {
     };
     data: ITransactionData;
   };
-  display: ISignatureConfirmDisplay;
+  display: ISignatureConfirmDisplay | null;
   type: EParseTxType;
 }
 

@@ -45,6 +45,7 @@ function Address(props: IProps) {
                 openExplorerAddressUrl({
                   networkId,
                   address: component.address,
+                  openInExternal: true,
                 })
               }
             />

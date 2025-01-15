@@ -134,7 +134,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
       parsedTx?.type === EParseTxType.Unknown
     ) {
-      parsedTx = null;
+      parsedTx.display = null;
     }
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -153,9 +153,12 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.feeInfo = feeInfo.feeInfo;
     }
 
+    if (parsedTx && parsedTx.parsedTx?.data) {
+      decodedTx.txABI = parsedTx.parsedTx?.data;
+    }
+
     if (parsedTx && parsedTx.display) {
       decodedTx.txDisplay = parsedTx.display;
-      decodedTx.txABI = parsedTx.parsedTx?.data;
     } else {
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
       const txDisplayComponents =
