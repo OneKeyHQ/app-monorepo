@@ -1,12 +1,4 @@
-import {
-  Fragment,
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import {
@@ -14,10 +6,9 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native';
-import { TouchableWithoutFeedback } from 'react-native-gesture-handler';
 
 import type {
-  IActionListItemProps,
+  IDragEndParams,
   IElement,
   IStackStyle,
   ITableColumn,
@@ -25,7 +16,9 @@ import type {
 } from '@onekeyhq/components';
 import {
   ActionList,
+  Badge,
   Icon,
+  IconButton,
   NumberSizeableText,
   Select,
   SizableText,
@@ -37,7 +30,6 @@ import {
   XStack,
   YStack,
   useMedia,
-  usePopoverContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -155,9 +147,6 @@ function MdPlaceholder() {
 }
 
 type IKeyOfMarketToken = keyof IMarketToken;
-const TouchableContainer = platformEnv.isNative
-  ? Fragment
-  : TouchableWithoutFeedback;
 
 function MarketMdColumn({
   item,
@@ -170,19 +159,9 @@ function MarketMdColumn({
   mdColumnKeys: (keyof IMarketToken)[];
   showMoreAction: boolean;
 }) {
-  const navigation = useAppNavigation();
   const actions = useWatchListAction();
   const isShowActionSheet = useRef(false);
   const intl = useIntl();
-
-  const toDetailPage = useCallback(() => {
-    if (isShowActionSheet.current) {
-      return;
-    }
-    navigation.push(ETabMarketRoutes.MarketDetail, {
-      token: item.coingeckoId,
-    });
-  }, [item.coingeckoId, navigation]);
 
   const tradeActions = useLazyMarketTradeActions(item.coingeckoId);
   const showReviewControl = useReviewControl();
@@ -307,53 +286,38 @@ function MarketMdColumn({
     showMoreAction,
     tradeActions,
   ]);
-  const pressEvents = useMemo(
-    () => ({
-      onPress: () => toDetailPage(),
-      onLongPress: () => {
-        void handleMdItemAction();
-      },
-      delayLongPress: platformEnv.isNative ? undefined : 300,
-    }),
-    [handleMdItemAction, toDetailPage],
-  );
+  const isPositive = Number(item.priceChangePercentage24H) >= 0;
   return (
-    <TouchableContainer
-      containerStyle={{ flex: 1 }}
-      style={{ flex: 1 }}
-      {...(platformEnv.isNative ? undefined : pressEvents)}
+    <XStack
+      height={60}
+      flex={1}
+      justifyContent="space-between"
+      userSelect="none"
+      gap="$2"
+      px="$5"
     >
-      <XStack
-        height={60}
-        flex={1}
-        justifyContent="space-between"
-        userSelect="none"
-        gap="$2"
-        px="$5"
-        {...listItemPressStyle}
-        {...(platformEnv.isNative ? pressEvents : undefined)}
-      >
-        <XStack gap="$3" ai="center">
-          <MarketTokenIcon uri={item.image} size="$10" />
-          <YStack>
-            <SizableText size="$bodyLgMedium" userSelect="none">
-              {item.symbol.toUpperCase()}
-            </SizableText>
-            <SizableText size="$bodySm" color="$textSubdued" userSelect="none">
-              {`VOL `}
-              <NumberSizeableText
-                userSelect="none"
-                size="$bodySm"
-                formatter="marketCap"
-                color="$textSubdued"
-                formatterOptions={{ currency }}
-              >
-                {item.totalVolume}
-              </NumberSizeableText>
-            </SizableText>
-          </YStack>
-        </XStack>
-        <XStack ai="center" gap="$5" flexShrink={1}>
+      <XStack gap="$3" ai="center">
+        <MarketTokenIcon uri={item.image} size="$10" />
+        <YStack>
+          <SizableText size="$bodyLgMedium" userSelect="none">
+            {item.symbol.toUpperCase()}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
+            {`VOL `}
+            <NumberSizeableText
+              userSelect="none"
+              size="$bodyMd"
+              formatter="marketCap"
+              color="$textSubdued"
+              formatterOptions={{ currency }}
+            >
+              {item.totalVolume}
+            </NumberSizeableText>
+          </SizableText>
+        </YStack>
+      </XStack>
+      <XStack gap="$3.5" ai="center">
+        <YStack ai="flex-end" flexShrink={1}>
           {mdColumnKeys[0] === 'price' ? (
             <MarketTokenPrice
               numberOfLines={1}
@@ -377,37 +341,35 @@ function MarketMdColumn({
             </NumberSizeableText>
           )}
           {item[mdColumnKeys[1]] ? (
-            <XStack
-              width="$20"
-              height="$8"
-              jc="center"
-              ai="center"
-              backgroundColor={
-                Number(item.priceChangePercentage24H) > 0
-                  ? '$bgSuccessStrong'
-                  : '$bgCriticalStrong'
-              }
-              borderRadius="$2"
+            <Badge
+              badgeSize="sm"
+              badgeType={isPositive ? 'success' : 'critical'}
             >
               <NumberSizeableText
                 adjustsFontSizeToFit
                 numberOfLines={platformEnv.isNative ? 1 : 2}
                 px="$1"
                 userSelect="none"
-                size="$bodyMdMedium"
-                color="white"
+                size="$bodySmMedium"
                 formatter="priceChange"
+                color={isPositive ? '$textSuccess' : '$textCritical'}
                 formatterOptions={{ showPlusMinusSigns: true }}
               >
                 {item[mdColumnKeys[1]] as string}
               </NumberSizeableText>
-            </XStack>
+            </Badge>
           ) : (
             <MdPlaceholder />
           )}
-        </XStack>
+        </YStack>
+        <IconButton
+          icon="DotVerOutline"
+          size="small"
+          variant="tertiary"
+          onPress={handleMdItemAction}
+        />
       </XStack>
-    </TouchableContainer>
+    </XStack>
   );
 }
 
@@ -416,14 +378,17 @@ function BasicMarketHomeList({
   tabIndex = 0,
   showMoreAction = false,
   ordered,
+  draggable,
 }: {
   tabIndex?: number;
   category: IMarketCategory;
   showMoreAction?: boolean;
   ordered?: boolean;
+  draggable?: boolean;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const watchListAction = useWatchListAction();
 
   const updateAtRef = useRef(0);
 
@@ -966,9 +931,9 @@ function BasicMarketHomeList({
 
   const onRow = useCallback(
     (record: IMarketToken) => ({
-      onPress: md ? undefined : () => toDetailPage(record),
+      onPress: () => toDetailPage(record),
     }),
-    [md, toDetailPage],
+    [toDetailPage],
   );
 
   const onHeaderRow = useCallback(
@@ -998,6 +963,17 @@ function BasicMarketHomeList({
         }
       : undefined;
   }, [gtMd, screenWidth]);
+
+  const handleDragEnd = useCallback(
+    ({ data }: IDragEndParams<IMarketToken>) => {
+      if (data?.length) {
+        watchListAction.saveWatchList(
+          data.map(({ coingeckoId }) => ({ coingeckoId })),
+        );
+      }
+    },
+    [watchListAction],
+  );
 
   if (platformEnv.isNativeAndroid && !sortedListData?.length) {
     return (
@@ -1048,14 +1024,17 @@ function BasicMarketHomeList({
 
       <YStack flex={1} ref={containerRef} $gtMd={{ pt: '$3' }}>
         <Table
+          draggable={draggable}
           headerRowProps={HEADER_ROW_PROPS}
           showBackToTopButton
           stickyHeaderHiddenOnScroll
           onRow={onRow}
           onHeaderRow={onHeaderRow}
+          keyExtractor={(item) => item.coingeckoId}
           rowProps={rowProps}
           showHeader={gtMd}
           columns={columns}
+          onDragEnd={handleDragEnd}
           dataSource={sortedListData as unknown as IMarketToken[]}
           TableFooterComponent={gtMd ? <Stack height={60} /> : undefined}
           extraData={gtMd ? undefined : mdColumnKeys}
