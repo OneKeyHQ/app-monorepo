@@ -11,20 +11,14 @@ function SignatureConfirmItemValue(props: ISizableTextProps) {
 
 type ISignatureConfirmItemType = IYStackProps & {
   compact?: boolean;
-  compactAll?: boolean;
 };
 
 function SignatureConfirmItem(props: ISignatureConfirmItemType) {
-  const { compact, compactAll, ...rest } = props;
+  const { compact, ...rest } = props;
   return (
     <YStack
       gap="$1"
       {...(compact && {
-        $gtMd: {
-          flexBasis: '50%',
-        },
-      })}
-      {...(compactAll && {
         flexBasis: '50%',
       })}
       {...rest}

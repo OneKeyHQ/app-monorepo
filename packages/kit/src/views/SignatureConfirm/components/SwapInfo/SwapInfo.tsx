@@ -128,9 +128,9 @@ function SwapInfo(props: IProps) {
   }
 
   return (
-    <Stack>
-      <XStack flexWrap="wrap" testID="swap-info" pt="$5">
-        <SignatureConfirmItem mb="$5" compactAll>
+    <>
+      <XStack m="$-2.5" flexWrap="wrap" testID="swap-info">
+        <SignatureConfirmItem compact p="$2.5">
           <SignatureConfirmItem.Label>
             {intl.formatMessage({
               id: ETranslations.swap_history_detail_provider,
@@ -148,18 +148,18 @@ function SwapInfo(props: IProps) {
         </SignatureConfirmItem>
 
         {tokenRate ? (
-          <SignatureConfirmItem mb="$5" compactAll>
+          <SignatureConfirmItem compact p="$2.5">
             <SignatureConfirmItem.Label>
               {intl.formatMessage({
                 id: ETranslations.swap_history_detail_rate,
               })}
             </SignatureConfirmItem.Label>
-            <SignatureConfirmItem.Value>{tokenRate}</SignatureConfirmItem.Value>
+            {tokenRate}
           </SignatureConfirmItem>
         ) : null}
 
         {unSupportSlippage ? null : (
-          <SignatureConfirmItem mb="$5" compactAll>
+          <SignatureConfirmItem compact p="$2.5">
             <SignatureConfirmItem.Label>
               {intl.formatMessage({
                 id: ETranslations.swap_page_provider_slippage_tolerance,
@@ -172,7 +172,7 @@ function SwapInfo(props: IProps) {
         )}
 
         {serviceFee ? (
-          <SignatureConfirmItem mb="$5" compactAll>
+          <SignatureConfirmItem compact p="$2.5">
             <SignatureConfirmItem.Label>
               {intl.formatMessage({
                 id: ETranslations.swap_history_detail_service_fee,
@@ -183,7 +183,7 @@ function SwapInfo(props: IProps) {
         ) : null}
       </XStack>
       <Divider />
-      <Stack pt="$5">
+      <Stack>
         <SizableText size="$bodySm" color="$textSubdued">
           {swapRequiredApproves
             ? intl.formatMessage(
@@ -207,7 +207,7 @@ function SwapInfo(props: IProps) {
               )}
         </SizableText>
       </Stack>
-    </Stack>
+    </>
   );
 }
 
