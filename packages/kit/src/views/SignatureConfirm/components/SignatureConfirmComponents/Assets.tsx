@@ -22,6 +22,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EParseTxComponentType,
+  ETransferDirection,
   type IDisplayComponentApprove,
   type IDisplayComponentAssets,
   type IDisplayComponentInternalAssets,
@@ -74,6 +75,7 @@ function SignatureAssetDetailItem({
   isLoading,
   handleEdit,
   hideLabel,
+  transferDirection,
   ...rest
 }: {
   type?: 'token' | 'nft';
@@ -86,6 +88,7 @@ function SignatureAssetDetailItem({
   tokenProps?: Omit<ITokenProps, 'size' | 'showNetworkIcon'>;
   handleEdit?: () => void;
   hideLabel?: boolean;
+  transferDirection?: ETransferDirection;
 } & ISignatureConfirmItemType) {
   const { network } = useAccountData({
     networkId: tokenProps?.networkId,
@@ -97,6 +100,12 @@ function SignatureAssetDetailItem({
     }
     return (
       <>
+        {transferDirection === ETransferDirection.Out ? (
+          <SizableText size="$headingMd">-</SizableText>
+        ) : null}
+        {transferDirection === ETransferDirection.In ? (
+          <SizableText size="$headingMd">+</SizableText>
+        ) : null}
         {amount ? <SizableText size="$headingMd">{amount}</SizableText> : null}
         {symbol ? <SizableText size="$bodyLg">{symbol}</SizableText> : null}
         {editable ? (
@@ -104,7 +113,7 @@ function SignatureAssetDetailItem({
         ) : null}
       </>
     );
-  }, [amount, symbol, editable, isLoading]);
+  }, [amount, symbol, editable, isLoading, transferDirection]);
 
   return (
     <SignatureConfirmItem {...rest}>
@@ -174,6 +183,7 @@ function AssetsToken(props: IAssetsTokenProps) {
       }}
       type="token"
       showNetwork={component.showNetwork ?? showNetwork}
+      transferDirection={component.transferDirection}
       {...rest}
     />
   );
@@ -268,6 +278,7 @@ function AssetsNFT(props: IAssetsNFTProps) {
         tokenImageUri: component.nft.metadata?.image ?? '',
         networkId: component.nft.networkId,
       }}
+      transferDirection={component.transferDirection}
       {...rest}
     />
   );
@@ -286,6 +297,7 @@ function AssetsInternalAssets(props: IInternalAssetsProps) {
         networkId: component.networkId,
       }}
       type={component.isNFT ? 'nft' : 'token'}
+      transferDirection={component.transferDirection}
       {...rest}
     />
   );
