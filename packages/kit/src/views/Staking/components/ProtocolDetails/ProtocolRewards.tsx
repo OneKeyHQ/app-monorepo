@@ -75,9 +75,12 @@ function RewardItem({
       <YStack gap="$2.5">
         <XStack alignItems="center" justifyContent="space-between">
           <XStack alignItems="center">
-            <Token size="sm" tokenImageUri={rewardToken.info?.logoURI} />
+            <Token
+              mr="$1.5"
+              size="sm"
+              tokenImageUri={rewardToken.info?.logoURI}
+            />
             <NumberSizeableText
-              ml="$1.5"
               size="$bodyLgMedium"
               formatter="balance"
               formatterOptions={{ tokenSymbol: rewardToken.info?.symbol }}

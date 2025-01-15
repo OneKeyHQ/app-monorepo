@@ -107,9 +107,10 @@ const BasicApproveBaseStakePage = () => {
       symbol: token.info.symbol,
       action: 'stake',
       amount: '1',
+      morphoVault: provider.vault,
     });
     return resp;
-  }, [networkId, provider.name, token.info.symbol]);
+  }, [networkId, provider.name, token.info.symbol, provider.vault]);
 
   return (
     <Page>

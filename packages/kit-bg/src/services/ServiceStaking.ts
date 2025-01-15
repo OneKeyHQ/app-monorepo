@@ -983,14 +983,16 @@ class ServiceStaking extends ServiceBase {
     action: IEarnEstimateAction;
     amount: string;
     txId?: string;
+    morphoVault?: string;
   }) {
-    const { symbol, ...rest } = params;
+    const { symbol, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: IEarnEstimateFeeResp;
     }>(`/earn/v1/estimate-fee`, {
       params: {
         symbol: symbol.toUpperCase(),
+        vault: morphoVault,
         ...rest,
       },
     });
