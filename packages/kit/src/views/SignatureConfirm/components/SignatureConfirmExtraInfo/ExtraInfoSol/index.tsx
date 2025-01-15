@@ -2,12 +2,12 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
-import { IStackProps } from '@onekeyhq/components';
 
 function TxExtraInfoSol({ style }: { style?: IStackProps }) {
   const intl = useIntl();

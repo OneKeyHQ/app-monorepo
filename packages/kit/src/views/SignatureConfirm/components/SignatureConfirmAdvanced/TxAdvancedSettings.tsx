@@ -31,6 +31,7 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { DataViewerTab } from '../SignatureConfirmDataViewer';
+
 import { AdvancedSettings } from './AdvancedSettings';
 
 type IProps = {

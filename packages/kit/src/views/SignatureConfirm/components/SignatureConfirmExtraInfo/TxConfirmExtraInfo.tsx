@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
-import { IStackProps, Stack } from '@onekeyhq/components';
+import type { IStackProps } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import { IMPL_SOL, IMPL_TRON } from '@onekeyhq/shared/src/engine/engineConsts';
