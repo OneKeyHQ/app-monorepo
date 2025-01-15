@@ -27,7 +27,7 @@ function TxFeeSelectorTrigger(props: IProps) {
       disabled={disabled}
       size="small"
       variant="tertiary"
-      iconAfter="ChevronGrabberVerOutline"
+      iconAfter="PencilOutline"
       {...rest}
     >
       {intl.formatMessage({

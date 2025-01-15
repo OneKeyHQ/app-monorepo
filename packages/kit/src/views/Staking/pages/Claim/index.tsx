@@ -47,6 +47,7 @@ const ClaimPage = () => {
         identity,
         symbol: tokenInfo.symbol,
         provider: provider.name,
+        morphoVault: provider.vault,
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
@@ -86,9 +87,10 @@ const ClaimPage = () => {
       symbol: tokenInfo.symbol,
       action: 'claim',
       amount: '1',
+      morphoVault: provider.vault,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol]);
+  }, [networkId, provider.name, tokenInfo.symbol, provider.vault]);
 
   return (
     <Page>

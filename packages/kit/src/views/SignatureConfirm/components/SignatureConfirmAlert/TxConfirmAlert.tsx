@@ -22,10 +22,6 @@ interface IProps {
   networkId: string;
 }
 
-const alertStyles = {
-  mb: '$2.5',
-};
-
 function TxConfirmAlert(props: IProps) {
   const { networkId } = props;
   const intl = useIntl();
@@ -48,7 +44,6 @@ function TxConfirmAlert(props: IProps) {
         description={alert}
         type="warning"
         icon="InfoSquareOutline"
-        {...alertStyles}
       />
     ));
   }, [decodedTxs]);
@@ -71,7 +66,6 @@ function TxConfirmAlert(props: IProps) {
             appEventBus.emit(EAppEventBusNames.EstimateTxFeeRetry, undefined);
           },
         }}
-        {...alertStyles}
       />
     );
   }, [intl, sendFeeStatus.errMessage, sendFeeStatus.status]);
@@ -92,7 +86,6 @@ function TxConfirmAlert(props: IProps) {
             crypto: network?.symbol ?? '',
           },
         )}
-        {...alertStyles}
       />
     );
   }, [intl, network?.symbol, sendTxStatus.isInsufficientNativeBalance]);
@@ -104,7 +97,6 @@ function TxConfirmAlert(props: IProps) {
           icon="ErrorOutline"
           type="critical"
           title={preCheckTxStatus.errorMessage}
-          {...alertStyles}
         />
       );
     }

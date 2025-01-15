@@ -5,6 +5,7 @@ import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  useSafeAreaInsets,
   Checkbox,
   Page,
   Stack,
@@ -94,6 +95,7 @@ function TxConfirmActions(props: IProps) {
   const [{ isBuildingDecodedTxs, decodedTxs }] = useDecodedTxsAtom();
   const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
+  const { bottom } = useSafeAreaInsets();
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -370,6 +372,9 @@ function TxConfirmActions(props: IProps) {
         }
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
+        {...(bottom && {
+          mb: bottom,
+        })}
       >
         <Stack
           pb="$2.5"
