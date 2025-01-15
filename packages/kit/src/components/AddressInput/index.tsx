@@ -1,20 +1,13 @@
-import {
-  type ComponentProps,
-  type FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { TextArea } from '@onekeyhq/components';
 import {
   Badge,
+  Form,
   Icon,
   IconButton,
   Popover,
@@ -23,6 +16,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  useFormContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -40,6 +34,8 @@ import type {
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { BaseInput } from '../BaseInput';
 
+import { AddressInputContext } from './AddressInputContext';
+import { renderAddressInputHyperlinkText } from './AddressInputHyperlinkText';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
@@ -601,5 +597,57 @@ export function AddressInput(props: IAddressInputProps) {
       extension={AddressInputExtension}
       {...rest}
     />
+  );
+}
+
+export function AddressInputField(
+  props: IAddressInputProps & { name: string },
+) {
+  const intl = useIntl();
+  const { enableAllowListValidation, networkId, accountId, name } = props;
+  const contextValue = useMemo(
+    () => ({
+      name,
+      networkId,
+      accountId,
+    }),
+    [accountId, name, networkId],
+  );
+
+  return (
+    <AddressInputContext.Provider value={contextValue}>
+      <Form.Field
+        label={intl.formatMessage({ id: ETranslations.global_recipient })}
+        name={name}
+        renderErrorMessage={
+          enableAllowListValidation
+            ? renderAddressInputHyperlinkText
+            : undefined
+        }
+        rules={{
+          required: true,
+          validate: (value: IAddressInputValue) => {
+            if (value.pending) {
+              return;
+            }
+            if (!value.resolved) {
+              return enableAllowListValidation
+                ? // Use translationId for error message formatting if available, therwise use direct message
+                  value.validateError?.translationId ||
+                    value.validateError?.message ||
+                    intl.formatMessage({
+                      id: ETranslations.send_address_invalid,
+                    })
+                : value.validateError?.message ||
+                    intl.formatMessage({
+                      id: ETranslations.send_address_invalid,
+                    });
+            }
+          },
+        }}
+      >
+        <AddressInput {...props} />
+      </Form.Field>
+    </AddressInputContext.Provider>
   );
 }

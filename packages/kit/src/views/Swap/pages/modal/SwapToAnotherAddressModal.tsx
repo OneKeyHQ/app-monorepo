@@ -15,7 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
-import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
+import { AddressInputField } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapManualSelectQuoteProvidersAtom,
@@ -130,39 +130,19 @@ const SwapToAnotherAddressPage = () => {
     <Page scrollEnabled>
       <Page.Body px="$5" gap="$6">
         <Form form={form}>
-          <Form.Field
-            label={intl.formatMessage({ id: ETranslations.global_recipient })}
+          <AddressInputField
             name="address"
-            rules={{
-              required: true,
-              validate: (value: IAddressInputValue) => {
-                if (value.pending) {
-                  return;
-                }
-                if (!value.resolved) {
-                  return (
-                    value.validateError?.message ??
-                    intl.formatMessage({
-                      id: ETranslations.send_address_invalid,
-                    })
-                  );
-                }
-              },
-            }}
-          >
-            <AddressInput
-              networkId={accountInfo?.network?.id}
-              enableAddressBook
-              enableWalletName
-              enableVerifySendFundToSelf
-              enableAddressInteractionStatus
-              enableAddressContract
-              enableAllowListValidation
-              accountId={accountInfo?.account?.id}
-              contacts
-              accountSelector={accountSelector}
-            />
-          </Form.Field>
+            networkId={accountInfo?.network?.id}
+            enableAddressBook
+            enableWalletName
+            enableVerifySendFundToSelf
+            enableAddressInteractionStatus
+            enableAddressContract
+            enableAllowListValidation
+            accountId={accountInfo?.account?.id}
+            contacts
+            accountSelector={accountSelector}
+          />
         </Form>
         <Stack gap="$4">
           <XStack>

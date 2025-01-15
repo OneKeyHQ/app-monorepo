@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useContext } from 'react';
 
 import type { IFieldErrorProps } from '@onekeyhq/components';
 import { useFormContext } from '@onekeyhq/components';
@@ -9,19 +9,23 @@ import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 
-export function SendDataInputErrorHyperlinkText({
+import { AddressInputContext } from './AddressInputContext';
+
+export function AddressInputHyperlinkText({
   error,
   errorMessageAlign,
   testID,
 }: IFieldErrorProps) {
   const form = useFormContext();
   const navigation = useAppNavigation();
-
+  const contentValues = useContext(AddressInputContext);
   const onAction = useCallback(
     async (actionId: string) => {
       if (actionId === 'to_edit_address_book_page') {
-        const values = form.getValues();
-        const { to, accountId, networkId } = values;
+        const values = form.getValues() || {};
+        const to = contentValues.name ? values[contentValues.name] : '';
+        const accountId = values.accountId || contentValues.accountId;
+        const networkId = values.networkId || contentValues.networkId;
         const address =
           typeof to === 'string' ? to : (to as { raw: string }).raw;
         if (!address) {
@@ -67,6 +71,6 @@ export function SendDataInputErrorHyperlinkText({
   );
 }
 
-export const renderSendDataInputErrorHyperlinkText = (
-  props: IFieldErrorProps,
-) => <SendDataInputErrorHyperlinkText {...props} />;
+export const renderAddressInputHyperlinkText = (props: IFieldErrorProps) => (
+  <AddressInputHyperlinkText {...props} />
+);

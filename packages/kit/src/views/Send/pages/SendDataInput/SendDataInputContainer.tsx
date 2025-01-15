@@ -26,7 +26,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
-  AddressInput,
+  AddressInputField,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -52,8 +52,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-  EModalSettingRoutes,
-  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type {
   EModalSendRoutes,
@@ -75,7 +73,6 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { showContractWarningDialog } from './ContractWarningDialog';
-import { renderSendDataInputErrorHyperlinkText } from './SendDataInputErrorHyperlinkText';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -1199,10 +1196,6 @@ function SendDataInputContainer() {
     [],
   );
 
-  const navigateToSettingProtection = useCallback(() => {
-    navigation.push(EModalSettingRoutes.SettingProtectModal);
-  }, [navigation]);
-
   const isEnableTransferAllowList = useMemo(
     () => settings.transferAllowList ?? true,
     [settings.transferAllowList],
@@ -1326,45 +1319,22 @@ function SendDataInputContainer() {
                 </ListItem>
               </Form.Field>
             ) : null}
-            <Form.Field
-              label={intl.formatMessage({ id: ETranslations.global_recipient })}
+            <AddressInputField
               name="to"
-              renderErrorMessage={renderSendDataInputErrorHyperlinkText}
-              rules={{
-                required: true,
-                validate: (value: IAddressInputValue) => {
-                  if (value.pending) {
-                    return;
-                  }
-                  if (!value.resolved) {
-                    return (
-                      // Use translationId for error message formatting if available, therwise use direct message
-                      value.validateError?.translationId ||
-                      value.validateError?.message ||
-                      intl.formatMessage({
-                        id: ETranslations.send_address_invalid,
-                      })
-                    );
-                  }
-                },
-              }}
-            >
-              <AddressInput
-                accountId={currentAccount.accountId}
-                networkId={currentAccount.networkId}
-                enableAddressBook
-                enableWalletName
-                enableVerifySendFundToSelf
-                enableAddressInteractionStatus
-                enableAddressContract
-                enableAllowListValidation
-                contacts={addressBookEnabledNetworkIds.includes(
-                  currentAccount.networkId,
-                )}
-                accountSelector={addressInputAccountSelectorArgs}
-                onInputTypeChange={handleAddressInputChangeType}
-              />
-            </Form.Field>
+              accountId={currentAccount.accountId}
+              networkId={currentAccount.networkId}
+              enableAddressBook
+              enableWalletName
+              enableVerifySendFundToSelf
+              enableAddressInteractionStatus
+              enableAddressContract
+              enableAllowListValidation
+              contacts={addressBookEnabledNetworkIds.includes(
+                currentAccount.networkId,
+              )}
+              accountSelector={addressInputAccountSelectorArgs}
+              onInputTypeChange={handleAddressInputChangeType}
+            />
             {renderDataInput()}
           </Form>
         </AccountSelectorProviderMirror>
