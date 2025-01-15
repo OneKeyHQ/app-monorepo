@@ -114,13 +114,13 @@ function TxAdvancedSettings(props: IProps) {
       const encodedTx = unsignedTxWithFeeInfo.encodedTx as IEncodedTxEvm;
 
       if (!isNil(encodedTx.nonce)) {
-        encodedTx.nonce = hexUtils.hexlify(encodedTx.nonce);
+        encodedTx.nonce = `0x${Number(encodedTx.nonce).toString(16)}`;
       }
 
       try {
         const tx = JSON.stringify(encodedTx, null, 2);
         txString = txString ? `${txString}\n\n${tx}` : tx;
-      } catch {
+      } catch (error) {
         // ignore
       }
     }
