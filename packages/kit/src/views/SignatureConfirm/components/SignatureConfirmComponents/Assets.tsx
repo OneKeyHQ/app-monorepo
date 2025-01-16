@@ -39,6 +39,11 @@ type IAssetsCommonProps = {
   showNetwork?: boolean;
   editable?: boolean;
   hideLabel?: boolean;
+  isSendNativeTokenOnly?: boolean;
+  nativeTokenTransferAmountToUpdate?: {
+    isMaxSend: boolean;
+    amountToUpdate: string;
+  };
 } & ISignatureConfirmItemType;
 
 type IAssetsTokenProps = IAssetsCommonProps & {
@@ -78,6 +83,8 @@ function SignatureAssetDetailItem({
   hideLabel,
   transferDirection,
   NFTType,
+  nativeTokenTransferAmountToUpdate,
+  isSendNativeTokenOnly,
   ...rest
 }: {
   type?: 'token' | 'nft';
@@ -92,6 +99,11 @@ function SignatureAssetDetailItem({
   hideLabel?: boolean;
   transferDirection?: ETransferDirection;
   NFTType?: ENFTType;
+  nativeTokenTransferAmountToUpdate?: {
+    isMaxSend: boolean;
+    amountToUpdate: string;
+  };
+  isSendNativeTokenOnly?: boolean;
 } & ISignatureConfirmItemType) {
   const { network } = useAccountData({
     networkId: tokenProps?.networkId,
@@ -114,7 +126,14 @@ function SignatureAssetDetailItem({
           </SizableText>
         ) : null}
         {type !== 'nft' || (type === 'nft' && NFTType === ENFTType.ERC1155) ? (
-          <SizableText size="$headingMd">{amount}</SizableText>
+          <SizableText size="$headingMd">
+            {isSendNativeTokenOnly &&
+            nativeTokenTransferAmountToUpdate?.isMaxSend &&
+            !isNil(nativeTokenTransferAmountToUpdate.amountToUpdate) &&
+            transferDirection === ETransferDirection.Out
+              ? nativeTokenTransferAmountToUpdate.amountToUpdate
+              : amount}
+          </SizableText>
         ) : null}
         {symbol ? <SizableText size="$bodyLg">{symbol}</SizableText> : null}
         {editable ? (
@@ -122,7 +141,17 @@ function SignatureAssetDetailItem({
         ) : null}
       </>
     );
-  }, [isLoading, transferDirection, amount, type, NFTType, symbol, editable]);
+  }, [
+    isLoading,
+    transferDirection,
+    amount,
+    type,
+    NFTType,
+    symbol,
+    editable,
+    isSendNativeTokenOnly,
+    nativeTokenTransferAmountToUpdate,
+  ]);
 
   return (
     <SignatureConfirmItem {...rest}>
