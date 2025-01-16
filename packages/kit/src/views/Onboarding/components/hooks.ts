@@ -5,7 +5,7 @@ import { shuffle } from 'lodash';
 import { InteractionManager } from 'react-native';
 
 import type { useForm } from '@onekeyhq/components';
-import { useClipboard, useKeyboardEvent } from '@onekeyhq/components';
+import { Haptics, useClipboard, useKeyboardEvent } from '@onekeyhq/components';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -250,6 +250,7 @@ export const useSuggestion = (
     (value: string, inputIndex: number) => {
       const arrays = value.trim().split(' ');
       if (arrays.length > 1) {
+        Haptics.success();
         let currentPhraseLength = phraseLength;
         setTimeout(async () => {
           clearText();
@@ -259,7 +260,7 @@ export const useSuggestion = (
           ) {
             currentPhraseLength = arrays.length;
             setPhraseLength(currentPhraseLength.toString());
-            await timerUtils.wait(25);
+            await timerUtils.wait(30);
           }
           const formValues = Object.values(form.getValues());
           const values: string[] = formValues.slice(0, inputIndex);
@@ -276,7 +277,7 @@ export const useSuggestion = (
           resetSuggestions();
           await timerUtils.wait(10);
           checkAllWords();
-        }, 25);
+        }, 30);
       }
     },
     [
