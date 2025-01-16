@@ -153,6 +153,10 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.feeInfo = feeInfo.feeInfo;
     }
 
+    if (parsedTx) {
+      decodedTx.isConfirmationRequired = parsedTx.isConfirmationRequired;
+    }
+
     if (parsedTx && parsedTx.parsedTx?.data) {
       decodedTx.txABI = parsedTx.parsedTx?.data;
     }
