@@ -1068,11 +1068,19 @@ export default class ServiceSwap extends ServiceBase {
         receivedAddress: swapTxHistory.txInfo.receiver,
         orderId: swapTxHistory.swapInfo.orderId,
       });
-      if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
+      if (
+        txStatusRes?.state !== ESwapTxHistoryStatus.PENDING ||
+        txStatusRes.crossChainStatus !== swapTxHistory.crossChainStatus
+      ) {
         enableInterval = false;
         await this.updateSwapHistoryItem({
           ...swapTxHistory,
           status: txStatusRes.state,
+          surplus: txStatusRes.surplus ?? swapTxHistory.surplus,
+          swapOrderHash:
+            txStatusRes.swapOrderHash ?? swapTxHistory.swapOrderHash,
+          crossChainStatus:
+            txStatusRes.crossChainStatus ?? swapTxHistory?.crossChainStatus,
           txInfo: {
             ...swapTxHistory.txInfo,
             txId: txStatusRes.txId ?? swapTxHistory.txInfo.txId,
@@ -1091,7 +1099,9 @@ export default class ServiceSwap extends ServiceBase {
               : swapTxHistory.baseInfo.toAmount,
           },
         });
-        await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+        if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
+          await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+        }
       }
     } catch (e) {
       const error = e as { message?: string };

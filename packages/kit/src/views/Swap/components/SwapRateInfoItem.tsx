@@ -8,8 +8,8 @@ import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 
 interface ISwapRateInfoItemProps {
   rate: string;
-  fromToken: ISwapToken;
-  toToken: ISwapToken;
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
 }
 const SwapRateInfoItem = ({
   rate,
@@ -31,13 +31,13 @@ const SwapRateInfoItem = ({
       },
     );
     if (rateSwitch) {
-      return `1 ${toToken.symbol.toUpperCase()} = ${
+      return `1 ${toToken?.symbol?.toUpperCase() ?? ''} = ${
         formatRate as string
-      } ${fromToken.symbol.toUpperCase()}`;
+      } ${fromToken?.symbol?.toUpperCase() ?? ''}`;
     }
-    return `1 ${fromToken.symbol.toUpperCase()} = ${
+    return `1 ${fromToken?.symbol?.toUpperCase() ?? ''} = ${
       formatRate as string
-    } ${toToken.symbol.toUpperCase()}`;
+    } ${toToken?.symbol?.toUpperCase() ?? ''}`;
   }, [fromToken, rate, rateSwitch, toToken]);
 
   return (
