@@ -9,6 +9,7 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
+import type { ENFTType } from './nft';
 import type {
   EParseTxType,
   ISignatureConfirmDisplay,
@@ -179,6 +180,7 @@ export type IDecodedTxTransferInfo = {
   label?: string;
   price?: string;
   networkId?: string;
+  NFTType?: ENFTType;
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {

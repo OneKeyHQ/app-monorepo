@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "取消授权",
   "sig.revoke_from_label": "取消授权地址",
   "sig.sigature_request_label": "签名请求",
+  "sign.swap_estimate_receive": "预估收到",
   "skip_verify_text": "设备不在我身边",
   "slippage_tolerance.button_save": "保存",
   "slippage_tolerance.description": "自动滑点优化基于池流动性和交易量的滑点，减少交易失败和 MEV 攻击风险。",

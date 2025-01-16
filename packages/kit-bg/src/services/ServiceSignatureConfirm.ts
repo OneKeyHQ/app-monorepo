@@ -164,12 +164,17 @@ class ServiceSignatureConfirm extends ServiceBase {
     if (parsedTx && parsedTx.display) {
       decodedTx.txDisplay = parsedTx.display;
     } else {
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({
+          networkId,
+        });
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
       const txDisplayComponents =
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           isMultiTxs,
           unsignedTx,
+          isUTXO: vaultSettings.isUtxo,
         });
 
       decodedTx.txDisplay = {

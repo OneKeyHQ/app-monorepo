@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "承認を取り消す",
   "sig.revoke_from_label": "取り消す",
   "sig.sigature_request_label": "署名リクエスト",
+  "sign.swap_estimate_receive": "見積りを受け取りました",
   "skip_verify_text": "私のデバイスが手元にありません",
   "slippage_tolerance.button_save": "保存",
   "slippage_tolerance.description": "オートスリッページは、プールの流動性と取引量に基づいてスリッページを最適化し、取引の失敗とMEV攻撃のリスクを減らします。",

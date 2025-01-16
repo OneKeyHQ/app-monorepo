@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "Отозвать одобрение",
   "sig.revoke_from_label": "Отозвать у",
   "sig.sigature_request_label": "Запрос подписи",
+  "sign.swap_estimate_receive": "Оценка получена",
   "skip_verify_text": "У меня нет при себе устройства",
   "slippage_tolerance.button_save": "Сохранить",
   "slippage_tolerance.description": "Автоматический контроль скольжения оптимизирует скольжение на основе ликвидности пула и объема торгов, снижая риск сбоев в транзакциях и риски атак MEV.",

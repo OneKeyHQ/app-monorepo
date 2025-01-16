@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "अनुमोदन रद्द करें",
   "sig.revoke_from_label": "से रद्द करें",
   "sig.sigature_request_label": "हस्ताक्षर अनुरोध",
+  "sign.swap_estimate_receive": "अनुमान प्राप्त हुआ",
   "skip_verify_text": "मेरे पास अपना उपकरण नहीं है",
   "slippage_tolerance.button_save": "सहेजें",
   "slippage_tolerance.description": "ऑटो स्लिपेज पूल लिक्विडिटी और ट्रेडिंग वॉल्यूम के आधार पर स्लिपेज को अनुकूलित करता है, जिससे लेन-देन में विफलताएं और MEV हमले के जोखिम कम होते हैं।",

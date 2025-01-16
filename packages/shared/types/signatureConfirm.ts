@@ -1,7 +1,7 @@
 import type { IBadgeType, IKeyOfIcons } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
-import type { IAccountNFT } from './nft';
+import type { ENFTType, IAccountNFT } from './nft';
 import type { IToken, ITokenFiat } from './token';
 
 export enum EParseTxComponentType {
@@ -114,6 +114,7 @@ export interface IDisplayComponentInternalAssets {
   networkId?: string;
   isNFT?: boolean;
   transferDirection?: ETransferDirection;
+  NFTType?: ENFTType;
 }
 
 export interface IDisplayComponentApprove {

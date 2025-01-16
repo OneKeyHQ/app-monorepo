@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "เพิกถอนการอนุมัติ",
   "sig.revoke_from_label": "เพิกถอนจาก",
   "sig.sigature_request_label": "คำร้องขอลายเซ็น",
+  "sign.swap_estimate_receive": "ได้รับประมาณการแล้ว",
   "skip_verify_text": "ฉันไม่มีอุปกรณ์ของฉันอยู่กับฉัน",
   "slippage_tolerance.button_save": "บันทึก",
   "slippage_tolerance.description": "การปรับสภาพการลื่นไถลอัตโนมัติจะทำการปรับสภาพการลื่นไถลตามความเหลวของสระและปริมาณการซื้อขาย ทำให้ลดความล้มเหลวในการทำธุรกรรมและความเสี่ยงจากการโจมตี MEV",
