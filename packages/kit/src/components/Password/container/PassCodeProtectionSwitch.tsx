@@ -1,10 +1,11 @@
-import type { SwitchProps } from '@onekeyhq/components';
+import type { ISwitchProps } from '@onekeyhq/components';
 import { Switch } from '@onekeyhq/components';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-const PassCodeProtectionSwitch: React.FC<SwitchProps> = (switchProps) => {
+const PassCodeProtectionSwitch = (switchProps: ISwitchProps) => {
   const [{ enablePasswordErrorProtection }, setPasswordPersist] =
     usePasswordPersistAtom();
+
   return (
     <Switch
       {...switchProps}
