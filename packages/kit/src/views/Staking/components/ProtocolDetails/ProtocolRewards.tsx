@@ -132,9 +132,15 @@ function RewardItem({
             {intl.formatMessage(
               { id: ETranslations.earn_claimable_in_future },
               {
-                value: formatBalance(validClaimableNext.toString(), {
-                  showPlusMinusSigns: true,
-                }).formattedValue,
+                value: (
+                  <NumberSizeableText
+                    size="$bodyMd"
+                    color="$textSubdued"
+                    formatter="balance"
+                  >
+                    {validClaimableNext.toString()}
+                  </NumberSizeableText>
+                ),
                 symbol: rewardToken.info?.symbol,
                 fiatValue: formattedFiatClaimableNextValue,
               },
@@ -199,7 +205,9 @@ export function ProtocolRewards({
           })}
         </SizableText>
         <Popover
-          title=""
+          title={intl.formatMessage({
+            id: ETranslations.earn_protocol_rewards,
+          })}
           placement="top"
           renderTrigger={
             <IconButton

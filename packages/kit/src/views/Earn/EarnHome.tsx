@@ -379,6 +379,14 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
   );
+  const hasClaimableAssets = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.hasClaimableAssets || false,
+    [earnAccount, totalFiatMapKey],
+  );
+  const isOverviewLoaded = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.isOverviewLoaded || false,
+    [earnAccount, totalFiatMapKey],
+  );
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -482,7 +490,7 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
       </XStack>
 
       {/* details button */}
-      {isFetchingAccounts ? null : (
+      {isFetchingAccounts || !isOverviewLoaded ? null : (
         <Button
           onPress={onPress}
           variant="tertiary"
@@ -495,7 +503,15 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
             top: '$8',
           }}
         >
-          {intl.formatMessage({ id: ETranslations.global_details })}
+          {hasClaimableAssets ? (
+            <Badge badgeType="info" badgeSize="sm" userSelect="none">
+              <Badge.Text>
+                {intl.formatMessage({ id: ETranslations.earn_claimable })}
+              </Badge.Text>
+            </Badge>
+          ) : (
+            intl.formatMessage({ id: ETranslations.global_details })
+          )}
         </Button>
       )}
     </YStack>
@@ -674,6 +690,7 @@ function BasicEarnHome() {
           earnAccount: {
             accounts: earnAccountData?.accounts || [],
             ...overviewData,
+            isOverviewLoaded: true,
           },
         });
       };
