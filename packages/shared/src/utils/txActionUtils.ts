@@ -259,9 +259,11 @@ export function convertNetworkToSignatureConfirmNetwork({
 function convertAssetTransferActionToSignatureConfirmComponent({
   action,
   unsignedTx,
+  isUTXO,
 }: {
   action: IDecodedTxActionAssetTransfer;
   unsignedTx: IUnsignedTxPro;
+  isUTXO?: boolean;
 }) {
   const components: IDisplayComponent[] = [];
 
@@ -334,19 +336,26 @@ function convertAssetTransferActionToSignatureConfirmComponent({
   }
 
   if (action.to) {
+    let showInteractWithContract = false;
+
+    if (isInternalSwap) {
+      showInteractWithContract = true;
+    } else if (isInternalStake) {
+      showInteractWithContract = !isUTXO;
+    }
+
     const toAddressComponent: IDisplayComponentAddress = {
       type: EParseTxComponentType.Address,
-      label:
-        isInternalSwap || isInternalStake
-          ? appLocale.intl.formatMessage({
-              id: ETranslations.sig_interact_contract_label,
-            })
-          : appLocale.intl.formatMessage({
-              id: ETranslations.global_to,
-            }),
+      label: showInteractWithContract
+        ? appLocale.intl.formatMessage({
+            id: ETranslations.sig_interact_contract_label,
+          })
+        : appLocale.intl.formatMessage({
+            id: ETranslations.global_to,
+          }),
       address: action.to,
       tags: [],
-      isNavigable: isInternalSwap || isInternalStake,
+      isNavigable: showInteractWithContract,
     };
 
     components.push(toAddressComponent);
@@ -507,10 +516,12 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
   decodedTx,
   isMultiTxs,
   unsignedTx,
+  isUTXO,
 }: {
   decodedTx: IDecodedTx;
   unsignedTx: IUnsignedTxPro;
   isMultiTxs?: boolean;
+  isUTXO?: boolean;
 }): IDisplayComponent[] {
   const { actions, networkId } = decodedTx;
   const components: IDisplayComponent[] = [];
@@ -524,6 +535,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
         ...convertAssetTransferActionToSignatureConfirmComponent({
           action: action.assetTransfer,
           unsignedTx,
+          isUTXO,
         }),
       );
     } else if (
