@@ -1,8 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Page } from '@onekeyhq/components';
+import { IconButton, Page, XStack } from '@onekeyhq/components';
+import { showAddressSafeNotificationDialog } from '@onekeyhq/kit/src/components/AddressInput/AddressSafeDialog';
+import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
@@ -11,29 +13,59 @@ import { AddressBookListContent } from '../../components/AddressBookListContent'
 import { ContentContainer } from '../../components/ContentContainer';
 import { useAddressBookItems } from '../../hooks/useAddressBook';
 
-const HeaderRightComponent = () => {
+function ListPage() {
+  const intl = useIntl();
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
+  const { isLoading, result } = useAddressBookItems();
+  const iconProps = useMemo(
+    () =>
+      isEnableTransferAllowList
+        ? ({
+            name: 'ShieldCheckDoneOutline',
+            color: '$iconSuccess',
+          } as const)
+        : ({
+            name: 'ShieldKeyholeOutline',
+            color: '$icon',
+          } as const),
+    [isEnableTransferAllowList],
+  );
+
   const navigation = useAppNavigation();
+  const handleShowDialog = useCallback(async () => {
+    await showAddressSafeNotificationDialog({
+      intl,
+    });
+  }, [intl]);
   const onPress = useCallback(() => {
     navigation.push(EModalAddressBookRoutes.EditItemModal);
   }, [navigation]);
-  return (
-    <IconButton
-      variant="tertiary"
-      icon="PlusCircleOutline"
-      onPress={onPress}
-      testID="address-book-add-icon"
-    />
+  const renderHeaderRightComponent = useCallback(
+    () => (
+      <XStack gap="$1.5">
+        <IconButton
+          variant="tertiary"
+          icon={iconProps.name}
+          iconProps={{
+            color: iconProps.color,
+          }}
+          onPress={handleShowDialog}
+        />
+        <IconButton
+          variant="tertiary"
+          icon="PlusCircleOutline"
+          onPress={onPress}
+          testID="address-book-add-icon"
+        />
+      </XStack>
+    ),
+    [handleShowDialog, iconProps.color, iconProps.name, onPress],
   );
-};
-
-function ListPage() {
-  const intl = useIntl();
-  const { isLoading, result } = useAddressBookItems();
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.address_book_title })}
-        headerRight={HeaderRightComponent}
+        headerRight={renderHeaderRightComponent}
       />
       <Page.Body>
         <ContentContainer
