@@ -150,6 +150,7 @@ export type IDecodedTx = {
   txDisplay?: ISignatureConfirmDisplay;
   txABI?: ITransactionData;
   isLocalParsed?: boolean;
+  isConfirmationRequired?: boolean;
 };
 
 export type IDecodedTxActionBase = {

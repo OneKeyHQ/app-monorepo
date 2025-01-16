@@ -110,11 +110,7 @@ function SignatureAssetDetailItem({
             +
           </SizableText>
         ) : null}
-        {amount ? (
-          <SizableText size="$headingMd">
-            {Number(amount).toString()}
-          </SizableText>
-        ) : null}
+        {amount ? <SizableText size="$headingMd">{amount}</SizableText> : null}
         {symbol ? <SizableText size="$bodyLg">{symbol}</SizableText> : null}
         {editable ? (
           <Icon name="PencilOutline" size="$4.5" color="$iconSubdued" />
@@ -238,7 +234,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
           ? intl.formatMessage({
               id: ETranslations.swap_page_provider_approve_amount_un_limit,
             })
-          : component.amountParsed
+          : Number(component.amountParsed).toString()
       }
       symbol={component.token.info.symbol}
       tokenProps={{
