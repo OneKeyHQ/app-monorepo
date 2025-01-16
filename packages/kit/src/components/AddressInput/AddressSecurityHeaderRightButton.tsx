@@ -82,7 +82,13 @@ function AddressSecurityHeaderRightButton() {
                 badgeSize="lg"
                 badgeType={isEnableTransferAllowList ? 'success' : 'default'}
               >
-                <Badge.Text>Disable</Badge.Text>
+                <Badge.Text>
+                  {intl.formatMessage({
+                    id: isEnableTransferAllowList
+                      ? ETranslations.global_enabled
+                      : ETranslations.global_disabled,
+                  })}
+                </Badge.Text>
               </Badge>
             </XStack>
             <HyperlinkText
