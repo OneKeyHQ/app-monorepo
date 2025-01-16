@@ -22,6 +22,7 @@ module.exports = [
   'dkey',
   'impls',
   'ttl',
+  'Cbc',
   'Sollet',
   'Solflare',
   'encryptors',

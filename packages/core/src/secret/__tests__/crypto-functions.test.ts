@@ -1,11 +1,10 @@
 import {
-  keyFromPasswordAndSalt,
-  aesCbcEncrypt,
-  aesCbcDecrypt,
-  PBKDF2_NUM_OF_ITERATIONS,
+  AES256_IV_LENGTH,
   PBKDF2_KEY_LENGTH,
   PBKDF2_SALT_LENGTH,
-  AES256_IV_LENGTH,
+  aesCbcDecrypt,
+  aesCbcEncrypt,
+  keyFromPasswordAndSalt,
 } from '../crypto-functions';
 
 describe('Crypto Functions', () => {

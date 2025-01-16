@@ -7,20 +7,31 @@ import {
   Input,
   SizableText,
   Stack,
-  TextArea,
   YStack,
 } from '@onekeyhq/components';
 import {
-  keyFromPasswordAndSalt,
-  aesCbcEncrypt,
-  aesCbcDecrypt,
-  PBKDF2_SALT_LENGTH,
   AES256_IV_LENGTH,
   PBKDF2_KEY_LENGTH,
+  PBKDF2_SALT_LENGTH,
+  aesCbcDecrypt,
+  aesCbcEncrypt,
+  keyFromPasswordAndSalt,
 } from '@onekeyhq/core/src/secret/crypto-functions';
 
 // Test snapshots for validation
-const CRYPTO_TEST_SNAPSHOTS = {
+const CRYPTO_TEST_SNAPSHOTS: {
+  keyFromPasswordAndSalt: {
+    normal: string;
+    empty: string;
+    special: string;
+    utf8: string;
+  };
+  aesCbcEncrypt: {
+    normal: string;
+    empty: string;
+    long: string;
+  };
+} = {
   keyFromPasswordAndSalt: {
     normal: '7c1e2635a66c3f43068e068e4db31fb55d2fe91773489b628368f53aea623aa1',
     empty: '0b89d7c6c0d0c3f2cc6c2c8fa0f2f0d7c6c0d0c3f2cc6c2c8fa0f2f0d7c6c0d0',
@@ -49,8 +60,12 @@ const SecretCryptoFunctionGallery: FC = () => {
   const [encryptedValid, setEncryptedValid] = useState<boolean | undefined>();
 
   // Decryption states
-  const [decryptIvHex, setDecryptIvHex] = useState('62'.repeat(AES256_IV_LENGTH));
-  const [decryptKeyHex, setDecryptKeyHex] = useState('63'.repeat(PBKDF2_KEY_LENGTH));
+  const [decryptIvHex, setDecryptIvHex] = useState(
+    '62'.repeat(AES256_IV_LENGTH),
+  );
+  const [decryptKeyHex, setDecryptKeyHex] = useState(
+    '63'.repeat(PBKDF2_KEY_LENGTH),
+  );
   const [decryptData, setDecryptData] = useState('');
   const [decryptedOutput, setDecryptedOutput] = useState('');
   const [decryptedValid, setDecryptedValid] = useState<boolean | undefined>();
@@ -63,13 +78,15 @@ const SecretCryptoFunctionGallery: FC = () => {
       setDerivedKeyOutput(resultHex);
 
       // Validate against test snapshots
-      const testCase = password === '' 
-        ? 'empty'
-        : /[^\x20-\x7E]/.test(password)
-          ? 'utf8'
-          : /[^a-zA-Z0-9]/.test(password)
-            ? 'special'
-            : 'normal';
+      let testCase: keyof typeof CRYPTO_TEST_SNAPSHOTS.keyFromPasswordAndSalt =
+        'normal';
+      if (password === '') {
+        testCase = 'empty';
+      } else if (/[^\x20-\x7E]/.test(password)) {
+        testCase = 'utf8';
+      } else if (/[^a-zA-Z0-9]/.test(password)) {
+        testCase = 'special';
+      }
       const expected = CRYPTO_TEST_SNAPSHOTS.keyFromPasswordAndSalt[testCase];
       setDerivedKeyValid(resultHex === expected);
     } catch (error) {
@@ -88,11 +105,12 @@ const SecretCryptoFunctionGallery: FC = () => {
       setEncryptedOutput(resultHex);
 
       // Validate against test snapshots
-      const testCase = encryptData === ''
-        ? 'empty'
-        : encryptData.length > 100
-          ? 'long'
-          : 'normal';
+      let testCase: keyof typeof CRYPTO_TEST_SNAPSHOTS.aesCbcEncrypt = 'normal';
+      if (encryptData === '') {
+        testCase = 'empty';
+      } else if (encryptData.length > 100) {
+        testCase = 'long';
+      }
       const expected = CRYPTO_TEST_SNAPSHOTS.aesCbcEncrypt[testCase];
       setEncryptedValid(resultHex === expected);
     } catch (error) {
@@ -136,13 +154,13 @@ const SecretCryptoFunctionGallery: FC = () => {
           Test keyFromPasswordAndSalt
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
-          <TextArea value={derivedKeyOutput} editable={false} flex={1} />
-          {derivedKeyValid === true && (
+          <Input value={derivedKeyOutput} editable={false} flex={1} />
+          {derivedKeyValid === true ? (
             <Icon name="ChevronDownSmallSolid" color="$textSuccess" size="$5" />
-          )}
-          {derivedKeyValid === false && (
+          ) : null}
+          {derivedKeyValid === false ? (
             <Icon name="ChevronTopSolid" color="$textCritical" size="$5" />
-          )}
+          ) : null}
         </Stack>
       </Stack>
 
@@ -170,13 +188,13 @@ const SecretCryptoFunctionGallery: FC = () => {
           Test aesCbcEncrypt
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
-          <TextArea value={encryptedOutput} editable={false} flex={1} />
-          {encryptedValid === true && (
+          <Input value={encryptedOutput} editable={false} flex={1} />
+          {encryptedValid === true ? (
             <Icon name="ChevronDownSmallSolid" color="$textSuccess" size="$5" />
-          )}
-          {encryptedValid === false && (
+          ) : null}
+          {encryptedValid === false ? (
             <Icon name="ChevronTopSolid" color="$textCritical" size="$5" />
-          )}
+          ) : null}
         </Stack>
       </Stack>
 
@@ -204,13 +222,13 @@ const SecretCryptoFunctionGallery: FC = () => {
           Test aesCbcDecrypt
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
-          <TextArea value={decryptedOutput} editable={false} flex={1} />
-          {decryptedValid === true && (
+          <Input value={decryptedOutput} editable={false} flex={1} />
+          {decryptedValid === true ? (
             <Icon name="ChevronDownSmallSolid" color="$textSuccess" size="$5" />
-          )}
-          {decryptedValid === false && (
+          ) : null}
+          {decryptedValid === false ? (
             <Icon name="ChevronTopSolid" color="$textCritical" size="$5" />
-          )}
+          ) : null}
         </Stack>
       </Stack>
     </YStack>
