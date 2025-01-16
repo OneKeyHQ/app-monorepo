@@ -11,17 +11,50 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperLinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HyperlinkText } from '../HyperlinkText';
 
-function AddressSecurityHeaderRightButton() {
-  const [settings] = useSettingsPersistAtom();
-  const isEnableTransferAllowList = useMemo(
-    () => settings.transferAllowList ?? true,
-    [settings.transferAllowList],
+import { useIsEnableTransferAllowList } from './hooks';
+
+export function TransferAllowListContent({
+  onAction,
+}: {
+  onAction?: IHyperlinkTextProps['onAction'];
+}) {
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
+  const intl = useIntl();
+  return (
+    <YStack gap="$1.5" flexShrink={1}>
+      <XStack flexShrink={1}>
+        <Badge
+          flexShrink={1}
+          badgeSize="lg"
+          badgeType={isEnableTransferAllowList ? 'success' : 'default'}
+        >
+          <Badge.Text>
+            {intl.formatMessage({
+              id: isEnableTransferAllowList
+                ? ETranslations.global_enabled
+                : ETranslations.global_disabled,
+            })}
+          </Badge.Text>
+        </Badge>
+      </XStack>
+      <HyperlinkText
+        flexShrink={1}
+        color="$textSubdued"
+        size="$bodyLg"
+        translationId={ETranslations.allowlist_enabled_popover_content}
+        onAction={onAction}
+      />
+    </YStack>
   );
+}
+
+function AddressSecurityHeaderRightButton() {
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const { gtMd } = useMedia();
   const intl = useIntl();
   const iconProps = useMemo(
@@ -75,29 +108,7 @@ function AddressSecurityHeaderRightButton() {
       renderContent={({ closePopover }) => (
         <YStack p="$5" $md={{ pt: 0 }} gap="$2.5">
           {gtMd ? PopoverTitle : null}
-          <YStack gap="$1.5">
-            <XStack>
-              <Badge
-                flexShrink={1}
-                badgeSize="lg"
-                badgeType={isEnableTransferAllowList ? 'success' : 'default'}
-              >
-                <Badge.Text>
-                  {intl.formatMessage({
-                    id: isEnableTransferAllowList
-                      ? ETranslations.global_enabled
-                      : ETranslations.global_disabled,
-                  })}
-                </Badge.Text>
-              </Badge>
-            </XStack>
-            <HyperlinkText
-              color="$textSubdued"
-              size="$bodyLg"
-              translationId={ETranslations.allowlist_enabled_popover_content}
-              onAction={closePopover}
-            />
-          </YStack>
+          <TransferAllowListContent onAction={closePopover} />
         </YStack>
       )}
     />
