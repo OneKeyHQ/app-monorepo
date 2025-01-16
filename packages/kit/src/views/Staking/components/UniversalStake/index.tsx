@@ -17,7 +17,9 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -127,6 +129,15 @@ export const UniversalStake = ({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      }),
+    [networkId],
+  ).result;
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
       const valueBN = new BigNumber(value);
@@ -324,6 +335,7 @@ export const UniversalStake = ({
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+            selectedNetworkImageUri: network?.logoURI,
           }}
           balanceProps={{
             value: balance,
