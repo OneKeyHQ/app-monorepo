@@ -5,5 +5,5 @@
  * - View hex data
  */
 
-export * from './TxDataViewer';
 export * from './MessageDataViewer';
+export * from './DataViewerTab';

@@ -6,7 +6,7 @@ import { useIntl } from 'react-intl';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   formatDate,
-  intlFormatDistance,
+  formatDistanceStrict,
 } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   EParseTxDateTimeFormat,
@@ -42,7 +42,7 @@ function DateTime(props: IProps) {
       ? timestampInMs
       : new BigNumber(now.getTime());
     if (component.format === EParseTxDateTimeFormat.Duration) {
-      return intlFormatDistance(new Date(timestampInMs.toNumber()), now);
+      return formatDistanceStrict(new Date(timestampInMs.toNumber()), now);
     }
     return formatDate(new Date(timestampInMs.toNumber()));
   }, [component.value, component.format, intl]);

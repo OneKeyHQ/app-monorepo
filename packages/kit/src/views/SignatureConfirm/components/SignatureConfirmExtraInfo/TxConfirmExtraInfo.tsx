@@ -1,5 +1,6 @@
 import { memo } from 'react';
 
+import type { IStackProps } from '@onekeyhq/components';
 import { Stack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
@@ -20,6 +21,7 @@ export function getTxExtraInfo({ impl }: { impl: string }) {
         accountId: string;
         networkId: string;
         unsignedTxs: IUnsignedTxPro[];
+        style?: IStackProps;
       }) => React.ReactNode | null)
     | undefined;
   switch (impl) {
@@ -43,13 +45,14 @@ function TxConfirmExtraInfo(props: IProps) {
 
   if (TxExtraInfo) {
     return (
-      <Stack pt="$5">
-        <TxExtraInfo
-          accountId={accountId}
-          networkId={networkId}
-          unsignedTxs={unsignedTxs}
-        />
-      </Stack>
+      <TxExtraInfo
+        accountId={accountId}
+        networkId={networkId}
+        unsignedTxs={unsignedTxs}
+        style={{
+          pt: '$5',
+        }}
+      />
     );
   }
 

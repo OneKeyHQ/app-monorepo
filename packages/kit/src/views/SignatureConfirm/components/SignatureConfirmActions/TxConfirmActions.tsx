@@ -5,12 +5,12 @@ import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  useSafeAreaInsets,
   Checkbox,
   Page,
   Stack,
   Toast,
   usePageUnMounted,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';

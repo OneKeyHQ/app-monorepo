@@ -2,13 +2,14 @@ import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { SignatureConfirmItem } from '../../SignatureConfirmItem';
 
-function TxExtraInfoSol() {
+function TxExtraInfoSol({ style }: { style?: IStackProps }) {
   const intl = useIntl();
   const [{ decodedTxs }] = useDecodedTxsAtom();
 
@@ -19,7 +20,7 @@ function TxExtraInfoSol() {
   if (!decodedTx || !extraInfo || !extraInfo.createTokenAccountFee) return null;
 
   return (
-    <SignatureConfirmItem>
+    <SignatureConfirmItem {...style}>
       <SignatureConfirmItem.Label>
         {intl.formatMessage({
           id: ETranslations.sig_account_rent_label,
