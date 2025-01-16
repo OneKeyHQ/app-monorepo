@@ -68,7 +68,9 @@ export type IStakeProviderInfo = {
   buttonUnstake: boolean;
   alerts: string[];
 
+  // morpho
   apys?: IRewardApys;
+  maxUnstakeAmount?: string;
   vault?: string;
   rewardUnit: IEarnRewardUnit;
 };
