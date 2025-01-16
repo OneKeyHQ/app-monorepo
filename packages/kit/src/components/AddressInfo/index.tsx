@@ -5,6 +5,7 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -14,7 +15,6 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
-import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 
 type IProps = {
   accountId?: string;
