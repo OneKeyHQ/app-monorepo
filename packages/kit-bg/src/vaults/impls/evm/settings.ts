@@ -3,8 +3,12 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   BaseUSDC,
   EMPTY_NATIVE_TOKEN_ADDRESS,
+  EthereumCBBTC,
+  EthereumDAI,
   EthereumMatic,
   EthereumUSDC,
+  EthereumUSDT,
+  EthereumWETH,
   SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
 import {
@@ -86,11 +90,35 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Morpho]: {
-        supportedSymbols: ['USDC'],
+        supportedSymbols: ['USDC', 'USDT', 'DAI', 'WETH', 'CBBTC'],
         configs: {
           USDC: {
             enabled: true,
             tokenAddress: EthereumUSDC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          USDT: {
+            enabled: true,
+            tokenAddress: EthereumUSDT,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          DAI: {
+            enabled: true,
+            tokenAddress: EthereumDAI,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          WETH: {
+            enabled: true,
+            tokenAddress: EthereumWETH,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          CBBTC: {
+            enabled: true,
+            tokenAddress: EthereumCBBTC,
             displayProfit: true,
             stakingWithApprove: true,
           },
