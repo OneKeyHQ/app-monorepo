@@ -328,6 +328,7 @@ export type IEarnAccountResponse = {
   totalFiatValue: string;
   earnings24h: string;
   tokens: IEarnAccountToken[];
+  canClaim: boolean;
 };
 
 export type IEarnAccount = {
@@ -338,9 +339,11 @@ export type IEarnAccount = {
 };
 
 export type IEarnAccountTokenResponse = {
+  hasClaimableAssets?: boolean;
   totalFiatValue?: string;
   earnings24h?: string;
   accounts: IEarnAccount[];
+  isOverviewLoaded?: boolean;
 };
 
 export type IEarnRewardUnit = 'APY' | 'APR';
