@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { IconButton, Page, XStack } from '@onekeyhq/components';
+import { IconButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { showAddressSafeNotificationDialog } from '@onekeyhq/kit/src/components/AddressInput/AddressSafeDialog';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -37,9 +37,10 @@ function ListPage() {
       intl,
     });
   }, [intl]);
-  const onPress = useCallback(() => {
+  const onCreate = useCallback(() => {
     navigation.push(EModalAddressBookRoutes.EditItemModal);
   }, [navigation]);
+  const { gtMd } = useMedia();
   const renderHeaderRightComponent = useCallback(
     () => (
       <XStack gap="$1.5">
@@ -51,15 +52,17 @@ function ListPage() {
           }}
           onPress={handleShowDialog}
         />
-        <IconButton
-          variant="tertiary"
-          icon="PlusCircleOutline"
-          onPress={onPress}
-          testID="address-book-add-icon"
-        />
+        {gtMd ? (
+          <IconButton
+            variant="tertiary"
+            icon="PlusCircleOutline"
+            onPress={onCreate}
+            testID="address-book-add-icon"
+          />
+        ) : null}
       </XStack>
     ),
-    [handleShowDialog, iconProps.color, iconProps.name, onPress],
+    [gtMd, handleShowDialog, iconProps.color, iconProps.name, onCreate],
   );
   return (
     <Page>
@@ -76,6 +79,7 @@ function ListPage() {
           <AddressBookListContent items={result?.items ?? []} showActions />
         </ContentContainer>
       </Page.Body>
+      {gtMd ? null : <Page.Footer onConfirm={onCreate} />}
     </Page>
   );
 }
