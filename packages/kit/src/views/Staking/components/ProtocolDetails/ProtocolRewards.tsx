@@ -73,35 +73,42 @@ function RewardItem({
   return (
     <>
       <YStack gap="$2.5">
-        <XStack alignItems="center" justifyContent="space-between">
-          <XStack alignItems="center">
+        <XStack
+          alignItems="center"
+          justifyContent="space-between"
+          flexWrap="wrap"
+          gap="$2"
+        >
+          <XStack alignItems="center" flex={1} flexWrap="wrap">
             <Token
               mr="$1.5"
               size="sm"
               tokenImageUri={rewardToken.info?.logoURI}
             />
-            <NumberSizeableText
-              size="$bodyLgMedium"
-              formatter="balance"
-              formatterOptions={{ tokenSymbol: rewardToken.info?.symbol }}
-            >
-              {validClaimableNow.toString()}
-            </NumberSizeableText>
-            {fiatClaimableNowValue.gt(0) ? (
-              <SizableText size="$bodyLgMedium">
-                (
-                <NumberSizeableText
-                  size="$bodyLgMedium"
-                  formatter="value"
-                  formatterOptions={{ currency: symbol }}
-                >
-                  {fiatClaimableNowValue.lt(0.01)
-                    ? `<${symbol}0.01`
-                    : fiatClaimableNowValue.toString()}
-                </NumberSizeableText>
-                )
-              </SizableText>
-            ) : null}
+            <XStack flex={1} flexWrap="wrap" alignItems="center">
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: rewardToken.info?.symbol }}
+              >
+                {validClaimableNow.toString()}
+              </NumberSizeableText>
+              {fiatClaimableNowValue.gt(0) ? (
+                <SizableText size="$bodyLgMedium">
+                  (
+                  <NumberSizeableText
+                    size="$bodyLgMedium"
+                    formatter="value"
+                    formatterOptions={{ currency: symbol }}
+                  >
+                    {fiatClaimableNowValue.lt(0.01)
+                      ? `<${symbol}0.01`
+                      : fiatClaimableNowValue.toString()}
+                  </NumberSizeableText>
+                  )
+                </SizableText>
+              ) : null}
+            </XStack>
           </XStack>
           <Button
             size="small"
