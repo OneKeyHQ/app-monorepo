@@ -97,9 +97,6 @@ const WithdrawPage = () => {
     () =>
       earnUtils.isLidoProvider({
         providerName: provider.name,
-      }) ||
-      earnUtils.isMorphoProvider({
-        providerName: provider.name,
       }),
     [provider],
   );
