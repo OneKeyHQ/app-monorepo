@@ -316,7 +316,7 @@ function Assets(props: IAssetsProps) {
   return (
     <SignatureConfirmItem {...rest}>
       <SignatureConfirmItem.Label>{component.label}</SignatureConfirmItem.Label>
-      <YStack gap="$1">
+      <YStack gap="$3">
         {component.assets.map((asset, index) => {
           if (asset.type === EParseTxComponentType.InternalAssets) {
             return (
