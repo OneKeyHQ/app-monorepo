@@ -13,7 +13,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
-  IAddressInteractionStatus,
+  EAddressInteractionStatus,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
@@ -141,7 +141,7 @@ class ServiceAccountProfile extends ServiceBase {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
-  }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+  }): Promise<{ isContract?: boolean; interacted: EAddressInteractionStatus }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
@@ -163,7 +163,7 @@ class ServiceAccountProfile extends ServiceBase {
       const { isContract, interacted } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
-        IAddressInteractionStatus
+        EAddressInteractionStatus
       > = {
         [EServerInteractedStatus.FALSE]: 'not-interacted',
         [EServerInteractedStatus.TRUE]: 'interacted',

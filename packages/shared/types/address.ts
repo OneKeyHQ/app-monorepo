@@ -117,10 +117,11 @@ export type IServerAccountBadgeResp = {
   badges?: { label: string }[];
 };
 
-export type IAddressInteractionStatus =
-  | 'interacted'
-  | 'not-interacted'
-  | 'unknown';
+export enum EAddressInteractionStatus {
+  INTERACTED = 'interacted',
+  NOT_INTERACTED = 'not-interacted',
+  UNKNOWN = 'unknown',
+}
 
 export type IAddressValidateBaseStatus = 'valid' | 'invalid' | 'unknown';
 

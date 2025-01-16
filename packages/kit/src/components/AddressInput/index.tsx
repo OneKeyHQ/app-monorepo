@@ -25,13 +25,13 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  EAddressInteractionStatus,
   EInputAddressChangeType,
-  IAddressInteractionStatus,
   IAddressValidateStatus,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { AddressBadge } from '../AddressBadge';
 import { BaseInput } from '../BaseInput';
 
 import { AddressInputContext } from './AddressInputContext';
@@ -91,100 +91,6 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   );
 };
 
-type IAddressInteractionStatusProps = {
-  status?: IAddressInteractionStatus;
-  networkId: string;
-};
-
-const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
-  status,
-  networkId,
-}) => {
-  const intl = useIntl();
-  const { result } = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
-    [networkId],
-  );
-  if (status === 'not-interacted') {
-    return (
-      <Popover
-        placement="bottom-start"
-        title={intl.formatMessage({
-          id: ETranslations.send_label_first_transfer,
-        })}
-        renderTrigger={
-          <Badge badgeType="warning" badgeSize="sm">
-            {intl.formatMessage({
-              id: ETranslations.send_label_first_transfer,
-            })}
-          </Badge>
-        }
-        renderContent={() => (
-          <Stack gap="$4" p="$4">
-            <SizableText size="$bodyMd">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.address_input_first_transfer_popover,
-                },
-                { network: result?.name ?? '' },
-              )}
-            </SizableText>
-          </Stack>
-        )}
-      />
-    );
-  }
-  if (status === 'interacted') {
-    return (
-      <Popover
-        placement="bottom-start"
-        title={intl.formatMessage({
-          id: ETranslations.send_label_transferred,
-        })}
-        renderTrigger={
-          <Badge badgeType="success" badgeSize="sm">
-            {intl.formatMessage({ id: ETranslations.send_label_transferred })}
-          </Badge>
-        }
-        renderContent={() => (
-          <Stack gap="$4" p="$4">
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.address_input_transferred_popover,
-              })}
-            </SizableText>
-          </Stack>
-        )}
-      />
-    );
-  }
-  return null;
-};
-
-const AddressContractStatus = ({ isContract }: { isContract?: boolean }) => {
-  const intl = useIntl();
-  return isContract ? (
-    <Popover
-      title={intl.formatMessage({ id: ETranslations.global_contract })}
-      placement="bottom-start"
-      renderTrigger={
-        <Badge badgeType="critical" badgeSize="sm">
-          {intl.formatMessage({ id: ETranslations.global_contract })}
-        </Badge>
-      }
-      renderContent={() => (
-        <Stack gap="$4" p="$4">
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.address_input_contract_popover,
-            })}
-          </SizableText>
-        </Stack>
-      )}
-    />
-  ) : null;
-};
-
 export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
@@ -242,7 +148,7 @@ export type IAddressQueryResult = {
   addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
-  addressInteractionStatus?: IAddressInteractionStatus;
+  addressInteractionStatus?: EAddressInteractionStatus;
   isContract?: boolean;
   isAllowListed?: boolean;
   isEnableTransferAllowList?: boolean;
@@ -294,11 +200,11 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
           </Stack>
         ) : null}
         <XStack my="$0.5" gap="$1">
-          <AddressInteractionStatus
+          <AddressBadge
             status={result.addressInteractionStatus}
             networkId={networkId}
           />
-          <AddressContractStatus isContract={result.isContract} />
+          <AddressBadge isContract={result.isContract} />
         </XStack>
       </XStack>
     );
