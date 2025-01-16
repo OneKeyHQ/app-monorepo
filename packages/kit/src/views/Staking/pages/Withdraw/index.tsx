@@ -44,7 +44,13 @@ const WithdrawPage = () => {
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
-    async (amount: string) => {
+    async ({
+      amount,
+      withdrawAll,
+    }: {
+      amount: string;
+      withdrawAll: boolean;
+    }) => {
       await handleWithdraw({
         amount,
         identity,
@@ -63,6 +69,7 @@ const WithdrawPage = () => {
           protocolLogoURI: provider.logoURI,
           tags: [actionTag],
         },
+        withdrawAll,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({

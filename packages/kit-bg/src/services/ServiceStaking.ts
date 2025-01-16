@@ -685,6 +685,7 @@ class ServiceStaking extends ServiceBase {
     symbol,
     provider,
     action,
+    withdrawAll,
     amount,
     morphoVault,
   }: {
@@ -693,6 +694,7 @@ class ServiceStaking extends ServiceBase {
     symbol?: string;
     provider?: string;
     action: 'stake' | 'unstake' | 'claim';
+    withdrawAll: boolean;
     amount?: string;
     morphoVault?: string;
   }) {
@@ -714,6 +716,7 @@ class ServiceStaking extends ServiceBase {
         action,
         amount,
         vault: morphoVault,
+        withdrawAll,
       },
     });
     const { code, message } = result.data;
