@@ -299,7 +299,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
   action.receives.forEach((receive) => {
     const assetsLabel = isInternalSwap
       ? appLocale.intl.formatMessage({
-          id: ETranslations.global_receive,
+          id: ETranslations.sign_swap_estimate_receive,
         })
       : appLocale.intl.formatMessage({
           id: ETranslations.global_asset,
