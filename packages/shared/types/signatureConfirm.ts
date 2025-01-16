@@ -184,6 +184,7 @@ export interface IParseTransactionResp {
   };
   display: ISignatureConfirmDisplay | null;
   type: EParseTxType;
+  isConfirmationRequired?: boolean;
 }
 
 export interface IParseMessageParams {
@@ -197,4 +198,5 @@ export interface IParseMessageResp {
   accountAddress: string;
   display: ISignatureConfirmDisplay;
   type: EParseTxType;
+  isConfirmationRequired?: boolean;
 }
