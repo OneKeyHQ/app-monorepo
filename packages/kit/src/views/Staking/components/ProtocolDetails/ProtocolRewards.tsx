@@ -205,7 +205,9 @@ export function ProtocolRewards({
           })}
         </SizableText>
         <Popover
-          title=""
+          title={intl.formatMessage({
+            id: ETranslations.earn_protocol_rewards,
+          })}
           placement="top"
           renderTrigger={
             <IconButton
