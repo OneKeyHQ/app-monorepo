@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -101,6 +102,13 @@ export const ApproveBaseStake = ({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
   });
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId: approveTarget.networkId,
+      }),
+    [approveTarget.networkId],
+  ).result;
   const [loading, setLoading] = useState<boolean>(false);
   const [approving, setApproving] = useState<boolean>(false);
   const {
@@ -379,6 +387,7 @@ export const ApproveBaseStake = ({
         tokenSelectorTriggerProps={{
           selectedTokenImageUri: token.logoURI,
           selectedTokenSymbol: token.symbol.toUpperCase(),
+          selectedNetworkImageUri: network?.logoURI,
         }}
         balanceProps={{
           value: balance,

@@ -102,6 +102,7 @@ const ClaimPage = () => {
       />
       <Page.Body>
         <UniversalClaim
+          networkId={networkId}
           price={price}
           decimals={details.token.info.decimals}
           initialAmount={initialAmount}

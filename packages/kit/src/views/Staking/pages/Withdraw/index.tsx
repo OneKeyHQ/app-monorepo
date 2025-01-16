@@ -161,9 +161,13 @@ const WithdrawPage = () => {
           price={price}
           hideReceived={hideReceived}
           decimals={details.token.info.decimals}
-          balance={BigNumber(active ?? 0)
-            .plus(overflow ?? 0)
-            .toFixed()}
+          balance={
+            earnUtils.isMorphoProvider({ providerName: provider.name })
+              ? BigNumber(provider.maxUnstakeAmount ?? active ?? 0).toFixed()
+              : BigNumber(active ?? 0)
+                  .plus(overflow ?? 0)
+                  .toFixed()
+          }
           accountId={accountId}
           networkId={networkId}
           initialAmount={initialAmount}

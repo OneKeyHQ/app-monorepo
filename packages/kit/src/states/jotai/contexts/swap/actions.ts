@@ -1387,7 +1387,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
-      if (equalTokenNoCaseSensitive({ token1: newToken, token2: token })) {
+      if (
+        equalTokenNoCaseSensitive({ token1: newToken, token2: token }) ||
+        (!token && !newToken)
+      ) {
         if (type === ESwapDirectionType.FROM) {
           set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
         } else {

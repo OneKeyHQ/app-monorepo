@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
@@ -108,6 +109,14 @@ export const UniversalWithdraw = ({
   const isMorphoProvider = earnUtils.isMorphoProvider({
     providerName: providerName ?? '',
   });
+
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      }),
+    [networkId],
+  ).result;
 
   const onPress = useCallback(async () => {
     Dialog.show({
@@ -243,6 +252,7 @@ export const UniversalWithdraw = ({
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
+            selectedNetworkImageUri: network?.logoURI,
           }}
           inputProps={{
             placeholder: '0',
