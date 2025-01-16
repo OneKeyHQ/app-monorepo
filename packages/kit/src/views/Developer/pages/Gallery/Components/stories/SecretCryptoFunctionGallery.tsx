@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 import type { FC } from 'react';
 import { useCallback, useState } from 'react';
 
@@ -18,37 +19,26 @@ import {
   keyFromPasswordAndSalt,
 } from '@onekeyhq/core/src/secret/crypto-functions';
 
+import { Layout } from './utils/Layout';
+
 // Test snapshots for validation
 const CRYPTO_TEST_SNAPSHOTS: {
-  keyFromPasswordAndSalt: {
-    normal: string;
-    empty: string;
-    special: string;
-    utf8: string;
-  };
-  aesCbcEncrypt: {
-    normal: string;
-    empty: string;
-    long: string;
-  };
+  keyFromPasswordAndSalt: string;
+  aesCbcEncrypt: string;
+  aesCbcDecrypt: string;
 } = {
-  keyFromPasswordAndSalt: {
-    normal: '7c1e2635a66c3f43068e068e4db31fb55d2fe91773489b628368f53aea623aa1',
-    empty: '0b89d7c6c0d0c3f2cc6c2c8fa0f2f0d7c6c0d0c3f2cc6c2c8fa0f2f0d7c6c0d0',
-    special: '9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8',
-    utf8: '1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b',
-  },
-  aesCbcEncrypt: {
-    normal: 'deadbeef1234567890abcdef0123456789abcdef0123456789abcdef01234567',
-    empty: '',
-    long: 'f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff0123456789abcdef0123456789abcdef',
-  },
+  keyFromPasswordAndSalt:
+    '2e90bd72bd2580bdf52e85ff316a3b551fa8c9133bc92a5ada7ba1e7f452df02',
+  aesCbcEncrypt: '4919bcae82be9c9a490b1ffb58c33d9a',
+  aesCbcDecrypt: '48656c6c6f2c20576f726c6421',
 };
 
-const SecretCryptoFunctionGallery: FC = () => {
+const SecretCryptoFunction: FC = () => {
   // Key Derivation states
   const [password, setPassword] = useState('test-password');
-  const [saltHex, setSaltHex] = useState('61'.repeat(PBKDF2_SALT_LENGTH)); // 'a' repeated
+  const [saltHex, setSaltHex] = useState(
+    Buffer.alloc(PBKDF2_SALT_LENGTH, 'a').toString('hex'),
+  ); // 'a' repeated
   const [derivedKeyOutput, setDerivedKeyOutput] = useState('');
   const [derivedKeyValid, setDerivedKeyValid] = useState<boolean | undefined>();
 
@@ -61,12 +51,12 @@ const SecretCryptoFunctionGallery: FC = () => {
 
   // Decryption states
   const [decryptIvHex, setDecryptIvHex] = useState(
-    '62'.repeat(AES256_IV_LENGTH),
+    Buffer.alloc(AES256_IV_LENGTH, 'd').toString('hex'),
   );
   const [decryptKeyHex, setDecryptKeyHex] = useState(
-    '63'.repeat(PBKDF2_KEY_LENGTH),
+    Buffer.alloc(PBKDF2_KEY_LENGTH, 'c').toString('hex'),
   );
-  const [decryptData, setDecryptData] = useState('');
+  const [decryptData, setDecryptData] = useState('Hello, World!');
   const [decryptedOutput, setDecryptedOutput] = useState('');
   const [decryptedValid, setDecryptedValid] = useState<boolean | undefined>();
 
@@ -78,16 +68,7 @@ const SecretCryptoFunctionGallery: FC = () => {
       setDerivedKeyOutput(resultHex);
 
       // Validate against test snapshots
-      let testCase: keyof typeof CRYPTO_TEST_SNAPSHOTS.keyFromPasswordAndSalt =
-        'normal';
-      if (password === '') {
-        testCase = 'empty';
-      } else if (/[^\x20-\x7E]/.test(password)) {
-        testCase = 'utf8';
-      } else if (/[^a-zA-Z0-9]/.test(password)) {
-        testCase = 'special';
-      }
-      const expected = CRYPTO_TEST_SNAPSHOTS.keyFromPasswordAndSalt[testCase];
+      const expected = CRYPTO_TEST_SNAPSHOTS.keyFromPasswordAndSalt;
       setDerivedKeyValid(resultHex === expected);
     } catch (error) {
       setDerivedKeyOutput(`Error: ${(error as Error).message}`);
@@ -105,13 +86,7 @@ const SecretCryptoFunctionGallery: FC = () => {
       setEncryptedOutput(resultHex);
 
       // Validate against test snapshots
-      let testCase: keyof typeof CRYPTO_TEST_SNAPSHOTS.aesCbcEncrypt = 'normal';
-      if (encryptData === '') {
-        testCase = 'empty';
-      } else if (encryptData.length > 100) {
-        testCase = 'long';
-      }
-      const expected = CRYPTO_TEST_SNAPSHOTS.aesCbcEncrypt[testCase];
+      const expected = CRYPTO_TEST_SNAPSHOTS.aesCbcEncrypt;
       setEncryptedValid(resultHex === expected);
     } catch (error) {
       setEncryptedOutput(`Error: ${(error as Error).message}`);
@@ -123,11 +98,16 @@ const SecretCryptoFunctionGallery: FC = () => {
     try {
       const iv = Buffer.from(decryptIvHex, 'hex');
       const key = Buffer.from(decryptKeyHex, 'hex');
-      const data = Buffer.from(decryptData, 'hex');
-      const result = aesCbcDecrypt({ iv, key, data });
-      const resultString = result.toString();
-      setDecryptedOutput(resultString);
-      setDecryptedValid(true);
+      const encrypted = aesCbcEncrypt({
+        iv,
+        key,
+        data: Buffer.from(decryptData),
+      });
+
+      const result = aesCbcDecrypt({ iv, key, data: encrypted });
+      const expected = result.toString('hex');
+      setDecryptedOutput(expected);
+      setDecryptedValid(expected === CRYPTO_TEST_SNAPSHOTS.aesCbcDecrypt);
     } catch (error) {
       setDecryptedOutput(`Error: ${(error as Error).message}`);
       setDecryptedValid(false);
@@ -155,11 +135,20 @@ const SecretCryptoFunctionGallery: FC = () => {
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
           <Input value={derivedKeyOutput} editable={false} flex={1} />
-          {derivedKeyValid === true ? (
-            <Icon name="ChevronDownSmallSolid" color="$textSuccess" size="$5" />
-          ) : null}
-          {derivedKeyValid === false ? (
-            <Icon name="ChevronTopSolid" color="$textCritical" size="$5" />
+          {derivedKeyValid !== undefined ? (
+            derivedKeyValid ? (
+              <Icon
+                name="TxStatusSuccessCircleIllus"
+                color="$iconSuccess"
+                size="$6"
+              />
+            ) : (
+              <Icon
+                name="TxStatusFailureCircleIllus"
+                color="$iconCritical"
+                size="$6"
+              />
+            )
           ) : null}
         </Stack>
       </Stack>
@@ -189,11 +178,20 @@ const SecretCryptoFunctionGallery: FC = () => {
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
           <Input value={encryptedOutput} editable={false} flex={1} />
-          {encryptedValid === true ? (
-            <Icon name="ChevronDownSmallSolid" color="$textSuccess" size="$5" />
-          ) : null}
-          {encryptedValid === false ? (
-            <Icon name="ChevronTopSolid" color="$textCritical" size="$5" />
+          {encryptedValid !== undefined ? (
+            encryptedValid ? (
+              <Icon
+                name="TxStatusSuccessCircleIllus"
+                color="$iconSuccess"
+                size="$6"
+              />
+            ) : (
+              <Icon
+                name="TxStatusFailureCircleIllus"
+                color="$iconCritical"
+                size="$6"
+              />
+            )
           ) : null}
         </Stack>
       </Stack>
@@ -223,11 +221,20 @@ const SecretCryptoFunctionGallery: FC = () => {
         </Button>
         <Stack direction="ltr" alignItems="center" space="$2">
           <Input value={decryptedOutput} editable={false} flex={1} />
-          {decryptedValid === true ? (
-            <Icon name="ChevronDownSmallSolid" color="$textSuccess" size="$5" />
-          ) : null}
-          {decryptedValid === false ? (
-            <Icon name="ChevronTopSolid" color="$textCritical" size="$5" />
+          {decryptedValid !== undefined ? (
+            decryptedValid ? (
+              <Icon
+                name="TxStatusSuccessCircleIllus"
+                color="$iconSuccess"
+                size="$6"
+              />
+            ) : (
+              <Icon
+                name="TxStatusFailureCircleIllus"
+                color="$iconCritical"
+                size="$6"
+              />
+            )
           ) : null}
         </Stack>
       </Stack>
@@ -235,4 +242,19 @@ const SecretCryptoFunctionGallery: FC = () => {
   );
 };
 
+function SecretCryptoFunctionGallery() {
+  return (
+    <Layout
+      description=".."
+      suggestions={['...']}
+      boundaryConditions={['...']}
+      elements={[
+        {
+          title: 'Default',
+          element: <SecretCryptoFunction />,
+        },
+      ]}
+    />
+  );
+}
 export default SecretCryptoFunctionGallery;

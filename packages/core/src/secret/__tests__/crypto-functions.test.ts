@@ -7,6 +7,10 @@ import {
   keyFromPasswordAndSalt,
 } from '../crypto-functions';
 
+/*
+yarn jest packages/core/src/secret/__tests__/crypto-functions.test.ts
+*/
+
 describe('Crypto Functions', () => {
   describe('keyFromPasswordAndSalt', () => {
     it('should match snapshot with normal password and salt', () => {
