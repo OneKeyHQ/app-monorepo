@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -12,6 +12,7 @@ import {
   Page,
   SizableText,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -433,7 +434,7 @@ export const ApproveBaseStake = ({
                 id: ETranslations.earn_est_annual_rewards,
               })}
             </CalculationListItem.Label>
-            <CalculationListItem.Value>
+            <YStack>
               {estimatedAnnualRewards.map((reward) => (
                 <ValuePriceListItem
                   key={reward.token.address}
@@ -443,7 +444,7 @@ export const ApproveBaseStake = ({
                   fiatValue={reward.fiatValue}
                 />
               ))}
-            </CalculationListItem.Value>
+            </YStack>
           </CalculationListItem>
         ) : null}
         {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
