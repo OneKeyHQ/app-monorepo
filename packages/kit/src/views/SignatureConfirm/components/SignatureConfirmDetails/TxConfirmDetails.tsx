@@ -4,6 +4,8 @@ import { find, flatMap } from 'lodash';
 
 import {
   useDecodedTxsAtom,
+  useNativeTokenTransferAmountToUpdateAtom,
+  useSendTxStatusAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -27,6 +29,9 @@ function TxConfirmDetails(props: IProps) {
 
   const [unsignedTxs] = useUnsignedTxsAtom();
   const [{ decodedTxs }] = useDecodedTxsAtom();
+  const [nativeTokenTransferAmountToUpdate] =
+    useNativeTokenTransferAmountToUpdateAtom();
+  const [{ isSendNativeTokenOnly }] = useSendTxStatusAtom();
 
   const isMultiTxs = decodedTxs?.length > 1;
 
@@ -127,9 +132,20 @@ function TxConfirmDetails(props: IProps) {
         displayComponents={txDisplayComponents}
         isBridge={isBridge}
         isMultiSignatures={isMultiTxs}
+        isSendNativeTokenOnly={isSendNativeTokenOnly}
+        nativeTokenTransferAmountToUpdate={nativeTokenTransferAmountToUpdate}
       />
     );
-  }, [accountId, decodedTxs, isMultiTxs, networkId, unsignedTxs, isBridge]);
+  }, [
+    accountId,
+    decodedTxs,
+    isMultiTxs,
+    networkId,
+    unsignedTxs,
+    isBridge,
+    isSendNativeTokenOnly,
+    nativeTokenTransferAmountToUpdate,
+  ]);
 
   return (
     <SignatureConfirmItem gap="$5">

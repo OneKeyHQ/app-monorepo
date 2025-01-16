@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -12,9 +12,11 @@ import {
   Page,
   SizableText,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -101,6 +103,13 @@ export const ApproveBaseStake = ({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
   });
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId: approveTarget.networkId,
+      }),
+    [approveTarget.networkId],
+  ).result;
   const [loading, setLoading] = useState<boolean>(false);
   const [approving, setApproving] = useState<boolean>(false);
   const {
@@ -379,6 +388,7 @@ export const ApproveBaseStake = ({
         tokenSelectorTriggerProps={{
           selectedTokenImageUri: token.logoURI,
           selectedTokenSymbol: token.symbol.toUpperCase(),
+          selectedNetworkImageUri: network?.logoURI,
         }}
         balanceProps={{
           value: balance,
@@ -424,7 +434,7 @@ export const ApproveBaseStake = ({
                 id: ETranslations.earn_est_annual_rewards,
               })}
             </CalculationListItem.Label>
-            <CalculationListItem.Value>
+            <YStack>
               {estimatedAnnualRewards.map((reward) => (
                 <ValuePriceListItem
                   key={reward.token.address}
@@ -434,7 +444,7 @@ export const ApproveBaseStake = ({
                   fiatValue={reward.fiatValue}
                 />
               ))}
-            </CalculationListItem.Value>
+            </YStack>
           </CalculationListItem>
         ) : null}
         {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (

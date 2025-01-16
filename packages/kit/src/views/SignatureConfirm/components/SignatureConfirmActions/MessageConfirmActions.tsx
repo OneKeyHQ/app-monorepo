@@ -31,6 +31,7 @@ type IProps = {
   setContinueOperate: React.Dispatch<React.SetStateAction<boolean>>;
   showContinueOperate?: boolean;
   urlSecurityInfo?: IHostSecurity;
+  isConfirmationRequired?: boolean;
 };
 
 function MessageConfirmActions(props: IProps) {
@@ -43,6 +44,7 @@ function MessageConfirmActions(props: IProps) {
     setContinueOperate: setContinueOperateLocal,
     showContinueOperate: showContinueOperateLocal,
     urlSecurityInfo,
+    isConfirmationRequired,
   } = props;
 
   const intl = useIntl();
@@ -141,6 +143,10 @@ function MessageConfirmActions(props: IProps) {
       return false;
     }
 
+    if (isConfirmationRequired) {
+      return true;
+    }
+
     if (!isEmpty(messageDisplay?.alerts)) {
       return true;
     }
@@ -155,6 +161,7 @@ function MessageConfirmActions(props: IProps) {
     showContinueOperateLocal,
     urlSecurityInfo?.level,
     walletInternalSign,
+    isConfirmationRequired,
   ]);
 
   return (

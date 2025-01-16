@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 
 import { Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
@@ -178,6 +179,10 @@ const SwapInputContainer = ({
     [direction, percentageInputStageShow, amountValue],
   );
 
+  const showPercentageInputDebounce = useDebounce(showPercentageInput, 100, {
+    leading: true,
+  });
+
   const showActionBuy = useMemo(
     () =>
       direction === ESwapDirectionType.FROM &&
@@ -196,7 +201,7 @@ const SwapInputContainer = ({
         <SwapInputActions
           fromToken={fromToken}
           accountInfo={accountInfo}
-          showPercentageInput={showPercentageInput}
+          showPercentageInput={showPercentageInputDebounce}
           showActionBuy={showActionBuy}
           onSelectStage={onSelectPercentageStage}
         />
@@ -206,8 +211,6 @@ const SwapInputContainer = ({
         borderWidth="$0"
         onChange={onAmountChange}
         value={amountValue}
-        onFocus={onFromInputFocus}
-        onBlur={onFromInputBlur}
         hasError={
           fromInputHasError.accountError || fromInputHasError.hasBalanceError
         }
@@ -247,6 +250,8 @@ const SwapInputContainer = ({
           autoCorrect: false,
           spellCheck: false,
           autoComplete: 'off',
+          onFocus: onFromInputFocus,
+          onBlur: onFromInputBlur,
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,
