@@ -73,7 +73,9 @@ export function Switch({
         h={size === 'small' ? '$5' : '$7'}
         borderRadius="$full"
         bg="$bg"
-        animation="quick"
+        // Please don't set the animation too fast.
+        // ref: https://github.com/tamagui/tamagui/commit/0586079faec69d044a5b1d45f84ae9f2e4e6e463
+        animation="bouncy"
       />
     </TMSwitch>
   );
