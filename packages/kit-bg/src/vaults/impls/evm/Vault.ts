@@ -1035,6 +1035,7 @@ export default class Vault extends VaultBase {
       icon: nft.metadata?.image ?? '',
       symbol: nft.metadata?.name ?? '',
       isNFT: true,
+      NFTType: nft.collectionType,
     };
 
     return this.buildTxTransferAssetAction({

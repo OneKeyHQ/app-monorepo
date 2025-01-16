@@ -32,6 +32,7 @@ import {
 
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 type IAssetsCommonProps = {
   networkId: string;
@@ -76,6 +77,7 @@ function SignatureAssetDetailItem({
   handleEdit,
   hideLabel,
   transferDirection,
+  NFTType,
   ...rest
 }: {
   type?: 'token' | 'nft';
@@ -89,6 +91,7 @@ function SignatureAssetDetailItem({
   handleEdit?: () => void;
   hideLabel?: boolean;
   transferDirection?: ETransferDirection;
+  NFTType?: ENFTType;
 } & ISignatureConfirmItemType) {
   const { network } = useAccountData({
     networkId: tokenProps?.networkId,
@@ -110,14 +113,16 @@ function SignatureAssetDetailItem({
             +
           </SizableText>
         ) : null}
-        {amount ? <SizableText size="$headingMd">{amount}</SizableText> : null}
+        {type !== 'nft' || (type === 'nft' && NFTType === ENFTType.ERC1155) ? (
+          <SizableText size="$headingMd">{amount}</SizableText>
+        ) : null}
         {symbol ? <SizableText size="$bodyLg">{symbol}</SizableText> : null}
         {editable ? (
           <Icon name="PencilOutline" size="$4.5" color="$iconSubdued" />
         ) : null}
       </>
     );
-  }, [amount, symbol, editable, isLoading, transferDirection]);
+  }, [isLoading, transferDirection, amount, type, NFTType, symbol, editable]);
 
   return (
     <SignatureConfirmItem {...rest}>
@@ -283,6 +288,7 @@ function AssetsNFT(props: IAssetsNFTProps) {
         networkId: component.nft.networkId,
       }}
       transferDirection={component.transferDirection}
+      NFTType={component.nft.collectionType}
       {...rest}
     />
   );
@@ -302,6 +308,7 @@ function AssetsInternalAssets(props: IInternalAssetsProps) {
       }}
       type={component.isNFT ? 'nft' : 'token'}
       transferDirection={component.transferDirection}
+      NFTType={component.NFTType}
       {...rest}
     />
   );

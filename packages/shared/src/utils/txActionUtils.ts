@@ -287,6 +287,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       amountParsed: send.amount,
       networkId: send.networkId,
       isNFT: send.isNFT,
+      NFTType: send.NFTType,
       transferDirection: ETransferDirection.Out,
     };
 
@@ -312,6 +313,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       amountParsed: receive.amount,
       networkId: receive.networkId,
       isNFT: receive.isNFT,
+      NFTType: receive.NFTType,
       transferDirection: ETransferDirection.In,
     };
 

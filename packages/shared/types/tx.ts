@@ -14,6 +14,7 @@ import type {
   ISignatureConfirmDisplay,
   ITransactionData,
 } from './signatureConfirm';
+import { ENFTType } from './nft';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -179,6 +180,7 @@ export type IDecodedTxTransferInfo = {
   label?: string;
   price?: string;
   networkId?: string;
+  NFTType?: ENFTType;
 };
 
 export type IDecodedTxActionFunctionCall = IDecodedTxActionBase & {
