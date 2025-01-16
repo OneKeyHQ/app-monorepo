@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "Thu hồi phê duyệt",
   "sig.revoke_from_label": "Thu hồi từ",
   "sig.sigature_request_label": "Yêu cầu chữ ký",
+  "sign.swap_estimate_receive": "Ước tính đã nhận",
   "skip_verify_text": "Tôi không mang theo thiết bị của mình",
   "slippage_tolerance.button_save": "Lưu",
   "slippage_tolerance.description": "Tự động trượt giúp tối ưu hóa sự trượt dựa trên khả năng thanh khoản của hồ và khối lượng giao dịch, giảm thiểu rủi ro thất bại giao dịch và rủi ro tấn công MEV.",

@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "승인 취소",
   "sig.revoke_from_label": "철회하다",
   "sig.sigature_request_label": "서명 요청",
+  "sign.swap_estimate_receive": "견적을 받았습니다",
   "skip_verify_text": "제 기기가 제게 없습니다",
   "slippage_tolerance.button_save": "저장",
   "slippage_tolerance.description": "자동 슬리피지는 풀 유동성과 거래량에 기반하여 슬리피지를 최적화하여, 거래 실패와 MEV 공격 위험을 줄입니다.",

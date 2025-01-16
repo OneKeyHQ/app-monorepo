@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "Revocar aprobación",
   "sig.revoke_from_label": "Revocar de",
   "sig.sigature_request_label": "Solicitud de firma",
+  "sign.swap_estimate_receive": "Estimación recibida",
   "skip_verify_text": "No tengo mi dispositivo conmigo",
   "slippage_tolerance.button_save": "Guardar",
   "slippage_tolerance.description": "El deslizamiento automático optimiza el deslizamiento en función de la liquidez del pool y el volumen de operaciones, reduciendo los fallos de transacción y los riesgos de ataques MEV.",
