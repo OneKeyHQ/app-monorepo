@@ -14,6 +14,7 @@ import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useAccountSelectorActions } from '../../states/jotai/contexts/accountSelector';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
+import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 
 type IProps = {
   accountId?: string;
@@ -123,18 +124,22 @@ function AddressInfo(props: IProps) {
     allowClickAccountNameSwitch,
     withWrapper = true,
   } = props;
-  const addressQueryResult = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceAccountProfile.queryAddress({
-        accountId,
-        networkId,
-        address,
-        enableAddressBook: true,
-        enableWalletName: true,
-        skipValidateAddress: true,
-      }),
-    [accountId, address, networkId],
-  ).result;
+  const addressQueryResult = usePromiseResult(async () => {
+    const vault = await vaultFactory.getChainOnlyVault({
+      networkId,
+    });
+    const { displayAddress } = await vault.validateAddress(address);
+
+    const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
+      accountId,
+      networkId,
+      address: displayAddress || address,
+      enableAddressBook: true,
+      enableWalletName: true,
+      skipValidateAddress: true,
+    });
+    return result;
+  }, [accountId, address, networkId]).result;
 
   if (!addressQueryResult) {
     return null;
