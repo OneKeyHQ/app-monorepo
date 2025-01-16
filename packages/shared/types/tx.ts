@@ -9,12 +9,12 @@ import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 
 import type { IFeeInfoUnit } from './fee';
 import type { EOnChainHistoryTxType } from './history';
+import type { ENFTType } from './nft';
 import type {
   EParseTxType,
   ISignatureConfirmDisplay,
   ITransactionData,
 } from './signatureConfirm';
-import { ENFTType } from './nft';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received

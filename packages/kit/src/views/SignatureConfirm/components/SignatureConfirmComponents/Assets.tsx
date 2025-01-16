@@ -20,6 +20,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ENFTType } from '@onekeyhq/shared/types/nft';
 import {
   EParseTxComponentType,
   ETransferDirection,
@@ -32,7 +33,6 @@ import {
 
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
-import { ENFTType } from '@onekeyhq/shared/types/nft';
 
 type IAssetsCommonProps = {
   networkId: string;
