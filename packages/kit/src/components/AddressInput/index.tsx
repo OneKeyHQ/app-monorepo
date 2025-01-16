@@ -150,6 +150,7 @@ export type IAddressQueryResult = {
   resolveOptions?: string[];
   addressInteractionStatus?: EAddressInteractionStatus;
   isContract?: boolean;
+  contractLabel?: string;
   isAllowListed?: boolean;
   isEnableTransferAllowList?: boolean;
 };
@@ -204,7 +205,10 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             status={result.addressInteractionStatus}
             networkId={networkId}
           />
-          <AddressBadge isContract={result.isContract} />
+          <AddressBadge
+            title={result.contractLabel}
+            isContract={result.isContract}
+          />
         </XStack>
       </XStack>
     );

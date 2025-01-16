@@ -115,6 +115,7 @@ export type IServerAccountBadgeResp = {
   interacted: EServerInteractedStatus;
   isContract?: boolean;
   badges?: { label: string }[];
+  label?: string;
 };
 
 export enum EAddressInteractionStatus {

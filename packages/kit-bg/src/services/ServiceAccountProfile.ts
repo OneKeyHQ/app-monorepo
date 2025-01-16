@@ -13,13 +13,15 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
-  EAddressInteractionStatus,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
   IServerAccountBadgeResp,
 } from '@onekeyhq/shared/types/address';
-import { EServerInteractedStatus } from '@onekeyhq/shared/types/address';
+import {
+  EAddressInteractionStatus,
+  EServerInteractedStatus,
+} from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
@@ -141,7 +143,11 @@ class ServiceAccountProfile extends ServiceBase {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
-  }): Promise<{ isContract?: boolean; interacted: EAddressInteractionStatus }> {
+  }): Promise<{
+    isContract?: boolean;
+    interacted: EAddressInteractionStatus;
+    contractLabel?: string;
+  }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
@@ -160,18 +166,26 @@ class ServiceAccountProfile extends ServiceBase {
           toAddress,
         },
       });
-      const { isContract, interacted } = resp.data.data;
+      const { isContract, interacted, label: contractLabel } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
         EAddressInteractionStatus
       > = {
-        [EServerInteractedStatus.FALSE]: 'not-interacted',
-        [EServerInteractedStatus.TRUE]: 'interacted',
-        [EServerInteractedStatus.UNKNOWN]: 'unknown',
+        [EServerInteractedStatus.FALSE]:
+          EAddressInteractionStatus.NOT_INTERACTED,
+        [EServerInteractedStatus.TRUE]: EAddressInteractionStatus.INTERACTED,
+        [EServerInteractedStatus.UNKNOWN]: EAddressInteractionStatus.UNKNOWN,
       };
-      return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
+      return {
+        isContract,
+        interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
+        contractLabel,
+      };
     } catch {
-      return { interacted: 'unknown' };
+      return {
+        isContract: false,
+        interacted: EAddressInteractionStatus.UNKNOWN,
+      };
     }
   }
 
@@ -198,11 +212,12 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted } = await this.getAddressAccountBadge({
-      networkId,
-      fromAddress,
-      toAddress,
-    });
+    const { isContract, interacted, contractLabel } =
+      await this.getAddressAccountBadge({
+        networkId,
+        fromAddress,
+        toAddress,
+      });
     if (
       checkInteractionStatus &&
       toAddress.toLowerCase() !== fromAddress &&
@@ -212,6 +227,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (checkAddressContract) {
       result.isContract = isContract;
+      result.contractLabel = contractLabel;
     }
   }
 

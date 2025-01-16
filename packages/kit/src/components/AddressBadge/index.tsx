@@ -1,10 +1,17 @@
 import type { ReactElement } from 'react';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IBadgeProps } from '@onekeyhq/components';
-import { Badge, Popover, SizableText, Stack } from '@onekeyhq/components';
+import type { IBadgeProps, IKeyOfIcons } from '@onekeyhq/components';
+import {
+  Badge,
+  Icon,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -12,40 +19,53 @@ import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 
 interface IBasicAddressBadgeProps {
   title: string;
-  content: ReactElement | string;
+  icon?: IKeyOfIcons;
+  content?: ReactElement | string;
   badgeType: IBadgeProps['badgeType'];
 }
 
 function BasicAddressBadge({
   title,
+  icon,
   content,
   badgeType,
 }: IBasicAddressBadgeProps) {
-  return (
+  const badgeElement = useMemo(
+    () => (
+      <Badge badgeType={badgeType} badgeSize="sm">
+        <XStack gap="$1" alignItems="center" userSelect="none">
+          {icon ? <Icon name={icon} size="$4" /> : null}
+          <Badge.Text> {title}</Badge.Text>
+        </XStack>
+      </Badge>
+    ),
+    [badgeType, icon, title],
+  );
+  return content ? (
     <Popover
       placement="bottom-start"
       title={title}
-      renderTrigger={
-        <Badge badgeType={badgeType} badgeSize="sm">
-          {title}
-        </Badge>
-      }
+      renderTrigger={badgeElement}
       renderContent={() => (
         <Stack gap="$4" p="$4">
           <SizableText size="$bodyMd">{content}</SizableText>
         </Stack>
       )}
     />
+  ) : (
+    badgeElement
   );
 }
 
 export interface IAddressBadgeProps {
+  title?: string;
   status?: EAddressInteractionStatus;
   networkId?: string;
   isContract?: boolean;
 }
 
 function AddressBadgeFrame({
+  title,
   status,
   networkId,
   isContract,
@@ -61,15 +81,24 @@ function AddressBadgeFrame({
 
   if (isContract) {
     return (
-      <BasicAddressBadge
-        badgeType="warning"
-        title={intl.formatMessage({
-          id: ETranslations.global_contract,
-        })}
-        content={intl.formatMessage({
-          id: ETranslations.address_input_contract_popover,
-        })}
-      />
+      <>
+        {title ? (
+          <BasicAddressBadge
+            badgeType="default"
+            icon="Document2Outline"
+            title={title}
+          />
+        ) : null}
+        <BasicAddressBadge
+          badgeType="warning"
+          title={intl.formatMessage({
+            id: ETranslations.global_contract,
+          })}
+          content={intl.formatMessage({
+            id: ETranslations.address_input_contract_popover,
+          })}
+        />
+      </>
     );
   }
 
