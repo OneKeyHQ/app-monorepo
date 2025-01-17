@@ -4,15 +4,15 @@ import type {
   IDBDevice,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import {
-  EQRCodeHandlerNames,
-  type IAnimationValue,
-  type IQRCodeHandlerParseResult,
+import type {
+  IAnimationValue,
+  IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyErrorAirGapWalletMismatch } from '@onekeyhq/shared/src/errors';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';

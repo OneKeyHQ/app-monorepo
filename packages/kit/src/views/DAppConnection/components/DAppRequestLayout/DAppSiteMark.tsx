@@ -1,7 +1,5 @@
 import { useMemo } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import type { IIconProps } from '@onekeyhq/components';
 import {
   Icon,
@@ -38,15 +36,11 @@ function DAppSiteMark({
     [origin],
   );
   const riskyStyle = useMemo<{
-    bg: string;
-    borderColor: string;
     textColor: string;
     iconName: IIconProps['name'] | null;
     iconColor: IIconProps['color'] | null;
   }>(() => {
     const defaultStyle = {
-      bg: '$bgSubdued',
-      borderColor: '$borderSubdued',
       textColor: '$textSubdued',
       iconName: null,
       iconColor: null,
@@ -57,8 +51,6 @@ function DAppSiteMark({
     switch (urlSecurityInfo?.level) {
       case EHostSecurityLevel.Security: {
         return {
-          bg: '$bgSubdued',
-          borderColor: '$border',
           textColor: '$text',
           iconName: 'BadgeVerifiedSolid',
           iconColor: '$iconSuccess',
@@ -66,8 +58,6 @@ function DAppSiteMark({
       }
       case EHostSecurityLevel.High: {
         return {
-          bg: '$bgCriticalSubdued',
-          borderColor: '$borderCritical',
           textColor: '$textCritical',
           iconName: 'ErrorSolid',
           iconColor: '$iconCritical',
@@ -75,8 +65,6 @@ function DAppSiteMark({
       }
       case EHostSecurityLevel.Medium: {
         return {
-          bg: '$bgCautionSubdued',
-          borderColor: '$borderCaution',
           textColor: '$textCaution',
           iconName: 'ErrorSolid',
           iconColor: '$iconCaution',
@@ -89,30 +77,24 @@ function DAppSiteMark({
   }, [urlSecurityInfo?.level]);
 
   return (
-    <XStack
-      px="$2"
-      py="$1"
-      bg={riskyStyle.bg}
-      borderColor={riskyStyle.borderColor}
-      borderWidth={StyleSheet.hairlineWidth}
-      borderRadius="$2"
-      alignItems="center"
-      alignSelf="flex-start"
-      borderCurve="continuous"
-      gap="$2"
-    >
-      <Image w="$6" h="$6" bg="$bgSubdued" borderRadius="$1">
+    <XStack alignItems="center" alignSelf="flex-start" gap="$1.5">
+      <Image
+        w="$5"
+        h="$5"
+        bg="$bgSubdued"
+        borderRadius={6}
+        borderCurve="continuous"
+      >
         <Image.Source source={{ uri: favicon || faviconUri }} />
         <Image.Fallback>
-          <Icon size="$6" name="GlobusOutline" color="$iconSubdued" />
+          <Icon size="$5" name="GlobusOutline" color="$iconSubdued" />
         </Image.Fallback>
         <Image.Loading>
           <Skeleton width="100%" height="100%" />
         </Image.Loading>
       </Image>
       <SizableText
-        flex={1}
-        size="$bodyLgMedium"
+        size="$bodyMd"
         color={riskyStyle.textColor}
         style={{
           wordBreak: 'break-all',
@@ -122,10 +104,9 @@ function DAppSiteMark({
       </SizableText>
       {riskyStyle.iconName && riskyStyle.iconColor ? (
         <Icon
-          pt="$0.5"
           name={riskyStyle.iconName}
           color={riskyStyle.iconColor}
-          size="$5"
+          size="$4.5"
         />
       ) : null}
     </XStack>

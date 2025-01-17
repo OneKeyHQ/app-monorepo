@@ -27,6 +27,7 @@ import {
   EFirmwareAuthenticationDialogContentType,
   EnumBasicDialogContentContainer,
 } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
 import {
   useFirmwareUpdateRetryAtom,

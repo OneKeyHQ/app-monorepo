@@ -11,6 +11,7 @@ import { IconButton } from '../../actions/IconButton';
 import { ListView } from '../../layouts/ListView';
 import { SortableListView } from '../../layouts/SortableListView';
 import { Icon, SizableText, Stack, XStack, YStack } from '../../primitives';
+import { Haptics, ImpactFeedbackStyle } from '../../primitives/Haptics';
 
 import type { IListViewProps, IListViewRef } from '../../layouts';
 import type {
@@ -234,6 +235,7 @@ export interface ITableProps<T> {
   headerRowProps?: Omit<IStackProps, 'onPress' | 'onLongPress'>;
   // Whether the column can be dragged to reorder. default value is false
   draggable?: boolean;
+  onDragBegin?: ISortableListViewProps<T>['onDragBegin'];
   onDragEnd?: ISortableListViewProps<T>['onDragEnd'];
   keyExtractor: (item: T, index: number) => string;
   onHeaderRow?: (
@@ -384,6 +386,7 @@ function BasicTable<T>({
   contentContainerStyle,
   headerRowProps,
   renderScrollComponent,
+  onDragBegin,
   onDragEnd,
   showHeader = true,
   estimatedItemSize = DEFAULT_ROW_HEIGHT,
@@ -453,6 +456,14 @@ function BasicTable<T>({
     [],
   );
 
+  const handleDragBegin = useCallback(
+    (index: number) => {
+      Haptics.impact(ImpactFeedbackStyle.Medium);
+      onDragBegin?.(index);
+    },
+    [onDragBegin],
+  );
+
   const itemSize = useMemo<number | undefined>(() => {
     if (typeof estimatedItemSize === 'undefined') {
       return undefined;
@@ -508,6 +519,7 @@ function BasicTable<T>({
               {stickyHeader ? null : headerRow}
             </>
           }
+          onDragBegin={handleDragBegin}
           onDragEnd={onDragEnd}
           keyExtractor={keyExtractor}
           ListFooterComponent={TableFooterComponent}
@@ -553,6 +565,7 @@ function BasicTable<T>({
       TableHeaderComponent,
       stickyHeader,
       headerRow,
+      handleDragBegin,
       onDragEnd,
       keyExtractor,
       TableFooterComponent,

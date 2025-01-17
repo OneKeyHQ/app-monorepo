@@ -5,19 +5,11 @@ import { useIntl } from 'react-intl';
 
 import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
   biologyAuthNativeError,
   biologyAuthUtils,
 } from '@onekeyhq/kit-bg/src/services/ServicePassword/biologyAuthUtils';
-import {
-  BIOLOGY_AUTH_ATTEMPTS_FACE,
-  BIOLOGY_AUTH_ATTEMPTS_FINGERPRINT,
-  BIOLOGY_AUTH_CANCEL_ERROR,
-  EPasswordMode,
-  PASSCODE_PROTECTION_ATTEMPTS,
-  PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX,
-  PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP,
-} from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,
@@ -30,7 +22,16 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
+import {
+  BIOLOGY_AUTH_ATTEMPTS_FACE,
+  BIOLOGY_AUTH_ATTEMPTS_FINGERPRINT,
+  BIOLOGY_AUTH_CANCEL_ERROR,
+  EPasswordMode,
+  EPasswordVerifyStatus,
+  PASSCODE_PROTECTION_ATTEMPTS,
+  PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX,
+  PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP,
+} from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useWebAuthActions } from '../../BiologyAuthComponent/hooks/useWebAuthActions';
