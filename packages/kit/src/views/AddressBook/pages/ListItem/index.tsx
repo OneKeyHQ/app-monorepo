@@ -17,17 +17,8 @@ function ListPage() {
   const intl = useIntl();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const { isLoading, result } = useAddressBookItems();
-  const iconProps = useMemo(
-    () =>
-      isEnableTransferAllowList
-        ? ({
-            name: 'ShieldCheckDoneOutline',
-            color: '$iconSuccess',
-          } as const)
-        : ({
-            name: 'ShieldKeyholeOutline',
-            color: '$icon',
-          } as const),
+  const iconColor = useMemo(
+    () => (isEnableTransferAllowList ? '$iconSuccess' : '$textSubdued'),
     [isEnableTransferAllowList],
   );
 
@@ -46,9 +37,9 @@ function ListPage() {
       <XStack gap="$1.5">
         <IconButton
           variant="tertiary"
-          icon={iconProps.name}
+          icon="ShieldCheckDoneOutline"
           iconProps={{
-            color: iconProps.color,
+            color: iconColor,
           }}
           onPress={handleShowDialog}
         />
@@ -62,7 +53,7 @@ function ListPage() {
         ) : null}
       </XStack>
     ),
-    [gtMd, handleShowDialog, iconProps.color, iconProps.name, onCreate],
+    [gtMd, handleShowDialog, iconColor, onCreate],
   );
   return (
     <Page>

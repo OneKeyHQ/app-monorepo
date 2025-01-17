@@ -57,17 +57,8 @@ function AddressSecurityHeaderRightButton() {
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const { gtMd } = useMedia();
   const intl = useIntl();
-  const iconProps = useMemo(
-    () =>
-      isEnableTransferAllowList
-        ? ({
-            name: 'ShieldCheckDoneOutline',
-            color: '$iconSuccess',
-          } as const)
-        : ({
-            name: 'ShieldKeyholeOutline',
-            color: '$icon',
-          } as const),
+  const iconColor = useMemo(
+    () => (isEnableTransferAllowList ? '$iconSuccess' : '$textSubdued'),
     [isEnableTransferAllowList],
   );
   const PopoverTitle = useMemo(
@@ -77,9 +68,9 @@ function AddressSecurityHeaderRightButton() {
           key="allowList"
           titlePlacement="bottom"
           iconProps={{
-            color: iconProps.color,
+            color: iconColor,
           }}
-          icon={iconProps.name}
+          icon="ShieldCheckDoneOutline"
           testID="setting"
         />
         <SizableText size="$headingLg">
@@ -89,7 +80,7 @@ function AddressSecurityHeaderRightButton() {
         </SizableText>
       </XStack>
     ),
-    [iconProps.color, iconProps.name, intl],
+    [iconColor, intl],
   );
   return (
     <Popover
@@ -99,9 +90,9 @@ function AddressSecurityHeaderRightButton() {
           key="allowList"
           titlePlacement="bottom"
           iconProps={{
-            color: iconProps.color,
+            color: iconColor,
           }}
-          icon={iconProps.name}
+          icon="ShieldCheckDoneOutline"
           testID="setting"
         />
       }
