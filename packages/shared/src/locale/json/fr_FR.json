@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "Révoquer l'approbation",
   "sig.revoke_from_label": "Révoquer de",
   "sig.sigature_request_label": "Demande de signature",
+  "sign.swap_estimate_receive": "Estimation reçue",
   "skip_verify_text": "Je n'ai pas mon appareil avec moi",
   "slippage_tolerance.button_save": "Enregistrer",
   "slippage_tolerance.description": "L'optimisation automatique du glissement s'adapte en fonction de la liquidité du pool et du volume de trading, réduisant ainsi les échecs de transaction et les risques d'attaques MEV.",

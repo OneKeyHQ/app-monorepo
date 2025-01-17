@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "Genehmigung widerrufen",
   "sig.revoke_from_label": "Widerrufen von",
   "sig.sigature_request_label": "Unterschriftenanfrage",
+  "sign.swap_estimate_receive": "Kostenvoranschlag erhalten",
   "skip_verify_text": "Ich habe mein Gerät nicht bei mir",
   "slippage_tolerance.button_save": "Speichern",
   "slippage_tolerance.description": "Die Auto-Slippage optimiert den Slippage basierend auf der Pool-Liquidität und dem Handelsvolumen, wodurch Transaktionsfehler und MEV-Angriffsrisiken reduziert werden.",

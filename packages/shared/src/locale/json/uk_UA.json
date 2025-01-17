@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "Скасувати затвердження",
   "sig.revoke_from_label": "Відкликати з",
   "sig.sigature_request_label": "Запит на підпис",
+  "sign.swap_estimate_receive": "Кошторис отримано",
   "skip_verify_text": "У мене немає приладу зі мною",
   "slippage_tolerance.button_save": "Зберегти",
   "slippage_tolerance.description": "Автоматичне зміщення оптимізує зміщення на основі ліквідності пулу та обсягу торгів, зменшуючи ризики невдалих транзакцій та атак MEV.",

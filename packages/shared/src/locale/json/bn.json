@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "অনুমোদন বাতিল করুন",
   "sig.revoke_from_label": "থেকে প্রত্যাহার করুন",
   "sig.sigature_request_label": "স্বাক্ষর অনুরোধ",
+  "sign.swap_estimate_receive": "আনুমানিক প্রাপ্তি",
   "skip_verify_text": "আমার ডিভাইসটি আমার সাথে নেই",
   "slippage_tolerance.button_save": "সংরক্ষণ করুন",
   "slippage_tolerance.description": "অটো স্লিপেজ পুল লিকুইডিটি এবং ট্রেডিং ভলিউমের উপর ভিত্তি করে স্লিপেজ অনুকূলন করে, লেনদেনের ব্যর্থতা এবং MEV হামলা ঝুঁকিগুলি হ্রাস করে।",

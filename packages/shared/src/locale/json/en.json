@@ -1880,6 +1880,7 @@
   "sig.revoke_approval_label": "Revoke approval",
   "sig.revoke_from_label": "Revoke from",
   "sig.sigature_request_label": "Signature request",
+  "sign.swap_estimate_receive": "Estimate received",
   "skip_verify_text": "I don't have my device with me",
   "slippage_tolerance.button_save": "Save",
   "slippage_tolerance.description": "Auto slippage optimizes slippage based on pool liquidity and trading volume, reducing transaction failures and MEV attack risks.",

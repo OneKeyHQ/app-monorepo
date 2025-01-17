@@ -1885,6 +1885,7 @@
   sig_revoke_approval_label = 'sig.revoke_approval_label',
   sig_revoke_from_label = 'sig.revoke_from_label',
   sig_sigature_request_label = 'sig.sigature_request_label',
+  sign_swap_estimate_receive = 'sign.swap_estimate_receive',
   skip_verify_text = 'skip_verify_text',
   slippage_tolerance_button_save = 'slippage_tolerance.button_save',
   slippage_tolerance_description = 'slippage_tolerance.description',
