@@ -974,6 +974,9 @@ if (!singleInstance && !process.mas) {
   });
 }
 
+// The activate and ready events are mapped from OS X's applicationShouldHandleReopen and applicationDidFinishLaunching events
+//  couldn't find documentation on whether applicationShouldHandleReopen would be emitted before applicationDidFinishLaunching.
+//  So we need to handle both cases to be safe.
 app.on('activate', async () => {
   await app.whenReady();
   if (!mainWindow) {
