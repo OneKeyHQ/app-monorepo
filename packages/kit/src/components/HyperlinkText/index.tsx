@@ -4,9 +4,9 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { type ISizableTextProps, SizableText } from '@onekeyhq/components';
-import { EQRCodeHandlerNames } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import useParseQRCode from '../../views/ScanQrCode/hooks/useParseQRCode';
 

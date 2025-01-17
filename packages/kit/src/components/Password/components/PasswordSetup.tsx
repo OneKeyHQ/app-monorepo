@@ -13,10 +13,10 @@ import {
   Unspaced,
   useForm,
 } from '@onekeyhq/components';
-import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EPasswordMode } from '@onekeyhq/shared/types/password';
 
 import {
   PassCodeRegex,

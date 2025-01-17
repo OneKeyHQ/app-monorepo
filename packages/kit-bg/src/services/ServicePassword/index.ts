@@ -14,7 +14,6 @@ import {
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   backgroundClass,
   backgroundMethod,
@@ -22,15 +21,23 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  IPasswordRes,
+  IPasswordSecuritySession,
+} from '@onekeyhq/shared/types/password';
 import {
+  BIOLOGY_AUTH_CANCEL_ERROR,
+  EPasswordMode,
+  EPasswordPromptType,
   EPasswordVerifyStatus,
-  type IPasswordSecuritySession,
+  PASSCODE_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
 } from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -51,16 +58,6 @@ import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthNativeError, biologyAuthUtils } from './biologyAuthUtils';
-import {
-  BIOLOGY_AUTH_CANCEL_ERROR,
-  EPasswordMode,
-  EPasswordPromptType,
-  PASSCODE_LENGTH,
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-} from './types';
-
-import type { IPasswordRes } from './types';
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
@@ -299,7 +296,7 @@ export default class ServicePassword extends ServiceBase {
         );
       }
     }
-    await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(enable);
+    await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(enable);
   }
 
   // validatePassword --------------------------------

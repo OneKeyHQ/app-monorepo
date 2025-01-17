@@ -1,6 +1,5 @@
 import { ONEKEY_APP_DEEP_LINK_NAME } from '@onekeyhq/shared/src/consts/deeplinkConsts';
-
-import { EQRCodeHandlerType } from '../type';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IQRCodeHandler, IUrlValue } from '../type';
 
