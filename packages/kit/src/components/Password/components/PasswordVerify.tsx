@@ -20,10 +20,12 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
-import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
+import {
+  EPasswordMode,
+  EPasswordVerifyStatus,
+} from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';

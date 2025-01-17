@@ -88,7 +88,7 @@ function MessageConfirm() {
 
   const typedData = JSON.stringify(unsignedMessage);
 
-  const { result: parsedMessage, isLoading } = usePromiseResult(
+  const { result, isLoading } = usePromiseResult(
     async () => {
       const accountAddress =
         await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
@@ -163,7 +163,10 @@ function MessageConfirm() {
         });
       }
 
-      return p;
+      return {
+        p,
+        isConfirmationRequired: m?.isConfirmationRequired,
+      };
     },
     [
       networkId,
@@ -177,6 +180,8 @@ function MessageConfirm() {
       watchLoading: true,
     },
   );
+
+  const { p: parsedMessage, isConfirmationRequired } = result ?? {};
 
   const showMessageHeaderInfo = useMemo(
     () => !walletInternalSign,
@@ -217,6 +222,7 @@ function MessageConfirm() {
               <DAppRiskyAlert
                 origin={$sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
+                hideSecurityAlert
                 alertProps={{
                   fullBleed: false,
                   borderTopWidth: 1,
@@ -290,6 +296,7 @@ function MessageConfirm() {
         continueOperate={continueOperate}
         setContinueOperate={setContinueOperate}
         urlSecurityInfo={urlSecurityInfo}
+        isConfirmationRequired={isConfirmationRequired}
       />
     </Page>
   );

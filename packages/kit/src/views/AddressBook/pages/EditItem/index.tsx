@@ -37,6 +37,8 @@ function EditItemPage() {
       >
     >();
 
+  const isCreateMode = !addressBookParams?.id;
+
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
       const { serviceAddressBook } = backgroundApiProxy;
@@ -100,19 +102,19 @@ function EditItemPage() {
 
   const { result: item, isLoading } = usePromiseResult(
     async () => {
-      if (addressBookParams.id) {
-        const addressBookItem =
-          await backgroundApiProxy.serviceAddressBook.findItemById(
-            addressBookParams.id,
-          );
-        return {
-          ...addressBookItem,
-          ...addressBookParams,
-        };
+      if (isCreateMode) {
+        return { ...defaultValues, ...addressBookParams };
       }
-      return { ...defaultValues, ...addressBookParams };
+      const addressBookItem =
+        await backgroundApiProxy.serviceAddressBook.findItemById(
+          addressBookParams.id,
+        );
+      return {
+        ...addressBookItem,
+        ...addressBookParams,
+      };
     },
-    [addressBookParams],
+    [addressBookParams, isCreateMode],
     {
       initResult: {
         address: '',
@@ -127,7 +129,9 @@ function EditItemPage() {
   return isLoading === false ? (
     <CreateOrEditContent
       title={intl.formatMessage({
-        id: ETranslations.address_book_edit_address_title,
+        id: isCreateMode
+          ? ETranslations.address_book_add_address_title
+          : ETranslations.address_book_edit_address_title,
       })}
       item={item}
       onSubmit={onSubmit}

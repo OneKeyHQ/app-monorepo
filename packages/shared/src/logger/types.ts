@@ -15,6 +15,7 @@ export enum EScopeName {
   notification = 'notification',
   app = 'app',
   account = 'account',
+  cloudBackup = 'cloudBackup',
   demo = 'demo',
   setting = 'setting',
   addressInput = 'addressInput',
