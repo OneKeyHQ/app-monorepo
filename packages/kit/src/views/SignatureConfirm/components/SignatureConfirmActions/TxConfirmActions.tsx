@@ -375,12 +375,16 @@ function TxConfirmActions(props: IProps) {
         }
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
+        $gtMd={{
+          alignItems: 'flex-end',
+        }}
         {...(bottom && {
           mb: bottom,
         })}
       >
         <Stack
-          pb="$2.5"
+          gap="$2.5"
+          pb="$5"
           $gtMd={{
             pb: '$0',
           }}
@@ -390,12 +394,6 @@ function TxConfirmActions(props: IProps) {
             networkId={networkId}
             useFeeInTx={useFeeInTx}
             feeInfoEditable={feeInfoEditable}
-            feeInfoWrapperProps={{
-              mb: showTakeRiskAlert ? '$2.5' : '0',
-              $gtMd: {
-                mb: '0',
-              },
-            }}
           />
           {showTakeRiskAlert ? (
             <Checkbox
