@@ -4,14 +4,17 @@ export enum ETabHomeRoutes {
   TabHomeUrlAccountLanding = 'TabHomeUrlAccountLanding',
 }
 
-export type ITabHomeParamList = {
-  [ETabHomeRoutes.TabHome]: undefined;
+export type ITabHomeUrlAccountParamList = {
   [ETabHomeRoutes.TabHomeUrlAccountPage]: {
     networkId: string;
     address: string;
   };
+};
+
+export type ITabHomeParamList = {
+  [ETabHomeRoutes.TabHome]: undefined;
   [ETabHomeRoutes.TabHomeUrlAccountLanding]: {
     networkId: string;
     address: string;
   };
-};
+} & ITabHomeUrlAccountParamList;
