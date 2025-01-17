@@ -1,7 +1,9 @@
 import type { IDecodedTxExtraAlgo } from '@onekeyhq/core/src/chains/algo/types';
+import type { IDecodedTxExtraCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
 import type { IDecodedTxExtraDnx } from '@onekeyhq/core/src/chains/dnx/types';
 import type { IDecodedTxExtraLightning } from '@onekeyhq/core/src/chains/lightning/types';
 import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
+import type { IDecodedTxExtraTon } from '@onekeyhq/core/src/chains/ton/types';
 import type { IDecodedTxExtraTron } from '@onekeyhq/core/src/chains/tron/types';
 import type { IDecodedTxExtraXrp } from '@onekeyhq/core/src/chains/xrp/types';
 import type { IEncodedTx, ISignedTxPro } from '@onekeyhq/core/src/types';
@@ -101,7 +103,9 @@ export type IDecodedTxExtraInfo =
   | IDecodedTxExtraXrp
   | IDecodedTxExtraDnx
   | IDecodedTxExtraTron
-  | IDecodedTxExtraSol;
+  | IDecodedTxExtraSol
+  | IDecodedTxExtraCosmos
+  | IDecodedTxExtraTon;
 
 export type IDecodedTx = {
   txid: string; // blockHash
