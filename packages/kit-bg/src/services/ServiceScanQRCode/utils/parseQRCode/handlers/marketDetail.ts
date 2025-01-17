@@ -2,7 +2,6 @@ import {
   WEB_APP_URL,
   WEB_APP_URL_DEV,
 } from '@onekeyhq/shared/src/config/appConfig';
-
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IMarketDetailValue, IQRCodeHandler } from '../type';

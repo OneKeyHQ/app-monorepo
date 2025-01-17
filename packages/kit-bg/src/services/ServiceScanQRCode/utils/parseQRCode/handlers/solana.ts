@@ -1,5 +1,4 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IQRCodeHandler, ISolanaValue } from '../type';

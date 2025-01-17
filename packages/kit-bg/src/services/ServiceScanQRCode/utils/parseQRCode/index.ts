@@ -1,7 +1,10 @@
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import {
+  EQRCodeHandlerType,
+  PARSE_HANDLER_NAMES,
+} from '@onekeyhq/shared/types/qrCode';
 
-import { PARSE_HANDLERS, PARSE_HANDLER_NAMES } from './handlers';
+import { PARSE_HANDLERS } from './handlers';
 import * as deeplinkHandler from './handlers/deeplink';
 import * as urlHandler from './handlers/url';
 

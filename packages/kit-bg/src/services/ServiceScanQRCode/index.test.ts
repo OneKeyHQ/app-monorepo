@@ -1,8 +1,9 @@
-import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import {
+  EQRCodeHandlerType,
+  PARSE_HANDLER_NAMES,
+} from '@onekeyhq/shared/types/qrCode';
 
 import { parseQRCode as parse } from './utils/parseQRCode';
-import { PARSE_HANDLER_NAMES } from './utils/parseQRCode/handlers';
-
 // yarn jest packages/kit-bg/src/services/ServiceScanQRCode/index.test.ts
 describe('useParseQRCode', () => {
   it('should parse as migrate', async () => {
