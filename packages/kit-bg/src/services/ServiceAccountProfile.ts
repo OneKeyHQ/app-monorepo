@@ -274,7 +274,19 @@ class ServiceAccountProfile extends ServiceBase {
   }: IQueryCheckAddressArgs) {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
-    const address = rawAddress.trim();
+    let address = rawAddress.trim();
+
+    try {
+      const { displayAddress } =
+        await this.backgroundApi.serviceValidator.localValidateAddress({
+          networkId,
+          address,
+        });
+      address = displayAddress;
+    } catch (e) {
+      // noop
+    }
+
     const result: IAddressQueryResult = {
       input: rawAddress,
     };

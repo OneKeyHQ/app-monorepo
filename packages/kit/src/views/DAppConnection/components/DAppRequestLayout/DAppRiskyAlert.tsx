@@ -17,10 +17,12 @@ function DAppRiskyAlert({
   origin,
   urlSecurityInfo,
   alertProps,
+  hideSecurityAlert,
 }: {
   origin: string;
   urlSecurityInfo?: IHostSecurity;
   alertProps?: React.ComponentProps<typeof Alert>;
+  hideSecurityAlert?: boolean;
 }) {
   const intl = useIntl();
   const riskStyle = useMemo(() => {
@@ -51,6 +53,13 @@ function DAppRiskyAlert({
     }
     return defaultStyle;
   }, [urlSecurityInfo?.level]);
+
+  if (
+    hideSecurityAlert &&
+    urlSecurityInfo?.level === EHostSecurityLevel.Security
+  ) {
+    return null;
+  }
 
   if (!urlSecurityInfo?.alert) {
     return null;
