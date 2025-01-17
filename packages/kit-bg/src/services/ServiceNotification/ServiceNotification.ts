@@ -15,7 +15,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
-import notificationsUtils from '@onekeyhq/shared/src/utils/notificationsUtils';
+import notificationsUtils, {
+  NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+} from '@onekeyhq/shared/src/utils/notificationsUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -42,7 +44,6 @@ import {
   EPushProviderEventNames,
 } from '@onekeyhq/shared/types/notification';
 
-import { NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT } from '../../dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import {
   notificationsAtom,
   notificationsDevSettingsPersistAtom,

@@ -1,7 +1,7 @@
 import axios from 'axios';
 import BigNumber from 'bignumber.js';
 import { EventSourcePolyfill } from 'event-source-polyfill';
-import { has } from 'lodash';
+import { cloneDeep, has } from 'lodash';
 
 import {
   getBtcForkNetwork,
@@ -1057,49 +1057,78 @@ export default class ServiceSwap extends ServiceBase {
 
   async swapHistoryStatusRunFetch(swapTxHistory: ISwapTxHistory) {
     let enableInterval = true;
+    let currentSwapTxHistory = cloneDeep(swapTxHistory);
     try {
       const txStatusRes = await this.fetchTxState({
-        txId: swapTxHistory.txInfo.txId ?? swapTxHistory.txInfo.orderId ?? '',
-        provider: swapTxHistory.swapInfo.provider.provider,
+        txId:
+          currentSwapTxHistory.txInfo.txId ??
+          currentSwapTxHistory.txInfo.orderId ??
+          '',
+        provider: currentSwapTxHistory.swapInfo.provider.provider,
         protocol: EProtocolOfExchange.SWAP,
-        networkId: swapTxHistory.baseInfo.fromToken.networkId,
-        ctx: swapTxHistory.ctx,
-        toTokenAddress: swapTxHistory.baseInfo.toToken.contractAddress,
-        receivedAddress: swapTxHistory.txInfo.receiver,
-        orderId: swapTxHistory.swapInfo.orderId,
+        networkId: currentSwapTxHistory.baseInfo.fromToken.networkId,
+        ctx: currentSwapTxHistory.ctx,
+        toTokenAddress: currentSwapTxHistory.baseInfo.toToken.contractAddress,
+        receivedAddress: currentSwapTxHistory.txInfo.receiver,
+        orderId: currentSwapTxHistory.swapInfo.orderId,
       });
-      if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
-        enableInterval = false;
-        await this.updateSwapHistoryItem({
-          ...swapTxHistory,
+      if (
+        txStatusRes?.state !== ESwapTxHistoryStatus.PENDING ||
+        txStatusRes.crossChainStatus !== currentSwapTxHistory.crossChainStatus
+      ) {
+        currentSwapTxHistory = {
+          ...currentSwapTxHistory,
           status: txStatusRes.state,
+          swapInfo: {
+            ...currentSwapTxHistory.swapInfo,
+            surplus:
+              txStatusRes.surplus ?? currentSwapTxHistory.swapInfo.surplus,
+          },
+          swapOrderHash:
+            txStatusRes.swapOrderHash ?? currentSwapTxHistory.swapOrderHash,
+          crossChainStatus:
+            txStatusRes.crossChainStatus ??
+            currentSwapTxHistory?.crossChainStatus,
           txInfo: {
-            ...swapTxHistory.txInfo,
-            txId: txStatusRes.txId ?? swapTxHistory.txInfo.txId,
+            ...currentSwapTxHistory.txInfo,
+            txId: txStatusRes.txId ?? currentSwapTxHistory.txInfo.txId,
             receiverTransactionId: txStatusRes.crossChainReceiveTxHash || '',
             gasFeeInNative: txStatusRes.gasFee
               ? txStatusRes.gasFee
-              : swapTxHistory.txInfo.gasFeeInNative,
+              : currentSwapTxHistory.txInfo.gasFeeInNative,
             gasFeeFiatValue: txStatusRes.gasFeeFiatValue
               ? txStatusRes.gasFeeFiatValue
-              : swapTxHistory.txInfo.gasFeeFiatValue,
+              : currentSwapTxHistory.txInfo.gasFeeFiatValue,
           },
           baseInfo: {
-            ...swapTxHistory.baseInfo,
+            ...currentSwapTxHistory.baseInfo,
             toAmount: txStatusRes.dealReceiveAmount
               ? txStatusRes.dealReceiveAmount
-              : swapTxHistory.baseInfo.toAmount,
+              : currentSwapTxHistory.baseInfo.toAmount,
           },
+        };
+        await this.updateSwapHistoryItem(currentSwapTxHistory);
+        appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+          fromToken: currentSwapTxHistory.baseInfo.fromToken,
+          toToken: currentSwapTxHistory.baseInfo.toToken,
+          status: txStatusRes.state,
+          crossChainStatus: txStatusRes.crossChainStatus,
         });
-        await this.cleanHistoryStateIntervals(swapTxHistory.txInfo.txId);
+        if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
+          enableInterval = false;
+          const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
+            ? currentSwapTxHistory.txInfo.orderId ?? ''
+            : currentSwapTxHistory.txInfo.txId ?? '';
+          await this.cleanHistoryStateIntervals(deleteHistoryId);
+        }
       }
     } catch (e) {
       const error = e as { message?: string };
       console.error('Swap History Status Fetch Error', error?.message);
     } finally {
-      const keyId = swapTxHistory.txInfo.useOrderId
-        ? swapTxHistory.txInfo.orderId ?? ''
-        : swapTxHistory.txInfo.txId ?? '';
+      const keyId = currentSwapTxHistory.txInfo.useOrderId
+        ? currentSwapTxHistory.txInfo.orderId ?? ''
+        : currentSwapTxHistory.txInfo.txId ?? '';
       if (
         enableInterval &&
         this.historyCurrentStateIntervalIds.includes(keyId)
@@ -1107,7 +1136,7 @@ export default class ServiceSwap extends ServiceBase {
         this.historyStateIntervalCountMap[keyId] =
           (this.historyStateIntervalCountMap[keyId] ?? 0) + 1;
         this.historyStateIntervals[keyId] = setTimeout(() => {
-          void this.swapHistoryStatusRunFetch(swapTxHistory);
+          void this.swapHistoryStatusRunFetch(currentSwapTxHistory);
         }, swapHistoryStateFetchInterval * (Math.floor((this.historyStateIntervalCountMap[keyId] ?? 0) / swapHistoryStateFetchRiceIntervalCount) + 1));
       }
     }

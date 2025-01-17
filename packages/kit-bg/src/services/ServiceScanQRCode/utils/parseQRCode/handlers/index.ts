@@ -1,4 +1,4 @@
-import { EQRCodeHandlerNames } from '../type';
+import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
 import animation from './animation';
 import bitcoin from './bitcoin';
@@ -22,18 +22,3 @@ export const PARSE_HANDLERS = {
   [EQRCodeHandlerNames.sendProtection]: sendProtection,
 };
 
-export const PARSE_HANDLER_NAMES = {
-  all: [
-    EQRCodeHandlerNames.bitcoin,
-    EQRCodeHandlerNames.ethereum,
-    EQRCodeHandlerNames.solana,
-    EQRCodeHandlerNames.walletconnect,
-    EQRCodeHandlerNames.migrate,
-    EQRCodeHandlerNames.animation,
-    EQRCodeHandlerNames.urlAccount,
-    EQRCodeHandlerNames.marketDetail,
-    EQRCodeHandlerNames.sendProtection,
-  ],
-  animation: [EQRCodeHandlerNames.animation],
-  none: [],
-} as Record<string, EQRCodeHandlerNames[]>;

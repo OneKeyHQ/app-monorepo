@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX } from '@onekeyhq/shared/types/password';
 
 const usePasswordProtection = (isLock: boolean) => {
   const [unlockPeriodPasswordArray, setUnlockPeriodPasswordArray] = useState<

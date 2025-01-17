@@ -4,11 +4,11 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { BIOLOGY_AUTH_CANCEL_ERROR } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import BiologyAuthSwitch from '../components/BiologyAuthSwitch';

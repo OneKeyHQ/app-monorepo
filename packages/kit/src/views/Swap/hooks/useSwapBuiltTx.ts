@@ -18,7 +18,6 @@ import {
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EWrappedType } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   IApproveInfo,
   ITransferInfo,
@@ -45,6 +44,7 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
+  EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 

@@ -1686,7 +1686,7 @@ SPEC CHECKSUMS:
   Burnt: dde5dd245f124a4594098e3938ba71aae4ec83c3
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
-  DoubleConversion: 76ab83afb40bddeeee456813d9c04f67f78771b5
+  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
   EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
   EXBarCodeScanner: d59fd943cebee3f913ebf4ffde0d05d344da8b78
   EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
@@ -1713,7 +1713,7 @@ SPEC CHECKSUMS:
   FBLazyVector: 9f533d5a4c75ca77c8ed774aced1a91a0701781e
   FBReactNativeSpec: 2db5940ee4b58968274eec0a4f1c736fc4caefa3
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
-  glog: 69ef571f3de08433d766d614c73a9838a06bf7eb
+  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
   hermes-engine: 39589e9c297d024e90fe68f6830ff86c4e01498a
   ImageColors: 88be684570585c07ae2750bff34eb7b78bfc53b4
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
@@ -1817,7 +1817,7 @@ SPEC CHECKSUMS:
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
   TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
-  Yoga: 6d01ccde54c9f8b92492beb05d468dbfed1d9881
+  Yoga: 07db09965bc46c4902e20d3ae6990d95e53af8a8
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: 5b7f20a90e19262f325cab10e37056b7f3cd0ffb
