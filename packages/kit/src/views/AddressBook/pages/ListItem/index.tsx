@@ -79,7 +79,14 @@ function ListPage() {
           <AddressBookListContent items={result?.items ?? []} showActions />
         </ContentContainer>
       </Page.Body>
-      {gtMd ? null : <Page.Footer onConfirm={onCreate} />}
+      {gtMd ? null : (
+        <Page.Footer
+          onConfirm={onCreate}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.address_book_add_address_title,
+          })}
+        />
+      )}
     </Page>
   );
 }
