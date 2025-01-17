@@ -850,7 +850,7 @@ function SendDataInputContainer() {
       return (
         <Form.Field
           name="nftAmount"
-          label={intl.formatMessage({ id: ETranslations.send_amount })}
+          label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
           rules={{ required: true, max: nftDetails?.amount ?? 1, min: 1 }}
         >
           {isLoadingAssets ? null : (

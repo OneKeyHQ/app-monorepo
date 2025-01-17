@@ -321,7 +321,10 @@ function TxConfirmActions(props: IProps) {
     [dappApprove, onCancelOnce, sourceInfo],
   );
 
-  const showTakeRiskAlert = useMemo(() => false, []);
+  const showTakeRiskAlert = useMemo(() => {
+    if (decodedTxs?.some((tx) => tx.isConfirmationRequired)) return true;
+    return false;
+  }, [decodedTxs]);
 
   const isSubmitDisabled = useMemo(() => {
     if (showTakeRiskAlert && !continueOperate) return true;

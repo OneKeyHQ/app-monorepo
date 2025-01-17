@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -63,7 +63,13 @@ type IUniversalWithdrawProps = {
 
   morphoVault?: string;
 
-  onConfirm?: (amount: string) => Promise<void>;
+  onConfirm?: ({
+    amount,
+    withdrawAll,
+  }: {
+    amount: string;
+    withdrawAll: boolean;
+  }) => Promise<void>;
 };
 
 const isNaN = (num: string) =>
@@ -97,6 +103,7 @@ export const UniversalWithdraw = ({
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
+  const withdrawAllRef = useRef(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [
     {
@@ -140,7 +147,10 @@ export const UniversalWithdraw = ({
         try {
           setLoading(true);
           await inst.close();
-          await onConfirm?.(amountValue);
+          await onConfirm?.({
+            amount: amountValue,
+            withdrawAll: withdrawAllRef.current,
+          });
         } finally {
           setLoading(false);
         }
@@ -172,12 +182,13 @@ export const UniversalWithdraw = ({
       action: 'unstake',
       amount,
       morphoVault,
+      withdrawAll: withdrawAllRef.current,
     });
     setCheckoutAmountMessage(message);
   }, 300);
 
   const onChangeAmountValue = useCallback(
-    (value: string) => {
+    (value: string, isMax = false) => {
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
@@ -195,6 +206,7 @@ export const UniversalWithdraw = ({
       } else {
         setAmountValue(value);
       }
+      withdrawAllRef.current = !!isMax;
       void checkAmount(value);
     },
     [checkAmount, decimals],
@@ -225,7 +237,7 @@ export const UniversalWithdraw = ({
   }, [minAmount, amountValue, balance]);
 
   const onMax = useCallback(() => {
-    onChangeAmountValue(balance);
+    onChangeAmountValue(balance, true);
   }, [onChangeAmountValue, balance]);
 
   const isCheckAmountMessageError =

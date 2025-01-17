@@ -100,6 +100,7 @@ export type IWithdrawBaseParams = {
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
   morphoVault?: string; // morpho vault
+  withdrawAll?: boolean;
 };
 
 export type IUnstakePushParams = {
@@ -327,6 +328,7 @@ export type IEarnAccountResponse = {
   totalFiatValue: string;
   earnings24h: string;
   tokens: IEarnAccountToken[];
+  canClaim: boolean;
 };
 
 export type IEarnAccount = {
@@ -337,9 +339,11 @@ export type IEarnAccount = {
 };
 
 export type IEarnAccountTokenResponse = {
+  hasClaimableAssets?: boolean;
   totalFiatValue?: string;
   earnings24h?: string;
   accounts: IEarnAccount[];
+  isOverviewLoaded?: boolean;
 };
 
 export type IEarnRewardUnit = 'APY' | 'APR';

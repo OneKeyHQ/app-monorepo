@@ -8,6 +8,10 @@ export enum EEarnProviderEnum {
 export type ISupportedSymbol =
   | 'ETH'
   | 'USDC'
+  | 'USDT'
+  | 'DAI'
+  | 'WETH'
+  | 'CBBTC'
   | 'MATIC'
   | 'SOL'
   | 'ATOM'
