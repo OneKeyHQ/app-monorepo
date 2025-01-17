@@ -2,6 +2,7 @@ import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import type { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 import type { ITokenData } from '@onekeyhq/shared/types/token';
 
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
