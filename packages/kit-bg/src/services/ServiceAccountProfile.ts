@@ -153,7 +153,10 @@ class ServiceAccountProfile extends ServiceBase {
         networkId,
       });
     if (isCustomNetwork) {
-      return { isContract: false, interacted: 'unknown' };
+      return {
+        isContract: false,
+        interacted: EAddressInteractionStatus.UNKNOWN,
+      };
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
