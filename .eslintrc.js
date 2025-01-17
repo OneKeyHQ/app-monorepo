@@ -285,6 +285,9 @@ module.exports = {
       },
     },
     // specific rules for packages
+    //
+    // Note: Files are checked only once with the first matching configuration.
+    // The order of these overrides matters - more specific patterns should come first.
     {
       files: [
         'packages/components/src/**/*.ts',
@@ -308,12 +311,7 @@ module.exports = {
       },
     },
     {
-      files: [
-        'packages/shared/src/**/*.ts',
-        'packages/shared/src/**/*.tsx',
-        'packages/core/src/**/*.ts',
-        'packages/core/src/**/*.tsx',
-      ],
+      files: ['packages/shared/src/**/*.ts', 'packages/shared/src/**/*.tsx'],
       rules: {
         '@typescript-eslint/no-restricted-imports': [
           'error',
@@ -343,6 +341,11 @@ module.exports = {
           {
             patterns: [
               ...restrictedImportsPatterns,
+              {
+                allowTypeImports: true,
+                group: ['tamagui'],
+                message: 'Please avoid using tamagui in this folder',
+              },
               {
                 allowTypeImports: true,
                 group: ['@onekeyhq/kit', '@onekeyhq/components'],
@@ -390,12 +393,7 @@ module.exports = {
       },
     },
     {
-      files: [
-        'packages/kit-bg/src/**/*.ts',
-        'packages/kit-bg/src/**/*.tsx',
-        'packages/core/src/**/*.ts',
-        'packages/core/src/**/*.tsx',
-      ],
+      files: ['packages/core/src/**/*.ts', 'packages/core/src/**/*.tsx'],
       rules: {
         '@typescript-eslint/no-restricted-imports': [
           'error',
@@ -404,7 +402,12 @@ module.exports = {
               ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
-                group: ['tamagui'],
+                group: [
+                  'tamagui',
+                  '@onekeyhq/kit',
+                  '@onekeyhq/kit-bg',
+                  '@onekeyhq/components'
+                ],
                 message: 'Please avoid using tamagui in this folder',
               },
             ],
