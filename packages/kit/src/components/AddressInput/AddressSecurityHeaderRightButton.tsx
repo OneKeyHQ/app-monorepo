@@ -11,7 +11,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperLinkText';
+import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { HyperlinkText } from '../HyperlinkText';
