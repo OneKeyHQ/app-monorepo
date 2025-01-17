@@ -56,8 +56,8 @@ export function BasicListItemIconButton({
             if (id) {
               const addressBookItem =
                 await backgroundApiProxy.serviceAddressBook.findItemById(id);
-              appNavigation.popStack();
               if (addressBookItem) {
+                appNavigation.popStack();
                 void urlAccountNavigation.pushUrlAccountPage(appNavigation, {
                   address: addressBookItem.address,
                   networkId: addressBookItem.networkId,
@@ -65,7 +65,7 @@ export function BasicListItemIconButton({
               }
             }
           },
-          testID: `address-menu-edit-${safeAddress}`,
+          testID: `address-menu-portfolio-${safeAddress}`,
         },
       ]}
       renderTrigger={
