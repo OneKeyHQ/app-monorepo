@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
+import { updateInterceptorRequestHelper } from '../init/updateInterceptorRequestHelper';
 import { createBackgroundProviders } from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
@@ -59,6 +60,8 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+
+updateInterceptorRequestHelper();
 
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {

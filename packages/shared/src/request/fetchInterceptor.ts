@@ -1,12 +1,10 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */
 import { forEach, isNil, isString } from 'lodash';
-
-import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
 
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
 
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
+import requestHelper from './requestHelper';
 
 function getUrlFromResource(resource: RequestInfo | URL | string) {
   if (isString(resource)) {
@@ -55,7 +53,7 @@ const newFetch = async function (
   }
 
   const url = getUrlFromResource(resource);
-  const isOneKeyDomain = await checkIsOneKeyDomain(url);
+  const isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url);
   let requestId: string | undefined;
   if (isOneKeyDomain) {
     options.headers = options.headers || {};

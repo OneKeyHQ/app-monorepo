@@ -110,7 +110,7 @@ export const { target: settingsAtom, use: useSettingsAtom } =
     },
   });
 
-type ISettingsValuePersistAtom = {
+export type ISettingsValuePersistAtom = {
   hideValue: boolean;
 };
 
