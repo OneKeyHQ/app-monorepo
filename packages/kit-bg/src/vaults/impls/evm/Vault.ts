@@ -49,6 +49,7 @@ import type {
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
+import { EWrappedType } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
@@ -62,24 +63,6 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
-import {
-  EWrappedType,
-  type IApproveInfo,
-  type IBroadcastTransactionByCustomRpcParams,
-  type IBuildAccountAddressDetailParams,
-  type IBuildDecodedTxParams,
-  type IBuildEncodedTxParams,
-  type IBuildUnsignedTxParams,
-  type IGetPrivateKeyFromImportedParams,
-  type IGetPrivateKeyFromImportedResult,
-  type INativeAmountInfo,
-  type ITokenApproveInfo,
-  type ITransferInfo,
-  type ITransferPayload,
-  type IUpdateUnsignedTxParams,
-  type IValidateGeneralInputParams,
-  type IWrappedInfo,
-} from '../../types';
 
 import { EVMContractDecoder } from './decoder';
 import {
@@ -108,6 +91,23 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
+import type {
+  IApproveInfo,
+  IBroadcastTransactionByCustomRpcParams,
+  IBuildAccountAddressDetailParams,
+  IBuildDecodedTxParams,
+  IBuildEncodedTxParams,
+  IBuildUnsignedTxParams,
+  IGetPrivateKeyFromImportedParams,
+  IGetPrivateKeyFromImportedResult,
+  INativeAmountInfo,
+  ITokenApproveInfo,
+  ITransferInfo,
+  ITransferPayload,
+  IUpdateUnsignedTxParams,
+  IValidateGeneralInputParams,
+  IWrappedInfo,
+} from '../../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const enabledNFTNetworkIds = getEnabledNFTNetworkIds();
