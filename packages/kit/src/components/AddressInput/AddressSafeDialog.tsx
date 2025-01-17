@@ -70,7 +70,7 @@ export const showAddressSafeNotificationDialog = async ({
       showConfirmButton: true,
       showCancelButton: false,
       onConfirmText: intl.formatMessage({
-        id: ETranslations.address_book_button_next,
+        id: ETranslations.global_ok,
       }),
       onConfirm: async (inst) => {
         await inst.close();
