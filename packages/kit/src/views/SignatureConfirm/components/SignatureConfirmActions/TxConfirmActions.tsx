@@ -376,6 +376,7 @@ function TxConfirmActions(props: IProps) {
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
         $gtMd={{
+          flexDirection: 'row',
           alignItems: 'flex-end',
         }}
         {...(bottom && {
