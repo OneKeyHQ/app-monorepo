@@ -280,7 +280,9 @@ export default class Vault extends VaultBase {
           gasLimit: feeInfo?.gas?.gasLimit ?? '0',
         },
       },
-      extraInfo: null,
+      extraInfo: {
+        memo: params.transferPayload?.memo,
+      },
       encodedTx,
     };
   }
