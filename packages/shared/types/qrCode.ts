@@ -13,3 +13,15 @@ export enum EQRCodeHandlerType {
   MARKET_DETAIL = 'MARKET_DETAIL',
   SEND_PROTECTION = 'SEND_PROTECTION',
 }
+
+export enum EQRCodeHandlerNames {
+  bitcoin = 'bitcoin',
+  ethereum = 'ethereum',
+  solana = 'solana',
+  walletconnect = 'walletconnect',
+  migrate = 'migrate',
+  animation = 'animation',
+  urlAccount = 'urlAccount',
+  marketDetail = 'marketDetail',
+  sendProtection = 'sendProtection',
+}

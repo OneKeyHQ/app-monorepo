@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { EQRCodeHandlerNames } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
+import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 import { SecureQRCodeDialogCancel } from '@onekeyhq/shared/src/errors';
 import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
