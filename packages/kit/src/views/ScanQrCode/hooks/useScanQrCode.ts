@@ -10,12 +10,12 @@ import type {
   IQRCodeHandlerParseOutsideOptions,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
-import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import {
   EModalRoutes,
   EScanQrCodeModalPages,
 } from '@onekeyhq/shared/src/routes';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 

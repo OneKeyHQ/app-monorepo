@@ -4,22 +4,6 @@ import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import type { ITokenData } from '@onekeyhq/shared/types/token';
 
-export enum EQRCodeHandlerType {
-  UNKNOWN = 'UNKNOWN',
-  BITCOIN = 'BITCOIN',
-  ETHEREUM = 'ETHEREUM',
-  SOLANA = 'SOLANA',
-  LIGHTNING_NETWORK = 'LIGHTNING_NETWORK',
-  URL = 'URL',
-  WALLET_CONNECT = 'WALLET_CONNECT',
-  MIGRATE = 'MIGRATE',
-  ANIMATION_CODE = 'ANIMATION_CODE',
-  DEEPLINK = 'DEEPLINK',
-  URL_ACCOUNT = 'URL_ACCOUNT',
-  MARKET_DETAIL = 'MARKET_DETAIL',
-  SEND_PROTECTION = 'SEND_PROTECTION',
-}
-
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface IBaseValue {}
 export interface IChainValue extends IBaseValue {
