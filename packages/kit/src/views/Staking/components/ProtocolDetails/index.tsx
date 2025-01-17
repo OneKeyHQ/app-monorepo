@@ -5,6 +5,7 @@ import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { FaqSection } from './FaqSection';
 import { ProfitSection } from './ProfitSection';
+import { ProtectionSection } from './ProtectionSection';
 import { ProviderSection } from './ProviderSection';
 
 type IProtocolDetailsProps = {
@@ -23,6 +24,7 @@ export function ProtocolDetails({
       <YStack gap="$8">{children}</YStack>
       <ProfitSection details={details} />
       <Divider />
+      <ProtectionSection details={details} />
       <ProviderSection details={details} />
       <Divider />
       <FaqSection details={details} />

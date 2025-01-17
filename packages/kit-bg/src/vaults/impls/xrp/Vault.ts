@@ -165,7 +165,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxXrp;
     const network = await this.getNetwork();
 
@@ -228,7 +228,11 @@ export default class Vault extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
-      extraInfo: null,
+      extraInfo: {
+        destinationTag: transferPayload?.memo
+          ? Number(transferPayload.memo)
+          : undefined,
+      },
       encodedTx,
     };
 

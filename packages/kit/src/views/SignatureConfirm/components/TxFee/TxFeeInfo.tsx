@@ -945,13 +945,32 @@ function TxFeeInfo(props: IProps) {
   useEffect(() => {
     if (!txFeeInit || nativeTokenInfo.isLoading || !nativeTokenInfo) return;
 
+    const requiredNativeBalance = new BigNumber(
+      nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
+    )
+      .plus(selectedFee?.totalNative ?? 0)
+      .plus(extraFeeInfo.feeNative ?? 0);
+
+    console.log(
+      'nativeTokenTransferAmountToUpdate  ',
+      nativeTokenTransferAmountToUpdate,
+    );
+
+    console.log('requiredNativeBalance  ', requiredNativeBalance.toString());
+    console.log('extraFeeInfo.feeNative  ', extraFeeInfo.feeNative);
+    console.log('selectedFee?.totalNative  ', selectedFee);
+
+    const fillUpNativeBalance = requiredNativeBalance.minus(
+      nativeTokenInfo.balance ?? 0,
+    );
+
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
         ? false
-        : new BigNumber(nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0)
-            .plus(selectedFee?.totalNative ?? 0)
-            .plus(extraFeeInfo.feeNative ?? 0)
-            .gt(nativeTokenInfo.balance ?? 0),
+        : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0),
+      fillUpNativeBalance: fillUpNativeBalance
+        .sd(4, BigNumber.ROUND_UP)
+        .toString(),
     });
   }, [
     extraFeeInfo.feeNative,
@@ -1106,46 +1125,6 @@ function TxFeeInfo(props: IProps) {
     [selectedFee?.totalFiatMinForDisplay, settings.currencyInfo.symbol],
   );
 
-  const renderMaxFeeInfo = useCallback(() => {
-    if (!txFeeInit) return null;
-
-    if (
-      selectedFee?.totalNativeMinForDisplay ===
-      selectedFee?.totalNativeForDisplay
-    )
-      return null;
-
-    return (
-      <>
-        <SizableText
-          size="$bodySm"
-          color="$textSubdued"
-          style={{ textTransform: 'lowercase' }}
-        >
-          {intl.formatMessage({
-            id: ETranslations.global_max,
-          })}
-        </SizableText>
-        <NumberSizeableText
-          size="$bodySm"
-          color="$textSubdued"
-          formatter="balance"
-          formatterOptions={{
-            tokenSymbol: txFee?.common.nativeSymbol,
-          }}
-        >
-          {selectedFee?.totalNativeForDisplay ?? '-'}
-        </NumberSizeableText>
-      </>
-    );
-  }, [
-    intl,
-    selectedFee?.totalNativeForDisplay,
-    selectedFee?.totalNativeMinForDisplay,
-    txFee?.common.nativeSymbol,
-    txFeeInit,
-  ]);
-
   useEffect(() => {
     if (txAdvancedSettings.dataChanged) {
       setTxFeeInit(false);
@@ -1158,7 +1137,7 @@ function TxFeeInfo(props: IProps) {
 
   return (
     <Stack {...feeInfoWrapperProps}>
-      <XStack gap="$1" alignItems="center" pb="$1">
+      <XStack gap="$2" alignItems="center" pb="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_est_network_fee,
@@ -1184,7 +1163,6 @@ function TxFeeInfo(props: IProps) {
         {txFeeInit && !isNil(selectedFee?.totalFiatMinForDisplay)
           ? renderTotalFiat()
           : ''}
-        {renderMaxFeeInfo()}
       </XStack>
     </Stack>
   );

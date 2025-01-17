@@ -364,34 +364,15 @@ export const UniversalWithdraw = ({
         {unstakingPeriod ? (
           <CalculationListItem>
             <XStack flex={1} alignItems="center" gap="$1">
-              <CalculationListItem.Label>
+              <CalculationListItem.Label
+                tooltip={intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period_tooltip,
+                })}
+              >
                 {intl.formatMessage({
                   id: ETranslations.earn_unstaking_period,
                 })}
               </CalculationListItem.Label>
-              <Popover
-                title={intl.formatMessage({
-                  id: ETranslations.earn_unstaking_period,
-                })}
-                placement="top"
-                renderTrigger={
-                  <IconButton
-                    iconColor="$iconSubdued"
-                    size="small"
-                    icon="InfoCircleOutline"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <Stack p="$5">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.earn_unstaking_period_tooltip,
-                      })}
-                    </SizableText>
-                  </Stack>
-                }
-              />
             </XStack>
 
             <CalculationListItem.Value>

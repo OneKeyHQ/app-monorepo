@@ -26,3 +26,7 @@ export type IEncodedTxTon = {
   validUntil?: number;
   network?: CHAIN;
 };
+
+export interface IDecodedTxExtraTon {
+  memo?: string;
+}

@@ -184,37 +184,27 @@ class ServiceCloudBackup extends ServiceBase {
           };
           const HDAccountUUID = getHDAccountUUID(account);
           if (account.indexedAccountId) {
-            try {
-              const indexedAccount = await serviceAccount.getIndexedAccount({
-                id: account.indexedAccountId,
-              });
+            const indexedAccount = await serviceAccount.getIndexedAccountSafe({
+              id: account.indexedAccountId,
+            });
+            // indexedAccount may be removed, but account not clean yet (check ServiceAppCleanup)
+            if (indexedAccount) {
               account.name = indexedAccount.name;
               walletToBackup.indexedAccountUUIDs.push(account.indexedAccountId);
-            } catch (error) {
-              defaultLogger.cloudBackup.getDataForBackupScene.getIndexedAccountError(
-                {
-                  error,
-                  accountId: account.id,
-                  indexedAccountId: account.indexedAccountId,
-                  coinType: account.coinType,
-                  path: account.path,
-                },
-              );
-              throw error;
+              walletToBackup.accounts.push(account);
+              walletToBackup.accountIds.push(HDAccountUUID);
+
+              publicBackupData.HDWallets[wallet.id] = {
+                name: walletToBackup.name,
+                avatar: walletToBackup.avatar,
+                accountUUIDs: walletToBackup.accountIds,
+                indexedAccountUUIDs: Array.from(
+                  new Set(walletToBackup.indexedAccountUUIDs),
+                ).map(() => generateUUID()),
+              };
+              privateBackupData.wallets[wallet.id] = walletToBackup;
             }
           }
-          walletToBackup.accounts.push(account);
-          walletToBackup.accountIds.push(HDAccountUUID);
-
-          publicBackupData.HDWallets[wallet.id] = {
-            name: walletToBackup.name,
-            avatar: walletToBackup.avatar,
-            accountUUIDs: walletToBackup.accountIds,
-            indexedAccountUUIDs: Array.from(
-              new Set(walletToBackup.indexedAccountUUIDs),
-            ).map(() => generateUUID()),
-          };
-          privateBackupData.wallets[wallet.id] = walletToBackup;
         }
       }
     }

@@ -82,7 +82,7 @@ function BasicStakePage() {
     async (amount: string) => {
       await handleStake({
         amount,
-        symbol: tokenInfo.symbol.toUpperCase(),
+        symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Stake,
