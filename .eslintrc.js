@@ -360,11 +360,32 @@ module.exports = {
       },
     },
     {
+      files: ['packages/kit/src/**/*.ts', 'packages/kit/src/**/*.tsx'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              ...restrictedImportsPatterns,
+              {
+                allowTypeImports: true,
+                group: ['tamagui'],
+                message: 'Please avoid using tamagui in this folder',
+              },
+              {
+                allowTypeImports: true,
+                regex: "@onekeyhq/kit-bg/src/(?!states|apis/BackgroundApiProxy)",
+                message: 'Please avoid using @onekeyhq/kit-bg in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: [
         'packages/kit-bg/src/**/*.ts',
         'packages/kit-bg/src/**/*.tsx',
-        'packages/kit/src/**/*.ts',
-        'packages/kit/src/**/*.tsx',
         'packages/core/src/**/*.ts',
         'packages/core/src/**/*.tsx',
       ],
