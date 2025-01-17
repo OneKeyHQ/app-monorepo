@@ -5,13 +5,11 @@ import { groupBy } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  Badge,
   Empty,
   Icon,
   MatchSizeableText,
   SearchBar,
   SectionList,
-  SizableText,
   Stack,
   XStack,
   useMedia,
@@ -23,6 +21,8 @@ import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+
+import { AccountAvatar } from '../../../components/AccountAvatar';
 
 import { AddressBookSectionList } from './AddressBookSectionList';
 import { ListItemIconButton } from './ListItemIconButton';
@@ -73,23 +73,35 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
   onPress,
   showActions,
 }) => {
-  const intl = useIntl();
   const renderAvatar = useCallback(
     () => (
-      <Stack
-        justifyContent="center"
-        alignItems="center"
-        w="$10"
-        h="$10"
-        borderRadius="$full"
-        backgroundColor="$gray3"
-      >
-        <SizableText size="$bodyLgMedium">
-          {item.name.slice(0, 1).toUpperCase()}
-        </SizableText>
+      <Stack>
+        <AccountAvatar
+          justifyContent="center"
+          alignItems="center"
+          w="$10"
+          h="$10"
+          borderRadius="$2"
+          address={item.address}
+        />
+        {item.isAllowListed ? (
+          <Stack
+            w="$6"
+            h="$6"
+            ai="center"
+            jc="center"
+            borderRadius="$full"
+            bg="$bgApp"
+            position="absolute"
+            bottom={-5}
+            right={-8}
+          >
+            <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
+          </Stack>
+        ) : null}
       </Stack>
     ),
-    [item.name],
+    [item.address, item.isAllowListed],
   );
 
   const handlePress = useCallback(() => {
@@ -110,20 +122,6 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
             <MatchSizeableText size="$bodyLgMedium" match={item.nameMatch}>
               {item.name}
             </MatchSizeableText>
-            {item.isAllowListed ? (
-              <Badge badgeType="success" badgeSize="sm" gap="$1.5">
-                <Icon
-                  name="ShieldCheckDoneOutline"
-                  color="$iconSuccess"
-                  size="$4"
-                />
-                <SizableText size="$bodySmMedium" color="$iconSuccess">
-                  {intl.formatMessage({
-                    id: ETranslations.address_label_allowlist,
-                  })}
-                </SizableText>
-              </Badge>
-            ) : null}
           </XStack>
         }
         secondary={

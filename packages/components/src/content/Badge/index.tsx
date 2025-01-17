@@ -5,6 +5,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SizableText, XStack } from '../../primitives';
 
+import type { GetProps } from 'tamagui';
+
 export type IBadgeType =
   | 'success'
   | 'info'
@@ -113,3 +115,5 @@ export const Badge = withStaticProperties(BadgeComponent, {
   props: BadgeContext.Provider,
   Text: BadgeText,
 });
+
+export type IBadgeProps = GetProps<typeof Badge>;
