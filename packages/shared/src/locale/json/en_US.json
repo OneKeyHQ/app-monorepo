@@ -52,7 +52,7 @@
   "address_book_add_address.toast_add_success": "Add successful",
   "address_book_add_address.toast_copy_success": "Copied",
   "address_book_add_address.toast_delete_success": "Delete successful",
-  "address_book_add_address.toast_reset_success": "Reset Successful",
+  "address_book_add_address.toast_reset_success": "Reset successful",
   "address_book_add_address.toast_save_success": "Save successful",
   "address_book_edit_address.button_cancel": "Cancel",
   "address_book_edit_address.button_confirm": "Confirm",
