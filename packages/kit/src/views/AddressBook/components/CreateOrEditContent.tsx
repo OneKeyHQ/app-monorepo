@@ -223,8 +223,18 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
           </Form.Field>
         </Form>
         <YStack gap="$2.5" pt="$5">
-          <TimeRow title="Adds on" time={item.createdAt} />
-          <TimeRow title="Last modify" time={item.updatedAt} />
+          <TimeRow
+            title={intl.formatMessage({
+              id: ETranslations.address_book_edit_added_on,
+            })}
+            time={item.createdAt}
+          />
+          <TimeRow
+            title={intl.formatMessage({
+              id: ETranslations.address_book_edit_last_edited,
+            })}
+            time={item.updatedAt}
+          />
         </YStack>
       </Page.Body>
       <Page.Footer>
