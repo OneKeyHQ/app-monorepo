@@ -273,7 +273,7 @@ export const UniversalStake = ({
           { id: ETranslations.earn_provider_asset_staking },
           {
             'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol.toUpperCase(),
+            'asset': details.token.info.symbol,
           },
         ),
         renderContent: (
@@ -447,31 +447,13 @@ export const UniversalStake = ({
         {btcStakeTerm ? (
           <CalculationListItem>
             <XStack flex={1} alignItems="center" gap="$1">
-              <CalculationListItem.Label>
+              <CalculationListItem.Label
+                tooltip={intl.formatMessage({
+                  id: ETranslations.earn_term_tooltip,
+                })}
+              >
                 {intl.formatMessage({ id: ETranslations.earn_term })}
               </CalculationListItem.Label>
-
-              <Popover
-                title={intl.formatMessage({ id: ETranslations.earn_term })}
-                placement="bottom-start"
-                renderTrigger={
-                  <IconButton
-                    iconColor="$iconSubdued"
-                    size="small"
-                    icon="InfoCircleOutline"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <Stack p="$5">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.earn_term_tooltip,
-                      })}
-                    </SizableText>
-                  </Stack>
-                }
-              />
             </XStack>
             <CalculationListItem.Value>
               {btcStakeTerm}

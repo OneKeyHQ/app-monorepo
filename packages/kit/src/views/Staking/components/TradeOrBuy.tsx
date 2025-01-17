@@ -81,7 +81,7 @@ function BasicTradeOrBuy({
       <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
-          { token: token.symbol.toUpperCase() },
+          { token: token.symbol },
         )}
       </SizableText>
       <XStack gap="$2">
