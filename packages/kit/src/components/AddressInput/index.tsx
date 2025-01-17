@@ -153,6 +153,7 @@ export type IAddressQueryResult = {
   addressLabel?: string;
   isAllowListed?: boolean;
   isEnableTransferAllowList?: boolean;
+  isScam?: boolean;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -199,7 +200,8 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
               onChange={setResolveAddress}
             />
           </Stack>
-        ) : null}
+        ) : null}{' '}
+        <AddressBadge isScam={result.isScam} />
         <XStack my="$0.5" gap="$1">
           <AddressBadge
             status={result.addressInteractionStatus}

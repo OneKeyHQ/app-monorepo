@@ -144,7 +144,8 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     toAddress: string;
   }): Promise<{
-    isContract?: boolean;
+    isScam: boolean;
+    isContract: boolean;
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
   }> {
@@ -154,6 +155,7 @@ class ServiceAccountProfile extends ServiceBase {
       });
     if (isCustomNetwork) {
       return {
+        isScam: false,
         isContract: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
       };
@@ -169,7 +171,12 @@ class ServiceAccountProfile extends ServiceBase {
           toAddress,
         },
       });
-      const { isContract, interacted, label: addressLabel } = resp.data.data;
+      const {
+        isContract,
+        interacted,
+        label: addressLabel,
+        isScam,
+      } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
         EAddressInteractionStatus
@@ -180,12 +187,14 @@ class ServiceAccountProfile extends ServiceBase {
         [EServerInteractedStatus.UNKNOWN]: EAddressInteractionStatus.UNKNOWN,
       };
       return {
-        isContract,
+        isScam: isScam ?? false,
+        isContract: isContract ?? false,
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
       };
     } catch {
       return {
+        isScam: false,
         isContract: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
       };
@@ -215,7 +224,7 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted, addressLabel } =
+    const { isContract, interacted, addressLabel, isScam } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
@@ -232,6 +241,7 @@ class ServiceAccountProfile extends ServiceBase {
       result.isContract = isContract;
       result.addressLabel = addressLabel;
     }
+    result.isScam = isScam;
   }
 
   private async verifyCannotSendToSelf({
