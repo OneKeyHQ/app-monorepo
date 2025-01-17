@@ -16,6 +16,11 @@ import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 
+export enum EWrappedType {
+  DEPOSIT = 'deposit',
+  WITHDRAW = 'withdraw',
+}
+
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO

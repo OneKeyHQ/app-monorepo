@@ -38,6 +38,7 @@ import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type {
   ESwapTabSwitchType,
+  EWrappedType,
   IFetchBuildTxResult,
   IOKXTransactionObject,
   ISwapTokenBase,
@@ -480,11 +481,6 @@ export type ITransferPayload = {
   originalRecipient: string;
   isToContract?: boolean;
 };
-
-export enum EWrappedType {
-  DEPOSIT = 'deposit',
-  WITHDRAW = 'withdraw',
-}
 
 export type IWrappedInfo = {
   from: string;
