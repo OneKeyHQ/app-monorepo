@@ -25,7 +25,6 @@ const ContentSpinner = () => (
 const ContentQuestionList = () => {
   const intl = useIntl();
 
-  // 定义内容项的数据
   const contentItems = [
     {
       index: 1,
