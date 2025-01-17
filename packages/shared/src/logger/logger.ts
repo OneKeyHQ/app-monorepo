@@ -4,6 +4,7 @@ import { AccountScope } from './scopes/account';
 import { AccountSelectorScope } from './scopes/accountSelector';
 import { AddressInputScope } from './scopes/addressInput';
 import { AppScope } from './scopes/app';
+import { CloudBackupScope } from './scopes/cloudBackup';
 import { DemoScope } from './scopes/demo';
 import { DiscoveryScope } from './scopes/discovery';
 import { FiatCryptoScope } from './scopes/fiatCrypto';
@@ -21,6 +22,8 @@ import { UpdateScope } from './scopes/update';
 
 export class DefaultLogger {
   account = new AccountScope();
+
+  cloudBackup = new CloudBackupScope();
 
   accountSelector = new AccountSelectorScope();
 
