@@ -974,7 +974,8 @@ if (!singleInstance && !process.mas) {
   });
 }
 
-app.on('activate', () => {
+app.on('activate', async () => {
+  await app.whenReady();
   if (!mainWindow) {
     mainWindow = createMainWindow();
   }
