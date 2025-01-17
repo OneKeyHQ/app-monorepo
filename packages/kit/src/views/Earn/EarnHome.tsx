@@ -207,9 +207,7 @@ function RecommendedItem({
             </Image.Fallback>
           </Image>
         </YStack>
-        <SizableText size="$bodyLgMedium">
-          {token.symbol.toUpperCase()}
-        </SizableText>
+        <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
         {buildAprText(token.apr, token.rewardUnit)}
@@ -220,7 +218,7 @@ function RecommendedItem({
           size="$bodyMd"
           color="$textSubdued"
           formatter="balance"
-          formatterOptions={{ tokenSymbol: token.symbol.toUpperCase() }}
+          formatterOptions={{ tokenSymbol: token.symbol }}
         >
           {token.balanceParsed}
         </NumberSizeableText>
