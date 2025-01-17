@@ -298,7 +298,7 @@ module.exports = {
               ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
-                group: ['@onekeyhq/kit/*', '@onekeyhq/kit-bg/*'],
+                group: ['@onekeyhq/kit', '@onekeyhq/kit-bg'],
                 message:
                   'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder',
               },
@@ -323,10 +323,9 @@ module.exports = {
               {
                 allowTypeImports: true,
                 group: [
-                  '@onekeyhq/kit/*',
-                  '@onekeyhq/kit-bg/*',
+                  '@onekeyhq/kit',
+                  '@onekeyhq/kit-bg',
                   '@onekeyhq/components',
-                  '@onekeyhq/components/*',
                 ],
                 message:
                   'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg and @onekeyhq/components in this folder',
@@ -346,11 +345,7 @@ module.exports = {
               ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
-                group: [
-                  '@onekeyhq/kit/*',
-                  '@onekeyhq/components',
-                  '@onekeyhq/components/*',
-                ],
+                group: ['@onekeyhq/kit', '@onekeyhq/components'],
                 message:
                   'Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder',
               },
@@ -374,7 +369,19 @@ module.exports = {
               },
               {
                 allowTypeImports: true,
-                regex: "@onekeyhq/kit-bg/src/(?!states|apis/BackgroundApiProxy)",
+                // TODO: upgrade eslint version to use regex pattern in no-restricted-imports rule
+                // https://eslint.org/docs/latest/rules/no-restricted-imports
+                group: [
+                  '@onekeyhq/kit-bg/src/connectors',
+                  '@onekeyhq/kit-bg/src/dbs',
+                  '@onekeyhq/kit-bg/src/endpoints',
+                  '@onekeyhq/kit-bg/src/migrations',
+                  '@onekeyhq/kit-bg/src/offscreens',
+                  '@onekeyhq/kit-bg/src/providers',
+                  '@onekeyhq/kit-bg/src/services',
+                  '@onekeyhq/kit-bg/src/vaults',
+                  '@onekeyhq/kit-bg/src/webembeds',
+                ],
                 message: 'Please avoid using @onekeyhq/kit-bg in this folder',
               },
             ],
