@@ -28,9 +28,18 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
+import type {
+  IPasswordRes,
+  IPasswordSecuritySession,
+} from '@onekeyhq/shared/types/password';
 import {
+  BIOLOGY_AUTH_CANCEL_ERROR,
+  EPasswordMode,
+  EPasswordPromptType,
   EPasswordVerifyStatus,
-  type IPasswordSecuritySession,
+  PASSCODE_LENGTH,
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
 } from '@onekeyhq/shared/types/password';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
@@ -51,16 +60,6 @@ import ServiceBase from '../ServiceBase';
 import { checkExtUIOpen } from '../utils';
 
 import { biologyAuthNativeError, biologyAuthUtils } from './biologyAuthUtils';
-import {
-  BIOLOGY_AUTH_CANCEL_ERROR,
-  EPasswordMode,
-  EPasswordPromptType,
-  PASSCODE_LENGTH,
-  PASSWORD_MAX_LENGTH,
-  PASSWORD_MIN_LENGTH,
-} from '@onekeyhq/shared/types/password';
-
-import type { IPasswordRes } from '@onekeyhq/shared/types/password';
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {
