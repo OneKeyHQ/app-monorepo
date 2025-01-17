@@ -5,7 +5,6 @@ import type {
   IDBAccount,
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { vaultFactory } from '@onekeyhq/kit-bg/src/vaults/factory';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import { ERootRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -125,16 +124,10 @@ function AddressInfo(props: IProps) {
     withWrapper = true,
   } = props;
   const addressQueryResult = usePromiseResult(async () => {
-    const { displayAddress } =
-      await backgroundApiProxy.serviceValidator.localValidateAddress({
-        networkId,
-        address,
-      });
-
     const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
       accountId,
       networkId,
-      address: displayAddress || address,
+      address,
       enableAddressBook: true,
       enableWalletName: true,
       skipValidateAddress: true,
