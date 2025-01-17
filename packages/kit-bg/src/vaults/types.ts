@@ -479,6 +479,9 @@ export type ITransferPayload = {
   isNFT: boolean;
   originalRecipient: string;
   isToContract?: boolean;
+  memo?: string;
+  paymentId?: string;
+  note?: string;
 };
 
 export enum EWrappedType {

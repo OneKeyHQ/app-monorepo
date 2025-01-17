@@ -15,6 +15,8 @@ import type {
   ISignatureConfirmDisplay,
   ITransactionData,
 } from './signatureConfirm';
+import { IDecodedTxExtraCosmos } from '@onekeyhq/core/src/chains/cosmos/types';
+import { IDecodedTxExtraTon } from '@onekeyhq/core/src/chains/ton/types';
 
 export enum EDecodedTxDirection {
   IN = 'IN', // received
@@ -101,7 +103,9 @@ export type IDecodedTxExtraInfo =
   | IDecodedTxExtraXrp
   | IDecodedTxExtraDnx
   | IDecodedTxExtraTron
-  | IDecodedTxExtraSol;
+  | IDecodedTxExtraSol
+  | IDecodedTxExtraCosmos
+  | IDecodedTxExtraTon;
 
 export type IDecodedTx = {
   txid: string; // blockHash
