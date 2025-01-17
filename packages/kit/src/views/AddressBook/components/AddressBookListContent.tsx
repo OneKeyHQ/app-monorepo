@@ -84,22 +84,24 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
           borderRadius="$2"
           address={item.address}
         />
-        <Stack
-          w="$6"
-          h="$6"
-          ai="center"
-          jc="center"
-          borderRadius="$full"
-          bg="$bgApp"
-          position="absolute"
-          bottom={-5}
-          right={-8}
-        >
-          <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
-        </Stack>
+        {item.isAllowListed ? (
+          <Stack
+            w="$6"
+            h="$6"
+            ai="center"
+            jc="center"
+            borderRadius="$full"
+            bg="$bgApp"
+            position="absolute"
+            bottom={-5}
+            right={-8}
+          >
+            <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
+          </Stack>
+        ) : null}
       </Stack>
     ),
-    [item.address],
+    [item.address, item.isAllowListed],
   );
 
   const handlePress = useCallback(() => {
