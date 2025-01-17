@@ -120,7 +120,7 @@ const SettingProtectionModal = () => {
               id: ETranslations.settings_reset_app,
             })}
           >
-            <PassCodeProtectionSwitch />
+            <PassCodeProtectionSwitch size={ESwitchSize.small} />
           </ListItem>
           <SizableText px="$5" size="$bodySm" color="$textSubdued">
             {intl.formatMessage({
