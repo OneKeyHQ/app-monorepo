@@ -38,6 +38,12 @@ export enum ESwapRateDifferenceUnit {
   DEFAULT = 'default',
 }
 
+export enum EExplorerType {
+  PROVIDER = 'provider',
+  FROM = 'from',
+  TO = 'to',
+}
+
 export enum ETokenRiskLevel {
   UNKNOWN = 0,
   BENIGN = 1,
@@ -181,6 +187,7 @@ export enum ESwapCrossChainStatus {
   REFUNDED = 'REFUNDED',
   REFUND_FAILED = 'REFUND_FAILED',
   EXPIRED = 'EXPIRED',
+  PROVIDER_ERROR = 'PROVIDER_ERROR',
 }
 
 export interface ISwapOrderHash {
@@ -569,7 +576,6 @@ export interface ISwapCheckSupportResponse {
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
   crossChainStatus?: ESwapCrossChainStatus;
-  surplus?: string;
   swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
@@ -611,6 +617,7 @@ export interface ISwapTxHistory {
     orderId?: string;
     supportUrl?: string;
     orderSupportUrl?: string;
+    surplus?: string;
   };
   date: {
     created: number;
@@ -619,6 +626,14 @@ export interface ISwapTxHistory {
 }
 
 // component -----------------
+
+export interface IExplorersInfo {
+  url?: string;
+  logo?: string;
+  status: ESwapTxHistoryStatus;
+  type: EExplorerType;
+  name: string;
+}
 
 export interface ISwapSlippageSegmentItem {
   key: ESwapSlippageSegmentKey;

@@ -10,13 +10,13 @@ import {
   Button,
   Dialog,
   Divider,
+  Icon,
   Image,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
@@ -34,7 +34,12 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import type { IExplorersInfo } from '@onekeyhq/shared/types/swap/types';
+import {
+  EExplorerType,
+  ESwapCrossChainStatus,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
 import { AssetItem } from '../../../AssetDetails/pages/HistoryDetails';
@@ -44,7 +49,10 @@ import {
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
-import { getSwapHistoryStatusTextProps } from '../../utils/utils';
+import {
+  getSwapCrossChainStatusTextProps,
+  getSwapHistoryStatusTextProps,
+} from '../../utils/utils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -99,7 +107,6 @@ const SwapHistoryDetailModal = () => {
     openUrlExternal(url);
   }, []);
 
-  const { md } = useMedia();
   const renderSwapAssetsChange = useCallback(() => {
     const fromAsset = {
       name: txHistory?.baseInfo.fromToken.name ?? '',
@@ -188,21 +195,74 @@ const SwapHistoryDetailModal = () => {
     );
   }, [settingsPersistAtom.currencyInfo.symbol, txHistory]);
 
+  const fromTxExplorer = useCallback(
+    async (txId?: string) => {
+      const logo = txHistory?.baseInfo.fromNetwork?.logoURI;
+      const realTxId = txId ?? txHistory?.txInfo.txId;
+      let url = '';
+      if (txHistory?.baseInfo.fromNetwork?.networkId && realTxId) {
+        url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+          networkId: txHistory.baseInfo.fromNetwork?.networkId,
+          type: 'transaction',
+          param: realTxId,
+        });
+      }
+      return {
+        name: txHistory?.baseInfo.fromNetwork?.name ?? '-',
+        url,
+        logo,
+        status: txHistory?.status ?? ESwapTxHistoryStatus.PENDING,
+        type: EExplorerType.FROM,
+      } as IExplorersInfo;
+    },
+    [
+      txHistory?.baseInfo.fromNetwork?.logoURI,
+      txHistory?.baseInfo.fromNetwork?.name,
+      txHistory?.baseInfo.fromNetwork?.networkId,
+      txHistory?.status,
+      txHistory?.txInfo.txId,
+    ],
+  );
+  const toTxExplorer = useCallback(
+    async (txId?: string) => {
+      const logo = txHistory?.baseInfo.toNetwork?.logoURI;
+      const realTxId = txId ?? txHistory?.txInfo.receiverTransactionId;
+      let url = '';
+      if (
+        realTxId &&
+        txHistory?.baseInfo.toNetwork?.networkId &&
+        txHistory?.status === ESwapTxHistoryStatus.SUCCESS
+      ) {
+        url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+          networkId: txHistory?.baseInfo.toNetwork?.networkId,
+          type: 'transaction',
+          param: realTxId,
+        });
+      }
+      return {
+        name: txHistory?.baseInfo.toNetwork?.name ?? '-',
+        url,
+        logo,
+        status: txHistory?.status ?? ESwapTxHistoryStatus.PENDING,
+        type: EExplorerType.TO,
+      } as IExplorersInfo;
+    },
+    [
+      txHistory?.baseInfo.toNetwork?.logoURI,
+      txHistory?.baseInfo.toNetwork?.name,
+      txHistory?.baseInfo.toNetwork?.networkId,
+      txHistory?.status,
+      txHistory?.txInfo.receiverTransactionId,
+    ],
+  );
+
   const renderSwapOrderStatus = useCallback(() => {
     const { status } = txHistory ?? {};
     const { key, color } = getSwapHistoryStatusTextProps(
       status ?? ESwapTxHistoryStatus.PENDING,
     );
     return (
-      <Stack
-        flexDirection={md ? 'row' : 'column'}
-        {...(md
-          ? {
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }
-          : { alignItems: 'flex-start', gap: '$2' })}
-      >
+      <XStack gap="$2" alignItems="center">
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
@@ -210,11 +270,50 @@ const SwapHistoryDetailModal = () => {
           <SwapTxHistoryViewInBrowser
             item={txHistory}
             onViewInBrowser={onViewInBrowser}
+            fromTxExplorer={fromTxExplorer}
+            toTxExplorer={toTxExplorer}
           />
         ) : null}
-      </Stack>
+      </XStack>
     );
-  }, [intl, md, onViewInBrowser, txHistory]);
+  }, [fromTxExplorer, intl, onViewInBrowser, toTxExplorer, txHistory]);
+
+  const renderSwapCrossChainStatus = useCallback(() => {
+    const { crossChainStatus } = txHistory ?? {};
+    const { key, color } = getSwapCrossChainStatusTextProps(
+      crossChainStatus ?? ESwapCrossChainStatus.FROM_PENDING,
+    );
+    return (
+      <XStack gap="$2" alignItems="center">
+        <SizableText size={16} color={color}>
+          {intl.formatMessage({ id: key })}
+        </SizableText>
+        {txHistory?.swapOrderHash?.refundHash ? (
+          <XStack
+            onPress={async () => {
+              const explorerInfo = await fromTxExplorer(
+                txHistory?.swapOrderHash?.refundHash,
+              );
+              if (explorerInfo.url) {
+                onViewInBrowser(explorerInfo.url);
+              }
+            }}
+            cursor="pointer"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon
+              name="OpenOutline"
+              size="$4.5"
+              flex={1}
+              alignSelf="center"
+              color="$iconSubdued"
+            />
+          </XStack>
+        ) : null}
+      </XStack>
+    );
+  }, [fromTxExplorer, intl, onViewInBrowser, txHistory]);
 
   const renderSwapDate = useCallback(() => {
     const { created } = txHistory?.date ?? {};
@@ -311,15 +410,24 @@ const SwapHistoryDetailModal = () => {
                 id: ETranslations.swap_history_detail_order_status,
               })}
               renderContent={renderSwapOrderStatus()}
-              compact
+              compactAll
             />
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_date,
               })}
               renderContent={renderSwapDate()}
-              compact
+              compactAll
             />
+            {txHistory?.crossChainStatus ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_order_detail,
+                })}
+                renderContent={renderSwapCrossChainStatus()}
+                compactAll
+              />
+            ) : null}
           </InfoItemGroup>
           <Divider mx="$5" />
           <InfoItemGroup>
@@ -422,6 +530,15 @@ const SwapHistoryDetailModal = () => {
                 }
               />
             ) : null}
+            {txHistory?.swapInfo?.surplus ? (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_surplus,
+                })}
+                renderContent={`${txHistory.swapInfo.surplus} ${txHistory.baseInfo.toToken.symbol}`}
+              />
+            ) : null}
           </InfoItemGroup>
         </Stack>
       </>
@@ -432,6 +549,7 @@ const SwapHistoryDetailModal = () => {
     renderNetworkFee,
     renderRate,
     renderSwapAssetsChange,
+    renderSwapCrossChainStatus,
     renderSwapDate,
     renderSwapOrderStatus,
     renderSwapProvider,

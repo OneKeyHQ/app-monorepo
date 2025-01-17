@@ -19,13 +19,13 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
   ISwapInitParams,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapCrossChainStatus,
   ESwapDirectionType,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
@@ -666,12 +666,15 @@ export function useSwapSelectedTokenInfo({
   if (isFocusRef.current !== isFocused) {
     isFocusRef.current = isFocused;
   }
-
+  const tokenInfoRef = useRef<ISwapToken | undefined>(token);
+  if (tokenInfoRef.current !== token) {
+    tokenInfoRef.current = token;
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadSwapSelectTokenDetailDeb = useCallback(
     debounce((direction, addressInfo, fetchBalance) => {
       void loadSwapSelectTokenDetail(direction, addressInfo, fetchBalance);
-    }, 200),
+    }, 300),
     [],
   );
 
@@ -679,6 +682,7 @@ export function useSwapSelectedTokenInfo({
     ({
       fromToken,
       toToken,
+      crossChainStatus,
     }: {
       status: ESwapTxHistoryStatus;
       crossChainStatus?: ESwapCrossChainStatus;
@@ -693,8 +697,8 @@ export function useSwapSelectedTokenInfo({
               contractAddress: fromToken?.contractAddress,
             },
             token2: {
-              networkId: token?.networkId,
-              contractAddress: token?.contractAddress,
+              networkId: tokenInfoRef.current?.networkId,
+              contractAddress: tokenInfoRef.current?.contractAddress,
             },
           })) ||
         (type === ESwapDirectionType.TO &&
@@ -704,24 +708,29 @@ export function useSwapSelectedTokenInfo({
               contractAddress: toToken?.contractAddress,
             },
             token2: {
-              networkId: token?.networkId,
-              contractAddress: token?.contractAddress,
+              networkId: tokenInfoRef.current?.networkId,
+              contractAddress: tokenInfoRef.current?.contractAddress,
             },
           }))
       ) {
-        void loadSwapSelectTokenDetailDeb(
-          type,
-          swapAddressInfoRef.current,
-          true,
-        );
+        if (
+          crossChainStatus !== ESwapCrossChainStatus.FROM_PENDING &&
+          crossChainStatus !== ESwapCrossChainStatus.EXPIRED &&
+          crossChainStatus !== ESwapCrossChainStatus.FROM_FAILED &&
+          crossChainStatus !== ESwapCrossChainStatus.TO_FAILED &&
+          crossChainStatus !== ESwapCrossChainStatus.BRIDGE_FAILED &&
+          crossChainStatus !== ESwapCrossChainStatus.REFUND_FAILED &&
+          crossChainStatus !== ESwapCrossChainStatus.PROVIDER_ERROR
+        ) {
+          void loadSwapSelectTokenDetailDeb(
+            type,
+            swapAddressInfoRef.current,
+            true,
+          );
+        }
       }
     },
-    [
-      type,
-      token?.networkId,
-      token?.contractAddress,
-      loadSwapSelectTokenDetailDeb,
-    ],
+    [type, loadSwapSelectTokenDetailDeb],
   );
   const pageType = usePageType();
   useEffect(() => {
