@@ -2,8 +2,9 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showAddressSafeNotificationDialog } from '@onekeyhq/kit/src/components/AddressInput/AddressSafeDialog';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -55,33 +56,13 @@ const AddressBookItem = () => {
   const [{ hideDialogInfo }] = useAddressBookPersistAtom();
   const onPress = useCallback(async () => {
     if (!hideDialogInfo) {
-      Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.address_book_encrypted_storage_title,
-        }),
-        icon: 'ShieldKeyholeOutline',
-        description: intl.formatMessage({
-          id: ETranslations.address_book_encrypted_storage_description,
-        }),
-        tone: 'default',
-        showConfirmButton: true,
-        showCancelButton: false,
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.address_book_button_next,
-        }),
-        onConfirm: async (inst) => {
-          await inst.close();
-          await showAddressBook();
-          await backgroundApiProxy.serviceAddressBook.hideDialogInfo();
-        },
-        confirmButtonProps: {
-          testID: 'encrypted-storage-confirm',
-        },
+      await showAddressSafeNotificationDialog({
+        intl,
       });
-    } else {
-      await showAddressBook();
+      await backgroundApiProxy.serviceAddressBook.hideDialogInfo();
     }
-  }, [showAddressBook, hideDialogInfo, intl]);
+    await showAddressBook();
+  }, [hideDialogInfo, showAddressBook, intl]);
   return (
     <ListItem
       icon="ContactsOutline"

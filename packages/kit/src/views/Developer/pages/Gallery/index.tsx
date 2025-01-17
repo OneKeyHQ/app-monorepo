@@ -486,6 +486,12 @@ const HyperlinkTextGallery = LazyLoadPage(
       '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HyperlinkTextGallery'
     ),
 );
+const HapticsGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Haptics'
+    ),
+);
 
 export const galleryScreenList: {
   name: EGalleryRoutes;
@@ -706,5 +712,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.HyperlinkTextGallery,
     component: HyperlinkTextGallery,
+  },
+  {
+    name: EGalleryRoutes.HapticsGallery,
+    component: HapticsGallery,
   },
 ];

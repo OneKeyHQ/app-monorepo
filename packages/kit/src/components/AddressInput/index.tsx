@@ -1,20 +1,13 @@
-import {
-  type ComponentProps,
-  type FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { TextArea } from '@onekeyhq/components';
 import {
   Badge,
+  Form,
   Icon,
   IconButton,
   Popover,
@@ -23,6 +16,7 @@ import {
   Spinner,
   Stack,
   XStack,
+  useFormContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
@@ -31,15 +25,17 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
+  EAddressInteractionStatus,
   EInputAddressChangeType,
-  IAddressInteractionStatus,
   IAddressValidateStatus,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { AddressBadge } from '../AddressBadge';
 import { BaseInput } from '../BaseInput';
 
+import { AddressInputContext } from './AddressInputContext';
+import { renderAddressInputHyperlinkText } from './AddressInputHyperlinkText';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
@@ -93,100 +89,6 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
       }}
     />
   );
-};
-
-type IAddressInteractionStatusProps = {
-  status?: IAddressInteractionStatus;
-  networkId: string;
-};
-
-const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
-  status,
-  networkId,
-}) => {
-  const intl = useIntl();
-  const { result } = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
-    [networkId],
-  );
-  if (status === 'not-interacted') {
-    return (
-      <Popover
-        placement="bottom-start"
-        title={intl.formatMessage({
-          id: ETranslations.send_label_first_transfer,
-        })}
-        renderTrigger={
-          <Badge badgeType="warning" badgeSize="sm">
-            {intl.formatMessage({
-              id: ETranslations.send_label_first_transfer,
-            })}
-          </Badge>
-        }
-        renderContent={() => (
-          <Stack gap="$4" p="$4">
-            <SizableText size="$bodyMd">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.address_input_first_transfer_popover,
-                },
-                { network: result?.name ?? '' },
-              )}
-            </SizableText>
-          </Stack>
-        )}
-      />
-    );
-  }
-  if (status === 'interacted') {
-    return (
-      <Popover
-        placement="bottom-start"
-        title={intl.formatMessage({
-          id: ETranslations.send_label_transferred,
-        })}
-        renderTrigger={
-          <Badge badgeType="success" badgeSize="sm">
-            {intl.formatMessage({ id: ETranslations.send_label_transferred })}
-          </Badge>
-        }
-        renderContent={() => (
-          <Stack gap="$4" p="$4">
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.address_input_transferred_popover,
-              })}
-            </SizableText>
-          </Stack>
-        )}
-      />
-    );
-  }
-  return null;
-};
-
-const AddressContractStatus = ({ isContract }: { isContract?: boolean }) => {
-  const intl = useIntl();
-  return isContract ? (
-    <Popover
-      title={intl.formatMessage({ id: ETranslations.global_contract })}
-      placement="bottom-start"
-      renderTrigger={
-        <Badge badgeType="critical" badgeSize="sm">
-          {intl.formatMessage({ id: ETranslations.global_contract })}
-        </Badge>
-      }
-      renderContent={() => (
-        <Stack gap="$4" p="$4">
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.address_input_contract_popover,
-            })}
-          </SizableText>
-        </Stack>
-      )}
-    />
-  ) : null;
 };
 
 export type IAddressInputValue = {
@@ -246,8 +148,9 @@ export type IAddressQueryResult = {
   addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
-  addressInteractionStatus?: IAddressInteractionStatus;
+  addressInteractionStatus?: EAddressInteractionStatus;
   isContract?: boolean;
+  contractLabel?: string;
   isAllowListed?: boolean;
   isEnableTransferAllowList?: boolean;
 };
@@ -298,11 +201,14 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
           </Stack>
         ) : null}
         <XStack my="$0.5" gap="$1">
-          <AddressInteractionStatus
+          <AddressBadge
             status={result.addressInteractionStatus}
             networkId={networkId}
           />
-          <AddressContractStatus isContract={result.isContract} />
+          <AddressBadge
+            title={result.contractLabel}
+            isContract={result.isContract}
+          />
         </XStack>
       </XStack>
     );
@@ -601,5 +507,57 @@ export function AddressInput(props: IAddressInputProps) {
       extension={AddressInputExtension}
       {...rest}
     />
+  );
+}
+
+export function AddressInputField(
+  props: IAddressInputProps & { name: string },
+) {
+  const intl = useIntl();
+  const { enableAllowListValidation, networkId, accountId, name } = props;
+  const contextValue = useMemo(
+    () => ({
+      name,
+      networkId,
+      accountId,
+    }),
+    [accountId, name, networkId],
+  );
+
+  return (
+    <AddressInputContext.Provider value={contextValue}>
+      <Form.Field
+        label={intl.formatMessage({ id: ETranslations.global_recipient })}
+        name={name}
+        renderErrorMessage={
+          enableAllowListValidation
+            ? renderAddressInputHyperlinkText
+            : undefined
+        }
+        rules={{
+          required: true,
+          validate: (value: IAddressInputValue) => {
+            if (value.pending) {
+              return;
+            }
+            if (!value.resolved) {
+              return enableAllowListValidation
+                ? // Use translationId for error message formatting if available, therwise use direct message
+                  value.validateError?.translationId ||
+                    value.validateError?.message ||
+                    intl.formatMessage({
+                      id: ETranslations.send_address_invalid,
+                    })
+                : value.validateError?.message ||
+                    intl.formatMessage({
+                      id: ETranslations.send_address_invalid,
+                    });
+            }
+          },
+        }}
+      >
+        <AddressInput {...props} />
+      </Form.Field>
+    </AddressInputContext.Provider>
   );
 }

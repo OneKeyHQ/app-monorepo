@@ -29,6 +29,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
@@ -54,7 +55,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import sdkAlgo from './sdkAlgo';
 import ClientAlgo from './sdkAlgo/ClientAlog';
-import { ALGO_TX_MIN_FEE, encodeTransaction } from './utils';
+import { encodeTransaction } from './utils';
 
 import type {
   ISdkAlgoAccountInformation,

@@ -3,19 +3,21 @@ import { useCallback, useMemo } from 'react';
 import { Vibration } from 'react-native';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { PARSE_HANDLER_NAMES } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/handlers';
 import type {
   IAnimationValue,
   IBaseValue,
   IQRCodeHandlerParseOutsideOptions,
   IQRCodeHandlerParseResult,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
-import { EQRCodeHandlerType } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
 import { OneKeyErrorScanQrCodeCancel } from '@onekeyhq/shared/src/errors';
 import {
   EModalRoutes,
   EScanQrCodeModalPages,
 } from '@onekeyhq/shared/src/routes';
+import {
+  EQRCodeHandlerType,
+  PARSE_HANDLER_NAMES,
+} from '@onekeyhq/shared/types/qrCode';
 
 import useAppNavigation from '../../../hooks/useAppNavigation';
 

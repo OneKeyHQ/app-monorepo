@@ -1,17 +1,21 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import { Page, YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   convertAddressToSignatureConfirmAddress,
   convertNetworkToSignatureConfirmNetwork,
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
+import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import {
   EParseTxComponentType,
@@ -25,10 +29,10 @@ import {
 } from '../../../DAppConnection/components/DAppRequestLayout';
 import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
 import { MessageConfirmActions } from '../../components/SignatureConfirmActions';
+import { MessageAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { MessageConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { MessageDataViewer } from '../../components/SignatureConfirmDataViewer';
 import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails';
-import { SignatureConfirmItem } from '../../components/SignatureConfirmItem';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
@@ -63,6 +67,8 @@ function MessageConfirm() {
     walletInternalSign?: boolean;
   }>();
 
+  const intl = useIntl();
+
   const dappApprove = useDappApproveAction({
     id: $sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -82,7 +88,7 @@ function MessageConfirm() {
 
   const typedData = JSON.stringify(unsignedMessage);
 
-  const { result: parsedMessage, isLoading } = usePromiseResult(
+  const { result, isLoading } = usePromiseResult(
     async () => {
       const accountAddress =
         await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
@@ -157,7 +163,10 @@ function MessageConfirm() {
         });
       }
 
-      return p;
+      return {
+        p,
+        isConfirmationRequired: m?.isConfirmationRequired,
+      };
     },
     [
       networkId,
@@ -172,6 +181,30 @@ function MessageConfirm() {
     },
   );
 
+  const { p: parsedMessage, isConfirmationRequired } = result ?? {};
+
+  const showMessageHeaderInfo = useMemo(
+    () => !walletInternalSign,
+    [walletInternalSign],
+  );
+
+  const showDAppRiskyAlert = useMemo(
+    () => $sourceInfo?.origin && !walletInternalSign,
+    [$sourceInfo?.origin, walletInternalSign],
+  );
+
+  const showMessageAlerts = useMemo(
+    () =>
+      !walletInternalSign &&
+      urlSecurityInfo?.level !== EHostSecurityLevel.Security,
+    [walletInternalSign, urlSecurityInfo?.level],
+  );
+
+  const showDAppSiteMark = useMemo(
+    () => $sourceInfo?.origin && !walletInternalSign,
+    [$sourceInfo?.origin, walletInternalSign],
+  );
+
   const renderMessageConfirmContent = useCallback(() => {
     if (isLoading) {
       return <SignatureConfirmLoading />;
@@ -182,48 +215,52 @@ function MessageConfirm() {
     }
 
     return (
-      <SignatureConfirmItem gap="$5">
-        {!walletInternalSign ? (
-          <SignatureConfirmItem gap="$2.5">
-            {$sourceInfo?.origin ? (
+      <YStack gap="$5">
+        {showMessageHeaderInfo ? (
+          <>
+            {showDAppRiskyAlert ? (
               <DAppRiskyAlert
-                origin={$sourceInfo.origin}
+                origin={$sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
+                hideSecurityAlert
                 alertProps={{
                   fullBleed: false,
                   borderTopWidth: 1,
                 }}
               />
             ) : null}
-            {!walletInternalSign ? (
+            {showMessageAlerts ? (
               <MessageConfirmAlert
                 messageDisplay={parsedMessage}
                 unsignedMessage={unsignedMessage}
                 isRiskSignMethod={isRiskSignMethod}
               />
             ) : null}
-            {$sourceInfo?.origin && !walletInternalSign ? (
+            {showDAppSiteMark ? (
               <DAppSiteMark
-                origin={$sourceInfo.origin}
+                origin={$sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
               />
             ) : null}
-          </SignatureConfirmItem>
+          </>
         ) : null}
-        <SignatureConfirmItem gap="$5">
-          <MessageConfirmDetails
-            accountId={accountId}
-            networkId={networkId}
-            displayComponents={parsedMessage.components}
-          />
-          <MessageDataViewer unsignedMessage={unsignedMessage} />
-        </SignatureConfirmItem>
-      </SignatureConfirmItem>
+
+        <MessageConfirmDetails
+          accountId={accountId}
+          networkId={networkId}
+          displayComponents={parsedMessage.components}
+        />
+        <MessageDataViewer unsignedMessage={unsignedMessage} />
+        <MessageAdvancedSettings unsignedMessage={unsignedMessage} />
+      </YStack>
     );
   }, [
     isLoading,
     parsedMessage,
-    walletInternalSign,
+    showMessageHeaderInfo,
+    showDAppRiskyAlert,
+    showMessageAlerts,
+    showDAppSiteMark,
     $sourceInfo?.origin,
     urlSecurityInfo,
     unsignedMessage,
@@ -243,7 +280,12 @@ function MessageConfirm() {
 
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
-      <Page.Header title={parsedMessage?.title} />
+      <Page.Header
+        title={
+          parsedMessage?.title ||
+          intl.formatMessage({ id: ETranslations.sig_sigature_request_label })
+        }
+      />
       <Page.Body px="$5">{renderMessageConfirmContent()}</Page.Body>
       <MessageConfirmActions
         accountId={accountId}
@@ -254,6 +296,7 @@ function MessageConfirm() {
         continueOperate={continueOperate}
         setContinueOperate={setContinueOperate}
         urlSecurityInfo={urlSecurityInfo}
+        isConfirmationRequired={isConfirmationRequired}
       />
     </Page>
   );

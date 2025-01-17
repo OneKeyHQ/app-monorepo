@@ -22,6 +22,11 @@ interface IProps {
   }[];
   isBridge?: boolean;
   isMultiSignatures?: boolean;
+  isSendNativeTokenOnly?: boolean;
+  nativeTokenTransferAmountToUpdate?: {
+    isMaxSend: boolean;
+    amountToUpdate: string;
+  };
 }
 
 function SignatureConfirmDetails(props: IProps) {
@@ -31,6 +36,8 @@ function SignatureConfirmDetails(props: IProps) {
     displayComponents,
     isBridge,
     isMultiSignatures,
+    isSendNativeTokenOnly,
+    nativeTokenTransferAmountToUpdate,
   } = props;
 
   return displayComponents.map(({ component, approveInfo }) => {
@@ -58,6 +65,10 @@ function SignatureConfirmDetails(props: IProps) {
             component={component}
             networkId={networkId}
             showNetwork={isBridge}
+            isSendNativeTokenOnly={isSendNativeTokenOnly}
+            nativeTokenTransferAmountToUpdate={
+              nativeTokenTransferAmountToUpdate
+            }
           />
         );
       case EParseTxComponentType.InternalAssets:
@@ -66,6 +77,10 @@ function SignatureConfirmDetails(props: IProps) {
             component={component}
             networkId={networkId}
             showNetwork={isBridge}
+            isSendNativeTokenOnly={isSendNativeTokenOnly}
+            nativeTokenTransferAmountToUpdate={
+              nativeTokenTransferAmountToUpdate
+            }
           />
         );
       case EParseTxComponentType.Token:
@@ -74,6 +89,10 @@ function SignatureConfirmDetails(props: IProps) {
             component={component}
             networkId={networkId}
             showNetwork={isBridge}
+            isSendNativeTokenOnly={isSendNativeTokenOnly}
+            nativeTokenTransferAmountToUpdate={
+              nativeTokenTransferAmountToUpdate
+            }
           />
         );
       case EParseTxComponentType.NFT:

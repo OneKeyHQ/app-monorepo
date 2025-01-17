@@ -30,7 +30,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
-import { TxDataViewer } from '../SignatureConfirmDataViewer';
+import { DataViewerTab } from '../SignatureConfirmDataViewer';
+
+import { AdvancedSettings } from './AdvancedSettings';
 
 type IProps = {
   accountId: string;
@@ -113,13 +115,13 @@ function TxAdvancedSettings(props: IProps) {
       const encodedTx = unsignedTxWithFeeInfo.encodedTx as IEncodedTxEvm;
 
       if (!isNil(encodedTx.nonce)) {
-        encodedTx.nonce = hexUtils.hexlify(encodedTx.nonce);
+        encodedTx.nonce = `0x${Number(encodedTx.nonce).toString(16)}`;
       }
 
       try {
         const tx = JSON.stringify(encodedTx, null, 2);
         txString = txString ? `${txString}\n\n${tx}` : tx;
-      } catch {
+      } catch (error) {
         // ignore
       }
     }
@@ -223,8 +225,8 @@ function TxAdvancedSettings(props: IProps) {
   const renderAdvancedSettings = useCallback(
     () => (
       <YStack gap="$5">
-        <Form form={form}>
-          {canEditNonce ? (
+        {canEditNonce ? (
+          <Form form={form}>
             <Form.Field
               label={intl.formatMessage({
                 id: ETranslations.global_nonce,
@@ -277,9 +279,10 @@ function TxAdvancedSettings(props: IProps) {
             >
               <Input flex={1} placeholder={currentNonce} />
             </Form.Field>
-          ) : null}
-        </Form>
-        <TxDataViewer
+          </Form>
+        ) : null}
+
+        <DataViewerTab
           dataGroup={[
             { title: 'DATA', data: txContent ?? '' },
             { title: 'ABI', data: abiContent },
@@ -306,74 +309,7 @@ function TxAdvancedSettings(props: IProps) {
     return null;
   }
 
-  return (
-    <>
-      <YStack
-        mt="$5"
-        pt="$5"
-        borderTopWidth={StyleSheet.hairlineWidth}
-        borderTopColor="$borderSubdued"
-      >
-        <Accordion type="multiple" collapsable>
-          <Accordion.Item value="advance">
-            <Accordion.Trigger
-              unstyled
-              flexDirection="row"
-              alignItems="center"
-              alignSelf="flex-start"
-              px="$1"
-              mx="$-1"
-              borderWidth={0}
-              bg="$transparent"
-              userSelect="none"
-              borderRadius="$1"
-              hoverStyle={{
-                bg: '$bgSubdued',
-              }}
-              pressStyle={{
-                bg: '$bgActive',
-              }}
-              focusVisibleStyle={{
-                outlineColor: '$focusRing',
-                outlineWidth: 2,
-                outlineStyle: 'solid',
-                outlineOffset: 0,
-              }}
-            >
-              {({ open }: { open: boolean }) => (
-                <>
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {intl.formatMessage({
-                      id: ETranslations.global_advanced_settings,
-                    })}
-                  </SizableText>
-                  <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      color="$iconSubdued"
-                      size="$5"
-                    />
-                  </YStack>
-                </>
-              )}
-            </Accordion.Trigger>
-            <Accordion.HeightAnimator animation="quick">
-              <Accordion.Content
-                unstyled
-                pt="$2.5"
-                gap="$5"
-                animation="quick"
-                enterStyle={{ opacity: 0 }}
-                exitStyle={{ opacity: 0 }}
-              >
-                {renderAdvancedSettings()}
-              </Accordion.Content>
-            </Accordion.HeightAnimator>
-          </Accordion.Item>
-        </Accordion>
-      </YStack>
-    </>
-  );
+  return <AdvancedSettings>{renderAdvancedSettings()}</AdvancedSettings>;
 }
 
 export { TxAdvancedSettings };

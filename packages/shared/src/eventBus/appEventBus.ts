@@ -15,6 +15,8 @@ import platformEnv from '../platformEnv';
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type {
+  ESwapCrossChainStatus,
+  ESwapTxHistoryStatus,
   IFetchQuotesParams,
   ISwapQuoteEvent,
   ISwapToken,
@@ -83,6 +85,7 @@ export enum EAppEventBusNames {
   SidePanel_BgToUI = 'SidePanel_BgToUI',
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
+  SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
@@ -250,6 +253,12 @@ export interface IAppEventBusPayload {
     params: IFetchQuotesParams;
     accountId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
+  };
+  [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
+    status: ESwapTxHistoryStatus;
+    crossChainStatus?: ESwapCrossChainStatus;
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
   };
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {

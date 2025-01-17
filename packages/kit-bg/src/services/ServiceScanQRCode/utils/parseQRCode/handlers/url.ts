@@ -1,6 +1,5 @@
 import { parseUrl } from '@onekeyhq/shared/src/utils/uriUtils';
-
-import { EQRCodeHandlerType } from '../type';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IQRCodeHandler, IUrlValue } from '../type';
 

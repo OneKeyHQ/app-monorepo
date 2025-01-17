@@ -35,7 +35,7 @@ PODS:
     - ExpoModulesCore
   - ExpoFileSystem (16.0.5):
     - ExpoModulesCore
-  - ExpoHaptics (12.6.0):
+  - ExpoHaptics (12.8.1):
     - ExpoModulesCore
   - ExpoImageManipulator (11.5.0):
     - EXImageLoader
@@ -1698,7 +1698,7 @@ SPEC CHECKSUMS:
   ExpoClipboard: b597982124f067ff9f5b89093eb3d97898d5d877
   ExpoDevice: d204395e17fffdcefa7470bdef33b07719ac41b1
   ExpoFileSystem: 04795dd4d47e76eaf12e38c92091f77d794f9e7f
-  ExpoHaptics: 604aca02e942d1d43c139cae7cf397b26f85476f
+  ExpoHaptics: 28a771b630353cd6e8dcf1b1e3e693e38ad7c3c3
   ExpoImageManipulator: 6d37f811d47a89afb34c0ec2521c6a6ea5f5a5be
   ExpoImagePicker: 9e5c745cb3e56ee00e1cfe5d6af59caab66ecf1a
   ExpoKeepAwake: 0f5cad99603a3268e50af9a6eb8b76d0d9ac956c
