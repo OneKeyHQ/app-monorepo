@@ -146,7 +146,7 @@ function BasicInvestmentDetails() {
               indexedAccountId: indexedAccount?.id,
               accountId: account?.id ?? '',
               networkId: tokenInfo.networkId,
-              symbol: tokenInfo.symbol.toUpperCase(),
+              symbol: tokenInfo.symbol,
               provider: providerName,
               vault,
             });

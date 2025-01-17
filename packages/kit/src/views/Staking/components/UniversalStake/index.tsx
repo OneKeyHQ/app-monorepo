@@ -273,7 +273,7 @@ export const UniversalStake = ({
           { id: ETranslations.earn_provider_asset_staking },
           {
             'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol.toUpperCase(),
+            'asset': details.token.info.symbol,
           },
         ),
         renderContent: (
