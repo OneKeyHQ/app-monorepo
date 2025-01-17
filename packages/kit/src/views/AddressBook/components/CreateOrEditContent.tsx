@@ -2,21 +2,16 @@ import { type FC, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  ICheckboxProps,
-  ICheckedState,
-  ISizableTextProps,
-} from '@onekeyhq/components';
 import {
   Checkbox,
   Form,
-  Icon,
   IconButton,
   Input,
   Page,
   SizableText,
   Stack,
   XStack,
+  YStack,
   useForm,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -27,6 +22,7 @@ import {
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
@@ -42,6 +38,20 @@ type ICreateOrEditContentProps = {
 type IFormValues = Omit<IAddressItem, 'address'> & {
   address: IAddressInputValue;
 };
+
+function TimeRow({ title, time }: { title: string; time?: number }) {
+  if (!time) {
+    return null;
+  }
+  return (
+    <XStack jc="space-between">
+      <SizableText color="$textSubdued" size="$bodyMd">
+        {title}
+      </SizableText>
+      <SizableText size="$bodyMd">{formatDate(new Date(time))}</SizableText>
+    </XStack>
+  );
+}
 
 export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   title,
@@ -113,6 +123,15 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             })}
             name="networkId"
             rules={{ required: true }}
+            description={
+              networkId.startsWith('evm--') ? (
+                <SizableText size="$bodyMd" pt="$1.5" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.address_book_add_address_add_to_evm_chains,
+                  })}
+                </SizableText>
+              ) : null
+            }
           >
             <ChainSelectorInput networkIds={addressBookEnabledNetworkIds} />
           </Form.Field>
@@ -189,18 +208,6 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                 });
               },
             }}
-            description={
-              networkId.startsWith('evm--') ? (
-                <XStack alignItems="center" mt="$1">
-                  <Icon size="$4" name="CheckRadioSolid" />
-                  <SizableText size="$bodyMd" ml="$1">
-                    {intl.formatMessage({
-                      id: ETranslations.address_book_add_address_add_to_evm_chains,
-                    })}
-                  </SizableText>
-                </XStack>
-              ) : null
-            }
             testID="address-form-address-field"
           >
             <AddressInput
@@ -215,6 +222,20 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
             />
           </Form.Field>
         </Form>
+        <YStack gap="$2.5" pt="$5">
+          <TimeRow
+            title={intl.formatMessage({
+              id: ETranslations.address_book_edit_added_on,
+            })}
+            time={item.createdAt}
+          />
+          <TimeRow
+            title={intl.formatMessage({
+              id: ETranslations.address_book_edit_last_edited,
+            })}
+            time={item.updatedAt}
+          />
+        </YStack>
       </Page.Body>
       <Page.Footer>
         <Stack

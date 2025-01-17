@@ -6,9 +6,9 @@ import { useIntl } from 'react-intl';
 import { Dialog, Spinner } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { EPasswordPromptType } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
 import { usePasswordPromptPromiseTriggerAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EPasswordPromptType } from '@onekeyhq/shared/types/password';
 
 import PasswordSetupContainer from './PasswordSetupContainer';
 import PasswordVerifyContainer from './PasswordVerifyContainer';

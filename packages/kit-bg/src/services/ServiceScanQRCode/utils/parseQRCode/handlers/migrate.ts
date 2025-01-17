@@ -1,4 +1,4 @@
-import { EQRCodeHandlerType } from '../type';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IMigrateValue, IQRCodeHandler } from '../type';
 

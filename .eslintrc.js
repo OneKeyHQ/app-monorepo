@@ -285,6 +285,9 @@ module.exports = {
       },
     },
     // specific rules for packages
+    //
+    // Note: Files are checked only once with the first matching configuration.
+    // The order of these overrides matters - more specific patterns should come first.
     {
       files: [
         'packages/components/src/**/*.ts',
@@ -298,7 +301,7 @@ module.exports = {
               ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
-                group: ['@onekeyhq/kit/*', '@onekeyhq/kit-bg/*'],
+                group: ['@onekeyhq/kit', '@onekeyhq/kit-bg'],
                 message:
                   'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg in this folder',
               },
@@ -308,12 +311,7 @@ module.exports = {
       },
     },
     {
-      files: [
-        'packages/shared/src/**/*.ts',
-        'packages/shared/src/**/*.tsx',
-        'packages/core/src/**/*.ts',
-        'packages/core/src/**/*.tsx',
-      ],
+      files: ['packages/shared/src/**/*.ts', 'packages/shared/src/**/*.tsx'],
       rules: {
         '@typescript-eslint/no-restricted-imports': [
           'error',
@@ -323,10 +321,9 @@ module.exports = {
               {
                 allowTypeImports: true,
                 group: [
-                  '@onekeyhq/kit/*',
-                  '@onekeyhq/kit-bg/*',
+                  '@onekeyhq/kit',
+                  '@onekeyhq/kit-bg',
                   '@onekeyhq/components',
-                  '@onekeyhq/components/*',
                 ],
                 message:
                   'Please avoid using @onekeyhq/kit and @onekeyhq/kit-bg and @onekeyhq/components in this folder',
@@ -346,11 +343,12 @@ module.exports = {
               ...restrictedImportsPatterns,
               {
                 allowTypeImports: true,
-                group: [
-                  '@onekeyhq/kit/*',
-                  '@onekeyhq/components',
-                  '@onekeyhq/components/*',
-                ],
+                group: ['tamagui'],
+                message: 'Please avoid using tamagui in this folder',
+              },
+              {
+                allowTypeImports: true,
+                group: ['@onekeyhq/kit', '@onekeyhq/components'],
                 message:
                   'Please avoid using @onekeyhq/kit and @onekeyhq/components in this folder',
               },
@@ -360,14 +358,7 @@ module.exports = {
       },
     },
     {
-      files: [
-        'packages/kit-bg/src/**/*.ts',
-        'packages/kit-bg/src/**/*.tsx',
-        'packages/kit/src/**/*.ts',
-        'packages/kit/src/**/*.tsx',
-        'packages/core/src/**/*.ts',
-        'packages/core/src/**/*.tsx',
-      ],
+      files: ['packages/kit/src/**/*.ts', 'packages/kit/src/**/*.tsx'],
       rules: {
         '@typescript-eslint/no-restricted-imports': [
           'error',
@@ -377,6 +368,46 @@ module.exports = {
               {
                 allowTypeImports: true,
                 group: ['tamagui'],
+                message: 'Please avoid using tamagui in this folder',
+              },
+              {
+                allowTypeImports: true,
+                // TODO: upgrade eslint version to use regex pattern in no-restricted-imports rule
+                // https://eslint.org/docs/latest/rules/no-restricted-imports
+                group: [
+                  '@onekeyhq/kit-bg/src/connectors',
+                  '@onekeyhq/kit-bg/src/dbs',
+                  '@onekeyhq/kit-bg/src/endpoints',
+                  '@onekeyhq/kit-bg/src/migrations',
+                  '@onekeyhq/kit-bg/src/offscreens',
+                  '@onekeyhq/kit-bg/src/providers',
+                  '@onekeyhq/kit-bg/src/services',
+                  '@onekeyhq/kit-bg/src/vaults',
+                  '@onekeyhq/kit-bg/src/webembeds',
+                ],
+                message: 'Please avoid using @onekeyhq/kit-bg in this folder',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
+      files: ['packages/core/src/**/*.ts', 'packages/core/src/**/*.tsx'],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            patterns: [
+              ...restrictedImportsPatterns,
+              {
+                allowTypeImports: true,
+                group: [
+                  'tamagui',
+                  '@onekeyhq/kit',
+                  '@onekeyhq/kit-bg',
+                  '@onekeyhq/components'
+                ],
                 message: 'Please avoid using tamagui in this folder',
               },
             ],

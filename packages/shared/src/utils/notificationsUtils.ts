@@ -33,6 +33,10 @@ function convertWebPermissionToEnum(
   }
 }
 
+export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED: true | false =
+  false;
+export const NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT = 20;
+
 async function navigateToNotificationDetail({
   notificationId,
   notificationAccountId,

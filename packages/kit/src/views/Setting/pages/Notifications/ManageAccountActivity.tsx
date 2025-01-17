@@ -35,14 +35,14 @@ import type {
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import {
-  type IAccountActivityNotificationSettings,
-  NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED,
-  NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
-} from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
+import type { IAccountActivityNotificationSettings } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityNotificationSettings';
 import { useNotificationsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/notifications';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import {
+  NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_ENABLED,
+  NOTIFICATION_ACCOUNT_ACTIVITY_DEFAULT_MAX_ACCOUNT_COUNT,
+} from '@onekeyhq/shared/src/utils/notificationsUtils';
 
 import { EmptyNoWalletView } from '../../../AccountManagerStacks/pages/AccountSelectorStack/WalletDetails/EmptyView';
 

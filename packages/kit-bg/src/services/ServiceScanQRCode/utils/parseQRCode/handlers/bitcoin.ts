@@ -1,6 +1,5 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-
-import { EQRCodeHandlerType } from '../type';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IBitcoinValue, IQRCodeHandler } from '../type';
 

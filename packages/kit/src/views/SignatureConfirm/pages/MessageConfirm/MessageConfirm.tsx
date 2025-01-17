@@ -222,6 +222,7 @@ function MessageConfirm() {
               <DAppRiskyAlert
                 origin={$sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
+                hideSecurityAlert
                 alertProps={{
                   fullBleed: false,
                   borderTopWidth: 1,

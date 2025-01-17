@@ -115,12 +115,14 @@ export type IServerAccountBadgeResp = {
   interacted: EServerInteractedStatus;
   isContract?: boolean;
   badges?: { label: string }[];
+  label?: string;
 };
 
-export type IAddressInteractionStatus =
-  | 'interacted'
-  | 'not-interacted'
-  | 'unknown';
+export enum EAddressInteractionStatus {
+  INTERACTED = 'interacted',
+  NOT_INTERACTED = 'not-interacted',
+  UNKNOWN = 'unknown',
+}
 
 export type IAddressValidateBaseStatus = 'valid' | 'invalid' | 'unknown';
 
