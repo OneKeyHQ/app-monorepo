@@ -125,10 +125,11 @@ function AddressInfo(props: IProps) {
     withWrapper = true,
   } = props;
   const addressQueryResult = usePromiseResult(async () => {
-    const vault = await vaultFactory.getChainOnlyVault({
-      networkId,
-    });
-    const { displayAddress } = await vault.validateAddress(address);
+    const { displayAddress } =
+      await backgroundApiProxy.serviceValidator.localValidateAddress({
+        networkId,
+        address,
+      });
 
     const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
       accountId,
