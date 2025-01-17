@@ -57,7 +57,10 @@ const V4MigrationDevSettings = LazyLoadPage(
 );
 
 const PageDevUnitTests = LazyLoadPage(
-  () => import('@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'),
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'
+    ),
 );
 
 const ExportCustomNetworkConfig = LazyLoadPage(

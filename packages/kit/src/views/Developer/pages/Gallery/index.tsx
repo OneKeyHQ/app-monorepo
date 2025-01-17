@@ -493,8 +493,6 @@ const HapticsGallery = LazyLoadPage(
     ),
 );
 
-
-
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -719,5 +717,4 @@ export const galleryScreenList: {
     name: EGalleryRoutes.HapticsGallery,
     component: HapticsGallery,
   },
-
 ];
