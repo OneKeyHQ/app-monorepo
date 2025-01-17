@@ -48,14 +48,19 @@ export function AddressInputHyperlinkText({
               id: addressBookId,
               address: address ?? '',
               networkId,
-              name: addressBookName ?? '',
               isAllowListed: true,
             },
           });
         }
       }
     },
-    [form, navigation],
+    [
+      contentValues.accountId,
+      contentValues.name,
+      contentValues.networkId,
+      form,
+      navigation,
+    ],
   );
   return (
     <HyperlinkText
