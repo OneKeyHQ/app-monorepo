@@ -4,7 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
+import { EPasswordMode } from '@onekeyhq/shared/types/password';
 import { usePasswordModeAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 

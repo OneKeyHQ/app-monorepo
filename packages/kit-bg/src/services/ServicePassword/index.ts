@@ -58,9 +58,9 @@ import {
   PASSCODE_LENGTH,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
-} from './types';
+} from '@onekeyhq/shared/types/password';
 
-import type { IPasswordRes } from './types';
+import type { IPasswordRes } from '@onekeyhq/shared/types/password';
 
 @backgroundClass()
 export default class ServicePassword extends ServiceBase {

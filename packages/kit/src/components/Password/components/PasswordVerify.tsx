@@ -20,7 +20,7 @@ import {
   YStack,
   useForm,
 } from '@onekeyhq/components';
-import { EPasswordMode } from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
+import { EPasswordMode } from '@onekeyhq/shared/types/password';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';

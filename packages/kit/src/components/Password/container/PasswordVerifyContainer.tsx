@@ -17,7 +17,7 @@ import {
   PASSCODE_PROTECTION_ATTEMPTS,
   PASSCODE_PROTECTION_ATTEMPTS_MESSAGE_SHOW_MAX,
   PASSCODE_PROTECTION_ATTEMPTS_PER_MINUTE_MAP,
-} from '@onekeyhq/kit-bg/src/services/ServicePassword/types';
+} from '@onekeyhq/shared/types/password';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordAtom,
