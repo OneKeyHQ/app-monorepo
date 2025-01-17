@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
@@ -10,19 +10,23 @@ import {
   Button,
   Dialog,
   Divider,
+  Icon,
   Image,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  useInAppNotificationAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalSwapRoutes,
@@ -30,6 +34,12 @@ import type {
 } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import type { IExplorersInfo } from '@onekeyhq/shared/types/swap/types';
+import {
+  EExplorerType,
+  ESwapCrossChainStatus,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
 import { AssetItem } from '../../../AssetDetails/pages/HistoryDetails';
@@ -39,7 +49,10 @@ import {
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
 import SwapTxHistoryViewInBrowser from '../../components/SwapHistoryTxViewInBrowser';
 import SwapRateInfoItem from '../../components/SwapRateInfoItem';
-import { getSwapHistoryStatusTextProps } from '../../utils/utils';
+import {
+  getSwapCrossChainStatusTextProps,
+  getSwapHistoryStatusTextProps,
+} from '../../utils/utils';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -61,43 +74,67 @@ const SwapHistoryDetailModal = () => {
       RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryDetail>
     >();
   const intl = useIntl();
-  const { txHistory } = route.params ?? {};
+  const { txHistoryOrderId, txHistoryList } = route.params ?? {};
+  const [txHistoryListState, setTxHistoryListState] = useState(txHistoryList);
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
+  const { result: swapTxHistoryList } = usePromiseResult(
+    async () => {
+      const histories =
+        await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
+      return histories;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [swapHistoryPendingList],
+  );
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const { formatDate } = useFormatDate();
+  useEffect(() => {
+    if (
+      JSON.stringify(swapTxHistoryList) !== JSON.stringify(txHistoryListState)
+    ) {
+      setTxHistoryListState(swapTxHistoryList);
+    }
+  }, [swapTxHistoryList, txHistoryListState]);
+  const txHistory = useMemo(
+    () =>
+      txHistoryListState?.find(
+        (item) => item.swapInfo.orderId === txHistoryOrderId,
+      ),
+    [txHistoryListState, txHistoryOrderId],
+  );
 
   const onViewInBrowser = useCallback((url: string) => {
     openUrlExternal(url);
   }, []);
 
-  const { md } = useMedia();
   const renderSwapAssetsChange = useCallback(() => {
     const fromAsset = {
-      name: txHistory.baseInfo.fromToken.name ?? '',
-      symbol: txHistory.baseInfo.fromToken.symbol,
-      icon: txHistory.baseInfo.fromToken.logoURI ?? '',
+      name: txHistory?.baseInfo.fromToken.name ?? '',
+      symbol: txHistory?.baseInfo.fromToken.symbol ?? '',
+      icon: txHistory?.baseInfo.fromToken.logoURI ?? '',
       isNFT: false,
-      isNative: !!txHistory.baseInfo.fromToken.isNative,
-      price: txHistory.baseInfo.fromToken?.price ?? '0',
+      isNative: !!txHistory?.baseInfo.fromToken.isNative,
+      price: txHistory?.baseInfo.fromToken?.price ?? '0',
     };
 
     const toAsset = {
-      name: txHistory.baseInfo.toToken.name ?? '',
-      symbol: txHistory.baseInfo.toToken.symbol,
-      icon: txHistory.baseInfo.toToken.logoURI ?? '',
+      name: txHistory?.baseInfo.toToken.name ?? '',
+      symbol: txHistory?.baseInfo.toToken.symbol ?? '',
+      icon: txHistory?.baseInfo.toToken.logoURI ?? '',
       isNFT: false,
-      isNative: !!txHistory.baseInfo.toToken.isNative,
-      price: txHistory.baseInfo.toToken?.price ?? '0',
+      isNative: !!txHistory?.baseInfo.toToken.isNative,
+      price: txHistory?.baseInfo.toToken?.price ?? '0',
     };
-    let fromTokenAmount = txHistory.baseInfo.fromAmount;
+    let fromTokenAmount = txHistory?.baseInfo.fromAmount;
     let otherAsset: ISwapHistoryDetailAssetItem[] = [];
-    if (txHistory.swapInfo.otherFeeInfos?.length) {
-      txHistory.swapInfo.otherFeeInfos.forEach((item) => {
+    if (txHistory?.swapInfo.otherFeeInfos?.length) {
+      txHistory?.swapInfo.otherFeeInfos.forEach((item) => {
         const otherFeeTokenSameFromToken = equalTokenNoCaseSensitive({
           token1: item.token,
-          token2: txHistory.baseInfo.fromToken,
+          token2: txHistory?.baseInfo.fromToken,
         });
         if (otherFeeTokenSameFromToken) {
-          fromTokenAmount = new BigNumber(fromTokenAmount)
+          fromTokenAmount = new BigNumber(fromTokenAmount ?? 0)
             .plus(item.amount ?? 0)
             .toFixed();
         } else {
@@ -123,10 +160,10 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.IN}
           asset={toAsset}
           isAllNetworks
-          amount={txHistory.baseInfo.toAmount}
-          networkIcon={txHistory.baseInfo.toNetwork?.logoURI ?? ''}
+          amount={txHistory?.baseInfo.toAmount ?? '0'}
+          networkIcon={txHistory?.baseInfo.toNetwork?.logoURI ?? ''}
           currencySymbol={
-            txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol
+            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol
           }
         />
         <AssetItem
@@ -134,10 +171,10 @@ const SwapHistoryDetailModal = () => {
           direction={EDecodedTxDirection.OUT}
           asset={fromAsset}
           isAllNetworks
-          amount={fromTokenAmount}
-          networkIcon={txHistory.baseInfo.fromNetwork?.logoURI ?? ''}
+          amount={fromTokenAmount ?? '0'}
+          networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
           currencySymbol={
-            txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol
+            txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol
           }
         />
         {otherAsset.map((item, index) => (
@@ -148,9 +185,9 @@ const SwapHistoryDetailModal = () => {
             asset={item}
             isAllNetworks
             amount={item.amount ?? '0'}
-            networkIcon={txHistory.baseInfo.fromNetwork?.logoURI ?? ''}
+            networkIcon={txHistory?.baseInfo.fromNetwork?.logoURI ?? ''}
             currencySymbol={
-              txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol
+              txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol
             }
           />
         ))}
@@ -158,65 +195,159 @@ const SwapHistoryDetailModal = () => {
     );
   }, [settingsPersistAtom.currencyInfo.symbol, txHistory]);
 
+  const fromTxExplorer = useCallback(
+    async (txId?: string) => {
+      const logo = txHistory?.baseInfo.fromNetwork?.logoURI;
+      const realTxId = txId ?? txHistory?.txInfo.txId;
+      let url = '';
+      if (txHistory?.baseInfo.fromNetwork?.networkId && realTxId) {
+        url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+          networkId: txHistory.baseInfo.fromNetwork?.networkId,
+          type: 'transaction',
+          param: realTxId,
+        });
+      }
+      return {
+        name: txHistory?.baseInfo.fromNetwork?.name ?? '-',
+        url,
+        logo,
+        status: txHistory?.status ?? ESwapTxHistoryStatus.PENDING,
+        type: EExplorerType.FROM,
+      } as IExplorersInfo;
+    },
+    [
+      txHistory?.baseInfo.fromNetwork?.logoURI,
+      txHistory?.baseInfo.fromNetwork?.name,
+      txHistory?.baseInfo.fromNetwork?.networkId,
+      txHistory?.status,
+      txHistory?.txInfo.txId,
+    ],
+  );
+  const toTxExplorer = useCallback(
+    async (txId?: string) => {
+      const logo = txHistory?.baseInfo.toNetwork?.logoURI;
+      const realTxId = txId ?? txHistory?.txInfo.receiverTransactionId;
+      let url = '';
+      if (
+        realTxId &&
+        txHistory?.baseInfo.toNetwork?.networkId &&
+        txHistory?.status === ESwapTxHistoryStatus.SUCCESS
+      ) {
+        url = await backgroundApiProxy.serviceExplorer.buildExplorerUrl({
+          networkId: txHistory?.baseInfo.toNetwork?.networkId,
+          type: 'transaction',
+          param: realTxId,
+        });
+      }
+      return {
+        name: txHistory?.baseInfo.toNetwork?.name ?? '-',
+        url,
+        logo,
+        status: txHistory?.status ?? ESwapTxHistoryStatus.PENDING,
+        type: EExplorerType.TO,
+      } as IExplorersInfo;
+    },
+    [
+      txHistory?.baseInfo.toNetwork?.logoURI,
+      txHistory?.baseInfo.toNetwork?.name,
+      txHistory?.baseInfo.toNetwork?.networkId,
+      txHistory?.status,
+      txHistory?.txInfo.receiverTransactionId,
+    ],
+  );
+
   const renderSwapOrderStatus = useCallback(() => {
-    const { status } = txHistory;
-    const { key, color } = getSwapHistoryStatusTextProps(status);
+    const { status } = txHistory ?? {};
+    const { key, color } = getSwapHistoryStatusTextProps(
+      status ?? ESwapTxHistoryStatus.PENDING,
+    );
     return (
-      <Stack
-        flexDirection={md ? 'row' : 'column'}
-        {...(md
-          ? {
-              alignItems: 'center',
-              justifyContent: 'space-between',
-            }
-          : { alignItems: 'flex-start', gap: '$2' })}
-      >
+      <XStack gap="$2" alignItems="center">
         <SizableText size={16} color={color}>
           {intl.formatMessage({ id: key })}
         </SizableText>
-        {txHistory.txInfo.txId ? (
+        {txHistory?.txInfo.txId ? (
           <SwapTxHistoryViewInBrowser
             item={txHistory}
             onViewInBrowser={onViewInBrowser}
+            fromTxExplorer={fromTxExplorer}
+            toTxExplorer={toTxExplorer}
           />
         ) : null}
-      </Stack>
+      </XStack>
     );
-  }, [intl, md, onViewInBrowser, txHistory]);
+  }, [fromTxExplorer, intl, onViewInBrowser, toTxExplorer, txHistory]);
+
+  const renderSwapCrossChainStatus = useCallback(() => {
+    const { crossChainStatus } = txHistory ?? {};
+    const { key, color } = getSwapCrossChainStatusTextProps(
+      crossChainStatus ?? ESwapCrossChainStatus.FROM_PENDING,
+    );
+    return (
+      <XStack gap="$2" alignItems="center">
+        <SizableText size={16} color={color}>
+          {intl.formatMessage({ id: key })}
+        </SizableText>
+        {txHistory?.swapOrderHash?.refundHash ? (
+          <XStack
+            onPress={async () => {
+              const explorerInfo = await fromTxExplorer(
+                txHistory?.swapOrderHash?.refundHash,
+              );
+              if (explorerInfo.url) {
+                onViewInBrowser(explorerInfo.url);
+              }
+            }}
+            cursor="pointer"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Icon
+              name="OpenOutline"
+              size="$4.5"
+              flex={1}
+              alignSelf="center"
+              color="$iconSubdued"
+            />
+          </XStack>
+        ) : null}
+      </XStack>
+    );
+  }, [fromTxExplorer, intl, onViewInBrowser, txHistory]);
 
   const renderSwapDate = useCallback(() => {
-    const { created } = txHistory.date;
-    const dateObj = new Date(created);
+    const { created } = txHistory?.date ?? {};
+    const dateObj = new Date(created ?? 0);
     const dateStr = formatDate(dateObj);
     return (
       <SizableText size={14} color="$textSubdued">
         {dateStr}
       </SizableText>
     );
-  }, [formatDate, txHistory.date]);
+  }, [formatDate, txHistory?.date]);
 
   const renderSwapProvider = useCallback(
     () => (
       <XStack alignItems="center" gap="$1">
         <Image
-          source={{ uri: txHistory.swapInfo.provider.providerLogo }}
+          source={{ uri: txHistory?.swapInfo.provider.providerLogo ?? '' }}
           w="$5"
           h="$5"
           borderRadius="$1"
         />
         <SizableText size="$bodyLg" color="$textSubdued">
-          {txHistory.swapInfo.provider.providerName}
+          {txHistory?.swapInfo.provider.providerName ?? ''}
         </SizableText>
       </XStack>
     ),
     [
-      txHistory.swapInfo.provider.providerName,
-      txHistory.swapInfo.provider.providerLogo,
+      txHistory?.swapInfo.provider.providerLogo,
+      txHistory?.swapInfo.provider.providerName,
     ],
   );
 
   const renderNetworkFee = useCallback(() => {
-    const { gasFeeFiatValue, gasFeeInNative } = txHistory.txInfo;
+    const { gasFeeFiatValue, gasFeeInNative } = txHistory?.txInfo ?? {};
     const gasFeeInNativeBN = new BigNumber(gasFeeInNative ?? 0);
     const gasFeeDisplay = gasFeeInNativeBN.toFixed();
     return (
@@ -228,14 +359,14 @@ const SwapHistoryDetailModal = () => {
         >
           {gasFeeDisplay}
         </NumberSizeableText>
-        {` ${txHistory.baseInfo.fromNetwork?.symbol ?? ''}`}(
+        {` ${txHistory?.baseInfo.fromNetwork?.symbol ?? ''}`}(
         <NumberSizeableText
           color="$textSubdued"
           size="$bodyMd"
           formatter="value"
           formatterOptions={{
             currency:
-              txHistory.currency ?? settingsPersistAtom.currencyInfo.symbol,
+              txHistory?.currency ?? settingsPersistAtom.currencyInfo.symbol,
           }}
         >
           {gasFeeFiatValue ?? 0}
@@ -245,23 +376,23 @@ const SwapHistoryDetailModal = () => {
     );
   }, [
     settingsPersistAtom.currencyInfo.symbol,
-    txHistory.baseInfo.fromNetwork?.symbol,
-    txHistory.currency,
-    txHistory.txInfo,
+    txHistory?.baseInfo.fromNetwork?.symbol,
+    txHistory?.currency,
+    txHistory?.txInfo,
   ]);
 
   const renderRate = useCallback(
     () => (
       <SwapRateInfoItem
-        rate={txHistory.swapInfo.instantRate}
-        fromToken={txHistory.baseInfo.fromToken}
-        toToken={txHistory.baseInfo.toToken}
+        rate={txHistory?.swapInfo.instantRate ?? '0'}
+        fromToken={txHistory?.baseInfo.fromToken}
+        toToken={txHistory?.baseInfo.toToken}
       />
     ),
     [
-      txHistory.baseInfo.fromToken,
-      txHistory.baseInfo.toToken,
-      txHistory.swapInfo.instantRate,
+      txHistory?.baseInfo.fromToken,
+      txHistory?.baseInfo.toToken,
+      txHistory?.swapInfo.instantRate,
     ],
   );
   const renderSwapHistoryDetails = useCallback(() => {
@@ -279,15 +410,24 @@ const SwapHistoryDetailModal = () => {
                 id: ETranslations.swap_history_detail_order_status,
               })}
               renderContent={renderSwapOrderStatus()}
-              compact
+              compactAll
             />
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.swap_history_detail_date,
               })}
               renderContent={renderSwapDate()}
-              compact
+              compactAll
             />
+            {txHistory?.crossChainStatus ? (
+              <InfoItem
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_order_detail,
+                })}
+                renderContent={renderSwapCrossChainStatus()}
+                compactAll
+              />
+            ) : null}
           </InfoItemGroup>
           <Divider mx="$5" />
           <InfoItemGroup>
@@ -390,6 +530,15 @@ const SwapHistoryDetailModal = () => {
                 }
               />
             ) : null}
+            {txHistory?.swapInfo?.surplus ? (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_surplus,
+                })}
+                renderContent={`${txHistory.swapInfo.surplus} ${txHistory.baseInfo.toToken.symbol}`}
+              />
+            ) : null}
           </InfoItemGroup>
         </Stack>
       </>
@@ -400,6 +549,7 @@ const SwapHistoryDetailModal = () => {
     renderNetworkFee,
     renderRate,
     renderSwapAssetsChange,
+    renderSwapCrossChainStatus,
     renderSwapDate,
     renderSwapOrderStatus,
     renderSwapProvider,
@@ -414,7 +564,7 @@ const SwapHistoryDetailModal = () => {
       }),
       onConfirm: async () => {
         await backgroundApiProxy.serviceSwap.cleanOneSwapHistory(
-          txHistory.txInfo,
+          txHistory?.txInfo ?? {},
         );
         void backgroundApiProxy.serviceApp.showToast({
           method: 'success',
@@ -429,7 +579,7 @@ const SwapHistoryDetailModal = () => {
       }),
       onCancelText: intl.formatMessage({ id: ETranslations.global_cancel }),
     });
-  }, [intl, navigation, txHistory.txInfo]);
+  }, [intl, navigation, txHistory?.txInfo]);
 
   const headerRight = useCallback(
     () => (
@@ -449,7 +599,7 @@ const SwapHistoryDetailModal = () => {
         headerRight={headerRight}
       />
       <Page.Body>{renderSwapHistoryDetails()}</Page.Body>
-      {txHistory.swapInfo.supportUrl ? (
+      {txHistory?.swapInfo.supportUrl ? (
         <Page.Footer
           onConfirmText={intl.formatMessage({
             id: ETranslations.global_support,
@@ -459,7 +609,7 @@ const SwapHistoryDetailModal = () => {
             variant: 'secondary',
           }}
           onConfirm={() => {
-            onViewInBrowser(txHistory.swapInfo.supportUrl ?? '');
+            onViewInBrowser(txHistory?.swapInfo.supportUrl ?? '');
           }}
         />
       ) : null}
