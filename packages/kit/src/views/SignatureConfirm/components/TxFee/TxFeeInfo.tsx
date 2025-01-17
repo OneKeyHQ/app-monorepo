@@ -1158,7 +1158,7 @@ function TxFeeInfo(props: IProps) {
 
   return (
     <Stack {...feeInfoWrapperProps}>
-      <XStack gap="$1" alignItems="center" pb="$1">
+      <XStack gap="$2" alignItems="center" pb="$1">
         <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_est_network_fee,
