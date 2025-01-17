@@ -14,7 +14,6 @@ import {
   getBgSensitiveTextEncodeKey,
   revealEntropyToMnemonic,
 } from '@onekeyhq/core/src/secret';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   backgroundClass,
   backgroundMethod,
@@ -22,7 +21,6 @@ import {
 import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import * as OneKeyErrors from '@onekeyhq/shared/src/errors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -298,7 +296,7 @@ export default class ServicePassword extends ServiceBase {
         );
       }
     }
-    await backgroundApiProxy.serviceSetting.setBiologyAuthSwitchOn(enable);
+    await this.backgroundApi.serviceSetting.setBiologyAuthSwitchOn(enable);
   }
 
   // validatePassword --------------------------------
