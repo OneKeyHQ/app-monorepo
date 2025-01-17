@@ -493,19 +493,7 @@ const HapticsGallery = LazyLoadPage(
     ),
 );
 
-const SecretHashGallery = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SecretHashGallery'
-    ),
-);
 
-const SecretCryptoFunctionGallery = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/SecretCryptoFunctionGallery'
-    ),
-);
 
 export const galleryScreenList: {
   name: EGalleryRoutes;
@@ -731,12 +719,5 @@ export const galleryScreenList: {
     name: EGalleryRoutes.HapticsGallery,
     component: HapticsGallery,
   },
-  {
-    name: EGalleryRoutes.ComponentSecretHash,
-    component: SecretHashGallery,
-  },
-  {
-    name: EGalleryRoutes.ComponentSecretCryptoFunction,
-    component: SecretCryptoFunctionGallery,
-  },
+
 ];
