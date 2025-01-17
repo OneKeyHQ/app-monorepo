@@ -1070,7 +1070,7 @@ function TxFeeInfo(props: IProps) {
     vaultSettings?.editFeeEnabled,
   ]);
 
-  const renderTotalNativeMin = useCallback(
+  const renderTotalNative = useCallback(
     () => (
       <NumberSizeableText
         size="$bodyMd"
@@ -1086,7 +1086,7 @@ function TxFeeInfo(props: IProps) {
     [selectedFee?.totalNativeMinForDisplay, txFee?.common.nativeSymbol],
   );
 
-  const renderTotalFiatMin = useCallback(
+  const renderTotalFiat = useCallback(
     () => (
       <SizableText size="$bodyMd" color="$textSubdued">
         (
@@ -1175,14 +1175,14 @@ function TxFeeInfo(props: IProps) {
       </XStack>
       <XStack gap="$1" alignItems="center">
         {txFeeInit ? (
-          renderTotalNativeMin()
+          renderTotalNative()
         ) : (
           <Stack py="$1">
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
         {txFeeInit && !isNil(selectedFee?.totalFiatMinForDisplay)
-          ? renderTotalFiatMin()
+          ? renderTotalFiat()
           : ''}
         {renderMaxFeeInfo()}
       </XStack>
