@@ -37,7 +37,7 @@ function EditItemPage() {
       >
     >();
 
-  const isCreateMode = !addressBookParams.id;
+  const isCreateMode = !addressBookParams?.id;
 
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
