@@ -47,8 +47,10 @@ function CalculationListItemLabel({
     </SizableText>
   );
   return tooltip ? (
-    <XStack gap="$1" ai="center" maxWidth="50%">
-      {content}
+    <XStack gap="$1" ai="center" maxWidth="50%" flex={1}>
+      <SizableText color="$textSubdued" flexWrap="wrap" {...rest}>
+        {children}
+      </SizableText>
       <Popover.Tooltip
         iconSize="$5"
         title={children}

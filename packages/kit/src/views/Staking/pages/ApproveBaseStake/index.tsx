@@ -49,7 +49,7 @@ const BasicApproveBaseStakePage = () => {
           send: { token: token.info, amount },
           tags: [actionTag],
         },
-        symbol: token.info.symbol.toUpperCase(),
+        symbol: token.info.symbol,
         provider: provider.name,
         morphoVault: earnUtils.isMorphoProvider({
           providerName: provider.name,
