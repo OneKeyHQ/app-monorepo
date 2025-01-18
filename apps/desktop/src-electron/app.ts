@@ -986,10 +986,11 @@ app.on('activate', async () => {
 });
 
 app.on('before-quit', () => {
-  if (mainWindow) {
-    mainWindow?.removeAllListeners();
-    mainWindow?.removeAllListeners('close');
-    mainWindow?.close();
+  const safelyMainWindow = getSafelyMainWindow();
+  if (safelyMainWindow) {
+    safelyMainWindow.removeAllListeners();
+    safelyMainWindow.removeAllListeners('close');
+    safelyMainWindow.close();
   }
   disposeContextMenu?.();
 });
