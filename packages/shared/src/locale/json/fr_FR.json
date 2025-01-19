@@ -1302,6 +1302,7 @@
   "history.notification_receiver_label": "Notification reçue par",
   "history.switch_account_dialog_title": "Passer au compte principal {account} ?",
   "hw_banner_description": "Sécurisez votre crypto avec le portefeuille matériel le plus puissant",
+  "insufficient_fee_append_desc": "basé sur les frais max estimés : {amount} {symbol}",
   "interact_with_contract": "Interagir avec (À)",
   "lighting_invoice": "Facture Éclair",
   "list_section_unavailable_networks_text": "Réseaux indisponibles pour le compte sélectionné",
