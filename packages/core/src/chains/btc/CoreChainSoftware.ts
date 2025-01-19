@@ -476,7 +476,7 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
           const index = pathComponent.endsWith("'")
             ? parseInt(pathComponent.slice(0, -1), 10) + 2 ** 31
             : parseInt(pathComponent, 10);
-          const thisPrivKey = deriver.CKDPriv(parent, index);
+          const thisPrivKey = await deriver.CKDPriv(parent, index);
           cache[currentPath] = thisPrivKey;
         }
         parent = cache[currentPath];

@@ -64,10 +64,10 @@ function N(curve: BaseCurve, privateKey: Buffer): Buffer {
 }
 
 export interface IBip32KeyDeriver {
-  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey;
-  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey;
-  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey;
-  CKDPub(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey;
+  generateMasterKeyFromSeed(seed: Buffer): Promise<IBip32ExtendedKey>;
+  N(extPriv: IBip32ExtendedKey): Promise<IBip32ExtendedKey>;
+  CKDPriv(parent: IBip32ExtendedKey, index: number): Promise<IBip32ExtendedKey>;
+  CKDPub(parent: IBip32ExtendedKey, index: number): Promise<IBip32ExtendedKey>;
 }
 
 class BaseBip32KeyDeriver implements IBip32KeyDeriver {
@@ -79,8 +79,8 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
     // noop
   }
 
-  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey {
-    const I: Buffer = hmacSHA512(this.key, seed);
+  async generateMasterKeyFromSeed(seed: Buffer): Promise<IBip32ExtendedKey> {
+    const I: Buffer = await hmacSHA512(this.key, seed);
     const IL: Buffer = I.slice(0, 32);
     const chainCode: Buffer = I.slice(32, 64);
 
@@ -91,14 +91,17 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
     return this.generateMasterKeyFromSeed(I);
   }
 
-  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey {
+  async N(extPriv: IBip32ExtendedKey): Promise<IBip32ExtendedKey> {
     return {
       key: N(this.curve as BaseCurve, extPriv.key),
       chainCode: extPriv.chainCode,
     };
   }
 
-  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
+  async CKDPriv(
+    parent: IBip32ExtendedKey,
+    index: number,
+  ): Promise<IBip32ExtendedKey> {
     const data: Buffer = Buffer.alloc(37);
 
     data.fill(ser32(index), 33, 37);
@@ -109,7 +112,7 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
     }
 
     for (;;) {
-      const I: Buffer = hmacSHA512(parent.chainCode, data);
+      const I: Buffer = await hmacSHA512(parent.chainCode, data);
       const IR: Buffer = I.slice(32, 64);
 
       const parsedIL: BigNumber = parse256(I.slice(0, 32));
@@ -125,7 +128,10 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
     }
   }
 
-  CKDPub(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
+  async CKDPub(
+    parent: IBip32ExtendedKey,
+    index: number,
+  ): Promise<IBip32ExtendedKey> {
     if (isHardenedIndex(index)) {
       throw Error(`Can't derive public key for index ${index}.`);
     }
@@ -135,7 +141,7 @@ class BaseBip32KeyDeriver implements IBip32KeyDeriver {
     data.fill(ser32(index), 33, 37);
 
     for (;;) {
-      const I: Buffer = hmacSHA512(parent.chainCode, data);
+      const I: Buffer = await hmacSHA512(parent.chainCode, data);
       const IL: Buffer = I.slice(0, 32);
       const IR: Buffer = I.slice(32, 64);
 
@@ -159,16 +165,19 @@ class ED25519Bip32KeyDeriver implements IBip32KeyDeriver {
     // noop
   }
 
-  generateMasterKeyFromSeed(seed: Buffer): IBip32ExtendedKey {
-    const I: Buffer = hmacSHA512(this.key, seed);
+  async generateMasterKeyFromSeed(seed: Buffer): Promise<IBip32ExtendedKey> {
+    const I: Buffer = await hmacSHA512(this.key, seed);
     return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
   }
 
-  N(extPriv: IBip32ExtendedKey): IBip32ExtendedKey {
+  async N(extPriv: IBip32ExtendedKey): Promise<IBip32ExtendedKey> {
     return { key: N(this.curve, extPriv.key), chainCode: extPriv.chainCode };
   }
 
-  CKDPriv(parent: IBip32ExtendedKey, index: number): IBip32ExtendedKey {
+  async CKDPriv(
+    parent: IBip32ExtendedKey,
+    index: number,
+  ): Promise<IBip32ExtendedKey> {
     if (!isHardenedIndex(index)) {
       throw Error('Only hardened CKDPriv is supported for ed25519.');
     }
@@ -176,11 +185,14 @@ class ED25519Bip32KeyDeriver implements IBip32KeyDeriver {
     data.fill(parent.key, 1, 33);
     data.fill(ser32(index), 33, 37);
 
-    const I: Buffer = hmacSHA512(parent.chainCode, data);
+    const I: Buffer = await hmacSHA512(parent.chainCode, data);
     return { key: I.slice(0, 32), chainCode: I.slice(32, 64) };
   }
 
-  CKDPub(): IBip32ExtendedKey {
+  async CKDPub(
+    parent: IBip32ExtendedKey,
+    index: number,
+  ): Promise<IBip32ExtendedKey> {
     // CKDPub(parent: ExtendedKey, index: number): ExtendedKey {
     throw Error('CKDPub is not supported for ed25519.');
   }

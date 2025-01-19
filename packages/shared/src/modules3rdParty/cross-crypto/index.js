@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 console.log('================ cross-crypto (web)');
 
 if (process.env.NODE_ENV !== 'production') {

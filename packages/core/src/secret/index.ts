@@ -303,20 +303,23 @@ async function batchGetKeys(
     password,
   });
   const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
-  let key: IBip32ExtendedKey = deriver.generateMasterKeyFromSeed(seedBuffer);
+  let key: IBip32ExtendedKey = await deriver.generateMasterKeyFromSeed(
+    seedBuffer,
+  );
 
-  prefix.split('/').forEach((pathComponent) => {
+  for (const pathComponent of prefix.split('/')) {
     if (pathComponent === 'm') {
-      return;
+      // eslint-disable-next-line no-continue
+      continue;
     }
     const index = pathComponent.endsWith("'")
       ? parseInt(pathComponent.slice(0, -1), 10) + 2 ** 31
       : parseInt(pathComponent, 10);
-    key = deriver.CKDPriv(key, index);
-  });
+    key = await deriver.CKDPriv(key, index);
+  }
 
   cache[prefix] = {
-    fingerPrint: hash160(deriver.N(key).key).slice(0, 4),
+    fingerPrint: (await hash160((await deriver.N(key)).key)).slice(0, 4),
     parentFingerPrint: Buffer.from([]),
     privkey: key,
   };
@@ -334,13 +337,12 @@ async function batchGetKeys(
         const index = pathComponent.endsWith("'")
           ? parseInt(pathComponent.slice(0, -1), 10) + 2 ** 31
           : parseInt(pathComponent, 10);
-        const privkey = deriver.CKDPriv(parent.privkey, index);
+        const privkey = await deriver.CKDPriv(parent.privkey, index);
 
         if (typeof parent.fingerPrint === 'undefined') {
-          parent.fingerPrint = hash160(deriver.N(parent.privkey).key).slice(
-            0,
-            4,
-          );
+          parent.fingerPrint = (
+            await hash160((await deriver.N(parent.privkey)).key)
+          ).slice(0, 4);
         }
 
         cache[currentPath] = {
@@ -361,7 +363,7 @@ async function batchGetKeys(
               data: cache[currentPath].privkey.key,
             }),
           }
-        : deriver.N(cache[currentPath].privkey);
+        : await deriver.N(cache[currentPath].privkey);
 
     ret.push({
       path: currentPath,
@@ -465,8 +467,9 @@ async function generateMasterKeyFromSeed(
     password,
   });
   const seedBuffer: Buffer = bufferUtils.toBuffer(seed);
-  const masterKey: IBip32ExtendedKey =
-    deriver.generateMasterKeyFromSeed(seedBuffer);
+  const masterKey: IBip32ExtendedKey = await deriver.generateMasterKeyFromSeed(
+    seedBuffer,
+  );
   const encryptedKey = await encryptAsync({
     password,
     data: masterKey.key,
@@ -510,7 +513,7 @@ async function CKDPriv(
     }),
     chainCode: encryptedParent.chainCode,
   };
-  const child: IBip32ExtendedKey = deriver.CKDPriv(parent, index);
+  const child: IBip32ExtendedKey = await deriver.CKDPriv(parent, index);
   const encryptedKey = await encryptAsync({
     password,
     data: child.key,
@@ -521,11 +524,11 @@ async function CKDPriv(
   };
 }
 
-function CKDPub(
+async function CKDPub(
   curveName: ICurveName,
   parent: IBip32ExtendedKey,
   index: number,
-): IBip32ExtendedKey {
+): Promise<IBip32ExtendedKey> {
   return getDeriverByCurveName(curveName).CKDPub(parent, index);
 }
 
@@ -621,7 +624,7 @@ async function generateRootFingerprintHexAsync(
     password,
   );
   const publicKey = await publicFromPrivate(curveName, masterKey.key, password);
-  return hash160(publicKey).slice(0, 4).toString('hex');
+  return (await hash160(publicKey)).slice(0, 4).toString('hex');
 }
 
 async function revealableSeedFromTonMnemonic(

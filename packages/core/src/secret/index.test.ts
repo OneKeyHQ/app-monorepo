@@ -680,14 +680,14 @@ test('Incorrect mnemonic', async () => {
   ).rejects.toThrow(InvalidMnemonic);
 });
 
-test('sha256', () => {
-  let hashBuffer = sha256(bufferUtils.toBuffer('hd-1--1', 'utf-8'));
+test('sha256', async () => {
+  let hashBuffer = await sha256(bufferUtils.toBuffer('hd-1--1', 'utf-8'));
   let hash = bufferUtils.bytesToHex(hashBuffer);
   expect(hash).toBe(
     '8aaf059c0c662d850ba4be656a127a7e9e5412b1e472a2919962da3d321a4ea6',
   );
 
-  hashBuffer = sha256(bufferUtils.toBuffer('hd-1--0', 'utf-8'));
+  hashBuffer = await sha256(bufferUtils.toBuffer('hd-1--0', 'utf-8'));
   hash = bufferUtils.bytesToHex(hashBuffer);
   expect(hash).toBe(
     'c804881858e8a43235e9f6ec4e8b50c611657397e75905471360ededa208e4b4',

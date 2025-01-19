@@ -624,7 +624,7 @@ describe('Secret Module Tests', () => {
 
   // Test CKDPub function
   describe('CKDPub', () => {
-    it('should derive child public keys correctly', () => {
+    it('should derive child public keys correctly', async () => {
       const parentKey = {
         key: Buffer.from(
           '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
@@ -633,7 +633,7 @@ describe('Secret Module Tests', () => {
         chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
       };
 
-      const testChildKey = CKDPub('secp256k1', parentKey, 0);
+      const testChildKey = await CKDPub('secp256k1', parentKey, 0);
       expect(testChildKey).toBeDefined();
       expect(testChildKey.key).toBeInstanceOf(Buffer);
       expect(testChildKey.chainCode).toBeInstanceOf(Buffer);
@@ -646,7 +646,7 @@ describe('Secret Module Tests', () => {
         ),
         chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
       };
-      const nistChildKey = CKDPub('nistp256', nistParentKey, 0);
+      const nistChildKey = await CKDPub('nistp256', nistParentKey, 0);
       expect(nistChildKey).toBeDefined();
       expect(nistChildKey.key).toBeInstanceOf(Buffer);
       expect(nistChildKey.chainCode).toBeInstanceOf(Buffer);
@@ -657,7 +657,7 @@ describe('Secret Module Tests', () => {
       expect(() => CKDPub('secp256k1', parentKey, 2_147_483_648)).toThrow(); // Hardened index not allowed
     });
 
-    it('should match snapshot for public key derivation', () => {
+    it('should match snapshot for public key derivation', async () => {
       const parentKey = {
         key: Buffer.from(
           '0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798',
@@ -665,7 +665,7 @@ describe('Secret Module Tests', () => {
         ),
         chainCode: Buffer.from('0123456789abcdef0123456789abcdef', 'hex'),
       };
-      const extendedKey = CKDPub('secp256k1', parentKey, 0);
+      const extendedKey = await CKDPub('secp256k1', parentKey, 0);
       expect({
         key: extendedKey.key.toString('hex'),
         chainCode: extendedKey.chainCode.toString('hex'),

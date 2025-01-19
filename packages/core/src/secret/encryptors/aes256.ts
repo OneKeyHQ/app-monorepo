@@ -148,12 +148,12 @@ async function encryptAsync({
   const dataBuffer = bufferUtils.toBuffer(data);
 
   const salt: Buffer = crypto.randomBytes(PBKDF2_SALT_LENGTH);
-  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
+  const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
   const iv: Buffer = crypto.randomBytes(AES256_IV_LENGTH);
   return Buffer.concat([
     salt,
     iv,
-    aesCbcEncrypt({
+    await aesCbcEncrypt({
       data: dataBuffer,
       key,
       iv,
@@ -220,7 +220,7 @@ async function decryptAsync({
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSalt();
   }
-  const key: Buffer = keyFromPasswordAndSalt(passwordDecoded, salt);
+  const key: Buffer = await keyFromPasswordAndSalt(passwordDecoded, salt);
   if (!ignoreLogger) {
     defaultLogger.account.secretPerf.keyFromPasswordAndSaltDone();
   }
@@ -241,7 +241,7 @@ async function decryptAsync({
     //   iv.toString('base64'),
     // );
 
-    const aesDecryptData = aesCbcDecrypt({
+    const aesDecryptData = await aesCbcDecrypt({
       data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
       key,
       iv,

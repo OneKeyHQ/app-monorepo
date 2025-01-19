@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 // react-native-crypto
 //      react-native-quick-crypto
 // react-native-get-random-values

@@ -73,7 +73,7 @@ export async function encrypt(
   const normalizedKey = key.slice(1, 33);
   const iv = crypto.randomBytes(16);
 
-  const encrypted = aesCbcEncrypt({
+  const encrypted = await aesCbcEncrypt({
     data: Buffer.from(plaintext),
     key: Buffer.from(normalizedKey),
     iv,
@@ -92,7 +92,7 @@ export async function decrypt(
   const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
   const [cip, iv] = ciphertext.split('?iv=');
   const normalizedKey = key.slice(1, 33);
-  const decrypted = aesCbcDecrypt({
+  const decrypted = await aesCbcDecrypt({
     data: Buffer.from(cip, 'base64'),
     key: Buffer.from(normalizedKey),
     iv: Buffer.from(iv, 'base64'),
