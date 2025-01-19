@@ -12,11 +12,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
-import { useWebTabDataById } from '../../hooks/useWebTabs';
+import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 
 function DesktopCustomTabBarItem({
   id,
-  activeTabId,
   shortcutKey,
   onPress,
   onBookmarkPress,
@@ -28,7 +27,6 @@ function DesktopCustomTabBarItem({
 }: IPropsWithTestId<{
   id: string;
   shortcutKey?: EShortcutEvents;
-  activeTabId: string | null;
   onPress: (id: string) => void;
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
@@ -38,9 +36,10 @@ function DesktopCustomTabBarItem({
 }>) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
-  const isActive = activeTabId === id;
   const { copyText } = useClipboard();
   const { handleRenameTab } = useBrowserOptionsAction();
+  const { activeTabId } = useActiveTabId();
+  const isActive = activeTabId === id;
   const closeTab = useCallback(() => {
     onClose?.(tab?.id);
   }, [onClose, tab?.id]);

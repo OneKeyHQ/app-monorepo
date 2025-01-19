@@ -339,7 +339,6 @@ function DesktopCustomTabBar() {
             <DesktopCustomTabBarItem
               id={t.id}
               key={t.id}
-              activeTabId={activeTabId}
               onPress={onTabPress}
               onBookmarkPress={handleBookmarkPress}
               onPinnedPress={handlePinnedPress}
