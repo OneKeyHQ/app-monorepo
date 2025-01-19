@@ -19,7 +19,6 @@ function AutoRiskControlContent() {
   return (
     <YStack gap="$4">
       <YStack gap="$3">
-        {/* Point 1 */}
         <XStack alignItems="flex-start">
           <SizableText size="$bodyLg" flex={1}>
             1.{' '}
@@ -29,7 +28,6 @@ function AutoRiskControlContent() {
           </SizableText>
         </XStack>
 
-        {/* Point 2 */}
         <XStack alignItems="flex-start">
           <SizableText size="$bodyLg" flex={1}>
             2.{' '}
@@ -39,7 +37,6 @@ function AutoRiskControlContent() {
           </SizableText>
         </XStack>
 
-        {/* Point 3 */}
         <XStack alignItems="flex-start">
           <SizableText size="$bodyLg" flex={1}>
             3.{' '}
@@ -50,7 +47,6 @@ function AutoRiskControlContent() {
         </XStack>
       </YStack>
 
-      {/* Disclaimer Accordion */}
       <Accordion type="single" collapsible>
         <Accordion.Item value="disclaimer">
           <Accordion.Trigger
