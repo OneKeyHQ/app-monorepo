@@ -79,26 +79,27 @@ function AddressBadgeFrame({
     [networkId],
   );
 
+  if (title) {
+    return (
+      <BasicAddressBadge
+        badgeType="default"
+        icon="Document2Outline"
+        title={title}
+      />
+    );
+  }
+
   if (isContract) {
     return (
-      <>
-        {title ? (
-          <BasicAddressBadge
-            badgeType="default"
-            icon="Document2Outline"
-            title={title}
-          />
-        ) : null}
-        <BasicAddressBadge
-          badgeType="warning"
-          title={intl.formatMessage({
-            id: ETranslations.global_contract,
-          })}
-          content={intl.formatMessage({
-            id: ETranslations.address_input_contract_popover,
-          })}
-        />
-      </>
+      <BasicAddressBadge
+        badgeType="warning"
+        title={intl.formatMessage({
+          id: ETranslations.global_contract,
+        })}
+        content={intl.formatMessage({
+          id: ETranslations.address_input_contract_popover,
+        })}
+      />
     );
   }
 

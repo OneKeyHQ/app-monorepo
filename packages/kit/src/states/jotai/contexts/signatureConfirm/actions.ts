@@ -144,6 +144,7 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         isInsufficientNativeBalance?: boolean;
         isSubmitting?: boolean;
         isSendNativeTokenOnly?: boolean;
+        fillUpNativeBalance?: string;
       },
     ) => {
       set(sendTxStatusAtom(), {
