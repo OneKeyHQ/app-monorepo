@@ -621,11 +621,11 @@ test('Child index too big', async () => {
   );
 });
 
-test('(ECDSA) CKDPub failed for hardened index', () => {
+test('(ECDSA) CKDPub failed for hardened index', async () => {
   const index = 2 ** 31;
-  expect(() => {
-    CKDPub('secp256k1', xPubTest, index);
-  }).toThrow(new Error(`Can't derive public key for index ${index}.`));
+  await expect(CKDPub('secp256k1', xPubTest, index)).rejects.toThrow(
+    new Error(`Can't derive public key for index ${index}.`),
+  );
 });
 
 test('Normal CKDPriv is not supported for ed25519', async () => {
@@ -636,10 +636,10 @@ test('Normal CKDPriv is not supported for ed25519', async () => {
   );
 });
 
-test('CKDPub is not supported for ed25519', () => {
-  expect(() => {
-    CKDPub('ed25519', xPubTest, 0);
-  }).toThrow(new Error('CKDPub is not supported for ed25519.'));
+test('CKDPub is not supported for ed25519', async () => {
+  await expect(CKDPub('ed25519', xPubTest, 0)).rejects.toThrow(
+    new Error('CKDPub is not supported for ed25519.'),
+  );
 });
 
 test('Normal encryption/decryption', async () => {
