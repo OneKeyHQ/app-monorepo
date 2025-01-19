@@ -982,6 +982,8 @@ PODS:
   - React-Mapbuffer (0.73.7):
     - glog
     - React-debug
+  - react-native-aes (3.2.1):
+    - React-Core
   - react-native-ble-manager (10.1.5):
     - React-Core
   - react-native-ble-plx (3.0.0):
@@ -1361,6 +1363,7 @@ DEPENDENCIES:
   - React-jsinspector (from `../../../node_modules/react-native/ReactCommon/jsinspector-modern`)
   - React-logger (from `../../../node_modules/react-native/ReactCommon/logger`)
   - React-Mapbuffer (from `../../../node_modules/react-native/ReactCommon`)
+  - react-native-aes (from `../../../node_modules/react-native-aes-crypto`)
   - react-native-ble-manager (from `../../../node_modules/react-native-ble-manager`)
   - "react-native-ble-plx (from `../../../node_modules/@onekeyfe/react-native-ble-plx`)"
   - react-native-cloud-fs (from `../../../node_modules/react-native-cloud-fs`)
@@ -1560,6 +1563,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native/ReactCommon/logger"
   React-Mapbuffer:
     :path: "../../../node_modules/react-native/ReactCommon"
+  react-native-aes:
+    :path: "../../../node_modules/react-native-aes-crypto"
   react-native-ble-manager:
     :path: "../../../node_modules/react-native-ble-manager"
   react-native-ble-plx:
@@ -1749,6 +1754,7 @@ SPEC CHECKSUMS:
   React-jsinspector: f356e49aa086380d3a4892708ca173ad31ac69c1
   React-logger: 7b19bdfb254772a0332d6cd4d66eceb0678b6730
   React-Mapbuffer: 401b164386595138c3ee5c2106ff117d54c3ba22
+  react-native-aes: 2f9ce51c4bd1e9fb5c50f5c867df05bcac10884b
   react-native-ble-manager: 09724bad4d06b86a85e0cd7bd97196fecca15e9a
   react-native-ble-plx: 4b0b605e4c52453ecbeb82807878bc4a2652d1c9
   react-native-cloud-fs: 70c7cafe80186a6022da6741a76741e215633b6c
