@@ -974,7 +974,11 @@ if (!singleInstance && !process.mas) {
   });
 }
 
-app.on('activate', () => {
+// The activate and ready events are mapped from OS X's applicationShouldHandleReopen and applicationDidFinishLaunching events
+//  couldn't find documentation on whether applicationShouldHandleReopen would be emitted before applicationDidFinishLaunching.
+//  So we need to handle both cases to be safe.
+app.on('activate', async () => {
+  await app.whenReady();
   if (!mainWindow) {
     mainWindow = createMainWindow();
   }
@@ -982,10 +986,11 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
-  if (mainWindow) {
-    mainWindow?.removeAllListeners();
-    mainWindow?.removeAllListeners('close');
-    mainWindow?.close();
+  const safelyMainWindow = getSafelyMainWindow();
+  if (safelyMainWindow) {
+    safelyMainWindow.removeAllListeners();
+    safelyMainWindow.removeAllListeners('close');
+    safelyMainWindow.close();
   }
   disposeContextMenu?.();
 });
