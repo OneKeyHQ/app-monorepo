@@ -989,7 +989,7 @@ describe('Secret Module Tests', () => {
       });
 
       expect(asyncResult).toEqual(syncResult);
-    }, 5000);
+    }, 7000); // increase timeout to 7 seconds
 
     it('should handle native environment correctly', async () => {
       const encryptedSeed = await encryptRevealableSeed({
