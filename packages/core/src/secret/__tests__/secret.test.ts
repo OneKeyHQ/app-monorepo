@@ -989,7 +989,7 @@ describe('Secret Module Tests', () => {
       });
 
       expect(asyncResult).toEqual(syncResult);
-    }, 5_000);
+    }, 5000);
 
     it('should handle native environment correctly', async () => {
       const encryptedSeed = await encryptRevealableSeed({
