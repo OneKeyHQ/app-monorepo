@@ -1307,6 +1307,7 @@
   history_notification_receiver_label = 'history.notification_receiver_label',
   history_switch_account_dialog_title = 'history.switch_account_dialog_title',
   hw_banner_description = 'hw_banner_description',
+  insufficient_fee_append_desc = 'insufficient_fee_append_desc',
   interact_with_contract = 'interact_with_contract',
   lighting_invoice = 'lighting_invoice',
   list_section_unavailable_networks_text = 'list_section_unavailable_networks_text',
