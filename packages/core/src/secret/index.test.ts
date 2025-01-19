@@ -616,7 +616,7 @@ test('Child index too big', async () => {
     CKDPriv('secp256k1', xPrvTest, 2 ** 32, password),
   ).rejects.toThrow(new Error('Overflowed.'));
 
-  expect(() => CKDPub('secp256k1', xPubTest, 2 ** 32)).toThrow(
+  await expect(CKDPub('secp256k1', xPubTest, 2 ** 32)).rejects.toThrow(
     new Error('Invalid index.'),
   );
 });

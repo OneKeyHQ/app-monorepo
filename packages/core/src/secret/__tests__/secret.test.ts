@@ -652,9 +652,13 @@ describe('Secret Module Tests', () => {
       expect(nistChildKey.chainCode).toBeInstanceOf(Buffer);
 
       // Test error cases
-      expect(() => CKDPub('invalid-curve' as any, parentKey, 0)).toThrow();
-      expect(() => CKDPub('secp256k1', parentKey, -1)).toThrow();
-      expect(() => CKDPub('secp256k1', parentKey, 2_147_483_648)).toThrow(); // Hardened index not allowed
+      await expect(
+        CKDPub('invalid-curve' as any, parentKey, 0),
+      ).rejects.toThrow();
+      await expect(CKDPub('secp256k1', parentKey, -1)).rejects.toThrow();
+      await expect(
+        CKDPub('secp256k1', parentKey, 2_147_483_648),
+      ).rejects.toThrow(); // Hardened index not allowed
     });
 
     it('should match snapshot for public key derivation', async () => {
@@ -985,7 +989,7 @@ describe('Secret Module Tests', () => {
       });
 
       expect(asyncResult).toEqual(syncResult);
-    });
+    }, 5_000);
 
     it('should handle native environment correctly', async () => {
       const encryptedSeed = await encryptRevealableSeed({
