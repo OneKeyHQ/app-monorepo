@@ -31,7 +31,7 @@ export function keyFromPasswordAndSalt(password: string, salt: Buffer): Buffer {
     salt,
     PBKDF2_NUM_OF_ITERATIONS,
     PBKDF2_KEY_LENGTH,
-    'sha256'
+    'sha256',
   );
 }
 

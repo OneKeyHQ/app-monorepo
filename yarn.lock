@@ -6891,7 +6891,6 @@ __metadata:
     "@types/jsrsasign": "npm:^10.5.11"
     "@zondax/izari-filecoin": "npm:^1.2.0"
     algosdk: "npm:^2.6.0"
-    asmcrypto.js: "npm:2.3.2"
     base32-decode: "npm:^1.0.0"
     bchaddrjs: "npm:^0.5.2"
     bip32: "npm:^4.0.0"
@@ -16632,13 +16631,6 @@ __metadata:
   version: 2.0.6
   resolution: "asap@npm:2.0.6"
   checksum: 10/b244c0458c571945e4b3be0b14eb001bea5596f9868cc50cc711dc03d58a7e953517d3f0dad81ccde3ff37d1f074701fa76a6f07d41aaa992d7204a37b915dda
-  languageName: node
-  linkType: hard
-
-"asmcrypto.js@npm:2.3.2":
-  version: 2.3.2
-  resolution: "asmcrypto.js@npm:2.3.2"
-  checksum: 10/94b1e33cfd417005a941cb05044718879804756042d1c8aac2070d1a0db03ca5550340b56bbbcde2df1e1ca8042b48092bfd5690a56740d179902e3b26521f65
   languageName: node
   linkType: hard
 
@@ -33017,9 +33009,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"protobufjs@npm:^6.11.2, protobufjs@npm:~6.11.2":
-  version: 6.11.4
-  resolution: "protobufjs@npm:6.11.4"
+"protobufjs@npm:6.11.2":
+  version: 6.11.2
+  resolution: "protobufjs@npm:6.11.2"
   dependencies:
     "@protobufjs/aspromise": "npm:^1.1.2"
     "@protobufjs/base64": "npm:^1.1.2"
@@ -33037,7 +33029,7 @@ __metadata:
   bin:
     pbjs: bin/pbjs
     pbts: bin/pbts
-  checksum: 10/6b7fd7540d74350d65c38f69f398c9995ae019da070e79d9cd464a458c6d19b40b07c9a026be4e10704c824a344b603307745863310c50026ebd661ce4da0663
+  checksum: 10/86c35e561a44251137f167a1fd3225072c7325aa72e483d8530372770a6ba2d8ab07339c1d9f33e304253702914a7625c3dd96fe852d2238f6eb8851ea46e1cf
   languageName: node
   linkType: hard
 

@@ -21,4 +21,3 @@ export const PARSE_HANDLERS = {
   [EQRCodeHandlerNames.marketDetail]: marketDetail,
   [EQRCodeHandlerNames.sendProtection]: sendProtection,
 };
-
