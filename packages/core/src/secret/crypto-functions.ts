@@ -1,13 +1,5 @@
 import crypto from 'crypto';
 
-import {
-  AES_CBC,
-  HmacSha256,
-  HmacSha512,
-  Pbkdf2HmacSha256,
-  Sha256,
-} from 'asmcrypto.js';
-
 // Below codes are comments to note algorithm and digest method used.
 // const ALGORITHM = 'aes-256-cbc';
 // const PBKDF2_DIGEST_METHOD = 'sha256';
@@ -18,19 +10,15 @@ export const AES256_IV_LENGTH = 16;
 export const ENCRYPTED_DATA_OFFSET = PBKDF2_SALT_LENGTH + AES256_IV_LENGTH;
 
 export function hmacSHA256(key: Buffer, data: Buffer): Buffer {
-  return Buffer.from(
-    new HmacSha256(key).process(data).finish().result as Uint8Array,
-  );
+  return crypto.createHmac('sha256', key).update(data).digest();
 }
 
 export function hmacSHA512(key: Buffer, data: Buffer): Buffer {
-  return Buffer.from(
-    new HmacSha512(key).process(data).finish().result as Uint8Array,
-  );
+  return crypto.createHmac('sha512', key).update(data).digest();
 }
 
 export function sha256(data: Buffer): Buffer {
-  return Buffer.from(new Sha256().process(data).finish().result as Uint8Array);
+  return crypto.createHash('sha256').update(data).digest();
 }
 
 export function hash160(data: Buffer): Buffer {
@@ -38,13 +26,12 @@ export function hash160(data: Buffer): Buffer {
 }
 
 export function keyFromPasswordAndSalt(password: string, salt: Buffer): Buffer {
-  return Buffer.from(
-    Pbkdf2HmacSha256(
-      sha256(Buffer.from(password, 'utf8')),
-      salt,
-      PBKDF2_NUM_OF_ITERATIONS,
-      PBKDF2_KEY_LENGTH,
-    ),
+  return crypto.pbkdf2Sync(
+    sha256(Buffer.from(password, 'utf8')),
+    salt,
+    PBKDF2_NUM_OF_ITERATIONS,
+    PBKDF2_KEY_LENGTH,
+    'sha256'
   );
 }
 
@@ -57,8 +44,8 @@ export function aesCbcEncrypt({
   key: Buffer;
   data: Buffer;
 }): Buffer {
-  // Buffer.from(AES_CBC.encrypt(data, key, true, iv))
-  return Buffer.from(AES_CBC.encrypt(data, key, true, iv));
+  const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+  return Buffer.concat([cipher.update(data), cipher.final()]);
 }
 
 export function aesCbcDecrypt({
@@ -70,11 +57,6 @@ export function aesCbcDecrypt({
   key: Buffer;
   data: Buffer;
 }): Buffer {
-  // AES_CBC.decrypt(
-  //   dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
-  //   key,
-  //   true,
-  //   iv,
-  // )
-  return Buffer.from(AES_CBC.decrypt(data, key, true, iv));
+  const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+  return Buffer.concat([decipher.update(data), decipher.final()]);
 }
