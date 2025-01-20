@@ -106,6 +106,27 @@ const LoggerDemo = () => {
               Log Browser Tabs
             </Button>
             <Button onPress={downloadLog}>Download Log</Button>
+            <Button
+              onPress={() => {
+                console.log(
+                  'BigInt toString: ',
+                  1_234_567_890_123_456_789_077_777_777_777_777_777_799_999_999_999_998_888_888n.toString(),
+                );
+              }}
+            >
+              BigInt toString
+            </Button>
+            <Button
+              onPress={() => {
+                console.log(
+                  'Int toString: ',
+                  // eslint-disable-next-line no-loss-of-precision, @typescript-eslint/no-loss-of-precision
+                  (1_234_567_890_123_456_789_077_777_777_777_777_777_799_999_999_999_998_888_888).toString(),
+                );
+              }}
+            >
+              Int toString
+            </Button>
           </Accordion.Content>
         </Accordion.Item>
       </Accordion>

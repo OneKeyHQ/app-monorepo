@@ -200,11 +200,19 @@ function buildUrl({
   // eslint-disable-next-line no-param-reassign
   path = path.replace(/\/+$/, '');
 
+  let search = '';
+  if (query) {
+    search = new URLSearchParams(query).toString();
+  }
+
+  if (path && !protocol && !hostname) {
+    return `/${path}${search ? `?${search}` : ''}`;
+  }
   const url = new URL(
     `${protocol}://${[hostname, path].filter(Boolean).join('/')}`,
   );
-  if (query) {
-    url.search = new URLSearchParams(query).toString();
+  if (search) {
+    url.search = search;
   }
   return url.toString();
 }

@@ -487,9 +487,12 @@ class ProviderApiPrivate extends ProviderApiBase {
 
     await waitForDataLoaded({
       data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
-      logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${
-        data?.module || ''
-      } - ${data?.method || ''}`,
+      logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${JSON.stringify({
+        module: data?.module,
+        method: data?.method,
+        isWebEmbedApiReady: Boolean(this.isWebEmbedApiReady),
+        webEmbedBridge: Boolean(bg?.webEmbedBridge),
+      })}`,
       wait: 1000,
       timeout: timerUtils.getTimeDurationMs({ minute: 3 }),
     });

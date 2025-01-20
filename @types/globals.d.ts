@@ -4,7 +4,7 @@ import type {
   ETranslations,
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
-
+import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
 
 type IWindowOneKeyHub = {
@@ -69,6 +69,8 @@ declare global {
   var extJsBridgeUiToBg: JsBridgeBase;
   var extJsBridgeOffscreenToBg: JsBridgeBase;
   var ONEKEY_DESKTOP_DEEP_LINKS: any[];
+
+  var WEB_EMBED_ONEKEY_APP_SETTINGS: IWebEmbedOnekeyAppSettings | undefined;
 
   // eslint-disable-next-line @typescript-eslint/naming-convention
   interface Error extends Error {

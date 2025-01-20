@@ -2,7 +2,7 @@ import Axios from 'axios';
 
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
-import { headerPlatform } from '../request/Interceptor';
+import { headerPlatform } from '../request/InterceptorConsts';
 
 import { getDeviceInfo } from './deviceInfo';
 

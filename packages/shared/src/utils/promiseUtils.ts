@@ -150,14 +150,14 @@ export async function promiseAllSettledEnhanced<T>(
 
 class PromiseTarget<T> {
   ready = new Promise<T>((resolve) => {
-    this.resolve = resolve;
+    this._resolveFn = resolve;
   });
 
-  resolve: ((value: T) => void) | undefined;
+  _resolveFn: ((value: T) => void) | undefined;
 
   resolveTarget(value: T, delay = 0) {
     setTimeout(() => {
-      this.resolve?.(value);
+      this._resolveFn?.(value);
     }, delay);
   }
 }

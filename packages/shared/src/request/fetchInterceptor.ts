@@ -1,11 +1,10 @@
 /* eslint-disable @typescript-eslint/no-restricted-imports */
 import { forEach, isNil, isString } from 'lodash';
 
-import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
-
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
 
+import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 
 function getUrlFromResource(resource: RequestInfo | URL | string) {
