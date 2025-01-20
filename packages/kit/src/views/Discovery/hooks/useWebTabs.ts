@@ -8,6 +8,8 @@ import {
   useWebTabsMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 
+import type { IWebTab } from '../types';
+
 export const useWebTabs = () => {
   const [webTabs] = useWebTabsAtom();
   return useMemo(
@@ -22,7 +24,7 @@ export const useWebTabDataById = (id?: string) => {
   const [map] = useWebTabsMapAtom();
   return useMemo(
     () => ({
-      tab: map[id ?? ''],
+      tab: map[id ?? ''] as IWebTab | undefined,
     }),
     [map, id],
   );

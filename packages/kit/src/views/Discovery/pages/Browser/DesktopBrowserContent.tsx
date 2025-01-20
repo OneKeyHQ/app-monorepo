@@ -239,12 +239,14 @@ function BasicDesktopBrowserContent({
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
-      <WebContent
-        id={id}
-        url={tab.url}
-        isCurrent={isActive}
-        addBrowserHistory={handleAddBrowserHistory}
-      />
+      {tab?.url ? (
+        <WebContent
+          id={id}
+          url={tab.url}
+          isCurrent={isActive}
+          addBrowserHistory={handleAddBrowserHistory}
+        />
+      ) : null}
     </Freeze>
   );
 }
