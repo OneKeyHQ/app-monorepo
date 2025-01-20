@@ -1,7 +1,9 @@
+import { useState } from 'react';
+
 import { useNavigation } from '@react-navigation/native';
 import natsort from 'natsort';
 
-import { ListView, Page } from '@onekeyhq/components';
+import { Input, ListView, Page, View } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useGalleryPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
@@ -9,26 +11,41 @@ import { EGalleryRoutes } from '@onekeyhq/shared/src/routes';
 const Index = () => {
   const [gallery, setGallery] = useGalleryPersistAtom();
   const { galleryLastRoute } = gallery;
+  const [searchQuery, setSearchQuery] = useState('');
 
   const navigation = useNavigation();
-  const componentsRoute = Object.values(EGalleryRoutes)
+  const filteredComponents = Object.values(EGalleryRoutes)
     .filter((item) => item.startsWith('component'))
+    .filter((item) => item.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => natsort({ insensitive: true })(a, b));
 
   if (galleryLastRoute) {
-    componentsRoute.unshift(galleryLastRoute);
+    filteredComponents.unshift(galleryLastRoute);
   }
 
   return (
     <Page>
       <Page.Body>
+        <View
+          style={{
+            width: '90%',
+            maxWidth: 640,
+            alignSelf: 'center',
+          }}
+        >
+          <Input
+            placeholder="Search components..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+        </View>
         <ListView
           estimatedItemSize="$11"
           flex={1}
           contentContainerStyle={{
             py: 20,
           }}
-          data={componentsRoute}
+          data={filteredComponents}
           renderItem={({ item }) => (
             <ListItem
               style={{ width: '90%', maxWidth: 640, alignSelf: 'center' }}
