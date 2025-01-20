@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,39 +8,67 @@ import type {
   IPropsWithTestId,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
-import { useWebTabDataById } from '../../hooks/useWebTabs';
+import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 
 function DesktopCustomTabBarItem({
   id,
-  activeTabId,
   shortcutKey,
   onPress,
   onBookmarkPress,
   onPinnedPress,
   onClose,
-  displayDisconnectOption,
   onDisconnect,
   testID,
 }: IPropsWithTestId<{
   id: string;
   shortcutKey?: EShortcutEvents;
-  activeTabId: string | null;
   onPress: (id: string) => void;
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
   onClose: (id: string) => void;
-  displayDisconnectOption: boolean;
   onDisconnect: (url: string | undefined) => Promise<void>;
 }>) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
-  const isActive = activeTabId === id;
+  const {
+    result: displayDisconnectOption,
+    run: refreshDisplayDisconnectOptionStatus,
+  } = usePromiseResult(async () => {
+    const origin = tab?.url ? new URL(tab.url).origin : null;
+    if (origin) {
+      const connectedAccounts =
+        await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+          origin,
+        );
+      return (connectedAccounts ?? []).length > 0;
+    }
+    return false;
+  }, [tab.url]);
+
+  useEffect(() => {
+    const handler = () => {
+      void refreshDisplayDisconnectOptionStatus({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, handler);
+    };
+  }, [refreshDisplayDisconnectOptionStatus, tab]);
+
   const { copyText } = useClipboard();
   const { handleRenameTab } = useBrowserOptionsAction();
+  const { activeTabId } = useActiveTabId();
+  const isActive = activeTabId === id;
   const closeTab = useCallback(() => {
     onClose?.(tab?.id);
   }, [onClose, tab?.id]);
