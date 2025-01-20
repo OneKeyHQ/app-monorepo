@@ -16,6 +16,11 @@ import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
 import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
 
+export enum EWrappedType {
+  DEPOSIT = 'deposit',
+  WITHDRAW = 'withdraw',
+}
+
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
@@ -36,6 +41,12 @@ export enum ESwapRateDifferenceUnit {
   POSITIVE = 'positive',
   NEGATIVE = 'negative',
   DEFAULT = 'default',
+}
+
+export enum EExplorerType {
+  PROVIDER = 'provider',
+  FROM = 'from',
+  TO = 'to',
 }
 
 export enum ETokenRiskLevel {
@@ -166,6 +177,31 @@ export enum ESwapApproveTransactionStatus {
   CANCEL = 'cancel',
   FAILED = 'failed',
 }
+
+export enum ESwapCrossChainStatus {
+  FROM_PENDING = 'FROM_PENDING',
+  FROM_SUCCESS = 'FROM_SUCCESS',
+  FROM_FAILED = 'FROM_FAILED',
+  BRIDGE_PENDING = 'BRIDGE_PENDING',
+  BRIDGE_SUCCESS = 'BRIDGE_SUCCESS',
+  BRIDGE_FAILED = 'BRIDGE_FAILED',
+  TO_PENDING = 'TO_PENDING',
+  TO_SUCCESS = 'TO_SUCCESS',
+  TO_FAILED = 'TO_FAILED',
+  REFUNDING = 'REFUNDING',
+  REFUNDED = 'REFUNDED',
+  REFUND_FAILED = 'REFUND_FAILED',
+  EXPIRED = 'EXPIRED',
+  PROVIDER_ERROR = 'PROVIDER_ERROR',
+}
+
+export interface ISwapOrderHash {
+  fromTxHash?: string;
+  bridgeHash?: string;
+  toTxHash?: string;
+  refundHash?: string;
+}
+
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
@@ -523,6 +559,7 @@ export enum ESwapTxHistoryStatus {
 
 export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
   gasFeeFiatValue?: string;
@@ -530,6 +567,8 @@ export interface IFetchSwapTxHistoryStatusResponse {
   dealReceiveAmount?: string;
   blockNumber?: number;
   txId?: string;
+  swapOrderHash?: ISwapOrderHash;
+  surplus?: string;
 }
 
 export interface ISwapCheckSupportResponse {
@@ -541,6 +580,8 @@ export interface ISwapCheckSupportResponse {
 
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
+  swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
   accountInfo: {
@@ -581,6 +622,7 @@ export interface ISwapTxHistory {
     orderId?: string;
     supportUrl?: string;
     orderSupportUrl?: string;
+    surplus?: string;
   };
   date: {
     created: number;
@@ -589,6 +631,14 @@ export interface ISwapTxHistory {
 }
 
 // component -----------------
+
+export interface IExplorersInfo {
+  url?: string;
+  logo?: string;
+  status: ESwapTxHistoryStatus;
+  type: EExplorerType;
+  name: string;
+}
 
 export interface ISwapSlippageSegmentItem {
   key: ESwapSlippageSegmentKey;

@@ -57,18 +57,63 @@ interface ISwapActionsStateProps {
   onSelectPercentageStage?: (stage: number) => void;
 }
 
-function PageFooter({
+function PercentageStageOnKeyboard({
   onSelectPercentageStage,
+}: {
+  onSelectPercentageStage?: (stage: number) => void;
+}) {
+  const isShow = useIsKeyboardShown();
+  return isShow ? (
+    <XStack
+      alignItems="center"
+      gap="$1"
+      justifyContent="space-around"
+      bg="$bgSubdued"
+      h="$10"
+    >
+      <>
+        {SwapPercentageInputStageForNative.map((stage) => (
+          <SwapPercentageStageBadge
+            badgeSize="lg"
+            key={`swap-percentage-input-stage-${stage}`}
+            stage={stage}
+            borderRadius={0}
+            onSelectStage={onSelectPercentageStage}
+            flex={1}
+            justifyContent="center"
+            alignItems="center"
+            h="$10"
+          />
+        ))}
+        <Button
+          icon="CheckLargeOutline"
+          flex={1}
+          h="$10"
+          size="small"
+          justifyContent="center"
+          borderRadius={0}
+          alignItems="center"
+          variant="tertiary"
+          onPress={() => {
+            Keyboard.dismiss();
+          }}
+        />
+      </>
+    </XStack>
+  ) : null;
+}
+
+function PageFooter({
   actionComponent,
   pageType,
   md,
+  onSelectPercentageStage,
 }: {
   onSelectPercentageStage?: (stage: number) => void;
   pageType: EPageType;
   md: boolean;
   actionComponent: React.JSX.Element;
 }) {
-  const isShow = useIsKeyboardShown();
   return (
     <Page.Footer>
       <Page.FooterActions
@@ -77,44 +122,9 @@ function PageFooter({
           : {})}
         confirmButton={actionComponent}
       />
-      {isShow ? (
-        <XStack
-          alignItems="center"
-          gap="$1"
-          justifyContent="space-around"
-          bg="$bgSubdued"
-          h="$10"
-        >
-          <>
-            {SwapPercentageInputStageForNative.map((stage) => (
-              <SwapPercentageStageBadge
-                badgeSize="lg"
-                key={`swap-percentage-input-stage-${stage}`}
-                stage={stage}
-                borderRadius={0}
-                onSelectStage={onSelectPercentageStage}
-                flex={1}
-                justifyContent="center"
-                alignItems="center"
-                h="$10"
-              />
-            ))}
-            <Button
-              icon="CheckLargeOutline"
-              flex={1}
-              h="$10"
-              size="small"
-              justifyContent="center"
-              borderRadius={0}
-              alignItems="center"
-              variant="tertiary"
-              onPress={() => {
-                Keyboard.dismiss();
-              }}
-            />
-          </>
-        </XStack>
-      ) : null}
+      <PercentageStageOnKeyboard
+        onSelectPercentageStage={onSelectPercentageStage}
+      />
     </Page.Footer>
   );
 }
@@ -451,17 +461,31 @@ const SwapActionsState = ({
     ],
   );
 
+  const actionComponentCoverFooter = useMemo(
+    () => (
+      <>
+        {actionComponent}
+        <Page.Footer>
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        </Page.Footer>
+      </>
+    ),
+    [actionComponent, onSelectPercentageStage],
+  );
+
   return (
     <>
-      {pageType !== EPageType.modal ? (
-        actionComponent
-      ) : (
+      {pageType === EPageType.modal && !md ? (
         <PageFooter
           onSelectPercentageStage={onSelectPercentageStage}
           actionComponent={actionComponent}
           pageType={pageType}
           md={md}
         />
+      ) : (
+        actionComponentCoverFooter
       )}
     </>
   );

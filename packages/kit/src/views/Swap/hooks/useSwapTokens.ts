@@ -8,6 +8,10 @@ import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRo
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { useFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -15,14 +19,15 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapDefaultSetTokens } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ESwapTxHistoryStatus,
   ISwapInitParams,
   ISwapNetwork,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  ESwapCrossChainStatus,
   ESwapDirectionType,
   ESwapTabSwitchType,
-  ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -645,16 +650,11 @@ export function useSwapSelectedTokenInfo({
   token?: ISwapToken;
 }) {
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM); // always fetch from account balance
-  const [orderFinishCheckBalance, setOrderFinishCheckBalance] = useState(0);
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { loadSwapSelectTokenDetail } = useSwapActions().current;
   const swapHistoryPendingListRef = useRef(swapHistoryPendingList);
   if (swapHistoryPendingListRef.current !== swapHistoryPendingList) {
     swapHistoryPendingListRef.current = swapHistoryPendingList;
-  }
-  const orderFinishCheckBalanceRef = useRef(orderFinishCheckBalance);
-  if (orderFinishCheckBalanceRef.current !== orderFinishCheckBalance) {
-    orderFinishCheckBalanceRef.current = orderFinishCheckBalance;
   }
   const swapAddressInfoRef =
     useRef<ReturnType<typeof useSwapAddressInfo>>(swapAddressInfo);
@@ -666,31 +666,85 @@ export function useSwapSelectedTokenInfo({
   if (isFocusRef.current !== isFocused) {
     isFocusRef.current = isFocused;
   }
-
+  const tokenInfoRef = useRef<ISwapToken | undefined>(token);
+  if (tokenInfoRef.current !== token) {
+    tokenInfoRef.current = token;
+  }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadSwapSelectTokenDetailDeb = useCallback(
     debounce((direction, addressInfo, fetchBalance) => {
       void loadSwapSelectTokenDetail(direction, addressInfo, fetchBalance);
-    }, 200),
+    }, 300),
     [],
   );
 
-  useEffect(() => {
-    if (!isFocusRef.current) return;
-    if (swapHistoryPendingList.length) {
-      const successOrder = swapHistoryPendingList.filter(
-        (item) => item.status === ESwapTxHistoryStatus.SUCCESS,
-      ).length;
-      if (successOrder > orderFinishCheckBalanceRef.current) {
-        void loadSwapSelectTokenDetailDeb(
-          type,
-          swapAddressInfoRef.current,
-          true,
-        );
-        setOrderFinishCheckBalance(successOrder);
+  const reloadSwapSelectTokenDetail = useCallback(
+    ({
+      fromToken,
+      toToken,
+      crossChainStatus,
+    }: {
+      status: ESwapTxHistoryStatus;
+      crossChainStatus?: ESwapCrossChainStatus;
+      fromToken?: ISwapToken;
+      toToken?: ISwapToken;
+    }) => {
+      if (
+        (type === ESwapDirectionType.FROM &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId: fromToken?.networkId,
+              contractAddress: fromToken?.contractAddress,
+            },
+            token2: {
+              networkId: tokenInfoRef.current?.networkId,
+              contractAddress: tokenInfoRef.current?.contractAddress,
+            },
+          })) ||
+        (type === ESwapDirectionType.TO &&
+          equalTokenNoCaseSensitive({
+            token1: {
+              networkId: toToken?.networkId,
+              contractAddress: toToken?.contractAddress,
+            },
+            token2: {
+              networkId: tokenInfoRef.current?.networkId,
+              contractAddress: tokenInfoRef.current?.contractAddress,
+            },
+          }))
+      ) {
+        if (
+          crossChainStatus !== ESwapCrossChainStatus.FROM_PENDING &&
+          crossChainStatus !== ESwapCrossChainStatus.EXPIRED &&
+          crossChainStatus !== ESwapCrossChainStatus.FROM_FAILED &&
+          crossChainStatus !== ESwapCrossChainStatus.TO_FAILED &&
+          crossChainStatus !== ESwapCrossChainStatus.BRIDGE_FAILED &&
+          crossChainStatus !== ESwapCrossChainStatus.REFUND_FAILED &&
+          crossChainStatus !== ESwapCrossChainStatus.PROVIDER_ERROR
+        ) {
+          void loadSwapSelectTokenDetailDeb(
+            type,
+            swapAddressInfoRef.current,
+            true,
+          );
+        }
       }
+    },
+    [type, loadSwapSelectTokenDetailDeb],
+  );
+  const pageType = usePageType();
+  useEffect(() => {
+    if (isFocused && pageType === EPageType.modal) {
+      appEventBus.off(
+        EAppEventBusNames.SwapTxHistoryStatusUpdate,
+        reloadSwapSelectTokenDetail,
+      );
+      appEventBus.on(
+        EAppEventBusNames.SwapTxHistoryStatusUpdate,
+        reloadSwapSelectTokenDetail,
+      );
     }
-  }, [loadSwapSelectTokenDetailDeb, swapHistoryPendingList, type]);
+  }, [isFocused, pageType, reloadSwapSelectTokenDetail]);
 
   useEffect(() => {
     void loadSwapSelectTokenDetailDeb(
@@ -709,27 +763,33 @@ export function useSwapSelectedTokenInfo({
     token?.isNative,
   ]);
 
-  const pageType = usePageType();
   useListenTabFocusState(
     ETabRoutes.Swap,
     (isFocus: boolean, isHiddenModel: boolean) => {
       if (pageType !== EPageType.modal) {
-        if (
-          isFocus &&
-          !isHiddenModel &&
-          swapHistoryPendingListRef.current.length
-        ) {
-          const successOrder = swapHistoryPendingListRef.current.filter(
-            (item) => item.status === ESwapTxHistoryStatus.SUCCESS,
-          ).length;
-          if (successOrder > orderFinishCheckBalanceRef.current) {
-            void loadSwapSelectTokenDetailDeb(
-              type,
-              swapAddressInfoRef.current,
-              true,
-            );
-            setOrderFinishCheckBalance(successOrder);
-          }
+        if (isFocus) {
+          appEventBus.off(
+            EAppEventBusNames.SwapTxHistoryStatusUpdate,
+            reloadSwapSelectTokenDetail,
+          );
+          appEventBus.on(
+            EAppEventBusNames.SwapTxHistoryStatusUpdate,
+            reloadSwapSelectTokenDetail,
+          );
+        } else if (isHiddenModel) {
+          appEventBus.off(
+            EAppEventBusNames.SwapTxHistoryStatusUpdate,
+            reloadSwapSelectTokenDetail,
+          );
+        } else {
+          appEventBus.off(
+            EAppEventBusNames.SwapTxHistoryStatusUpdate,
+            reloadSwapSelectTokenDetail,
+          );
+          appEventBus.on(
+            EAppEventBusNames.SwapTxHistoryStatusUpdate,
+            reloadSwapSelectTokenDetail,
+          );
         }
       }
     },

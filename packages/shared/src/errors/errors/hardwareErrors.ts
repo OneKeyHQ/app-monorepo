@@ -442,6 +442,19 @@ export class BTCPsbtTooManyUtxos extends OneKeyHardwareError {
   override code = HardwareErrorCode.BTCPsbtTooManyUtxos;
 }
 
+export class ResponseUnexpectTypeError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'ResponseUnexpectTypeError',
+        defaultKey: ETranslations.hardware_default_error,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.ResponseUnexpectTypeError;
+}
+
 export class StringOverflowError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(

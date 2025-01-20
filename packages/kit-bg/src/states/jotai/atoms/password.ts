@@ -2,17 +2,19 @@ import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog
 import { ELockDuration } from '@onekeyhq/shared/src/consts/appAutoLockConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { isSupportWebAuth } from '@onekeyhq/shared/src/webAuth';
-import { EPasswordVerifyStatus } from '@onekeyhq/shared/types/password';
+import {
+  EPasswordMode,
+  EPasswordVerifyStatus,
+} from '@onekeyhq/shared/types/password';
+import type { EPasswordPromptType } from '@onekeyhq/shared/types/password';
 
 import { biologyAuthUtils } from '../../../services/ServicePassword/biologyAuthUtils';
-import { EPasswordMode } from '../../../services/ServicePassword/types';
 import { EAtomNames } from '../atomNames';
 import { globalAtom, globalAtomComputed } from '../utils';
 
 import { settingsPersistAtom } from './settings';
 import { v4migrationAtom } from './v4migration';
 
-import type { EPasswordPromptType } from '../../../services/ServicePassword/types';
 import type { AuthenticationType } from 'expo-local-authentication';
 
 export type IPasswordAtom = {

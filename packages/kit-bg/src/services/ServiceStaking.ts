@@ -406,7 +406,7 @@ class ServiceStaking extends ServiceBase {
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v1/stake-protocol/list', {
         params: {
-          symbol: symbol.toUpperCase(),
+          symbol,
           accountAddress,
           publicKey,
         },
@@ -494,7 +494,7 @@ class ServiceStaking extends ServiceBase {
       params: {
         networkId,
         accountAddress: acc.address,
-        symbol: symbol.toUpperCase(),
+        symbol,
         publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
         ...rest,
       },
@@ -520,7 +520,7 @@ class ServiceStaking extends ServiceBase {
       params: {
         networkId,
         accountAddress: acc.address,
-        symbol: symbol.toUpperCase(),
+        symbol,
         publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
         ...rest,
       },
@@ -612,26 +612,31 @@ class ServiceStaking extends ServiceBase {
       ),
     );
 
-    const { totalFiatValue, earnings24h } = overviewData.reduce(
-      (prev, item) => {
-        prev.totalFiatValue = prev.totalFiatValue.plus(
-          BigNumber(item.data.data.totalFiatValue || 0),
-        );
-        prev.earnings24h = prev.earnings24h.plus(
-          BigNumber(item.data.data.earnings24h || 0),
-        );
-        return prev;
-      },
-      {
-        totalFiatValue: BigNumber(0),
-        earnings24h: BigNumber(0),
-      },
-    );
+    const { totalFiatValue, earnings24h, hasClaimableAssets } =
+      overviewData.reduce(
+        (prev, item) => {
+          prev.totalFiatValue = prev.totalFiatValue.plus(
+            BigNumber(item.data.data.totalFiatValue || 0),
+          );
+          prev.earnings24h = prev.earnings24h.plus(
+            BigNumber(item.data.data.earnings24h || 0),
+          );
+          prev.hasClaimableAssets =
+            prev.hasClaimableAssets || !!item.data.data.canClaim;
+          return prev;
+        },
+        {
+          totalFiatValue: BigNumber(0),
+          earnings24h: BigNumber(0),
+          hasClaimableAssets: false,
+        },
+      );
     // const resp = response.data.data;
 
     return {
       totalFiatValue: totalFiatValue.toFixed(),
       earnings24h: earnings24h.toFixed(),
+      hasClaimableAssets,
     };
   }
 
@@ -685,6 +690,7 @@ class ServiceStaking extends ServiceBase {
     symbol,
     provider,
     action,
+    withdrawAll,
     amount,
     morphoVault,
   }: {
@@ -693,6 +699,7 @@ class ServiceStaking extends ServiceBase {
     symbol?: string;
     provider?: string;
     action: 'stake' | 'unstake' | 'claim';
+    withdrawAll: boolean;
     amount?: string;
     morphoVault?: string;
   }) {
@@ -714,6 +721,7 @@ class ServiceStaking extends ServiceBase {
         action,
         amount,
         vault: morphoVault,
+        withdrawAll,
       },
     });
     const { code, message } = result.data;
@@ -752,7 +760,7 @@ class ServiceStaking extends ServiceBase {
       return null;
     }
 
-    const tokenSymbol = symbol.toUpperCase() as ISupportedSymbol;
+    const tokenSymbol = symbol as ISupportedSymbol;
     if (providerConfig.supportedSymbols.includes(tokenSymbol)) {
       return providerConfig.configs[tokenSymbol];
     }
@@ -991,7 +999,7 @@ class ServiceStaking extends ServiceBase {
       data: IEarnEstimateFeeResp;
     }>(`/earn/v1/estimate-fee`, {
       params: {
-        symbol: symbol.toUpperCase(),
+        symbol,
         vault: morphoVault,
         ...rest,
       },

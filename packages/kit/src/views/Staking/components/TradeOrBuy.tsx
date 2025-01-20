@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -81,7 +81,7 @@ function BasicTradeOrBuy({
       <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
-          { token: token.symbol.toUpperCase() },
+          { token: token.symbol },
         )}
       </SizableText>
       <XStack gap="$2">

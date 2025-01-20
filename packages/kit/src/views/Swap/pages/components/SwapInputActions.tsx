@@ -38,56 +38,70 @@ const SwapInputActions = ({
     [gtSm],
   );
   return (
-    <AnimatePresence>
-      <XStack
-        animation="quick"
-        enterStyle={{
-          opacity: 0,
-          x: 8,
-        }}
-        exitStyle={{
-          opacity: 0,
-          x: 4,
-        }}
-        gap="$0.5"
-      >
+    <XStack gap="$0.5">
+      <AnimatePresence>
         {showActionBuy ? (
-          <ActionBuy
-            hiddenIfDisabled
-            showButtonStyle
-            height="$5"
-            px="$1.5"
-            py="$0"
-            pt={platformEnv.isNativeIOS ? '$1' : '$0'}
-            bg="$bgSubdued"
-            size="small"
-            label={
-              <XStack alignItems="center" gap="$1">
-                <Icon name="CreditCardCvvOutline" size="$4" />
-                <SizableText size="$bodySmMedium" color="$textSubdued">
-                  {intl.formatMessage({ id: ETranslations.global_buy })}
-                </SizableText>
-              </XStack>
-            }
-            networkId={fromToken?.networkId ?? ''}
-            accountId={accountInfo?.account?.id ?? ''}
-            walletType={accountInfo?.wallet?.type ?? ''}
-            tokenAddress={fromToken?.contractAddress ?? ''}
-          />
+          <XStack
+            animation="quick"
+            enterStyle={{
+              opacity: 0,
+            }}
+            exitStyle={{
+              opacity: 0,
+            }}
+          >
+            <ActionBuy
+              hiddenIfDisabled
+              showButtonStyle
+              height="$5"
+              px="$1.5"
+              py="$0"
+              pt={platformEnv.isNativeIOS ? '$1' : '$0'}
+              bg="$bgSubdued"
+              size="small"
+              label={
+                <XStack alignItems="center" gap="$1">
+                  <Icon name="CreditCardCvvOutline" size="$4" />
+                  <SizableText size="$bodySmMedium" color="$textSubdued">
+                    {intl.formatMessage({ id: ETranslations.global_buy })}
+                  </SizableText>
+                </XStack>
+              }
+              networkId={fromToken?.networkId ?? ''}
+              accountId={accountInfo?.account?.id ?? ''}
+              walletType={accountInfo?.wallet?.type ?? ''}
+              tokenAddress={fromToken?.contractAddress ?? ''}
+            />
+          </XStack>
         ) : null}
+      </AnimatePresence>
+      <AnimatePresence>
         {!platformEnv.isNative && showPercentageInput ? (
-          <>
-            {needSwapPercentageInputStage.map((stage) => (
-              <SwapPercentageStageBadge
-                key={`swap-percentage-input-stage-${stage}`}
-                stage={stage}
-                onSelectStage={onSelectStage}
-              />
-            ))}
-          </>
+          <XStack
+            animation="quick"
+            enterStyle={{
+              opacity: 0,
+              x: 8,
+            }}
+            exitStyle={{
+              opacity: 0,
+              x: 4,
+            }}
+            gap="$0.5"
+          >
+            <>
+              {needSwapPercentageInputStage.map((stage) => (
+                <SwapPercentageStageBadge
+                  key={`swap-percentage-input-stage-${stage}`}
+                  stage={stage}
+                  onSelectStage={onSelectStage}
+                />
+              ))}
+            </>
+          </XStack>
         ) : null}
-      </XStack>
-    </AnimatePresence>
+      </AnimatePresence>
+    </XStack>
   );
 };
 

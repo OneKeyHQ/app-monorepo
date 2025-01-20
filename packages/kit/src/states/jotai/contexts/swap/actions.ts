@@ -996,11 +996,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               }
             }
             rateDifferenceRes = {
-              value: `(${difference.isPositive() ? '+' : ''}${
+              value: `${difference.isPositive() ? '+' : ''}${
                 numberFormat(difference.toFixed(), {
                   formatter: 'priceChange',
                 }) as string
-              })`,
+              }`,
               unit,
             };
           }
@@ -1387,7 +1387,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
-      if (equalTokenNoCaseSensitive({ token1: newToken, token2: token })) {
+      if (
+        equalTokenNoCaseSensitive({ token1: newToken, token2: token }) ||
+        (!token && !newToken)
+      ) {
         if (type === ESwapDirectionType.FROM) {
           set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
         } else {
