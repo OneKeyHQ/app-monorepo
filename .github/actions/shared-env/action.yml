@@ -57,6 +57,31 @@ runs:
       with:
         lfs: true
 
+    - name: Download workflow parameters
+      if: ${{ github.event.workflow_run }}
+      uses: dawidd6/action-download-artifact@v2
+      with:
+        workflow: daily-build-dev
+        name: workflow-params
+        run_id: ${{ github.event.workflow_run.id }}
+      
+    - name: Load workflow parameters
+      if: ${{ github.event.workflow_run }}
+      run: |
+        if [ -f params.env ]; then
+          cat params.env >> $GITHUB_ENV
+        fi
+
+    - name: Switch to target branch
+      if: ${{ github.event.workflow_run }}
+      shell: bash
+      run: |
+        if [ ! -z "${{ env.WORKFLOW_GITHUB_REF_NAME }}" ]; then
+          echo "Switching to branch: ${{ env.WORKFLOW_GITHUB_REF_NAME }}"
+          git fetch origin ${{ env.WORKFLOW_GITHUB_REF_NAME }}
+          git checkout ${{ env.WORKFLOW_GITHUB_REF_NAME }}
+        fi
+
     - name: Dotenv Action
       id: dotenv
       uses: OneKeyHQ/actions/dotenv-action@main
@@ -102,14 +127,19 @@ runs:
       run: |
         echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
 
-        # Generate build number ------- start
-        DATE=`date "+%Y%m%d"`
-        run_number=$(($workflow_run_number % 100))
-        run_number=$(printf "%02d" $run_number)
-        build_number="${DATE}${run_number}"
-        echo '$build_number='$build_number
-        echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
-        # Generate build number ------- end
+        if [ ! -z "${{ env.WORKFLOW_BUILD_NUMBER }}" ]; then
+          echo "BUILD_NUMBER=${{ env.WORKFLOW_BUILD_NUMBER }}" >> $GITHUB_ENV
+        else
+          # Generate build number ------- start
+          DATE=`date "+%Y%m%d"`
+          run_number=$(($workflow_run_number % 100))
+          run_number=$(printf "%02d" $run_number)
+          build_number="${DATE}${run_number}"
+          echo '$build_number='$build_number
+          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+          # Generate build number ------- end
+        fi
+
       env:
         github_ref: ${{ github.ref }}
         workflow_run_number: ${{ github.event.workflow_run.run_number}}
