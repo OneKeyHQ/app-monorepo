@@ -69,7 +69,7 @@ const AccordionGallery = () => (
                         <Icon
                           name="ChevronDownSmallOutline"
                           color="$iconSubdued"
-                          size="$5"
+                          size="$6"
                         />
                       </View>
                     </>
