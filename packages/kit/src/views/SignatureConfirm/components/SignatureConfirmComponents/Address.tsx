@@ -14,9 +14,22 @@ type IProps = {
   component: IDisplayComponentAddress;
   showAddressLocalTags?: boolean;
 };
+
+function formatTagValue(value: string | string[]) {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return '';
+  }
+}
+
 function Address(props: IProps) {
   const intl = useIntl();
   const { accountId, networkId, component, showAddressLocalTags } = props;
+
   return (
     <SignatureConfirmItem>
       <SignatureConfirmItem.Label>
@@ -64,20 +77,24 @@ function Address(props: IProps) {
               withWrapper={false}
             />
           ) : null}
-          {component.tags?.map((tag) =>
-            tag.icon ? (
-              <Badge key={tag.value} badgeType={tag.displayType}>
+          {component.tags?.map((tag) => {
+            const value = formatTagValue(tag.value);
+            if (value === '') {
+              return null;
+            }
+            return tag.icon ? (
+              <Badge key={value} badgeType={tag.displayType}>
                 <XStack gap="$1" alignItems="center">
                   <Icon name={tag.icon} width={16} height={16} />
-                  <Badge.Text>{tag.value}</Badge.Text>
+                  <Badge.Text>{value}</Badge.Text>
                 </XStack>
               </Badge>
             ) : (
-              <Badge key={tag.value} badgeType={tag.displayType}>
-                {tag.value}
+              <Badge key={value} badgeType={tag.displayType}>
+                {value}
               </Badge>
-            ),
-          )}
+            );
+          })}
         </XStack>
       ) : null}
     </SignatureConfirmItem>

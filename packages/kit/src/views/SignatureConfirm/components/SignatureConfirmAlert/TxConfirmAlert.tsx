@@ -83,12 +83,18 @@ function TxConfirmAlert(props: IProps) {
             id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
           },
           {
-            crypto: network?.symbol ?? '',
+            symbol: network?.symbol ?? '',
+            amount: sendTxStatus.fillUpNativeBalance ?? '0',
           },
         )}
       />
     );
-  }, [intl, network?.symbol, sendTxStatus.isInsufficientNativeBalance]);
+  }, [
+    intl,
+    network?.symbol,
+    sendTxStatus.fillUpNativeBalance,
+    sendTxStatus.isInsufficientNativeBalance,
+  ]);
 
   const renderPreCheckTxAlert = useCallback(() => {
     if (preCheckTxStatus.errorMessage) {

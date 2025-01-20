@@ -679,7 +679,7 @@ function HistoryDetails() {
       !vaultSettings?.isUtxo
     ) {
       receives = [];
-    } else if (onChainTxPayload) {
+    } else if (vaultSettings?.isUtxo && onChainTxPayload) {
       if (
         onChainTxPayload.type === EOnChainHistoryTxType.Send &&
         sends &&
