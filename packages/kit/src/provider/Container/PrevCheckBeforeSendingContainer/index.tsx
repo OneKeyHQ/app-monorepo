@@ -4,6 +4,8 @@ import { useIntl } from 'react-intl';
 
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { PreCheckBeforeSendingCancelError } from '@onekeyhq/shared/src/errors/errors/appErrors';
+import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -32,7 +34,7 @@ function BasicPrevCheckBeforeSendingContainer() {
       const onCancel = async () => {
         await backgroundApiProxy.servicePromise.rejectCallback({
           id: promiseId,
-          data: false,
+          error: toPlainErrorObject(new PreCheckBeforeSendingCancelError()),
         });
       };
       switch (type) {
