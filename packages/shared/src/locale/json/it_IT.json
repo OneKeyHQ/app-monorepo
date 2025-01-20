@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "Riscatta disponibile in {number} giorni",
   "earn.claim_limitations": "A causa delle limitazioni di Lido, devi richiedere ciascuno dei tuoi riscatti separatamente.",
   "earn.claim_rewards": "Richiedi ricompense",
-  "earn.claim_rewards_morpho_desc": "Le ricompense vengono calcolate da tutte le posizioni di staking Morpho e le ricompense in token saranno reclamate insieme.",
+  "earn.claim_rewards_morpho_desc": "Le ricompense vengono calcolate su tutte le posizioni di staking Morpho e aggiornate circa ogni due settimane.",
   "earn.claim_together_tooltip": "Accreditato automaticamente al tuo portafoglio dopo ogni richiesta di staking o prelievo di asset.",
   "earn.claim_token": "Riscatta {token}",
   "earn.claim_token_desc": "Rivendica il tuo {token} dopo che la richiesta di prelievo è stata elaborata.",
