@@ -102,8 +102,12 @@ export const { atom: sendTxStatusAtom, use: useSendTxStatusAtom } =
     isSubmitting?: boolean;
     isSendNativeTokenOnly?: boolean;
     fillUpNativeBalance?: string;
+    isBaseOnEstimateMaxFee?: boolean;
+    maxFeeNative?: string;
   }>({
     isInsufficientNativeBalance: false,
+    isBaseOnEstimateMaxFee: false,
+    maxFeeNative: '0',
     isSubmitting: false,
     isSendNativeTokenOnly: false,
     fillUpNativeBalance: '0',
