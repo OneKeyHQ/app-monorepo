@@ -1,5 +1,13 @@
 import { getNetworkIdsMap } from '../../src/config/networkIds';
-import { EthereumMatic, EthereumUSDC } from '../../src/consts/addresses';
+import {
+  EthereumCbBTC,
+  EthereumDAI,
+  EthereumMatic,
+  EthereumUSDC,
+  EthereumUSDT,
+  EthereumWBTC,
+  EthereumWETH,
+} from '../../src/consts/addresses';
 import { ESwapTabSwitchType } from '../swap/types';
 
 import type { ISupportedSymbol } from '../earn';
@@ -108,8 +116,15 @@ export function getImportFromToken({
     case networkIdsMap.holesky:
     case networkIdsMap.sepolia: {
       if (
-        tokenAddress.toLowerCase() === EthereumMatic.toLowerCase() ||
-        tokenAddress.toLowerCase() === EthereumUSDC.toLowerCase()
+        [
+          EthereumMatic.toLowerCase(),
+          EthereumUSDC.toLowerCase(),
+          EthereumUSDT.toLowerCase(),
+          EthereumDAI.toLowerCase(),
+          EthereumWETH.toLowerCase(),
+          EthereumWBTC.toLowerCase(),
+          EthereumCbBTC.toLowerCase(),
+        ].includes(tokenAddress.toLowerCase())
       ) {
         importFromToken = earnTradeDefaultSetETH;
       } else {
