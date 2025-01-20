@@ -292,6 +292,7 @@ function MarketMdColumn({
     canStaking,
     intl,
     item,
+    setIsChecked,
     showBuyOrSellButton,
     showMoreAction,
     tradeActions,
@@ -307,10 +308,7 @@ function MarketMdColumn({
       px="$5"
     >
       <XStack gap="$3" ai="center">
-        <MarketTokenStarIcon
-          url={item.image}
-          checked={checked}
-        />
+        <MarketTokenStarIcon url={item.image} checked={checked} />
         <YStack>
           <SizableText size="$bodyLgMedium" userSelect="none">
             {item.symbol.toUpperCase()}

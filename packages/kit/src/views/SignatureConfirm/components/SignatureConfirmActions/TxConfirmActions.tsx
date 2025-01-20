@@ -288,6 +288,8 @@ function TxConfirmActions(props: IProps) {
     updateSendTxStatus,
     sendSelectedFeeInfo,
     networkId,
+    fromAddress,
+    toAddress,
     accountId,
     unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
