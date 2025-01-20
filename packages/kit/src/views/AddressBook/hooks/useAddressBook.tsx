@@ -34,7 +34,6 @@ export const useAddressBookPick = () => {
       onPick?: (item: IAddressItem) => void;
       networkId?: string;
     }) => {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
       navigation.pushModal(EModalRoutes.AddressBookModal, {
         screen: EModalAddressBookRoutes.PickItemModal,
         params,
