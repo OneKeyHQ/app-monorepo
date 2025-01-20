@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "Anspruch verfügbar in {number} Tagen",
   "earn.claim_limitations": "Aufgrund der Einschränkungen von Lido müssen Sie jede Ihrer Einlösungen separat geltend machen.",
   "earn.claim_rewards": "Belohnungen einfordern",
-  "earn.claim_rewards_morpho_desc": "Belohnungen werden aus allen Morpho-Staking-Positionen berechnet, und die Token-Belohnungen werden zusammen beansprucht.",
+  "earn.claim_rewards_morpho_desc": "Die Belohnungen werden aus allen Morpho-Staking-Positionen berechnet und etwa alle zwei Wochen aktualisiert.",
   "earn.claim_together_tooltip": "Automatisch auf Ihr Wallet gutgeschrieben nach jeder Asset-Staking- oder Abhebungsanforderung.",
   "earn.claim_token": "Fordern Sie {token} an",
   "earn.claim_token_desc": "Fordern Sie Ihren {token} an, nachdem die Auszahlungsanforderung bearbeitet wurde.",

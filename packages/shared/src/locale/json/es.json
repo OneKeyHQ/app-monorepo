@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "Reclamo disponible en {number} días",
   "earn.claim_limitations": "Debido a las limitaciones de Lido, debes reclamar cada uno de tus canjes por separado.",
   "earn.claim_rewards": "Reclamar recompensas",
-  "earn.claim_rewards_morpho_desc": "Las recompensas se calculan a partir de todas las posiciones de staking de Morpho, y las recompensas en tokens se reclamarán juntas.",
+  "earn.claim_rewards_morpho_desc": "Las recompensas se calculan a partir de todas las posiciones de staking de Morpho y se actualizan aproximadamente cada dos semanas.",
   "earn.claim_together_tooltip": "Reclamado automáticamente a tu billetera después de cada solicitud de staking o retiro de activos.",
   "earn.claim_token": "Reclamar {token}",
   "earn.claim_token_desc": "Reclama tu {token} después de que se haya procesado la solicitud de retiro.",
