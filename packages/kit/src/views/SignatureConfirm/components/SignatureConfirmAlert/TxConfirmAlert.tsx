@@ -78,7 +78,7 @@ function TxConfirmAlert(props: IProps) {
       <Alert
         icon="ErrorOutline"
         type="critical"
-        title={intl.formatMessage(
+        title={`${intl.formatMessage(
           {
             id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
           },
@@ -86,14 +86,28 @@ function TxConfirmAlert(props: IProps) {
             symbol: network?.symbol ?? '',
             amount: sendTxStatus.fillUpNativeBalance ?? '0',
           },
-        )}
+        )}${
+          sendTxStatus.isBaseOnEstimateMaxFee
+            ? `(${intl.formatMessage(
+                {
+                  id: ETranslations.insufficient_fee_append_desc,
+                },
+                {
+                  amount: sendTxStatus.maxFeeNative ?? '0',
+                  symbol: network?.symbol ?? '',
+                },
+              )})`
+            : ''
+        }`}
       />
     );
   }, [
     intl,
     network?.symbol,
     sendTxStatus.fillUpNativeBalance,
+    sendTxStatus.isBaseOnEstimateMaxFee,
     sendTxStatus.isInsufficientNativeBalance,
+    sendTxStatus.maxFeeNative,
   ]);
 
   const renderPreCheckTxAlert = useCallback(() => {

@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "可在 {number} 天后领取",
   "earn.claim_limitations": "由于 Lido 的限制，您必须分别申请每一次的赎回。",
   "earn.claim_rewards": "领取奖励",
-  "earn.claim_rewards_morpho_desc": "奖励基于所有 Morpho 质押仓位计算，并将一同领取此代币奖励。",
+  "earn.claim_rewards_morpho_desc": "奖励根据所有 Morpho 的质押仓位计算，大约每两周更新一次。",
   "earn.claim_together_tooltip": "在每次质押或请求赎回资产后，自动存入您的钱包。",
   "earn.claim_token": "领取 {token}",
   "earn.claim_token_desc": "在赎回请求处理完毕后，领取您的 {token}。",

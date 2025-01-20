@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "Reivindicação disponível em {number} dias",
   "earn.claim_limitations": "Devido às limitações do Lido, você deve reivindicar cada um dos seus resgates separadamente.",
   "earn.claim_rewards": "Reivindicar recompensas",
-  "earn.claim_rewards_morpho_desc": "As recompensas são calculadas a partir de todas as posições de staking Morpho, e as recompensas em tokens serão reivindicadas juntas.",
+  "earn.claim_rewards_morpho_desc": "As recompensas são calculadas a partir de todas as posições de staking da Morpho e são atualizadas a cada duas semanas.",
   "earn.claim_together_tooltip": "Automaticamente creditado na sua carteira após cada solicitação de staking ou retirada de ativos.",
   "earn.claim_token": "Reivindique {token}",
   "earn.claim_token_desc": "Reivindique o seu {token} após o pedido de saque ser processado.",
