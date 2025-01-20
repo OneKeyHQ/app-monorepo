@@ -287,12 +287,14 @@ class ServiceAccountProfile extends ServiceBase {
     let address = rawAddress.trim();
 
     try {
-      const { displayAddress } =
+      const { displayAddress, isValid } =
         await this.backgroundApi.serviceValidator.localValidateAddress({
           networkId,
           address,
         });
-      address = displayAddress;
+      if (isValid) {
+        address = displayAddress;
+      }
     } catch (e) {
       // noop
     }
