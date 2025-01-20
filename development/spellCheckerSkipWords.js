@@ -62,6 +62,7 @@ module.exports = [
   'derivetype',
   'xfp',
   'Markt',
+  'keyframes',
   'splitter',
   'lottie',
   'sys',
