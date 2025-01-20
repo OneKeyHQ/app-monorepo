@@ -23,6 +23,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   IMarketDetailTicker,
   IMarketTokenChart,
+  IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -237,12 +238,26 @@ function BasicTokenPriceChart({
   defer,
   tickers,
   isFetching,
-}: Omit<IChartProps, 'height'>) {
+  fallbackToChart,
+  tvPlatform,
+}: Omit<IChartProps, 'height'> & {
+  fallbackToChart: boolean;
+  tvPlatform?: IMarketTokenDetail['tvPlatform'];
+}) {
   const [showLoading, changeShowLoading] = useState(true);
   const onLoadEnd = useCallback(() => {
     changeShowLoading(false);
   }, []);
   const ticker = useMemo(() => {
+    if (
+      tvPlatform &&
+      tvPlatform.baseToken &&
+      tvPlatform.identifier &&
+      tvPlatform.targetToken
+    ) {
+      return tvPlatform;
+    }
+
     if (!tickers?.length) {
       return null;
     }
@@ -272,17 +287,27 @@ function BasicTokenPriceChart({
         }
       }
     }
-  }, [coinGeckoId, tickers]);
+  }, [coinGeckoId, tickers, tvPlatform]);
 
   const viewHeight = useHeight();
+  const chart = useMemo(() => {
+    if (isFetching) {
+      return null;
+    }
+    if (fallbackToChart || !ticker) {
+      return (
+        <NativeTokenPriceChart
+          height={viewHeight}
+          isFetching={isFetching}
+          coinGeckoId={coinGeckoId}
+          defer={defer}
+          onLoadEnd={onLoadEnd}
+        />
+      );
+    }
 
-  if (isFetching) {
-    return null;
-  }
-
-  return (
-    <>
-      {ticker ? (
+    if (ticker) {
+      return (
         <TradingViewChart
           defer={defer}
           height={viewHeight}
@@ -291,15 +316,21 @@ function BasicTokenPriceChart({
           targetToken={ticker?.targetToken}
           onLoadEnd={onLoadEnd}
         />
-      ) : (
-        <NativeTokenPriceChart
-          height={viewHeight}
-          isFetching={isFetching}
-          coinGeckoId={coinGeckoId}
-          defer={defer}
-          onLoadEnd={onLoadEnd}
-        />
-      )}
+      );
+    }
+  }, [
+    coinGeckoId,
+    defer,
+    fallbackToChart,
+    isFetching,
+    onLoadEnd,
+    ticker,
+    viewHeight,
+  ]);
+
+  return (
+    <>
+      {chart}
       <AnimatePresence>
         {showLoading ? (
           <Stack

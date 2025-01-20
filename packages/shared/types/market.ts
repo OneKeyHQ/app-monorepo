@@ -133,6 +133,12 @@ export interface IMarketTokenDetail {
   explorers: IMarketTokenExplorer[];
   links: IMarketDetailLinks;
   stats: IMarketDetailStats;
+  fallbackToChart: boolean;
+  tvPlatform?: {
+    identifier: string;
+    baseToken: string;
+    targetToken: string;
+  };
   detailPlatforms: IMarketDetailPlatform;
   platforms: Record<string, string>;
   tickers?: IMarketDetailTicker[];

@@ -286,6 +286,8 @@ function MarketDetail({
       <TokenPriceChart
         isFetching={!tokenDetail}
         tickers={tokenDetail?.tickers}
+        fallbackToChart={!!tokenDetail?.fallbackToChart}
+        tvPlatform={tokenDetail?.tvPlatform}
         coinGeckoId={coinGeckoId}
         defer={defer}
         symbol={tokenDetail?.symbol}

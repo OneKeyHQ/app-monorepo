@@ -221,7 +221,7 @@ const SwapInputContainer = ({
         balanceProps={{
           value: balance,
           onPress:
-            direction === ESwapDirectionType.FROM && !token?.isNative
+            direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
               : undefined,
         }}
