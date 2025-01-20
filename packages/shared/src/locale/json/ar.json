@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "Claim available in {number} days",
   "earn.claim_limitations": "Due to the limitations of Lido, you must claim each of your withdrawals separately.",
   "earn.claim_rewards": "Claim rewards",
-  "earn.claim_rewards_morpho_desc": "يتم حساب المكافآت من جميع مراكز المراهنة على Morpho ويتم تحديثها كل أسبوعين تقريبًا.",
+  "earn.claim_rewards_morpho_desc": "يتم حساب المكافآت من جميع مراكز المشاركة في Morpho وتسويتها كل أسبوعين.",
   "earn.claim_together_tooltip": "Automatically claimed to your wallet after each asset staking or withdrawal request.",
   "earn.claim_token": "Claim {token}",
   "earn.claim_token_desc": "Claim your {token} after the withdrawal request has been processed.",

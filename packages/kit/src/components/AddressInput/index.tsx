@@ -154,6 +154,7 @@ export type IAddressQueryResult = {
   isAllowListed?: boolean;
   isEnableTransferAllowList?: boolean;
   isScam?: boolean;
+  isCex?: boolean;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -207,8 +208,11 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             status={result.addressInteractionStatus}
             networkId={networkId}
           />
-          <AddressBadge title={result.addressLabel} />
-          <AddressBadge isContract={result.isContract} />
+          <AddressBadge isCex={result.isCex} title={result.addressLabel} />
+          <AddressBadge
+            isContract={result.isContract}
+            title={result.addressLabel}
+          />
         </XStack>
       </XStack>
     );
