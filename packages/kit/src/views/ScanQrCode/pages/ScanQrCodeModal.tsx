@@ -185,6 +185,12 @@ export default function ScanQrCodeModal() {
     >();
   const { callback, qrWalletScene, showProTutorial } = route.params;
 
+  const navigation = useAppNavigation();
+
+  const popNavigation = useCallback(() => {
+    navigation.pop();
+  }, [navigation]);
+
   const isPickedImage = useRef(false);
 
   const pickImage = useCallback(async () => {
@@ -203,7 +209,7 @@ export default function ScanQrCodeModal() {
       }
       if (data && data.length > 0) {
         isPickedImage.current = true;
-        await callback(data);
+        await callback({ value: data, popNavigation });
       } else {
         Toast.error({
           title: intl.formatMessage({
@@ -216,7 +222,7 @@ export default function ScanQrCodeModal() {
         data,
       );
     }
-  }, [callback, intl]);
+  }, [callback, intl, popNavigation]);
 
   const onCameraScanned = useCallback(
     async (value: string) => {
@@ -224,9 +230,9 @@ export default function ScanQrCodeModal() {
         return {};
       }
       defaultLogger.scanQrCode.readQrCode.readFromCamera(value);
-      return callback(value);
+      return callback({ value, popNavigation });
     },
-    [callback],
+    [callback, popNavigation],
   );
 
   const headerRightCall = useCallback(
@@ -289,7 +295,7 @@ export default function ScanQrCodeModal() {
       </Page.Body>
       {platformEnv.isDev ? (
         <Page.Footer>
-          <DebugInput onText={callback} />
+          <DebugInput onText={(value) => callback({ value, popNavigation })} />
         </Page.Footer>
       ) : null}
     </Page>
