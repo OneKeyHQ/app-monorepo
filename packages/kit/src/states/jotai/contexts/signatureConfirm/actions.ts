@@ -145,6 +145,8 @@ class ContextJotaiActionsSignatureConfirm extends ContextJotaiActionsBase {
         isSubmitting?: boolean;
         isSendNativeTokenOnly?: boolean;
         fillUpNativeBalance?: string;
+        maxFeeNative?: string;
+        isBaseOnEstimateMaxFee?: boolean;
       },
     ) => {
       set(sendTxStatusAtom(), {

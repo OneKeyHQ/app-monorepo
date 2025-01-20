@@ -951,15 +951,6 @@ function TxFeeInfo(props: IProps) {
       .plus(selectedFee?.totalNative ?? 0)
       .plus(extraFeeInfo.feeNative ?? 0);
 
-    console.log(
-      'nativeTokenTransferAmountToUpdate  ',
-      nativeTokenTransferAmountToUpdate,
-    );
-
-    console.log('requiredNativeBalance  ', requiredNativeBalance.toString());
-    console.log('extraFeeInfo.feeNative  ', extraFeeInfo.feeNative);
-    console.log('selectedFee?.totalNative  ', selectedFee);
-
     const fillUpNativeBalance = requiredNativeBalance.minus(
       nativeTokenInfo.balance ?? 0,
     );
@@ -969,6 +960,11 @@ function TxFeeInfo(props: IProps) {
         ? false
         : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0),
       fillUpNativeBalance: fillUpNativeBalance
+        .sd(4, BigNumber.ROUND_UP)
+        .toString(),
+      isBaseOnEstimateMaxFee:
+        selectedFee?.totalNativeMinForDisplay !== selectedFee?.totalNative,
+      maxFeeNative: new BigNumber(selectedFee?.totalNative ?? 0)
         .sd(4, BigNumber.ROUND_UP)
         .toString(),
     });
