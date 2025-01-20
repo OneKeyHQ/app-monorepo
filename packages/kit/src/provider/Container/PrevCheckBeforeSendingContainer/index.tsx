@@ -1,0 +1,81 @@
+import { memo, useEffect } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { Dialog } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+function BasicPrevCheckBeforeSendingContainer() {
+  const intl = useIntl();
+  useEffect(() => {
+    const onConfirmText = intl.formatMessage({
+      id: ETranslations.global_confirm,
+    });
+    const handler = ({
+      promiseId,
+      type,
+    }: {
+      promiseId: number;
+      type: 'scam' | 'contract';
+    }) => {
+      const onConfirm = async () => {
+        await backgroundApiProxy.servicePromise.resolveCallback({
+          id: promiseId,
+          data: false,
+        });
+      };
+      const onCancel = async () => {
+        await backgroundApiProxy.servicePromise.rejectCallback({
+          id: promiseId,
+          data: false,
+        });
+      };
+      switch (type) {
+        case 'scam':
+          Dialog.show({
+            icon: 'ShieldCheckDoneOutline',
+            title: intl.formatMessage({
+              id: ETranslations.global_warning,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.send_label_scam,
+            }),
+            onConfirmText,
+            onConfirm,
+            onCancel,
+          });
+          break;
+        case 'contract':
+          Dialog.show({
+            icon: 'ShieldCheckDoneOutline',
+            title: intl.formatMessage({
+              id: ETranslations.global_warning,
+            }),
+            description: intl.formatMessage({
+              id: ETranslations.address_input_contract_popover,
+            }),
+            onConfirmText,
+            onConfirm,
+            onCancel,
+          });
+          break;
+        default:
+          break;
+      }
+    };
+    appEventBus.on(EAppEventBusNames.CheckAddressBeforeSending, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.CheckAddressBeforeSending, handler);
+    };
+  }, [intl]);
+  return null;
+}
+
+export const PrevCheckBeforeSendingContainer = memo(
+  BasicPrevCheckBeforeSendingContainer,
+);

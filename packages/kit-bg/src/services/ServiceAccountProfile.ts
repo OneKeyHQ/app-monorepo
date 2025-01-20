@@ -135,7 +135,8 @@ class ServiceAccountProfile extends ServiceBase {
     return vault.fillAccountDetails({ accountDetails });
   }
 
-  private async getAddressAccountBadge({
+  @backgroundMethod()
+  async getAddressAccountBadge({
     networkId,
     fromAddress,
     toAddress,
@@ -146,6 +147,7 @@ class ServiceAccountProfile extends ServiceBase {
   }): Promise<{
     isScam: boolean;
     isContract: boolean;
+    isCex: boolean;
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
   }> {
@@ -157,6 +159,7 @@ class ServiceAccountProfile extends ServiceBase {
       return {
         isScam: false,
         isContract: false,
+        isCex: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
       };
     }
@@ -176,6 +179,7 @@ class ServiceAccountProfile extends ServiceBase {
         interacted,
         label: addressLabel,
         isScam,
+        isCex,
       } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
@@ -189,6 +193,7 @@ class ServiceAccountProfile extends ServiceBase {
       return {
         isScam: isScam ?? false,
         isContract: isContract ?? false,
+        isCex: isCex ?? false,
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
       };
@@ -196,6 +201,7 @@ class ServiceAccountProfile extends ServiceBase {
       return {
         isScam: false,
         isContract: false,
+        isCex: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
       };
     }
@@ -224,7 +230,7 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted, addressLabel, isScam } =
+    const { isContract, interacted, addressLabel, isScam, isCex } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
@@ -242,6 +248,7 @@ class ServiceAccountProfile extends ServiceBase {
       result.addressLabel = addressLabel;
     }
     result.isScam = isScam;
+    result.isCex = isCex;
   }
 
   private async verifyCannotSendToSelf({

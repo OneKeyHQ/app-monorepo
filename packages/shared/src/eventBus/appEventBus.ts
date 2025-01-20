@@ -92,6 +92,7 @@ export enum EAppEventBusNames {
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
   CreateAddressByDialog = 'CreateAddressByDialog',
+  CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -280,6 +281,10 @@ export interface IAppEventBusPayload {
     promiseId: number;
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
+  };
+  [EAppEventBusNames.CheckAddressBeforeSending]: {
+    promiseId: number;
+    type: 'scam' | 'contract';
   };
 }
 
