@@ -7,7 +7,12 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalAddressBookRoutes, EModalRoutes, EModalAssetListRoutes, ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalAddressBookRoutes,
+  EModalAssetListRoutes,
+  EModalRoutes,
+  ETabHomeRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { urlAccountNavigation } from '../../../Home/pages/urlAccount/urlAccountUtils';
 
@@ -57,12 +62,16 @@ export function BasicListItemIconButton({
               const addressBookItem =
                 await backgroundApiProxy.serviceAddressBook.findItemById(id);
               if (addressBookItem) {
-                appNavigation.pushModal(EModalRoutes.MainModal, {
-                  screen: ETabHomeRoutes.TabHomeUrlAccountPage,
-                  params: {
-                    address: addressBookItem.address,
-                    networkId: addressBookItem.networkId,
-                  },
+                // appNavigation.pushModal(EModalRoutes.MainModal, {
+                //   screen: ETabHomeRoutes.TabHomeUrlAccountPage,
+                //   params: {
+                //     address: addressBookItem.address,
+                //     networkId: addressBookItem.networkId,
+                //   },
+                // });
+                void urlAccountNavigation.pushUrlAccountPage(appNavigation, {
+                  address: addressBookItem.address,
+                  networkId: addressBookItem.networkId,
                 });
               }
             }
