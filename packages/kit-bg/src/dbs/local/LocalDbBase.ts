@@ -2240,12 +2240,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
             if (wallet && account) {
               const order = getOrderByWalletType(wallet.type);
-              result.push({
-                walletName: wallet.name,
-                accountName: account.name,
-                accountId: account.id,
-                order,
-              });
+              if (
+                !accountUtils.isUrlAccountFn({
+                  accountId: account?.id,
+                })
+              ) {
+                result.push({
+                  walletName: wallet.name,
+                  accountName: account.name,
+                  accountId: account.id,
+                  order,
+                });
+              }
             }
           } catch (error) {
             errorUtils.autoPrintErrorIgnore(error);
