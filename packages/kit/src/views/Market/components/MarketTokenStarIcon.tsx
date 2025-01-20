@@ -18,8 +18,8 @@ export function MarketTokenStarIcon({
           borderRadius="$full"
           p="$0.5"
           bg="$bgApp"
-          right={-1}
-          top={-1}
+          right={-4}
+          top={-4}
         >
           <Icon name="StarSolid" size="$3.5" />
         </Stack>
