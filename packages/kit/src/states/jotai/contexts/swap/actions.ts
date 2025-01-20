@@ -996,11 +996,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               }
             }
             rateDifferenceRes = {
-              value: `(${difference.isPositive() ? '+' : ''}${
+              value: `${difference.isPositive() ? '+' : ''}${
                 numberFormat(difference.toFixed(), {
                   formatter: 'priceChange',
                 }) as string
-              })`,
+              }`,
               unit,
             };
           }
