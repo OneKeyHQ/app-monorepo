@@ -142,17 +142,21 @@ const SwapInputContainer = ({
         color = '$textSuccess';
       }
       return (
-        <SizableText
-          size="$bodyMd"
-          color={color}
-          cursor="pointer"
-          onPress={onRateDifferencePress}
-          {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
-            textDecorationLine: 'underline',
-          })}
-        >
-          {rateDifference.value}
-        </SizableText>
+        <XStack alignItems="center">
+          <SizableText color={color}>(</SizableText>
+          <SizableText
+            size="$bodyMd"
+            color={color}
+            cursor="pointer"
+            onPress={onRateDifferencePress}
+            {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
+              textDecorationLine: 'underline',
+            })}
+          >
+            {rateDifference.value}
+          </SizableText>
+          <SizableText color={color}>)</SizableText>
+        </XStack>
       );
     }
     return null;

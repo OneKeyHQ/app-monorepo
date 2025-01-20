@@ -45,7 +45,7 @@ export function TransferAllowListContent({
       <HyperlinkText
         flexShrink={1}
         color="$textSubdued"
-        size="$bodyLg"
+        size="$bodyMd"
         translationId={ETranslations.allowlist_enabled_popover_content}
         onAction={onAction}
       />
