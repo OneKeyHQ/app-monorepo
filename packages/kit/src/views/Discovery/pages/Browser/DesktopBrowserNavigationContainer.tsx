@@ -88,24 +88,19 @@ function DesktopBrowserNavigationBar({
 
   const onPressBookmark = useCallback(
     (isBookmark: boolean) => {
-      if (isBookmark) {
-        void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
-      } else {
-        void removeBrowserBookmark(tab?.url);
+      if (tab) {
+        if (isBookmark) {
+          void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+        } else {
+          void removeBrowserBookmark(tab?.url);
+        }
       }
       void setWebTabData({
         id,
         isBookmark,
       });
     },
-    [
-      addBrowserBookmark,
-      removeBrowserBookmark,
-      setWebTabData,
-      tab?.title,
-      tab?.url,
-      id,
-    ],
+    [tab, setWebTabData, id, addBrowserBookmark, removeBrowserBookmark],
   );
 
   const handleBookmark = useCallback(
@@ -168,22 +163,25 @@ function DesktopBrowserNavigationBar({
     onShortcutsChangeUrl,
   );
 
-  return (
-    <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
-      <DesktopBrowserInfoBar
-        {...tab}
-        goBack={goBack}
-        goForward={goForward}
-        stopLoading={stopLoading}
-        reload={reload}
-        isBookmark={tab?.isBookmark ?? false}
-        onBookmarkPress={onPressBookmark}
-        isPinned={tab?.isPinned ?? false}
-        onPinnedPress={handlePin}
-        onSearch={handleSearch}
-      />
-    </Freeze>
-  );
+  if (tab) {
+    return (
+      <Freeze key={`${id}-navigationBar`} freeze={!isActive}>
+        <DesktopBrowserInfoBar
+          {...tab}
+          goBack={goBack}
+          goForward={goForward}
+          stopLoading={stopLoading}
+          reload={reload}
+          isBookmark={tab?.isBookmark ?? false}
+          onBookmarkPress={onPressBookmark}
+          isPinned={tab?.isPinned ?? false}
+          onPinnedPress={handlePin}
+          onSearch={handleSearch}
+        />
+      </Freeze>
+    );
+  }
+  return null;
 }
 
 function DesktopBrowserNavigationBarContainer() {
