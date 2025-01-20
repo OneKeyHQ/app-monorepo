@@ -5,11 +5,11 @@ import {
   Dialog,
   Divider,
   Icon,
-  IconButton,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
@@ -19,7 +19,6 @@ function AutoRiskControlContent() {
   return (
     <YStack gap="$4">
       <YStack gap="$3">
-        {/* Point 1 */}
         <XStack alignItems="flex-start">
           <SizableText size="$bodyLg" flex={1}>
             1.{' '}
@@ -29,7 +28,6 @@ function AutoRiskControlContent() {
           </SizableText>
         </XStack>
 
-        {/* Point 2 */}
         <XStack alignItems="flex-start">
           <SizableText size="$bodyLg" flex={1}>
             2.{' '}
@@ -39,7 +37,6 @@ function AutoRiskControlContent() {
           </SizableText>
         </XStack>
 
-        {/* Point 3 */}
         <XStack alignItems="flex-start">
           <SizableText size="$bodyLg" flex={1}>
             3.{' '}
@@ -50,7 +47,6 @@ function AutoRiskControlContent() {
         </XStack>
       </YStack>
 
-      {/* Disclaimer Accordion */}
       <Accordion type="single" collapsible>
         <Accordion.Item value="disclaimer">
           <Accordion.Trigger
@@ -132,37 +128,19 @@ export const ProtectionSection = ({
   }
   return (
     <>
-      <YStack gap="$6">
+      <YStack>
         <SizableText size="$headingLg">
           {intl.formatMessage({
             id: ETranslations.earn_protection,
           })}
         </SizableText>
-        <XStack gap="$3" alignItems="center" justifyContent="space-between">
-          <XStack gap="$3" alignItems="center" flex={1}>
-            <Icon
-              name="ShieldCheckDoneOutline"
-              size="$6"
-              color="$iconSuccess"
-            />
-            <YStack>
-              <SizableText size="$bodyMdMedium" color="$text">
-                {intl.formatMessage({
-                  id: ETranslations.earn_auto_risk_control,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.earn_auto_risk_control_subtitle,
-                })}
-              </SizableText>
-            </YStack>
-          </XStack>
-          <IconButton
-            icon="ChevronRightOutline"
-            size="small"
-            variant="tertiary"
-            onPress={() =>
+        <XStack mx="$-5" mt="$4">
+          <ListItem
+            gap="$3"
+            flex={1}
+            alignItems="center"
+            justifyContent="space-between"
+            onPress={() => {
               showAutoRiskControlDialog({
                 title: intl.formatMessage({
                   id: ETranslations.earn_auto_risk_control,
@@ -170,9 +148,30 @@ export const ProtectionSection = ({
                 confirmText: intl.formatMessage({
                   id: ETranslations.explore_got_it,
                 }),
-              })
-            }
-          />
+              });
+            }}
+          >
+            <XStack gap="$3" alignItems="center" flex={1}>
+              <Icon
+                name="ShieldCheckDoneOutline"
+                size="$6"
+                color="$iconSuccess"
+              />
+              <YStack>
+                <SizableText size="$bodyMdMedium" color="$text">
+                  {intl.formatMessage({
+                    id: ETranslations.earn_auto_risk_control,
+                  })}
+                </SizableText>
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.earn_auto_risk_control_subtitle,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+            <Icon name="ChevronRightOutline" size="$6" color="$iconSubdued" />
+          </ListItem>
         </XStack>
       </YStack>
       <Divider />
