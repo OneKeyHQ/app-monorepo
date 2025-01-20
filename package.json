@@ -140,7 +140,7 @@
     "timeout-signal": "^2.0.0",
     "tonweb": "^0.0.66",
     "use-suspender": "^2.0.0-beta.0",
-    "validator": "^13.12.0",
+    "validator": "^13.7.0",
     "viem": "^2.9.2"
   },
   "devDependencies": {
