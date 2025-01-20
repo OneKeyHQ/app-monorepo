@@ -14,7 +14,10 @@ import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import {
+  isSupportStaking,
+  normalizeToEarnSymbol,
+} from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type { IFiatCryptoType } from '@onekeyhq/shared/types/fiatCrypto';
 import type {
   IMarketDetailPlatformNetwork,
@@ -246,14 +249,18 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
     if (!networkAccount) {
       return;
     }
-    if (networkId && networkAccount) {
+    const normalizedSymbol = normalizeToEarnSymbol(symbol);
+    if (!normalizedSymbol) {
+      return;
+    }
+    if (networkId && networkAccount && normalizedSymbol) {
       navigation.pushModal(EModalRoutes.StakingModal, {
         screen: EModalStakingRoutes.AssetProtocolList,
         params: {
           networkId,
           accountId: networkAccount.id,
           indexedAccountId: networkAccount.indexedAccountId,
-          symbol,
+          symbol: normalizedSymbol,
         },
       });
     }

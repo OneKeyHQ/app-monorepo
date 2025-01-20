@@ -1,7 +1,16 @@
 import { getNetworkIdsMap } from '../../src/config/networkIds';
-import { EthereumMatic, EthereumUSDC } from '../../src/consts/addresses';
+import {
+  EthereumCbBTC,
+  EthereumDAI,
+  EthereumMatic,
+  EthereumUSDC,
+  EthereumUSDT,
+  EthereumWBTC,
+  EthereumWETH,
+} from '../../src/consts/addresses';
 import { ESwapTabSwitchType } from '../swap/types';
 
+import type { ISupportedSymbol } from '../earn';
 import type { ISwapTokenBase } from '../swap/types';
 
 const earnTradeDefaultSetETH = {
@@ -48,9 +57,9 @@ export const isSupportStaking = (symbol: string) =>
     'USDT',
     'DAI',
     'WETH',
-    'cbBTC',
+    'CBBTC',
     'WBTC',
-  ].includes(symbol);
+  ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds = [
   getNetworkIdsMap().eth,
@@ -60,6 +69,28 @@ export const earnMainnetNetworkIds = [
   getNetworkIdsMap().sol,
   getNetworkIdsMap().btc,
 ];
+
+export function normalizeToEarnSymbol(
+  symbol: string,
+): ISupportedSymbol | undefined {
+  const symbolMap: Record<string, ISupportedSymbol> = {
+    'btc': 'BTC',
+    'sbtc': 'SBTC',
+    'eth': 'ETH',
+    'sol': 'SOL',
+    'apt': 'APT',
+    'atom': 'ATOM',
+    'matic': 'MATIC',
+    'usdc': 'USDC',
+    'usdt': 'USDT',
+    'dai': 'DAI',
+    'weth': 'WETH',
+    'cbbtc': 'cbBTC',
+    'wbtc': 'WBTC',
+  };
+
+  return symbolMap[symbol.toLowerCase()];
+}
 
 export function getImportFromToken({
   networkId,
@@ -85,8 +116,15 @@ export function getImportFromToken({
     case networkIdsMap.holesky:
     case networkIdsMap.sepolia: {
       if (
-        tokenAddress.toLowerCase() === EthereumMatic.toLowerCase() ||
-        tokenAddress.toLowerCase() === EthereumUSDC.toLowerCase()
+        [
+          EthereumMatic.toLowerCase(),
+          EthereumUSDC.toLowerCase(),
+          EthereumUSDT.toLowerCase(),
+          EthereumDAI.toLowerCase(),
+          EthereumWETH.toLowerCase(),
+          EthereumWBTC.toLowerCase(),
+          EthereumCbBTC.toLowerCase(),
+        ].includes(tokenAddress.toLowerCase())
       ) {
         importFromToken = earnTradeDefaultSetETH;
       } else {
