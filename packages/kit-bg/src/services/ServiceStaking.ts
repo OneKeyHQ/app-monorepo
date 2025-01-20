@@ -406,7 +406,7 @@ class ServiceStaking extends ServiceBase {
         data: { protocols: IStakeProtocolListItem[] };
       }>('/earn/v1/stake-protocol/list', {
         params: {
-          symbol: symbol.toUpperCase(),
+          symbol,
           accountAddress,
           publicKey,
         },
@@ -494,7 +494,7 @@ class ServiceStaking extends ServiceBase {
       params: {
         networkId,
         accountAddress: acc.address,
-        symbol: symbol.toUpperCase(),
+        symbol,
         publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
         ...rest,
       },
@@ -520,7 +520,7 @@ class ServiceStaking extends ServiceBase {
       params: {
         networkId,
         accountAddress: acc.address,
-        symbol: symbol.toUpperCase(),
+        symbol,
         publicKey: networkUtils.isBTCNetwork(networkId) ? acc.pub : undefined,
         ...rest,
       },
@@ -760,7 +760,7 @@ class ServiceStaking extends ServiceBase {
       return null;
     }
 
-    const tokenSymbol = symbol.toUpperCase() as ISupportedSymbol;
+    const tokenSymbol = symbol as ISupportedSymbol;
     if (providerConfig.supportedSymbols.includes(tokenSymbol)) {
       return providerConfig.configs[tokenSymbol];
     }
@@ -999,7 +999,7 @@ class ServiceStaking extends ServiceBase {
       data: IEarnEstimateFeeResp;
     }>(`/earn/v1/estimate-fee`, {
       params: {
-        symbol: symbol.toUpperCase(),
+        symbol,
         vault: morphoVault,
         ...rest,
       },

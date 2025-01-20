@@ -5,6 +5,7 @@ import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
 
+// refresh hash: 889263555577754
 // @ts-expect-error
 import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';

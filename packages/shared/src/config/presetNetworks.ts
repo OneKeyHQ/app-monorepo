@@ -1690,7 +1690,7 @@ const sonic: IServerNetwork = {
     'code': 's',
     'decimals': 9,
     'symbol': 'Gwei',
-    'isEIP1559FeeEnabled': false,
+    'isEIP1559FeeEnabled': true,
     'isWithL1BaseFee': false,
   },
   'status': ENetworkStatus.LISTED,
@@ -1702,6 +1702,35 @@ const sonic: IServerNetwork = {
   },
   'logoURI': 'https://uni.onekey-asset.com/static/chain/sonic.png',
   'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const hsk: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '177',
+  'id': 'evm--177',
+  'name': 'HashKey Chain',
+  'symbol': 'HSK',
+  'code': 'hsk',
+  'shortcode': 'hsk',
+  'shortname': 'hsk',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'hsk',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hsk.png',
+  'defaultEnabled': false,
   'backendIndex': false,
 };
 
@@ -2045,6 +2074,27 @@ const celestia: IServerNetwork = {
     'symbol': 'TIA',
   },
   'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const bbnTestnet: IServerNetwork = {
+  'chainId': 'bbn-test-5',
+  'code': 'ubbn',
+  'decimals': 6,
+  'id': 'cosmos--bbn-test-5',
+  'impl': 'cosmos',
+  'isTestnet': true,
+  'logoURI': 'https://uni.onekey-asset.com/static/logo/babylon.png',
+  'name': 'Babylon Testnet',
+  'shortcode': 'bbn',
+  'shortname': 'BBN',
+  'symbol': 'BBN',
+  'feeMeta': {
+    'code': 'ubbn',
+    'decimals': 6,
+    'symbol': 'UBBN',
+  },
+  'defaultEnabled': false,
   'status': ENetworkStatus.LISTED,
 };
 
@@ -2683,6 +2733,7 @@ export const presetNetworksMap = {
   azero,
   dtc,
   sonic,
+  hsk,
 
   // cosmos
   celestia,
@@ -2722,27 +2773,6 @@ export const presetNetworksMap = {
   ton,
   scdo,
   benfen,
-};
-
-const bbnTestnet: IServerNetwork = {
-  'chainId': 'bbn-test-5',
-  'code': 'ubbn',
-  'decimals': 6,
-  'id': 'cosmos--bbn-test-5',
-  'impl': 'cosmos',
-  'isTestnet': true,
-  'logoURI': 'https://uni.onekey-asset.com/static/logo/babylon.png',
-  'name': 'Babylon Testnet',
-  'shortcode': 'bbn',
-  'shortname': 'BBN',
-  'symbol': 'BBN',
-  'feeMeta': {
-    'code': 'ubbn',
-    'decimals': 6,
-    'symbol': 'UBBN',
-  },
-  'defaultEnabled': false,
-  'status': ENetworkStatus.LISTED,
 };
 
 // top 20 tvl evm networks
@@ -2843,6 +2873,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   azero,
   dtc,
   sonic,
+  hsk,
+
   // cosmos
   celestia,
   secret,

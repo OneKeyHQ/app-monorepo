@@ -146,7 +146,7 @@ class ServiceAccountProfile extends ServiceBase {
   }): Promise<{
     isContract?: boolean;
     interacted: EAddressInteractionStatus;
-    contractLabel?: string;
+    addressLabel?: string;
   }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
@@ -169,7 +169,7 @@ class ServiceAccountProfile extends ServiceBase {
           toAddress,
         },
       });
-      const { isContract, interacted, label: contractLabel } = resp.data.data;
+      const { isContract, interacted, label: addressLabel } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
         EAddressInteractionStatus
@@ -182,7 +182,7 @@ class ServiceAccountProfile extends ServiceBase {
       return {
         isContract,
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
-        contractLabel,
+        addressLabel,
       };
     } catch {
       return {
@@ -215,7 +215,7 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted, contractLabel } =
+    const { isContract, interacted, addressLabel } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
@@ -230,7 +230,7 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (checkAddressContract) {
       result.isContract = isContract;
-      result.contractLabel = contractLabel;
+      result.addressLabel = addressLabel;
     }
   }
 
@@ -274,7 +274,19 @@ class ServiceAccountProfile extends ServiceBase {
   }: IQueryCheckAddressArgs) {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
-    const address = rawAddress.trim();
+    let address = rawAddress.trim();
+
+    try {
+      const { displayAddress } =
+        await this.backgroundApi.serviceValidator.localValidateAddress({
+          networkId,
+          address,
+        });
+      address = displayAddress;
+    } catch (e) {
+      // noop
+    }
+
     const result: IAddressQueryResult = {
       input: rawAddress,
     };

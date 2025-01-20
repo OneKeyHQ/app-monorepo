@@ -3,11 +3,12 @@ import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   BaseUSDC,
   EMPTY_NATIVE_TOKEN_ADDRESS,
-  EthereumCBBTC,
+  EthereumCbBTC,
   EthereumDAI,
   EthereumMatic,
   EthereumUSDC,
   EthereumUSDT,
+  EthereumWBTC,
   EthereumWETH,
   SepoliaMatic,
 } from '@onekeyhq/shared/src/consts/addresses';
@@ -90,7 +91,7 @@ const stakingConfig: IStakingConfig = {
         },
       },
       [EEarnProviderEnum.Morpho]: {
-        supportedSymbols: ['USDC', 'USDT', 'DAI', 'WETH', 'CBBTC'],
+        supportedSymbols: ['USDC', 'USDT', 'DAI', 'WETH', 'cbBTC', 'WBTC'],
         configs: {
           USDC: {
             enabled: true,
@@ -116,9 +117,15 @@ const stakingConfig: IStakingConfig = {
             displayProfit: true,
             stakingWithApprove: true,
           },
-          CBBTC: {
+          cbBTC: {
             enabled: true,
-            tokenAddress: EthereumCBBTC,
+            tokenAddress: EthereumCbBTC,
+            displayProfit: true,
+            stakingWithApprove: true,
+          },
+          WBTC: {
+            enabled: true,
+            tokenAddress: EthereumWBTC,
             displayProfit: true,
             stakingWithApprove: true,
           },
@@ -258,6 +265,7 @@ const settings: IVaultSettings = {
     [networkIdMap.mantle]: 1.2,
     [networkIdMap.mantapacific]: 1.2,
     [networkIdMap.blast]: 1.2,
+    [networkIdMap.hsk]: 1.2,
   },
 
   customRpcEnabled: true,

@@ -10,6 +10,7 @@ import {
   Switch,
   YStack,
 } from '@onekeyhq/components';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import webembedApiProxy from '@onekeyhq/kit-bg/src/webembeds/instance/webembedApiProxy';
 import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
 

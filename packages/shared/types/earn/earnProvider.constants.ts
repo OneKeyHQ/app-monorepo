@@ -36,9 +36,21 @@ const earnTradeDefaultSetSOL = {
 };
 
 export const isSupportStaking = (symbol: string) =>
-  ['BTC', 'SBTC', 'ETH', 'SOL', 'APT', 'ATOM', 'MATIC', 'USDC'].includes(
-    symbol.toUpperCase(),
-  );
+  [
+    'BTC',
+    'SBTC',
+    'ETH',
+    'SOL',
+    'APT',
+    'ATOM',
+    'MATIC',
+    'USDC',
+    'USDT',
+    'DAI',
+    'WETH',
+    'cbBTC',
+    'WBTC',
+  ].includes(symbol);
 
 export const earnMainnetNetworkIds = [
   getNetworkIdsMap().eth,

@@ -545,6 +545,9 @@ function SendDataInputContainer() {
               isNFT,
               originalRecipient: toAddress,
               isToContract,
+              memo: memoValue,
+              paymentId: paymentIdValue,
+              note: noteValue,
             },
           });
           setIsSubmitting(false);

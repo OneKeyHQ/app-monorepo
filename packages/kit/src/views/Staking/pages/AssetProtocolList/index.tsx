@@ -171,7 +171,7 @@ function AssetProtocolListContent({
         accountId,
         networkId: item.network.networkId,
         indexedAccountId,
-        symbol: symbol.toUpperCase(),
+        symbol,
         provider: item.provider.name,
         vault: earnUtils.isMorphoProvider({ providerName: item.provider.name })
           ? item.provider.vault
@@ -310,7 +310,7 @@ function AssetProtocolList() {
               : ETranslations.provider_title,
           },
           {
-            symbol: symbol.toUpperCase(),
+            symbol,
           },
         )}
         headerRight={headerRight}

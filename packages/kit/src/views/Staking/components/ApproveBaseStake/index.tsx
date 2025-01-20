@@ -193,7 +193,7 @@ export const ApproveBaseStake = ({
     if (isApprove) {
       return intl.formatMessage(
         { id: ETranslations.form__approve_str },
-        { amount: amountValue, symbol: token.symbol.toUpperCase() },
+        { amount: amountValue, symbol: token.symbol },
       );
     }
     return intl.formatMessage({ id: ETranslations.earn_stake });
@@ -328,7 +328,7 @@ export const ApproveBaseStake = ({
           { id: ETranslations.earn_provider_asset_staking },
           {
             'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol.toUpperCase(),
+            'asset': details.token.info.symbol,
           },
         ),
         renderContent: (
@@ -387,7 +387,7 @@ export const ApproveBaseStake = ({
         onChange={onChangeAmountValue}
         tokenSelectorTriggerProps={{
           selectedTokenImageUri: token.logoURI,
-          selectedTokenSymbol: token.symbol.toUpperCase(),
+          selectedTokenSymbol: token.symbol,
           selectedNetworkImageUri: network?.logoURI,
         }}
         balanceProps={{
