@@ -45,5 +45,9 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
     rewrite: urlAccountLandingRewrite,
     exact: true,
   },
-  ...urlAccountRoutes,
+  {
+    name: ETabHomeRoutes.TabHomeUrlAccountPage,
+    component: UrlAccountPageContainer,
+    exact: true,
+  },
 ];
