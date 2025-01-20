@@ -202,7 +202,7 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
           </Stack>
         ) : null}
         <AddressBadge isScam={result.isScam} />
-        <XStack my="$0.5" gap="$1">
+        <XStack mx="$0.5" gap="$1">
           <AddressBadge
             status={result.addressInteractionStatus}
             networkId={networkId}
