@@ -16,7 +16,12 @@ const AccordionGallery = () => (
         title: 'Multiple',
         element: (
           <YStack gap="$2" alignItems="center">
-            <Accordion overflow="hidden" width="100%" type="multiple">
+            <Accordion
+              overflow="hidden"
+              width="100%"
+              type="multiple"
+              defaultValue={[]}
+            >
               <Accordion.Item value="a1">
                 <Accordion.Trigger
                   flexDirection="row"
@@ -96,7 +101,13 @@ const AccordionGallery = () => (
         title: 'Single',
         element: (
           <YStack gap="$2" alignItems="center">
-            <Accordion overflow="hidden" width="100%" type="single" collapsible>
+            <Accordion
+              overflow="hidden"
+              width="100%"
+              type="single"
+              collapsible
+              defaultValue=""
+            >
               <Accordion.Item value="a1">
                 <Accordion.Trigger
                   flexDirection="row"
