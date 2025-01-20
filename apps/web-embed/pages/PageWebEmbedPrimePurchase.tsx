@@ -9,6 +9,31 @@ import webEmbedAppSettings from '../utils/webEmbedAppSettings';
 
 import type { Package } from '@revenuecat/purchases-js';
 
+async function showNativeToast({
+  method,
+  title,
+  message,
+}: {
+  method: 'success' | 'error' | 'info';
+  title: string;
+  message?: string | undefined;
+}) {
+  await globalThis.$onekey.$private.request({
+    method: 'wallet_showToast',
+    params: {
+      method,
+      title,
+      message,
+    },
+  });
+}
+
+async function closeNativeWebViewModal() {
+  await globalThis.$onekey.$private.request({
+    method: 'wallet_closeWebViewModal',
+  });
+}
+
 function WebCssStyles() {
   return (
     <style>
@@ -219,7 +244,11 @@ function PurchaseButton({
           });
           // TODO toast error
           if (result) {
-            alert('Purchase success');
+            await showNativeToast({
+              method: 'success',
+              title: `Purchase success`,
+            });
+            await closeNativeWebViewModal();
           }
         } finally {
           setIsLoading(false);
@@ -304,21 +333,19 @@ export default function PageWebEmbedPrimePurchase() {
         <button
           type="button"
           onClick={async () => {
-            // TODO call app Toast by $onekey.$private
-            alert(
-              JSON.stringify({
-                title: 'success',
-                message: 'success',
-              }),
-            );
+            await showNativeToast({
+              method: 'success',
+              title: 'Hello',
+              message: `World ${Date.now()}`,
+            });
           }}
         >
           ShowToast
         </button>
         <button
           type="button"
-          onClick={() => {
-            window.location.href = 'https://www.google.com';
+          onClick={async () => {
+            await closeNativeWebViewModal();
           }}
         >
           CloseWebviewModal

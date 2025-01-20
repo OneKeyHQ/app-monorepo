@@ -106,6 +106,15 @@ export enum EAppEventBusNames {
   // HttpServerRequest = 'HttpServerRequest',
 }
 
+export type IEventBusPayloadShowToast = {
+  // IToastProps
+  method: 'success' | 'error' | 'message';
+  title: string;
+  message?: string;
+  duration?: number;
+  errorCode?: number;
+  toastId?: string;
+};
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
   [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
@@ -160,14 +169,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
   };
-  [EAppEventBusNames.ShowToast]: {
-    // IToastProps
-    method: 'success' | 'error' | 'message';
-    title: string;
-    message?: string;
-    duration?: number;
-    errorCode?: number;
-  };
+  [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;

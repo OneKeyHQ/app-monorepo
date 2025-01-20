@@ -16,10 +16,12 @@ export function ErrorToastContainer() {
   useEffect(() => {
     const fn = (p: IAppEventBusPayload[EAppEventBusNames.ShowToast]) => {
       const message = p.message;
-      let toastId = isFilterErrorCode(p.errorCode)
+      const toastIdByErrorCode = isFilterErrorCode(p.errorCode)
         ? String(p.errorCode)
         : undefined;
-      toastId = toastId || (p.title ? p.title : message);
+      // Because the request error automatically toast will take the requestId as the message, when a large number of requests are reported at the same time, using the message as the toastId will toast frequently, so the title is prioritized as the toastId
+      const toastId =
+        p.toastId || toastIdByErrorCode || (p.title ? p.title : message);
       const actions = getErrorAction(p.errorCode, message ?? '');
 
       Toast[p.method]({

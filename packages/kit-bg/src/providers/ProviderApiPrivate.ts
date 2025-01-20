@@ -8,6 +8,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -22,11 +23,15 @@ import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
 import ProviderApiBase from './ProviderApiBase';
 
-import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type BackgroundApiBase from '../apis/BackgroundApiBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IFloatingIconSettings } from '../dbs/simple/entity/SimpleDbEntityFloatingIconSettings';
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 
 export interface IOneKeyWalletInfo {
   enableExtContentScriptReloadButton?: boolean;
@@ -530,6 +535,17 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async getLastFocusUrl() {
     return Promise.resolve(this.lastFocusUrl);
+  }
+
+  // $onekey.$private.request({method:'wallet_showToast', params: {method: 'success',title:'2333', message: 'test'}})
+  @providerApiMethod()
+  async wallet_showToast(request: IJsBridgeMessagePayload) {
+    const params = (request.data as IJsonRpcRequest)
+      ?.params as IEventBusPayloadShowToast;
+    if (params) {
+      params.toastId = generateUUID();
+      return this.backgroundApi.serviceApp.showToast(params);
+    }
   }
 }
 

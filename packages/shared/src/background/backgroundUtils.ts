@@ -40,9 +40,9 @@ import { NotAutoPrintError } from '../errors';
 import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 
-import type { OneKeyError } from '../errors';
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { Method } from 'axios';
+import type { OneKeyError } from '../errors';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {
@@ -246,9 +246,6 @@ export async function waitForDataLoaded({
   while (true) {
     let isAllLoaded = true;
 
-    if (logName && __DEV__) {
-      console.log(`waitForDataLoaded: ${logName}`);
-    }
     await Promise.all(
       getDataArrFunc.map(async (getData) => {
         const d = await getData();
@@ -272,6 +269,9 @@ export async function waitForDataLoaded({
 
     if (isAllLoaded || timeoutReject) {
       break;
+    }
+    if (logName && __DEV__) {
+      console.log(`waitForDataLoaded: ${logName}`);
     }
     await waitAsync(wait);
   }

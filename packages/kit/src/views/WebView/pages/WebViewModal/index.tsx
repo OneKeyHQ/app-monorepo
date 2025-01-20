@@ -17,7 +17,12 @@ import type {
 } from '@onekeyhq/shared/src/routes/webView';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 import type { RouteProp } from '@react-navigation/core';
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 export default function WebViewModal() {
   const { webviewRef, setWebViewRef } = useWebViewBridge();
@@ -25,6 +30,8 @@ export default function WebViewModal() {
     useRoute<RouteProp<IModalWebViewParamList, EModalWebViewRoutes.WebView>>();
   const { url, title, isWebEmbed, hashRoutePath, hashRouteQueryParams } =
     route.params;
+  const navigation = useAppNavigation();
+
   const { copyText } = useClipboard();
   const intl = useIntl();
   const headerRight = useCallback(
@@ -96,6 +103,15 @@ export default function WebViewModal() {
     },
     [title, setNavigationTitle],
   );
+  const webembedCustomReceiveHandler = useCallback(
+    (payload: IJsBridgeMessagePayload) => {
+      const data = payload.data as IJsonRpcRequest;
+      if (data.method === 'wallet_closeWebViewModal') {
+        navigation.pop();
+      }
+    },
+    [navigation],
+  );
   return (
     <Page>
       <Page.Header headerRight={headerRight} title={navigationTitle} />
@@ -104,6 +120,7 @@ export default function WebViewModal() {
           <WebViewWebEmbed
             hashRoutePath={hashRoutePath}
             hashRouteQueryParams={hashRouteQueryParams}
+            customReceiveHandler={webembedCustomReceiveHandler}
           />
         ) : (
           <WebView
