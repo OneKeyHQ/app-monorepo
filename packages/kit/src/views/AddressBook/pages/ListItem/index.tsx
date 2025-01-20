@@ -34,7 +34,7 @@ function ListPage() {
   const { gtMd } = useMedia();
   const renderHeaderRightComponent = useCallback(
     () => (
-      <XStack gap="$1.5">
+      <XStack gap="$3.5">
         <IconButton
           variant="tertiary"
           icon="ShieldCheckDoneOutline"
@@ -46,7 +46,7 @@ function ListPage() {
         {gtMd ? (
           <IconButton
             variant="tertiary"
-            icon="PlusCircleOutline"
+            icon="AddPeopleOutline"
             onPress={onCreate}
             testID="address-book-add-icon"
           />
