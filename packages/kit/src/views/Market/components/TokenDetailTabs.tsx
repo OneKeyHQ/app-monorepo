@@ -52,6 +52,8 @@ function BasicTokenDetailTabs({
               page: (props: ITabPageProps) => (
                 <TokenPriceChart
                   {...props}
+                  fallbackToChart={!!token?.fallbackToChart}
+                  tvPlatform={token?.tvPlatform}
                   isFetching={!token}
                   tickers={token?.tickers}
                   coinGeckoId={coinGeckoId}
