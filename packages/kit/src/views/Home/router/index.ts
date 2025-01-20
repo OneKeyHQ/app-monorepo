@@ -26,7 +26,6 @@ export const urlAccountRoutes = [
   {
     name: ETabHomeRoutes.TabHomeUrlAccountPage,
     component: UrlAccountPageContainer,
-    // exact: true,
   },
 ];
 
