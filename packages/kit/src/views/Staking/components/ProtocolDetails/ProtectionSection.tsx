@@ -5,18 +5,20 @@ import {
   Dialog,
   Divider,
   Icon,
+  ScrollView,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 function AutoRiskControlContent() {
   const intl = useIntl();
-  return (
+  const Content = (
     <YStack gap="$4">
       <YStack gap="$3">
         <XStack alignItems="flex-start">
@@ -89,6 +91,11 @@ function AutoRiskControlContent() {
       </Accordion>
     </YStack>
   );
+  if (platformEnv.isExtensionUiPopup) {
+    return <ScrollView h={260}>{Content}</ScrollView>;
+  }
+
+  return Content;
 }
 
 export function showAutoRiskControlDialog({
@@ -109,6 +116,7 @@ export function showAutoRiskControlDialog({
       variant: 'secondary',
     },
     showFooter: true,
+    disableDrag: platformEnv.isExtensionUiPopup,
   });
 }
 
