@@ -495,8 +495,9 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
           variant="tertiary"
           iconAfter="ChevronRightOutline"
           position="absolute"
+          jc="center"
           top={0}
-          right={0}
+          right="$4"
           $gtLg={{
             right: '$8',
             top: '$8',
