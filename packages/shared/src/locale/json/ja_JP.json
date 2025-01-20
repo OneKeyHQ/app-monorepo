@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "{number}日後に領取可能",
   "earn.claim_limitations": "Lidoの制限により、各リデンプションを個別に請求する必要があります。",
   "earn.claim_rewards": "報酬を請求する",
-  "earn.claim_rewards_morpho_desc": "報酬はすべての Morpho ステーキングポジションから計算され、トークン報酬はまとめて請求されます。",
+  "earn.claim_rewards_morpho_desc": "報酬はすべての Morpho ステーキングポジションから計算され、約 2 週間ごとに更新されます。",
   "earn.claim_together_tooltip": "各資産のステーキングや引き出しリクエストの後、自動的にウォレットに反映されます。",
   "earn.claim_token": "{token}を請求する",
   "earn.claim_token_desc": "引き出しリクエストが処理された後、{token}を請求してください。",

@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "Nhận có sẵn trong {number} ngày",
   "earn.claim_limitations": "Do vì hạn chế của Lido, bạn phải yêu cầu mỗi lần đổi quà của mình một cách riêng biệt.",
   "earn.claim_rewards": "Nhận phần thưởng",
-  "earn.claim_rewards_morpho_desc": "Phần thưởng được tính từ tất cả các vị trí staking Morpho và phần thưởng token sẽ được yêu cầu cùng lúc.",
+  "earn.claim_rewards_morpho_desc": "Phần thưởng được tính từ tất cả các vị trí đặt cược Morpho và được cập nhật khoảng hai tuần một lần.",
   "earn.claim_together_tooltip": "Tự động chuyển vào ví của bạn sau mỗi lần yêu cầu đặt cược hoặc rút tài sản.",
   "earn.claim_token": "Yêu cầu {token}",
   "earn.claim_token_desc": "Yêu cầu rút {token} của bạn sau khi yêu cầu rút đã được xử lý.",
