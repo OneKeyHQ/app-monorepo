@@ -14,7 +14,7 @@ import {
 import appGlobals from '../appGlobals';
 
 import type { IPrefType } from '../../types/desktop';
-import { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
+import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
 
 const openUrlByWebview = (url: string, title?: string) => {
   appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {

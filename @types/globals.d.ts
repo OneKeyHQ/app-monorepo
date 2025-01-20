@@ -5,6 +5,7 @@ import type {
   ETranslationsMock,
 } from '@onekeyhq/shared/src/locale';
 import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
+
 import type { ProviderPrivate } from '@onekeyfe/onekey-private-provider';
 
 type IWindowOneKeyHub = {
