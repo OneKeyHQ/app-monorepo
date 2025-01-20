@@ -21,7 +21,7 @@ interface IBasicAddressBadgeProps {
   title: string;
   icon?: IKeyOfIcons;
   content?: ReactElement | string;
-  popoverTitle?: title;
+  popoverTitle?: string;
   badgeType: IBadgeProps['badgeType'];
 }
 
