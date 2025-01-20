@@ -22,6 +22,7 @@ import type { IModalShortcutsParamList } from './shortcuts';
 import type { IModalSignatureConfirmParamList } from './signatureConfirm';
 import type { IModalStakingParamList } from './staking';
 import type { IModalSwapParamList } from './swap';
+import type { ITabHomeUrlAccountParamList } from './tabHome';
 import type { ITestModalPagesParam } from './testModal';
 import type { IUniversalSearchParamList } from './universalSearch';
 import type { IModalWalletAddressParamList } from './walletAddress';
@@ -59,7 +60,8 @@ export enum EModalRoutes {
 
 export type IModalParamList = {
   [EModalRoutes.MainModal]: IModalAssetListParamList &
-    IModalAssetDetailsParamList;
+    IModalAssetDetailsParamList &
+    ITabHomeUrlAccountParamList;
   [EModalRoutes.TestModal]: ITestModalPagesParam;
   [EModalRoutes.DiscoveryModal]: IDiscoveryModalParamList;
   [EModalRoutes.SettingModal]: IModalSettingParamList;

@@ -62,6 +62,7 @@ export interface IAddressBadgeProps {
   status?: EAddressInteractionStatus;
   networkId?: string;
   isContract?: boolean;
+  isScam?: boolean;
 }
 
 function AddressBadgeFrame({
@@ -69,6 +70,7 @@ function AddressBadgeFrame({
   status,
   networkId,
   isContract,
+  isScam,
 }: IAddressBadgeProps) {
   const intl = useIntl();
   const { result } = usePromiseResult(
@@ -85,6 +87,17 @@ function AddressBadgeFrame({
         badgeType="default"
         icon="Document2Outline"
         title={title}
+      />
+    );
+  }
+
+  if (isScam) {
+    return (
+      <BasicAddressBadge
+        badgeType="critical"
+        title={intl.formatMessage({
+          id: ETranslations.send_label_scam_title,
+        })}
       />
     );
   }
