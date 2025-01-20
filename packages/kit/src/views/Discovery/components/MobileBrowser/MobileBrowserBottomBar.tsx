@@ -169,10 +169,12 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
-      if (isBookmark) {
-        void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
-      } else {
-        void removeBrowserBookmark(tab?.url);
+      if (tab) {
+        if (isBookmark) {
+          void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+        } else {
+          void removeBrowserBookmark(tab?.url);
+        }
       }
       Toast.success({
         title: isBookmark
@@ -184,7 +186,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
             }),
       });
     },
-    [intl, addBrowserBookmark, removeBrowserBookmark, tab?.url, tab?.title],
+    [tab, intl, addBrowserBookmark, removeBrowserBookmark],
   );
 
   const handlePinTab = useCallback(
@@ -225,7 +227,9 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
   const { copyText } = useClipboard();
   const onCopyUrl = useCallback(() => {
-    copyText(tab?.url);
+    if (tab?.url) {
+      copyText(tab.url);
+    }
   }, [tab?.url, copyText]);
 
   useEffect(() => {

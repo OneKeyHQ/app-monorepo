@@ -53,7 +53,7 @@ function DesktopCustomTabBarItem({
       return (connectedAccounts ?? []).length > 0;
     }
     return false;
-  }, [tab.url]);
+  }, [tab?.url]);
 
   useEffect(() => {
     const handler = () => {
@@ -70,7 +70,9 @@ function DesktopCustomTabBarItem({
   const { activeTabId } = useActiveTabId();
   const isActive = activeTabId === id;
   const closeTab = useCallback(() => {
-    onClose?.(tab?.id);
+    if (tab?.id) {
+      onClose?.(tab?.id);
+    }
   }, [onClose, tab?.id]);
   const actionListItems = useMemo(
     () => [
@@ -85,7 +87,9 @@ function DesktopCustomTabBarItem({
             }),
             icon: tab?.isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => {
-              onBookmarkPress(!tab?.isBookmark, tab?.url, tab?.title ?? '');
+              if (tab) {
+                onBookmarkPress(!tab?.isBookmark, tab?.url, tab?.title ?? '');
+              }
             },
             testID: `action-list-item-${
               !tab?.isBookmark ? 'bookmark' : 'remove-bookmark'
@@ -100,7 +104,9 @@ function DesktopCustomTabBarItem({
             }),
             icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => {
-              onPinnedPress(tab?.id, !tab?.isPinned);
+              if (tab) {
+                onPinnedPress(tab?.id, !tab?.isPinned);
+              }
             },
             testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
           },
@@ -110,7 +116,9 @@ function DesktopCustomTabBarItem({
             }),
             icon: 'PencilOutline',
             onPress: () => {
-              void handleRenameTab(tab);
+              if (tab) {
+                void handleRenameTab(tab);
+              }
             },
             testID: `action-list-item-rename`,
           },
@@ -125,7 +133,9 @@ function DesktopCustomTabBarItem({
             }),
             icon: 'LinkOutline',
             onPress: () => {
-              copyText(tab?.url);
+              if (tab?.url) {
+                copyText(tab.url);
+              }
             },
             testID: `action-list-item-copy`,
           },
