@@ -491,6 +491,7 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
       {/* details button */}
       {isFetchingAccounts || !isOverviewLoaded ? null : (
         <Button
+          childrenAsText={!hasClaimableAssets}
           onPress={onPress}
           variant="tertiary"
           iconAfter="ChevronRightOutline"
