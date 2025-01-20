@@ -248,13 +248,17 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       {loading ? (
         <Spinner size="small" mr="$2" color={outerIconColor || iconColor} />
       ) : null}
-      <SizableText
-        textAlign={textAlign}
-        size={textVariant as FontSizeTokens}
-        color={outerColor || color}
-      >
-        {children}
-      </SizableText>
+      {typeof children === 'string' ? (
+        <SizableText
+          textAlign={textAlign}
+          size={textVariant as FontSizeTokens}
+          color={outerColor || color}
+        >
+          {children}
+        </SizableText>
+      ) : (
+        children
+      )}
       {iconAfter ? (
         <ButtonIcon
           name={iconAfter}
