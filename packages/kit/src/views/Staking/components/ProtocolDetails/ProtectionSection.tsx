@@ -140,6 +140,7 @@ export const ProtectionSection = ({
             flex={1}
             alignItems="center"
             justifyContent="space-between"
+            userSelect="none"
             onPress={() => {
               showAutoRiskControlDialog({
                 title: intl.formatMessage({
@@ -151,13 +152,13 @@ export const ProtectionSection = ({
               });
             }}
           >
-            <XStack gap="$3" alignItems="center" flex={1}>
+            <XStack gap="$3" alignItems="center" flex={1} pr="$3">
               <Icon
                 name="ShieldCheckDoneOutline"
                 size="$6"
                 color="$iconSuccess"
               />
-              <YStack>
+              <YStack flex={1}>
                 <SizableText size="$bodyMdMedium" color="$text">
                   {intl.formatMessage({
                     id: ETranslations.earn_auto_risk_control,
@@ -170,7 +171,11 @@ export const ProtectionSection = ({
                 </SizableText>
               </YStack>
             </XStack>
-            <Icon name="ChevronRightOutline" size="$6" color="$iconSubdued" />
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$6"
+              color="$iconSubdued"
+            />
           </ListItem>
         </XStack>
       </YStack>
