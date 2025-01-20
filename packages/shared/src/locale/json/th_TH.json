@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "สามารถรับได้ใน {number} วัน",
   "earn.claim_limitations": "เนื่องจากข้อจำกัดของ Lido คุณต้องเรียกร้องการแลกเปลี่ยนของคุณแยกกันทีละรายการ",
   "earn.claim_rewards": "รับรางวัล",
-  "earn.claim_rewards_morpho_desc": "รางวัลจะคำนวณจากตำแหน่งการ Staking ทั้งหมดของ Morpho และรางวัลโทเค็นจะถูกเคลมพร้อมกัน",
+  "earn.claim_rewards_morpho_desc": "รางวัลจะคำนวณจากตำแหน่งการเดิมพัน Morpho ทั้งหมด และจะอัปเดตทุกๆ สองสัปดาห์",
   "earn.claim_together_tooltip": "จะถูกโอนเข้ากระเป๋าเงินของคุณโดยอัตโนมัติหลังจากการสเตกหรือการถอนสินทรัพย์แต่ละครั้ง",
   "earn.claim_token": "เคลม {token}",
   "earn.claim_token_desc": "เคลม {token} ของคุณหลังจากที่คำขอถอนเงินได้รับการดำเนินการแล้ว",
