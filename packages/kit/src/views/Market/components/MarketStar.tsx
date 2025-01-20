@@ -83,6 +83,7 @@ export const useStarChecked = ({
   return useMemo(
     () => ({
       checked,
+      setIsChecked,
       onPress: handlePress,
     }),
     [checked, handlePress],
