@@ -493,6 +493,13 @@ const HapticsGallery = LazyLoadPage(
     ),
 );
 
+const AccordionGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccordionGallery'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -716,5 +723,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.HapticsGallery,
     component: HapticsGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentAccordion,
+    component: AccordionGallery,
   },
 ];
