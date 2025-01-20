@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "{number}일 후에 이용 가능",
   "earn.claim_limitations": "Lido의 제한 사항으로 인해, 각각의 환불을 따로 청구해야 합니다.",
   "earn.claim_rewards": "보상 받기",
-  "earn.claim_rewards_morpho_desc": "보상은 모든 Morpho 스테이킹 포지션에서 계산되며, 토큰 보상은 함께 청구됩니다.",
+  "earn.claim_rewards_morpho_desc": "보상은 모든 Morpho 스테이킹 포지션을 기준으로 계산되며 약 2주마다 업데이트됩니다.",
   "earn.claim_together_tooltip": "자산 스테이킹 또는 출금 요청 후 자동으로 지갑에 청구됩니다.",
   "earn.claim_token": "{token} 청구하기",
   "earn.claim_token_desc": "출금 요청이 처리된 후에 {token}을 청구하세요.",
