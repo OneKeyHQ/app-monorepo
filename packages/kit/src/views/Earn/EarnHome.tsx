@@ -863,7 +863,7 @@ function BasicEarnHome() {
         width="100%"
       />
     );
-  }, [earnBanners, media.gtLg, onBannerPress]);
+  }, [earnBanners, media.gtLg, media.md, onBannerPress]);
 
   return (
     <Page fullPage>
