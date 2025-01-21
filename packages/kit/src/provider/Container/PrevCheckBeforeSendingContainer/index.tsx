@@ -38,7 +38,7 @@ function BasicPrevCheckBeforeSendingContainer() {
         });
       };
       const commonDialogProps = {
-        icon: 'ShieldCheckDoneOutline',
+        icon: 'ShieldCheckDoneOutline' as const,
         title: intl.formatMessage({
           id: ETranslations.global_warning,
         }),
