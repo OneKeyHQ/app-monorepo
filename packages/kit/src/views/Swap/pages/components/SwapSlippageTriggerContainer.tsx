@@ -48,7 +48,7 @@ const SwapSlippageTriggerContainer = ({
     [displaySlippage, intl, slippageItem.key],
   );
 
-  const debounceOnPress = useDebouncedCallback(onPress, 200);
+  const debounceOnPress = useDebouncedCallback(onPress, 350);
 
   const valueComponent = useMemo(
     () => (
