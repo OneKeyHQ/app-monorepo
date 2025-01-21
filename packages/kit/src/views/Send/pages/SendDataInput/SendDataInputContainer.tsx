@@ -549,6 +549,7 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
               note: noteValue,
             },
+            isInternalTransfer: true,
           });
           setIsSubmitting(false);
         } catch (e: any) {
