@@ -49,7 +49,7 @@ const BasicApproveBaseStakePage = () => {
           send: { token: token.info, amount },
           tags: [actionTag],
         },
-        symbol: token.info.symbol.toUpperCase(),
+        symbol: token.info.symbol,
         provider: provider.name,
         morphoVault: earnUtils.isMorphoProvider({
           providerName: provider.name,
@@ -113,7 +113,7 @@ const BasicApproveBaseStakePage = () => {
   }, [networkId, provider.name, token.info.symbol, provider.vault]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_stake_token },

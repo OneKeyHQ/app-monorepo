@@ -5,12 +5,12 @@ import { isEmpty, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
-  useSafeAreaInsets,
   Checkbox,
   Page,
   Stack,
   Toast,
   usePageUnMounted,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
@@ -31,15 +31,14 @@ import {
   useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import { checkIsEmptyData } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
-import { EParseTxType } from '@onekeyhq/shared/types/signatureConfirm';
 import {
   EReplaceTxType,
   type IReplaceTxInfo,
@@ -61,6 +60,8 @@ type IProps = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   popStack?: boolean;
+  fromAddress?: string;
+  toAddress?: string;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -75,6 +76,8 @@ function TxConfirmActions(props: IProps) {
     transferPayload,
     useFeeInTx,
     feeInfoEditable,
+    fromAddress,
+    toAddress,
     popStack = true,
   } = props;
   const intl = useIntl();
@@ -121,9 +124,15 @@ function TxConfirmActions(props: IProps) {
 
     updateSendTxStatus({ isSubmitting: true });
     isSubmitted.current = true;
-
     // Pre-check before submit
     try {
+      if (networkId && fromAddress && toAddress) {
+        await serviceSend.checkAddressBeforeSending({
+          networkId,
+          fromAddress,
+          toAddress,
+        });
+      }
       await serviceSend.precheckUnsignedTxs({
         networkId,
         accountId,
@@ -279,6 +288,8 @@ function TxConfirmActions(props: IProps) {
     updateSendTxStatus,
     sendSelectedFeeInfo,
     networkId,
+    fromAddress,
+    toAddress,
     accountId,
     unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
@@ -321,7 +332,10 @@ function TxConfirmActions(props: IProps) {
     [dappApprove, onCancelOnce, sourceInfo],
   );
 
-  const showTakeRiskAlert = useMemo(() => false, []);
+  const showTakeRiskAlert = useMemo(() => {
+    if (decodedTxs?.some((tx) => tx.isConfirmationRequired)) return true;
+    return false;
+  }, [decodedTxs]);
 
   const isSubmitDisabled = useMemo(() => {
     if (showTakeRiskAlert && !continueOperate) return true;
@@ -372,12 +386,17 @@ function TxConfirmActions(props: IProps) {
         }
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
+        $gtMd={{
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+        }}
         {...(bottom && {
           mb: bottom,
         })}
       >
         <Stack
-          pb="$2.5"
+          gap="$2.5"
+          pb="$5"
           $gtMd={{
             pb: '$0',
           }}
@@ -387,12 +406,6 @@ function TxConfirmActions(props: IProps) {
             networkId={networkId}
             useFeeInTx={useFeeInTx}
             feeInfoEditable={feeInfoEditable}
-            feeInfoWrapperProps={{
-              mb: showTakeRiskAlert ? '$2.5' : '0',
-              $gtMd: {
-                mb: '0',
-              },
-            }}
           />
           {showTakeRiskAlert ? (
             <Checkbox

@@ -10,6 +10,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import PassCodeProtectionSwitch from '@onekeyhq/kit/src/components/Password/container/PassCodeProtectionSwitch';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/settings';
@@ -18,6 +19,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 const SettingProtectionModal = () => {
   const intl = useIntl();
   const [settings, setSettings] = useSettingsPersistAtom();
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -55,9 +57,11 @@ const SettingProtectionModal = () => {
           >
             <Switch
               size={ESwitchSize.small}
-              value={settings.transferAllowList ?? true}
+              value={isEnableTransferAllowList}
               onChange={async (value) => {
-                setSettings((v) => ({ ...v, transferAllowList: !!value }));
+                await backgroundApiProxy.serviceSetting.setIsEnableTransferAllowList(
+                  value,
+                );
               }}
             />
           </ListItem>
@@ -118,7 +122,7 @@ const SettingProtectionModal = () => {
               id: ETranslations.settings_reset_app,
             })}
           >
-            <PassCodeProtectionSwitch />
+            <PassCodeProtectionSwitch size={ESwitchSize.small} />
           </ListItem>
           <SizableText px="$5" size="$bodySm" color="$textSubdued">
             {intl.formatMessage({

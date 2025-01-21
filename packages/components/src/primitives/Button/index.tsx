@@ -37,6 +37,12 @@ export interface IButtonProps extends ThemeableStackProps {
    */
   stopPropagation?: boolean;
   onPressDebounce?: number;
+  /**
+   * Whether to render children as text component.
+   *
+   * @default true
+   */
+  childrenAsText?: boolean;
 }
 
 const BUTTON_VARIANTS: Record<
@@ -191,6 +197,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
     iconColor: outerIconColor,
     variant = 'secondary',
     textAlign,
+    childrenAsText = true,
     ...rest
   } = useProps(props, {});
 
@@ -248,13 +255,17 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       {loading ? (
         <Spinner size="small" mr="$2" color={outerIconColor || iconColor} />
       ) : null}
-      <SizableText
-        textAlign={textAlign}
-        size={textVariant as FontSizeTokens}
-        color={outerColor || color}
-      >
-        {children}
-      </SizableText>
+      {childrenAsText ? (
+        <SizableText
+          textAlign={textAlign}
+          size={textVariant as FontSizeTokens}
+          color={outerColor || color}
+        >
+          {children}
+        </SizableText>
+      ) : (
+        children
+      )}
       {iconAfter ? (
         <ButtonIcon
           name={iconAfter}

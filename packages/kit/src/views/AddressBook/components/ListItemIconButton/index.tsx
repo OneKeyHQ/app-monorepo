@@ -3,10 +3,16 @@ import { memo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { ActionList, useClipboard } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalAddressBookRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
+
+import { urlAccountNavigation } from '../../../Home/pages/urlAccount/urlAccountUtils';
 
 import type { IListItemIconButtonProps } from './type';
 
@@ -45,6 +51,31 @@ export function BasicListItemIconButton({
             }
           },
           testID: `address-menu-edit-${safeAddress}`,
+        },
+        {
+          label: intl.formatMessage({ id: ETranslations.global_portfolio }),
+          icon: 'PeopleOutline',
+          onPress: async () => {
+            if (id) {
+              const addressBookItem =
+                await backgroundApiProxy.serviceAddressBook.findItemById(id);
+              if (addressBookItem) {
+                // appNavigation.pushModal(EModalRoutes.MainModal, {
+                //   screen: ETabHomeRoutes.TabHomeUrlAccountPage,
+                //   params: {
+                //     address: addressBookItem.address,
+                //     networkId: addressBookItem.networkId,
+                //   },
+                // });
+                appNavigation.switchTab(ETabRoutes.Home);
+                void urlAccountNavigation.pushUrlAccountPage(appNavigation, {
+                  address: addressBookItem.address,
+                  networkId: addressBookItem.networkId,
+                });
+              }
+            }
+          },
+          testID: `address-menu-portfolio-${safeAddress}`,
         },
       ]}
       renderTrigger={

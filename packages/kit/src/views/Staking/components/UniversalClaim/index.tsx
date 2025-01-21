@@ -12,7 +12,9 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
@@ -24,6 +26,8 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalClaimProps = {
+  networkId: string;
+
   balance: string;
   price: string;
 
@@ -43,6 +47,7 @@ type IUniversalClaimProps = {
 };
 
 export const UniversalClaim = ({
+  networkId,
   balance,
   price: inputPrice,
   tokenImageUri,
@@ -65,6 +70,14 @@ export const UniversalClaim = ({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      }),
+    [networkId],
+  ).result;
 
   const onPress = useCallback(async () => {
     try {
@@ -164,6 +177,7 @@ export const UniversalClaim = ({
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
+            selectedNetworkImageUri: network?.logoURI,
           }}
           inputProps={{
             placeholder: '0',

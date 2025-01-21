@@ -201,12 +201,13 @@ const SwapHistoryListModal = () => {
         item={item}
         onClickCell={() => {
           navigation.push(EModalSwapRoutes.SwapHistoryDetail, {
-            txHistory: item,
+            txHistoryOrderId: item.swapInfo.orderId,
+            txHistoryList: swapTxHistoryList,
           });
         }}
       />
     ),
-    [navigation],
+    [navigation, swapTxHistoryList],
   );
   return (
     <Page>

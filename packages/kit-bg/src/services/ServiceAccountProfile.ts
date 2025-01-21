@@ -13,13 +13,15 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
-  IAddressInteractionStatus,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
   IServerAccountBadgeResp,
 } from '@onekeyhq/shared/types/address';
-import { EServerInteractedStatus } from '@onekeyhq/shared/types/address';
+import {
+  EAddressInteractionStatus,
+  EServerInteractedStatus,
+} from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
@@ -133,7 +135,8 @@ class ServiceAccountProfile extends ServiceBase {
     return vault.fillAccountDetails({ accountDetails });
   }
 
-  private async getAddressAccountBadge({
+  @backgroundMethod()
+  async getAddressAccountBadge({
     networkId,
     fromAddress,
     toAddress,
@@ -141,13 +144,24 @@ class ServiceAccountProfile extends ServiceBase {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
-  }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+  }): Promise<{
+    isScam: boolean;
+    isContract: boolean;
+    isCex: boolean;
+    interacted: EAddressInteractionStatus;
+    addressLabel?: string;
+  }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
       });
     if (isCustomNetwork) {
-      return { isContract: false, interacted: 'unknown' };
+      return {
+        isScam: false,
+        isContract: false,
+        isCex: false,
+        interacted: EAddressInteractionStatus.UNKNOWN,
+      };
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
@@ -160,18 +174,36 @@ class ServiceAccountProfile extends ServiceBase {
           toAddress,
         },
       });
-      const { isContract, interacted } = resp.data.data;
+      const {
+        isContract,
+        interacted,
+        label: addressLabel,
+        isScam,
+        isCex,
+      } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
-        IAddressInteractionStatus
+        EAddressInteractionStatus
       > = {
-        [EServerInteractedStatus.FALSE]: 'not-interacted',
-        [EServerInteractedStatus.TRUE]: 'interacted',
-        [EServerInteractedStatus.UNKNOWN]: 'unknown',
+        [EServerInteractedStatus.FALSE]:
+          EAddressInteractionStatus.NOT_INTERACTED,
+        [EServerInteractedStatus.TRUE]: EAddressInteractionStatus.INTERACTED,
+        [EServerInteractedStatus.UNKNOWN]: EAddressInteractionStatus.UNKNOWN,
       };
-      return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
+      return {
+        isScam: isScam ?? false,
+        isContract: isContract ?? false,
+        isCex: isCex ?? false,
+        interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
+        addressLabel,
+      };
     } catch {
-      return { interacted: 'unknown' };
+      return {
+        isScam: false,
+        isContract: false,
+        isCex: false,
+        interacted: EAddressInteractionStatus.UNKNOWN,
+      };
     }
   }
 
@@ -198,11 +230,12 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted } = await this.getAddressAccountBadge({
-      networkId,
-      fromAddress,
-      toAddress,
-    });
+    const { isContract, interacted, addressLabel, isScam, isCex } =
+      await this.getAddressAccountBadge({
+        networkId,
+        fromAddress,
+        toAddress,
+      });
     if (
       checkInteractionStatus &&
       toAddress.toLowerCase() !== fromAddress &&
@@ -212,7 +245,10 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (checkAddressContract) {
       result.isContract = isContract;
+      result.addressLabel = addressLabel;
     }
+    result.isScam = isScam;
+    result.isCex = isCex;
   }
 
   private async verifyCannotSendToSelf({
@@ -255,7 +291,21 @@ class ServiceAccountProfile extends ServiceBase {
   }: IQueryCheckAddressArgs) {
     const { serviceValidator, serviceSetting } = this.backgroundApi;
 
-    const address = rawAddress.trim();
+    let address = rawAddress.trim();
+
+    try {
+      const { displayAddress, isValid } =
+        await this.backgroundApi.serviceValidator.localValidateAddress({
+          networkId,
+          address,
+        });
+      if (isValid) {
+        address = displayAddress;
+      }
+    } catch (e) {
+      // noop
+    }
+
     const result: IAddressQueryResult = {
       input: rawAddress,
     };
@@ -385,8 +435,7 @@ class ServiceAccountProfile extends ServiceBase {
           accountUtils.isHdAccount(accountParams) ||
           accountUtils.isHwAccount(accountParams) ||
           accountUtils.isQrAccount(accountParams) ||
-          accountUtils.isImportedAccount(accountParams) ||
-          accountUtils.isExternalAccount(accountParams);
+          accountUtils.isImportedAccount(accountParams);
         if (isOwnAccount) {
           return result;
         }
