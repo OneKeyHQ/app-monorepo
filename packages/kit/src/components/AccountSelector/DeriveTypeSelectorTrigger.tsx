@@ -403,27 +403,35 @@ export function DeriveTypeSelectorFormInput(
     ...others
   } = props;
   const intl = useIntl();
-  const { result: viewItems } = usePromiseResult(async () => {
-    const selectItems =
-      await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
-        networkId,
-        enabledItems,
-      });
-    return selectItems;
-  }, [enabledItems, networkId]);
+  const { result: viewItems } = usePromiseResult(
+    async () => {
+      const selectItems =
+        await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
+          networkId,
+          enabledItems,
+        });
+      return { items: selectItems, networkId };
+    },
+    [enabledItems, networkId],
+    {
+      undefinedResultIfReRun: true,
+    },
+  );
   const options = useMemo(
     () =>
-      viewItems?.map(({ value, label, item, description, descI18n }) => ({
-        value,
-        label: item.labelKey
-          ? intl.formatMessage({ id: item.labelKey })
-          : label,
-        description: descI18n
-          ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
-          : description,
-        item,
-      })) || [],
-    [intl, viewItems],
+      viewItems?.items?.map(
+        ({ value, label, item, description, descI18n }) => ({
+          value,
+          label: item.labelKey
+            ? intl.formatMessage({ id: item.labelKey })
+            : label,
+          description: descI18n
+            ? intl.formatMessage({ id: descI18n?.id }, descI18n?.data)
+            : description,
+          item,
+        }),
+      ) || [],
+    [intl, viewItems?.items],
   );
 
   const prevDeriveType = usePrevious(deriveType);
@@ -446,20 +454,28 @@ export function DeriveTypeSelectorFormInput(
       if (
         shouldResetDeriveTypeWhenNetworkChanged.current ||
         !deriveType ||
-        (viewItems?.length &&
-          !viewItems.find((item) => item.value === deriveType))
+        (viewItems?.items?.length &&
+          !viewItems.items.find((item) => item.value === deriveType))
       ) {
+        if (
+          networkId &&
+          viewItems?.networkId &&
+          viewItems?.networkId !== networkId
+        ) {
+          return;
+        }
+
         const defaultDeriveType =
           await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
             networkId,
           });
-        let fixedValue = viewItems?.[0]?.value as
+        let fixedValue = viewItems?.items?.[0]?.value as
           | IAccountDeriveTypes
           | undefined;
         if (
           defaultDeriveType &&
-          viewItems?.length &&
-          viewItems.find((item) => item.value === defaultDeriveType)
+          viewItems?.items?.length &&
+          viewItems.items.find((item) => item.value === defaultDeriveType)
         ) {
           fixedValue = defaultDeriveType;
         }

@@ -60,6 +60,8 @@ type IProps = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   popStack?: boolean;
+  fromAddress?: string;
+  toAddress?: string;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -74,6 +76,8 @@ function TxConfirmActions(props: IProps) {
     transferPayload,
     useFeeInTx,
     feeInfoEditable,
+    fromAddress,
+    toAddress,
     popStack = true,
   } = props;
   const intl = useIntl();
@@ -120,9 +124,15 @@ function TxConfirmActions(props: IProps) {
 
     updateSendTxStatus({ isSubmitting: true });
     isSubmitted.current = true;
-
     // Pre-check before submit
     try {
+      if (networkId && fromAddress && toAddress) {
+        await serviceSend.checkAddressBeforeSending({
+          networkId,
+          fromAddress,
+          toAddress,
+        });
+      }
       await serviceSend.precheckUnsignedTxs({
         networkId,
         accountId,
@@ -278,6 +288,8 @@ function TxConfirmActions(props: IProps) {
     updateSendTxStatus,
     sendSelectedFeeInfo,
     networkId,
+    fromAddress,
+    toAddress,
     accountId,
     unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,

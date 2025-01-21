@@ -191,6 +191,18 @@ export class SecureQRCodeDialogCancel extends OneKeyError {
     EOneKeyErrorClassNames.SecureQRCodeDialogCancel;
 }
 
+export class PreCheckBeforeSendingCancelError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PreCheckBeforeSendingCancelError',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
 export class PasswordNotSet extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(

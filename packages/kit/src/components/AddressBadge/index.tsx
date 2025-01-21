@@ -21,6 +21,7 @@ interface IBasicAddressBadgeProps {
   title: string;
   icon?: IKeyOfIcons;
   content?: ReactElement | string;
+  popoverTitle?: string;
   badgeType: IBadgeProps['badgeType'];
 }
 
@@ -29,6 +30,7 @@ function BasicAddressBadge({
   icon,
   content,
   badgeType,
+  popoverTitle,
 }: IBasicAddressBadgeProps) {
   const badgeElement = useMemo(
     () => (
@@ -44,7 +46,7 @@ function BasicAddressBadge({
   return content ? (
     <Popover
       placement="bottom-start"
-      title={title}
+      title={popoverTitle || title}
       renderTrigger={badgeElement}
       renderContent={() => (
         <Stack gap="$4" p="$4">
@@ -62,6 +64,7 @@ export interface IAddressBadgeProps {
   status?: EAddressInteractionStatus;
   networkId?: string;
   isContract?: boolean;
+  isCex?: boolean;
   isScam?: boolean;
 }
 
@@ -71,6 +74,7 @@ function AddressBadgeFrame({
   networkId,
   isContract,
   isScam,
+  isCex,
 }: IAddressBadgeProps) {
   const intl = useIntl();
   const { result } = usePromiseResult(
@@ -81,34 +85,48 @@ function AddressBadgeFrame({
     [networkId],
   );
 
-  if (title) {
+  if (isCex) {
+    const cexTitle = intl.formatMessage({
+      id: ETranslations.send_label_cex_title,
+    });
     return (
       <BasicAddressBadge
         badgeType="default"
-        icon="Document2Outline"
-        title={title}
+        title={title || cexTitle}
+        popoverTitle={cexTitle}
+        content={intl.formatMessage({
+          id: ETranslations.send_label_cex,
+        })}
       />
     );
   }
 
   if (isScam) {
+    const scamTitle = intl.formatMessage({
+      id: ETranslations.send_label_scam_title,
+    });
     return (
       <BasicAddressBadge
         badgeType="critical"
-        title={intl.formatMessage({
-          id: ETranslations.send_label_scam_title,
+        title={title || scamTitle}
+        popoverTitle={scamTitle}
+        content={intl.formatMessage({
+          id: ETranslations.send_label_scam,
         })}
       />
     );
   }
 
   if (isContract) {
+    const contractTitle = intl.formatMessage({
+      id: ETranslations.global_contract,
+    });
     return (
       <BasicAddressBadge
-        badgeType="warning"
-        title={intl.formatMessage({
-          id: ETranslations.global_contract,
-        })}
+        badgeType="default"
+        icon="Document2Outline"
+        title={title || contractTitle}
+        popoverTitle={contractTitle}
         content={intl.formatMessage({
           id: ETranslations.address_input_contract_popover,
         })}
