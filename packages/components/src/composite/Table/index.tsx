@@ -161,7 +161,6 @@ function TableRow<T>({
       onRowEvents?.onPress?.();
     } else if (getTimeDiff() < 350) {
       onRowEvents?.onPress?.();
-      pressTimeRef.current = 0;
     }
   }, [getTimeDiff, onRowEvents]);
 
@@ -180,7 +179,6 @@ function TableRow<T>({
       }
     } else if (getTimeDiff() >= 350) {
       onRowEvents?.onLongPress?.();
-      pressTimeRef.current = 0;
     }
   }, [drag, draggable, getTimeDiff, onRowEvents]);
   return (
