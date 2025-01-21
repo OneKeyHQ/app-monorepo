@@ -81,6 +81,10 @@ const ClaimPage = () => {
   const providerLabel = useProviderLabel(provider.name);
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
@@ -88,9 +92,18 @@ const ClaimPage = () => {
       action: 'claim',
       amount: '1',
       morphoVault: provider.vault,
+      accountAddress: account.address,
+      identity,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol, provider.vault]);
+  }, [
+    accountId,
+    networkId,
+    provider.name,
+    provider.vault,
+    tokenInfo.symbol,
+    identity,
+  ]);
 
   return (
     <Page>
