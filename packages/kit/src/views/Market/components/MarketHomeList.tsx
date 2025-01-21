@@ -152,9 +152,11 @@ function MarketMdColumn({
   mdColumnKeys,
   showMoreAction,
   tabIndex,
+  isWatchList,
 }: {
   item: IMarketToken;
   currency: string;
+  isWatchList: boolean;
   mdColumnKeys: (keyof IMarketToken)[];
   showMoreAction: boolean;
   tabIndex?: number;
@@ -282,6 +284,7 @@ function MarketMdColumn({
     actions,
     canStaking,
     intl,
+    isWatchList,
     item,
     showBuyOrSellButton,
     showMoreAction,
@@ -481,13 +484,14 @@ function BasicMarketHomeList({
     (item: IMarketToken) => (
       <MarketMdColumn
         item={item}
+        isWatchList={!!draggable}
         tabIndex={tabIndex}
         currency={currency}
         mdColumnKeys={mdColumnKeys}
         showMoreAction={showMoreAction}
       />
     ),
-    [currency, mdColumnKeys, showMoreAction, tabIndex],
+    [currency, draggable, mdColumnKeys, showMoreAction, tabIndex],
   );
 
   const renderSelectTrigger = useCallback(

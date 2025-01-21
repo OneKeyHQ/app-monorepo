@@ -544,13 +544,16 @@ class ServiceStaking extends ServiceBase {
       data: { tokens: IEarnAccountToken[] };
     }>(`/earn/v1/recommend`, { accounts: params });
 
+    const tokens =
+      tokensResponse?.data.data.tokens?.map((item, index) => ({
+        ...item,
+        orderIndex: index,
+      })) || [];
+
     for (const account of params) {
       result.accounts.push({
         ...account,
-        tokens:
-          tokensResponse.data.data.tokens?.filter(
-            (i) => i.networkId === account.networkId,
-          ) || [],
+        tokens: tokens?.filter((i) => i.networkId === account.networkId) || [],
       });
     }
     return result;
@@ -992,6 +995,8 @@ class ServiceStaking extends ServiceBase {
     amount: string;
     txId?: string;
     morphoVault?: string;
+    identity?: string;
+    accountAddress?: string;
   }) {
     const { symbol, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);

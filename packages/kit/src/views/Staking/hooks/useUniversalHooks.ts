@@ -372,6 +372,10 @@ export function useUniversalClaim({
         });
       };
       if (Number(amount) > 0) {
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        });
         const estimateFeeResp =
           await backgroundApiProxy.serviceStaking.estimateFee({
             networkId,
@@ -380,6 +384,8 @@ export function useUniversalClaim({
             action: 'claim',
             amount,
             morphoVault,
+            identity,
+            accountAddress: account.address,
           });
         const tokenFiatValueBN = BigNumber(
           estimateFeeResp.token.price,
