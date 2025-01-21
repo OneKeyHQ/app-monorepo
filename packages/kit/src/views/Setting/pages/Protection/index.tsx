@@ -30,23 +30,25 @@ const SettingProtectionModal = () => {
   const [enableProtection, setEnableProtection] = useState(false);
   const navigation = useAppNavigation();
   useEffect(() => {
-    const checkEnableProtection = async () => {
-      try {
-        const passwordRes =
-          await backgroundApiProxy.servicePassword.promptPasswordVerify({
-            reason: EReasonForNeedPassword.Security,
-          });
-        if (passwordRes) {
-          setEnableProtection(true);
-        } else {
+    if (!enableProtection) {
+      const checkEnableProtection = async () => {
+        try {
+          const passwordRes =
+            await backgroundApiProxy.servicePassword.promptPasswordVerify({
+              reason: EReasonForNeedPassword.Security,
+            });
+          if (passwordRes) {
+            setEnableProtection(true);
+          } else {
+            navigation.pop();
+          }
+        } catch (e) {
           navigation.pop();
         }
-      } catch (e) {
-        navigation.pop();
-      }
-    };
-    void checkEnableProtection();
-  }, [navigation]);
+      };
+      void checkEnableProtection();
+    }
+  }, [enableProtection, navigation]);
 
   return (
     <Page>
