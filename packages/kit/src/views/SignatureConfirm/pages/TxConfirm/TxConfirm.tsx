@@ -273,9 +273,9 @@ function TxConfirm() {
         {renderTxConfirmContent()}
       </Page.Body>
       <TxConfirmActions
-        {...route.params}
         fromAddress={fromAddress}
         toAddress={toAddress}
+        {...route.params}
       />
     </Page>
   );
