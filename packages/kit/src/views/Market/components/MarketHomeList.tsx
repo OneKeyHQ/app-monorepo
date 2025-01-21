@@ -42,7 +42,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/scenes/token';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabMarketRoutes } from '@onekeyhq/shared/src/routes';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { isSupportStaking } from '@onekeyhq/shared/types/earn/earnProvider.constants';
 import type {
@@ -58,9 +57,10 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { MarketListTradeButton } from './MarketListTradeButton';
 import { MarketMore } from './MarketMore';
-import { MarketStar } from './MarketStar';
+import { MarketStar, useStarChecked } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
 import { MarketTokenPrice } from './MarketTokenPrice';
+import { MarketTokenStarIcon } from './MarketTokenStarIcon';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
 import { ToggleButton } from './ToggleButton';
@@ -153,11 +153,13 @@ function MarketMdColumn({
   currency,
   mdColumnKeys,
   showMoreAction,
+  tabIndex,
 }: {
   item: IMarketToken;
   currency: string;
   mdColumnKeys: (keyof IMarketToken)[];
   showMoreAction: boolean;
+  tabIndex?: number;
 }) {
   const actions = useWatchListAction();
   const isShowActionSheet = useRef(false);
@@ -170,6 +172,12 @@ function MarketMdColumn({
     () => isSupportStaking(item.symbol),
     [item.symbol],
   );
+
+  const { checked, setIsChecked } = useStarChecked({
+    tabIndex,
+    coingeckoId: item.coingeckoId,
+    from: EWatchlistFrom.catalog,
+  });
   const handleMdItemAction = useCallback(async () => {
     const { coingeckoId, symbol } = item;
     const isInWatchList = actions.isInWatchList(coingeckoId);
@@ -193,6 +201,7 @@ function MarketMdColumn({
                   }),
                   onPress: () => {
                     actions.removeFormWatchList(coingeckoId);
+                    setIsChecked(false);
                     defaultLogger.market.token.removeFromWatchlist({
                       tokenSymbol: coingeckoId,
                       removeWatchlistFrom: EWatchlistFrom.catalog,
@@ -206,6 +215,7 @@ function MarketMdColumn({
                   }),
                   onPress: () => {
                     actions.addIntoWatchList(coingeckoId);
+                    setIsChecked(true);
                     defaultLogger.market.token.addToWatchList({
                       tokenSymbol: coingeckoId,
                       addWatchlistFrom: EWatchlistFrom.catalog,
@@ -282,6 +292,7 @@ function MarketMdColumn({
     canStaking,
     intl,
     item,
+    setIsChecked,
     showBuyOrSellButton,
     showMoreAction,
     tradeActions,
@@ -297,7 +308,7 @@ function MarketMdColumn({
       px="$5"
     >
       <XStack gap="$3" ai="center">
-        <MarketTokenIcon uri={item.image} size="$10" />
+        <MarketTokenStarIcon url={item.image} checked={checked} />
         <YStack>
           <SizableText size="$bodyLgMedium" userSelect="none">
             {item.symbol.toUpperCase()}
@@ -479,12 +490,13 @@ function BasicMarketHomeList({
     (item: IMarketToken) => (
       <MarketMdColumn
         item={item}
+        tabIndex={tabIndex}
         currency={currency}
         mdColumnKeys={mdColumnKeys}
         showMoreAction={showMoreAction}
       />
     ),
-    [currency, mdColumnKeys, showMoreAction],
+    [currency, mdColumnKeys, showMoreAction, tabIndex],
   );
 
   const renderSelectTrigger = useCallback(

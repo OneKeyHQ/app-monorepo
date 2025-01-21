@@ -13,6 +13,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
@@ -683,6 +687,36 @@ class ServiceSend extends ServiceBase {
       return tokenDetails.info.isNative;
     }
     return vaultSettings.hasFrozenBalance;
+  }
+
+  @backgroundMethod()
+  async checkAddressBeforeSending({
+    networkId,
+    fromAddress,
+    toAddress,
+  }: {
+    fromAddress?: string;
+    networkId: string;
+    toAddress: string;
+  }) {
+    const { isContract, isScam } =
+      await this.backgroundApi.serviceAccountProfile.getAddressAccountBadge({
+        networkId,
+        fromAddress,
+        toAddress,
+      });
+    if (isContract || isScam) {
+      await new Promise<boolean>((resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        appEventBus.emit(EAppEventBusNames.CheckAddressBeforeSending, {
+          promiseId,
+          type: isScam ? 'scam' : 'contract',
+        });
+      });
+    }
   }
 
   @backgroundMethod()

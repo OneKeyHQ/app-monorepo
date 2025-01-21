@@ -127,6 +127,8 @@ function TxConfirm() {
       },
     );
 
+  const fromAddress = decodedTxs?.[0]?.owner;
+  const toAddress = decodedTxs?.[0]?.to;
   usePromiseResult(async () => {
     if (txConfirmParamsInit.current) return;
     updateNativeTokenInfo({
@@ -270,7 +272,11 @@ function TxConfirm() {
       <Page.Body testID="tx-confirmation-body" px="$5">
         {renderTxConfirmContent()}
       </Page.Body>
-      <TxConfirmActions {...route.params} />
+      <TxConfirmActions
+        fromAddress={fromAddress}
+        toAddress={toAddress}
+        {...route.params}
+      />
     </Page>
   );
 }

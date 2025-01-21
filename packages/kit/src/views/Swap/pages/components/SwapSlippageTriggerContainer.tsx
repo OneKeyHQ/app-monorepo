@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { useDebouncedCallback } from 'use-debounce';
 
 import { SizableText } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -47,6 +48,8 @@ const SwapSlippageTriggerContainer = ({
     [displaySlippage, intl, slippageItem.key],
   );
 
+  const debounceOnPress = useDebouncedCallback(onPress, 200);
+
   const valueComponent = useMemo(
     () => (
       <SizableText
@@ -68,7 +71,7 @@ const SwapSlippageTriggerContainer = ({
         id: ETranslations.swap_page_provider_slippage_tolerance,
       })}
       isLoading={isLoading}
-      onPress={onPress}
+      onPress={debounceOnPress}
       questionMarkContent={
         <SizableText
           p="$5"

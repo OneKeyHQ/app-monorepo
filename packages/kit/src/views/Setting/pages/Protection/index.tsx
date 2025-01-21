@@ -59,7 +59,9 @@ const SettingProtectionModal = () => {
               size={ESwitchSize.small}
               value={isEnableTransferAllowList}
               onChange={async (value) => {
-                setSettings((v) => ({ ...v, transferAllowList: !!value }));
+                await backgroundApiProxy.serviceSetting.setIsEnableTransferAllowList(
+                  value,
+                );
               }}
             />
           </ListItem>
