@@ -170,10 +170,11 @@ function TableRow<T>({
         drag?.();
         setTimeout(() => {
           if (globalRef.translationY === 0) {
+            Haptics.impact(ImpactFeedbackStyle.Medium);
             globalRef.reset();
             onRowEvents?.onLongPress?.();
           }
-        }, 350);
+        }, 650);
       } else {
         onRowEvents?.onLongPress?.();
       }
