@@ -107,7 +107,6 @@ function BaseSortableListView<T>(
       data={data}
       keyExtractor={keyExtractor}
       renderItem={renderItem as RenderItem<T>}
-      onAnimValInit={console.log}
       {...restProps}
     />
   );

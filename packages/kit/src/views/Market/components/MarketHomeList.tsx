@@ -287,6 +287,11 @@ function MarketMdColumn({
     showMoreAction,
     tradeActions,
   ]);
+
+  useEffect(() => {
+    item.onPress = handleMdItemAction;
+  }, [item, handleMdItemAction]);
+
   return (
     <XStack
       height={60}
@@ -933,6 +938,7 @@ function BasicMarketHomeList({
   const onRow = useCallback(
     (record: IMarketToken) => ({
       onPress: () => toDetailPage(record),
+      onLongPress: () => record?.onPress(),
     }),
     [toDetailPage],
   );
