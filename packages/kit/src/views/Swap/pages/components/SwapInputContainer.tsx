@@ -266,9 +266,7 @@ const SwapInputContainer = ({
             onSelectToken(direction);
           },
         }}
-        enableMaxAmount={
-          !!(direction === ESwapDirectionType.FROM && !token?.isNative)
-        }
+        enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
     </YStack>
   );

@@ -25,28 +25,37 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 const SettingProtectionModal = () => {
   const intl = useIntl();
-  const [settings, setSettings] = useSettingsPersistAtom();
+  const [
+    {
+      tokenRiskReminder,
+      protectCreateTransaction,
+      protectCreateOrRemoveWallet,
+    },
+    setSettings,
+  ] = useSettingsPersistAtom();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const [enableProtection, setEnableProtection] = useState(false);
   const navigation = useAppNavigation();
   useEffect(() => {
-    const checkEnableProtection = async () => {
-      try {
-        const passwordRes =
-          await backgroundApiProxy.servicePassword.promptPasswordVerify({
-            reason: EReasonForNeedPassword.Security,
-          });
-        if (passwordRes) {
-          setEnableProtection(true);
-        } else {
+    if (!enableProtection) {
+      const checkEnableProtection = async () => {
+        try {
+          const passwordRes =
+            await backgroundApiProxy.servicePassword.promptPasswordVerify({
+              reason: EReasonForNeedPassword.Security,
+            });
+          if (passwordRes) {
+            setEnableProtection(true);
+          } else {
+            navigation.pop();
+          }
+        } catch (e) {
           navigation.pop();
         }
-      } catch (e) {
-        navigation.pop();
-      }
-    };
-    void checkEnableProtection();
-  }, [navigation]);
+      };
+      void checkEnableProtection();
+    }
+  }, [enableProtection, navigation]);
 
   return (
     <Page>
@@ -69,7 +78,7 @@ const SettingProtectionModal = () => {
               >
                 <Switch
                   size={ESwitchSize.small}
-                  value={settings.tokenRiskReminder}
+                  value={tokenRiskReminder}
                   onChange={async (value) => {
                     setSettings((v) => ({ ...v, tokenRiskReminder: !!value }));
                   }}
@@ -113,7 +122,7 @@ const SettingProtectionModal = () => {
               >
                 <Switch
                   size={ESwitchSize.small}
-                  value={!settings.protectCreateTransaction}
+                  value={!protectCreateTransaction}
                   onChange={async (value) => {
                     await backgroundApiProxy.serviceSetting.setProtectCreateTransaction(
                       !value,
@@ -128,7 +137,7 @@ const SettingProtectionModal = () => {
               >
                 <Switch
                   size={ESwitchSize.small}
-                  value={!settings.protectCreateOrRemoveWallet}
+                  value={!protectCreateOrRemoveWallet}
                   onChange={async (value) => {
                     await backgroundApiProxy.serviceSetting.setProtectCreateOrRemoveWallet(
                       !value,
