@@ -310,6 +310,7 @@ export type IClaimableListResponse = {
 };
 
 export interface IEarnAccountToken {
+  orderIndex: number;
   networkId: string;
   name: string;
   symbol: string;

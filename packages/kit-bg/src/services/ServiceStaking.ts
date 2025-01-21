@@ -544,13 +544,16 @@ class ServiceStaking extends ServiceBase {
       data: { tokens: IEarnAccountToken[] };
     }>(`/earn/v1/recommend`, { accounts: params });
 
+    const tokens =
+      tokensResponse?.data.data.tokens?.map((item, index) => ({
+        ...item,
+        orderIndex: index,
+      })) || [];
+
     for (const account of params) {
       result.accounts.push({
         ...account,
-        tokens:
-          tokensResponse.data.data.tokens?.filter(
-            (i) => i.networkId === account.networkId,
-          ) || [],
+        tokens: tokens?.filter((i) => i.networkId === account.networkId) || [],
       });
     }
     return result;
