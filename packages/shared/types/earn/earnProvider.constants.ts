@@ -56,9 +56,9 @@ export const isSupportStaking = (symbol: string) =>
     'USDC',
     'USDT',
     'DAI',
-    // 'WETH',
-    // 'CBBTC',
-    // 'WBTC',
+    'WETH',
+    'CBBTC',
+    'WBTC',
   ].includes(symbol.toUpperCase());
 
 export const earnMainnetNetworkIds = [

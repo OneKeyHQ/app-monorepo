@@ -311,7 +311,7 @@ function Recommended({
       });
     });
     return {
-      tokens: accountTokens,
+      tokens: accountTokens.sort((a, b) => a.orderIndex - b.orderIndex),
       profit: totalProfit,
     };
   }, [earnAccount, totalFiatMapKey]);

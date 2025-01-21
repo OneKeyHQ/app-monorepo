@@ -396,9 +396,24 @@ class ServiceAccountProfile extends ServiceBase {
                 account.indexedAccountId === a.accountId ||
                 account.id === a.accountId,
             );
-
             if (accountItem) {
               item = accountItem;
+            } else {
+              // Fix the issue where an address can be both an HD/HW account and a watch-only account
+              // When an address exists in both HD/HW wallet and watch-only wallet,
+              // prioritize showing the HD/HW wallet name since it has higher security level.
+              const ownAccountItem = walletAccountItems.find((a) => {
+                const accountParams = { accountId: a.accountId };
+                return (
+                  accountUtils.isHdAccount(accountParams) ||
+                  accountUtils.isHwAccount(accountParams) ||
+                  accountUtils.isQrAccount(accountParams) ||
+                  accountUtils.isImportedAccount(accountParams)
+                );
+              });
+              if (ownAccountItem) {
+                item = ownAccountItem;
+              }
             }
           }
         } catch (e) {
