@@ -127,8 +127,8 @@ function TxConfirm() {
       },
     );
 
-  const fromAddress = decodedTxs?.[0].owner;
-  const toAddress = decodedTxs?.[0].to;
+  const fromAddress = decodedTxs?.[0]?.owner;
+  const toAddress = decodedTxs?.[0]?.to;
   usePromiseResult(async () => {
     if (txConfirmParamsInit.current) return;
     updateNativeTokenInfo({
