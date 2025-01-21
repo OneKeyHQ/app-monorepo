@@ -3,7 +3,6 @@ import type {
   MutableRefObject,
   PropsWithChildren,
   ReactElement,
-  ReactNode,
   RefObject,
 } from 'react';
 import {
@@ -117,7 +116,7 @@ function SpotlightContent({
         }
         setFloatingPosition({
           x,
-          y,
+          y: y + (platformEnv.isDesktopWin ? -30 : 0),
           width,
           height,
         });
