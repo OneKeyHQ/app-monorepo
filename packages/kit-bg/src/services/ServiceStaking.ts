@@ -995,6 +995,8 @@ class ServiceStaking extends ServiceBase {
     amount: string;
     txId?: string;
     morphoVault?: string;
+    identity?: string;
+    accountAddress?: string;
   }) {
     const { symbol, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
