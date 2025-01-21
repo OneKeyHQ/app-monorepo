@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "Réclamation disponible dans {number} jours",
   "earn.claim_limitations": "En raison des limitations de Lido, vous devez réclamer chacune de vos rédemptions séparément.",
   "earn.claim_rewards": "Réclamer des récompenses",
-  "earn.claim_rewards_morpho_desc": "Les récompenses sont calculées à partir de toutes les positions de jalonnement Morpho et sont mises à jour environ toutes les deux semaines.",
+  "earn.claim_rewards_morpho_desc": "Les récompenses sont calculées à partir de toutes les positions de jalonnement Morpho et réglées toutes les 2 semaines.",
   "earn.claim_together_tooltip": "Réclamé automatiquement dans votre portefeuille après chaque demande de mise en jeu ou de retrait d'actifs.",
   "earn.claim_token": "Réclamer {token}",
   "earn.claim_token_desc": "Réclamez votre {token} après que la demande de retrait a été traitée.",

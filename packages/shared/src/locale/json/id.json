@@ -374,7 +374,7 @@
   "earn.claim_available_in_number_days": "Penukaran tersedia dalam {number} hari",
   "earn.claim_limitations": "Karena keterbatasan Lido, Anda harus mengklaim setiap penebusan Anda secara terpisah.",
   "earn.claim_rewards": "Klaim hadiah",
-  "earn.claim_rewards_morpho_desc": "Hadiah dihitung dari semua posisi staking Morpho dan diperbarui sekitar setiap dua minggu.",
+  "earn.claim_rewards_morpho_desc": "Hadiah dihitung dari semua posisi staking Morpho dan diselesaikan setiap 2 minggu.",
   "earn.claim_together_tooltip": "Secara otomatis diklaim ke dompet Anda setelah setiap permintaan staking atau penarikan aset.",
   "earn.claim_token": "Klaim {token}",
   "earn.claim_token_desc": "Klaim {token} Anda setelah permintaan penarikan telah diproses.",
