@@ -105,6 +105,12 @@ function SpotlightContent({
 
   const measureTriggerInWindow = useCallback(() => {
     if (initProps.triggerRef) {
+      const noNativeNavigator =
+        platformEnv.isDesktopWin || platformEnv.isDesktopLinux;
+
+      // Requires a -30px offset to compensate for window title bar height
+      const extraY = noNativeNavigator ? -30 : 0;
+
       initProps.triggerRef.current?.measureInWindow((x, y, width, height) => {
         if (
           floatingPosition.x === x &&
@@ -116,7 +122,7 @@ function SpotlightContent({
         }
         setFloatingPosition({
           x,
-          y: y + (platformEnv.isDesktopWin ? -30 : 0),
+          y: y + extraY,
           width,
           height,
         });
