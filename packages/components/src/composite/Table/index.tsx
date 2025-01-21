@@ -149,6 +149,9 @@ function TableRow<T>({
   }, [onRowEvents]);
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   const isDragging = pressStyle && isActive;
+  const handleLongPress = useCallback(() => {
+    drag?.();
+  }, [drag]);
   return (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
@@ -156,7 +159,9 @@ function TableRow<T>({
       bg={isDragging ? '$bgActive' : '$bgApp'}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
-      onLongPress={platformEnv.isNative && draggable ? drag : undefined}
+      onLongPress={
+        platformEnv.isNative && draggable ? handleLongPress : undefined
+      }
       {...itemPressStyle}
       {...rowProps}
     >
@@ -253,6 +258,7 @@ export interface ITableProps<T> {
   ) =>
     | {
         onPress?: () => void;
+        onLongPress?: () => void;
       }
     | undefined;
 }
@@ -526,6 +532,7 @@ function BasicTable<T>({
           ListEmptyComponent={TableEmptyComponent}
           extraData={extraData}
           renderScrollComponent={renderScrollComponent}
+          onAnimValInit={console.log}
         />
       ) : (
         <ListView
