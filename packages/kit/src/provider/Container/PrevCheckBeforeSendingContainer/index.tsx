@@ -67,6 +67,8 @@ function BasicPrevCheckBeforeSendingContainer() {
           });
           break;
         default:
+          console.warn(`Unhandled address check type: ${type as string}`);
+          void onCancel();
           break;
       }
     };
