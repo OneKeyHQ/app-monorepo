@@ -154,6 +154,9 @@ function TableRow<T>({
       minHeight={DEFAULT_ROW_HEIGHT}
       onPress={handlePress}
       bg={isDragging ? '$bgActive' : '$bgApp'}
+      scale={isDragging && platformEnv.isNative ? 0.9 : 1}
+      animation="fast"
+      animateOnly={['transform']}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onLongPress={platformEnv.isNative && draggable ? drag : undefined}
