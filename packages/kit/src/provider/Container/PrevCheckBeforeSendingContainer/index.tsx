@@ -37,33 +37,30 @@ function BasicPrevCheckBeforeSendingContainer() {
           error: toPlainErrorObject(new PreCheckBeforeSendingCancelError()),
         });
       };
+      const commonDialogProps = {
+        icon: 'ShieldCheckDoneOutline',
+        title: intl.formatMessage({
+          id: ETranslations.global_warning,
+        }),
+        onConfirmText,
+        onConfirm,
+        onCancel,
+      };
       switch (type) {
         case 'scam':
           Dialog.show({
-            icon: 'ShieldCheckDoneOutline',
-            title: intl.formatMessage({
-              id: ETranslations.global_warning,
-            }),
+            ...commonDialogProps,
             description: intl.formatMessage({
               id: ETranslations.send_label_scam,
             }),
-            onConfirmText,
-            onConfirm,
-            onCancel,
           });
           break;
         case 'contract':
           Dialog.show({
-            icon: 'ShieldCheckDoneOutline',
-            title: intl.formatMessage({
-              id: ETranslations.global_warning,
-            }),
+            ...commonDialogProps,
             description: intl.formatMessage({
               id: ETranslations.address_input_contract_popover,
             }),
-            onConfirmText,
-            onConfirm,
-            onCancel,
           });
           break;
         default:
