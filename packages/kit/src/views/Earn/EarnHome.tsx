@@ -311,7 +311,7 @@ function Recommended({
       });
     });
     return {
-      tokens: accountTokens,
+      tokens: accountTokens.sort((a, b) => a.orderIndex - b.orderIndex),
       profit: totalProfit,
     };
   }, [earnAccount, totalFiatMapKey]);
@@ -831,7 +831,7 @@ function BasicEarnHome() {
           isLoading={false}
           leftIconButtonStyle={{
             ...bannerIconStyle,
-            left: '$3.5',
+            left: media.md ? 34 : '$3.5',
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
@@ -848,7 +848,7 @@ function BasicEarnHome() {
             top: 0,
             bottom: 0,
             right: '$5',
-            left: '$5',
+            left: media.md ? '$10' : '$5',
             justifyContent: 'center',
           }}
         />
