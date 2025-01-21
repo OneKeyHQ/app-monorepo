@@ -1,3 +1,4 @@
+import type { MutableRefObject } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -151,6 +152,7 @@ function MarketMdColumn({
   currency,
   mdColumnKeys,
   showMoreAction,
+  onLongPressRefs,
   tabIndex,
   isWatchList,
 }: {
@@ -158,6 +160,7 @@ function MarketMdColumn({
   currency: string;
   isWatchList: boolean;
   mdColumnKeys: (keyof IMarketToken)[];
+  onLongPressRefs: MutableRefObject<Record<string, () => void>>;
   showMoreAction: boolean;
   tabIndex?: number;
 }) {
@@ -284,7 +287,6 @@ function MarketMdColumn({
     actions,
     canStaking,
     intl,
-    isWatchList,
     item,
     showBuyOrSellButton,
     showMoreAction,
@@ -292,8 +294,10 @@ function MarketMdColumn({
   ]);
 
   useEffect(() => {
-    item.onPress = handleMdItemAction;
-  }, [item, handleMdItemAction]);
+    if (onLongPressRefs.current) {
+      onLongPressRefs.current[item.coingeckoId] = handleMdItemAction;
+    }
+  }, [item.coingeckoId, handleMdItemAction, onLongPressRefs]);
 
   return (
     <XStack
@@ -476,6 +480,7 @@ function BasicMarketHomeList({
   );
 
   const { width: screenWidth } = useWindowDimensions();
+  const onLongPressRefs = useRef<Record<string, () => void>>({});
 
   const [settings] = useSettingsPersistAtom();
   const currency = settings.currencyInfo.symbol;
@@ -484,6 +489,7 @@ function BasicMarketHomeList({
     (item: IMarketToken) => (
       <MarketMdColumn
         item={item}
+        onLongPressRefs={onLongPressRefs}
         isWatchList={!!draggable}
         tabIndex={tabIndex}
         currency={currency}
@@ -942,7 +948,7 @@ function BasicMarketHomeList({
   const onRow = useCallback(
     (record: IMarketToken) => ({
       onPress: () => toDetailPage(record),
-      onLongPress: () => record?.onPress(),
+      onLongPress: () => onLongPressRefs.current[record.coingeckoId]?.(),
     }),
     [toDetailPage],
   );
