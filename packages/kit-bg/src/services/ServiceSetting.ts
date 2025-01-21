@@ -109,7 +109,7 @@ class ServiceSetting extends ServiceBase {
   @backgroundMethod()
   public async getIsEnableTransferAllowList() {
     const { transferAllowList } = await settingsPersistAtom.get();
-    return transferAllowList ?? true;
+    return transferAllowList ?? false;
   }
 
   @backgroundMethod()
