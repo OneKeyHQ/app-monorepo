@@ -278,7 +278,9 @@ export const useSuggestion = (
           await timerUtils.wait(10);
           checkAllWords();
         }, 30);
+        return true;
       }
+      return false;
     },
     [
       checkAllWords,
