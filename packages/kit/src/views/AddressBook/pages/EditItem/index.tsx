@@ -135,7 +135,7 @@ function EditItemPage() {
       })}
       item={item}
       onSubmit={onSubmit}
-      onRemove={onRemove}
+      onRemove={isCreateMode ? undefined : onRemove}
     />
   ) : null;
 }
