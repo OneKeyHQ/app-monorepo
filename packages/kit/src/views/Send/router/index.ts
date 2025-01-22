@@ -19,34 +19,6 @@ const SendReplaceTx = LazyLoadPage(
     ),
 );
 
-const LnurlPayRequestModal = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlPayRequestModal'
-    ),
-);
-
-const LnurlWithdrawModal = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlWithdrawModal'
-    ),
-);
-
-const LnurlAuthModal = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlAuthModal'
-    ),
-);
-
-const WeblnSendPaymentModal = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Webln/WeblnSendPaymentModal'
-    ),
-);
-
 const TokenSelector = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AssetSelector/pages/TokenSelector'),
 );
@@ -93,18 +65,6 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
   {
     name: EModalSendRoutes.SendReplaceTx,
     component: SendReplaceTx,
-  },
-  {
-    name: EModalSendRoutes.LnurlPayRequest,
-    component: LnurlPayRequestModal,
-  },
-  {
-    name: EModalSendRoutes.LnurlWithdraw,
-    component: LnurlWithdrawModal,
-  },
-  {
-    name: EModalSendRoutes.LnurlAuth,
-    component: LnurlAuthModal,
   },
   {
     name: EModalSendRoutes.SendSelectToken,
