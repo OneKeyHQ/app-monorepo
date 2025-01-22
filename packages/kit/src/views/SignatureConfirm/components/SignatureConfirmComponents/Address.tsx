@@ -28,7 +28,14 @@ function formatTagValue(value: string | string[]) {
 
 function Address(props: IProps) {
   const intl = useIntl();
-  const { accountId, networkId, component, showAddressLocalTags } = props;
+  const {
+    accountId,
+    networkId: currentNetworkId,
+    component,
+    showAddressLocalTags,
+  } = props;
+
+  const networkId = component.networkId || currentNetworkId;
 
   return (
     <SignatureConfirmItem>
