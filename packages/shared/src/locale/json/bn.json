@@ -381,7 +381,7 @@
   "earn.claimable": "দাবি করা যাবে",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) ভবিষ্যতে দাবি করা যাবে",
   "earn.claimed": "দাবিকৃত",
-  "earn.commission": "কমিশন",
+  "earn.commission": "পারফরম্যান্স ফি",
   "earn.commission_tooltip": "আপনার পুরস্কার বা পয়েন্টের একটি নির্দিষ্ট শতাংশ প্রদানকারীর কমিশন হিসাবে কেটে নেওয়া হয়।",
   "earn.confirmed_cap": "নিশ্চিত ক্যাপ",
   "earn.currently_staking": "বর্তমানে স্টেকিং করা হচ্ছে",

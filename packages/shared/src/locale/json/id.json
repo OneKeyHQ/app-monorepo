@@ -381,7 +381,7 @@
   "earn.claimable": "Dapat diklaim",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) dapat diklaim di masa depan",
   "earn.claimed": "Telah diklaim",
-  "earn.commission": "Komisi",
+  "earn.commission": "Biaya Kinerja",
   "earn.commission_tooltip": "Persentase tertentu dari hadiah atau poin Anda akan dipotong sebagai komisi untuk penyedia.",
   "earn.confirmed_cap": "Batasan yang dikonfirmasi",
   "earn.currently_staking": "Saat ini sedang melakukan staking",

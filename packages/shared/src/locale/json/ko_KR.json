@@ -381,7 +381,7 @@
   "earn.claimable": "청구 가능",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) 는 미래에 청구 가능",
   "earn.claimed": "수령됨",
-  "earn.commission": "커미션",
+  "earn.commission": "성과 수수료",
   "earn.commission_tooltip": "제공자에게 수수료로 귀하의 보상 또는 포인트의 일정 비율이 공제됩니다.",
   "earn.confirmed_cap": "확정된 캡",
   "earn.currently_staking": "현재 스테이킹 중",

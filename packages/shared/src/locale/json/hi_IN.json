@@ -381,7 +381,7 @@
   "earn.claimable": "दावा करने योग्य",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) भविष्य में दावा किया जा सकता है",
   "earn.claimed": "दावा किया गया",
-  "earn.commission": "आयोग",
+  "earn.commission": "प्रदर्शन शुल्क",
   "earn.commission_tooltip": "आपके पुरस्कारों या अंकों का एक विशिष्ट प्रतिशत प्रदाता के लिए कमीशन के रूप में काटा जाता है।",
   "earn.confirmed_cap": "पुष्टि की गई सीमा",
   "earn.currently_staking": "वर्तमान में स्टेकिंग",

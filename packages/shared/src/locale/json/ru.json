@@ -381,7 +381,7 @@
   "earn.claimable": "Можно заявить",
   "earn.claimable_in_future": "{value} {symbol} ( {fiatValue} ) может быть востребовано в будущем",
   "earn.claimed": "Получено",
-  "earn.commission": "Комиссия",
+  "earn.commission": "Плата за исполнение",
   "earn.commission_tooltip": "Определенный процент ваших вознаграждений или баллов вычитается в качестве комиссии для поставщика.",
   "earn.confirmed_cap": "Подтвержденный лимит",
   "earn.currently_staking": "В настоящее время участвует в стейкинге",

@@ -381,7 +381,7 @@
   "earn.claimable": "Claimable",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) claimable in future",
   "earn.claimed": "Claimed",
-  "earn.commission": "Commission",
+  "earn.commission": "Performance Fee",
   "earn.commission_tooltip": "A specific percentage of your rewards or points is deducted as a commission for the provider.",
   "earn.confirmed_cap": "Confirmed cap",
   "earn.currently_staking": "Currently staking",

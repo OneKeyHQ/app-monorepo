@@ -381,7 +381,7 @@
   "earn.claimable": "Einlösbar",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) in Zukunft beanspruchbar",
   "earn.claimed": "Beansprucht",
-  "earn.commission": "Kommission",
+  "earn.commission": "Erfolgsgebühr",
   "earn.commission_tooltip": "Ein bestimmter Prozentsatz Ihrer Belohnungen oder Punkte wird als Provision für den Anbieter abgezogen.",
   "earn.confirmed_cap": "Bestätigte Obergrenze",
   "earn.currently_staking": "Aktuell staking",

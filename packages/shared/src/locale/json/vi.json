@@ -381,7 +381,7 @@
   "earn.claimable": "Có thể yêu cầu",
   "earn.claimable_in_future": "{value} {symbol} ( {fiatValue} ) có thể yêu cầu trong tương lai",
   "earn.claimed": "Đã nhận",
-  "earn.commission": "Ủy ban",
+  "earn.commission": "Phí biểu diễn",
   "earn.commission_tooltip": "Một tỷ lệ phần trăm cụ thể của phần thưởng hoặc điểm của bạn sẽ bị khấu trừ làm hoa hồng cho nhà cung cấp.",
   "earn.confirmed_cap": "Đã xác nhận giới hạn",
   "earn.currently_staking": "Đang staking",

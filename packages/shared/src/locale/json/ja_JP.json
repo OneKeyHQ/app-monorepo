@@ -381,7 +381,7 @@
   "earn.claimable": "請求可能",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) 将来請求可能",
   "earn.claimed": "受領済み",
-  "earn.commission": "コミッション",
+  "earn.commission": "パフォーマンス料金",
   "earn.commission_tooltip": "あなたの報酬やポイントの特定の割合が、プロバイダーの手数料として差し引かれます。",
   "earn.confirmed_cap": "確認されたキャップ",
   "earn.currently_staking": "現在ステーキング中",

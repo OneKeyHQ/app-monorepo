@@ -381,7 +381,7 @@
   "earn.claimable": "可领取",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) 未来可领取",
   "earn.claimed": "已领取",
-  "earn.commission": "佣金",
+  "earn.commission": "业绩费",
   "earn.commission_tooltip": "渠道商会从您的收益或积分中扣除一定比例作为佣金。",
   "earn.confirmed_cap": "已确认容量",
   "earn.currently_staking": "当前正在质押",

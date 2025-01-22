@@ -381,7 +381,7 @@
   "earn.claimable": "สามารถเคลมได้",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) สามารถเรียกร้องได้ในอนาคต",
   "earn.claimed": "อ้างสิทธิ์แล้ว",
-  "earn.commission": "ค่าคอมมิชชั่น",
+  "earn.commission": "ค่าธรรมเนียมการแสดง",
   "earn.commission_tooltip": "เปอร์เซ็นต์เฉพาะของรางวัลหรือคะแนนของคุณจะถูกหักเป็นค่าคอมมิชชันสำหรับผู้ให้บริการ",
   "earn.confirmed_cap": "ยืนยันหมวกแล้ว",
   "earn.currently_staking": "กำลังเข้าร่วมการเดิมพัน",

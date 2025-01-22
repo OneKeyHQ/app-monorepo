@@ -381,7 +381,7 @@
   "earn.claimable": "Можна вимагати",
   "earn.claimable_in_future": "{value} {symbol} ( {fiatValue} ) можна вимагати в майбутньому",
   "earn.claimed": "Отримано",
-  "earn.commission": "Комісія",
+  "earn.commission": "Плата за продуктивність",
   "earn.commission_tooltip": "Певний відсоток ваших винагород або балів відраховується як комісія для постачальника.",
   "earn.confirmed_cap": "Підтверджена шапка",
   "earn.currently_staking": "В даний час ставки",

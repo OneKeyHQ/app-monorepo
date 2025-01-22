@@ -381,7 +381,7 @@
   "earn.claimable": "Reivindicável",
   "earn.claimable_in_future": "{value} {symbol} ({fiatValue}) reivindicável no futuro",
   "earn.claimed": "Reivindicado",
-  "earn.commission": "Comissão",
+  "earn.commission": "Taxa de Desempenho",
   "earn.commission_tooltip": "Uma percentagem específica das suas recompensas ou pontos é deduzida como comissão para o fornecedor.",
   "earn.confirmed_cap": "Limite confirmado",
   "earn.currently_staking": "Atualmente apostando",
