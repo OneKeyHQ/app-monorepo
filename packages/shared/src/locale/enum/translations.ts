@@ -459,6 +459,8 @@
   earn_pending_activation_tooltip = 'earn.pending_activation_tooltip',
   earn_pending_activation_tooltip_eth = 'earn.pending_activation_tooltip_eth',
   earn_pending_transactions_data_out_of_sync = 'earn.pending_transactions_data_out_of_sync',
+  earn_performance_fee = 'earn.performance_fee',
+  earn_performance_fee_desc = 'earn.performance_fee_desc',
   earn_portfolio = 'earn.portfolio',
   earn_portfolio_details = 'earn.portfolio_details',
   earn_protection = 'earn.protection',
