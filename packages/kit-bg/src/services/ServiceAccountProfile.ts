@@ -398,10 +398,15 @@ class ServiceAccountProfile extends ServiceBase {
             );
             if (accountItem) {
               item = accountItem;
-            } else {
-              // Fix the issue where an address can be both an HD/HW account and a watch-only account
-              // When an address exists in both HD/HW wallet and watch-only wallet,
-              // prioritize showing the HD/HW wallet name since it has higher security level.
+            }
+
+            // Fix the issue where an address can be both an HD/HW account and a watch-only account
+            // When an address exists in both HD/HW wallet and watch-only wallet,
+            // prioritize showing the HD/HW wallet name since it has higher security level.
+            if (
+              accountUtils.isWatchingAccount({ accountId: item.accountId }) ||
+              accountUtils.isOthersAccount({ accountId: item.accountId })
+            ) {
               const ownAccountItem = walletAccountItems.find((a) => {
                 const accountParams = { accountId: a.accountId };
                 return (
@@ -420,7 +425,6 @@ class ServiceAccountProfile extends ServiceBase {
           console.error(e);
           // pass
         }
-
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
       }
