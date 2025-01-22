@@ -219,7 +219,7 @@ function BasicPhaseInput(
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
     onInputFocus: (index: number) => void;
-    onPasteMnemonic: (text: string, index: number) => void;
+    onPasteMnemonic: (text: string, index: number) => boolean;
     onInputBlur: (index: number) => void;
     suggestionsRef: RefObject<string[]>;
     selectInputIndex: number;
@@ -257,11 +257,16 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
+      if (platformEnv.isNative && onPasteMnemonic(v, index)) {
+        onInputChange('');
+        onChange?.('');
+        return;
+      }
       const rawText = v.replaceAll(PINYIN_COMPOSITION_SPACE, '');
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [onChange, onInputChange],
+    [index, onChange, onInputChange, onPasteMnemonic],
   );
 
   const handleOpenChange = useCallback(
@@ -292,9 +297,11 @@ function BasicPhaseInput(
 
   const handlePaste = useCallback(
     (event: IPasteEventParams) => {
-      const item = event.nativeEvent?.items?.[0];
-      if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
-        onPasteMnemonic(item?.data, index);
+      if (!platformEnv.isNative) {
+        const item = event.nativeEvent?.items?.[0];
+        if (item?.type === EPasteEventPayloadItemType.TextPlain && item.data) {
+          onPasteMnemonic(item?.data, index);
+        }
       }
     },
     [index, onPasteMnemonic],
