@@ -197,6 +197,7 @@ export default function PrimeDashboard() {
     try {
       setIsLoading(true);
       if (!user?.isLoggedIn) {
+        console.log('loginByPrivy', loginByPrivy);
         return await loginByPrivy();
         // loginLegacy();
       }

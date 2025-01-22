@@ -14,18 +14,6 @@ export function usePrivyUniversal(): IUsePrivyUniversal {
     logout,
     updateEmail: updateEmailWeb,
     updatePhone: updatePhoneWeb,
-    linkEmail,
-    linkWallet,
-    unlinkEmail,
-    linkPhone,
-    unlinkPhone,
-    unlinkWallet,
-    linkGoogle,
-    unlinkGoogle,
-    linkTwitter,
-    unlinkTwitter,
-    linkDiscord,
-    unlinkDiscord,
     getAccessToken,
   } = privy;
   const { login: loginWeb } = usePrivyLogin({
