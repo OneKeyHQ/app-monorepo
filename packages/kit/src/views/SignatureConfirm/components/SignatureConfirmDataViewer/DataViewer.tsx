@@ -1,4 +1,5 @@
 import { TextAreaInput } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 function DataViewer({ data }: { data: string }) {
   return (
@@ -12,7 +13,8 @@ function DataViewer({ data }: { data: string }) {
       lineHeight={16}
       bg="$bg"
       h="$60"
-      editable={false}
+      editable={platformEnv.isNativeAndroid}
+      showSoftInputOnFocus={false}
       value={data}
     />
   );
