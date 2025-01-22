@@ -7172,7 +7172,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    "@privy-io/expo": "npm:^0.35.1"
+    "@privy-io/expo": "npm:0.40.0"
     "@privy-io/expo-native-extensions": "npm:^0.0.3"
     "@react-native-async-storage/async-storage": "npm:1.22.0"
     "@react-native-community/netinfo": "npm:^11.4.1"
@@ -9016,16 +9016,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@privy-io/api-base@npm:1.4.1":
-  version: 1.4.1
-  resolution: "@privy-io/api-base@npm:1.4.1"
-  dependencies:
-    zod: "npm:^3.21.4"
-  checksum: 10/4a3d48670cdd2a9373071f3e911f421decf4b7eb4c6c8acca378854b7baaba239ec785d9bd67a3736e9ea284d424d2db0819a26a06c1e1834a0142d7e21cd63f
-  languageName: node
-  linkType: hard
-
-"@privy-io/api-base@npm:1.4.2, @privy-io/api-base@npm:^1.4.1, @privy-io/api-base@npm:^1.4.2":
+"@privy-io/api-base@npm:1.4.2, @privy-io/api-base@npm:^1.4.2":
   version: 1.4.2
   resolution: "@privy-io/api-base@npm:1.4.2"
   dependencies:
@@ -9045,11 +9036,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@privy-io/expo@npm:^0.35.1":
-  version: 0.35.1
-  resolution: "@privy-io/expo@npm:0.35.1"
+"@privy-io/expo@npm:0.40.0":
+  version: 0.40.0
+  resolution: "@privy-io/expo@npm:0.40.0"
   dependencies:
-    "@privy-io/js-sdk-core": "npm:0.36.1"
+    "@privy-io/js-sdk-core": "npm:0.40.0"
     react-fast-compare: "npm:^3.2.2"
     zustand: "npm:^4.4.1"
   peerDependencies:
@@ -9082,38 +9073,7 @@ __metadata:
       optional: true
     viem:
       optional: true
-  checksum: 10/6e0915f610f5e506491602ef680c820771c5070366a816c4cf54fcd079a2951603e4b89daf28cdcd0ed7a9f40a86bca0e7ecaeedd37986f2ea6b145fdd0c3ea1
-  languageName: node
-  linkType: hard
-
-"@privy-io/js-sdk-core@npm:0.36.1":
-  version: 0.36.1
-  resolution: "@privy-io/js-sdk-core@npm:0.36.1"
-  dependencies:
-    "@ethersproject/abstract-signer": "npm:^5.7.0"
-    "@ethersproject/bignumber": "npm:^5.7.0"
-    "@ethersproject/contracts": "npm:^5.7.0"
-    "@ethersproject/providers": "npm:^5.7.2"
-    "@ethersproject/transactions": "npm:^5.7.0"
-    "@ethersproject/units": "npm:^5.7.0"
-    "@privy-io/api-base": "npm:^1.4.1"
-    "@privy-io/public-api": "npm:2.15.8"
-    eventemitter3: "npm:^5.0.1"
-    fetch-retry: "npm:^5.0.6"
-    jose: "npm:^4.15.5"
-    js-cookie: "npm:^3.0.5"
-    libphonenumber-js: "npm:^1.10.44"
-    set-cookie-parser: "npm:^2.6.0"
-    uuid: "npm:>=8 <10"
-  peerDependencies:
-    permissionless: ^0.2.10
-    viem: ^2.21.36
-  peerDependenciesMeta:
-    permissionless:
-      optional: true
-    viem:
-      optional: true
-  checksum: 10/8f2e5dff2fbd37bdadcf680a1139d782cfa68d1cc33969f3ed1f88f963f0601bf4306362872442052f4d9737d613407a118d6f51d0279749ca4f17d4540a8966
+  checksum: 10/5abedea9db1e31f635c9300c86e04b6e56d3a9d84ce3683f6d6690372f542432c9f546198f002489538271c480a0d22e40f338a75c652c9fb12c7dd4cf4e2f4b
   languageName: node
   linkType: hard
 
@@ -9145,19 +9105,6 @@ __metadata:
     viem:
       optional: true
   checksum: 10/12b71e6ba1d19bb21be375ee783e1326948c0b2a6467e6ad07997c65e37f20975af33d06c905e9cd8a54a5b237db1374dff68ea986e3702fc17d3d1cd8cd52f3
-  languageName: node
-  linkType: hard
-
-"@privy-io/public-api@npm:2.15.8":
-  version: 2.15.8
-  resolution: "@privy-io/public-api@npm:2.15.8"
-  dependencies:
-    "@privy-io/api-base": "npm:1.4.1"
-    bs58: "npm:^5.0.0"
-    ethers: "npm:^5.7.2"
-    libphonenumber-js: "npm:^1.10.31"
-    zod: "npm:^3.22.4"
-  checksum: 10/bf7ec8d8c608c2ef206a4a1ae87354e3626d78e0d23f83e00b31056a0ab8f57fff144c60bb614665b2abc3d0aabc6076fcd85f85e82ef08f557ca3b16e638fba
   languageName: node
   linkType: hard
 
