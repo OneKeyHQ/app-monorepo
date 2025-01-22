@@ -66,6 +66,7 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
     name: EModalSendRoutes.SendReplaceTx,
     component: SendReplaceTx,
   },
+  // TODO: The following two pages seem to not be referenced anywhere, consider removing them
   {
     name: EModalSendRoutes.SendSelectToken,
     component: TokenSelector,
