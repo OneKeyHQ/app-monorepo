@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Vibration } from 'react-native';
 
+import { Haptics, NotificationFeedbackType } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   IAnimationValue,
@@ -60,7 +60,7 @@ export default function useScanQrCode() {
                     resolve(parseValue);
                     popNavigation();
                   }
-                  Vibration.vibrate(1);
+                  Haptics.notification(NotificationFeedbackType.Success);
                   return {
                     progress: animationValue.progress,
                   };
