@@ -107,10 +107,6 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
     component: LnurlAuthModal,
   },
   {
-    name: EModalSendRoutes.WeblnSendPayment,
-    component: WeblnSendPaymentModal,
-  },
-  {
     name: EModalSendRoutes.SendSelectToken,
     component: TokenSelector,
   },

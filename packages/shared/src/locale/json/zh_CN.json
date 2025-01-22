@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "新质押需等待约 {number} 后才会激活并开始获得收益。",
   "earn.pending_activation_tooltip_eth": "当验证者达到 32 ETH 的要求时，您质押的 ETH 才会启用。",
   "earn.pending_transactions_data_out_of_sync": "交易成功后，数据可能需要一些时间才能同步。",
+  "earn.performance_fee": "业绩费",
+  "earn.performance_fee_desc": "金库管理者会尽力提高您的收益，降低您的风险。作为回报，会从您的理财收益或积分中扣除一定比例作为业绩费用。",
   "earn.portfolio": "投资组合",
   "earn.portfolio_details": "投资组合详情",
   "earn.protection": "风险保护",

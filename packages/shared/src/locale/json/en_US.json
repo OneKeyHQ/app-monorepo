@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "New staking needs to wait around {number} before becoming active and starting to earn rewards.",
   "earn.pending_activation_tooltip_eth": "Your staked ETH becomes active once the validator reaches the 32 ETH requirement.",
   "earn.pending_transactions_data_out_of_sync": "Data may take time to sync after the successful transaction.",
+  "earn.performance_fee": "Performance fee",
+  "earn.performance_fee_desc": "Vault managers work to boost your returns and reduce your risks. In exchange, a certain percentage of your earnings or points is taken as a performance fee.",
   "earn.portfolio": "Portfolio",
   "earn.portfolio_details": "Portfolio details",
   "earn.protection": "Protection",

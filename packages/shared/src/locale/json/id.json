@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "Staking baru perlu menunggu sekitar {number} sebelum menjadi aktif dan mulai mendapatkan hadiah.",
   "earn.pending_activation_tooltip_eth": "ETH yang Anda stake akan aktif setelah validator mencapai persyaratan 32 ETH.",
   "earn.pending_transactions_data_out_of_sync": "Data mungkin memerlukan waktu untuk disinkronkan setelah transaksi berhasil.",
+  "earn.performance_fee": "Biaya kinerja",
+  "earn.performance_fee_desc": "Pengelola brankas bekerja untuk meningkatkan laba dan mengurangi risiko Anda. Sebagai gantinya, persentase tertentu dari penghasilan atau poin Anda diambil sebagai biaya kinerja.",
   "earn.portfolio": "Portofolio",
   "earn.portfolio_details": "Detail Portofolio",
   "earn.protection": "Perlindungan",

@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "Le nouveau staking doit attendre environ {number} avant de devenir actif et de commencer à gagner des récompenses.",
   "earn.pending_activation_tooltip_eth": "Votre ETH jalonné devient actif lorsque le validateur atteint le seuil de 32 ETH.",
   "earn.pending_transactions_data_out_of_sync": "La synchronisation des données peut prendre du temps après une transaction réussie.",
+  "earn.performance_fee": "Frais de performance",
+  "earn.performance_fee_desc": "Les gestionnaires de coffres-forts travaillent pour augmenter vos rendements et réduire vos risques. En échange, un certain pourcentage de vos gains ou de vos points est prélevé sous forme de commission de performance.",
   "earn.portfolio": "Portefeuille",
   "earn.portfolio_details": "Détails du portefeuille",
   "earn.protection": "Protection",
