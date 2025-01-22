@@ -45,6 +45,7 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -1201,6 +1202,18 @@ function SendDataInputContainer() {
     [],
   );
 
+  const enableAllowListValidation = useMemo(() => {
+    const networkIdsMap = getNetworkIdsMap();
+    // Disable allowlist validation for Lightning Network
+    if (
+      networkIdsMap.lightning === networkId ||
+      networkIdsMap.tlightning === networkId
+    ) {
+      return false;
+    }
+    return true;
+  }, [networkId]);
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -1275,7 +1288,7 @@ function SendDataInputContainer() {
               enableVerifySendFundToSelf
               enableAddressInteractionStatus
               enableAddressContract
-              enableAllowListValidation
+              enableAllowListValidation={enableAllowListValidation}
               contacts={addressBookEnabledNetworkIds.includes(
                 currentAccount.networkId,
               )}
