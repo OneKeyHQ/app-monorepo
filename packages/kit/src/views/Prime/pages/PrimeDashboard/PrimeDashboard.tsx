@@ -30,6 +30,7 @@ import { usePrimeAuth } from '../../hooks/usePrimeAuth';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
+import { PrimeDashboardFooter } from './PrimeDashboardFooter';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
@@ -112,7 +113,6 @@ export default function PrimeDashboard() {
     try {
       setIsLoading(true);
       if (!user?.isLoggedIn) {
-        console.log('loginByPrivy', loginByPrivy);
         return await loginByPrivy();
         // loginLegacy();
       }
@@ -147,7 +147,6 @@ export default function PrimeDashboard() {
         await purchasePaywallPackageWeb?.({
           packageId: selectedPackageId,
           email: user?.email || '',
-          // locale: 'zh-CN',
         });
         // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
         //   privyUserId: user.privyUserId || '',
@@ -155,7 +154,6 @@ export default function PrimeDashboard() {
         // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
         //   packageId: selectedPackageId,
         //   email: user?.email || '',
-        //   // locale: 'zh-CN',
         // });
       }
     } finally {
@@ -250,6 +248,7 @@ export default function PrimeDashboard() {
             </Stack>
 
             <PrimeBenefitsList />
+
             <XStack flexWrap="wrap">
               <Button
                 onPress={() => {
@@ -317,17 +316,8 @@ export default function PrimeDashboard() {
               </Button>
             </XStack>
           </Page.Body>
-          <Page.Footer
-            onConfirm={shouldShowConfirmButton ? doPurchase : undefined}
-            onConfirmText="Subscribe"
-            confirmButtonProps={
-              shouldShowConfirmButton
-                ? {
-                    loading: isLoading,
-                  }
-                : undefined
-            }
-          />
+
+          <PrimeDashboardFooter />
         </Page>
       </Theme>
     </>

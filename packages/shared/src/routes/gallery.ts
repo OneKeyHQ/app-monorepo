@@ -79,4 +79,5 @@ export enum EGalleryRoutes {
   HyperlinkTextGallery = 'component-HyperlinkText',
   HapticsGallery = 'component-Haptics',
   ComponentAccordion = 'component-accordion',
+  ComponentOTPInput = 'component-OTPInput',
 }
