@@ -200,3 +200,12 @@ textarea {
 body > div.cet-container {
   z-index: unset;
 }
+
+/* 
+  Add break-all class to handle word breaking in web platform,
+  since react-native doesn't support wordBreak property directly.
+  Used by TextAreaInput component for text wrapping.
+*/
+.break-all {
+  word-break: break-all;
+}

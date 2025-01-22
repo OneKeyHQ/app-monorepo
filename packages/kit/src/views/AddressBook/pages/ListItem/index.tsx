@@ -18,7 +18,7 @@ function ListPage() {
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const { isLoading, result } = useAddressBookItems();
   const iconColor = useMemo(
-    () => (isEnableTransferAllowList ? '$iconSuccess' : '$textSubdued'),
+    () => (isEnableTransferAllowList ? '$iconSuccess' : '$iconCaution'),
     [isEnableTransferAllowList],
   );
 

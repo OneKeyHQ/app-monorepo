@@ -180,6 +180,10 @@ function BasicStakePage() {
   }, [provider]);
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
@@ -187,9 +191,10 @@ function BasicStakePage() {
       action: 'stake',
       amount: '1',
       morphoVault: provider.vault,
+      accountAddress: account.address,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol, provider.vault]);
+  }, [accountId, networkId, provider.name, provider.vault, tokenInfo.symbol]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {

@@ -330,6 +330,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       }),
       address: unsignedTx.swapInfo.receivingAddress,
       tags: [],
+      networkId: unsignedTx.swapInfo.receiver.accountInfo.networkId,
     };
 
     components.push(receiveAddressComponent);
