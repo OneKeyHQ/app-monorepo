@@ -83,6 +83,11 @@ export default function useScanQrCode() {
                     // });
                   }
                 }
+
+                if (parseValue.type === EQRCodeHandlerType.UNKNOWN) {
+                  popNavigation();
+                }
+
                 return {};
               }
               reject(new OneKeyErrorScanQrCodeCancel());
