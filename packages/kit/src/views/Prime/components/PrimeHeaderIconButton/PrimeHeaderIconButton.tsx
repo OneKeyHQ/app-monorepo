@@ -29,8 +29,8 @@ export function PrimeHeaderIconButton() {
 
   return (
     <HeaderIconButton
-      onMouseEnter={() => setIsHover(true)}
-      onMouseLeave={() => setIsHover(false)}
+      onPointerEnter={() => setIsHover(true)}
+      onPointerLeave={() => setIsHover(false)}
       key="header-prime-button"
       title="Prime"
       icon={
