@@ -114,7 +114,6 @@ export type IModalSendParamList = {
     lnurlDetails: ILNURLAuthServiceResponse;
     isSendFlow: boolean;
   };
-  [EModalSendRoutes.WeblnSendPayment]: undefined;
   [EModalSendRoutes.SendSelectDeriveAddress]: {
     networkId: string;
     indexedAccountId: string;

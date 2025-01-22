@@ -12,6 +12,7 @@ import {
   EDAppConnectionModal,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { ILNURLDetails } from '@onekeyhq/shared/types/lightning';
 import type {
@@ -151,7 +152,10 @@ class ProviderApiWebln extends ProviderApiBase {
         ?.params as string;
       const txid = (await this.backgroundApi.serviceDApp.openModal({
         request,
-        screens: [EModalRoutes.SendModal, EModalSendRoutes.WeblnSendPayment],
+        screens: [
+          EModalRoutes.SignatureConfirmModal,
+          EModalSignatureConfirmRoutes.WeblnSendPayment,
+        ],
         params: {
           paymentRequest,
           networkId,
