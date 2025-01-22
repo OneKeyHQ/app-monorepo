@@ -31,6 +31,7 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDashboardFooter } from './PrimeDashboardFooter';
+import { PrimeSignupTest } from './PrimeSignupTest';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
@@ -316,6 +317,8 @@ export default function PrimeDashboard() {
               </Button>
             </XStack>
           </Page.Body>
+
+          <PrimeSignupTest />
 
           <PrimeDashboardFooter />
         </Page>
