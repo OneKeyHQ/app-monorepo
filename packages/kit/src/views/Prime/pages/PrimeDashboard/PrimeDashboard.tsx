@@ -35,6 +35,8 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
+// intl.formatMessage({ id: ETranslations.global_prime })
+
 function showDebugMessageByDialog(obj: any) {
   Dialog.debugMessage({
     debugMessage: obj,
