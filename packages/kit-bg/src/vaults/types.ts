@@ -547,6 +547,7 @@ export interface IBuildUnsignedTxParams {
   feeInfo?: IFeeInfoUnit;
   transferPayload?: ITransferPayload;
   isInternalSwap?: boolean;
+  isInternalTransfer?: boolean;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };
