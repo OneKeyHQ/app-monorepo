@@ -154,9 +154,11 @@ function MarketMdColumn({
   mdColumnKeys,
   showMoreAction,
   tabIndex,
+  isWatchList,
 }: {
   item: IMarketToken;
   currency: string;
+  isWatchList: boolean;
   mdColumnKeys: (keyof IMarketToken)[];
   showMoreAction: boolean;
   tabIndex?: number;
@@ -201,7 +203,9 @@ function MarketMdColumn({
                   }),
                   onPress: () => {
                     actions.removeFormWatchList(coingeckoId);
-                    setIsChecked(false);
+                    if (!isWatchList) {
+                      setIsChecked(false);
+                    }
                     defaultLogger.market.token.removeFromWatchlist({
                       tokenSymbol: coingeckoId,
                       removeWatchlistFrom: EWatchlistFrom.catalog,
@@ -215,7 +219,9 @@ function MarketMdColumn({
                   }),
                   onPress: () => {
                     actions.addIntoWatchList(coingeckoId);
-                    setIsChecked(true);
+                    if (!isWatchList) {
+                      setIsChecked(true);
+                    }
                     defaultLogger.market.token.addToWatchList({
                       tokenSymbol: coingeckoId,
                       addWatchlistFrom: EWatchlistFrom.catalog,
@@ -291,6 +297,7 @@ function MarketMdColumn({
     actions,
     canStaking,
     intl,
+    isWatchList,
     item,
     setIsChecked,
     showBuyOrSellButton,
@@ -308,7 +315,10 @@ function MarketMdColumn({
       px="$5"
     >
       <XStack gap="$3" ai="center">
-        <MarketTokenStarIcon url={item.image} checked={checked} />
+        <MarketTokenStarIcon
+          url={item.image}
+          checked={isWatchList ? false : checked}
+        />
         <YStack>
           <SizableText size="$bodyLgMedium" userSelect="none">
             {item.symbol.toUpperCase()}
@@ -490,13 +500,14 @@ function BasicMarketHomeList({
     (item: IMarketToken) => (
       <MarketMdColumn
         item={item}
+        isWatchList={!!draggable}
         tabIndex={tabIndex}
         currency={currency}
         mdColumnKeys={mdColumnKeys}
         showMoreAction={showMoreAction}
       />
     ),
-    [currency, mdColumnKeys, showMoreAction, tabIndex],
+    [currency, draggable, mdColumnKeys, showMoreAction, tabIndex],
   );
 
   const renderSelectTrigger = useCallback(

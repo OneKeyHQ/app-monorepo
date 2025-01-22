@@ -127,6 +127,10 @@ const WithdrawPage = () => {
   );
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
@@ -138,9 +142,18 @@ const WithdrawPage = () => {
           ? identity
           : undefined,
       morphoVault: provider.vault,
+      identity,
+      accountAddress: account.address,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol, identity, provider.vault]);
+  }, [
+    accountId,
+    networkId,
+    provider.name,
+    provider.vault,
+    tokenInfo.symbol,
+    identity,
+  ]);
 
   const { unstakingPeriod, showDetailWithdrawalRequested } = useMemo(() => {
     const showDetail = !!details?.provider?.unstakingTime;
