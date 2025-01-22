@@ -254,6 +254,7 @@
     "@sentry/core": "8.42.0",
     "@sentry/react": "8.42.0",
     "@sentry/types": "8.42.0",
-    "@sentry/utils": "8.42.0"
+    "@sentry/utils": "8.42.0",
+    "@electron/notarize": "2.3.2"
   }
 }

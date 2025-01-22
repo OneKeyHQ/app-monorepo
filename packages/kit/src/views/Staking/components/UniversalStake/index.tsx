@@ -89,7 +89,7 @@ type IUniversalStakeProps = {
   rewardToken?: string;
 };
 
-export const UniversalStake = ({
+export function UniversalStake({
   accountId,
   networkId,
   price,
@@ -119,7 +119,7 @@ export const UniversalStake = ({
   stakingTime,
   nextLaunchLeft,
   rewardToken,
-}: PropsWithChildren<IUniversalStakeProps>) => {
+}: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [loading, setLoading] = useState<boolean>(false);
@@ -571,4 +571,4 @@ export const UniversalStake = ({
       />
     </StakingFormWrapper>
   );
-};
+}
