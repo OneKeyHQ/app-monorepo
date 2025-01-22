@@ -13,8 +13,8 @@ import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/Dapp
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  EModalSendRoutes,
-  IModalSendParamList,
+  EModalSignatureConfirmRoutes,
+  IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
@@ -35,11 +35,18 @@ function LnurlAuthModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const route =
-    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.LnurlAuth>>();
+    useRoute<
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.LnurlAuth
+      >
+    >();
   const routeParams = route.params;
   const { isSendFlow } = routeParams;
   const dAppQuery =
-    useDappQuery<IModalSendParamList[EModalSendRoutes.LnurlAuth]>();
+    useDappQuery<
+      IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.LnurlAuth]
+    >();
   const { $sourceInfo } = dAppQuery;
   const { accountId, networkId, lnurlDetails } = isSendFlow
     ? routeParams

@@ -271,7 +271,10 @@ class ProviderApiWebln extends ProviderApiBase {
       case 'login': {
         return this.backgroundApi.serviceDApp.openModal({
           request,
-          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlAuth],
+          screens: [
+            EModalRoutes.SignatureConfirmModal,
+            EModalSignatureConfirmRoutes.LnurlAuth,
+          ],
           params: {
             networkId,
             accountId,
@@ -282,7 +285,10 @@ class ProviderApiWebln extends ProviderApiBase {
       case 'payRequest': {
         return this.backgroundApi.serviceDApp.openModal({
           request,
-          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlPayRequest],
+          screens: [
+            EModalRoutes.SignatureConfirmModal,
+            EModalSignatureConfirmRoutes.LnurlPayRequest,
+          ],
           params: {
             networkId,
             accountId,
@@ -300,7 +306,10 @@ class ProviderApiWebln extends ProviderApiBase {
       case 'withdrawRequest': {
         return this.backgroundApi.serviceDApp.openModal({
           request,
-          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlWithdraw],
+          screens: [
+            EModalRoutes.SignatureConfirmModal,
+            EModalSignatureConfirmRoutes.LnurlWithdraw,
+          ],
           params: {
             networkId,
             accountId,
