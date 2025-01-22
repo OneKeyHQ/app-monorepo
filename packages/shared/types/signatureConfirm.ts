@@ -64,6 +64,7 @@ export interface IDisplayComponentAddress {
     iconURL?: string;
   }[];
   isNavigable?: boolean;
+  networkId?: string;
 }
 
 export interface IDisplayComponentAmount {
