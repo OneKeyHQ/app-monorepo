@@ -60,8 +60,6 @@ type IProps = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   popStack?: boolean;
-  fromAddress?: string;
-  toAddress?: string;
 };
 
 function TxConfirmActions(props: IProps) {
@@ -76,8 +74,6 @@ function TxConfirmActions(props: IProps) {
     transferPayload,
     useFeeInTx,
     feeInfoEditable,
-    fromAddress,
-    toAddress,
     popStack = true,
   } = props;
   const intl = useIntl();
@@ -99,6 +95,9 @@ function TxConfirmActions(props: IProps) {
   const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
   const { bottom } = useSafeAreaInsets();
+
+  const toAddress = transferPayload?.originalRecipient;
+  const unsignedTx = unsignedTxs[0];
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -125,11 +124,22 @@ function TxConfirmActions(props: IProps) {
     updateSendTxStatus({ isSubmitting: true });
     isSubmitted.current = true;
     // Pre-check before submit
+
+    const accountAddress =
+      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
     try {
-      if (networkId && fromAddress && toAddress) {
+      if (
+        unsignedTx.isInternalTransfer &&
+        networkId &&
+        accountAddress &&
+        toAddress
+      ) {
         await serviceSend.checkAddressBeforeSending({
           networkId,
-          fromAddress,
+          fromAddress: accountAddress,
           toAddress,
         });
       }
@@ -286,11 +296,11 @@ function TxConfirmActions(props: IProps) {
     }
   }, [
     updateSendTxStatus,
-    sendSelectedFeeInfo,
-    networkId,
-    fromAddress,
-    toAddress,
     accountId,
+    networkId,
+    sendSelectedFeeInfo,
+    unsignedTx.isInternalTransfer,
+    toAddress,
     unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
