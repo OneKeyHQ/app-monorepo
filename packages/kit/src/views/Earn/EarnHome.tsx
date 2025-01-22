@@ -831,7 +831,7 @@ function BasicEarnHome() {
           isLoading={false}
           leftIconButtonStyle={{
             ...bannerIconStyle,
-            left: '$3.5',
+            left: media.md ? 34 : '$3.5',
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
@@ -848,7 +848,7 @@ function BasicEarnHome() {
             top: 0,
             bottom: 0,
             right: '$5',
-            left: '$5',
+            left: media.md ? '$10' : '$5',
             justifyContent: 'center',
           }}
         />
@@ -863,7 +863,7 @@ function BasicEarnHome() {
         width="100%"
       />
     );
-  }, [earnBanners, media.gtLg, onBannerPress]);
+  }, [earnBanners, media.gtLg, media.md, onBannerPress]);
 
   return (
     <Page fullPage>

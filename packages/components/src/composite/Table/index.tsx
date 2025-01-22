@@ -2,6 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
+import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
 import { getTokenValue, useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -143,20 +144,53 @@ function TableRow<T>({
   showSkeleton?: boolean;
   isActive?: boolean;
 }) {
+  const { md } = useMedia();
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
-  const handlePress = useCallback(() => {
-    onRowEvents?.onPress?.();
-  }, [onRowEvents]);
   const itemPressStyle = pressStyle ? listItemPressStyle : undefined;
   const isDragging = pressStyle && isActive;
+  const pressTimeRef = useRef(0);
+
+  const handlePressIn = useCallback(() => {
+    pressTimeRef.current = Date.now();
+  }, []);
+
+  const getTimeDiff = useCallback(() => Date.now() - pressTimeRef.current, []);
+
+  const handlePress = useCallback(() => {
+    if (platformEnv.isNative) {
+      onRowEvents?.onPress?.();
+    } else if (getTimeDiff() < 350) {
+      onRowEvents?.onPress?.();
+    }
+  }, [getTimeDiff, onRowEvents]);
+
+  const handleLongPress = useCallback(() => {
+    if (platformEnv.isNative) {
+      if (draggable) {
+        drag?.();
+        setTimeout(() => {
+          if (globalRef.translationY === 0) {
+            Haptics.impact(ImpactFeedbackStyle.Medium);
+            globalRef.reset();
+            onRowEvents?.onLongPress?.();
+          }
+        }, 650);
+      } else {
+        onRowEvents?.onLongPress?.();
+      }
+    } else if (getTimeDiff() >= 350) {
+      onRowEvents?.onLongPress?.();
+    }
+  }, [drag, draggable, getTimeDiff, onRowEvents]);
   return (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
-      onPress={handlePress}
       bg={isDragging ? '$bgActive' : '$bgApp'}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
-      onLongPress={platformEnv.isNative && draggable ? drag : undefined}
+      onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
+      onPress={handlePress}
+      onLongPress={md ? handleLongPress : undefined}
       {...itemPressStyle}
       {...rowProps}
     >
@@ -253,6 +287,7 @@ export interface ITableProps<T> {
   ) =>
     | {
         onPress?: () => void;
+        onLongPress?: () => void;
       }
     | undefined;
 }
