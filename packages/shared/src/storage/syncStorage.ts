@@ -1,8 +1,4 @@
-import { isPlainObject } from 'lodash';
-
 import appGlobals from '../appGlobals';
-import platformEnv from '../platformEnv';
-import { ensureRunOnBackground } from '../utils/assertUtils';
 import dbPerfMonitor from '../utils/debug/dbPerfMonitor';
 import resetUtils from '../utils/resetUtils';
 
