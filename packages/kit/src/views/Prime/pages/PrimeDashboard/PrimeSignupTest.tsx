@@ -1,15 +1,10 @@
 import { useEffect, useState } from 'react';
 
-import {
-  useGuestAccounts,
-  useLoginWithEmail,
-  usePrivy,
-} from '@privy-io/react-auth';
+import { useLoginWithEmail, usePrivy } from '@privy-io/react-auth';
 
 import { Button, Input, OTPInput, YStack } from '@onekeyhq/components';
 
 export function PrimeSignupTest() {
-  const { createGuestAccount } = useGuestAccounts();
   const { ready, authenticated, logout } = usePrivy();
 
   const {

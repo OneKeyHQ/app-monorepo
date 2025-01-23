@@ -320,7 +320,7 @@ export default function PrimeDashboard() {
 
           <PrimeSignupTest />
 
-          <PrimeDashboardFooter />
+          {/* <PrimeDashboardFooter /> */}
         </Page>
       </Theme>
     </>
