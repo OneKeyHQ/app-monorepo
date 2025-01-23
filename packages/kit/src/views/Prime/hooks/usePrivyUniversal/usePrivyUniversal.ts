@@ -20,7 +20,6 @@ export function usePrivyUniversal(): IUsePrivyUniversal {
 
   return useMemo<IUsePrivyUniversal>(
     () => ({
-      //   privy,
       native: undefined,
       web: {
         user: privy.user,
