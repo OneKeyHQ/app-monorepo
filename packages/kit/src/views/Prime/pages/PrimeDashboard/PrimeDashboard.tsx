@@ -31,11 +31,8 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDashboardFooter } from './PrimeDashboardFooter';
-import { PrimeSignupTest } from './PrimeSignupTest';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
-
-// intl.formatMessage({ id: ETranslations.global_prime })
 
 function showDebugMessageByDialog(obj: any) {
   Dialog.debugMessage({
@@ -318,9 +315,7 @@ export default function PrimeDashboard() {
             </XStack>
           </Page.Body>
 
-          <PrimeSignupTest />
-
-          {/* <PrimeDashboardFooter /> */}
+          <PrimeDashboardFooter />
         </Page>
       </Theme>
     </>

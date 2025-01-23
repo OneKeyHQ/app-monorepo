@@ -6,31 +6,15 @@ import type { IUsePrivyUniversal } from './usePrivyUniversalTypes';
 
 export function usePrivyUniversal(): IUsePrivyUniversal {
   const privy = usePrivy();
-  // https://github.com/privy-io/create-next-app/blob/main/pages/index.tsx
   const {
-    ready,
-    authenticated,
-    user,
     logout,
     updateEmail: updateEmailWeb,
     updatePhone: updatePhoneWeb,
     getAccessToken,
   } = privy;
   const { login: loginWeb } = usePrivyLogin({
-    onComplete(
-      user0,
-      isNewUser,
-      wasAlreadyAuthenticated,
-      loginMethod,
-      loginAccount,
-    ) {
-      console.log('privy login complete >>> ', {
-        user0,
-        isNewUser,
-        wasAlreadyAuthenticated,
-        loginMethod,
-        loginAccount,
-      });
+    onComplete(...args) {
+      console.log('privy login complete >>> ', args);
     },
   });
 

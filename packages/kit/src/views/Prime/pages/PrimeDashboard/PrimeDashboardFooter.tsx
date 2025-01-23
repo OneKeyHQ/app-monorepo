@@ -136,8 +136,6 @@ export function PrimeDashboardFooter() {
             }
           : undefined
       }
-    >
-      <SizableText>sss</SizableText>
-    </Page.Footer>
+    />
   );
 }
