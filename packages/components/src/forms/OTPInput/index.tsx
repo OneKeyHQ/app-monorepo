@@ -4,6 +4,7 @@ import { OtpInput } from 'react-native-otp-entry';
 
 import { useTheme } from '../../hooks';
 
+// https://github.com/anday013/react-native-otp-entry
 import type { OtpInputProps, OtpInputRef } from 'react-native-otp-entry';
 
 export function OTPInput(
