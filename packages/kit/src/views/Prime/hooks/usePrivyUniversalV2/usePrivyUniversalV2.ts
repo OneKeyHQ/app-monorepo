@@ -4,7 +4,7 @@ import type { IUsePrivyUniversalV2 } from './usePrivyUniversalV2Types';
 
 export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
   const { sendCode, loginWithCode } = useLoginWithEmail();
-  const { logout, ready, getAccessToken, authenticated } = usePrivy();
+  const { logout, ready, getAccessToken, authenticated, user } = usePrivy();
 
   return {
     sendCode,
@@ -13,5 +13,10 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
     isReady: ready,
     getAccessToken,
     authenticated,
+    user: authenticated
+      ? {
+          id: user?.id || '',
+        }
+      : undefined,
   };
 }

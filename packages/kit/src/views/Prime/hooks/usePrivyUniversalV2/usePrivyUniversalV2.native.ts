@@ -5,6 +5,7 @@ import type { IUsePrivyUniversalV2 } from './usePrivyUniversalV2Types';
 export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
   const { sendCode, loginWithCode } = useLoginWithEmail();
   const { logout, isReady, getAccessToken, user } = usePrivy();
+  const authenticated = !!user;
 
   return {
     logout,
@@ -16,6 +17,11 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
     loginWithCode: async (args) => {
       await loginWithCode(args);
     },
-    authenticated: !!user,
+    authenticated,
+    user: authenticated
+      ? {
+          id: user?.id || '',
+        }
+      : undefined,
   };
 }
