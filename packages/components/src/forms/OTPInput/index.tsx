@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 
 import { OtpInput } from 'react-native-otp-entry';
 
-import { useThemeValue } from '../../hooks';
+import { useTheme } from '../../hooks';
 
 import type { OtpInputProps, OtpInputRef } from 'react-native-otp-entry';
 
@@ -12,7 +12,7 @@ export function OTPInput(
   },
 ) {
   const { value, ...rest } = props;
-  const [neutral5Color, textColor] = useThemeValue(['neutral5', 'text']);
+  const theme = useTheme();
   const ref = useRef<OtpInputRef>(null);
 
   useEffect(() => {
@@ -25,20 +25,23 @@ export function OTPInput(
       theme={{
         pinCodeTextStyle: {
           fontSize: 18,
-          color: textColor,
+          color: theme.text.val,
         },
         pinCodeContainerStyle: {
           width: 46,
           height: 46,
           borderWidth: 1,
-          borderColor: neutral5Color,
+          borderColor: theme.neutral6.val,
+        },
+        filledPinCodeContainerStyle: {
+          borderWidth: 2,
         },
         focusedPinCodeContainerStyle: {
           borderWidth: 2,
-          borderColor: neutral5Color,
+          borderColor: theme.borderActive.val,
         },
       }}
-      focusColor={textColor}
+      focusColor={theme.text.val}
       {...rest}
     />
   );
