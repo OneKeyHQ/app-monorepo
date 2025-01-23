@@ -31,7 +31,11 @@ function init() {
     if (method === GLOBAL_EVENT_BUS_SYNC_BROADCAST_METHOD_NAME) {
       console.log('background event bus sync', params);
       const p = params as IGlobalEventBusSyncBroadcastParams;
-      appEventBus.emitToSelf(p.type as any, p.payload);
+      appEventBus.emitToSelf({
+        type: p.type as any,
+        payload: p.payload,
+        isRemote: true,
+      });
     }
   };
   // TODO rename global.$extensionJsBridgeUiToBg
