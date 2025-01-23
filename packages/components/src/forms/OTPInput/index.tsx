@@ -25,17 +25,19 @@ export function OTPInput(
       ref={ref}
       theme={{
         pinCodeTextStyle: {
-          fontSize: 18,
+          fontSize: 20,
+          fontWeight: 'bold',
           color: theme.text.val,
         },
         pinCodeContainerStyle: {
-          width: 46,
-          height: 46,
+          width: 50,
+          height: 50,
           borderWidth: 1,
-          borderColor: theme.neutral6.val,
+          borderColor: theme.neutral7.val,
         },
         filledPinCodeContainerStyle: {
           borderWidth: 2,
+          backgroundColor: theme.gray2.val,
         },
         focusedPinCodeContainerStyle: {
           borderWidth: 2,
