@@ -26,6 +26,7 @@ import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { PrimeLoginEmailCodeDialogV2 } from '../../components/PrimeLoginEmailCodeDialogV2';
+import { PrimeLoginEmailDialogV2 } from '../../components/PrimeLoginEmailDialogV2';
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuth } from '../../hooks/usePrimeAuth';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -104,7 +105,7 @@ export default function PrimeDashboard() {
         // return await loginByPrivy();
         // loginLegacy();
         Dialog.show({
-          renderContent: <PrimeLoginEmailCodeDialogV2 />,
+          renderContent: <PrimeLoginEmailDialogV2 />,
           onClose: async () => {},
         });
       }
