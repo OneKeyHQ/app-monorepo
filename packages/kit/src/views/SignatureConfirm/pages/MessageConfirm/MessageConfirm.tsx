@@ -145,6 +145,7 @@ function MessageConfirm() {
             }),
             convertAddressToSignatureConfirmAddress({
               address: accountAddress,
+              networkId,
             }),
             {
               type: EParseTxComponentType.Divider,
