@@ -31,16 +31,17 @@ export const buildAppStorageFactory = (
   const setItem: IAppStorage['setItem'] = (key, value, callback) => {
     resetUtils.checkNotInResetting();
     dbPerfMonitor.logAppStorageCall('setItem', key);
-    ensureRunOnBackground();
+    // ensureRunOnBackground();
     return originalSetItem.call(storage, key, value, callback);
   };
   const getItem: IAppStorage['getItem'] = (key, callback) => {
     dbPerfMonitor.logAppStorageCall('getItem', key);
-    ensureRunOnBackground();
+    // ensureRunOnBackground();
     return originalGetItem.call(storage, key, callback);
   };
+  // eslint-disable-next-line arrow-body-style
   const removeItem: IAppStorage['removeItem'] = (key, callback) => {
-    ensureRunOnBackground();
+    // ensureRunOnBackground();
     return originalRemoveItem.call(storage, key, callback);
   };
 
