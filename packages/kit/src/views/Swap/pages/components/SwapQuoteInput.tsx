@@ -79,22 +79,22 @@ const SwapQuoteInput = ({
         onSelectPercentageStage={onSelectPercentageStage}
         amountValue={fromInputAmount}
         onBalanceMaxPress={() => {
-          let maxAmount = fromTokenBalance;
-          if (fromToken?.reservationValue) {
-            const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
-            const fromTokenReservationValueBN = new BigNumber(
-              fromToken.reservationValue,
-            );
-            if (
-              fromTokenBalanceBN
-                .minus(fromTokenReservationValueBN)
-                .isGreaterThan(0)
-            ) {
-              maxAmount = fromTokenBalanceBN
-                .minus(fromTokenReservationValueBN)
-                .toFixed();
-            }
-          }
+          const maxAmount = fromTokenBalance;
+          // if (fromToken?.reservationValue) {
+          //   const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
+          //   const fromTokenReservationValueBN = new BigNumber(
+          //     fromToken.reservationValue,
+          //   );
+          //   if (
+          //     fromTokenBalanceBN
+          //       .minus(fromTokenReservationValueBN)
+          //       .isGreaterThan(0)
+          //   ) {
+          //     maxAmount = fromTokenBalanceBN
+          //       .minus(fromTokenReservationValueBN)
+          //       .toFixed();
+          //   }
+          // }
           setFromInputAmount(maxAmount);
         }}
         onSelectToken={onSelectToken}

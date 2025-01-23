@@ -19,7 +19,7 @@ type IProps = {
   showCopy?: boolean;
 };
 
-function TxDataViewer(props: IProps) {
+function DataViewerTab(props: IProps) {
   const { dataGroup, showEmptyData, showCopy } = props;
   const { copyText } = useClipboard();
   const [activeDataGroupIndex, setActiveDataGroupIndex] = useState(0);
@@ -85,4 +85,4 @@ function TxDataViewer(props: IProps) {
   );
 }
 
-export { TxDataViewer };
+export { DataViewerTab };

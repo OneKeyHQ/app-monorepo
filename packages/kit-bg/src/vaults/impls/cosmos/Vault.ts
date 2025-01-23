@@ -282,7 +282,7 @@ export default class VaultCosmos extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxCosmos;
     const network = await this.getNetwork();
     const account = await this.getAccount();
@@ -386,7 +386,9 @@ export default class VaultCosmos extends VaultBase {
           gasLimit: fee?.gas_limit,
         },
       },
-      extraInfo: null,
+      extraInfo: {
+        memo: transferPayload?.memo,
+      },
       encodedTx,
     };
     return result;

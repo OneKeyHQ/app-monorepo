@@ -17,7 +17,9 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -87,7 +89,7 @@ type IUniversalStakeProps = {
   rewardToken?: string;
 };
 
-export const UniversalStake = ({
+export function UniversalStake({
   accountId,
   networkId,
   price,
@@ -117,7 +119,7 @@ export const UniversalStake = ({
   stakingTime,
   nextLaunchLeft,
   rewardToken,
-}: PropsWithChildren<IUniversalStakeProps>) => {
+}: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const [loading, setLoading] = useState<boolean>(false);
@@ -127,6 +129,15 @@ export const UniversalStake = ({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      }),
+    [networkId],
+  ).result;
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
       const valueBN = new BigNumber(value);
@@ -262,7 +273,7 @@ export const UniversalStake = ({
           { id: ETranslations.earn_provider_asset_staking },
           {
             'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol.toUpperCase(),
+            'asset': details.token.info.symbol,
           },
         ),
         renderContent: (
@@ -324,6 +335,7 @@ export const UniversalStake = ({
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+            selectedNetworkImageUri: network?.logoURI,
           }}
           balanceProps={{
             value: balance,
@@ -435,31 +447,13 @@ export const UniversalStake = ({
         {btcStakeTerm ? (
           <CalculationListItem>
             <XStack flex={1} alignItems="center" gap="$1">
-              <CalculationListItem.Label>
+              <CalculationListItem.Label
+                tooltip={intl.formatMessage({
+                  id: ETranslations.earn_term_tooltip,
+                })}
+              >
                 {intl.formatMessage({ id: ETranslations.earn_term })}
               </CalculationListItem.Label>
-
-              <Popover
-                title={intl.formatMessage({ id: ETranslations.earn_term })}
-                placement="bottom-start"
-                renderTrigger={
-                  <IconButton
-                    iconColor="$iconSubdued"
-                    size="small"
-                    icon="InfoCircleOutline"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <Stack p="$5">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.earn_term_tooltip,
-                      })}
-                    </SizableText>
-                  </Stack>
-                }
-              />
             </XStack>
             <CalculationListItem.Value>
               {btcStakeTerm}
@@ -577,4 +571,4 @@ export const UniversalStake = ({
       />
     </StakingFormWrapper>
   );
-};
+}

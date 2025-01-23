@@ -44,7 +44,13 @@ const WithdrawPage = () => {
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
-    async (amount: string) => {
+    async ({
+      amount,
+      withdrawAll,
+    }: {
+      amount: string;
+      withdrawAll: boolean;
+    }) => {
       await handleWithdraw({
         amount,
         identity,
@@ -63,6 +69,7 @@ const WithdrawPage = () => {
           protocolLogoURI: provider.logoURI,
           tags: [actionTag],
         },
+        withdrawAll,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
@@ -89,9 +96,6 @@ const WithdrawPage = () => {
   const showPayWith = useMemo<boolean>(
     () =>
       earnUtils.isLidoProvider({
-        providerName: provider.name,
-      }) ||
-      earnUtils.isMorphoProvider({
         providerName: provider.name,
       }),
     [provider],
@@ -123,6 +127,10 @@ const WithdrawPage = () => {
   );
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
@@ -134,9 +142,18 @@ const WithdrawPage = () => {
           ? identity
           : undefined,
       morphoVault: provider.vault,
+      identity,
+      accountAddress: account.address,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol, identity, provider.vault]);
+  }, [
+    accountId,
+    networkId,
+    provider.name,
+    provider.vault,
+    tokenInfo.symbol,
+    identity,
+  ]);
 
   const { unstakingPeriod, showDetailWithdrawalRequested } = useMemo(() => {
     const showDetail = !!details?.provider?.unstakingTime;
@@ -161,9 +178,13 @@ const WithdrawPage = () => {
           price={price}
           hideReceived={hideReceived}
           decimals={details.token.info.decimals}
-          balance={BigNumber(active ?? 0)
-            .plus(overflow ?? 0)
-            .toFixed()}
+          balance={
+            earnUtils.isMorphoProvider({ providerName: provider.name })
+              ? BigNumber(provider.maxUnstakeAmount ?? active ?? 0).toFixed()
+              : BigNumber(active ?? 0)
+                  .plus(overflow ?? 0)
+                  .toFixed()
+          }
           accountId={accountId}
           networkId={networkId}
           initialAmount={initialAmount}

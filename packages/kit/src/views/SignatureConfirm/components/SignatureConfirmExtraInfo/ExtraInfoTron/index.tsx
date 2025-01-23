@@ -2,7 +2,7 @@ import { memo, useCallback, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance } from '@onekeyhq/components';
+import type { IDialogInstance, IStackProps } from '@onekeyhq/components';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import { showResourceDetailsDialog } from '@onekeyhq/kit/src/components/Resource';
@@ -15,10 +15,12 @@ function ExtraInfoTron({
   accountId,
   networkId,
   unsignedTxs,
+  style,
 }: {
   accountId: string;
   networkId: string;
   unsignedTxs: IUnsignedTxPro[];
+  style?: IStackProps;
 }) {
   const intl = useIntl();
   const [selectedFeeInfo] = useSendSelectedFeeInfoAtom();
@@ -47,7 +49,7 @@ function ExtraInfoTron({
   }
 
   return (
-    <SignatureConfirmItem>
+    <SignatureConfirmItem {...style}>
       <XStack
         alignSelf="flex-start"
         gap="$1.5"

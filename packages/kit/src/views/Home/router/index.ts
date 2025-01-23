@@ -22,6 +22,13 @@ const UrlAccountLanding = LazyLoadPage(async () => {
   return { default: UrlAccountLandingModule };
 });
 
+export const urlAccountRoutes = [
+  {
+    name: ETabHomeRoutes.TabHomeUrlAccountPage,
+    component: UrlAccountPageContainer,
+  },
+];
+
 export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabHomeRoutes.TabHome,
@@ -40,7 +47,6 @@ export const homeRouters: ITabSubNavigatorConfig<any, any>[] = [
   {
     name: ETabHomeRoutes.TabHomeUrlAccountPage,
     component: UrlAccountPageContainer,
-    // rewrite: urlAccountPageRewrite,
     exact: true,
   },
 ];

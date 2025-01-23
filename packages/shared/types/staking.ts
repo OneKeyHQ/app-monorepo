@@ -68,7 +68,9 @@ export type IStakeProviderInfo = {
   buttonUnstake: boolean;
   alerts: string[];
 
+  // morpho
   apys?: IRewardApys;
+  maxUnstakeAmount?: string;
   vault?: string;
   rewardUnit: IEarnRewardUnit;
 };
@@ -98,6 +100,7 @@ export type IWithdrawBaseParams = {
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
   morphoVault?: string; // morpho vault
+  withdrawAll?: boolean;
 };
 
 export type IUnstakePushParams = {
@@ -307,6 +310,7 @@ export type IClaimableListResponse = {
 };
 
 export interface IEarnAccountToken {
+  orderIndex: number;
   networkId: string;
   name: string;
   symbol: string;
@@ -325,6 +329,7 @@ export type IEarnAccountResponse = {
   totalFiatValue: string;
   earnings24h: string;
   tokens: IEarnAccountToken[];
+  canClaim: boolean;
 };
 
 export type IEarnAccount = {
@@ -335,9 +340,11 @@ export type IEarnAccount = {
 };
 
 export type IEarnAccountTokenResponse = {
+  hasClaimableAssets?: boolean;
   totalFiatValue?: string;
   earnings24h?: string;
   accounts: IEarnAccount[];
+  isOverviewLoaded?: boolean;
 };
 
 export type IEarnRewardUnit = 'APY' | 'APR';

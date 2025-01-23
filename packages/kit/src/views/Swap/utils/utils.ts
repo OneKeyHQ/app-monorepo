@@ -1,6 +1,9 @@
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapCrossChainStatus,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 
 import type { ColorValue } from 'react-native';
 
@@ -74,4 +77,89 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
     key: ETranslations.swap_history_status_failed,
     color: '$textCritical',
   };
+}
+
+export function getSwapCrossChainStatusTextProps(
+  crossChainStatus: ESwapCrossChainStatus,
+): {
+  key: ETranslations;
+  color: ColorValue;
+} {
+  switch (crossChainStatus) {
+    case ESwapCrossChainStatus.FROM_PENDING:
+      return {
+        key: ETranslations.swap_history_detail_badge_from_pending,
+        color: '$textCaution',
+      };
+    case ESwapCrossChainStatus.FROM_SUCCESS:
+      return {
+        key: ETranslations.swap_history_detail_badge_from_success,
+        color: '$textSuccess',
+      };
+    case ESwapCrossChainStatus.TO_SUCCESS:
+      return {
+        key: ETranslations.swap_history_detail_badge_to_success,
+        color: '$textSuccess',
+      };
+    case ESwapCrossChainStatus.TO_PENDING:
+      return {
+        key: ETranslations.swap_history_detail_badge_to_pending,
+        color: '$textCaution',
+      };
+    case ESwapCrossChainStatus.TO_FAILED:
+      return {
+        key: ETranslations.swap_history_detail_badge_to_failed,
+        color: '$textCritical',
+      };
+    case ESwapCrossChainStatus.FROM_FAILED:
+      return {
+        key: ETranslations.swap_history_detail_badge_from_failed,
+        color: '$textCritical',
+      };
+    case ESwapCrossChainStatus.BRIDGE_FAILED:
+      return {
+        key: ETranslations.swap_history_detail_badge_bridge_failed,
+        color: '$textCritical',
+      };
+    case ESwapCrossChainStatus.BRIDGE_PENDING:
+      return {
+        key: ETranslations.swap_history_detail_badge_bridge_pending,
+        color: '$textCaution',
+      };
+    case ESwapCrossChainStatus.BRIDGE_SUCCESS:
+      return {
+        key: ETranslations.swap_history_detail_badge_bridge_success,
+        color: '$textSuccess',
+      };
+    case ESwapCrossChainStatus.EXPIRED:
+      return {
+        key: ETranslations.swap_history_detail_badge_expired,
+        color: '$textCritical',
+      };
+    case ESwapCrossChainStatus.PROVIDER_ERROR:
+      return {
+        key: ETranslations.swap_history_detail_badge_provider_error,
+        color: '$textCritical',
+      };
+    case ESwapCrossChainStatus.REFUNDED:
+      return {
+        key: ETranslations.swap_history_detail_badge_refunded,
+        color: '$textSuccess',
+      };
+    case ESwapCrossChainStatus.REFUND_FAILED:
+      return {
+        key: ETranslations.swap_history_detail_badge_refund_failed,
+        color: '$textCritical',
+      };
+    case ESwapCrossChainStatus.REFUNDING:
+      return {
+        key: ETranslations.swap_history_detail_badge_refunding,
+        color: '$textCaution',
+      };
+    default:
+      return {
+        key: ETranslations.swap_history_status_pending,
+        color: '$textCaution',
+      };
+  }
 }

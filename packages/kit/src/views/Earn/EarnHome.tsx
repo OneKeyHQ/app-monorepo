@@ -207,9 +207,7 @@ function RecommendedItem({
             </Image.Fallback>
           </Image>
         </YStack>
-        <SizableText size="$bodyLgMedium">
-          {token.symbol.toUpperCase()}
-        </SizableText>
+        <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
         {buildAprText(token.apr, token.rewardUnit)}
@@ -220,7 +218,7 @@ function RecommendedItem({
           size="$bodyMd"
           color="$textSubdued"
           formatter="balance"
-          formatterOptions={{ tokenSymbol: token.symbol.toUpperCase() }}
+          formatterOptions={{ tokenSymbol: token.symbol }}
         >
           {token.balanceParsed}
         </NumberSizeableText>
@@ -313,7 +311,7 @@ function Recommended({
       });
     });
     return {
-      tokens: accountTokens,
+      tokens: accountTokens.sort((a, b) => a.orderIndex - b.orderIndex),
       profit: totalProfit,
     };
   }, [earnAccount, totalFiatMapKey]);
@@ -379,6 +377,14 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
   );
+  const hasClaimableAssets = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.hasClaimableAssets || false,
+    [earnAccount, totalFiatMapKey],
+  );
+  const isOverviewLoaded = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.isOverviewLoaded || false,
+    [earnAccount, totalFiatMapKey],
+  );
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -389,6 +395,7 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
   return (
     <YStack
       gap="$1"
+      px="$5"
       $gtLg={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -482,20 +489,30 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
       </XStack>
 
       {/* details button */}
-      {isFetchingAccounts ? null : (
+      {isFetchingAccounts || !isOverviewLoaded ? null : (
         <Button
+          childrenAsText={!hasClaimableAssets}
           onPress={onPress}
           variant="tertiary"
           iconAfter="ChevronRightOutline"
           position="absolute"
+          jc="center"
           top={0}
-          right={0}
+          right="$4"
           $gtLg={{
             right: '$8',
             top: '$8',
           }}
         >
-          {intl.formatMessage({ id: ETranslations.global_details })}
+          {hasClaimableAssets ? (
+            <Badge badgeType="info" badgeSize="sm" userSelect="none">
+              <Badge.Text>
+                {intl.formatMessage({ id: ETranslations.earn_claimable })}
+              </Badge.Text>
+            </Badge>
+          ) : (
+            intl.formatMessage({ id: ETranslations.global_details })
+          )}
         </Button>
       )}
     </YStack>
@@ -674,6 +691,7 @@ function BasicEarnHome() {
           earnAccount: {
             accounts: earnAccountData?.accounts || [],
             ...overviewData,
+            isOverviewLoaded: true,
           },
         });
       };
@@ -813,7 +831,7 @@ function BasicEarnHome() {
           isLoading={false}
           leftIconButtonStyle={{
             ...bannerIconStyle,
-            left: '$3.5',
+            left: media.md ? 34 : '$3.5',
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
@@ -825,11 +843,12 @@ function BasicEarnHome() {
             jc: 'center',
             bottom: '$5',
           }}
+          itemContainerStyle={media.gtLg ? { px: 0 } : { px: '$5' }}
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
             right: '$5',
-            left: '$5',
+            left: media.md ? '$10' : '$5',
             justifyContent: 'center',
           }}
         />
@@ -844,7 +863,7 @@ function BasicEarnHome() {
         width="100%"
       />
     );
-  }, [earnBanners, onBannerPress]);
+  }, [earnBanners, media.gtLg, media.md, onBannerPress]);
 
   return (
     <Page fullPage>
@@ -858,9 +877,9 @@ function BasicEarnHome() {
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
             {/* overview and banner */}
             <YStack
-              px="$5"
               gap="$8"
               $gtLg={{
+                px: '$5',
                 flexDirection: 'row',
               }}
             >

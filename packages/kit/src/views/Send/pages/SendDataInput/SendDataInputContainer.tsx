@@ -26,9 +26,10 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
-  AddressInput,
+  AddressInputField,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -44,6 +45,7 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -52,8 +54,6 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
-  EModalSettingRoutes,
-  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type {
   EModalSendRoutes,
@@ -75,7 +75,6 @@ import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetail
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 
 import { showContractWarningDialog } from './ContractWarningDialog';
-import { renderSendDataInputErrorHyperlinkText } from './SendDataInputErrorHyperlinkText';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -547,7 +546,11 @@ function SendDataInputContainer() {
               isNFT,
               originalRecipient: toAddress,
               isToContract,
+              memo: memoValue,
+              paymentId: paymentIdValue,
+              note: noteValue,
             },
+            isInternalTransfer: true,
           });
           setIsSubmitting(false);
         } catch (e: any) {
@@ -850,7 +853,7 @@ function SendDataInputContainer() {
       return (
         <Form.Field
           name="nftAmount"
-          label={intl.formatMessage({ id: ETranslations.send_amount })}
+          label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
           rules={{ required: true, max: nftDetails?.amount ?? 1, min: 1 }}
         >
           {isLoadingAssets ? null : (
@@ -1199,73 +1202,23 @@ function SendDataInputContainer() {
     [],
   );
 
-  const navigateToSettingProtection = useCallback(() => {
-    navigation.push(EModalSettingRoutes.SettingProtectModal);
-  }, [navigation]);
-
-  const isEnableTransferAllowList = useMemo(
-    () => settings.transferAllowList ?? true,
-    [settings.transferAllowList],
-  );
-  const { gtMd } = useMedia();
-  // TODO: Add title for large screen popover
-  const PopoverTitle = useMemo(
-    () => (
-      <XStack gap="$2">
-        <HeaderIconButton
-          key="allowList"
-          titlePlacement="bottom"
-          iconProps={{
-            color: '$iconSuccess',
-          }}
-          icon="ShieldCheckDoneSolid"
-          testID="setting"
-        />
-        <SizableText size="$headingLg">
-          {intl.formatMessage({
-            id: ETranslations.allowlist_enabled_popover_title,
-          })}
-        </SizableText>
-      </XStack>
-    ),
-    [intl],
-  );
-  const renderHeaderRight = useCallback(
-    () => (
-      <Popover
-        title={PopoverTitle}
-        renderTrigger={
-          <HeaderIconButton
-            key="allowList"
-            titlePlacement="bottom"
-            iconProps={{
-              color: '$iconSuccess',
-            }}
-            icon="ShieldCheckDoneOutline"
-            testID="setting"
-          />
-        }
-        renderContent={({ closePopover }) => (
-          <YStack p="$5" $md={{ pt: 0 }} gap="$2.5">
-            {gtMd ? PopoverTitle : null}
-            <HyperlinkText
-              color="$textSubdued"
-              size="$bodyLg"
-              translationId={ETranslations.allowlist_enabled_popover_content}
-              onAction={closePopover}
-            />
-          </YStack>
-        )}
-      />
-    ),
-    [PopoverTitle, gtMd],
-  );
+  const enableAllowListValidation = useMemo(() => {
+    const networkIdsMap = getNetworkIdsMap();
+    // Disable allowlist validation for Lightning Network
+    if (
+      networkIdsMap.lightning === networkId ||
+      networkIdsMap.tlightning === networkId
+    ) {
+      return false;
+    }
+    return true;
+  }, [networkId]);
 
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
-        headerRight={isEnableTransferAllowList ? renderHeaderRight : undefined}
+        headerRight={renderAddressSecurityHeaderRightButton}
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
@@ -1326,45 +1279,22 @@ function SendDataInputContainer() {
                 </ListItem>
               </Form.Field>
             ) : null}
-            <Form.Field
-              label={intl.formatMessage({ id: ETranslations.global_recipient })}
+            <AddressInputField
               name="to"
-              renderErrorMessage={renderSendDataInputErrorHyperlinkText}
-              rules={{
-                required: true,
-                validate: (value: IAddressInputValue) => {
-                  if (value.pending) {
-                    return;
-                  }
-                  if (!value.resolved) {
-                    return (
-                      // Use translationId for error message formatting if available, therwise use direct message
-                      value.validateError?.translationId ||
-                      value.validateError?.message ||
-                      intl.formatMessage({
-                        id: ETranslations.send_address_invalid,
-                      })
-                    );
-                  }
-                },
-              }}
-            >
-              <AddressInput
-                accountId={currentAccount.accountId}
-                networkId={currentAccount.networkId}
-                enableAddressBook
-                enableWalletName
-                enableVerifySendFundToSelf
-                enableAddressInteractionStatus
-                enableAddressContract
-                enableAllowListValidation
-                contacts={addressBookEnabledNetworkIds.includes(
-                  currentAccount.networkId,
-                )}
-                accountSelector={addressInputAccountSelectorArgs}
-                onInputTypeChange={handleAddressInputChangeType}
-              />
-            </Form.Field>
+              accountId={currentAccount.accountId}
+              networkId={currentAccount.networkId}
+              enableAddressBook
+              enableWalletName
+              enableVerifySendFundToSelf
+              enableAddressInteractionStatus
+              enableAddressContract
+              enableAllowListValidation={enableAllowListValidation}
+              contacts={addressBookEnabledNetworkIds.includes(
+                currentAccount.networkId,
+              )}
+              accountSelector={addressInputAccountSelectorArgs}
+              onInputTypeChange={handleAddressInputChangeType}
+            />
             {renderDataInput()}
           </Form>
         </AccountSelectorProviderMirror>

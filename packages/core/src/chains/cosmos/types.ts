@@ -27,3 +27,7 @@ export interface IEncodedTxCosmos {
   msg: ICosmosProtoMsgsOrWithAminoMsgs | undefined;
   signDoc: ICosmosStdSignDoc | ICosmosSignDocHex;
 }
+
+export interface IDecodedTxExtraCosmos {
+  memo?: string;
+}

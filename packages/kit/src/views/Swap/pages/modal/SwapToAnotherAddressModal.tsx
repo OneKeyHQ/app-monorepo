@@ -15,7 +15,8 @@ import {
 } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import type { IAddressInputValue } from '@onekeyhq/kit/src/components/AddressInput';
-import { AddressInput } from '@onekeyhq/kit/src/components/AddressInput';
+import { AddressInputField } from '@onekeyhq/kit/src/components/AddressInput';
+import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useSwapManualSelectQuoteProvidersAtom,
@@ -128,41 +129,27 @@ const SwapToAnotherAddressPage = () => {
 
   return accountInfo && accountInfo?.network?.id ? (
     <Page scrollEnabled>
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.address_book_edit_address_title,
+        })}
+        headerRight={renderAddressSecurityHeaderRightButton}
+      />
       <Page.Body px="$5" gap="$6">
         <Form form={form}>
-          <Form.Field
-            label={intl.formatMessage({ id: ETranslations.global_recipient })}
+          <AddressInputField
             name="address"
-            rules={{
-              required: true,
-              validate: (value: IAddressInputValue) => {
-                if (value.pending) {
-                  return;
-                }
-                if (!value.resolved) {
-                  return (
-                    value.validateError?.message ??
-                    intl.formatMessage({
-                      id: ETranslations.send_address_invalid,
-                    })
-                  );
-                }
-              },
-            }}
-          >
-            <AddressInput
-              networkId={accountInfo?.network?.id}
-              enableAddressBook
-              enableWalletName
-              enableVerifySendFundToSelf
-              enableAddressInteractionStatus
-              enableAddressContract
-              enableAllowListValidation
-              accountId={accountInfo?.account?.id}
-              contacts
-              accountSelector={accountSelector}
-            />
-          </Form.Field>
+            networkId={accountInfo?.network?.id}
+            enableAddressBook
+            enableWalletName
+            enableVerifySendFundToSelf
+            enableAddressInteractionStatus
+            enableAddressContract
+            enableAllowListValidation
+            accountId={accountInfo?.account?.id}
+            contacts
+            accountSelector={accountSelector}
+          />
         </Form>
         <Stack gap="$4">
           <XStack>
@@ -212,6 +199,9 @@ const SwapToAnotherAddressPage = () => {
         </Stack>
       </Page.Body>
       <Page.Footer
+        confirmButtonProps={{
+          disabled: !form.formState.isValid,
+        }}
         onConfirm={() => form.handleSubmit(handleOnConfirm)()}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_confirm,

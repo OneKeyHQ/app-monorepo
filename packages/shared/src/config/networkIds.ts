@@ -61,7 +61,8 @@ export type INetworkShortCode =
   | 'bob'
   | 'mode'
   | 'taiko'
-  | 'metis';
+  | 'metis'
+  | 'hsk';
 
 const checkErrors: string[] = [];
 // TODO generate getNetworkIdsMap in build time

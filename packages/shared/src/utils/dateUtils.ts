@@ -4,7 +4,6 @@ import {
   formatDistanceToNow as fnsFormatDistanceToNow,
   formatDistanceToNowStrict as fnsFormatDistanceToNowStrict,
   formatDuration as fnsFormatDuration,
-  intlFormatDistance as fnsIntlFormatDistance,
   intervalToDuration,
   isToday,
   isYesterday,
@@ -185,18 +184,6 @@ export function formatDuration(duration: Duration, zero?: boolean) {
     zero,
   });
 
-  return distance ?? '';
-}
-
-export function intlFormatDistance(
-  date: Date | number,
-  baseDate: Date | number,
-) {
-  const locale = appLocale.getLocale();
-  const distance = fnsIntlFormatDistance(date, baseDate, {
-    locale: parseToDateFnsLocale(locale).code,
-    numeric: 'always',
-  });
   return distance ?? '';
 }
 

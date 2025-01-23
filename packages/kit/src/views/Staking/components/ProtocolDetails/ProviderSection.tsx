@@ -137,9 +137,11 @@ function ProviderInfo({
         {poolFee?.value &&
         earnUtils.isMorphoProvider({ providerName: validator?.name ?? '' }) ? (
           <GridItem
-            title={intl.formatMessage({ id: ETranslations.earn_commission })}
+            title={intl.formatMessage({
+              id: ETranslations.earn_performance_fee,
+            })}
             tooltip={intl.formatMessage({
-              id: ETranslations.earn_commission_tooltip,
+              id: ETranslations.earn_performance_fee_desc,
             })}
           >
             {poolFee.value}%

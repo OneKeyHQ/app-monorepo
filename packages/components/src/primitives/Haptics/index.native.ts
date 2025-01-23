@@ -1,10 +1,12 @@
-import { impactAsync, notificationAsync, selectionAsync } from 'expo-haptics';
+import {
+  NotificationFeedbackType,
+  impactAsync,
+  notificationAsync,
+  selectionAsync,
+} from 'expo-haptics';
 
 import type { IHaptics } from './type';
-import type {
-  ImpactFeedbackStyle,
-  NotificationFeedbackType,
-} from 'expo-haptics';
+import type { ImpactFeedbackStyle } from 'expo-haptics';
 
 export const Haptics: IHaptics = {
   impact(style: ImpactFeedbackStyle) {
@@ -17,6 +19,17 @@ export const Haptics: IHaptics = {
 
   notification(type: NotificationFeedbackType) {
     void notificationAsync(type);
+  },
+  success() {
+    void notificationAsync(NotificationFeedbackType.Success);
+  },
+
+  warning() {
+    void notificationAsync(NotificationFeedbackType.Warning);
+  },
+
+  error() {
+    void notificationAsync(NotificationFeedbackType.Error);
   },
 };
 

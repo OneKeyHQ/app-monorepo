@@ -15,6 +15,8 @@ import platformEnv from '../platformEnv';
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type {
+  ESwapCrossChainStatus,
+  ESwapTxHistoryStatus,
   IFetchQuotesParams,
   ISwapQuoteEvent,
   ISwapToken,
@@ -83,12 +85,14 @@ export enum EAppEventBusNames {
   SidePanel_BgToUI = 'SidePanel_BgToUI',
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
+  SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
   CreateAddressByDialog = 'CreateAddressByDialog',
+  CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -251,6 +255,12 @@ export interface IAppEventBusPayload {
     accountId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
+  [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
+    status: ESwapTxHistoryStatus;
+    crossChainStatus?: ESwapCrossChainStatus;
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
+  };
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -271,6 +281,10 @@ export interface IAppEventBusPayload {
     promiseId: number;
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
+  };
+  [EAppEventBusNames.CheckAddressBeforeSending]: {
+    promiseId: number;
+    type: 'scam' | 'contract';
   };
 }
 

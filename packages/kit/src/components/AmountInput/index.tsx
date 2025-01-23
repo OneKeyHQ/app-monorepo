@@ -311,9 +311,11 @@ export function AmountInput({
             userSelect: 'none',
             hoverStyle: {
               bg: '$bgHover',
+              borderBottomRightRadius: '$3',
             },
             pressStyle: {
               bg: '$bgActive',
+              borderBottomRightRadius: '$3',
             },
           })}
           {...(balanceHelperProps && {

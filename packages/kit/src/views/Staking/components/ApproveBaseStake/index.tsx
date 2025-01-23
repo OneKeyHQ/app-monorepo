@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -12,9 +12,11 @@ import {
   Page,
   SizableText,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -74,7 +76,7 @@ type ITokenAnnualReward = {
   token: IToken;
 };
 
-export const ApproveBaseStake = ({
+export function ApproveBaseStake({
   details,
 
   price,
@@ -94,13 +96,20 @@ export const ApproveBaseStake = ({
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
-}: PropsWithChildren<IApproveBaseStakeProps>) => {
+}: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToSignatureConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
   });
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId: approveTarget.networkId,
+      }),
+    [approveTarget.networkId],
+  ).result;
   const [loading, setLoading] = useState<boolean>(false);
   const [approving, setApproving] = useState<boolean>(false);
   const {
@@ -184,7 +193,7 @@ export const ApproveBaseStake = ({
     if (isApprove) {
       return intl.formatMessage(
         { id: ETranslations.form__approve_str },
-        { amount: amountValue, symbol: token.symbol.toUpperCase() },
+        { amount: amountValue, symbol: token.symbol },
       );
     }
     return intl.formatMessage({ id: ETranslations.earn_stake });
@@ -254,9 +263,12 @@ export const ApproveBaseStake = ({
         Object.entries(extraRewards).forEach(([tokenAddress, apy]) => {
           const rewardToken = details.rewardAssets?.[tokenAddress];
           const apyBN = new BigNumber(apy);
-
           if (rewardToken && apyBN.gt(0)) {
-            const rewardAmount = amountBN.multipliedBy(apyBN).dividedBy(100);
+            const rewardAmount = amountBN
+              .multipliedBy(price)
+              .multipliedBy(apyBN)
+              .dividedBy(100)
+              .dividedBy(rewardToken.price);
 
             rewards.push({
               amount: rewardAmount.toFixed(),
@@ -319,7 +331,7 @@ export const ApproveBaseStake = ({
           { id: ETranslations.earn_provider_asset_staking },
           {
             'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol.toUpperCase(),
+            'asset': details.token.info.symbol,
           },
         ),
         renderContent: (
@@ -378,7 +390,8 @@ export const ApproveBaseStake = ({
         onChange={onChangeAmountValue}
         tokenSelectorTriggerProps={{
           selectedTokenImageUri: token.logoURI,
-          selectedTokenSymbol: token.symbol.toUpperCase(),
+          selectedTokenSymbol: token.symbol,
+          selectedNetworkImageUri: network?.logoURI,
         }}
         balanceProps={{
           value: balance,
@@ -424,7 +437,7 @@ export const ApproveBaseStake = ({
                 id: ETranslations.earn_est_annual_rewards,
               })}
             </CalculationListItem.Label>
-            <CalculationListItem.Value>
+            <YStack>
               {estimatedAnnualRewards.map((reward) => (
                 <ValuePriceListItem
                   key={reward.token.address}
@@ -434,7 +447,7 @@ export const ApproveBaseStake = ({
                   fiatValue={reward.fiatValue}
                 />
               ))}
-            </CalculationListItem.Value>
+            </YStack>
           </CalculationListItem>
         ) : null}
         {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
@@ -514,4 +527,4 @@ export const ApproveBaseStake = ({
       />
     </StakingFormWrapper>
   );
-};
+}

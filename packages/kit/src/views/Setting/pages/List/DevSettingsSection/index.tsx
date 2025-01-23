@@ -389,6 +389,14 @@ export const DevSettingsSection = () => {
       />
 
       <SectionPressItem
+        title="Dev Unit Tests"
+        testID="dev-unit-tests-menu"
+        onPress={() => {
+          navigation.push(EModalSettingRoutes.SettingDevUnitTestsModal);
+        }}
+      />
+
+      <SectionPressItem
         title="NotificationDevSettings"
         onPress={() => {
           const dialog = Dialog.cancel({

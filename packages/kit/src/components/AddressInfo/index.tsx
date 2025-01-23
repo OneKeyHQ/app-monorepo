@@ -123,18 +123,17 @@ function AddressInfo(props: IProps) {
     allowClickAccountNameSwitch,
     withWrapper = true,
   } = props;
-  const addressQueryResult = usePromiseResult(
-    () =>
-      backgroundApiProxy.serviceAccountProfile.queryAddress({
-        accountId,
-        networkId,
-        address,
-        enableAddressBook: true,
-        enableWalletName: true,
-        skipValidateAddress: true,
-      }),
-    [accountId, address, networkId],
-  ).result;
+  const addressQueryResult = usePromiseResult(async () => {
+    const result = await backgroundApiProxy.serviceAccountProfile.queryAddress({
+      accountId,
+      networkId,
+      address,
+      enableAddressBook: true,
+      enableWalletName: true,
+      skipValidateAddress: true,
+    });
+    return result;
+  }, [accountId, address, networkId]).result;
 
   if (!addressQueryResult) {
     return null;

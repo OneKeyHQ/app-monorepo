@@ -259,9 +259,11 @@ export function convertNetworkToSignatureConfirmNetwork({
 function convertAssetTransferActionToSignatureConfirmComponent({
   action,
   unsignedTx,
+  isUTXO,
 }: {
   action: IDecodedTxActionAssetTransfer;
   unsignedTx: IUnsignedTxPro;
+  isUTXO?: boolean;
 }) {
   const components: IDisplayComponent[] = [];
 
@@ -287,6 +289,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       amountParsed: send.amount,
       networkId: send.networkId,
       isNFT: send.isNFT,
+      NFTType: send.NFTType,
       transferDirection: ETransferDirection.Out,
     };
 
@@ -296,7 +299,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
   action.receives.forEach((receive) => {
     const assetsLabel = isInternalSwap
       ? appLocale.intl.formatMessage({
-          id: ETranslations.global_receive,
+          id: ETranslations.sign_swap_estimate_receive,
         })
       : appLocale.intl.formatMessage({
           id: ETranslations.global_asset,
@@ -312,6 +315,7 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       amountParsed: receive.amount,
       networkId: receive.networkId,
       isNFT: receive.isNFT,
+      NFTType: receive.NFTType,
       transferDirection: ETransferDirection.In,
     };
 
@@ -326,25 +330,33 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       }),
       address: unsignedTx.swapInfo.receivingAddress,
       tags: [],
+      networkId: unsignedTx.swapInfo.receiver.accountInfo.networkId,
     };
 
     components.push(receiveAddressComponent);
   }
 
   if (action.to) {
+    let showInteractWithContract = false;
+
+    if (isInternalSwap) {
+      showInteractWithContract = true;
+    } else if (isInternalStake) {
+      showInteractWithContract = !isUTXO;
+    }
+
     const toAddressComponent: IDisplayComponentAddress = {
       type: EParseTxComponentType.Address,
-      label:
-        isInternalSwap || isInternalStake
-          ? appLocale.intl.formatMessage({
-              id: ETranslations.interact_with_contract,
-            })
-          : appLocale.intl.formatMessage({
-              id: ETranslations.global_to,
-            }),
+      label: showInteractWithContract
+        ? appLocale.intl.formatMessage({
+            id: ETranslations.sig_interact_contract_label,
+          })
+        : appLocale.intl.formatMessage({
+            id: ETranslations.global_to,
+          }),
       address: action.to,
       tags: [],
-      isNavigable: isInternalSwap || isInternalStake,
+      isNavigable: showInteractWithContract,
     };
 
     components.push(toAddressComponent);
@@ -466,7 +478,7 @@ function convertFunctionCallActionToSignatureConfirmComponent({
     const interactWithContractComponent: IDisplayComponentAddress = {
       type: EParseTxComponentType.Address,
       label: appLocale.intl.formatMessage({
-        id: ETranslations.interact_with_contract,
+        id: ETranslations.sig_interact_contract_label,
       }),
       address: action.to,
       tags: [],
@@ -491,7 +503,7 @@ function convertUnknownActionToSignatureConfirmComponent({
   const interactWithContractComponent: IDisplayComponentAddress = {
     type: EParseTxComponentType.Address,
     label: appLocale.intl.formatMessage({
-      id: ETranslations.interact_with_contract,
+      id: ETranslations.sig_interact_contract_label,
     }),
     address: action.to,
     tags: [],
@@ -505,10 +517,12 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
   decodedTx,
   isMultiTxs,
   unsignedTx,
+  isUTXO,
 }: {
   decodedTx: IDecodedTx;
   unsignedTx: IUnsignedTxPro;
   isMultiTxs?: boolean;
+  isUTXO?: boolean;
 }): IDisplayComponent[] {
   const { actions, networkId } = decodedTx;
   const components: IDisplayComponent[] = [];
@@ -522,6 +536,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
         ...convertAssetTransferActionToSignatureConfirmComponent({
           action: action.assetTransfer,
           unsignedTx,
+          isUTXO,
         }),
       );
     } else if (

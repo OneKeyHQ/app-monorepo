@@ -158,6 +158,7 @@ export function useUniversalWithdraw({
       provider,
       identity,
       morphoVault,
+      withdrawAll,
       stakingInfo,
       onSuccess,
       onFail,
@@ -167,6 +168,7 @@ export function useUniversalWithdraw({
       provider: string;
       identity?: string;
       morphoVault?: string;
+      withdrawAll: boolean;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
@@ -229,6 +231,7 @@ export function useUniversalWithdraw({
             symbol,
             provider,
             morphoVault,
+            withdrawAll,
           });
       }
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
@@ -369,6 +372,10 @@ export function useUniversalClaim({
         });
       };
       if (Number(amount) > 0) {
+        const account = await backgroundApiProxy.serviceAccount.getAccount({
+          accountId,
+          networkId,
+        });
         const estimateFeeResp =
           await backgroundApiProxy.serviceStaking.estimateFee({
             networkId,
@@ -377,6 +384,8 @@ export function useUniversalClaim({
             action: 'claim',
             amount,
             morphoVault,
+            identity,
+            accountAddress: account.address,
           });
         const tokenFiatValueBN = BigNumber(
           estimateFeeResp.token.price,

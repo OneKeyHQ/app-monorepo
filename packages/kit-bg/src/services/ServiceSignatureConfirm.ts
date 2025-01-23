@@ -114,9 +114,38 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     let parsedTx: IParseTransactionResp | null = null;
 
+    let disableParseTxThroughApi = false;
+
+    const swapInfo = unsignedTx.swapInfo;
+
+    if (isMultiTxs) {
+      disableParseTxThroughApi = true;
+    }
+
+    if (swapInfo) {
+      const isBridge =
+        swapInfo.sender.accountInfo.networkId !==
+        swapInfo.receiver.accountInfo.networkId;
+
+      const isSwftOrder = swapInfo.swapBuildResData.swftOrder?.orderId;
+      const isChangellyOrder =
+        swapInfo.swapBuildResData.changellyOrder?.orderId;
+      const isOKXOrder = (
+        swapInfo.swapBuildResData.ctx as {
+          okxChainId: string;
+        }
+      )?.okxChainId;
+
+      if (isOKXOrder) {
+        disableParseTxThroughApi = true;
+      } else if (isBridge && (isSwftOrder || isChangellyOrder)) {
+        disableParseTxThroughApi = true;
+      }
+    }
+
     // try to parse tx through background api
     // multi txs not supported by api for now, will support in future versions
-    if (!isMultiTxs) {
+    if (!disableParseTxThroughApi) {
       try {
         parsedTx = await this.parseTransaction({
           networkId,
@@ -134,7 +163,7 @@ class ServiceSignatureConfirm extends ServiceBase {
       (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
       parsedTx?.type === EParseTxType.Unknown
     ) {
-      parsedTx = null;
+      parsedTx.display = null;
     }
 
     const vault = await vaultFactory.getVault({ networkId, accountId });
@@ -153,16 +182,28 @@ class ServiceSignatureConfirm extends ServiceBase {
       decodedTx.feeInfo = feeInfo.feeInfo;
     }
 
+    if (parsedTx) {
+      decodedTx.isConfirmationRequired = parsedTx.isConfirmationRequired;
+    }
+
+    if (parsedTx && parsedTx.parsedTx?.data) {
+      decodedTx.txABI = parsedTx.parsedTx?.data;
+    }
+
     if (parsedTx && parsedTx.display) {
       decodedTx.txDisplay = parsedTx.display;
-      decodedTx.txABI = parsedTx.parsedTx?.data;
     } else {
+      const vaultSettings =
+        await this.backgroundApi.serviceNetwork.getVaultSettings({
+          networkId,
+        });
       // convert decodedTx actions to signatureConfirm txDisplay as fallback
       const txDisplayComponents =
         convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
           decodedTx,
           isMultiTxs,
           unsignedTx,
+          isUTXO: vaultSettings.isUtxo,
         });
 
       decodedTx.txDisplay = {
