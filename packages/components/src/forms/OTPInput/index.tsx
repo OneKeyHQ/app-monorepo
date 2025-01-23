@@ -10,15 +10,20 @@ import type { OtpInputProps, OtpInputRef } from 'react-native-otp-entry';
 export function OTPInput(
   props: OtpInputProps & {
     value: string;
+    onComplete?: (value: string) => void;
   },
 ) {
-  const { value, ...rest } = props;
+  const { value, onComplete, numberOfDigits, ...rest } = props;
   const theme = useTheme();
   const ref = useRef<OtpInputRef>(null);
 
   useEffect(() => {
     ref.current?.setValue(value);
-  }, [value]);
+
+    if (numberOfDigits === value.length) {
+      onComplete?.(value);
+    }
+  }, [onComplete, numberOfDigits, value]);
 
   return (
     <OtpInput
@@ -45,6 +50,7 @@ export function OTPInput(
         },
       }}
       focusColor={theme.text.val}
+      numberOfDigits={numberOfDigits}
       {...rest}
     />
   );
