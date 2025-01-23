@@ -1,10 +1,9 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
-import { useDebouncedCallback } from 'use-debounce';
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -345,14 +344,14 @@ function ActionListFrame({
 }: Omit<IActionListProps, 'estimatedContentHeight'> & {
   estimatedContentHeight?: () => Promise<number>;
 }) {
-  const [isProcessing, setIsProcessing] = useState(false);
+  const isProcessing = useRef(false);
 
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
   const handleActionListOpen = () => {
-    if (isProcessing) return;
+    if (isProcessing.current) return;
 
-    setIsProcessing(true);
+    isProcessing.current = true;
     if (estimatedContentHeight) {
       void estimatedContentHeight().then((height) => {
         showActionList({
@@ -365,8 +364,8 @@ function ActionListFrame({
     }
 
     setTimeout(() => {
-      setIsProcessing(false);
-    }, 250);
+      isProcessing.current = false;
+    }, 350);
   };
 
   if (gtMd) {
