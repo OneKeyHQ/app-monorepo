@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { HeaderIconButton, Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,10 +14,13 @@ export function PrimeHeaderIconButton() {
   const [isHover, setIsHover] = useState(false);
   const themeVariant = useThemeVariant();
 
-  const icon =
-    themeVariant === 'light'
-      ? 'OnekeyPrimeLightColored'
-      : 'OnekeyPrimeDarkColored';
+  const icon = useMemo(
+    () =>
+      themeVariant === 'light'
+        ? 'OnekeyPrimeLightColored'
+        : 'OnekeyPrimeDarkColored',
+    [themeVariant],
+  );
 
   const onPrimeButtonPressed = useCallback(() => {
     if (!isReady) {
