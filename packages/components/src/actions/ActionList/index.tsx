@@ -1,6 +1,7 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
@@ -337,6 +338,7 @@ const showActionList = (
     />,
   );
 };
+const debouncedShowActionList = debounce(showActionList, 350);
 
 function ActionListFrame({
   estimatedContentHeight,
@@ -379,6 +381,6 @@ function ActionListFrame({
 }
 
 export const ActionList = withStaticProperties(ActionListFrame, {
-  show: showActionList,
+  show: debouncedShowActionList,
   Item: ActionListItem,
 });
