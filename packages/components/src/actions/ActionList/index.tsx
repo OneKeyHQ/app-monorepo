@@ -345,9 +345,14 @@ function ActionListFrame({
 }: Omit<IActionListProps, 'estimatedContentHeight'> & {
   estimatedContentHeight?: () => Promise<number>;
 }) {
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
-  const handleActionListOpen = useDebouncedCallback(() => {
+  const handleActionListOpen = () => {
+    if (isProcessing) return;
+
+    setIsProcessing(true);
     if (estimatedContentHeight) {
       void estimatedContentHeight().then((height) => {
         showActionList({
@@ -358,7 +363,11 @@ function ActionListFrame({
     } else {
       showActionList(popoverProps);
     }
-  }, 250);
+
+    setTimeout(() => {
+      setIsProcessing(false);
+    }, 250);
+  };
 
   if (gtMd) {
     return <BasicActionList {...props} />;
