@@ -75,6 +75,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
+          networkId,
+          owner: r[0]?.owner,
         }),
       );
 

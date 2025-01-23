@@ -61,6 +61,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -1202,17 +1203,10 @@ function SendDataInputContainer() {
     [],
   );
 
-  const enableAllowListValidation = useMemo(() => {
-    const networkIdsMap = getNetworkIdsMap();
-    // Disable allowlist validation for Lightning Network
-    if (
-      networkIdsMap.lightning === networkId ||
-      networkIdsMap.tlightning === networkId
-    ) {
-      return false;
-    }
-    return true;
-  }, [networkId]);
+  const enableAllowListValidation = useMemo(
+    () => networkUtils.isLightningNetworkByNetworkId(networkId),
+    [networkId],
+  );
 
   return (
     <Page scrollEnabled safeAreaEnabled>

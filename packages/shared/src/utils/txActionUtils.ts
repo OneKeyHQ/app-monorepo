@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { findIndex, isEmpty } from 'lodash';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -221,10 +222,14 @@ export function getStakingActionLabel({
 
 export function convertAddressToSignatureConfirmAddress({
   address,
+  networkId,
   label,
+  owner,
 }: {
   address: string;
+  networkId: string;
   label?: string;
+  owner?: string;
 }): IDisplayComponentAddress {
   return {
     type: EParseTxComponentType.Address,
@@ -233,7 +238,9 @@ export function convertAddressToSignatureConfirmAddress({
       appLocale.intl.formatMessage({
         id: ETranslations.copy_address_modal_title,
       }),
-    address,
+    address: networkUtils.isLightningNetworkByNetworkId(networkId)
+      ? owner ?? ''
+      : address,
     tags: [],
   };
 }
