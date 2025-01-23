@@ -6,10 +6,10 @@ import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
-import { usePrimeAuth } from '../../hooks/usePrimeAuth';
+import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 
 export function PrimeHeaderIconButton() {
-  const { user, isReady } = usePrimeAuth();
+  const { user, isReady } = usePrivyUniversalV2();
   const navigation = useAppNavigation();
   const [isHover, setIsHover] = useState(false);
   const themeVariant = useThemeVariant();
@@ -43,7 +43,7 @@ export function PrimeHeaderIconButton() {
       onPointerLeave={() => setIsHover(false)}
       key="header-prime-button"
       title="Prime"
-      icon={user.isLoggedIn || isHover ? icon : 'PrimeOutline'}
+      icon={user?.id || isHover ? icon : 'PrimeOutline'}
       tooltipProps={{
         open: isHover,
       }}

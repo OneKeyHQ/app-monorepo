@@ -1,21 +1,21 @@
-// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
-// eslint-disable-next-line import/order
-import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
-
 import { useCallback, useEffect, useRef } from 'react';
 
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+
+// load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
+// eslint-disable-next-line import/order
+import '@onekeyhq/shared/src/modules3rdParty/stripe-v3';
+
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-import { usePrimeAuth } from './usePrimeAuth';
-
-import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
+import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type {
@@ -25,7 +25,7 @@ import type {
 } from '@revenuecat/purchases-js';
 
 export function usePrimePayment(): IUsePrimePayment {
-  const { isReady: isAuthReady, user } = usePrimeAuth();
+  const { user, isReady: isAuthReady, authenticated } = usePrivyUniversalV2();
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
 
   const isReady = isAuthReady;
@@ -35,7 +35,7 @@ export function usePrimePayment(): IUsePrimePayment {
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
-    if (!user?.privyUserId) {
+    if (!user?.id) {
       throw new Error('User not logged in');
     }
     if (process.env.NODE_ENV !== 'production') {
@@ -57,14 +57,14 @@ export function usePrimePayment(): IUsePrimePayment {
     // TODO how to configure another userId when user login with another account
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
-    Purchases.configure(apiKey, user?.privyUserId || '');
+    Purchases.configure(apiKey, user?.id || '');
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
-    console.log('customerInfo >>>>>> ', user?.privyUserId, customerInfo);
+    console.log('customerInfo >>>>>> ', user?.id, customerInfo);
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
-    if (appUserId !== user?.privyUserId) {
+    if (appUserId !== user?.id) {
       throw new Error('AppUserId not match');
     }
 
@@ -100,28 +100,28 @@ export function usePrimePayment(): IUsePrimePayment {
 
     configureDonePromise.current.resolveTarget(true);
     return customerInfo;
-  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
+  }, [isReady, setPrimePersistAtom, user?.id]);
 
   useEffect(() => {
     void (async () => {
-      if (isReady && user?.privyUserId) {
+      if (isReady && user?.id) {
         await getCustomerInfo();
       }
     })();
-  }, [getCustomerInfo, isReady, user?.privyUserId]);
+  }, [getCustomerInfo, isReady, user?.id]);
 
   const getOfferings = useCallback(async () => {
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
-    if (!user?.isLoggedIn) {
+    if (!authenticated) {
       return undefined;
     }
     const offerings = await Purchases.getSharedInstance().getOfferings({
       currency: 'USD',
     });
     return offerings;
-  }, [isReady, user?.isLoggedIn]);
+  }, [isReady, authenticated]);
 
   const getPaywallPackagesWeb = useCallback(async () => {
     await configureDonePromise.current.ready;
@@ -179,7 +179,7 @@ export function usePrimePayment(): IUsePrimePayment {
           customerEmail: email,
           selectedLocale: locale,
         };
-        // TODO check package user is Matched to privyUserId
+        // TODO check package user is Matched to id
         // TODO check if user has already purchased
         const purchase = await Purchases.getSharedInstance().purchase(
           purchaseParams,

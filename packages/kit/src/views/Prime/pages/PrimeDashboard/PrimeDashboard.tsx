@@ -25,12 +25,12 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { PrimeLoginEmailCodeDialogV2 } from '../../components/PrimeLoginEmailCodeDialogV2';
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuth } from '../../hooks/usePrimeAuth';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
-import { PrimeDashboardFooter } from './PrimeDashboardFooter';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
@@ -62,8 +62,7 @@ function PrimeBanner() {
 
 export default function PrimeDashboard() {
   const { top } = useSafeAreaInsets();
-  const { login, loginLegacy, logout, privy, getAccessToken, user } =
-    usePrimeAuth();
+  const { login, logout, privy, getAccessToken, user } = usePrimeAuth();
   const navigation = useAppNavigation();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   useEffect(() => {
@@ -80,15 +79,6 @@ export default function PrimeDashboard() {
     getPaywallPackagesNative,
     getCustomerInfo,
   } = usePrimePayment();
-
-  const loginByPrivy = useCallback(async () => {
-    if (platformEnv.isNative) {
-      // TODO: privy login Modal is conflict with OneKey Modal
-      navigation.popStack();
-      await timerUtils.wait(1000);
-    }
-    login();
-  }, [login, navigation]);
 
   const purchaseByWebview = useCallback(async () => {
     navigation.popStack();
@@ -111,8 +101,12 @@ export default function PrimeDashboard() {
     try {
       setIsLoading(true);
       if (!user?.isLoggedIn) {
-        return await loginByPrivy();
+        // return await loginByPrivy();
         // loginLegacy();
+        Dialog.show({
+          renderContent: <PrimeLoginEmailCodeDialogV2 />,
+          onClose: async () => {},
+        });
       }
       if (platformEnv.isNative) {
         ActionList.show({
@@ -162,7 +156,6 @@ export default function PrimeDashboard() {
     user?.isLoggedIn,
     user?.email,
     selectedPackageId,
-    loginByPrivy,
     purchaseByWebview,
     presentPaywallNative,
     purchasePaywallPackageWeb,
@@ -250,13 +243,6 @@ export default function PrimeDashboard() {
             <XStack flexWrap="wrap">
               <Button
                 onPress={() => {
-                  void loginLegacy();
-                }}
-              >
-                Login Legacy
-              </Button>
-              <Button
-                onPress={() => {
                   void logout();
                 }}
               >
@@ -315,7 +301,17 @@ export default function PrimeDashboard() {
             </XStack>
           </Page.Body>
 
-          <PrimeDashboardFooter />
+          <Page.Footer
+            onConfirm={shouldShowConfirmButton ? doPurchase : undefined}
+            onConfirmText="Subscribe"
+            confirmButtonProps={
+              shouldShowConfirmButton
+                ? {
+                    loading: isLoading,
+                  }
+                : undefined
+            }
+          />
         </Page>
       </Theme>
     </>

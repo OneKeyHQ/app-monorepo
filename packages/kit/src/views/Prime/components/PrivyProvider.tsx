@@ -9,6 +9,7 @@ function PrivyAuthSyncToAtom() {
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
   const appId = process.env.PRIVY_APP_ID ?? '';
+  console.log('nnnn', process.env);
   if (!appId) {
     throw new Error('PRIVY_APP_ID is not set');
   }
