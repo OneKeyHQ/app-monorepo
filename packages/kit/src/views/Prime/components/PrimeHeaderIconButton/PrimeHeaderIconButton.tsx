@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { HeaderIconButton, Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
@@ -11,6 +12,12 @@ export function PrimeHeaderIconButton() {
   const { user, isReady } = usePrimeAuth();
   const navigation = useAppNavigation();
   const [isHover, setIsHover] = useState(false);
+  const themeVariant = useThemeVariant();
+
+  const icon =
+    themeVariant === 'light'
+      ? 'OnekeyPrimeLightColored'
+      : 'OnekeyPrimeDarkColored';
 
   const onPrimeButtonPressed = useCallback(() => {
     if (!isReady) {
@@ -33,9 +40,7 @@ export function PrimeHeaderIconButton() {
       onPointerLeave={() => setIsHover(false)}
       key="header-prime-button"
       title="Prime"
-      icon={
-        user.isLoggedIn || isHover ? 'OnekeyPrimeLightColored' : 'PrimeOutline'
-      }
+      icon={user.isLoggedIn || isHover ? icon : 'PrimeOutline'}
       tooltipProps={{
         open: isHover,
       }}
