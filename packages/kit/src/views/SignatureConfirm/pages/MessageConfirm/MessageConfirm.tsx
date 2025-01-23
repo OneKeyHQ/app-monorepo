@@ -97,8 +97,8 @@ function MessageConfirm() {
         });
 
       const requests:
-        | [Promise<IParseMessageResp>, Promise<void>]
-        | [Promise<IParseMessageResp>] = isSignTypedDataV3orV4Method
+        | [Promise<IParseMessageResp | null>, Promise<void>]
+        | [Promise<IParseMessageResp | null>] = isSignTypedDataV3orV4Method
         ? [
             backgroundApiProxy.serviceSignatureConfirm.parseMessage({
               networkId,
