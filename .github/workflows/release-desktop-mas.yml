@@ -160,7 +160,7 @@ jobs:
           rm ~/Library/MobileDevice/Provisioning\ Profiles/OneKey_Mac_App.provisionprofile
 
       - name: Upload Artifacts mas
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-mas
           path: |
