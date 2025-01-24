@@ -68,16 +68,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           updateEmail();
         }}
       />
-      <ActionList.Item
-        label="Change password"
-        icon="PasswordOutline"
-        onClose={handleActionListClose}
-        onPress={() => {
-          Toast.success({
-            title: 'Change password not implemented',
-          });
-        }}
-      />
       {isPrime ? (
         <>
           <ActionList.Item
