@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
@@ -21,6 +22,7 @@ import PrimeBannerBgDark from '@onekeyhq/kit/assets/animations/prime-banner-bg-d
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -41,6 +43,8 @@ function showDebugMessageByDialog(obj: any) {
 }
 
 function PrimeBanner() {
+  const intl = useIntl();
+
   return (
     <YStack pt="$5" gap="$2" alignItems="center">
       <Icon size="$20" name="OnekeyPrimeDarkColored" />
@@ -53,8 +57,9 @@ function PrimeBanner() {
         textAlign="center"
         color="$textSubdued"
       >
-        Unlock advanced features to enhance your crypto asset management
-        experience.
+        {intl.formatMessage({
+          id: ETranslations.prime_description,
+        })}
       </SizableText>
     </YStack>
   );

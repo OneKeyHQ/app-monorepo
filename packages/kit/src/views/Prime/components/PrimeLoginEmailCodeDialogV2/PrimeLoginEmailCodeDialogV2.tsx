@@ -75,7 +75,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   return (
     <Stack>
       <Dialog.Icon icon="BarcodeSolid" />
-      <Dialog.Title>Enter verification code</Dialog.Title>
+      <Dialog.Title>
+        {intl.formatMessage({
+          id: ETranslations.prime_enter_verification_code,
+        })}
+      </Dialog.Title>
       <RichSizeableText
         size="$bodyLg"
         mt="$1.5"
