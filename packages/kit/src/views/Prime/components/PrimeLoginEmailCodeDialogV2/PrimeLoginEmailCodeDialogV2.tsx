@@ -8,7 +8,6 @@ import {
   OTPInput,
   RichSizeableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';

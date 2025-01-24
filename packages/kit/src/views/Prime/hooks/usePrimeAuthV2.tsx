@@ -7,10 +7,8 @@ import { PrimeLoginEmailDialogV2 } from '../components/PrimeLoginEmailDialogV2';
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 export function usePrimeAuthV2() {
-  // const emailDialogRef = useRef<IDialogInstance | undefined>(undefined);
-  // const emailCodeDialogRef = useRef<IDialogInstance | undefined>(undefined);
   const { useLoginWithEmail } = usePrivyUniversalV2();
-  const { sendCode, loginWithCode } = useLoginWithEmail({
+  const { sendCode, loginWithCode, state } = useLoginWithEmail({
     onComplete: () => {
       console.log('🔑 ✅ User successfully logged in with email', {});
     },
@@ -18,6 +16,8 @@ export function usePrimeAuthV2() {
       console.log(error);
     },
   });
+
+  console.log('state', state);
 
   const loginWithEmail = async () => {
     // 1. open dialog
