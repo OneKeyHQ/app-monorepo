@@ -18,8 +18,9 @@ const COUNTDOWN_TIME = 60;
 export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
+  sendCode: (args: { email: string }) => void;
 }) {
-  const { email, loginWithCode } = props;
+  const { email, loginWithCode, sendCode } = props;
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -27,12 +28,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 
   const sendEmailVerificationCode = useCallback(async () => {
     setIsResending(true);
+
+    if (isResending) {
+      return;
+    }
+
     try {
+      sendCode({ email });
+
       setCountdown(COUNTDOWN_TIME);
     } finally {
       setIsResending(false);
     }
-  }, []);
+  }, [email, isResending, sendCode]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -112,6 +120,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               email,
             });
           } catch (error) {
+            console.log('error', error);
             preventClose();
             throw error;
           }

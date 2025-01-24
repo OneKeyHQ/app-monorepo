@@ -18,7 +18,7 @@ export function usePrimeAuth() {
   const [primeInitAtom, setPrimeInitAtom] = usePrimeInitAtom();
 
   const privy = usePrivyUniversal();
-  const { logout, isReady, getAccessToken } = privy;
+  const { logout, getAccessToken } = privy;
 
   const login = useCallback(() => {
     if (platformEnv.isNative) {
