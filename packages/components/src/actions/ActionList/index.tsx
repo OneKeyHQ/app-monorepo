@@ -42,6 +42,9 @@ export interface IActionListItemProps {
   shortcutKeys?: string[] | EShortcutEvents;
 }
 
+// Duration to prevent rapid re-triggering of the action list
+const PROCESSING_RESET_DELAY = 350;
+
 export function ActionListItem({
   icon,
   iconProps,
@@ -338,7 +341,10 @@ const showActionList = (
     />,
   );
 };
-const debouncedShowActionList = debounce(showActionList, 350);
+const debouncedShowActionList = debounce(
+  showActionList,
+  PROCESSING_RESET_DELAY,
+);
 
 function ActionListFrame({
   estimatedContentHeight,
@@ -367,7 +373,7 @@ function ActionListFrame({
 
     setTimeout(() => {
       isProcessing.current = false;
-    }, 350);
+    }, PROCESSING_RESET_DELAY);
   };
 
   if (gtMd) {
