@@ -1,4 +1,15 @@
-export type IUsePrivyUniversalV2 = {
+type IState =
+  | { status: 'initial' }
+  | {
+      status: 'error';
+      error: Error | null;
+    }
+  | { status: 'sending-code' }
+  | { status: 'awaiting-code-input' }
+  | { status: 'submitting-code' }
+  | { status: 'done' };
+
+export interface IUsePrivyUniversalV2 {
   logout: () => Promise<void>;
   isReady: boolean;
   getAccessToken: () => Promise<string | null>;
@@ -6,6 +17,7 @@ export type IUsePrivyUniversalV2 = {
     onComplete?: () => void;
     onError?: (error: any) => void;
   }) => {
+    state: IState;
     sendCode: (args: { email: string }) => Promise<void>;
     loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   };
@@ -13,4 +25,4 @@ export type IUsePrivyUniversalV2 = {
   user?: {
     id: string;
   };
-};
+}

@@ -6,7 +6,7 @@ import { Button, Input, OTPInput, Toast, YStack } from '@onekeyhq/components';
 
 export function PrimeSignupTest() {
   const [email, setEmail] = useState('limichange@hotmail.com');
-  const { sendCode, loginWithCode } = useLoginWithEmail({
+  const { sendCode, loginWithCode, state } = useLoginWithEmail({
     onSendCodeSuccess() {
       Toast.message({
         title: 'onSendCodeSuccess',

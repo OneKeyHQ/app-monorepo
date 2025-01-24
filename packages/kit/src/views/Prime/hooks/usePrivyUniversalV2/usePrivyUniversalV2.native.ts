@@ -9,7 +9,7 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
   return {
     useLoginWithEmail: (args) => {
       const { onComplete, onError } = args || {};
-      const { sendCode, loginWithCode } = useLoginWithEmail({
+      const { sendCode, loginWithCode, state } = useLoginWithEmail({
         onLoginSuccess: () => {
           onComplete?.();
         },
@@ -17,6 +17,7 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
       });
 
       return {
+        state,
         sendCode: async (...sendCodeArgs) => {
           await sendCode(...sendCodeArgs);
         },

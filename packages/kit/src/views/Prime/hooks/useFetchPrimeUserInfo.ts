@@ -2,18 +2,18 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-import { usePrimeAuth } from './usePrimeAuth';
+import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 export function useFetchPrimeUserInfo() {
-  const { isReady, user } = usePrimeAuth();
+  const { isReady, user } = usePrivyUniversalV2();
   const fetchPrimeUserInfo = useCallback(async () => {
-    if (isReady && user?.privyUserId) {
+    if (isReady && user?.id) {
       const userInfo =
         await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
       return userInfo;
     }
     return undefined;
-  }, [isReady, user?.privyUserId]);
+  }, [isReady, user?.id]);
 
   return { fetchPrimeUserInfo };
 }
