@@ -7,8 +7,14 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
   const authenticated = !!user;
 
   return {
-    useLoginWithEmail: (...args) => {
-      const { sendCode, loginWithCode } = useLoginWithEmail(...args);
+    useLoginWithEmail: (args) => {
+      const { onComplete, onError } = args || {};
+      const { sendCode, loginWithCode } = useLoginWithEmail({
+        onLoginSuccess: () => {
+          onComplete?.();
+        },
+        onError,
+      });
 
       return {
         sendCode: async (...sendCodeArgs) => {

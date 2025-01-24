@@ -6,7 +6,24 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
   const { logout, ready, getAccessToken, authenticated, user } = usePrivy();
 
   return {
-    useLoginWithEmail,
+    useLoginWithEmail: (args) => {
+      const { onComplete, onError } = args || {};
+      const { sendCode, loginWithCode } = useLoginWithEmail({
+        onComplete,
+        onError: (error) => {
+          onError?.(error);
+        },
+      });
+
+      return {
+        sendCode: async (...sendCodeArgs) => {
+          await sendCode(...sendCodeArgs);
+        },
+        loginWithCode: async (...loginWithCodeArgs) => {
+          await loginWithCode(...loginWithCodeArgs);
+        },
+      };
+    },
     logout,
     isReady: ready,
     getAccessToken,
