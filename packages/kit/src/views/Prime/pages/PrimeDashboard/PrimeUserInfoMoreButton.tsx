@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   ActionList,
   Badge,
@@ -11,6 +13,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -30,6 +33,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { getCustomerInfo } = usePrimePayment();
+  const intl = useIntl();
 
   const userInfo = (
     <Stack px="$2" py="$2.5" gap="$1">
@@ -97,15 +101,21 @@ function PrimeUserInfoMoreButtonDropDownMenu({
       ) : null}
       <Divider mx="$2" my="$1" />
       <ActionList.Item
-        label="Log out"
+        label={intl.formatMessage({
+          id: ETranslations.prime_log_out,
+        })}
         icon="LogoutOutline"
         onClose={handleActionListClose}
         onPress={() => {
           Dialog.show({
             icon: 'InfoCircleOutline',
-            title: 'Log out',
+            title: intl.formatMessage({
+              id: ETranslations.prime_onekeyid_log_out,
+            }),
             description: 'Are you sure you want to log out?',
-            onConfirmText: 'Log out',
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.prime_log_out,
+            }),
             onConfirm: () => logout(),
           });
         }}

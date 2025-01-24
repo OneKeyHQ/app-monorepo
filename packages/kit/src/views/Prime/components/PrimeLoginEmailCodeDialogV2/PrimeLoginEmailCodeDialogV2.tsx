@@ -8,6 +8,7 @@ import {
   OTPInput,
   RichSizeableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -91,7 +92,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           },
         }}
       >
-        {`Sent to <email>${email}</email>`}
+        {`${intl.formatMessage({
+          id: ETranslations.prime_sent_to,
+        })}<email>${email}</email>`}
       </RichSizeableText>
       <Stack pt="$4">
         <YStack gap="$2">
@@ -123,8 +126,20 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               code: verificationCode,
               email,
             });
+
+            Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.login_welcome_message,
+              }),
+            });
           } catch (error) {
             console.log('error', error);
+
+            Toast.error({
+              title: intl.formatMessage({
+                id: ETranslations.auth_error_passcode_incorrect,
+              }),
+            });
             preventClose();
             throw error;
           }

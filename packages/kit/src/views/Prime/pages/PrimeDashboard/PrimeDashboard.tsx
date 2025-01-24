@@ -66,6 +66,7 @@ function PrimeBanner() {
 }
 
 export default function PrimeDashboard() {
+  const intl = useIntl();
   const { loginWithEmail } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const { logout, privy, getAccessToken, user } = usePrimeAuth();
@@ -307,7 +308,9 @@ export default function PrimeDashboard() {
 
           <Page.Footer
             onConfirm={shouldShowConfirmButton ? doPurchase : undefined}
-            onConfirmText="Subscribe"
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.prime_subscribe,
+            })}
             confirmButtonProps={
               shouldShowConfirmButton
                 ? {
