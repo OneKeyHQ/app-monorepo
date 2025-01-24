@@ -1204,7 +1204,7 @@ function SendDataInputContainer() {
   );
 
   const enableAllowListValidation = useMemo(
-    () => networkUtils.isLightningNetworkByNetworkId(networkId),
+    () => !networkUtils.isLightningNetworkByNetworkId(networkId),
     [networkId],
   );
 

@@ -57,7 +57,7 @@ jobs:
         run: yarn stats:ios
 
       - name: Upload stats.json
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: head-stats
           path: ./apps/app/stats.json
@@ -108,7 +108,7 @@ jobs:
         run: yarn stats:ios
 
       - name: Upload stats.json
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: base-stats
           path: ./apps/app/stats.json
