@@ -6,11 +6,14 @@ import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-export function PrimeLoginEmailDialogV2() {
+export function PrimeLoginEmailDialogV2(props: {
+  onEmailSubmitted: (email: string) => void;
+}) {
+  const { onEmailSubmitted } = props;
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
-    defaultValues: { email: '' },
+    defaultValues: { email: 'limichange@hotmail.com' },
   });
 
   const submit = useCallback(
@@ -21,14 +24,16 @@ export function PrimeLoginEmailDialogV2() {
         return;
       }
       const data = form.getValues();
+
       try {
-        console.log('send code', data);
+        console.log('onEmailSubmitted', data);
+        onEmailSubmitted?.(data.email);
       } catch (error) {
         options?.preventClose?.();
         throw error;
       }
     },
-    [form],
+    [form, onEmailSubmitted],
   );
 
   return (
@@ -74,7 +79,7 @@ export function PrimeLoginEmailDialogV2() {
               placeholder="your@email.com"
               flex={1}
               onChangeText={(text) => text?.trim() ?? text}
-              onSubmitEditing={() => submit()} // submit on press enter
+              onSubmitEditing={() => submit()}
             />
           </Form.Field>
         </Form>

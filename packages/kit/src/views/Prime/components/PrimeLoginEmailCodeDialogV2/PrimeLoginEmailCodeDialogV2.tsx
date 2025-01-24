@@ -16,8 +16,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const COUNTDOWN_TIME = 60;
 
-export function PrimeLoginEmailCodeDialogV2() {
-  const [code, setCode] = useState('');
+export function PrimeLoginEmailCodeDialogV2(props: {
+  email: string;
+  loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
+}) {
+  const { email, loginWithCode } = props;
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -52,7 +55,7 @@ export function PrimeLoginEmailCodeDialogV2() {
 
   const buttonText = useMemo(() => {
     if (isResending)
-      return intl.formatMessage({ id: ETranslations.prime_send_code });
+      return intl.formatMessage({ id: ETranslations.prime_send_code }) + email;
 
     if (countdown > 0)
       return `${intl.formatMessage({
@@ -60,7 +63,7 @@ export function PrimeLoginEmailCodeDialogV2() {
       })} (${countdown}s)`;
 
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
-  }, [isResending, countdown, intl]);
+  }, [isResending, intl, email, countdown]);
 
   return (
     <Stack>
@@ -77,7 +80,7 @@ export function PrimeLoginEmailCodeDialogV2() {
           },
         }}
       >
-        {`Sent to <email></email>`}
+        {`Sent to <email>${email}</email>`}
       </RichSizeableText>
       <Stack pt="$4">
         <YStack gap="$2">
@@ -97,13 +100,6 @@ export function PrimeLoginEmailCodeDialogV2() {
             numberOfDigits={6}
             value={verificationCode}
             onTextChange={setVerificationCode}
-            onComplete={(value) => {
-              setCode(value);
-              Toast.success({
-                title: 'code',
-                message: value,
-              });
-            }}
           />
         </YStack>
       </Stack>
@@ -112,7 +108,10 @@ export function PrimeLoginEmailCodeDialogV2() {
         onConfirmText="Next"
         onConfirm={async ({ preventClose }) => {
           try {
-            console.log(2);
+            await loginWithCode({
+              code: verificationCode,
+              email,
+            });
           } catch (error) {
             preventClose();
             throw error;
