@@ -25,25 +25,27 @@ export function usePrimeAuthV2() {
   });
 
   const loginWithEmail = async () => {
+    // open dialog
     const dialog: IDialogInstance = Dialog.show({
       renderContent: (
         <PrimeLoginEmailDialogV2
+          // on email submitted
           onEmailSubmitted={async (email) => {
+            // open code dialog
             Dialog.show({
               renderContent: (
+                // input code
                 <PrimeLoginEmailCodeDialogV2
                   loginWithCode={loginWithCode}
                   email={email}
                 />
               ),
-              onClose: async () => {},
             });
 
             await sendCode({ email });
           }}
         />
       ),
-      onClose: async () => {},
     });
 
     console.log('dialog', dialog);
