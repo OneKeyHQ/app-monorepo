@@ -437,7 +437,7 @@ export function ApproveBaseStake({
                 id: ETranslations.earn_est_annual_rewards,
               })}
             </CalculationListItem.Label>
-            <YStack>
+            <YStack gap="$2">
               {estimatedAnnualRewards.map((reward) => (
                 <ValuePriceListItem
                   key={reward.token.address}
