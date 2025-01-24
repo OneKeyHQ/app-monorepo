@@ -105,7 +105,7 @@ jobs:
         run: 'yarn app:ext:build:all'
 
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: onekey-extension-rn
           path: |

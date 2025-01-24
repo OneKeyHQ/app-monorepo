@@ -126,14 +126,14 @@ jobs:
         run: 'cd apps/desktop && yarn build:winms'
 
       - name: Upload Artifacts Windows
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: onekey-desktop-windows
           path: |
             ./apps/desktop/build-electron/*.exe
 
       - name: Upload Artifacts Release
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release
           path: |
