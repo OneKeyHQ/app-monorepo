@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
@@ -10,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 const COUNTDOWN_TIME = 60;
 
@@ -18,6 +21,7 @@ export function PrimeLoginEmailCodeDialogV2() {
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
+  const intl = useIntl();
 
   const sendEmailVerificationCode = useCallback(async () => {
     setIsResending(true);
@@ -47,10 +51,16 @@ export function PrimeLoginEmailCodeDialogV2() {
   }, [sendEmailVerificationCode]);
 
   const buttonText = useMemo(() => {
-    if (isResending) return '发送中...';
-    if (countdown > 0) return `重新发送 (${countdown}s)`;
-    return '重新发送';
-  }, [isResending, countdown]);
+    if (isResending)
+      return intl.formatMessage({ id: ETranslations.prime_send_code });
+
+    if (countdown > 0)
+      return `${intl.formatMessage({
+        id: ETranslations.prime_code_resend,
+      })} (${countdown}s)`;
+
+    return intl.formatMessage({ id: ETranslations.prime_code_resend });
+  }, [isResending, countdown, intl]);
 
   return (
     <Stack>
@@ -67,7 +77,7 @@ export function PrimeLoginEmailCodeDialogV2() {
           },
         }}
       >
-        {`Sent to <email>${''}</email>`}
+        {`Sent to <email></email>`}
       </RichSizeableText>
       <Stack pt="$4">
         <YStack gap="$2">

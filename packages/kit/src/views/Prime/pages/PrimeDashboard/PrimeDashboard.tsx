@@ -25,10 +25,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
-import { PrimeLoginEmailCodeDialogV2 } from '../../components/PrimeLoginEmailCodeDialogV2';
-import { PrimeLoginEmailDialogV2 } from '../../components/PrimeLoginEmailDialogV2';
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuth } from '../../hooks/usePrimeAuth';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
@@ -62,8 +61,9 @@ function PrimeBanner() {
 }
 
 export default function PrimeDashboard() {
+  const { loginWithEmail } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
-  const { login, logout, privy, getAccessToken, user } = usePrimeAuth();
+  const { logout, privy, getAccessToken, user } = usePrimeAuth();
   const navigation = useAppNavigation();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   useEffect(() => {
@@ -101,14 +101,11 @@ export default function PrimeDashboard() {
   const doPurchase = useCallback(async () => {
     try {
       setIsLoading(true);
+
       if (!user?.isLoggedIn) {
-        // return await loginByPrivy();
-        // loginLegacy();
-        Dialog.show({
-          renderContent: <PrimeLoginEmailDialogV2 />,
-          onClose: async () => {},
-        });
+        await loginWithEmail();
       }
+
       if (platformEnv.isNative) {
         ActionList.show({
           title: 'Purchase',
@@ -161,6 +158,7 @@ export default function PrimeDashboard() {
     presentPaywallNative,
     purchasePaywallPackageWeb,
     fetchPrimeUserInfo,
+    loginWithEmail,
   ]);
 
   const shouldShowConfirmButton = useMemo(() => {
