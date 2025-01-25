@@ -1,6 +1,12 @@
 name: release-desktop-mas
 
 on:
+  pull_request:
+    branches:
+      - feat/prime-login0-limi
+  push:
+    branches:
+      - feat/prime-login0-limi
   workflow_run:
     workflows:
       - daily-build
@@ -22,10 +28,10 @@ jobs:
         with:
           lfs: true
 
-      - name: Run Shared Env Setup  
+      - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
-          env_file_name: ".env"
+          env_file_name: '.env'
           sentry_project: 'desktop-mas'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -157,15 +163,15 @@ jobs:
         run: |
           xcrun altool --upload-app --f ./apps/desktop/build-electron/mas-universal/*.pkg -t macOS -u $APPLEID -p $APPLEIDPASS --show-progress
 
-      - name: 'Notify to Slack'
-        if: ${{ github.event.workflow_run }}
-        uses: onekeyhq/actions/slack-notify-webhook@main
-        with:
-          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
-          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-          artifact-type: Desktop
-          artifact-name: OneKey-Desktop-MAS
-          artifact-bundle-id: 'so.onekey.wallet'
-          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
-          artifact-version-code: '${{ env.BUILD_NUMBER }}'
-          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+      # - name: 'Notify to Slack'
+      #   if: ${{ github.event.workflow_run }}
+      #   uses: onekeyhq/actions/slack-notify-webhook@main
+      #   with:
+      #     web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+      #     secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+      #     artifact-type: Desktop
+      #     artifact-name: OneKey-Desktop-MAS
+      #     artifact-bundle-id: 'so.onekey.wallet'
+      #     artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+      #     artifact-version-code: '${{ env.BUILD_NUMBER }}'
+      #     artifact-download-url: '${{ env.ARTIFACTS_URL }}'
