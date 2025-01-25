@@ -1,6 +1,7 @@
 import { useLoginWithEmail, usePrivy } from '@privy-io/expo';
 
 import type { IUsePrivyUniversalV2 } from './usePrivyUniversalV2Types';
+import { Toast } from '@onekeyhq/components';
 
 export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
   const { logout, isReady, getAccessToken, user } = usePrivy();
@@ -10,6 +11,11 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
     useLoginWithEmail: (args) => {
       const { onComplete, onError } = args || {};
       const { sendCode, loginWithCode, state } = useLoginWithEmail({
+        onSendCodeSuccess: () => {
+          Toast.success({
+            title: 'send code',
+          });
+        },
         onLoginSuccess: () => {
           onComplete?.();
         },

@@ -110,9 +110,7 @@ export default function PrimeDashboard() {
 
       if (!user?.isLoggedIn) {
         await loginWithEmail();
-      }
-
-      if (platformEnv.isNative) {
+      } else if (platformEnv.isNative) {
         ActionList.show({
           title: 'Purchase',
           onClose: () => {},
@@ -304,6 +302,8 @@ export default function PrimeDashboard() {
                 PaywallPackages
               </Button>
             </XStack>
+
+            {/* <PrimeSignupTest /> */}
           </Page.Body>
 
           <Page.Footer
