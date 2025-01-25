@@ -18,7 +18,7 @@ import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
-import { usePrimeAuth } from '../../hooks/usePrimeAuth';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
@@ -28,7 +28,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose: () => void;
   doPurchase?: () => Promise<void>;
 }) {
-  const { user, logout, updateEmail } = usePrimeAuth();
+  const { logout, user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
@@ -61,7 +61,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   return (
     <>
       {userInfo}
-      <ActionList.Item
+      {/* <ActionList.Item
         label="Change email"
         icon="EmailOutline"
         onClose={handleActionListClose}
@@ -71,7 +71,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           });
           updateEmail();
         }}
-      />
+      /> */}
       {isPrime ? (
         <>
           <ActionList.Item

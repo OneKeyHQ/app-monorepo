@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 import { PrimeLoginEmailCodeDialogV2 } from '../components/PrimeLoginEmailCodeDialogV2';
@@ -12,10 +12,10 @@ import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 export function usePrimeAuthV2() {
   const [primePersistAtom] = usePrimePersistAtom();
 
-  const { useLoginWithEmail } = usePrivyUniversalV2();
+  const { useLoginWithEmail, logout } = usePrivyUniversalV2();
   const { sendCode, loginWithCode, state } = useLoginWithEmail({
     onComplete: () => {
-      console.log('🔑 ✅ User successfully logged in with email', {});
+      console.log('🔑 ✅ User successfully logged in with email');
     },
     onError: (error) => {
       console.log(error);
@@ -23,7 +23,9 @@ export function usePrimeAuthV2() {
   });
 
   useEffect(() => {
-    console.log('state', state);
+    Toast.success({
+      title: JSON.stringify(state),
+    });
   }, [state]);
 
   const loginWithEmail = async () => {
@@ -52,5 +54,5 @@ export function usePrimeAuthV2() {
     console.log('dialog', dialog);
   };
 
-  return { loginWithEmail, user: primePersistAtom };
+  return { loginWithEmail, user: primePersistAtom, logout };
 }
