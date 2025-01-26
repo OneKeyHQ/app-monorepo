@@ -13,7 +13,7 @@ export function PrimeLoginEmailDialogV2(props: {
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
-    defaultValues: { email: 'limichange@hotmail.com' },
+    defaultValues: { email: 'yao.hou@onekey.so' },
   });
 
   const submit = useCallback(

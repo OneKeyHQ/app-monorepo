@@ -28,7 +28,6 @@ import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
-import { usePrimeAuth } from '../../hooks/usePrimeAuth';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
@@ -67,9 +66,15 @@ function PrimeBanner() {
 
 export default function PrimeDashboard() {
   const intl = useIntl();
-  const { loginWithEmail } = usePrimeAuthV2();
+  const {
+    getAccessToken,
+    user,
+    loginWithEmail,
+    logout,
+    isReady,
+    authenticated,
+  } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
-  const { logout, privy, getAccessToken, user } = usePrimeAuth();
   const navigation = useAppNavigation();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   useEffect(() => {
@@ -261,10 +266,8 @@ export default function PrimeDashboard() {
               <Button
                 onPress={() => {
                   showDebugMessageByDialog({
-                    ready: privy.isReady,
-                    authenticated: privy.authenticated,
-                    nativeUser: privy?.native?.user,
-                    webUser: privy?.web?.user,
+                    ready: isReady,
+                    authenticated,
                   });
                 }}
               >

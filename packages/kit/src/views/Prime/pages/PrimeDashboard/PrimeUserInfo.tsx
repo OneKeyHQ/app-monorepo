@@ -2,7 +2,7 @@ import { StyleSheet } from 'react-native';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
 
-import { usePrimeAuth } from '../../hooks/usePrimeAuth';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
 import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
@@ -11,7 +11,7 @@ export function PrimeUserInfo({
 }: {
   doPurchase?: () => Promise<void>;
 }) {
-  const { user, privy } = usePrimeAuth();
+  const { user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
 
   return (
@@ -31,8 +31,8 @@ export function PrimeUserInfo({
       <Icon name="PeopleOutline" color="$iconSubdued" size="$5" />
       <SizableText
         onPress={() => {
-          console.log(privy?.web?.user);
-          console.log(privy?.native?.user);
+          // console.log(privy?.web?.user);
+          // console.log(privy?.native?.user);
         }}
         flex={1}
         size="$bodyMdMedium"
