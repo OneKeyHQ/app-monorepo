@@ -118,4 +118,4 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: upload-web-embed-artifacts
-          path: ./apps/web-embed/web-build
+          path: ./apps/mobile/android/app/build/
