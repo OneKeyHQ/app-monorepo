@@ -1,12 +1,6 @@
 name: release-desktop-mas
 
 on:
-  pull_request:
-    branches:
-      - feat/prime-login0-limi
-  push:
-    branches:
-      - feat/prime-login0-limi
   workflow_run:
     workflows:
       - daily-build
