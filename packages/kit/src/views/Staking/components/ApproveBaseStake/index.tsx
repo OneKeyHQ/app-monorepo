@@ -11,6 +11,7 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -432,12 +433,14 @@ export function ApproveBaseStake({
               estimatedAnnualRewards.length > 1 ? 'flex-start' : 'center'
             }
           >
-            <CalculationListItem.Label>
-              {intl.formatMessage({
-                id: ETranslations.earn_est_annual_rewards,
-              })}
-            </CalculationListItem.Label>
-            <YStack gap="$2">
+            <Stack flex={1}>
+              <CalculationListItem.Label whiteSpace="nowrap">
+                {intl.formatMessage({
+                  id: ETranslations.earn_est_annual_rewards,
+                })}
+              </CalculationListItem.Label>
+            </Stack>
+            <YStack gap="$2" ai="flex-end" flex={1} $gtMd={{ flex: 4 }}>
               {estimatedAnnualRewards.map((reward) => (
                 <ValuePriceListItem
                   key={reward.token.address}
