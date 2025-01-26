@@ -32,17 +32,17 @@ export function usePrimeAuthV2() {
   useEffect(() => {
     console.log('state.status', state.status);
     if (state.status === 'sending-code') {
-      Toast.success({
-        title: 'send code',
-      });
+      // Toast.success({
+      //   title: 'send code',
+      // });
     } else if (state.status === 'awaiting-code-input') {
-      Toast.success({
-        title: 'awaiting code input',
-      });
+      // Toast.success({
+      //   title: 'awaiting code input',
+      // });
     } else if (state.status === 'submitting-code') {
-      Toast.success({
-        title: 'submitting code',
-      });
+      // Toast.success({
+      //   title: 'submitting code',
+      // });
     }
 
     if (state.status === 'done') {
