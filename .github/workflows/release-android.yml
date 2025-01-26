@@ -118,11 +118,11 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: build
-          path: ./apps/mobile/android/app/build/
+          path: ./apps/mobile/android/app/build
           if-no-files-found: error
 
       - name: Download build Artifacts
         uses: actions/download-artifact@v3
         with:
           name: upload-web-embed-artifacts
-          path: ./apps/mobile/android/app/build/
+          path: ./apps/mobile/android/app/build
