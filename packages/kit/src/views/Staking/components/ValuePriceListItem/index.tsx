@@ -13,17 +13,20 @@ export const ValuePriceListItem = ({
 }) => (
   <XStack
     gap="$1"
-    // maxWidth="$56"
+    width="70%"
     $gtMd={{
-      maxWidth: '100%',
-      minWidth: '100%',
+      width: '70%',
     }}
     jc="flex-end"
     ai="flex-start"
   >
-    <SizableText width="100%" textAlign="right">
+    <SizableText
+      textAlign="right"
+      style={{
+        wordBreak: 'break-all',
+      }}
+    >
       <NumberSizeableText
-        width="100%"
         size="$bodyLgMedium"
         textAlign="right"
         formatter="balance"
@@ -32,12 +35,16 @@ export const ValuePriceListItem = ({
         {amount}
       </NumberSizeableText>
     </SizableText>
-    <SizableText maxWidth="$56" textAlign="right">
+    <SizableText
+      textAlign="right"
+      style={{
+        wordBreak: 'break-all',
+      }}
+    >
       {fiatValue ? (
-        <SizableText color="$textSubdued" textAlign="right" width="100%">
+        <SizableText color="$textSubdued" textAlign="right">
           (
           <NumberSizeableText
-            width="100%"
             textAlign="right"
             size="$bodyLgMedium"
             formatter="value"
