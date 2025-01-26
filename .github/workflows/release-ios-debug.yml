@@ -98,9 +98,3 @@ jobs:
           path: |
             ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet-Debug.zip
           if-no-files-found: error
-
-      - name: Download App File
-        uses: actions/download-artifact@v3
-        with:
-          name: release-App-debug
-          path: ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet-Debug.zip

@@ -1,12 +1,6 @@
 name: release-desktop-winms
 
 on:
-  pull_request:
-    branches:
-      - feat/prime-login0-limi
-  push:
-    branches:
-      - feat/prime-login0-limi
   workflow_run:
     workflows:
       - daily-build
@@ -128,15 +122,15 @@ jobs:
             !./apps/desktop/build-electron/linux-unpacked
             !./apps/desktop/build-electron/builder-debug.yml
 
-      # - name: 'Notify to Slack'
-      #   if: ${{ github.event.workflow_run }}
-      #   uses: onekeyhq/actions/slack-notify-webhook@main
-      #   with:
-      #     web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
-      #     secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
-      #     artifact-type: Desktop
-      #     artifact-name: OneKey-Desktop-Win-Store
-      #     artifact-bundle-id: 'so.onekey.wallet.desktop'
-      #     artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
-      #     artifact-version-code: '${{ env.BUILD_NUMBER }}'
-      #     artifact-download-url: '${{ env.ARTIFACTS_URL }}'
+      - name: 'Notify to Slack'
+        if: ${{ github.event.workflow_run }}
+        uses: onekeyhq/actions/slack-notify-webhook@main
+        with:
+          web-hook-url: ${{ secrets.SLACK_NOTIFICATION_WEBHOOK }}
+          secret-key: ${{ secrets.ACTION_SIGN_SECERT_KEY }}
+          artifact-type: Desktop
+          artifact-name: OneKey-Desktop-Win-Store
+          artifact-bundle-id: 'so.onekey.wallet.desktop'
+          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-code: '${{ env.BUILD_NUMBER }}'
+          artifact-download-url: '${{ env.ARTIFACTS_URL }}'
