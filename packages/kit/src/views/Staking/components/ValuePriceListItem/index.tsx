@@ -14,9 +14,6 @@ export const ValuePriceListItem = ({
   <XStack
     gap="$1"
     width="70%"
-    $gtMd={{
-      width: '70%',
-    }}
     jc="flex-end"
     ai="flex-start"
   >
