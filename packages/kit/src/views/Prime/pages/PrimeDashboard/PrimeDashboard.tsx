@@ -111,16 +111,14 @@ export default function PrimeDashboard() {
   // TODO move to jotai context method
   const doPurchase = useCallback(async () => {
     try {
-      setIsLoading(true);
-
       // await 1s
       await timerUtils.wait(500);
 
       if (!user?.isLoggedIn) {
-        await loginWithEmail();
-      }
+        loginWithEmail();
+      } else if (platformEnv.isNative) {
+        setIsLoading(true);
 
-      if (platformEnv.isNative) {
         ActionList.show({
           title: 'Purchase',
           onClose: () => {},

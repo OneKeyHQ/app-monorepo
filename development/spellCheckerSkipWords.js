@@ -800,4 +800,5 @@ module.exports = [
   'hashify',
   'Otp',
   'onekeyid',
+  'passcode',
 ];
