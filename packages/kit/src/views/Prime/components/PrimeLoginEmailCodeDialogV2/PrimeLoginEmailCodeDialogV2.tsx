@@ -14,15 +14,18 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import type { IPrivyState } from '../../hooks/usePrivyUniversalV2/usePrivyUniversalV2Types';
+
 const COUNTDOWN_TIME = 60;
 
 export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
+  state: IPrivyState;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   sendCode: (args: { email: string }) => void;
   onLoginSuccess: () => void;
 }) {
-  const { email, loginWithCode, sendCode, onLoginSuccess } = props;
+  const { email, loginWithCode, sendCode, onLoginSuccess, state } = props;
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -128,13 +131,25 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               email,
             });
 
-            onLoginSuccess?.();
+            if (state.status === 'done') {
+              Toast.success({
+                title: intl.formatMessage({
+                  id: ETranslations.login_welcome_message,
+                }),
+              });
 
-            Toast.success({
-              title: intl.formatMessage({
-                id: ETranslations.login_welcome_message,
-              }),
-            });
+              onLoginSuccess?.();
+            }
+
+            if (state.status === 'error') {
+              Toast.error({
+                title: intl.formatMessage({
+                  id: ETranslations.auth_error_passcode_incorrect,
+                }),
+              });
+
+              preventClose();
+            }
           } catch (error) {
             console.log('error', error);
 

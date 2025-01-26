@@ -33,20 +33,16 @@ export function usePrimeAuthV2() {
   useEffect(() => {
     if (state.status === 'sending-code') {
       Toast.success({
-        title: '🔑 ✅ send code',
+        title: 'send code',
       });
     } else if (state.status === 'awaiting-code-input') {
       Toast.success({
-        title: '🔑 ✅ awaiting code input',
+        title: 'awaiting code input',
       });
-    } else if (state.status === 'submitting-code') {
-      Toast.success({
-        title: '🔑 ✅ submitting code',
-      });
-    } else if (state.status === 'error') {
-      Toast.error({
-        title: '🔑 ❌ User failed to log in with email',
-      });
+      // } else if (state.status === 'submitting-code') {
+      //   Toast.success({
+      //     title: 'submitting code',
+      //   });
     }
   }, [state.status]);
 
@@ -63,6 +59,7 @@ export function usePrimeAuthV2() {
                 renderContent: (
                   // 4. input code
                   <PrimeLoginEmailCodeDialogV2
+                    state={state}
                     sendCode={sendCode}
                     loginWithCode={loginWithCode}
                     email={email}

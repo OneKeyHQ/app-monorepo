@@ -1,4 +1,4 @@
-type IState =
+export type IPrivyState =
   | { status: 'initial' }
   | {
       status: 'error';
@@ -17,7 +17,7 @@ export interface IUsePrivyUniversalV2 {
     onComplete?: () => void;
     onError?: (error: any) => void;
   }) => {
-    state: IState;
+    state: IPrivyState;
     sendCode: (args: { email: string }) => Promise<void>;
     loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   };
