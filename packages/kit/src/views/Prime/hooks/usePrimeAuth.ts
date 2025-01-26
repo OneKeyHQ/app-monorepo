@@ -14,8 +14,8 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePrivyUniversal } from './usePrivyUniversal';
 
 export function usePrimeAuth() {
-  const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
-  const [primeInitAtom, setPrimeInitAtom] = usePrimeInitAtom();
+  const [primePersistAtom] = usePrimePersistAtom();
+  const [primeInitAtom] = usePrimeInitAtom();
 
   const privy = usePrivyUniversal();
   const { logout, getAccessToken } = privy;

@@ -43,44 +43,42 @@ export function usePrimeAuthV2() {
       Toast.success({
         title: '🔑 ✅ submitting code',
       });
-    } else if (state.status === 'done') {
-      Toast.success({
-        title: '🔑 ✅ User successfully logged in with email',
-      });
-
-      closeDialogs();
     } else if (state.status === 'error') {
       Toast.error({
         title: '🔑 ❌ User failed to log in with email',
       });
     }
-  }, [state]);
+  }, [state.status]);
 
-  const loginWithEmail = async () => {
-    // 1. open dialog
-    const dialog: IDialogInstance = Dialog.show({
-      renderContent: (
-        <PrimeLoginEmailDialogV2
-          // 2. on email submitted
-          onEmailSubmitted={async (email) => {
-            // 3. open code dialog
-            emailCodeDialogRef.current = Dialog.show({
-              renderContent: (
-                // 4. input code
-                <PrimeLoginEmailCodeDialogV2
-                  sendCode={sendCode}
-                  loginWithCode={loginWithCode}
-                  email={email}
-                />
-              ),
-            });
-          }}
-        />
-      ),
+  const loginWithEmail = async () =>
+    new Promise((resolve) => {
+      // 1. open dialog
+      const dialog: IDialogInstance = Dialog.show({
+        renderContent: (
+          <PrimeLoginEmailDialogV2
+            // 2. on email submitted
+            onEmailSubmitted={async (email) => {
+              // 3. open code dialog
+              emailCodeDialogRef.current = Dialog.show({
+                renderContent: (
+                  // 4. input code
+                  <PrimeLoginEmailCodeDialogV2
+                    sendCode={sendCode}
+                    loginWithCode={loginWithCode}
+                    email={email}
+                    onLoginSuccess={() => {
+                      resolve(true);
+                    }}
+                  />
+                ),
+              });
+            }}
+          />
+        ),
+      });
+
+      emailDialogRef.current = dialog;
     });
-
-    emailDialogRef.current = dialog;
-  };
 
   return {
     loginWithEmail,

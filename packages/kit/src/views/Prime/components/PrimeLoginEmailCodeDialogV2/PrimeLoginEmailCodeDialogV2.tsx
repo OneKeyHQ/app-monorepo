@@ -20,8 +20,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   sendCode: (args: { email: string }) => void;
+  onLoginSuccess: () => void;
 }) {
-  const { email, loginWithCode, sendCode } = props;
+  const { email, loginWithCode, sendCode, onLoginSuccess } = props;
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -126,6 +127,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               code: verificationCode,
               email,
             });
+
+            onLoginSuccess?.();
 
             Toast.success({
               title: intl.formatMessage({
