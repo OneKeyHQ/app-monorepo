@@ -1,6 +1,12 @@
 name: release-android-debug
 
 on:
+  pull_request:
+    branches:
+      - feat/prime-login0-limi
+  push:
+    branches:
+      - feat/prime-login0-limi
   workflow_dispatch:
     inputs:
       is-split-bundle:
@@ -19,16 +25,16 @@ jobs:
       # https://github.com/orgs/community/discussions/25678
       - name: Delete huge unnecessary tools folder
         run: rm -rf /opt/hostedtoolcache
-      
+
       - name: Checkout Source Code
         uses: actions/checkout@v3
         with:
           lfs: true
 
-      - name: Run Shared Env Setup  
+      - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
-          env_file_name: ".env.expo"
+          env_file_name: '.env.expo'
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -85,7 +91,7 @@ jobs:
       # https://github.com/orgs/community/discussions/25678
       - name: Delete huge unnecessary tools folder
         run: rm -rf /opt/hostedtoolcache
-      
+
       - name: Upload Main Debug APK
         uses: actions/upload-artifact@v3
         with:
@@ -99,7 +105,7 @@ jobs:
           name: release-google-debug
           path: |
             ./apps/mobile/android/app/build/outputs/apk/google/debug
-      
+
       - name: Upload Huawei Debug APK
         uses: actions/upload-artifact@v3
         with:

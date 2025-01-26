@@ -1,11 +1,12 @@
 name: release-android
 
 on:
-  workflow_run:
-    workflows:
-      - daily-build
-    types:
-      - completed
+  pull_request:
+    branches:
+      - feat/prime-login0-limi
+  push:
+    branches:
+      - feat/prime-login0-limi
   workflow_dispatch:
     inputs:
       is-split-bundle:
@@ -13,7 +14,7 @@ on:
         required: false
         default: ''
 
-jobs: 
+jobs:
   release-android:
     runs-on: ubuntu-latest
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
@@ -22,14 +23,14 @@ jobs:
         uses: actions/checkout@v3
         with:
           lfs: true
-      
-      - name: Run Shared Env Setup  
+
+      - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
           additional_env: |
             NO_FLIPPER=1
             SENTRY_DISABLE_AUTO_UPLOAD=false
-          env_file_name: ".env.expo"
+          env_file_name: '.env.expo'
           sentry_project: ''
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
@@ -72,7 +73,7 @@ jobs:
         run: |
           # pass BUILD_NUMBER as env variable to expo server
           echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
-      
+
       - name: Write .sentry.properties
         run: |
           echo "auth.token=${{ secrets.SENTRY_TOKEN }}" >> apps/mobile/android/sentry.properties
@@ -84,14 +85,12 @@ jobs:
         run: |
           yarn
 
-
       - name: Build WebEmbed
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
           SENTRY_DISABLE_AUTO_UPLOAD: 'true'
         run: |
           yarn app:web-embed:build
-      
 
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}
@@ -114,4 +113,3 @@ jobs:
           path: |
             ./apps/web-embed/web-build
           if-no-files-found: error
-
