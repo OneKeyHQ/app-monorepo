@@ -113,3 +113,9 @@ jobs:
           path: |
             ./apps/web-embed/web-build
           if-no-files-found: error
+
+      - name: Download WebEmbed Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: upload-web-embed-artifacts
+          path: ./apps/web-embed/web-build

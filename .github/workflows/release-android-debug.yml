@@ -123,3 +123,10 @@ jobs:
           large-packages: false
           docker-images: false
           swap-storage: false
+
+      - name: Download App File
+        uses: actions/download-artifact@v3
+        with:
+          name: release-App-debug
+          path: |
+            ./apps/mobile/android/app/build/outputs/apk/google/debug
