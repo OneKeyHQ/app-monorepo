@@ -103,7 +103,7 @@ export function TabStackNavigator<RouteName extends string>({
     </Tab.Screen>
   ));
 
-  if (tabBarPosition === 'left' && extraConfig) {
+  if (extraConfig) {
     const children = () => (
       <TabSubStackNavigatorMemo config={extraConfig.children} />
     );
