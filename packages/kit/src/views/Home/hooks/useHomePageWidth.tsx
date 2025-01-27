@@ -2,20 +2,33 @@ import { useMemo } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
-import { useMedia } from '@onekeyhq/components';
+import { getTokens, useMedia, useOrientation } from '@onekeyhq/components';
 import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hooks/useProviderSideBarValue';
-import { getTokens } from '@onekeyhq/components/src/hooks';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function useHomePageWidth() {
-  const media = useMedia();
+  const { md } = useMedia();
   const screenWidth = useWindowDimensions().width;
   const sideBarWidth = useMemo(() => getTokens().size.sideBarWidth.val, []);
+  const isLandscape = useOrientation();
   const { leftSidebarCollapsed } = useProviderSideBarValue();
+  const pageWidth = useMemo(() => {
+    if (md) {
+      return screenWidth;
+    }
+
+    if (leftSidebarCollapsed) {
+      return screenWidth;
+    }
+
+    if (platformEnv.isNativeIOSPad && !isLandscape) {
+      return screenWidth;
+    }
+
+    return screenWidth - sideBarWidth;
+  }, [isLandscape, leftSidebarCollapsed, md, screenWidth, sideBarWidth]);
   return {
     screenWidth,
-    pageWidth:
-      media.md || leftSidebarCollapsed
-        ? screenWidth
-        : screenWidth - sideBarWidth,
+    pageWidth,
   };
 }
