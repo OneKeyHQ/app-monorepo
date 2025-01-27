@@ -136,7 +136,7 @@ function MobileBrowser() {
   const { top, bottom } = useSafeAreaInsets();
 
   return (
-    <Page fullPage >
+    <Page fullPage>
       <Page.Header headerShown={false} />
       {/* custom header */}
       <XStack
@@ -144,7 +144,6 @@ function MobileBrowser() {
         px="$5"
         alignItems="center"
         my="$1"
-        bg="red"
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
       >
         {!displayHomePage ? (
@@ -155,8 +154,8 @@ function MobileBrowser() {
         <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
         <HeaderRightToolBar />
       </XStack>
-      <Page.Body bg="red">
-        {/* <Stack flex={1} zIndex={3} pb={gtMd ? bottom : 0}>
+      <Page.Body>
+        <Stack flex={1} zIndex={3} pb={gtMd ? bottom : 0}>
           <HandleRebuildBrowserData />
           <Stack flex={1}>
             {gtMd ? null : (
@@ -183,7 +182,7 @@ function MobileBrowser() {
               </Animated.View>
             </Freeze>
           )}
-        </Stack> */}
+        </Stack>
       </Page.Body>
     </Page>
   );
