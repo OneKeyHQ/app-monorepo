@@ -160,13 +160,9 @@ export function DesktopLeftSideBar({
           }
         };
 
-        if (isShowWebTabBar && route.name === extraConfig?.name) {
+        if (isShowWebTabBar && gtMd && route.name === extraConfig?.name) {
           return (
-            <YStack
-              flex={1}
-              key={route.key}
-              display={gtMd ? undefined : 'none'}
-            >
+            <YStack flex={1} key={route.key}>
               <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
             </YStack>
           );
