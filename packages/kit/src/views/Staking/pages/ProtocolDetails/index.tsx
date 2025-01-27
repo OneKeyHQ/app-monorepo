@@ -34,6 +34,7 @@ import { PortfolioSection } from '../../components/ProtocolDetails/PortfolioSect
 import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
+import { renderStakeText } from '../../components/utils';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 import { useHandleStake, useHandleWithdraw } from './useHandleActions';
@@ -348,7 +349,7 @@ const ProtocolDetailsPage = () => {
           {!media.gtMd ? (
             <Page.Footer
               onConfirmText={intl.formatMessage({
-                id: ETranslations.earn_stake,
+                id: renderStakeText(provider),
               })}
               confirmButtonProps={stakeButtonProps}
               onCancelText={intl.formatMessage({

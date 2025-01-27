@@ -15,6 +15,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { renderStakeText } from '../utils';
+
 import { AlertSection } from './AlertSection';
 
 type IStakedValueInfoProps = {
@@ -67,10 +69,7 @@ function StakedValueInfo({
               </Button>
               <Button {...stakeButtonProps}>
                 {intl.formatMessage({
-                  id:
-                    provider === 'morpho'
-                      ? ETranslations.earn_supply
-                      : ETranslations.earn_stake,
+                  id: renderStakeText(provider),
                 })}
               </Button>
             </XStack>

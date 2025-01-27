@@ -38,6 +38,7 @@ import {
 } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
+import { renderStakeText } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
@@ -197,8 +198,8 @@ export function ApproveBaseStake({
         { amount: amountValue, symbol: token.symbol },
       );
     }
-    return intl.formatMessage({ id: ETranslations.earn_stake });
-  }, [isApprove, token, amountValue, intl]);
+    return intl.formatMessage({ id: renderStakeText(details.provider.name) });
+  }, [isApprove, intl, details.provider.name, amountValue, token.symbol]);
 
   const onApprove = useCallback(async () => {
     setApproving(true);
@@ -354,7 +355,9 @@ export function ApproveBaseStake({
             setLoading(false);
           }
         },
-        onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
+        onConfirmText: intl.formatMessage({
+          id: renderStakeText(details.provider.name),
+        }),
         showCancelButton: false,
       });
     };
