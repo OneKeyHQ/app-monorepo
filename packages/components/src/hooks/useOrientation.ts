@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { Dimensions } from 'react-native';
 
 export const useOrientation = () => {
@@ -8,17 +9,22 @@ export const useOrientation = () => {
   );
 
   useEffect(() => {
-    const handleOrientationChange = () => {
-      const { width, height } = Dimensions.get('window');
-      setIsLandscape(width > height);
+    const handleOrientationChange = (
+      event: ScreenOrientation.OrientationChangeEvent,
+    ) => {
+      setIsLandscape(
+        event.orientationInfo.orientation ===
+          ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
+          event.orientationInfo.orientation ===
+            ScreenOrientation.Orientation.LANDSCAPE_RIGHT,
+      );
     };
 
-    const subscription = Dimensions.addEventListener(
-      'change',
+    const subscription = ScreenOrientation.addOrientationChangeListener(
       handleOrientationChange,
     );
     return () => {
-      subscription.remove();
+      ScreenOrientation.removeOrientationChangeListener(subscription);
     };
   }, []);
 
