@@ -67,8 +67,6 @@ export function TabStackNavigator<RouteName extends string>({
   extraConfig,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
-  const media = useMedia();
-
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => (
       <NavigationBar {...props} extraConfig={extraConfig} />
