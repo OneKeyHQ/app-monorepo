@@ -20,7 +20,7 @@ export function formatStakingDistanceToNowStrict(
 }
 
 export const renderStakeText = (provider?: string): ETranslations => {
-  if (earnUtils.isMorphoProvider(provider)) {
+  if (provider && earnUtils.isMorphoProvider({ providerName: provider })) {
     return ETranslations.earn_supply;
   }
   return ETranslations.earn_stake;
