@@ -114,7 +114,7 @@ export function TabStackNavigator<RouteName extends string>({
         options={{
           freezeOnBlur: true,
           // @ts-expect-error BottomTabBar V7
-          tabBarPosition: 'left',
+          tabBarPosition,
         }}
       >
         {children}
