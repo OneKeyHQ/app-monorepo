@@ -7042,7 +7042,7 @@ __metadata:
     expo-localization: "npm:14.5.0"
     expo-notifications: "npm:0.27.6"
     expo-screen-capture: "npm:5.8.0"
-    expo-screen-orientation: "npm:^8.0.4"
+    expo-screen-orientation: "npm:~6.4.1"
     expo-secure-store: "npm:12.5.0"
     expo-sharing: "npm:11.10.0"
     expo-splash-screen: "npm:0.26.4"
@@ -23689,13 +23689,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"expo-screen-orientation@npm:^8.0.4":
-  version: 8.0.4
-  resolution: "expo-screen-orientation@npm:8.0.4"
+"expo-screen-orientation@npm:~6.4.1":
+  version: 6.4.1
+  resolution: "expo-screen-orientation@npm:6.4.1"
   peerDependencies:
     expo: "*"
-    react-native: "*"
-  checksum: 10/952a54b31ee1641e297ca7315b1dbe76e88019c109252213ca57f36b9910fc84cbe0e1c5d820b0ccdb6253008613a40a3d4c4f11edd8b7747a141b4c8a288446
+  checksum: 10/6818c50bfe3da747fe42b574e028b030d31232efd35d6c5c049f5c6272464188bea04191702e661c599dc59f7fe70252129964ae8d353385121c971b8c79343f
   languageName: node
   linkType: hard
 
