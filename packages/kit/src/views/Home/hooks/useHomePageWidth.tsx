@@ -8,27 +8,38 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function useHomePageWidth() {
   const { md } = useMedia();
-  const screenWidth = useWindowDimensions().width;
-  const sideBarWidth = useMemo(() => getTokens().size.sideBarWidth.val, []);
   const isLandscape = useOrientation();
+  const screenWidth = useWindowDimensions().width;
+  const screenHeight = useWindowDimensions().height;
+
+  const calScreenWidth = useMemo(() => {
+    if (platformEnv.isNativeIOSPad) {
+      return isLandscape
+        ? Math.max(screenWidth, screenHeight)
+        : Math.min(screenWidth, screenHeight);
+    }
+    return screenWidth;
+  }, [isLandscape, screenHeight, screenWidth]);
+  const sideBarWidth = useMemo(() => getTokens().size.sideBarWidth.val, []);
   const { leftSidebarCollapsed } = useProviderSideBarValue();
   const pageWidth = useMemo(() => {
     if (md) {
-      return screenWidth;
+      return calScreenWidth;
     }
 
     if (leftSidebarCollapsed) {
-      return screenWidth;
+      return calScreenWidth;
     }
 
     if (platformEnv.isNativeIOSPad && !isLandscape) {
-      return screenWidth;
+      return calScreenWidth;
     }
 
-    return screenWidth - sideBarWidth;
-  }, [isLandscape, leftSidebarCollapsed, md, screenWidth, sideBarWidth]);
+    return calScreenWidth - sideBarWidth;
+  }, [calScreenWidth, isLandscape, leftSidebarCollapsed, md, sideBarWidth]);
+
   return {
-    screenWidth,
+    screenWidth: calScreenWidth,
     pageWidth,
   };
 }
