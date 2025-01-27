@@ -1,8 +1,6 @@
 import { useCallback } from 'react';
 
-import { XStack } from 'tamagui';
-
-import { Page, useSafeAreaInsets } from '@onekeyhq/components';
+import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
