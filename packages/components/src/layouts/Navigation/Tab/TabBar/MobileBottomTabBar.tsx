@@ -83,7 +83,14 @@ export default function MobileBottomTabBar({
           </Stack>
         );
       }),
-    [descriptors, navigation, routes, state.index, state.key],
+    [
+      descriptors,
+      extraConfig?.name,
+      navigation,
+      routes,
+      state.index,
+      state.key,
+    ],
   );
   return (
     <Stack
