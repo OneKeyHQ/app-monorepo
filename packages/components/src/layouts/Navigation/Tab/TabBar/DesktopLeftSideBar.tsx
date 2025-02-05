@@ -136,8 +136,7 @@ export function DesktopLeftSideBar({
   const sidebarWidth = getSizeTokens.sideBarWidth.val;
 
   const { gtMd } = useMedia();
-  const isShowWebTabBar =
-    platformEnv.isDesktop || (platformEnv.isNative && gtMd);
+  const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
@@ -161,7 +160,7 @@ export function DesktopLeftSideBar({
           }
         };
 
-        if (isShowWebTabBar && route.name === extraConfig?.name) {
+        if (isShowWebTabBar && gtMd && route.name === extraConfig?.name) {
           return (
             <YStack flex={1} key={route.key}>
               <Portal.Container name={Portal.Constant.WEB_TAB_BAR} />
@@ -189,6 +188,7 @@ export function DesktopLeftSideBar({
       extraConfig?.name,
       isCollapse,
       navigation,
+      gtMd,
     ],
   );
 
