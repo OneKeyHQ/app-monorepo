@@ -1,7 +1,8 @@
 import { useCallback } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -24,10 +25,16 @@ function Dashboard() {
     () => <CustomHeaderSearch handleSearchBarPress={handleSearchBarPress} />,
     [handleSearchBarPress],
   );
+  const { top } = useSafeAreaInsets();
 
   return (
     <Page>
       <Page.Header headerRight={headerRight} />
+      {platformEnv.isNativeIOS ? (
+        <XStack px="$5" pt={top}>
+          {headerRight()}
+        </XStack>
+      ) : null}
       <Page.Body>
         <DashboardContent />
       </Page.Body>

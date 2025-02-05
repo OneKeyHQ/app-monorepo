@@ -9,6 +9,7 @@ import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 
 import { MobileTabItem } from './MobileTabItem';
 
+import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
 import type { Animated, StyleProp, ViewStyle } from 'react-native';
 
@@ -21,7 +22,10 @@ export default function MobileBottomTabBar({
   navigation,
   state,
   descriptors,
-}: IMobileBottomTabBarProps) {
+  extraConfig,
+}: IMobileBottomTabBarProps & {
+  extraConfig?: ITabNavigatorExtraConfig<string>;
+}) {
   // const isKeyboardShown = useIsKeyboardShown();
   const { routes } = state;
   const { bottom } = useSafeAreaInsets();
@@ -33,6 +37,10 @@ export default function MobileBottomTabBar({
       routes.map((route, index) => {
         const isActive = index === state.index;
         const { options } = descriptors[route.key];
+
+        if (route.name === extraConfig?.name) {
+          return null;
+        }
 
         const onPress = () => {
           const event = navigation.emit({
@@ -75,7 +83,14 @@ export default function MobileBottomTabBar({
           </Stack>
         );
       }),
-    [descriptors, navigation, routes, state.index, state.key],
+    [
+      descriptors,
+      extraConfig?.name,
+      navigation,
+      routes,
+      state.index,
+      state.key,
+    ],
   );
   return (
     <Stack
