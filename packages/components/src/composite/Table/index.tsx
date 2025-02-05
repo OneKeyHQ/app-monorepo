@@ -186,6 +186,9 @@ function TableRow<T>({
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
       bg={isDragging ? '$bgActive' : '$bgApp'}
+      scale={isDragging && platformEnv.isNative ? 0.9 : 1}
+      animation="fast"
+      animateOnly={['transform']}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
