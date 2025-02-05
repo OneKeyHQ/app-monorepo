@@ -16,7 +16,7 @@ export type ITextAreaInputProps = Omit<IInputProps, 'size'> &
 const defaultAlignVertical: TextAreaProps['verticalAlign'] =
   platformEnv.isNative ? 'top' : undefined;
 
-const useAutoScrollTop = platformEnv.isNativeAndroid
+const useAutoScrollToTop = platformEnv.isNativeAndroid
   ? (ref: RefObject<TextInput>) => {
       useEffect(() => {
         if (platformEnv.isNativeAndroid) {
@@ -34,7 +34,7 @@ function BaseTextArea(
 ) {
   const ref = useRef<TextInput>(null);
   useImperativeHandle(forwardedRef, () => ref.current as TextInput);
-  useAutoScrollTop(ref);
+  useAutoScrollToTop(ref);
   return (
     <Input
       containerProps={{
