@@ -122,6 +122,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         </YStack>
       </Stack>
       <Dialog.Footer
+        confirmButtonProps={{
+          disabled: verificationCode.length !== 6,
+        }}
         showCancelButton={false}
         onConfirmText="Next"
         onConfirm={async ({ preventClose }) => {
