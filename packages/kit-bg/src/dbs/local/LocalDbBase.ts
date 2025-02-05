@@ -2735,9 +2735,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async getAllDevices(): Promise<{ devices: IDBDevice[] }> {
     const cacheKey = 'allDbDevices';
-    const allDevicesInCache = this.dbAllRecordsCache.get(
-      cacheKey,
-    ) as IDBDevice[];
+    const allDevicesInCache = this.getAllRecordsByCache<IDBDevice>(cacheKey);
     if (allDevicesInCache && allDevicesInCache.length) {
       return { devices: allDevicesInCache };
     }
@@ -2753,9 +2751,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     wallets: IDBWallet[];
   }> {
     const cacheKey = 'allDbWallets';
-    const allWalletsInCache = this.dbAllRecordsCache.get(
-      cacheKey,
-    ) as IDBWallet[];
+    const allWalletsInCache = this.getAllRecordsByCache<IDBWallet>(cacheKey);
     if (allWalletsInCache && allWalletsInCache.length) {
       return { wallets: allWalletsInCache };
     }
@@ -2796,9 +2792,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexedAccounts: IDBIndexedAccount[];
   }> {
     const cacheKey = 'allDbIndexedAccounts';
-    const allIndexedAccountsInCache = this.dbAllRecordsCache.get(
-      cacheKey,
-    ) as IDBIndexedAccount[];
+    const allIndexedAccountsInCache =
+      this.getAllRecordsByCache<IDBIndexedAccount>(cacheKey);
     if (allIndexedAccountsInCache && allIndexedAccountsInCache.length) {
       return { indexedAccounts: allIndexedAccountsInCache };
     }
@@ -2814,9 +2809,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }> {
     const cacheKey = 'allDbAccounts';
     if (!ids) {
-      const allDbAccountsInCache = this.dbAllRecordsCache.get(
-        cacheKey,
-      ) as IDBAccount[];
+      const allDbAccountsInCache =
+        this.getAllRecordsByCache<IDBAccount>(cacheKey);
       if (allDbAccountsInCache && allDbAccountsInCache?.length) {
         return { accounts: allDbAccountsInCache };
       }

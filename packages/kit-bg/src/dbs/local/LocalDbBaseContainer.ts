@@ -1,3 +1,5 @@
+import { cloneDeep } from 'lodash';
+
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import cacheUtils, { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -73,7 +75,8 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
       // shouldUseCache = false;
     }
     if (shouldUseCache) {
-      return this.getRecordByIdWithCache(params);
+      const cache = await this.getRecordByIdWithCache(params);
+      return cloneDeep(cache);
     }
 
     const db = await this.readyDb;
@@ -109,6 +112,20 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     max: 10,
     ttl: timerUtils.getTimeDurationMs({ seconds: 5 }),
   });
+
+  getAllRecordsByCache<T>(
+    cacheKey:
+      | 'allDbAccounts'
+      | 'allDbIndexedAccounts'
+      | 'allDbWallets'
+      | 'allDbDevices',
+  ) {
+    const allItemsInCache = this.dbAllRecordsCache.get(cacheKey) as T[];
+    if (allItemsInCache && allItemsInCache.length) {
+      return cloneDeep(allItemsInCache);
+    }
+    return undefined;
+  }
 
   clearStoreCachedDataIfMatch(storeName: ELocalDBStoreNames) {
     if (this.isCachedStoreName(storeName)) {
