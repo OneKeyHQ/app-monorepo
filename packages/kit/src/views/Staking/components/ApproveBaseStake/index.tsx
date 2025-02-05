@@ -11,6 +11,7 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -37,6 +38,7 @@ import {
 } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
+import { renderStakeText } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
@@ -196,8 +198,8 @@ export function ApproveBaseStake({
         { amount: amountValue, symbol: token.symbol },
       );
     }
-    return intl.formatMessage({ id: ETranslations.earn_stake });
-  }, [isApprove, token, amountValue, intl]);
+    return intl.formatMessage({ id: renderStakeText(details.provider.name) });
+  }, [isApprove, intl, details.provider.name, amountValue, token.symbol]);
 
   const onApprove = useCallback(async () => {
     setApproving(true);
@@ -353,7 +355,9 @@ export function ApproveBaseStake({
             setLoading(false);
           }
         },
-        onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
+        onConfirmText: intl.formatMessage({
+          id: renderStakeText(details.provider.name),
+        }),
         showCancelButton: false,
       });
     };
@@ -432,12 +436,14 @@ export function ApproveBaseStake({
               estimatedAnnualRewards.length > 1 ? 'flex-start' : 'center'
             }
           >
-            <CalculationListItem.Label>
-              {intl.formatMessage({
-                id: ETranslations.earn_est_annual_rewards,
-              })}
-            </CalculationListItem.Label>
-            <YStack>
+            <Stack flex={1}>
+              <CalculationListItem.Label whiteSpace="nowrap">
+                {intl.formatMessage({
+                  id: ETranslations.earn_est_annual_rewards,
+                })}
+              </CalculationListItem.Label>
+            </Stack>
+            <YStack gap="$2" ai="flex-end" flex={1} $gtMd={{ flex: 4 }}>
               {estimatedAnnualRewards.map((reward) => (
                 <ValuePriceListItem
                   key={reward.token.address}
