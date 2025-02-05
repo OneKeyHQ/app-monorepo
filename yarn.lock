@@ -7042,6 +7042,7 @@ __metadata:
     expo-localization: "npm:14.5.0"
     expo-notifications: "npm:0.27.6"
     expo-screen-capture: "npm:5.8.0"
+    expo-screen-orientation: "npm:~6.4.1"
     expo-secure-store: "npm:12.5.0"
     expo-sharing: "npm:11.10.0"
     expo-splash-screen: "npm:0.26.4"
@@ -23685,6 +23686,15 @@ __metadata:
   peerDependencies:
     expo: "*"
   checksum: 10/68bc77b29881f93588ba6fda062fa719c709ea779f76dd5aa19ef61c82bb7ae4f5e1d7af61a868c4808964a129e2c8b1344ced56dc38fdc8217d1b6efdc97d4b
+  languageName: node
+  linkType: hard
+
+"expo-screen-orientation@npm:~6.4.1":
+  version: 6.4.1
+  resolution: "expo-screen-orientation@npm:6.4.1"
+  peerDependencies:
+    expo: "*"
+  checksum: 10/6818c50bfe3da747fe42b574e028b030d31232efd35d6c5c049f5c6272464188bea04191702e661c599dc59f7fe70252129964ae8d353385121c971b8c79343f
   languageName: node
   linkType: hard
 

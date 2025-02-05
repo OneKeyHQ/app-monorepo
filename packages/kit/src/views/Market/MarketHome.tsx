@@ -175,7 +175,11 @@ function MarketHome() {
   }, [handleSelectedPageIndex, headerProps, tabConfig, screenWidth]);
   return (
     <Page>
-      {gtMd ? <MarketHomeHeader /> : <MDMarketHomeHeader />}
+      {gtMd && !platformEnv.isNativeIOSPad ? (
+        <MarketHomeHeader />
+      ) : (
+        <MDMarketHomeHeader />
+      )}
       <Page.Body>{renderTabContainer()}</Page.Body>
     </Page>
   );
