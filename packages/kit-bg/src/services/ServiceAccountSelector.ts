@@ -709,7 +709,7 @@ class ServiceAccountSelector extends ServiceBase {
             });
             indexedAccount.associateAccount = realAccount;
           } catch (e) {
-            //
+            indexedAccount.associateAccount = undefined;
           }
         }),
       );
