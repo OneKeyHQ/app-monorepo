@@ -1,4 +1,4 @@
-import type { Ref } from 'react';
+import type { Ref, RefObject } from 'react';
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
@@ -15,19 +15,26 @@ export type ITextAreaInputProps = Omit<IInputProps, 'size'> &
 
 const defaultAlignVertical: TextAreaProps['verticalAlign'] =
   platformEnv.isNative ? 'top' : undefined;
+
+const useAutoScrollTop = platformEnv.isNativeAndroid
+  ? (ref: RefObject<TextInput>) => {
+      useEffect(() => {
+        if (platformEnv.isNativeAndroid) {
+          setTimeout(() => {
+            ref.current?.setSelection(0, 0);
+          }, 250);
+        }
+      }, [ref]);
+    }
+  : () => {};
+
 function BaseTextArea(
   { size, verticalAlign, ...props }: ITextAreaInputProps,
   forwardedRef: Ref<TextInput>,
 ) {
   const ref = useRef<TextInput>(null);
   useImperativeHandle(forwardedRef, () => ref.current as TextInput);
-  useEffect(() => {
-    if (platformEnv.isNativeAndroid) {
-      setTimeout(() => {
-        ref.current?.setSelection(0, 0);
-      }, 250);
-    }
-  }, []);
+  useAutoScrollTop();
   return (
     <Input
       containerProps={{
