@@ -1,5 +1,4 @@
 import { createRef, useCallback, useEffect, useMemo, useRef } from 'react';
-import type { Component } from 'react';
 
 import {
   useAnimatedStyle,
