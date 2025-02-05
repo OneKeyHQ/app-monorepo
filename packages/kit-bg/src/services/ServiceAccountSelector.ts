@@ -462,6 +462,13 @@ class ServiceAccountSelector extends ServiceBase {
     if (!(await this.shouldUseGlobalDeriveType({ sceneName }))) {
       return;
     }
+    if (
+      !accountSelectorUtils.isSceneAutoSaveToGlobalDeriveType({
+        sceneName,
+      })
+    ) {
+      return;
+    }
     const { serviceNetwork } = this.backgroundApi;
     // TODO add whitelist
     const { networkId, deriveType, walletId } = selectedAccount;
