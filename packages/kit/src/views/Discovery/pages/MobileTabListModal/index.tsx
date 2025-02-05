@@ -23,10 +23,12 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
 import MobileTabListItem from '../../components/MobileTabListItem';
@@ -338,8 +340,11 @@ function MobileTabListModal() {
         {...tab}
         activeTabId={activeTabId}
         onSelectedItem={(id) => {
-          setCurrentWebTab(id);
+          void setCurrentWebTab(id);
           navigation.pop();
+          if (platformEnv.isNativeIOSPad) {
+            navigation.switchTab(ETabRoutes.MultiTabBrowser);
+          }
         }}
         onCloseItem={handleCloseTab}
         onLongPress={(id) => {
@@ -347,7 +352,7 @@ function MobileTabListModal() {
         }}
       />
     ),
-    [activeTabId, handleCloseTab, setCurrentWebTab, navigation, showTabOptions],
+    [activeTabId, handleCloseTab, navigation, setCurrentWebTab, showTabOptions],
   );
 
   const renderPinnedItem = useCallback(

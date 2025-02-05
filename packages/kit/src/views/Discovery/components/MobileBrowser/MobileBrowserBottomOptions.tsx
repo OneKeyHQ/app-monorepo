@@ -91,7 +91,7 @@ function MobileBrowserBottomOptions({
           displayDisconnectOption && {
             label: intl.formatMessage({ id: ETranslations.explore_disconnect }),
             icon: 'BrokenLinkOutline',
-            onPress: () => onDisconnect(),
+            onPress: onDisconnect,
             testID: 'action-list-item-disconnect-in-browser',
           },
           {
@@ -101,7 +101,7 @@ function MobileBrowserBottomOptions({
                 : ETranslations.explore_close_tab,
             }),
             icon: 'CrossedLargeOutline',
-            onPress: () => onCloseTab(),
+            onPress: onCloseTab,
             testID: 'action-list-item-close-tab-in-browser',
           },
           {
@@ -109,7 +109,7 @@ function MobileBrowserBottomOptions({
               id: ETranslations.explore_back_to_home,
             }),
             icon: 'HomeOpenOutline',
-            onPress: () => onGoBackHomePage(),
+            onPress: onGoBackHomePage,
             testID: 'action-list-item-back-to-home',
           },
         ].filter(Boolean) as IActionListItemProps[],
