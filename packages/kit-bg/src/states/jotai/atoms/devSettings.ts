@@ -22,6 +22,10 @@ export interface IDevSettings {
   disableNumberShortcuts?: boolean;
   disableSearchAndAccountSelectorShortcuts?: boolean;
   webviewDebuggingEnabled?: boolean;
+  // show trading view
+  showTradingView?: boolean;
+  showPrimeTest?: boolean;
+  usePrimeSandboxPayment?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -45,6 +49,7 @@ export const {
       disableNumberShortcuts: false,
       disableSearchAndAccountSelectorShortcuts: false,
       webviewDebuggingEnabled: false,
+      showPrimeTest: true,
     },
   },
 });

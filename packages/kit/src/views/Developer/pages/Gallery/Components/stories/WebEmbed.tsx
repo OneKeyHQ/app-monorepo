@@ -16,7 +16,7 @@ import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
 
 import { Layout } from './utils/Layout';
 
-function WebEmbedGallery() {
+export function WebEmbedDevConfig() {
   const [url0, setUrl] = useState('');
   const [debug0, setDebug] = useState(false);
 
@@ -45,50 +45,47 @@ function WebEmbedGallery() {
   }, []);
 
   return (
+    <YStack gap="$4">
+      <Stack flexDirection="row" alignItems="center" gap="$2">
+        <Switch value={debug0} onChange={setDebug} />
+        <SizableText>Debug mode (show webview floating panel)</SizableText>
+      </Stack>
+      <YStack>
+        <SizableText
+          onPress={() => {
+            // check WEB_EMBED_API_WHITE_LIST_ORIGIN for $private white list origin
+            setUrl('http://localhost:3008');
+          }}
+        >
+          Webview Url ( Real device, please use local LAN network ip address,
+          and update WEB_EMBED_API_WHITE_LIST_ORIGIN )
+        </SizableText>
+        <Input value={url0} onChangeText={setUrl} />
+      </YStack>
+
+      {/* <WebViewWebEmbed src="http://localhost:3008/" /> */}
+      <Button
+        onPress={async () => {
+          const result = await webembedApiProxy.test.test1('a', 'b', 'c', 'd');
+          alert(JSON.stringify(result));
+        }}
+      >
+        Test RPC
+      </Button>
+    </YStack>
+  );
+}
+
+function WebEmbedGallery() {
+  return (
     <Layout
       description="..."
       suggestions={[]}
       boundaryConditions={[]}
       elements={[
         {
-          title: 'WebEmbedConfig',
-          element: (
-            <YStack gap="$4">
-              <Stack flexDirection="row" alignItems="center" gap="$2">
-                <Switch value={debug0} onChange={setDebug} />
-                <SizableText>
-                  Debug mode (show webview floating panel)
-                </SizableText>
-              </Stack>
-              <YStack>
-                <SizableText
-                  onPress={() => {
-                    // check WEB_EMBED_API_WHITE_LIST_ORIGIN for $private white list origin
-                    setUrl('http://localhost:3008');
-                  }}
-                >
-                  Webview Url ( Real device, please use local LAN network ip
-                  address, and update WEB_EMBED_API_WHITE_LIST_ORIGIN )
-                </SizableText>
-                <Input value={url0} onChangeText={setUrl} />
-              </YStack>
-
-              {/* <WebViewWebEmbed src="http://localhost:3008/" /> */}
-              <Button
-                onPress={async () => {
-                  const result = await webembedApiProxy.test.test1(
-                    'a',
-                    'b',
-                    'c',
-                    'd',
-                  );
-                  alert(JSON.stringify(result));
-                }}
-              >
-                Test RPC
-              </Button>
-            </YStack>
-          ),
+          title: 'WebEmbedDevConfig',
+          element: <WebEmbedDevConfig />,
         },
       ]}
     />

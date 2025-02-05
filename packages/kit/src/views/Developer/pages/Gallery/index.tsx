@@ -500,6 +500,13 @@ const AccordionGallery = LazyLoadPage(
     ),
 );
 
+const OTPInputGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/OTPInputGallery'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -727,5 +734,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentAccordion,
     component: AccordionGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentOTPInput,
+    component: OTPInputGallery,
   },
 ];

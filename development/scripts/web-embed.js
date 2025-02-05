@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const { exit } = require('process');
 
+require('../env');
+
 const BASEDIR = path.dirname(__filename);
 const webBuildPath = path.resolve(BASEDIR, '../../apps/web-embed/web-build');
 
@@ -25,6 +27,10 @@ if (process.env.GITHUB_SHA) {
 // Local development
 if (!fs.existsSync(webBuildPath)) {
   console.log('build web-embed on local development');
+  console.log(
+    'process.env.REVENUECAT_API_KEY_WEB_SANDBOX',
+    process.env.REVENUECAT_API_KEY_WEB_SANDBOX,
+  );
   require('child_process').execSync('yarn app:web-embed:build', {
     stdio: 'inherit',
   });

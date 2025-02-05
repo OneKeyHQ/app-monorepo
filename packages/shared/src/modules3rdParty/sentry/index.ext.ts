@@ -4,6 +4,8 @@ import * as Sentry from '@sentry/react';
 
 import { basicOptions, buildIntegrations, buildOptions } from './basicOptions';
 
+import type { FallbackRender } from '@sentry/react';
+
 export const initSentry = () => {
   if (process.env.NODE_ENV !== 'production') {
     return;
@@ -24,9 +26,11 @@ export const nativeCrash = () => {};
 
 export const withSentryHOC = (
   Component: ComponentType<any>,
+  errorBoundaryFallback?: FallbackRender,
 ): ComponentType<any> =>
   Sentry.withErrorBoundary(Sentry.withProfiler(Component), {
     onError: (error, info) => {
       console.error('error', error, info);
     },
+    fallback: errorBoundaryFallback,
   });

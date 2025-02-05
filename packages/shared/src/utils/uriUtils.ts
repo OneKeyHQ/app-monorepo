@@ -8,11 +8,11 @@ import {
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
 
+import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;
@@ -63,6 +63,14 @@ function parseDappRedirect(
   allowedUrls: string[],
 ): { action: EDAppOpenActionEnum } {
   const parsedUrl = safeParseURL(url);
+  if (process.env.NODE_ENV !== 'production') {
+    if (
+      parsedUrl?.hostname &&
+      ['localhost', '127.0.0.1'].includes(parsedUrl?.hostname)
+    ) {
+      return { action: EDAppOpenActionEnum.ALLOW };
+    }
+  }
   if (
     !parsedUrl ||
     (!isProtocolSupportedOpenInApp(parsedUrl.toString()) &&
@@ -200,11 +208,19 @@ function buildUrl({
   // eslint-disable-next-line no-param-reassign
   path = path.replace(/\/+$/, '');
 
+  let search = '';
+  if (query) {
+    search = new URLSearchParams(query).toString();
+  }
+
+  if (path && !protocol && !hostname) {
+    return `/${path}${search ? `?${search}` : ''}`;
+  }
   const url = new URL(
     `${protocol}://${[hostname, path].filter(Boolean).join('/')}`,
   );
-  if (query) {
-    url.search = new URLSearchParams(query).toString();
+  if (search) {
+    url.search = search;
   }
   return url.toString();
 }

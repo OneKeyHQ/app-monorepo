@@ -54,7 +54,7 @@ class ServicePromise extends ServiceBase {
     resolve,
     reject,
     data,
-  }: IPromiseContainerCallbackCreate) {
+  }: IPromiseContainerCallbackCreate): number {
     latestId += 1;
     if (latestId <= 0) {
       throw new Error(

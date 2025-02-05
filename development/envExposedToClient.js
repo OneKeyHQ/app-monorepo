@@ -21,7 +21,14 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'GITHUB_SHA',
     'STORYBOOK_ENABLED',
     'WALLETCONNECT_PROJECT_ID',
+    'PRIVY_APP_ID',
+    'PRIVY_MOBILE_CLIENT_ID',
+    'REVENUECAT_API_KEY_WEB',
+    'REVENUECAT_API_KEY_WEB_SANDBOX',
+    'REVENUECAT_API_KEY_APPLE',
+    'REVENUECAT_API_KEY_GOOGLE',
   ];
+  // ***        also update Inject Environment Variables at release-ios.yml, release-android      ***
 
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnvironmentVariables.push('JPUSH_KEY');
