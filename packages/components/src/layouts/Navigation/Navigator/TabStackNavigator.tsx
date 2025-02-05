@@ -6,7 +6,7 @@ import { useMedia } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useThemeValue } from '../../../hooks';
+import { useOrientation, useThemeValue } from '../../../hooks';
 import { makeTabScreenOptions } from '../GlobalScreenOptions';
 import { createStackNavigator } from '../StackNavigator';
 import NavigationBar from '../Tab/TabBar';
@@ -52,13 +52,21 @@ const TabSubStackNavigatorMemo = memo(TabSubStackNavigator);
 
 const Tab = createBottomTabNavigator();
 
+const useTabBarPosition = platformEnv.isNativeIOSPad
+  ? () => {
+      const isLandscape = useOrientation();
+      return isLandscape ? 'left' : 'bottom';
+    }
+  : () => {
+      const media = useMedia();
+      return media.md ? 'bottom' : 'left';
+    };
+
 export function TabStackNavigator<RouteName extends string>({
   config,
   extraConfig,
 }: ITabNavigatorProps<RouteName>) {
   const intl = useIntl();
-  const media = useMedia();
-
   const tabBarCallback = useCallback(
     (props: BottomTabBarProps) => (
       <NavigationBar {...props} extraConfig={extraConfig} />
@@ -78,6 +86,8 @@ export function TabStackNavigator<RouteName extends string>({
     [config],
   );
 
+  const tabBarPosition = useTabBarPosition();
+
   const tabScreens = tabComponents.map(({ name, children, ...options }) => (
     <Tab.Screen
       key={name}
@@ -86,7 +96,7 @@ export function TabStackNavigator<RouteName extends string>({
         ...options,
         tabBarLabel: intl.formatMessage({ id: options.translationId }),
         // @ts-expect-error BottomTabBar V7
-        tabBarPosition: media.md ? 'bottom' : 'left',
+        tabBarPosition,
       }}
     >
       {children}
@@ -104,7 +114,7 @@ export function TabStackNavigator<RouteName extends string>({
         options={{
           freezeOnBlur: true,
           // @ts-expect-error BottomTabBar V7
-          tabBarPosition: 'left',
+          tabBarPosition,
         }}
       >
         {children}
