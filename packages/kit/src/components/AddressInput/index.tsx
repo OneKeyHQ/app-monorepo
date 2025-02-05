@@ -153,6 +153,8 @@ export type IAddressQueryResult = {
   addressLabel?: string;
   isAllowListed?: boolean;
   isEnableTransferAllowList?: boolean;
+  isScam?: boolean;
+  isCex?: boolean;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -182,17 +184,17 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
     return (
       <XStack gap="$2" my="$-1" flex={1} flexWrap="wrap">
         {result.walletAccountName ? (
-          <Badge badgeType="success" badgeSize="sm" my="$0.5">
+          <Badge badgeType="success" badgeSize="sm" mx="$0.5">
             {result.walletAccountName}
           </Badge>
         ) : null}
         {result.addressBookName ? (
-          <Badge badgeType="success" badgeSize="sm" my="$0.5">
+          <Badge badgeType="success" badgeSize="sm" mx="$0.5">
             {result.addressBookName}
           </Badge>
         ) : null}
         {result.resolveAddress ? (
-          <Stack my="$0.5">
+          <Stack mx="$0.5">
             <ResolvedAddress
               value={result.resolveAddress}
               options={result.resolveOptions ?? []}
@@ -200,13 +202,17 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <XStack my="$0.5" gap="$1">
+        <AddressBadge isScam={result.isScam} />
+        <XStack mx="$0.5" gap="$1">
           <AddressBadge
             status={result.addressInteractionStatus}
             networkId={networkId}
           />
-          <AddressBadge title={result.addressLabel} />
-          <AddressBadge isContract={result.isContract} />
+          <AddressBadge isCex={result.isCex} title={result.addressLabel} />
+          <AddressBadge
+            isContract={result.isContract}
+            title={result.addressLabel}
+          />
         </XStack>
       </XStack>
     );

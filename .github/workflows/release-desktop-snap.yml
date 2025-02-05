@@ -113,7 +113,7 @@ jobs:
         run: 'cd apps/desktop && yarn build:snap'
 
       - name: Upload Artifacts Release
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: release
           path: |

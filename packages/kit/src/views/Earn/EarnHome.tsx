@@ -311,7 +311,7 @@ function Recommended({
       });
     });
     return {
-      tokens: accountTokens,
+      tokens: accountTokens.sort((a, b) => a.orderIndex - b.orderIndex),
       profit: totalProfit,
     };
   }, [earnAccount, totalFiatMapKey]);
@@ -491,12 +491,14 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
       {/* details button */}
       {isFetchingAccounts || !isOverviewLoaded ? null : (
         <Button
+          childrenAsText={!hasClaimableAssets}
           onPress={onPress}
           variant="tertiary"
           iconAfter="ChevronRightOutline"
           position="absolute"
+          jc="center"
           top={0}
-          right={0}
+          right="$4"
           $gtLg={{
             right: '$8',
             top: '$8',
@@ -829,7 +831,7 @@ function BasicEarnHome() {
           isLoading={false}
           leftIconButtonStyle={{
             ...bannerIconStyle,
-            left: '$3.5',
+            left: media.md ? 34 : '$3.5',
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
@@ -846,7 +848,7 @@ function BasicEarnHome() {
             top: 0,
             bottom: 0,
             right: '$5',
-            left: '$5',
+            left: media.md ? '$10' : '$5',
             justifyContent: 'center',
           }}
         />
@@ -861,7 +863,7 @@ function BasicEarnHome() {
         width="100%"
       />
     );
-  }, [earnBanners, media.gtLg, onBannerPress]);
+  }, [earnBanners, media.gtLg, media.md, onBannerPress]);
 
   return (
     <Page fullPage>

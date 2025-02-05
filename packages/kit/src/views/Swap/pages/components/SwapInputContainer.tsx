@@ -142,17 +142,21 @@ const SwapInputContainer = ({
         color = '$textSuccess';
       }
       return (
-        <SizableText
-          size="$bodyMd"
-          color={color}
-          cursor="pointer"
-          onPress={onRateDifferencePress}
-          {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
-            textDecorationLine: 'underline',
-          })}
-        >
-          {rateDifference.value}
-        </SizableText>
+        <XStack alignItems="center">
+          <SizableText color={color}>(</SizableText>
+          <SizableText
+            size="$bodyMd"
+            color={color}
+            cursor="pointer"
+            onPress={onRateDifferencePress}
+            {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
+              textDecorationLine: 'underline',
+            })}
+          >
+            {rateDifference.value}
+          </SizableText>
+          <SizableText color={color}>)</SizableText>
+        </XStack>
       );
     }
     return null;
@@ -217,7 +221,7 @@ const SwapInputContainer = ({
         balanceProps={{
           value: balance,
           onPress:
-            direction === ESwapDirectionType.FROM && !token?.isNative
+            direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
               : undefined,
         }}
@@ -262,9 +266,7 @@ const SwapInputContainer = ({
             onSelectToken(direction);
           },
         }}
-        enableMaxAmount={
-          !!(direction === ESwapDirectionType.FROM && !token?.isNative)
-        }
+        enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
     </YStack>
   );

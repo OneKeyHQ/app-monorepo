@@ -92,6 +92,7 @@ export enum EAppEventBusNames {
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
   CreateAddressByDialog = 'CreateAddressByDialog',
+  CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -281,6 +282,10 @@ export interface IAppEventBusPayload {
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
   };
+  [EAppEventBusNames.CheckAddressBeforeSending]: {
+    promiseId: number;
+    type: 'scam' | 'contract';
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {
@@ -344,9 +349,9 @@ class AppEventBus extends CrossEventEmitter {
     type: T,
     payload: IAppEventBusPayload[T],
   ): boolean {
-    void this.emitToRemote(type, payload);
+    void this.emitToRemote({ type, payload });
     if (this.shouldEmitToSelf) {
-      this.emitToSelf(type, payload);
+      this.emitToSelf({ type, payload });
     }
     return true;
   }
@@ -386,7 +391,12 @@ class AppEventBus extends CrossEventEmitter {
     return super.removeListener(type, listener);
   }
 
-  emitToSelf(type: EAppEventBusNames, payload: any) {
+  emitToSelf(params: {
+    type: EAppEventBusNames;
+    payload: any;
+    isRemote?: boolean;
+  }) {
+    const { type, payload, isRemote } = params;
     defaultLogger.app.eventBus.emitToSelf({
       eventName: type,
     });
@@ -394,7 +404,7 @@ class AppEventBus extends CrossEventEmitter {
     try {
       // @ts-ignore
       // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-      if (payloadCloned?.$$isRemoteEvent) {
+      if (payloadCloned?.$$isRemoteEvent && !isRemote) {
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
         payloadCloned.$$isRemoteEvent = undefined;
@@ -408,7 +418,8 @@ class AppEventBus extends CrossEventEmitter {
 
   //
 
-  async emitToRemote(type: string, payload: any) {
+  async emitToRemote(params: { type: string; payload: any }) {
+    const { type, payload } = params;
     const convertToRemoteEventPayload = (p: any) => {
       const payloadCloned = cloneDeep(p);
       try {

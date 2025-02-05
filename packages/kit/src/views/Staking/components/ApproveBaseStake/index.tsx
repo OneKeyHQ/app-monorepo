@@ -76,7 +76,7 @@ type ITokenAnnualReward = {
   token: IToken;
 };
 
-export const ApproveBaseStake = ({
+export function ApproveBaseStake({
   details,
 
   price,
@@ -96,7 +96,7 @@ export const ApproveBaseStake = ({
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
-}: PropsWithChildren<IApproveBaseStakeProps>) => {
+}: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToSignatureConfirm } = useSignatureConfirm({
@@ -263,9 +263,12 @@ export const ApproveBaseStake = ({
         Object.entries(extraRewards).forEach(([tokenAddress, apy]) => {
           const rewardToken = details.rewardAssets?.[tokenAddress];
           const apyBN = new BigNumber(apy);
-
           if (rewardToken && apyBN.gt(0)) {
-            const rewardAmount = amountBN.multipliedBy(apyBN).dividedBy(100);
+            const rewardAmount = amountBN
+              .multipliedBy(price)
+              .multipliedBy(apyBN)
+              .dividedBy(100)
+              .dividedBy(rewardToken.price);
 
             rewards.push({
               amount: rewardAmount.toFixed(),
@@ -524,4 +527,4 @@ export const ApproveBaseStake = ({
       />
     </StakingFormWrapper>
   );
-};
+}

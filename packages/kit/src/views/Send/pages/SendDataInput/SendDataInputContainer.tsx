@@ -45,6 +45,7 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -60,6 +61,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -549,6 +551,7 @@ function SendDataInputContainer() {
               paymentId: paymentIdValue,
               note: noteValue,
             },
+            isInternalTransfer: true,
           });
           setIsSubmitting(false);
         } catch (e: any) {
@@ -1200,58 +1203,9 @@ function SendDataInputContainer() {
     [],
   );
 
-  const { gtMd } = useMedia();
-  // TODO: Add title for large screen popover
-  const PopoverTitle = useMemo(
-    () => (
-      <XStack gap="$2">
-        <HeaderIconButton
-          key="allowList"
-          titlePlacement="bottom"
-          iconProps={{
-            color: '$iconSuccess',
-          }}
-          icon="ShieldCheckDoneSolid"
-          testID="setting"
-        />
-        <SizableText size="$headingLg">
-          {intl.formatMessage({
-            id: ETranslations.allowlist_enabled_popover_title,
-          })}
-        </SizableText>
-      </XStack>
-    ),
-    [intl],
-  );
-  const renderHeaderRight = useCallback(
-    () => (
-      <Popover
-        title={PopoverTitle}
-        renderTrigger={
-          <HeaderIconButton
-            key="allowList"
-            titlePlacement="bottom"
-            iconProps={{
-              color: '$iconSuccess',
-            }}
-            icon="ShieldCheckDoneOutline"
-            testID="setting"
-          />
-        }
-        renderContent={({ closePopover }) => (
-          <YStack p="$5" $md={{ pt: 0 }} gap="$2.5">
-            {gtMd ? PopoverTitle : null}
-            <HyperlinkText
-              color="$textSubdued"
-              size="$bodyLg"
-              translationId={ETranslations.allowlist_enabled_popover_content}
-              onAction={closePopover}
-            />
-          </YStack>
-        )}
-      />
-    ),
-    [PopoverTitle, gtMd],
+  const enableAllowListValidation = useMemo(
+    () => !networkUtils.isLightningNetworkByNetworkId(networkId),
+    [networkId],
   );
 
   return (
@@ -1328,7 +1282,7 @@ function SendDataInputContainer() {
               enableVerifySendFundToSelf
               enableAddressInteractionStatus
               enableAddressContract
-              enableAllowListValidation
+              enableAllowListValidation={enableAllowListValidation}
               contacts={addressBookEnabledNetworkIds.includes(
                 currentAccount.networkId,
               )}

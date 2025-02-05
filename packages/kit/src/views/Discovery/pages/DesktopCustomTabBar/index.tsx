@@ -72,27 +72,9 @@ function DesktopCustomTabBar() {
     useBrowserBookmarkAction().current;
 
   const { result, setResult, run } = usePromiseResult(async () => {
-    const tabsWithConnectedAccount = await Promise.all(
-      (tabs ?? []).map(async (tab) => {
-        const origin = tab?.url ? new URL(tab.url).origin : null;
-        let hasConnectedAccount = false;
-        if (origin) {
-          const connectedAccounts =
-            await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
-              origin,
-            );
-          hasConnectedAccount = (connectedAccounts ?? []).length > 0;
-        }
-        return { ...tab, hasConnectedAccount };
-      }),
-    );
-    const unpinnedTabs = (tabsWithConnectedAccount ?? []).filter(
-      (t) => !t.isPinned,
-    );
+    const unpinnedTabs = (tabs ?? []).filter((t) => !t.isPinned);
     unpinnedTabs.reverse();
-    const pinnedTabs = (tabsWithConnectedAccount ?? []).filter(
-      (t) => t.isPinned,
-    );
+    const pinnedTabs = (tabs ?? []).filter((t) => t.isPinned);
     return {
       unpinnedTabs,
       pinnedTabs,
@@ -250,13 +232,8 @@ function DesktopCustomTabBar() {
         itemIndex: number;
       };
     }) => {
-      const pinnedTabs = (dragResult?.sections?.[0]?.data ?? []) as (IWebTab & {
-        hasConnectedAccount: boolean;
-      })[];
-      const unpinnedTabs = (dragResult?.sections?.[1]?.data ??
-        []) as (IWebTab & {
-        hasConnectedAccount: boolean;
-      })[];
+      const pinnedTabs = (dragResult?.sections?.[0]?.data ?? []) as IWebTab[];
+      const unpinnedTabs = (dragResult?.sections?.[1]?.data ?? []) as IWebTab[];
       pinnedTabs?.forEach?.((item) => (item.isPinned = true));
       unpinnedTabs?.forEach?.((item) => (item.isPinned = false));
       const reloadTimeStamp = () => {
@@ -331,7 +308,7 @@ function DesktopCustomTabBar() {
           dragProps,
           index,
         }: {
-          item: IWebTab & { hasConnectedAccount: boolean };
+          item: IWebTab;
           dragProps?: Record<string, any>;
           index: number;
         }) => (
@@ -339,12 +316,10 @@ function DesktopCustomTabBar() {
             <DesktopCustomTabBarItem
               id={t.id}
               key={t.id}
-              activeTabId={activeTabId}
               onPress={onTabPress}
               onBookmarkPress={handleBookmarkPress}
               onPinnedPress={handlePinnedPress}
               onClose={handleCloseTab}
-              displayDisconnectOption={t.hasConnectedAccount}
               onDisconnect={handleDisconnect}
               testID={`tab-list-stack-pinned-${t.id}`}
             />

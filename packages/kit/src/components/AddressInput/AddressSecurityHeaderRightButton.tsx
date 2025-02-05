@@ -45,7 +45,7 @@ export function TransferAllowListContent({
       <HyperlinkText
         flexShrink={1}
         color="$textSubdued"
-        size="$bodyLg"
+        size="$bodyMd"
         translationId={ETranslations.allowlist_enabled_popover_content}
         onAction={onAction}
       />
@@ -58,7 +58,7 @@ function AddressSecurityHeaderRightButton() {
   const { gtMd } = useMedia();
   const intl = useIntl();
   const iconColor = useMemo(
-    () => (isEnableTransferAllowList ? '$iconSuccess' : '$textSubdued'),
+    () => (isEnableTransferAllowList ? '$iconSuccess' : '$iconCaution'),
     [isEnableTransferAllowList],
   );
   const PopoverTitle = useMemo(
@@ -75,12 +75,14 @@ function AddressSecurityHeaderRightButton() {
         />
         <SizableText size="$headingLg">
           {intl.formatMessage({
-            id: ETranslations.allowlist_enabled_popover_title,
+            id: isEnableTransferAllowList
+              ? ETranslations.allowlist_enabled_popover_title
+              : ETranslations.settings_protection_allowlist_title,
           })}
         </SizableText>
       </XStack>
     ),
-    [iconColor, intl],
+    [iconColor, intl, isEnableTransferAllowList],
   );
   return (
     <Popover

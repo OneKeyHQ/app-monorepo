@@ -96,6 +96,9 @@ function TxConfirmActions(props: IProps) {
   const successfullySentTxs = useRef<string[]>([]);
   const { bottom } = useSafeAreaInsets();
 
+  const toAddress = transferPayload?.originalRecipient;
+  const unsignedTx = unsignedTxs[0];
+
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
@@ -120,9 +123,26 @@ function TxConfirmActions(props: IProps) {
 
     updateSendTxStatus({ isSubmitting: true });
     isSubmitted.current = true;
-
     // Pre-check before submit
+
+    const accountAddress =
+      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
     try {
+      if (
+        unsignedTx.isInternalTransfer &&
+        networkId &&
+        accountAddress &&
+        toAddress
+      ) {
+        await serviceSend.checkAddressBeforeSending({
+          networkId,
+          fromAddress: accountAddress,
+          toAddress,
+        });
+      }
       await serviceSend.precheckUnsignedTxs({
         networkId,
         accountId,
@@ -276,9 +296,11 @@ function TxConfirmActions(props: IProps) {
     }
   }, [
     updateSendTxStatus,
-    sendSelectedFeeInfo,
-    networkId,
     accountId,
+    networkId,
+    sendSelectedFeeInfo,
+    unsignedTx.isInternalTransfer,
+    toAddress,
     unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,

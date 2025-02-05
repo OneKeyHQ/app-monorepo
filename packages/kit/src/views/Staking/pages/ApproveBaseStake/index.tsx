@@ -101,6 +101,10 @@ const BasicApproveBaseStakePage = () => {
   const providerLabel = useProviderLabel(provider.name);
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
@@ -108,12 +112,13 @@ const BasicApproveBaseStakePage = () => {
       action: 'stake',
       amount: '1',
       morphoVault: provider.vault,
+      accountAddress: account.address,
     });
     return resp;
-  }, [networkId, provider.name, token.info.symbol, provider.vault]);
+  }, [accountId, networkId, provider.name, provider.vault, token.info.symbol]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_stake_token },

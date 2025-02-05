@@ -75,6 +75,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
+          networkId,
+          owner: r[0]?.owner,
         }),
       );
 
@@ -114,9 +116,38 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     let parsedTx: IParseTransactionResp | null = null;
 
+    let disableParseTxThroughApi = false;
+
+    const swapInfo = unsignedTx.swapInfo;
+
+    if (isMultiTxs) {
+      disableParseTxThroughApi = true;
+    }
+
+    if (swapInfo) {
+      const isBridge =
+        swapInfo.sender.accountInfo.networkId !==
+        swapInfo.receiver.accountInfo.networkId;
+
+      const isSwftOrder = swapInfo.swapBuildResData.swftOrder?.orderId;
+      const isChangellyOrder =
+        swapInfo.swapBuildResData.changellyOrder?.orderId;
+      const isOKXOrder = (
+        swapInfo.swapBuildResData.ctx as {
+          okxChainId: string;
+        }
+      )?.okxChainId;
+
+      if (isOKXOrder) {
+        disableParseTxThroughApi = true;
+      } else if (isBridge && (isSwftOrder || isChangellyOrder)) {
+        disableParseTxThroughApi = true;
+      }
+    }
+
     // try to parse tx through background api
     // multi txs not supported by api for now, will support in future versions
-    if (!isMultiTxs) {
+    if (!disableParseTxThroughApi) {
       try {
         parsedTx = await this.parseTransaction({
           networkId,
@@ -251,21 +282,28 @@ class ServiceSignatureConfirm extends ServiceBase {
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
-    const resp = await client.post<{ data: IParseMessageResp }>(
-      '/wallet/v1/account/parse-signature',
-      {
-        networkId,
-        accountAddress,
-        data: messageToParse,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
-    return resp.data.data;
+    try {
+      const resp = await client.post<{ data: IParseMessageResp }>(
+        '/wallet/v1/account/parse-signature',
+        {
+          networkId,
+          accountAddress,
+          data: messageToParse,
+        },
+        {
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+      return resp.data.data;
+    } catch (e) {
+      console.log('parse message failed', e);
+      return null;
+    }
   }
 }
 

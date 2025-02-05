@@ -27,7 +27,7 @@ function Content({ intl }: { intl: IntlShape }) {
             })}
           </SizableText>
           <YStack flexShrink={1}>
-            <SizableText size="$bodyMd" flexShrink={1}>
+            <SizableText color="$textSubdued" size="$bodyMd" flexShrink={1}>
               {intl.formatMessage({
                 id: ETranslations.address_book_encrypted_storage_description,
               })}

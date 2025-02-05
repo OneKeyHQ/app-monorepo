@@ -111,7 +111,7 @@ const PasswordItem = () => {
 
 const FaceIdItem = () => {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport, authType }] =
+  const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   const { title, icon } = useBiometricAuthInfo();
@@ -125,20 +125,19 @@ const FaceIdItem = () => {
 
 const ProtectionItem = () => {
   const intl = useIntl();
-  const [{ isPasswordSet }] = usePasswordPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
     navigation.push(EModalSettingRoutes.SettingProtectModal);
   }, [navigation]);
-  return isPasswordSet ? (
+  return (
     <ListItem
       onPress={onPress}
       icon="ShieldCheckDoneOutline"
       title={intl.formatMessage({ id: ETranslations.settings_protection })}
       drillIn
     />
-  ) : null;
+  );
 };
 
 const ConnectedSitesItem = () => {

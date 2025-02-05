@@ -31,6 +31,7 @@ export type IPromiseResultOptions<T> = {
   overrideIsFocused?: (isFocused: boolean) => boolean; // override the value of useIsFocused
   debounced?: number;
   undefinedResultIfError?: boolean;
+  undefinedResultIfReRun?: boolean;
   pollingInterval?: number;
   alwaysSetState?: boolean;
   onIsLoadingChange?: (isLoading: boolean) => void;
@@ -175,6 +176,12 @@ export function usePromiseResult<T>(
         }
         try {
           if (shouldSetState(config)) {
+            if (
+              shouldSetState(config) &&
+              optionsRef.current.undefinedResultIfReRun
+            ) {
+              setResult(undefined);
+            }
             setLoadingTrue();
             nonceRef.current += 1;
             const requestNonce = nonceRef.current;

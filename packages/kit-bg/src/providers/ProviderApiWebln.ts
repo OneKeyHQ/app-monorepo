@@ -12,6 +12,7 @@ import {
   EDAppConnectionModal,
   EModalRoutes,
   EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { ILNURLDetails } from '@onekeyhq/shared/types/lightning';
 import type {
@@ -151,7 +152,10 @@ class ProviderApiWebln extends ProviderApiBase {
         ?.params as string;
       const txid = (await this.backgroundApi.serviceDApp.openModal({
         request,
-        screens: [EModalRoutes.SendModal, EModalSendRoutes.WeblnSendPayment],
+        screens: [
+          EModalRoutes.SignatureConfirmModal,
+          EModalSignatureConfirmRoutes.WeblnSendPayment,
+        ],
         params: {
           paymentRequest,
           networkId,
@@ -267,7 +271,10 @@ class ProviderApiWebln extends ProviderApiBase {
       case 'login': {
         return this.backgroundApi.serviceDApp.openModal({
           request,
-          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlAuth],
+          screens: [
+            EModalRoutes.SignatureConfirmModal,
+            EModalSignatureConfirmRoutes.LnurlAuth,
+          ],
           params: {
             networkId,
             accountId,
@@ -278,7 +285,10 @@ class ProviderApiWebln extends ProviderApiBase {
       case 'payRequest': {
         return this.backgroundApi.serviceDApp.openModal({
           request,
-          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlPayRequest],
+          screens: [
+            EModalRoutes.SignatureConfirmModal,
+            EModalSignatureConfirmRoutes.LnurlPayRequest,
+          ],
           params: {
             networkId,
             accountId,
@@ -296,7 +306,10 @@ class ProviderApiWebln extends ProviderApiBase {
       case 'withdrawRequest': {
         return this.backgroundApi.serviceDApp.openModal({
           request,
-          screens: [EModalRoutes.SendModal, EModalSendRoutes.LnurlWithdraw],
+          screens: [
+            EModalRoutes.SignatureConfirmModal,
+            EModalSignatureConfirmRoutes.LnurlWithdraw,
+          ],
           params: {
             networkId,
             accountId,

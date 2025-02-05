@@ -135,7 +135,8 @@ class ServiceAccountProfile extends ServiceBase {
     return vault.fillAccountDetails({ accountDetails });
   }
 
-  private async getAddressAccountBadge({
+  @backgroundMethod()
+  async getAddressAccountBadge({
     networkId,
     fromAddress,
     toAddress,
@@ -144,7 +145,9 @@ class ServiceAccountProfile extends ServiceBase {
     networkId: string;
     toAddress: string;
   }): Promise<{
-    isContract?: boolean;
+    isScam: boolean;
+    isContract: boolean;
+    isCex: boolean;
     interacted: EAddressInteractionStatus;
     addressLabel?: string;
   }> {
@@ -154,7 +157,9 @@ class ServiceAccountProfile extends ServiceBase {
       });
     if (isCustomNetwork) {
       return {
+        isScam: false,
         isContract: false,
+        isCex: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
       };
     }
@@ -169,7 +174,13 @@ class ServiceAccountProfile extends ServiceBase {
           toAddress,
         },
       });
-      const { isContract, interacted, label: addressLabel } = resp.data.data;
+      const {
+        isContract,
+        interacted,
+        label: addressLabel,
+        isScam,
+        isCex,
+      } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
         EAddressInteractionStatus
@@ -180,13 +191,17 @@ class ServiceAccountProfile extends ServiceBase {
         [EServerInteractedStatus.UNKNOWN]: EAddressInteractionStatus.UNKNOWN,
       };
       return {
-        isContract,
+        isScam: isScam ?? false,
+        isContract: isContract ?? false,
+        isCex: isCex ?? false,
         interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
         addressLabel,
       };
     } catch {
       return {
+        isScam: false,
         isContract: false,
+        isCex: false,
         interacted: EAddressInteractionStatus.UNKNOWN,
       };
     }
@@ -215,7 +230,7 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted, addressLabel } =
+    const { isContract, interacted, addressLabel, isScam, isCex } =
       await this.getAddressAccountBadge({
         networkId,
         fromAddress,
@@ -232,6 +247,8 @@ class ServiceAccountProfile extends ServiceBase {
       result.isContract = isContract;
       result.addressLabel = addressLabel;
     }
+    result.isScam = isScam;
+    result.isCex = isCex;
   }
 
   private async verifyCannotSendToSelf({
@@ -277,12 +294,14 @@ class ServiceAccountProfile extends ServiceBase {
     let address = rawAddress.trim();
 
     try {
-      const { displayAddress } =
+      const { displayAddress, isValid } =
         await this.backgroundApi.serviceValidator.localValidateAddress({
           networkId,
           address,
         });
-      address = displayAddress;
+      if (isValid) {
+        address = displayAddress;
+      }
     } catch (e) {
       // noop
     }
@@ -377,16 +396,35 @@ class ServiceAccountProfile extends ServiceBase {
                 account.indexedAccountId === a.accountId ||
                 account.id === a.accountId,
             );
-
             if (accountItem) {
               item = accountItem;
+            }
+
+            // Fix the issue where an address can be both an HD/HW account and a watch-only account
+            // When an address exists in both HD/HW wallet and watch-only wallet,
+            // prioritize showing the HD/HW wallet name since it has higher security level.
+            if (
+              accountUtils.isWatchingAccount({ accountId: item.accountId }) ||
+              accountUtils.isOthersAccount({ accountId: item.accountId })
+            ) {
+              const ownAccountItem = walletAccountItems.find((a) => {
+                const accountParams = { accountId: a.accountId };
+                return (
+                  accountUtils.isHdAccount(accountParams) ||
+                  accountUtils.isHwAccount(accountParams) ||
+                  accountUtils.isQrAccount(accountParams) ||
+                  accountUtils.isImportedAccount(accountParams)
+                );
+              });
+              if (ownAccountItem) {
+                item = ownAccountItem;
+              }
             }
           }
         } catch (e) {
           console.error(e);
           // pass
         }
-
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
       }
