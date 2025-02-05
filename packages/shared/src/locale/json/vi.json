@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "Việc đặt cược mới cần phải chờ khoảng {number} trước khi trở nên hoạt động và bắt đầu kiếm được phần thưởng.",
   "earn.pending_activation_tooltip_eth": "ETH mà bạn stake sẽ hoạt động khi trình xác thực đạt yêu cầu 32 ETH.",
   "earn.pending_transactions_data_out_of_sync": "Dữ liệu có thể mất một thời gian để đồng bộ hóa sau khi giao dịch thành công.",
+  "earn.performance_fee": "Phí thực hiện",
+  "earn.performance_fee_desc": "Người quản lý kho tiền làm việc để tăng lợi nhuận và giảm rủi ro của bạn. Đổi lại, một tỷ lệ phần trăm nhất định trong thu nhập hoặc điểm của bạn sẽ được coi là phí hiệu suất.",
   "earn.portfolio": "Danh mục đầu tư",
   "earn.portfolio_details": "Chi tiết danh mục",
   "earn.protection": "Sự bảo vệ",

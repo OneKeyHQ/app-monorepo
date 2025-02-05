@@ -5,18 +5,20 @@ import {
   Dialog,
   Divider,
   Icon,
+  ScrollView,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 function AutoRiskControlContent() {
   const intl = useIntl();
-  return (
+  const Content = (
     <YStack gap="$4">
       <YStack gap="$3">
         <XStack alignItems="flex-start">
@@ -89,6 +91,11 @@ function AutoRiskControlContent() {
       </Accordion>
     </YStack>
   );
+  if (platformEnv.isExtensionUiPopup) {
+    return <ScrollView h={260}>{Content}</ScrollView>;
+  }
+
+  return Content;
 }
 
 export function showAutoRiskControlDialog({
@@ -109,6 +116,7 @@ export function showAutoRiskControlDialog({
       variant: 'secondary',
     },
     showFooter: true,
+    disableDrag: platformEnv.isExtensionUiPopup,
   });
 }
 
@@ -140,6 +148,7 @@ export const ProtectionSection = ({
             flex={1}
             alignItems="center"
             justifyContent="space-between"
+            userSelect="none"
             onPress={() => {
               showAutoRiskControlDialog({
                 title: intl.formatMessage({
@@ -151,13 +160,13 @@ export const ProtectionSection = ({
               });
             }}
           >
-            <XStack gap="$3" alignItems="center" flex={1}>
+            <XStack gap="$3" alignItems="center" flex={1} pr="$3">
               <Icon
                 name="ShieldCheckDoneOutline"
                 size="$6"
                 color="$iconSuccess"
               />
-              <YStack>
+              <YStack flex={1}>
                 <SizableText size="$bodyMdMedium" color="$text">
                   {intl.formatMessage({
                     id: ETranslations.earn_auto_risk_control,
@@ -170,7 +179,11 @@ export const ProtectionSection = ({
                 </SizableText>
               </YStack>
             </XStack>
-            <Icon name="ChevronRightOutline" size="$6" color="$iconSubdued" />
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$6"
+              color="$iconSubdued"
+            />
           </ListItem>
         </XStack>
       </YStack>

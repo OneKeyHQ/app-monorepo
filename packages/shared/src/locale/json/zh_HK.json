@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "新質押需等待約 {number} 後才會激活並開始獲得收益。",
   "earn.pending_activation_tooltip_eth": "當驗證者達到 32 ETH 的要求時，您質押的 ETH 才會啟用。",
   "earn.pending_transactions_data_out_of_sync": "交易成功後，資料可能需要一段時間才能同步。",
+  "earn.performance_fee": "業績費",
+  "earn.performance_fee_desc": "金庫管理者會盡力提高您的收益，降低您的風險。作為回報，會從您的理財收益或積分中扣除一定比例作為業績費用。",
   "earn.portfolio": "投資組合",
   "earn.portfolio_details": "投資組合詳情",
   "earn.protection": "風險保護",

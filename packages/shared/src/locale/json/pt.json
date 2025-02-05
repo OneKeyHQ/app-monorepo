@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "O novo staking precisa esperar cerca de {number} antes de se tornar ativo e começar a ganhar recompensas.",
   "earn.pending_activation_tooltip_eth": "O seu ETH em staking torna-se ativo quando o validador atinge o requisito de 32 ETH.",
   "earn.pending_transactions_data_out_of_sync": "Pode levar algum tempo para os dados serem sincronizados após a transação bem-sucedida.",
+  "earn.performance_fee": "Taxa de desempenho",
+  "earn.performance_fee_desc": "Os gerentes de cofre trabalham para aumentar seus retornos e reduzir seus riscos. Em troca, uma certa porcentagem de seus ganhos ou pontos é tomada como uma taxa de desempenho.",
   "earn.portfolio": "Portfólio",
   "earn.portfolio_details": "Detalhes do portfólio",
   "earn.protection": "Proteção",

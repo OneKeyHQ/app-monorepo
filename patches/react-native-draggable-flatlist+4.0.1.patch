@@ -75,6 +75,46 @@ index 2abb4a2..def5fad 100644
      keyExtractor: (item: T, index: number) => string;
      onDragBegin?: (index: number) => void;
      onDragEnd?: (params: DragEndParams<T>) => void;
+diff --git a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
+index d7d98c2..d1695d9 100644
+--- a/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
++++ b/node_modules/react-native-draggable-flatlist/src/components/DraggableFlatList.tsx
+@@ -34,6 +34,7 @@ import { useAutoScroll } from "../hooks/useAutoScroll";
+ import { useStableCallback } from "../hooks/useStableCallback";
+ import ScrollOffsetListener from "./ScrollOffsetListener";
+ import { typedMemo } from "../utils";
++import { globalRef, resetGlobalRef } from "react-native-draggable-flatlist/src/context/globalRef";
+ 
+ type RNGHFlatListProps<T> = Animated.AnimateProps<
+   FlatListProps<T> & {
+@@ -208,6 +209,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+ 
+   const onRelease = useStableCallback((index: number) => {
+     props.onRelease?.(index);
++    resetGlobalRef();
+   });
+ 
+   const onDragEnd = useStableCallback(
+@@ -263,6 +265,11 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+ 
+   const gestureDisabled = useSharedValue(false);
+ 
++  globalRef.reset = reset;
++  const onUpdateGlobalTouchTranslateValue = useStableCallback((v: number) => {
++    globalRef.translationY = v;
++  });
++
+   const panGesture = Gesture.Pan()
+     .onBegin((evt) => {
+       gestureDisabled.value = disabled.value;
+@@ -276,6 +283,7 @@ function DraggableFlatListInner<T>(props: DraggableFlatListProps<T>) {
+         ? evt.translationX
+         : evt.translationY;
+       touchTranslate.value = translation;
++      runOnJS(onUpdateGlobalTouchTranslateValue)(touchTranslate.value)
+     })
+     .onEnd((evt) => {
+       if (gestureDisabled.value) return;
 diff --git a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx b/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
 index 6ff1ed5..3e06756 100644
 --- a/node_modules/react-native-draggable-flatlist/src/context/animatedValueContext.tsx
@@ -107,6 +147,24 @@ index 6ff1ed5..3e06756 100644
  
      // Only constrain the touch position while the finger is on the screen. This allows the active cell
      // to snap above/below the fold once let go, if the drag ends at the top/bottom of the screen.
+diff --git a/node_modules/react-native-draggable-flatlist/src/context/globalRef.tsx b/node_modules/react-native-draggable-flatlist/src/context/globalRef.tsx
+new file mode 100644
+index 0000000..0da5fdb
+--- /dev/null
++++ b/node_modules/react-native-draggable-flatlist/src/context/globalRef.tsx
+@@ -0,0 +1,12 @@
++const defaultGlobalRef = {
++  translationY: 0,
++  reset: () => {},
++};
++export const globalRef = {
++  ...defaultGlobalRef,
++};
++
++export const resetGlobalRef = () => {
++  globalRef.reset = defaultGlobalRef.reset;
++  globalRef.translationY = defaultGlobalRef.translationY;
++};
 diff --git a/node_modules/react-native-draggable-flatlist/src/types.ts b/node_modules/react-native-draggable-flatlist/src/types.ts
 index d6755c8..a6e1db0 100644
 --- a/node_modules/react-native-draggable-flatlist/src/types.ts

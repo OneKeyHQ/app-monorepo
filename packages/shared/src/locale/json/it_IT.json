@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "Il nuovo staking deve attendere circa {number} prima di diventare attivo e iniziare a guadagnare ricompense.",
   "earn.pending_activation_tooltip_eth": "Il tuo ETH puntato diventa attivo una volta che il validatore raggiunge il requisito di 32 ETH.",
   "earn.pending_transactions_data_out_of_sync": "Dopo la transazione riuscita, la sincronizzazione dei dati potrebbe richiedere del tempo.",
+  "earn.performance_fee": "Commissione di performance",
+  "earn.performance_fee_desc": "I gestori di Vault lavorano per aumentare i tuoi profitti e ridurre i tuoi rischi. In cambio, una certa percentuale dei tuoi guadagni o punti viene presa come commissione di performance.",
   "earn.portfolio": "Portafoglio",
   "earn.portfolio_details": "Dettagli del portfolio",
   "earn.protection": "Protezione",

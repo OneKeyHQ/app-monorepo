@@ -9,9 +9,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalAddressBookRoutes,
-  EModalAssetListRoutes,
-  EModalRoutes,
-  ETabHomeRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
 import { urlAccountNavigation } from '../../../Home/pages/urlAccount/urlAccountUtils';
@@ -69,6 +67,7 @@ export function BasicListItemIconButton({
                 //     networkId: addressBookItem.networkId,
                 //   },
                 // });
+                appNavigation.switchTab(ETabRoutes.Home);
                 void urlAccountNavigation.pushUrlAccountPage(appNavigation, {
                   address: addressBookItem.address,
                   networkId: addressBookItem.networkId,

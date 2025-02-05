@@ -25,6 +25,7 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
+import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
 import { PrimeLoginContainer } from './PrimeLoginContainer';
 
 const PageTrackerContainer = LazyLoad(
@@ -98,6 +99,7 @@ export function Container() {
           <Bootstrap />
           <AirGapQrcodeDialogContainer />
           <CreateAddressContainer />
+          <PrevCheckBeforeSendingContainer />
           <HardwareUiStateContainer />
           <PrimeLoginContainer />
           <DialogLoadingContainer />

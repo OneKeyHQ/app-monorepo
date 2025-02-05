@@ -454,6 +454,8 @@
   "earn.pending_activation_tooltip": "新しいステーキングは、アクティブになり、報酬を獲得し始める前に、約{number}待つ必要があります。",
   "earn.pending_activation_tooltip_eth": "バリデーターが32 ETHの要件を満たすと、あなたのステークしたETHがアクティブになります。",
   "earn.pending_transactions_data_out_of_sync": "トランザクションが成功した後、データの同期に時間がかかる場合があります。",
+  "earn.performance_fee": "パフォーマンス料金",
+  "earn.performance_fee_desc": "Vault マネージャーは、お客様の収益を増やし、リスクを軽減するために働きます。その代わりに、収益またはポイントの一定の割合がパフォーマンス手数料として徴収されます。",
   "earn.portfolio": "ポートフォリオ",
   "earn.portfolio_details": "ポートフォリオの詳細",
   "earn.protection": "保護",

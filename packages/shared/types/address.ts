@@ -113,6 +113,7 @@ export enum EServerInteractedStatus {
 
 export type IServerAccountBadgeResp = {
   interacted: EServerInteractedStatus;
+  isCex?: boolean;
   isContract?: boolean;
   isScam?: boolean;
   badges?: { label: string }[];
