@@ -9,9 +9,11 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import CustomHeaderSearch from '../../components/CustomHeaderSearch';
+import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import DashboardContent from './DashboardContent';
+import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 
 function Dashboard() {
   const navigation = useAppNavigation();
@@ -30,6 +32,7 @@ function Dashboard() {
   return (
     <Page>
       <Page.Header headerRight={headerRight} />
+      <HandleRebuildBrowserData />
       {platformEnv.isNativeIOS ? (
         <XStack px="$5" pt={top}>
           {headerRight()}
@@ -37,6 +40,7 @@ function Dashboard() {
       ) : null}
       <Page.Body>
         <DashboardContent />
+        {platformEnv.isNativeIOSPad ? <MobileBrowserBottomBar id="" /> : null}
       </Page.Body>
     </Page>
   );
