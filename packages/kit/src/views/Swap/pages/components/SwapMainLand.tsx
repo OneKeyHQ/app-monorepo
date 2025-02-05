@@ -13,6 +13,7 @@ import {
   useSwapQuoteIntervalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
@@ -28,7 +29,10 @@ import type {
   ISwapInitParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
@@ -42,6 +46,7 @@ import { useSwapInit } from '../../hooks/useSwapTokens';
 import { validateAmountInput } from '../../utils/utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import LimitInfoContainer from './LimitInfoContainer';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
@@ -61,6 +66,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const quoteLoading = useSwapQuoteLoading();
@@ -226,6 +232,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             selectLoading={fetchLoading}
             onSelectPercentageStage={onSelectPercentageStage}
           />
+          {swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
+            <LimitInfoContainer />
+          ) : null}
           <SwapActionsState
             onBuildTx={onBuildTx}
             onApprove={onApprove}
