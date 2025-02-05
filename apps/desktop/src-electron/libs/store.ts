@@ -43,16 +43,13 @@ export const setDevTools = (devTools: boolean) => {
 
 export const getDisableKeyboardShortcuts = () =>
   store.get(configKeys.DisableKeyboardShortcuts, {
-    disableNumberShortcuts: false,
-    disableSearchAndAccountSelectorShortcuts: false,
+    disableAllShortcuts: false,
   }) as {
-    disableNumberShortcuts: boolean;
-    disableSearchAndAccountSelectorShortcuts: boolean;
+    disableAllShortcuts: boolean;
   };
 
 export const setDisableKeyboardShortcuts = (config: {
-  disableNumberShortcuts: boolean;
-  disableSearchAndAccountSelectorShortcuts: boolean;
+  disableAllShortcuts: boolean;
 }) => {
   store.set(configKeys.DisableKeyboardShortcuts, {
     ...getDisableKeyboardShortcuts(),
