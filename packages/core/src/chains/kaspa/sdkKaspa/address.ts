@@ -35,12 +35,14 @@ export function fromString(
   return Address.fromString(address, chainId, addressType);
 }
 
-export function isValidAddress(
-  address: string,
-  chainId: string,
-  addressType: EKaspaAddressType = EKaspaAddressType.PayToPublicKey,
-): boolean {
-  // @ts-expect-error
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return
-  return Address.isValid(address, chainId, addressType);
+export function isValidAddress(address: string, chainId: string): boolean {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+  return (
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    Address.isValid(address, chainId, EKaspaAddressType.PayToPublicKey) ||
+    // @ts-expect-error
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    Address.isValid(address, chainId, EKaspaAddressType.PayToScriptHash)
+  );
 }
