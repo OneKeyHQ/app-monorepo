@@ -34,7 +34,7 @@ function BaseTextArea(
 ) {
   const ref = useRef<TextInput>(null);
   useImperativeHandle(forwardedRef, () => ref.current as TextInput);
-  useAutoScrollTop();
+  useAutoScrollTop(ref);
   return (
     <Input
       containerProps={{
