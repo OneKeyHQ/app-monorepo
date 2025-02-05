@@ -8,7 +8,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
-import { usePrimeAuth } from './usePrimeAuth';
+import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type {
@@ -19,7 +19,8 @@ import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 export function usePrimePayment(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
-  const { isReady: isAuthReady, user } = usePrimeAuth();
+  const { isReady: isAuthReady, user } = usePrivyUniversalV2();
+
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
 
   const isReady = isPaymentReady && isAuthReady;
@@ -28,7 +29,7 @@ export function usePrimePayment(): IUsePrimePayment {
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
-    if (!user?.privyUserId) {
+    if (!user?.id) {
       throw new Error('User not logged in');
     }
     // Do not logout which will create anonymous user
@@ -37,20 +38,20 @@ export function usePrimePayment(): IUsePrimePayment {
     // } catch (e) {
     //   console.error(e);
     // }
-    if (user?.privyUserId) {
+    if (user?.id) {
       try {
-        await Purchases.logIn(user.privyUserId);
+        await Purchases.logIn(user.id);
       } catch (e) {
         console.error(e);
       }
       try {
-        await Purchases.logIn(user.privyUserId);
+        await Purchases.logIn(user.id);
       } catch (e) {
         console.error(e);
       }
     }
     const appUserId = await Purchases.getAppUserID();
-    if (appUserId !== user?.privyUserId) {
+    if (appUserId !== user?.id) {
       throw new Error('AppUserId not match');
     }
     const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
@@ -67,7 +68,7 @@ export function usePrimePayment(): IUsePrimePayment {
     );
 
     return customerInfo;
-  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
+  }, [isReady, setPrimePersistAtom, user?.id]);
 
   // TODO move to jotai context
   useEffect(() => {
@@ -98,11 +99,11 @@ export function usePrimePayment(): IUsePrimePayment {
 
   useEffect(() => {
     void (async () => {
-      if (isReady && user?.privyUserId) {
+      if (isReady && user?.id) {
         await getCustomerInfo();
       }
     })();
-  }, [getCustomerInfo, isReady, user?.privyUserId]);
+  }, [getCustomerInfo, isReady, user?.id]);
 
   const getPaywallPackagesNative = useCallback(async () => {
     if (!isReady) {

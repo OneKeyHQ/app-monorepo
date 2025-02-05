@@ -22,10 +22,10 @@ jobs:
         with:
           lfs: true
 
-      - name: Run Shared Env Setup  
+      - name: Run Shared Env Setup
         uses: ./.github/actions/shared-env
         with:
-          env_file_name: ".env"
+          env_file_name: '.env'
           sentry_project: 'desktop-mas'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}

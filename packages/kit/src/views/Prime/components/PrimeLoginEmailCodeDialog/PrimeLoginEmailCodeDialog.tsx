@@ -3,10 +3,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Dialog,
+  OTPInput,
   RichSizeableText,
   Stack,
   Toast,
-  VerificationCodeInput,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -24,6 +24,7 @@ export function PrimeLoginEmailCodeDialog({
   const [code, setCode] = useState('');
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
 
   const sendEmailVerificationCode = useCallback(async () => {
     setIsResending(true);
@@ -97,8 +98,11 @@ export function PrimeLoginEmailCodeDialog({
               {buttonText}
             </Button>
           </XStack>
-          <VerificationCodeInput
-            justifyContent="space-between"
+
+          <OTPInput
+            numberOfDigits={6}
+            value={verificationCode}
+            onTextChange={setVerificationCode}
             onComplete={(value) => {
               setCode(value);
               Toast.success({
@@ -106,7 +110,6 @@ export function PrimeLoginEmailCodeDialog({
                 message: value,
               });
             }}
-            length={6}
           />
         </YStack>
       </Stack>

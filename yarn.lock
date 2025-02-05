@@ -6938,6 +6938,7 @@ __metadata:
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.1"
     react-native-flipper: "npm:0.201.0"
+    react-native-otp-entry: "npm:^1.8.2"
     react-native-reanimated: "npm:3.6.1"
     react-native-web: "npm:0.18.12"
     react-refresh: "npm:^0.14.0"
@@ -7171,7 +7172,7 @@ __metadata:
     "@onekeyhq/components": "npm:*"
     "@onekeyhq/kit": "npm:*"
     "@onekeyhq/shared": "npm:*"
-    "@privy-io/expo": "npm:^0.35.1"
+    "@privy-io/expo": "npm:0.42.0"
     "@privy-io/expo-native-extensions": "npm:^0.0.3"
     "@react-native-async-storage/async-storage": "npm:1.22.0"
     "@react-native-community/netinfo": "npm:^11.4.1"
@@ -9024,7 +9025,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@privy-io/api-base@npm:^1.4.1":
+"@privy-io/api-base@npm:1.4.2, @privy-io/api-base@npm:^1.4.1, @privy-io/api-base@npm:^1.4.2":
   version: 1.4.2
   resolution: "@privy-io/api-base@npm:1.4.2"
   dependencies:
@@ -9044,11 +9045,11 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@privy-io/expo@npm:^0.35.1":
-  version: 0.35.1
-  resolution: "@privy-io/expo@npm:0.35.1"
+"@privy-io/expo@npm:0.42.0":
+  version: 0.42.0
+  resolution: "@privy-io/expo@npm:0.42.0"
   dependencies:
-    "@privy-io/js-sdk-core": "npm:0.36.1"
+    "@privy-io/js-sdk-core": "npm:0.41.1"
     react-fast-compare: "npm:^3.2.2"
     zustand: "npm:^4.4.1"
   peerDependencies:
@@ -9081,7 +9082,7 @@ __metadata:
       optional: true
     viem:
       optional: true
-  checksum: 10/6e0915f610f5e506491602ef680c820771c5070366a816c4cf54fcd079a2951603e4b89daf28cdcd0ed7a9f40a86bca0e7ecaeedd37986f2ea6b145fdd0c3ea1
+  checksum: 10/9f51f204961c2c424ec8539cc2b132762576aa10614250be0e2f873234bab6a915becfb4355701235ce52ca7a6f78be07d1ac42341f185054a2311bcf2c268ea
   languageName: node
   linkType: hard
 
@@ -9116,6 +9117,37 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@privy-io/js-sdk-core@npm:0.41.1":
+  version: 0.41.1
+  resolution: "@privy-io/js-sdk-core@npm:0.41.1"
+  dependencies:
+    "@ethersproject/abstract-signer": "npm:^5.7.0"
+    "@ethersproject/bignumber": "npm:^5.7.0"
+    "@ethersproject/contracts": "npm:^5.7.0"
+    "@ethersproject/providers": "npm:^5.7.2"
+    "@ethersproject/transactions": "npm:^5.7.0"
+    "@ethersproject/units": "npm:^5.7.0"
+    "@privy-io/api-base": "npm:^1.4.2"
+    "@privy-io/public-api": "npm:2.18.2"
+    eventemitter3: "npm:^5.0.1"
+    fetch-retry: "npm:^5.0.6"
+    jose: "npm:^4.15.5"
+    js-cookie: "npm:^3.0.5"
+    libphonenumber-js: "npm:^1.10.44"
+    set-cookie-parser: "npm:^2.6.0"
+    uuid: "npm:>=8 <10"
+  peerDependencies:
+    permissionless: ^0.2.10
+    viem: ^2.21.36
+  peerDependenciesMeta:
+    permissionless:
+      optional: true
+    viem:
+      optional: true
+  checksum: 10/a437362b791b78bde55d3a831da6d01ac77b8486562d868ae686eacc2786426b51d3e350725e2ef10ea73649e04b94b99f1f4e62268c02462d1849caaf8088d6
+  languageName: node
+  linkType: hard
+
 "@privy-io/public-api@npm:2.15.8":
   version: 2.15.8
   resolution: "@privy-io/public-api@npm:2.15.8"
@@ -9126,6 +9158,19 @@ __metadata:
     libphonenumber-js: "npm:^1.10.31"
     zod: "npm:^3.22.4"
   checksum: 10/bf7ec8d8c608c2ef206a4a1ae87354e3626d78e0d23f83e00b31056a0ab8f57fff144c60bb614665b2abc3d0aabc6076fcd85f85e82ef08f557ca3b16e638fba
+  languageName: node
+  linkType: hard
+
+"@privy-io/public-api@npm:2.18.2":
+  version: 2.18.2
+  resolution: "@privy-io/public-api@npm:2.18.2"
+  dependencies:
+    "@privy-io/api-base": "npm:1.4.2"
+    bs58: "npm:^5.0.0"
+    ethers: "npm:^5.7.2"
+    libphonenumber-js: "npm:^1.10.31"
+    zod: "npm:^3.22.4"
+  checksum: 10/0368a5f275e83b4aa02f9cf3bb7ecaf17aecaa83990db634906a8b424181a951da2b67b28b17357bb6df80028c39b0ff3c69ba5f06453fc04c974ce669ef0f87
   languageName: node
   linkType: hard
 
@@ -35064,6 +35109,16 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/43d168d57ece1b2246a6a8a03b4e116894cb70582087de6d5c9aca483c73858411846f314ace492634f06fba425cb895a042bd20dee0060cbc1738c367aff6ab
+  languageName: node
+  linkType: hard
+
+"react-native-otp-entry@npm:^1.8.2":
+  version: 1.8.2
+  resolution: "react-native-otp-entry@npm:1.8.2"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/697c7564a23317f0c0f2e1b400d02340e31f954e230be7017efe1dcf810753fcde79cbdd27f045dd3813e26db3f31c877933bc02bd4a42cfa04820c7a7f299d5
   languageName: node
   linkType: hard
 

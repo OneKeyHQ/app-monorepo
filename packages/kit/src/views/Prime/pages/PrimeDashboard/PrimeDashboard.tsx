@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IKeyOfIcons } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
@@ -14,24 +14,24 @@ import {
   SizableText,
   Stack,
   Theme,
-  Toast,
   XStack,
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import PrimeBannerBgDark from '@onekeyhq/kit/assets/animations/prime-banner-bg-dark.json';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
-import { usePrimeAuth } from '../../hooks/usePrimeAuth';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
+import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
@@ -42,6 +42,8 @@ function showDebugMessageByDialog(obj: any) {
 }
 
 function PrimeBanner() {
+  const intl = useIntl();
+
   return (
     <YStack pt="$5" gap="$2" alignItems="center">
       <Icon size="$20" name="OnekeyPrimeDarkColored" />
@@ -54,100 +56,25 @@ function PrimeBanner() {
         textAlign="center"
         color="$textSubdued"
       >
-        Unlock advanced features to enhance your crypto asset management
-        experience.
+        {intl.formatMessage({
+          id: ETranslations.prime_description,
+        })}
       </SizableText>
     </YStack>
   );
 }
 
-function PrimeBenefitsItem({
-  icon,
-  title,
-  subtitle,
-  onPress,
-}: {
-  icon: IKeyOfIcons;
-  title: string;
-  subtitle: string;
-  onPress: () => void;
-}) {
-  return (
-    <ListItem drillIn onPress={onPress}>
-      <YStack borderRadius="$3" borderCurve="continuous" bg="$brand4" p="$2">
-        <Icon name={icon} size="$6" color="$brand9" />
-      </YStack>
-      <ListItem.Text
-        userSelect="none"
-        flex={1}
-        primary={title}
-        secondary={subtitle}
-      />
-    </ListItem>
-  );
-}
-
-function PrimeBenefitsList() {
-  return (
-    <Stack py="$2">
-      <PrimeBenefitsItem
-        icon="RepeatOutline"
-        title="Sync"
-        subtitle="Automatically back up app usage data, sync across devices."
-        onPress={() => {
-          Toast.success({
-            title: 'Sync',
-          });
-        }}
-      />
-      <PrimeBenefitsItem
-        icon="BezierNodesOutline"
-        title="Premium RPC"
-        subtitle="Enjoy rapid and secure blockchain access."
-        onPress={() => {
-          Toast.success({
-            title: 'Premium RPC',
-          });
-        }}
-      />
-      <PrimeBenefitsItem
-        icon="BellOutline"
-        title="Account Activity"
-        subtitle="Subscribe to activities from up to 100 accounts."
-        onPress={() => {
-          Toast.success({
-            title: 'Account Activity',
-          });
-        }}
-      />
-      <PrimeBenefitsItem
-        icon="FileTextOutline"
-        title="Analytics"
-        subtitle="sint occaecat cupidatat non proident"
-        onPress={() => {
-          Toast.success({
-            title: 'Analytics',
-          });
-        }}
-      />
-      <PrimeBenefitsItem
-        icon="PhoneOutline"
-        title="Device management"
-        subtitle="Access Prime on up to 5 devices."
-        onPress={() => {
-          Toast.success({
-            title: 'Device management',
-          });
-        }}
-      />
-    </Stack>
-  );
-}
-
 export default function PrimeDashboard() {
+  const intl = useIntl();
+  const {
+    getAccessToken,
+    user,
+    loginWithEmail,
+    logout,
+    isReady,
+    authenticated,
+  } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
-  const { login, loginLegacy, logout, privy, getAccessToken, user } =
-    usePrimeAuth();
   const navigation = useAppNavigation();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   useEffect(() => {
@@ -164,15 +91,6 @@ export default function PrimeDashboard() {
     getPaywallPackagesNative,
     getCustomerInfo,
   } = usePrimePayment();
-
-  const loginByPrivy = useCallback(async () => {
-    if (platformEnv.isNative) {
-      // TODO: privy login Modal is conflict with OneKey Modal
-      navigation.popStack();
-      await timerUtils.wait(1000);
-    }
-    login();
-  }, [login, navigation]);
 
   const purchaseByWebview = useCallback(async () => {
     navigation.popStack();
@@ -193,12 +111,14 @@ export default function PrimeDashboard() {
   // TODO move to jotai context method
   const doPurchase = useCallback(async () => {
     try {
-      setIsLoading(true);
+      // await 1s
+      await timerUtils.wait(500);
+
       if (!user?.isLoggedIn) {
-        return await loginByPrivy();
-        // loginLegacy();
-      }
-      if (platformEnv.isNative) {
+        loginWithEmail();
+      } else if (platformEnv.isNative) {
+        setIsLoading(true);
+
         ActionList.show({
           title: 'Purchase',
           onClose: () => {},
@@ -229,7 +149,6 @@ export default function PrimeDashboard() {
         await purchasePaywallPackageWeb?.({
           packageId: selectedPackageId,
           email: user?.email || '',
-          // locale: 'zh-CN',
         });
         // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
         //   privyUserId: user.privyUserId || '',
@@ -237,7 +156,6 @@ export default function PrimeDashboard() {
         // await backgroundApiProxy.servicePrime.purchasePaywallPackage({
         //   packageId: selectedPackageId,
         //   email: user?.email || '',
-        //   // locale: 'zh-CN',
         // });
       }
     } finally {
@@ -248,11 +166,11 @@ export default function PrimeDashboard() {
     user?.isLoggedIn,
     user?.email,
     selectedPackageId,
-    loginByPrivy,
     purchaseByWebview,
     presentPaywallNative,
     purchasePaywallPackageWeb,
     fetchPrimeUserInfo,
+    loginWithEmail,
   ]);
 
   const shouldShowConfirmButton = useMemo(() => {
@@ -330,15 +248,10 @@ export default function PrimeDashboard() {
               ) : null}
               {subscriptionPlans}
             </Stack>
+
             <PrimeBenefitsList />
+
             <XStack flexWrap="wrap">
-              <Button
-                onPress={() => {
-                  void loginLegacy();
-                }}
-              >
-                Login Legacy
-              </Button>
               <Button
                 onPress={() => {
                   void logout();
@@ -356,10 +269,8 @@ export default function PrimeDashboard() {
               <Button
                 onPress={() => {
                   showDebugMessageByDialog({
-                    ready: privy.isReady,
-                    authenticated: privy.authenticated,
-                    nativeUser: privy?.native?.user,
-                    webUser: privy?.web?.user,
+                    ready: isReady,
+                    authenticated,
                   });
                 }}
               >
@@ -398,9 +309,12 @@ export default function PrimeDashboard() {
               </Button>
             </XStack>
           </Page.Body>
+
           <Page.Footer
             onConfirm={shouldShowConfirmButton ? doPurchase : undefined}
-            onConfirmText="Subscribe"
+            onConfirmText={intl.formatMessage({
+              id: ETranslations.prime_subscribe,
+            })}
             confirmButtonProps={
               shouldShowConfirmButton
                 ? {

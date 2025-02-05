@@ -1,34 +1,6 @@
-import { useState } from 'react';
-
-import {
-  Input,
-  SizableText,
-  Stack,
-  Toast,
-  VerificationCodeInput,
-  YStack,
-} from '@onekeyhq/components';
+import { Input, Stack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
-
-function VerificationCodeInputDemo() {
-  const [code, setCode] = useState('');
-  return (
-    <YStack>
-      <VerificationCodeInput
-        length={6}
-        onChange={setCode}
-        onComplete={(completeCode) => {
-          Toast.success({
-            title: 'Complete',
-            message: completeCode,
-          });
-        }}
-      />
-      <SizableText>{code}</SizableText>
-    </YStack>
-  );
-}
 
 const InputGallery = () => (
   <Layout
@@ -250,10 +222,6 @@ const InputGallery = () => (
             />
           </Stack>
         ),
-      },
-      {
-        title: 'VerificationCodeInput',
-        element: <VerificationCodeInputDemo />,
       },
     ]}
   />

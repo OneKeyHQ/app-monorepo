@@ -798,4 +798,7 @@ module.exports = [
   'Apy',
   'Apys',
   'hashify',
+  'Otp',
+  'onekeyid',
+  'passcode',
 ];

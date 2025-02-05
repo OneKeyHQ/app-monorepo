@@ -14,11 +14,11 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { usePrivyUniversal } from './usePrivyUniversal';
 
 export function usePrimeAuth() {
-  const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
-  const [primeInitAtom, setPrimeInitAtom] = usePrimeInitAtom();
+  const [primePersistAtom] = usePrimePersistAtom();
+  const [primeInitAtom] = usePrimeInitAtom();
 
   const privy = usePrivyUniversal();
-  const { logout, isReady, getAccessToken } = privy;
+  const { logout, getAccessToken } = privy;
 
   const login = useCallback(() => {
     if (platformEnv.isNative) {
