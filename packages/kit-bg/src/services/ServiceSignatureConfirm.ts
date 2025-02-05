@@ -75,6 +75,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
+          networkId,
+          owner: r[0]?.owner,
         }),
       );
 
@@ -280,21 +282,28 @@ class ServiceSignatureConfirm extends ServiceBase {
     const client = await this.backgroundApi.serviceGas.getClient(
       EServiceEndpointEnum.Wallet,
     );
-    const resp = await client.post<{ data: IParseMessageResp }>(
-      '/wallet/v1/account/parse-signature',
-      {
-        networkId,
-        accountAddress,
-        data: messageToParse,
-      },
-      {
-        headers:
-          await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader({
-            accountId,
-          }),
-      },
-    );
-    return resp.data.data;
+    try {
+      const resp = await client.post<{ data: IParseMessageResp }>(
+        '/wallet/v1/account/parse-signature',
+        {
+          networkId,
+          accountAddress,
+          data: messageToParse,
+        },
+        {
+          headers:
+            await this.backgroundApi.serviceAccountProfile._getWalletTypeHeader(
+              {
+                accountId,
+              },
+            ),
+        },
+      );
+      return resp.data.data;
+    } catch (e) {
+      console.log('parse message failed', e);
+      return null;
+    }
   }
 }
 

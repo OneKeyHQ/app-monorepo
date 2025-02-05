@@ -20,6 +20,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFeeInfoUnit,
@@ -211,6 +212,12 @@ class ServiceSend extends ServiceBase {
         });
       // custom network will skip pre-check
       if (isCustomNetwork) {
+        return false;
+      }
+      const isLightningNetwork = networkUtils.isLightningNetworkByNetworkId(
+        params.networkId,
+      );
+      if (isLightningNetwork) {
         return false;
       }
       const client = await this.getClient(EServiceEndpointEnum.Wallet);

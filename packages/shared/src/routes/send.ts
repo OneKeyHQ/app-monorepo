@@ -2,7 +2,6 @@ import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import type {
   IAccountDeriveInfo,
   IAccountDeriveTypes,
-  ITransferInfo,
   ITransferPayload,
 } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
@@ -13,11 +12,6 @@ import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
 import type { EDeriveAddressActionType } from '../../types/address';
 import type { IAccountHistoryTx } from '../../types/history';
-import type {
-  ILNURLAuthServiceResponse,
-  ILNURLPayServiceResponse,
-  ILNURLWithdrawServiceResponse,
-} from '../../types/lightning';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
 export enum EModalSendRoutes {
@@ -29,12 +23,6 @@ export enum EModalSendRoutes {
   SendReplaceTx = 'SendReplaceTx',
   SendSelectToken = 'SendSelectToken',
   SendSelectDeriveAddress = 'SendSelectDeriveAddress',
-
-  // Lightning Network
-  LnurlPayRequest = 'LnurlPayRequest',
-  LnurlWithdraw = 'LnurlWithdraw',
-  LnurlAuth = 'LnurlAuth',
-  WeblnSendPayment = 'WeblnSendPayment',
 }
 
 export type IModalSendParamList = {
@@ -87,32 +75,6 @@ export type IModalSendParamList = {
     replaceEncodedTx: IEncodedTx;
     historyTx: IAccountHistoryTx;
     onSuccess?: (data: ISendTxOnSuccessData[]) => void;
-  };
-
-  // Lightning Network
-  [EModalSendRoutes.LnurlPayRequest]: {
-    networkId: string;
-    accountId: string;
-    transfersInfo: ITransferInfo[];
-    lnurlDetails: ILNURLPayServiceResponse;
-    sourceInfo?: IDappSourceInfo;
-    onSuccess?: (txs: ISendTxOnSuccessData[]) => void;
-    onFail?: (error: Error) => void;
-    onCancel?: () => void;
-    isSendFlow?: boolean;
-  };
-  [EModalSendRoutes.LnurlWithdraw]: {
-    networkId: string;
-    accountId: string;
-    lnurlDetails: ILNURLWithdrawServiceResponse;
-    sourceInfo?: IDappSourceInfo;
-    isSendFlow?: boolean;
-  };
-  [EModalSendRoutes.LnurlAuth]: {
-    networkId: string;
-    accountId: string;
-    lnurlDetails: ILNURLAuthServiceResponse;
-    isSendFlow: boolean;
   };
   [EModalSendRoutes.SendSelectDeriveAddress]: {
     networkId: string;
