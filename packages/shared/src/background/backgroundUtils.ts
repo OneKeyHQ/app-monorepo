@@ -40,9 +40,9 @@ import { NotAutoPrintError } from '../errors';
 import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
 
+import type { OneKeyError } from '../errors';
 import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
 import type { Method } from 'axios';
-import type { OneKeyError } from '../errors';
 
 export function throwCrossError(msg: string, ...args: any) {
   if (platformEnv.isNative) {

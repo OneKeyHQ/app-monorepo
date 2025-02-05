@@ -27,6 +27,7 @@ export function PrimeLoginEmailDialogV2(props: {
 
       try {
         console.log('onEmailSubmitted', data);
+        // TODO dialog not close when submit by press Enter
         onEmailSubmitted?.(data.email);
       } catch (error) {
         options?.preventClose?.();

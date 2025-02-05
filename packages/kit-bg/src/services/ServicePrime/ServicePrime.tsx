@@ -6,7 +6,11 @@ import {
   backgroundMethod,
   toastIfError,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { PrimeLoginDialogCancelError } from '@onekeyhq/shared/src/errors';
+import {
+  OneKeyErrorPrimeLoginExceedDeviceLimit,
+  OneKeyErrorPrimeLoginInvalidToken,
+  PrimeLoginDialogCancelError,
+} from '@onekeyhq/shared/src/errors';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -26,6 +30,7 @@ import ServiceBase from '../ServiceBase';
 
 import type { IPrimeLoginDialogKeys } from '../../states/jotai/atoms/prime';
 import type { AxiosInstance } from 'axios';
+import { appEventBus, EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 class ServicePrime extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -55,6 +60,16 @@ class ServicePrime extends ServiceBase {
       (error) => {
         // TODO check invalid token and logout
         // this.setPrimePersistAtomNotLoggedIn()
+        const errorCode: number | undefined = (
+          error as { data: { code: number } }
+        )?.data?.code;
+        if ([90_002, 90_003].includes(errorCode)) {
+          appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
+          throw new OneKeyErrorPrimeLoginInvalidToken();
+        }
+        if (errorCode === 90_005) {
+          throw new OneKeyErrorPrimeLoginExceedDeviceLimit();
+        }
         throw error;
       },
     );

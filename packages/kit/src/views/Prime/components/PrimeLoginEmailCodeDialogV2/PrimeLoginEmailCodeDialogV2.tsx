@@ -123,7 +123,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       </Stack>
       <Dialog.Footer
         showCancelButton={false}
-        onConfirmText="Next"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_continue,
+        })}
         onConfirm={async ({ preventClose }) => {
           try {
             await loginWithCode({
