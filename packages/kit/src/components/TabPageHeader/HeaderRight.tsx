@@ -269,7 +269,6 @@ export function HeaderRight({
     openSettingPage,
     onScanButtonPressed,
     devSettings.enabled,
-    devSettings?.settings?.showPrimeTest,
     openNotificationsModal,
     firstTimeGuideOpened,
     badge,
