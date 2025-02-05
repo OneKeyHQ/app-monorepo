@@ -1,10 +1,10 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 import { type GestureResponderEvent } from 'react-native';
 import { useMedia, withStaticProperties } from 'tamagui';
-import { useDebouncedCallback } from 'use-debounce';
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,6 +41,9 @@ export interface IActionListItemProps {
   testID?: string;
   shortcutKeys?: string[] | EShortcutEvents;
 }
+
+// Duration to prevent rapid re-triggering of the action list
+const PROCESSING_RESET_DELAY = 350;
 
 export function ActionListItem({
   icon,
@@ -338,6 +341,10 @@ const showActionList = (
     />,
   );
 };
+const debouncedShowActionList = debounce(
+  showActionList,
+  PROCESSING_RESET_DELAY,
+);
 
 function ActionListFrame({
   estimatedContentHeight,
@@ -345,9 +352,14 @@ function ActionListFrame({
 }: Omit<IActionListProps, 'estimatedContentHeight'> & {
   estimatedContentHeight?: () => Promise<number>;
 }) {
+  const isProcessing = useRef(false);
+
   const { gtMd } = useMedia();
   const { disabled, renderTrigger, ...popoverProps } = props;
-  const handleActionListOpen = useDebouncedCallback(() => {
+  const handleActionListOpen = () => {
+    if (isProcessing.current) return;
+
+    isProcessing.current = true;
     if (estimatedContentHeight) {
       void estimatedContentHeight().then((height) => {
         showActionList({
@@ -358,7 +370,11 @@ function ActionListFrame({
     } else {
       showActionList(popoverProps);
     }
-  }, 250);
+
+    setTimeout(() => {
+      isProcessing.current = false;
+    }, PROCESSING_RESET_DELAY);
+  };
 
   if (gtMd) {
     return <BasicActionList {...props} />;
@@ -371,6 +387,6 @@ function ActionListFrame({
 }
 
 export const ActionList = withStaticProperties(ActionListFrame, {
-  show: showActionList,
+  show: debouncedShowActionList,
   Item: ActionListItem,
 });
