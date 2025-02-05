@@ -264,7 +264,7 @@ export default class Vault extends VaultBase {
               name: token.name,
               icon: token.logoURI ?? '',
               amount: new BigNumber(asset.quantity)
-                .shiftedBy(-token.decimals)
+                .shiftedBy(-network.decimals)
                 .toFixed(),
               amountValue: asset.quantity,
               symbol: token.symbol,
