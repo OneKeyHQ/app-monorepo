@@ -57,6 +57,11 @@ PODS:
     - React-NativeModulesApple
     - React-RCTAppDelegate
     - ReactCommon/turbomodule/core
+  - ExpoScreenOrientation (6.4.1):
+    - ExpoModulesCore
+    - glog
+    - RCT-Folly (= 2022.05.16.00)
+    - React-Core
   - ExpoSecureStore (12.5.0):
     - ExpoModulesCore
   - ExpoSharing (11.10.0):
@@ -1325,6 +1330,7 @@ DEPENDENCIES:
   - ExpoLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
+  - ExpoScreenOrientation (from `../../../node_modules/expo-screen-orientation/ios`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - ExpoSharing (from `../../../node_modules/expo-sharing/ios`)
   - EXScreenCapture (from `../../../node_modules/expo-screen-capture/ios`)
@@ -1493,6 +1499,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-localization/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core"
+  ExpoScreenOrientation:
+    :path: "../../../node_modules/expo-screen-orientation/ios"
   ExpoSecureStore:
     :path: "../../../node_modules/expo-secure-store/ios"
   ExpoSharing:
@@ -1686,7 +1694,7 @@ SPEC CHECKSUMS:
   Burnt: dde5dd245f124a4594098e3938ba71aae4ec83c3
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
-  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
+  DoubleConversion: 76ab83afb40bddeeee456813d9c04f67f78771b5
   EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
   EXBarCodeScanner: d59fd943cebee3f913ebf4ffde0d05d344da8b78
   EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
@@ -1706,6 +1714,7 @@ SPEC CHECKSUMS:
   ExpoLocalAuthentication: 2fed4b25cf8e54d36d5d1ebc9917e8325b3b5911
   ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
   ExpoModulesCore: 370096473359f5f6aade0871400d063333747719
+  ExpoScreenOrientation: 47c10dbd934cf76ba67c73652030432ea64b1151
   ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
   ExpoSharing: 752ad6ae2b693de9cd4e7fddb78297bdc658b815
   EXScreenCapture: d23d01882ce614ba2a341f9fe4bf4a9559830d92
@@ -1713,7 +1722,7 @@ SPEC CHECKSUMS:
   FBLazyVector: 9f533d5a4c75ca77c8ed774aced1a91a0701781e
   FBReactNativeSpec: 2db5940ee4b58968274eec0a4f1c736fc4caefa3
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
-  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
+  glog: 69ef571f3de08433d766d614c73a9838a06bf7eb
   hermes-engine: 39589e9c297d024e90fe68f6830ff86c4e01498a
   ImageColors: 88be684570585c07ae2750bff34eb7b78bfc53b4
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
@@ -1817,7 +1826,7 @@ SPEC CHECKSUMS:
   SPIndicator: 93e0a4fb23de51294ac48e874c0f081a5e293e4f
   SSZipArchive: fe6a26b2a54d5a0890f2567b5cc6de5caa600aef
   TOCropViewController: 80b8985ad794298fb69d3341de183f33d1853654
-  Yoga: 07db09965bc46c4902e20d3ae6990d95e53af8a8
+  Yoga: 6d01ccde54c9f8b92492beb05d468dbfed1d9881
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
 PODFILE CHECKSUM: 5b7f20a90e19262f325cab10e37056b7f3cd0ffb
