@@ -1,5 +1,5 @@
 import type { Ref } from 'react';
-import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
 
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
@@ -21,6 +21,13 @@ function BaseTextArea(
 ) {
   const ref = useRef<TextInput>(null);
   useImperativeHandle(forwardedRef, () => ref.current as TextInput);
+  useEffect(() => {
+    if (platformEnv.isNativeAndroid) {
+      setTimeout(() => {
+        ref.current?.setSelection(0, 0);
+      }, 250);
+    }
+  }, []);
   return (
     <Input
       containerProps={{
