@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
@@ -152,8 +152,15 @@ export function HomePageView({
     [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
   );
 
+  const prevPageIndex = useRef<number | undefined>();
   const handleSelectPageIndexChange = useCallback((pageIndex: number) => {
-    Keyboard.dismiss();
+    if (
+      prevPageIndex.current !== undefined &&
+      prevPageIndex.current !== pageIndex
+    ) {
+      Keyboard.dismiss();
+    }
+    prevPageIndex.current = pageIndex;
   }, []);
 
   const renderTabs = useCallback(
