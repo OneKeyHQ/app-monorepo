@@ -1,12 +1,10 @@
 import { useEffect } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { defaultColorScheme } from '@onekeyhq/shared/src/config/appConfig';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import {
-  defaultColorScheme,
-  useSystemColorScheme,
-} from './useSystemColorScheme';
+import { useSystemColorScheme } from './useSystemColorScheme';
 
 export const THEME_PRELOAD_STORAGE_KEY = 'ONEKEY_THEME_PRELOAD';
 export function useThemeVariant() {
