@@ -1,7 +1,7 @@
 export enum EGalleryRoutes {
   Components = 'components',
   ComponentTypography = 'component-typography',
-  ComponentSpotlightTour = 'component-Spotlight',
+  ComponentSpotlight = 'component-spotlight',
   ComponentLottieView = 'component-lottieview',
   ComponentTooltip = 'component-tooltip',
   ComponentIcon = 'component-icon',
