@@ -65,7 +65,7 @@ const isFilterError = (error?: {
     return true;
   }
 
-  if (error.type === 'Error' && error.message === 'AbortError: AbortError') {
+  if (error.type === 'Error' && error.value === 'AbortError: AbortError') {
     return true;
   }
 
