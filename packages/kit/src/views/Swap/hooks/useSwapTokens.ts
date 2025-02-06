@@ -86,7 +86,8 @@ export function useSwapInit(params?: ISwapInitParams) {
     if (swapNetworksSortList?.data?.length) {
       const noSupportInfo = swapNetworksSortList?.data.every(
         (net) =>
-          isNil(net.supportCrossChainSwap) && isNil(net.supportSingleSwap),
+          (isNil(net.supportCrossChainSwap) && isNil(net.supportSingleSwap)) ||
+          isNil(net.supportLimit),
       );
       if (!noSupportInfo) {
         setSwapNetworks(swapNetworksSortList.data);
@@ -147,6 +148,9 @@ export function useSwapInit(params?: ISwapInitParams) {
         }
         if (supportNet.supportCrossChainSwap) {
           supportTypes = [...supportTypes, ESwapTabSwitchType.BRIDGE];
+        }
+        if (supportNet.supportLimit) {
+          supportTypes = [...supportTypes, ESwapTabSwitchType.LIMIT];
         }
       }
       if (!params?.swapTabSwitchType && enableSwitchAction) {

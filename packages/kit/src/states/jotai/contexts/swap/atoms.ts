@@ -46,11 +46,15 @@ export const {
 } = contextAtomComputed<ISwapNetwork[]>((get) => {
   let networks = get(swapNetworks());
   const swapType = get(swapTypeSwitchAtom());
-  networks = networks.filter((net) =>
-    swapType === ESwapTabSwitchType.BRIDGE
-      ? net.supportCrossChainSwap
-      : net.supportSingleSwap,
-  );
+  networks = networks.filter((net) => {
+    if (swapType === ESwapTabSwitchType.BRIDGE) {
+      return net.supportCrossChainSwap;
+    }
+    if (swapType === ESwapTabSwitchType.LIMIT) {
+      return net.supportLimit;
+    }
+    return net.supportSingleSwap;
+  });
   const allNetwork = {
     networkId: getNetworkIdsMap().onekeyall,
     name: dangerAllNetworkRepresent.name,

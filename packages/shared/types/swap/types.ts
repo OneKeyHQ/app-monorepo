@@ -72,6 +72,7 @@ export interface ISwapNetworkBase {
   defaultSelectToken?: { from?: string; to?: string };
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
+  supportLimit?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {
@@ -121,6 +122,7 @@ interface IFetchSwapQuoteBaseParams {
 }
 
 export interface IFetchTokensParams {
+  protocol: string;
   networkId?: string;
   keywords?: string;
   limit?: number;

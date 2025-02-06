@@ -284,8 +284,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       try {
         if (!params.networkId) return;
         set(swapTokenFetchingAtom(), true);
+        const protocol = get(swapTypeSwitchAtom());
         const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
           ...params,
+          protocol,
         });
         if (result.length > 0) {
           await this.catchSwapTokensMap.call(
@@ -1410,6 +1412,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       isFirstFetch?: boolean,
       allNetAccountId?: string,
     ) => {
+      const protocol = get(swapTypeSwitchAtom());
       const result = await backgroundApiProxy.serviceSwap.fetchSwapTokens({
         networkId: accountNetworkId,
         accountNetworkId,
@@ -1417,6 +1420,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountId,
         onlyAccountTokens: true,
         isAllNetworkFetchAccountTokens: true,
+        protocol,
       });
       if (result?.length) {
         if (isFirstFetch && allNetAccountId) {

@@ -170,6 +170,7 @@ export default class ServiceSwap extends ServiceBase {
             defaultSelectToken: network.defaultSelectToken,
             supportCrossChainSwap: network.supportCrossChainSwap,
             supportSingleSwap: network.supportSingleSwap,
+            supportLimit: network.supportLimit,
           };
         }
         return null;
@@ -188,12 +189,13 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     onlyAccountTokens,
     isAllNetworkFetchAccountTokens,
+    protocol,
   }: IFetchTokensParams): Promise<ISwapToken[]> {
     if (!isAllNetworkFetchAccountTokens) {
       await this.cancelFetchTokenList();
     }
     const params: IFetchTokenListParams = {
-      protocol: EProtocolOfExchange.SWAP,
+      protocol,
       networkId: networkId ?? getNetworkIdsMap().onekeyall,
       keywords,
       limit,
