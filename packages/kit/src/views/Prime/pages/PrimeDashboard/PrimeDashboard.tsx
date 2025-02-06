@@ -9,7 +9,6 @@ import {
   Dialog,
   Icon,
   IconButton,
-  LottieView,
   Page,
   SizableText,
   Stack,
@@ -18,7 +17,6 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import PrimeBannerBgDark from '@onekeyhq/kit/assets/animations/prime-banner-bg-dark.json';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
@@ -32,6 +30,7 @@ import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
+import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
@@ -225,23 +224,7 @@ export default function PrimeDashboard() {
               borderBottomWidth={StyleSheet.hairlineWidth}
               borderBottomColor="$borderSubdued"
             >
-              {platformEnv.isRuntimeBrowser ? (
-                <YStack
-                  position="absolute"
-                  top="50%"
-                  transform="translateY(-50%)"
-                  left={0}
-                  right={0}
-                  paddingBottom="100%"
-                >
-                  <LottieView
-                    position="absolute"
-                    width="100%"
-                    height="100%"
-                    source={PrimeBannerBgDark}
-                  />
-                </YStack>
-              ) : null}
+              <PrimeLottieAnimation />
               <PrimeBanner />
               {user?.isLoggedIn ? (
                 <PrimeUserInfo doPurchase={doPurchase} />
