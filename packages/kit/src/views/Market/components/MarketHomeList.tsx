@@ -309,7 +309,7 @@ function MarketMdColumn({
       px="$5"
     >
       <XStack gap="$3" ai="center">
-        <MarketTokenIcon uri={item.image} size="$10" />
+        <MarketTokenIcon uri={item.image} size="lg" />
         <YStack>
           <SizableText size="$bodyLgMedium" userSelect="none">
             {item.symbol.toUpperCase()}
@@ -679,7 +679,7 @@ function BasicMarketHomeList({
               columnWidth: 140,
               render: (symbol: string, record: IMarketToken) => (
                 <XStack gap="$3" ai="center">
-                  <MarketTokenIcon uri={record.image} size="$8" />
+                  <MarketTokenIcon uri={record.image} size="md" />
                   <YStack width="$24">
                     <SizableText
                       size="$bodyLgMedium"
