@@ -556,7 +556,7 @@ export const galleryScreenList: {
     component: SwipeableCellGallery,
   },
   {
-    name: EGalleryRoutes.ComponentSpotlightTour,
+    name: EGalleryRoutes.ComponentSpotlight,
     component: SpotlightGallery,
   },
   {
