@@ -49,6 +49,12 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
   return result;
 };
 
+const FILTERED_ERROR_TYPES = new Set([
+  'AxiosError',
+  'HTTPClientError',
+  'OneKeyHardwareError',
+]);
+
 const isFilterError = (error?: {
   type?: string | undefined;
   value?: string | undefined;
@@ -56,12 +62,7 @@ const isFilterError = (error?: {
   if (!error) {
     return false;
   }
-  if (
-    error.type &&
-    ['AxiosError', 'HTTPClientError', 'OneKeyHardwareError'].includes(
-      error.type,
-    )
-  ) {
+  if (error.type && FILTERED_ERROR_TYPES.has(error.type)) {
     return true;
   }
 
