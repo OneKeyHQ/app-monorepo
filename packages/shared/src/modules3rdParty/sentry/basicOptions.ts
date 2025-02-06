@@ -49,6 +49,25 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
   return result;
 };
 
+const isFilterError = (error?: {
+  type?: string | undefined;
+  value?: string | undefined;
+}) => {
+  if (!error) {
+    return false;
+  }
+  if (
+    error.type &&
+    ['AxiosError', 'HTTPClientError', 'OneKeyHardwareError'].includes(
+      error.type,
+    )
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
 export const basicOptions: BrowserOptions = {
   enabled: true,
   maxBreadcrumbs: 100,
@@ -59,6 +78,10 @@ export const basicOptions: BrowserOptions = {
       for (let index = 0; index < event.exception.values.length; index += 1) {
         const errorText = event.exception.values[index].value;
         if (errorText) {
+          if (isFilterError(event.exception.values[index])) {
+            return null;
+          }
+
           try {
             let textSlices = errorText?.split(' ');
             for (let i = 0; i < textSlices.length; i += 1) {

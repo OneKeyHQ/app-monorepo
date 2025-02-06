@@ -151,6 +151,7 @@ export function normalizeErrorProps(
   }
 
   return {
+    name: 'OneKeyError',
     message: msg,
     key,
     autoToast: (props as IOneKeyError)?.autoToast ?? config?.defaultAutoToast,
