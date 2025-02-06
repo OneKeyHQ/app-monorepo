@@ -140,9 +140,24 @@ export class BackgroundApiProxyBase
           data,
         });
       } else {
-        return appGlobals.extJsBridgeUiToBg.request({
-          data,
-        });
+        try {
+          return await appGlobals.extJsBridgeUiToBg.request({
+            data,
+          });
+        } catch (error: unknown) {
+          if (error instanceof Error) {
+            throw error;
+          }
+          const plainErrorObject = error as {
+            name: string;
+            stack: string;
+            message: string;
+          };
+          const newError = new Error(plainErrorObject.message);
+          newError.name = plainErrorObject.name;
+          newError.stack = plainErrorObject.stack;
+          throw newError;
+        }
       }
     } else {
       // some third party modules call native object methods, so we should NOT rename method
