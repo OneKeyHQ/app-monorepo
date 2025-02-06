@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { OtpInput } from 'react-native-otp-entry';
 
@@ -9,12 +9,20 @@ import type { OtpInputProps, OtpInputRef } from 'react-native-otp-entry';
 
 export function OTPInput(
   props: OtpInputProps & {
+    status?: 'error' | 'normal';
     value: string;
     onComplete?: (value: string) => void;
   },
 ) {
-  const { value, onComplete, numberOfDigits, ...rest } = props;
+  const {
+    value,
+    onComplete,
+    numberOfDigits,
+    status = 'normal',
+    ...rest
+  } = props;
   const theme = useTheme();
+  const [innerStatus, setInnerStatus] = useState<'error' | 'normal'>(status);
   const ref = useRef<OtpInputRef>(null);
 
   useEffect(() => {
@@ -22,8 +30,14 @@ export function OTPInput(
 
     if (numberOfDigits === value.length) {
       onComplete?.(value);
+    } else {
+      setInnerStatus('normal');
     }
   }, [onComplete, numberOfDigits, value]);
+
+  useEffect(() => {
+    setInnerStatus(status);
+  }, [status]);
 
   return (
     <OtpInput
@@ -38,7 +52,8 @@ export function OTPInput(
           width: 50,
           height: 50,
           borderWidth: 1,
-          borderColor: theme.neutral7.val,
+          borderColor:
+            innerStatus === 'error' ? theme.red8.val : theme.neutral7.val,
         },
         filledPinCodeContainerStyle: {
           borderWidth: 2,
@@ -46,7 +61,8 @@ export function OTPInput(
         },
         focusedPinCodeContainerStyle: {
           borderWidth: 2,
-          borderColor: theme.borderActive.val,
+          borderColor:
+            innerStatus === 'error' ? theme.red8.val : theme.borderActive.val,
         },
       }}
       focusColor={theme.text.val}

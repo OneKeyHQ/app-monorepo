@@ -25,6 +25,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { PrimeLoginEmailDialogV2 } from '../../components/PrimeLoginEmailDialogV2';
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
@@ -65,14 +66,8 @@ function PrimeBanner() {
 
 export default function PrimeDashboard() {
   const intl = useIntl();
-  const {
-    getAccessToken,
-    user,
-    loginWithEmail,
-    logout,
-    isReady,
-    authenticated,
-  } = usePrimeAuthV2();
+  const { getAccessToken, user, logout, isReady, authenticated } =
+    usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const navigation = useAppNavigation();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
@@ -114,7 +109,7 @@ export default function PrimeDashboard() {
       await timerUtils.wait(500);
 
       if (!user?.isLoggedIn) {
-        loginWithEmail();
+        Dialog.show({ renderContent: <PrimeLoginEmailDialogV2 /> });
       } else if (platformEnv.isNative) {
         setIsLoading(true);
 
@@ -169,7 +164,6 @@ export default function PrimeDashboard() {
     presentPaywallNative,
     purchasePaywallPackageWeb,
     fetchPrimeUserInfo,
-    loginWithEmail,
   ]);
 
   const shouldShowConfirmButton = useMemo(() => {
