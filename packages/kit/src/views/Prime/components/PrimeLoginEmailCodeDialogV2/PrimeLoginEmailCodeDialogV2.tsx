@@ -13,45 +13,39 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
-
 const COUNTDOWN_TIME = 60;
 
 export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
+  sendCode: (args: { email: string }) => Promise<void>;
+  loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   onLoginSuccess?: () => void;
 }) {
-  const { email } = props;
+  const { email, sendCode, loginWithCode } = props;
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
-  const [isResending, setIsResending] = useState(true);
+  const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
-  const intl = useIntl();
-
-  const { useLoginWithEmail } = usePrivyUniversalV2();
-  const { sendCode, loginWithCode, state } = useLoginWithEmail({
-    onComplete: () => {
-      console.log('🔑 ✅ User successfully logged in with email');
-    },
-    onError: (error) => {
-      console.log(error);
-    },
+  const [state, setState] = useState<{ status: 'initial' | 'error' | 'done' }>({
+    status: 'initial',
   });
+  const intl = useIntl();
 
   const sendEmailVerificationCode = useCallback(async () => {
     setIsResending(true);
 
-    if (isResending || countdown > 0) {
+    if (isResending) {
       return;
     }
 
     try {
+      console.log('sendCode', email);
       void sendCode({ email });
 
       setCountdown(COUNTDOWN_TIME);
     } finally {
       setIsResending(false);
     }
-  }, [email, isResending, sendCode, countdown]);
+  }, [email, isResending, sendCode]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -66,12 +60,6 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       }
     };
   }, [countdown]);
-
-  useEffect(() => {
-    if (state.status === 'initial') {
-      void sendEmailVerificationCode();
-    }
-  }, [sendEmailVerificationCode, state.status]);
 
   const buttonText = useMemo(() => {
     if (countdown > 0)
@@ -116,7 +104,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             status={state.status === 'error' ? 'error' : 'normal'}
             numberOfDigits={6}
             value={verificationCode}
-            onTextChange={setVerificationCode}
+            onTextChange={(value) => {
+              setState({ status: 'initial' });
+              setVerificationCode(value);
+            }}
           />
         </YStack>
       </Stack>
@@ -125,22 +116,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           disabled: verificationCode.length !== 6,
         }}
         showCancelButton={false}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
-        })}
+        onConfirmText="Next"
         onConfirm={async ({ preventClose }) => {
           try {
             await loginWithCode({
               code: verificationCode,
               email,
             });
+            setState({ status: 'done' });
           } catch (error) {
+            preventClose();
+            setState({ status: 'error' });
             console.log('error', error);
             throw error;
-          } finally {
-            if (state.status !== 'done') {
-              preventClose();
-            }
           }
         }}
       />
