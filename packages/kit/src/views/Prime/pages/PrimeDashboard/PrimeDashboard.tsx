@@ -9,7 +9,6 @@ import {
   Dialog,
   Icon,
   IconButton,
-  LottieView,
   Page,
   SizableText,
   Stack,
@@ -18,7 +17,6 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import PrimeBannerBgDark from '@onekeyhq/kit/assets/animations/prime-banner-bg-dark.json';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
@@ -27,11 +25,13 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
+import { PrimeLoginEmailDialogV2 } from '../../components/PrimeLoginEmailDialogV2';
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
+import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
 
@@ -66,14 +66,8 @@ function PrimeBanner() {
 
 export default function PrimeDashboard() {
   const intl = useIntl();
-  const {
-    getAccessToken,
-    user,
-    loginWithEmail,
-    logout,
-    isReady,
-    authenticated,
-  } = usePrimeAuthV2();
+  const { getAccessToken, user, logout, isReady, authenticated } =
+    usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const navigation = useAppNavigation();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
@@ -116,7 +110,7 @@ export default function PrimeDashboard() {
       await timerUtils.wait(500);
 
       if (!user?.isLoggedIn) {
-        loginWithEmail();
+        Dialog.show({ renderContent: <PrimeLoginEmailDialogV2 /> });
       } else if (platformEnv.isNative) {
         ActionList.show({
           title: 'Purchase',
@@ -169,7 +163,6 @@ export default function PrimeDashboard() {
     presentPaywallNative,
     purchasePaywallPackageWeb,
     fetchPrimeUserInfo,
-    loginWithEmail,
   ]);
 
   const shouldShowConfirmButton = useMemo(() => {
@@ -224,23 +217,7 @@ export default function PrimeDashboard() {
               borderBottomWidth={StyleSheet.hairlineWidth}
               borderBottomColor="$borderSubdued"
             >
-              {platformEnv.isRuntimeBrowser ? (
-                <YStack
-                  position="absolute"
-                  top="50%"
-                  transform="translateY(-50%)"
-                  left={0}
-                  right={0}
-                  paddingBottom="100%"
-                >
-                  <LottieView
-                    position="absolute"
-                    width="100%"
-                    height="100%"
-                    source={PrimeBannerBgDark}
-                  />
-                </YStack>
-              ) : null}
+              <PrimeLottieAnimation />
               <PrimeBanner />
               {user?.isLoggedIn ? (
                 <PrimeUserInfo doPurchase={doPurchase} />

@@ -6,46 +6,52 @@ import {
   Button,
   Dialog,
   OTPInput,
-  RichSizeableText,
+  SizableText,
   Stack,
-  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { IPrivyState } from '../../hooks/usePrivyUniversalV2/usePrivyUniversalV2Types';
+import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 
 const COUNTDOWN_TIME = 60;
 
 export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
-  state: IPrivyState;
-  loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
-  sendCode: (args: { email: string }) => void;
   onLoginSuccess?: () => void;
 }) {
-  const { email, loginWithCode, sendCode } = props;
+  const { email } = props;
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
-  const [isResending, setIsResending] = useState(false);
+  const [isResending, setIsResending] = useState(true);
   const [verificationCode, setVerificationCode] = useState('');
   const intl = useIntl();
+
+  const { useLoginWithEmail } = usePrivyUniversalV2();
+  const { sendCode, loginWithCode, state } = useLoginWithEmail({
+    onComplete: () => {
+      console.log('🔑 ✅ User successfully logged in with email');
+    },
+    onError: (error) => {
+      console.log(error);
+    },
+  });
 
   const sendEmailVerificationCode = useCallback(async () => {
     setIsResending(true);
 
-    if (isResending) {
+    if (isResending || countdown > 0) {
       return;
     }
 
     try {
-      sendCode({ email });
+      void sendCode({ email });
 
       setCountdown(COUNTDOWN_TIME);
     } finally {
       setIsResending(false);
     }
-  }, [email, isResending, sendCode]);
+  }, [email, isResending, sendCode, countdown]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -62,20 +68,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   }, [countdown]);
 
   useEffect(() => {
-    void sendEmailVerificationCode();
-  }, [sendEmailVerificationCode]);
+    if (state.status === 'initial') {
+      void sendEmailVerificationCode();
+    }
+  }, [sendEmailVerificationCode, state.status]);
 
   const buttonText = useMemo(() => {
-    if (isResending)
-      return intl.formatMessage({ id: ETranslations.prime_send_code }) + email;
-
     if (countdown > 0)
       return `${intl.formatMessage({
         id: ETranslations.prime_code_resend,
       })} (${countdown}s)`;
 
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
-  }, [isResending, intl, email, countdown]);
+  }, [intl, countdown]);
 
   return (
     <Stack>
@@ -85,21 +90,14 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           id: ETranslations.prime_enter_verification_code,
         })}
       </Dialog.Title>
-      <RichSizeableText
-        size="$bodyLg"
-        mt="$1.5"
-        linkList={{
-          email: {
-            url: undefined,
-            textDecorationLine: 'underline',
-            color: '$textDefault',
-          },
-        }}
-      >
-        {`${intl.formatMessage({
-          id: ETranslations.prime_sent_to,
-        })}<email>${email}</email>`}
-      </RichSizeableText>
+
+      <SizableText textDecorationLine="underline">
+        {`${intl.formatMessage(
+          { id: ETranslations.prime_sent_to },
+          { email },
+        )}`}
+      </SizableText>
+
       <Stack pt="$4">
         <YStack gap="$2">
           <XStack>
@@ -115,6 +113,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           </XStack>
 
           <OTPInput
+            status={state.status === 'error' ? 'error' : 'normal'}
             numberOfDigits={6}
             value={verificationCode}
             onTextChange={setVerificationCode}
@@ -122,6 +121,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         </YStack>
       </Stack>
       <Dialog.Footer
+        confirmButtonProps={{
+          disabled: verificationCode.length !== 6,
+        }}
         showCancelButton={false}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,
@@ -132,18 +134,13 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               code: verificationCode,
               email,
             });
-
-            preventClose();
           } catch (error) {
             console.log('error', error);
-
-            Toast.error({
-              title: intl.formatMessage({
-                id: ETranslations.auth_error_passcode_incorrect,
-              }),
-            });
-            preventClose();
             throw error;
+          } finally {
+            if (state.status !== 'done') {
+              preventClose();
+            }
           }
         }}
       />

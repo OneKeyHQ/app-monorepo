@@ -6,10 +6,9 @@ import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-export function PrimeLoginEmailDialogV2(props: {
-  onEmailSubmitted: (email: string) => void;
-}) {
-  const { onEmailSubmitted } = props;
+import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
+
+export function PrimeLoginEmailDialogV2() {
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
@@ -27,14 +26,15 @@ export function PrimeLoginEmailDialogV2(props: {
 
       try {
         console.log('onEmailSubmitted', data);
-        // TODO dialog not close when submit by press Enter
-        onEmailSubmitted?.(data.email);
+        Dialog.show({
+          renderContent: <PrimeLoginEmailCodeDialogV2 email={data.email} />,
+        });
       } catch (error) {
         options?.preventClose?.();
         throw error;
       }
     },
-    [form, onEmailSubmitted],
+    [form],
   );
 
   return (
