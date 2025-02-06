@@ -6,9 +6,19 @@ import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
+import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 export function PrimeLoginEmailDialogV2() {
+  const { useLoginWithEmail } = usePrivyUniversalV2();
+  const { sendCode, loginWithCode } = useLoginWithEmail({
+    onComplete: () => {
+      console.log('🔑 ✅ User successfully logged in with email');
+    },
+    onError: (error) => {
+      console.log(error);
+    },
+  });
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
@@ -27,15 +37,23 @@ export function PrimeLoginEmailDialogV2() {
       try {
         console.log('onEmailSubmitted', data);
 
+        void sendCode({ email: data.email });
+
         Dialog.show({
-          renderContent: <PrimeLoginEmailCodeDialogV2 email={data.email} />,
+          renderContent: (
+            <PrimeLoginEmailCodeDialogV2
+              sendCode={sendCode}
+              loginWithCode={loginWithCode}
+              email={data.email}
+            />
+          ),
         });
       } catch (error) {
         options?.preventClose?.();
         throw error;
       }
     },
-    [form],
+    [form, loginWithCode, sendCode],
   );
 
   return (
