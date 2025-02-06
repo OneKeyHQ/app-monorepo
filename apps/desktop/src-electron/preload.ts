@@ -75,8 +75,7 @@ export type IDesktopAPI = {
   // Updater
   checkForUpdates: (isManual?: boolean) => void;
   disableShortcuts: (params: {
-    disableNumberShortcuts?: boolean;
-    disableSearchAndAccountSelectorShortcuts?: boolean;
+    disableAllShortcuts?: boolean;
   }) => void;
   downloadUpdate: () => void;
   verifyUpdate: (event: IVerifyUpdateParams) => void;
@@ -310,8 +309,7 @@ const desktopApi = Object.freeze({
   checkForUpdates: (isManual?: boolean) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_CHECK, isManual),
   disableShortcuts: (params: {
-    disableNumberShortcuts?: boolean;
-    disableSearchAndAccountSelectorShortcuts?: boolean;
+    disableAllShortcuts?: boolean;
   }) => ipcRenderer.send(ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS, params),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
   verifyUpdate: (params: IVerifyUpdateParams) =>

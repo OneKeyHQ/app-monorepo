@@ -26,10 +26,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -218,8 +220,11 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     }
     setTimeout(() => {
       setCurrentWebTab(null);
+      if (platformEnv.isNativeIOSPad) {
+        navigation.switchTab(ETabRoutes.Discovery);
+      }
     });
-  }, [takeScreenshot, setCurrentWebTab]);
+  }, [takeScreenshot, setCurrentWebTab, navigation]);
 
   const onShare = useCallback(() => {
     handleShareUrl(tab?.url ?? '');
