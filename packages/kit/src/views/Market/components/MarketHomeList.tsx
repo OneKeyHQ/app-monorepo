@@ -955,7 +955,7 @@ function BasicMarketHomeList({
 
   const onHeaderRow = useCallback(
     (column: ITableColumn<IMarketToken>) => {
-      if (['sparkline', 'action'].includes(column.dataIndex)) {
+      if (['trade', 'sparkline', 'action'].includes(column.dataIndex)) {
         return undefined;
       }
       return {
