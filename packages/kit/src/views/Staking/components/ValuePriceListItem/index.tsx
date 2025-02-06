@@ -11,12 +11,7 @@ export const ValuePriceListItem = ({
   fiatSymbol: string;
   fiatValue?: string;
 }) => (
-  <XStack
-    gap="$1"
-    width="70%"
-    jc="flex-end"
-    ai="flex-start"
-  >
+  <XStack gap="$1" width="70%" jc="flex-end" ai="flex-start">
     <SizableText
       textAlign="right"
       style={{
