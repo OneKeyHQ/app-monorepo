@@ -22,9 +22,9 @@ import { checkOneKeyCardGoogleOauthUrl } from '@onekeyhq/shared/src/utils/uriUti
 
 import ErrorView from './ErrorView';
 
+import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewMessageEvent, WebViewProps } from 'react-native-webview';
-import type { IInpageProviderWebViewProps } from './types';
 
 export type INativeWebViewProps = WebViewProps & IInpageProviderWebViewProps;
 
