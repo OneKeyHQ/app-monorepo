@@ -11,7 +11,7 @@ export function MarketTokenStarIcon({
 }) {
   return (
     <Stack>
-      <MarketTokenIcon uri={url} size="$10" />
+      <MarketTokenIcon uri={url} size="lg" />
       {checked ? (
         <Stack
           position="absolute"
