@@ -1,5 +1,4 @@
 import { createRef, useCallback, useEffect, useMemo, useRef } from 'react';
-import type { Component } from 'react';
 
 import {
   useAnimatedStyle,
@@ -7,7 +6,9 @@ import {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useOrientation } from '@onekeyhq/components/src/hooks/useOrientation';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import {
   BROWSER_BOTTOM_BAR_HEIGHT,
@@ -16,8 +17,12 @@ import {
   MIN_TOGGLE_BROWSER_VISIBLE_DISTANCE,
 } from '../config/Animation.constants';
 
-import type { ViewProps } from 'react-native';
-import type { AnimateProps } from 'react-native-reanimated';
+const useIsIPadPortrait = platformEnv.isNativeIOSPad
+  ? () => {
+      const isLandscape = useOrientation();
+      return !isLandscape;
+    }
+  : () => false;
 
 function useMobileBottomBarAnimation(activeTabId: string | null) {
   const toolbarRef = useMemo(() => createRef<any>(), []);
@@ -92,8 +97,9 @@ function useMobileBottomBarAnimation(activeTabId: string | null) {
     },
     [toolbarHeight, toolbarOpacity, toolbarRef],
   );
+  const isIPadPortrait = useIsIPadPortrait();
   const toolbarAnimatedStyle = useAnimatedStyle(() => ({
-    height: toolbarHeight.value,
+    height: isIPadPortrait ? toolbarHeight.value * 2 : toolbarHeight.value,
     opacity: toolbarOpacity.value,
   }));
 
