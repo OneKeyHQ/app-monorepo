@@ -10,6 +10,7 @@ import {
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
 import { MinimumTransferBalanceRequiredError } from '@onekeyhq/shared/src/errors';
+import { DeviceNotFound } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -182,6 +183,12 @@ class ServiceDemo extends ServiceBase {
   @toastIfError()
   async demoError4b() {
     throw new Error('hello world: error toast: 4b');
+  }
+
+  @backgroundMethod()
+  async demoError5(): Promise<string> {
+    await timerUtils.wait(600);
+    throw new DeviceNotFound();
   }
 
   @backgroundMethod()
