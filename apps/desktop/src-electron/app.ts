@@ -542,8 +542,7 @@ function createMainWindow() {
     (
       event,
       params: {
-        disableNumberShortcuts: boolean;
-        disableSearchAndAccountSelectorShortcuts: boolean;
+        disableAllShortcuts: boolean;
       },
     ) => {
       store.setDisableKeyboardShortcuts(params);
