@@ -125,7 +125,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           disabled: verificationCode.length !== 6,
         }}
         showCancelButton={false}
-        onConfirmText="Next"
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_continue,
+        })}
         onConfirm={async ({ preventClose }) => {
           try {
             await loginWithCode({

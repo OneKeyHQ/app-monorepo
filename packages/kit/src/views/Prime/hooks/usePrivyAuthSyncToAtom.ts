@@ -4,6 +4,10 @@ import {
   usePrimeInitAtom,
   usePrimePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -16,6 +20,7 @@ export function usePrivyAuthSyncToAtom() {
   // https://github.com/privy-io/create-next-app/blob/main/pages/index.tsx
   const {
     isReady,
+    logout,
     authenticated,
     userEmail,
     privyUserId,
@@ -66,4 +71,14 @@ export function usePrivyAuthSyncToAtom() {
     userEmail,
     privyUserId,
   ]);
+
+  useEffect(() => {
+    const fn = async () => {
+      await logout();
+    };
+    appEventBus.on(EAppEventBusNames.PrimeLoginInvalidToken, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PrimeLoginInvalidToken, fn);
+    };
+  }, [logout]);
 }

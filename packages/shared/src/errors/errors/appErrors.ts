@@ -106,6 +106,28 @@ export class OneKeyErrorScanQrCodeCancel extends OneKeyError {
   override className = EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel;
 }
 
+export class OneKeyErrorPrimeLoginInvalidToken extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Login invalid, please login again',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
+export class OneKeyErrorPrimeLoginExceedDeviceLimit extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Exceed device limit',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
 export class OneKeyInternalError extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(

@@ -8,11 +8,11 @@ import {
   VALID_DEEP_LINK,
 } from '../consts/urlProtocolConsts';
 
-import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 import type {
   EOneKeyDeepLinkPath,
   IEOneKeyDeepLinkParams,
 } from '../consts/deeplinkConsts';
+import type { Web3WalletTypes } from '@walletconnect/web3wallet';
 
 const DOMAIN_REGEXP =
   /(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]/;

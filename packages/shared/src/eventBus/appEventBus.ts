@@ -96,6 +96,7 @@ export enum EAppEventBusNames {
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
+  PrimeLoginInvalidToken = 'PrimeLoginInvalidToken',
   CreateAddressByDialog = 'CreateAddressByDialog',
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   // AccountNameChanged = 'AccountNameChanged',
@@ -291,6 +292,7 @@ export interface IAppEventBusPayload {
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
   };
+  [EAppEventBusNames.PrimeLoginInvalidToken]: undefined;
   [EAppEventBusNames.CheckAddressBeforeSending]: {
     promiseId: number;
     type: 'scam' | 'contract';

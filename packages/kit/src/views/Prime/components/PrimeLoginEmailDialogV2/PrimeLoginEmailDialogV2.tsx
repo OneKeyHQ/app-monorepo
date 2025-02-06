@@ -26,7 +26,6 @@ export function PrimeLoginEmailDialogV2() {
 
       try {
         console.log('onEmailSubmitted', data);
-
         Dialog.show({
           renderContent: <PrimeLoginEmailCodeDialogV2 email={data.email} />,
         });

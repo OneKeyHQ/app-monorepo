@@ -9,6 +9,7 @@ import { ActionList, Page, useClipboard } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import WebView from '@onekeyhq/kit/src/components/WebView';
 import { WebViewWebEmbed } from '@onekeyhq/kit/src/components/WebViewWebEmbed';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
@@ -22,7 +23,6 @@ import type {
   IJsonRpcRequest,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { RouteProp } from '@react-navigation/core';
-import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 export default function WebViewModal() {
   const { webviewRef, setWebViewRef } = useWebViewBridge();
