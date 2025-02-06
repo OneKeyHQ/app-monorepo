@@ -22,11 +22,11 @@ import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
 import ProviderApiBase from './ProviderApiBase';
 
-import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 import type BackgroundApiBase from '../apis/BackgroundApiBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IFloatingIconSettings } from '../dbs/simple/entity/SimpleDbEntityFloatingIconSettings';
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 
 export interface IOneKeyWalletInfo {
   enableExtContentScriptReloadButton?: boolean;
@@ -176,6 +176,22 @@ class ProviderApiPrivate extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     { time = 0 }: { time?: number } = {},
   ) {
+    setTimeout(() => {
+      if (request.origin) {
+        /*
+        const skipDomReadyNotifySites: Record<string, boolean> = {
+          'https://wallet.keplr.app': true,
+        };
+      */
+        void this.backgroundApi.serviceDApp.notifyDAppAccountsChanged(
+          request.origin,
+        );
+        void this.backgroundApi.serviceDApp.notifyDAppChainChanged(
+          request.origin,
+        );
+      }
+    }, 200);
+
     // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
     // TODO: (await getDebugLoggerSettings())

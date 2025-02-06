@@ -5,7 +5,6 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
-import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
 
 import DesktopBrowserContent from './DesktopBrowserContent';
@@ -32,8 +31,6 @@ function DesktopBrowser() {
       firstRender.current = false;
     }
   }, [tabs, navigation]);
-
-  useDAppNotifyChanges({ tabId: activeTabId });
 
   // Sort tabs by id to maintain stable order and prevent re-renders
   const orderTabs = useMemo(

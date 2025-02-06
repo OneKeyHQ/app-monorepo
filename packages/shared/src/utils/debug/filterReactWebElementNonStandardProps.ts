@@ -9,6 +9,7 @@ const nonStandardPropsKeys: {
     'borderCurve': true,
   },
   'div': {
+    'contentContainerStyle': true,
     'borderCurve': true,
     'delayMs': true,
     'data-on-drag-start': true,
