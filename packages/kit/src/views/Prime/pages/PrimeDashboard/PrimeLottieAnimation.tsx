@@ -15,22 +15,22 @@ const PrimeLottie = () => (
 );
 
 export function PrimeLottieAnimation() {
-  if (platformEnv.isWeb) {
-    return (
-      <Stack
-        style={{
-          position: 'absolute',
-          top: '50%',
-          transform: 'translateY(-50%)',
-          left: 0,
-          right: 0,
-          paddingBottom: '100%',
-        }}
-      >
-        <PrimeLottie />
-      </Stack>
-    );
+  if (platformEnv.isNative) {
+    return <PrimeLottie />;
   }
 
-  return <PrimeLottie />;
+  return (
+    <Stack
+      style={{
+        position: 'absolute',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        left: 0,
+        right: 0,
+        paddingBottom: '100%',
+      }}
+    >
+      <PrimeLottie />
+    </Stack>
+  );
 }
