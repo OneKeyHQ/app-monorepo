@@ -23,7 +23,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 }) {
   const { email } = props;
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
-  const [isResending, setIsResending] = useState(true);
+  const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const intl = useIntl();
 
@@ -40,18 +40,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const sendEmailVerificationCode = useCallback(async () => {
     setIsResending(true);
 
-    if (isResending || countdown > 0) {
+    if (isResending) {
       return;
     }
 
     try {
+      console.log('sendCode', email);
       void sendCode({ email });
 
       setCountdown(COUNTDOWN_TIME);
     } finally {
       setIsResending(false);
     }
-  }, [email, isResending, sendCode, countdown]);
+  }, [email, isResending, sendCode]);
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -68,6 +69,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   }, [countdown]);
 
   useEffect(() => {
+    console.log('state.status', state.status);
     if (state.status === 'initial') {
       void sendEmailVerificationCode();
     }
@@ -126,7 +128,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         }}
         showCancelButton={false}
         onConfirmText="Next"
-        onConfirm={async ({ preventClose }) => {
+        onConfirm={async () => {
           try {
             await loginWithCode({
               code: verificationCode,
@@ -135,10 +137,6 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           } catch (error) {
             console.log('error', error);
             throw error;
-          } finally {
-            if (state.status !== 'done') {
-              preventClose();
-            }
           }
         }}
       />
