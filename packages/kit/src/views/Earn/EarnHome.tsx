@@ -505,7 +505,7 @@ function Overview({
       </XStack>
 
       {/* details button */}
-      {isFetchingAccounts || !isOverviewLoaded ? null : (
+      {!isOverviewLoaded ? null : (
         <Button
           childrenAsText={!hasClaimableAssets}
           onPress={onPress}
@@ -721,7 +721,7 @@ function BasicEarnHome() {
         await fetchAndUpdateOverview();
       };
       if (earnAccountData) {
-        await timerUtils.wait(150);
+        await timerUtils.wait(350);
         void fetchData();
       } else {
         await fetchData();
