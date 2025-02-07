@@ -426,22 +426,27 @@ export default class VaultBtc extends VaultBase {
     const utxoTo =
       outputs.length > 1
         ? (() => {
-            // filter non-change outputs first
-            const nonChangeOutputs = outputs.filter(
-              (output) => !output.payload?.isChange && output.address,
+            // filter non-change and non-inscription structure outputs first
+            const nonChangeAndInscriptionStructureOutputs = outputs.filter(
+              (output) =>
+                !output.payload?.isChange &&
+                output.address &&
+                !output.payload?.isInscriptionStructure,
             );
             // if filtered outputs is empty, return original outputs
-            return (nonChangeOutputs.length ? nonChangeOutputs : outputs).map(
-              (output) => ({
-                address: output.address,
-                balance: new BigNumber(output.value)
-                  .shiftedBy(-network.decimals)
-                  .toFixed(),
-                balanceValue: output.value,
-                symbol: network.symbol,
-                isMine: output.address === account.address,
-              }),
-            );
+            return (
+              nonChangeAndInscriptionStructureOutputs.length
+                ? nonChangeAndInscriptionStructureOutputs
+                : outputs
+            ).map((output) => ({
+              address: output.address,
+              balance: new BigNumber(output.value)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              balanceValue: output.value,
+              symbol: network.symbol,
+              isMine: output.address === account.address,
+            }));
           })()
         : outputs.map((output) => ({
             address: output.address,
