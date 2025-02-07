@@ -139,30 +139,6 @@ export class BackgroundApiProxyBase
           data,
         });
       } else {
-        if (platformEnv.isExtensionUi) {
-          try {
-            return await appGlobals.extJsBridgeUiToBg.request({
-              data,
-            });
-          } catch (error: unknown) {
-            if (error instanceof Error) {
-              throw error;
-            }
-            const plainErrorObject = error as {
-              name: string;
-              stack: string;
-              message: string;
-              autoToast: boolean;
-            };
-            const newError = new OneKeyError(plainErrorObject.message);
-            const keys = Object.keys(plainErrorObject);
-            for (const key of keys) {
-              (newError as any)[key] =
-                plainErrorObject[key as keyof typeof plainErrorObject];
-            }
-            throw newError;
-          }
-        }
         return appGlobals.extJsBridgeUiToBg.request({
           data,
         });
