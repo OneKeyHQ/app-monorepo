@@ -717,10 +717,9 @@ function BasicEarnHome() {
       };
       const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
       if (earnAccountData) {
-        setTimeout(() => {
-          void fetchAndUpdateOverview();
-          void fetchAndUpdateAction();
-        });
+        await timerUtils.wait(150);
+        void fetchAndUpdateOverview();
+        void fetchAndUpdateAction();
       } else {
         await fetchAndUpdateAction();
         void fetchAndUpdateOverview();
