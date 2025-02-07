@@ -491,7 +491,7 @@ export function ApproveBaseStake({
           $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
         >
           <Stack pl="$5">
-            <StakeProgress currentStep={isApprove ? 1 : 2} />
+            <StakeProgress currentStep={isApprove ? 2 : 1} />
           </Stack>
           <Page.FooterActions
             onConfirmText={onConfirmText}
