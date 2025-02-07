@@ -45,6 +45,8 @@ export class OneKeyError<
 
   requestId?: string | undefined;
 
+  override name = 'OneKeyError';
+
   constructor(
     errorProps?: IOneKeyError<I18nInfoT, DataT> | string,
     info?: I18nInfoT,

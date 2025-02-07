@@ -178,6 +178,15 @@ function Demo1() {
       >
         调用 appEventBus 显示 toast1
       </Button>
+
+      <Button
+        onPress={async () => {
+          const ctx = await backgroundApiProxy.serviceDemo.demoError5();
+          console.log(ctx);
+        }}
+      >
+        调用 background 不显示 toast5
+      </Button>
     </Stack>
   );
 }

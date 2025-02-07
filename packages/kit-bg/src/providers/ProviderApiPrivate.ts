@@ -22,11 +22,11 @@ import { isWebEmbedApiAllowedOrigin } from '../apis/backgroundApiPermissions';
 
 import ProviderApiBase from './ProviderApiBase';
 
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type BackgroundApiBase from '../apis/BackgroundApiBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
 import type { IFloatingIconSettings } from '../dbs/simple/entity/SimpleDbEntityFloatingIconSettings';
-import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
+import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IOneKeyWalletInfo {
   enableExtContentScriptReloadButton?: boolean;
