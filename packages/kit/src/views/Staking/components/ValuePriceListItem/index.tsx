@@ -13,7 +13,7 @@ export const ValuePriceListItem = ({
 }) => (
   <Stack
     gap="$1"
-    width="70%"
+    width="100%"
     jc="flex-end"
     ai="flex-end"
     flexDirection="column"
