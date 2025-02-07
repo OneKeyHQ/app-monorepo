@@ -121,7 +121,7 @@ const BasicApproveBaseStakePage = () => {
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
-          { id: ETranslations.earn_stake_token },
+          { id: ETranslations.earn_earn_token },
           { 'token': token.info.symbol },
         )}
       />
