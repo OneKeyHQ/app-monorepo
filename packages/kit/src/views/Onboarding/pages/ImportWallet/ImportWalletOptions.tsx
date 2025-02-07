@@ -178,6 +178,11 @@ export function ImportWalletOptions() {
           title: 'OneKey KeyTag',
           onPress: handleImportKeyTag,
         },
+        {
+          icon: 'MultipleDevicesOutline',
+          title: 'Transfer',
+          onPress: handleImportKeyTag,
+        },
       ],
     },
     {
