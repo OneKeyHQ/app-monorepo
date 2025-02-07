@@ -7,14 +7,12 @@ import { Keyboard } from 'react-native';
 
 import {
   Alert,
-  Dialog,
   Image,
   NumberSizeableText,
   Page,
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -32,7 +30,6 @@ import type {
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationList, CalculationListItem } from '../CalculationList';
-import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import {
   EstimateNetworkFee,
   calcDaysSpent,
@@ -121,7 +118,6 @@ export function UniversalStake({
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState('');
   const [
     {
@@ -263,41 +259,7 @@ export function UniversalStake({
 
   const onPress = useCallback(async () => {
     Keyboard.dismiss();
-    const showDialog = () => {
-      Dialog.show({
-        renderIcon: (
-          <Image width="$14" height="$14" src={details.token.info.logoURI} />
-        ),
-        title: intl.formatMessage(
-          { id: ETranslations.earn_provider_asset_staking },
-          {
-            'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol,
-          },
-        ),
-        renderContent: (
-          <StakeShouldUnderstand
-            provider={details.provider.name.toLowerCase()}
-            symbol={details.token.info.symbol.toLowerCase()}
-            apr={details.provider.apr}
-            updateFrequency={details.updateFrequency}
-            unstakingPeriod={details.unstakingPeriod}
-            receiveSymbol={details.rewardToken}
-          />
-        ),
-        onConfirm: async (inst) => {
-          try {
-            setLoading(true);
-            await inst.close();
-            await onConfirm?.(amountValue);
-          } finally {
-            setLoading(false);
-          }
-        },
-        onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
-        showCancelButton: false,
-      });
-    };
+    const handleConfirm = () => onConfirm?.(amountValue);
     if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
       const daySpent = calcDaysSpent(
         estAnnualRewardsState.fiatValue,
@@ -307,17 +269,15 @@ export function UniversalStake({
         showEstimateGasAlert({
           daysConsumed: daySpent,
           estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: showDialog,
+          onConfirm: handleConfirm,
         });
         return;
       }
     }
-    showDialog();
+    await handleConfirm();
   }, [
     onConfirm,
     amountValue,
-    details,
-    intl,
     estAnnualRewardsState?.fiatValue,
     estimateFeeResp,
     showEstimateGasAlert,
@@ -568,7 +528,6 @@ export function UniversalStake({
         })}
         confirmButtonProps={{
           onPress,
-          loading,
           disabled: isDisable,
         }}
       />
