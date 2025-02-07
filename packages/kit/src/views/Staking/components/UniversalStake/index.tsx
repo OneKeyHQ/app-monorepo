@@ -8,14 +8,13 @@ import { Keyboard } from 'react-native';
 import {
   Alert,
   Dialog,
-  IconButton,
   Image,
   NumberSizeableText,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -398,20 +397,24 @@ export function UniversalStake({
       ) : null}
       <CalculationList>
         {estAnnualRewardsState ? (
-          <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({
-                id: ETranslations.earn_est_annual_rewards,
-              })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>
-              <ValuePriceListItem
-                tokenSymbol={tokenSymbol ?? ''}
-                fiatSymbol={symbol}
-                amount={estAnnualRewardsState.amount}
-                fiatValue={estAnnualRewardsState.fiatValue}
-              />
-            </CalculationListItem.Value>
+          <CalculationListItem alignItems="flex-start">
+            <Stack flex={1}>
+              <CalculationListItem.Label whiteSpace="nowrap">
+                {intl.formatMessage({
+                  id: ETranslations.earn_est_annual_rewards,
+                })}
+              </CalculationListItem.Label>
+            </Stack>
+            <Stack ai="flex-end" flex={1} $gtMd={{ flex: 4 }}>
+              <CalculationListItem.Value>
+                <ValuePriceListItem
+                  tokenSymbol={tokenSymbol ?? ''}
+                  fiatSymbol={symbol}
+                  amount={estAnnualRewardsState.amount}
+                  fiatValue={estAnnualRewardsState.fiatValue}
+                />
+              </CalculationListItem.Value>
+            </Stack>
           </CalculationListItem>
         ) : null}
         {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
