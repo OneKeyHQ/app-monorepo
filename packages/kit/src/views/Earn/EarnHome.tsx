@@ -716,13 +716,15 @@ function BasicEarnHome() {
         });
       };
       const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-      if (earnAccountData) {
-        await timerUtils.wait(150);
-        void fetchAndUpdateOverview();
-        void fetchAndUpdateAction();
-      } else {
+      const fetchData = async () => {
         await fetchAndUpdateAction();
         await fetchAndUpdateOverview();
+      };
+      if (earnAccountData) {
+        await timerUtils.wait(150);
+        void fetchData();
+      } else {
+        await fetchData();
       }
       return { loaded: true };
     },
