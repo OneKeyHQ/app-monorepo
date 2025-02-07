@@ -4,6 +4,7 @@
 /* eslint-disable  */
   
   export enum ETranslations {
+   earn_earn_token = ' earn.earn_token',
   Setting_Reset_app_description = 'Setting.Reset_app_description',
   Toast_web_auth = 'Toast.web_auth',
   Token_manage_custom_token_address_faild = 'Token_manage.custom_token_address_faild',
@@ -196,6 +197,8 @@
   browser_last_verified_at = 'browser.last_verified_at',
   browser_no_closed_tabs = 'browser.no_closed_tabs',
   browser_recently_closed = 'browser.recently_closed',
+  browser_request_desktop_site = 'browser.request_desktop_site',
+  browser_request_mobile_site = 'browser.request_mobile_site',
   browser_risk_detection = 'browser.risk_detection',
   browser_search_dapp_or_enter_url = 'browser.search_dapp_or_enter_url',
   browser_switch_to_account = 'browser.switch_to_account',
@@ -1762,6 +1765,7 @@
   send_to_placeholder = 'send.to_placeholder',
   send_to_scan_tooltip = 'send.to_scan_tooltip',
   send_toast_btc_fork_insufficient_fund = 'send.toast_btc_fork_insufficient_fund',
+  send_transferred_address_add = 'send.transferred_address_add',
   send_verification_failure = 'send.verification_failure',
   send_token_selector_no_match_found = 'send_token_selector.no_match_found',
   send_token_selector_no_results = 'send_token_selector.no_results',
@@ -1770,6 +1774,7 @@
   setting_floating_icon = 'setting.floating_icon',
   setting_floating_icon_always_display = 'setting.floating_icon_always_display',
   setting_floating_icon_always_display_description = 'setting.floating_icon_always_display_description',
+  setting_introducing_floating_icon = 'setting.introducing_floating_icon',
   settings_account_derivation_path = 'settings.account_derivation_path',
   settings_account_derivation_path_desc = 'settings.account_derivation_path_desc',
   settings_account_sync_dapp_to_wallet_mode_description = 'settings.account_sync_dapp_to_wallet_mode_description',
