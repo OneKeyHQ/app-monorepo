@@ -852,11 +852,11 @@ function BasicEarnHome() {
           isLoading={false}
           leftIconButtonStyle={{
             ...bannerIconStyle,
-            left: media.md ? 34 : '$3.5',
+            left: media.gtLg ? '$3.5' : 34,
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
-            right: media.md ? 34 : '$3.5',
+            right: media.gtLg ? '$3.5' : 34,
           }}
           indicatorContainerStyle={{
             right: 0,
@@ -869,7 +869,7 @@ function BasicEarnHome() {
             top: 0,
             bottom: 0,
             right: '$5',
-            left: media.md ? '$10' : '$5',
+            left: media.gtLg ? '$5' : '$10',
             justifyContent: 'center',
           }}
         />
