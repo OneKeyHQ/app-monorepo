@@ -125,10 +125,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             });
             setState({ status: 'done' });
           } catch (error) {
-            preventClose();
             setState({ status: 'error' });
-            console.log('error', error);
-            throw error;
+            preventClose();
           }
         }}
       />

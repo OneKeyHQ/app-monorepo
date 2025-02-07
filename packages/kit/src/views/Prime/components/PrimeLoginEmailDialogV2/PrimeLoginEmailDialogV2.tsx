@@ -22,7 +22,7 @@ export function PrimeLoginEmailDialogV2() {
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
-    defaultValues: { email: 'yao.hou@onekey.so' },
+    defaultValues: { email: '' },
   });
 
   const submit = useCallback(
