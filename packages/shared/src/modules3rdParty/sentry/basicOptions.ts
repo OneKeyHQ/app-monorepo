@@ -49,6 +49,30 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
   return result;
 };
 
+const FILTERED_ERROR_TYPES = new Set([
+  'AxiosError',
+  'HTTPClientError',
+  'OneKeyHardwareError',
+]);
+
+const isFilterError = (error?: {
+  type?: string | undefined;
+  value?: string | undefined;
+}) => {
+  if (!error) {
+    return false;
+  }
+  if (error.type && FILTERED_ERROR_TYPES.has(error.type)) {
+    return true;
+  }
+
+  if (error.type === 'Error' && error.value === 'AbortError: AbortError') {
+    return true;
+  }
+
+  return false;
+};
+
 export const basicOptions: BrowserOptions = {
   enabled: true,
   maxBreadcrumbs: 100,
@@ -59,6 +83,10 @@ export const basicOptions: BrowserOptions = {
       for (let index = 0; index < event.exception.values.length; index += 1) {
         const errorText = event.exception.values[index].value;
         if (errorText) {
+          if (isFilterError(event.exception.values[index])) {
+            return null;
+          }
+
           try {
             let textSlices = errorText?.split(' ');
             for (let i = 0; i < textSlices.length; i += 1) {
