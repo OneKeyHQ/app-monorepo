@@ -856,7 +856,7 @@ function BasicEarnHome() {
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
-            right: '$3.5',
+            right: media.md ? 34 : '$3.5',
           }}
           indicatorContainerStyle={{
             right: 0,
