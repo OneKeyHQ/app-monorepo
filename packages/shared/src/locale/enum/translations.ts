@@ -4,7 +4,7 @@
 /* eslint-disable  */
   
   export enum ETranslations {
-   earn_earn_token = ' earn.earn_token',
+   earn_earn_token = 'earn.earn_token',
   Setting_Reset_app_description = 'Setting.Reset_app_description',
   Toast_web_auth = 'Toast.web_auth',
   Token_manage_custom_token_address_faild = 'Token_manage.custom_token_address_faild',

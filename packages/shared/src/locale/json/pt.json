@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "Ganhe {token}",
+  "earn.earn_token": "Ganhe {token}",
   "Setting.Reset_app_description": "Redefinir o App neste dispositivo após 10 tentativas falhas de senha.",
   "Toast.web_auth": "Falha na configuração",
   "Token_manage.custom_token_address_faild": "Falha ao encontrar o endereço do contrato. Tente novamente. ",

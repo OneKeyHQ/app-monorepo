@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "รับ {token}",
+  "earn.earn_token": "รับ {token}",
   "Setting.Reset_app_description": "รีเซ็ต App บนอุปกรณ์นี้หลังจากพยายามใส่รหัสผ่านผิด 10 ครั้ง",
   "Toast.web_auth": "การตั้งค่าล้มเหลว",
   "Token_manage.custom_token_address_faild": "ไม่สามารถหาที่อยู่ของสัญญา ลองอีกครั้ง",

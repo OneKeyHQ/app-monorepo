@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "{token} कमाएँ",
+  "earn.earn_token": "{token} कमाएँ",
   "Setting.Reset_app_description": "10 असफल पासकोड प्रयासों के बाद इस डिवाइस पर App को रीसेट करें।",
   "Toast.web_auth": "सेट करना विफल रहा",
   "Token_manage.custom_token_address_faild": "अनुबंध का पता लगाने में विफल रहे। पुनः प्रयास करें। ",

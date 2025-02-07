@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "Kiếm {token}",
+  "earn.earn_token": "Kiếm {token}",
   "Setting.Reset_app_description": "Đặt lại App trên thiết bị này sau 10 lần nhập sai mã khóa.",
   "Toast.web_auth": "Thiết lập thất bại",
   "Token_manage.custom_token_address_faild": "Không tìm thấy địa chỉ hợp đồng. Hãy thử lại. ",

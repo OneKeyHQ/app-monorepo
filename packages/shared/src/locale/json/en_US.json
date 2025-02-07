@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "Earn {token}",
+  "earn.earn_token": "Earn {token}",
   "Setting.Reset_app_description": "Reset app on this device after 10 failed passcode attempts.",
   "Toast.web_auth": "Set failed",
   "Token_manage.custom_token_address_faild": "Failed to find the contract address. Try agian. ",

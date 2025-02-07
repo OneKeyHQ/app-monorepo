@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "Gagnez {token}",
+  "earn.earn_token": "Gagnez {token}",
   "Setting.Reset_app_description": "Réinitialiser l'App sur cet appareil après 10 tentatives de mot de passe échouées.",
   "Toast.web_auth": "Échec de l'installation",
   "Token_manage.custom_token_address_faild": "Échec de la recherche de l'adresse du contrat. Essayez à nouveau. ",

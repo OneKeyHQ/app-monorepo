@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "{token} 획득",
+  "earn.earn_token": "{token} 획득",
   "Setting.Reset_app_description": "10번의 비밀번호 입력 실패 후 이 기기에서 App을 초기화합니다.",
   "Toast.web_auth": "설정 실패",
   "Token_manage.custom_token_address_faild": "계약 주소를 찾지 못했습니다. 다시 시도하십시오. ",

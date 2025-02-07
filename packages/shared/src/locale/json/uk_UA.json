@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "Заробіть {token}",
+  "earn.earn_token": "Заробіть {token}",
   "Setting.Reset_app_description": "Скинути додаток на цьому пристрої після 10 невдалих спроб введення пароля.",
   "Toast.web_auth": "Налаштування не вдалося",
   "Token_manage.custom_token_address_faild": "Не вдалося знайти адресу контракту. Спробуйте ще раз. ",

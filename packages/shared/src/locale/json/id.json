@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "Dapatkan {token}",
+  "earn.earn_token": "Dapatkan {token}",
   "Setting.Reset_app_description": "Reset aplikasi pada perangkat ini setelah 10 kali percobaan kode sandi yang gagal.",
   "Toast.web_auth": "Pengaturan gagal",
   "Token_manage.custom_token_address_faild": "Gagal menemukan alamat kontrak. Coba lagi. ",

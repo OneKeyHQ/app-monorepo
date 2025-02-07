@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "Ganar {token}",
+  "earn.earn_token": "Ganar {token}",
   "Setting.Reset_app_description": "Restablecer la App en este dispositivo después de 10 intentos fallidos de código de acceso.",
   "Toast.web_auth": "Error en la configuración",
   "Token_manage.custom_token_address_faild": "No se pudo encontrar la dirección del contrato. Inténtalo de nuevo. ",

@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "{token} উপার্জন করুন",
+  "earn.earn_token": "{token} উপার্জন করুন",
   "Setting.Reset_app_description": "১০ বার পাসকোড ভুল হলে এই ডিভাইসে App রিসেট করুন।",
   "Toast.web_auth": "সেট ব্যর্থ হয়েছে",
   "Token_manage.custom_token_address_faild": "চুক্তির ঠিকানা খুঁজে পাওয়া যায়নি। আবার চেষ্টা করুন। ",

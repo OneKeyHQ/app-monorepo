@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "Verdiene {token}",
+  "earn.earn_token": "Verdiene {token}",
   "Setting.Reset_app_description": "Setze die App auf diesem Gerät nach 10 fehlgeschlagenen Passcode-Versuchen zurück.",
   "Toast.web_auth": "Einstellung fehlgeschlagen",
   "Token_manage.custom_token_address_faild": "Die Vertragsadresse konnte nicht gefunden werden. Versuchen Sie es erneut. ",

@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "{token} 獲得",
+  "earn.earn_token": "{token} 獲得",
   "Setting.Reset_app_description": "10回のパスコード入力失敗後、このデバイスでアプリをリセットします。",
   "Toast.web_auth": "設定に失敗しました",
   "Token_manage.custom_token_address_faild": "契約アドレスが見つかりませんでした。再試行してください。",

@@ -1,5 +1,5 @@
 {
-  " earn.earn_token": "赚取 {token}",
+  "earn.earn_token": "赚取 {token}",
   "Setting.Reset_app_description": "连续10次输入错误的密码后重置 App。",
   "Toast.web_auth": "设置失败",
   "Token_manage.custom_token_address_faild": "未能找到合约地址。请再试一次。",
