@@ -124,7 +124,12 @@ async function hardwareEvmSignTransaction({
     tx.type = 2;
     tx.maxFeePerGas = txToSign?.maxFeePerGas ?? undefined;
     tx.maxPriorityFeePerGas = txToSign?.maxPriorityFeePerGas ?? undefined;
+
+    if ((txToSign as EVMTransactionEIP1559).accessList) {
+      tx.accessList = (txToSign as EVMTransactionEIP1559).accessList;
+    }
   }
+
   const result = await convertDeviceResponse(async () =>
     sdk.evmSignTransaction(connectId, deviceId, {
       path,
