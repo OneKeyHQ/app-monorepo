@@ -722,7 +722,7 @@ function BasicEarnHome() {
         void fetchAndUpdateAction();
       } else {
         await fetchAndUpdateAction();
-        void fetchAndUpdateOverview();
+        await fetchAndUpdateOverview();
       }
       return { loaded: true };
     },
