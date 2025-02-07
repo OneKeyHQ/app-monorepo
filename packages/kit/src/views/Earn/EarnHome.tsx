@@ -358,7 +358,15 @@ function Recommended({
   return null;
 }
 
-function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
+function Overview({
+  isFetchingAccounts,
+  isLoading,
+  onRefresh,
+}: {
+  isFetchingAccounts: boolean;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
@@ -420,15 +428,23 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
         >
           {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
         </SizableText>
-        <NumberSizeableText
-          size="$heading5xl"
-          formatter="price"
-          color={getNumberColor(totalFiatValue, '$text')}
-          formatterOptions={{ currency: settings.currencyInfo.symbol }}
-          numberOfLines={1}
-        >
-          {totalFiatValue}
-        </NumberSizeableText>
+        <XStack gap="$3" ai="center">
+          <NumberSizeableText
+            size="$heading5xl"
+            formatter="price"
+            color={getNumberColor(totalFiatValue, '$text')}
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            numberOfLines={1}
+          >
+            {totalFiatValue}
+          </NumberSizeableText>
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            loading={isLoading}
+            onPress={onRefresh}
+          />
+        </XStack>
       </YStack>
       {/* 24h earnings */}
       <XStack
@@ -645,7 +661,11 @@ function BasicEarnHome() {
   const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
-  const { isLoading: isFetchingAccounts, result } = usePromiseResult(
+  const {
+    isLoading: isFetchingAccounts,
+    result,
+    run: refreshOverViewData,
+  } = usePromiseResult(
     async () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
         account?.id,
@@ -884,6 +904,8 @@ function BasicEarnHome() {
               }}
             >
               <Overview
+                onRefresh={refreshOverViewData}
+                isLoading={!!isFetchingAccounts}
                 isFetchingAccounts={Boolean(
                   result === undefined || !!isFetchingAccounts,
                 )}
