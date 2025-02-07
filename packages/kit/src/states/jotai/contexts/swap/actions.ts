@@ -331,6 +331,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), true);
         }
+        const protocol = get(swapTypeSwitchAtom());
         const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
           fromToken,
           toToken,
@@ -340,6 +341,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           autoSlippage,
           blockNumber,
           accountId,
+          protocol,
         });
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), false);
@@ -559,6 +561,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       blockNumber?: number,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
+      const protocol = get(swapTypeSwitchAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
@@ -575,6 +578,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         autoSlippage,
         blockNumber,
         accountId,
+        protocol,
       });
     },
   );

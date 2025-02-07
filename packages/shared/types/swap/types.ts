@@ -24,6 +24,7 @@ export enum EWrappedType {
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
+  ALL = 'All',
 }
 
 export enum ESwapTabSwitchType {

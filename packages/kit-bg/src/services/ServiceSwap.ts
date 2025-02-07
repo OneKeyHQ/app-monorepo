@@ -33,7 +33,6 @@ import {
   swapQuoteEventTimeout,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  ESwapTabSwitchType,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchQuoteResult,
@@ -57,6 +56,7 @@ import {
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
   ESwapFetchCancelCause,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -144,7 +144,7 @@ export default class ServiceSwap extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async fetchSwapNetworks(): Promise<ISwapNetwork[]> {
-    const protocol = EProtocolOfExchange.SWAP;
+    const protocol = EProtocolOfExchange.ALL;
     const params = {
       protocol,
     };
@@ -195,7 +195,10 @@ export default class ServiceSwap extends ServiceBase {
       await this.cancelFetchTokenList();
     }
     const params: IFetchTokenListParams = {
-      protocol,
+      protocol:
+        protocol === ESwapTabSwitchType.LIMIT
+          ? EProtocolOfExchange.LIMIT
+          : EProtocolOfExchange.SWAP,
       networkId: networkId ?? getNetworkIdsMap().onekeyall,
       keywords,
       limit,
@@ -438,6 +441,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage,
     blockNumber,
     accountId,
+    protocol,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -447,6 +451,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage?: boolean;
     blockNumber?: number;
     accountId?: string;
+    protocol: ESwapTabSwitchType;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
     const params: IFetchQuotesParams = {
@@ -455,7 +460,10 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol: EProtocolOfExchange.SWAP,
+      protocol:
+        protocol === ESwapTabSwitchType.LIMIT
+          ? EProtocolOfExchange.LIMIT
+          : EProtocolOfExchange.SWAP,
       userAddress,
       slippagePercentage,
       autoSlippage,
@@ -510,6 +518,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage,
     blockNumber,
     accountId,
+    protocol,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -519,6 +528,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage?: boolean;
     blockNumber?: number;
     accountId?: string;
+    protocol: ESwapTabSwitchType;
   }) {
     await this.removeQuoteEventSourceListeners();
     const params: IFetchQuotesParams = {
@@ -527,7 +537,10 @@ export default class ServiceSwap extends ServiceBase {
       fromTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol: EProtocolOfExchange.SWAP,
+      protocol:
+        protocol === ESwapTabSwitchType.LIMIT
+          ? EProtocolOfExchange.LIMIT
+          : EProtocolOfExchange.SWAP,
       userAddress,
       slippagePercentage,
       autoSlippage,
@@ -771,7 +784,7 @@ export default class ServiceSwap extends ServiceBase {
     }>(`/swap/v1/check-support`, {
       params: {
         networkId,
-        protocol: 'Swap',
+        protocol: EProtocolOfExchange.SWAP,
       },
     });
     return resp.data.data[0];
