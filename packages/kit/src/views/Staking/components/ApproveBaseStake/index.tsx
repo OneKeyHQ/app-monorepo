@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  Dialog,
   Image,
   NumberSizeableText,
   Page,
@@ -35,6 +34,7 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import { StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { renderStakeText } from '../utils';
@@ -484,14 +484,25 @@ export function ApproveBaseStake({
         accountId={approveTarget.accountId}
         networkId={approveTarget.networkId}
       />
-      <Page.Footer
-        onConfirmText={onConfirmText}
-        confirmButtonProps={{
-          onPress: isApprove ? onApprove : onSubmit,
-          loading: loading || loadingAllowance || approving,
-          disabled: isDisable,
-        }}
-      />
+      <Page.Footer>
+        <Stack
+          bg="$bgApp"
+          flexDirection="column"
+          $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
+        >
+          <Stack pl="$5">
+            <StakeProgress currentStep={isApprove ? 1 : 2} />
+          </Stack>
+          <Page.FooterActions
+            onConfirmText={onConfirmText}
+            confirmButtonProps={{
+              onPress: isApprove ? onApprove : onSubmit,
+              loading: loading || loadingAllowance || approving,
+              disabled: isDisable,
+            }}
+          />
+        </Stack>
+      </Page.Footer>
     </StakingFormWrapper>
   );
 }
