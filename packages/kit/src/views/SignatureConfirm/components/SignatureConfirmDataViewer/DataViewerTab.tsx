@@ -80,7 +80,10 @@ function DataViewerTab(props: IProps) {
           />
         ) : null}
       </XStack>
-      <DataViewer data={items[activeDataGroupIndex].data} />
+      <DataViewer
+        key={activeDataGroupIndex}
+        data={items[activeDataGroupIndex].data}
+      />
     </YStack>
   );
 }

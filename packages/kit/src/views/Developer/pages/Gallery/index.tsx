@@ -500,6 +500,13 @@ const AccordionGallery = LazyLoadPage(
     ),
 );
 
+const RichSizeableTextGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/RichSizeableText'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -556,7 +563,7 @@ export const galleryScreenList: {
     component: SwipeableCellGallery,
   },
   {
-    name: EGalleryRoutes.ComponentSpotlightTour,
+    name: EGalleryRoutes.ComponentSpotlight,
     component: SpotlightGallery,
   },
   {
@@ -727,5 +734,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentAccordion,
     component: AccordionGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentRichSizeableText,
+    component: RichSizeableTextGallery,
   },
 ];

@@ -265,7 +265,7 @@ export function UniversalSearch({
                   }, 10);
                 }, 80);
               }}
-              renderAvatar={<MarketTokenIcon uri={image} size="$10" />}
+              renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
               title={symbol}
               subtitle={name}
               subtitleProps={{

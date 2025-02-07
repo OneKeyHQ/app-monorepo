@@ -160,7 +160,7 @@ function MarketDetail({
   const renderHeaderTitle = useCallback(
     () => (
       <XStack gap="$2">
-        <MarketTokenIcon uri={tokenDetail?.image || ''} size="$6" />
+        <MarketTokenIcon uri={tokenDetail?.image || ''} size="sm" />
         <SizableText>{tokenDetail?.symbol?.toUpperCase()}</SizableText>
       </XStack>
     ),

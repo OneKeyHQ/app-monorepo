@@ -182,18 +182,25 @@ function TableRow<T>({
       onRowEvents?.onLongPress?.();
     }
   }, [drag, draggable, getTimeDiff, onRowEvents]);
+
+  const nativeScaleAnimationProps: IStackProps = platformEnv.isNative
+    ? {
+        scale: isDragging ? 0.9 : 1,
+        animateOnly: ['transform'],
+        animation: 'quick',
+      }
+    : {};
+
   return (
     <XStack
       minHeight={DEFAULT_ROW_HEIGHT}
       bg={isDragging ? '$bgActive' : '$bgApp'}
-      scale={isDragging && platformEnv.isNative ? 0.9 : 1}
-      animation="fast"
-      animateOnly={['transform']}
       borderRadius="$3"
       dataSet={!platformEnv.isNative && draggable ? dataSet : undefined}
       onPressIn={!platformEnv.isNative ? handlePressIn : undefined}
       onPress={handlePress}
       onLongPress={md ? handleLongPress : undefined}
+      {...nativeScaleAnimationProps}
       {...itemPressStyle}
       {...rowProps}
     >
