@@ -1,4 +1,4 @@
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 
 export const ValuePriceListItem = ({
   amount,
@@ -11,7 +11,14 @@ export const ValuePriceListItem = ({
   fiatSymbol: string;
   fiatValue?: string;
 }) => (
-  <XStack gap="$1" width="70%" jc="flex-end" ai="flex-start">
+  <Stack
+    gap="$1"
+    width="100%"
+    jc="flex-end"
+    ai="flex-end"
+    flexDirection="column"
+    $gtMd={{ flexDirection: 'row', ai: 'flex-start' }}
+  >
     <SizableText
       textAlign="right"
       style={{
@@ -49,5 +56,5 @@ export const ValuePriceListItem = ({
         </SizableText>
       ) : null}
     </SizableText>
-  </XStack>
+  </Stack>
 );
