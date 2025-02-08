@@ -263,9 +263,10 @@ export default class Vault extends VaultBase {
               tokenIdOnNetwork: asset.unit,
               name: token.name,
               icon: token.logoURI ?? '',
-              amount: new BigNumber(asset.quantity)
-                .shiftedBy(-network.decimals)
-                .toFixed(),
+              amount: chainValueUtils.convertTokenChainValueToAmount({
+                value: asset.quantity,
+                token,
+              }),
               amountValue: asset.quantity,
               symbol: token.symbol,
             });
@@ -278,9 +279,10 @@ export default class Vault extends VaultBase {
           tokenIdOnNetwork: '',
           name: nativeToken.name,
           icon: nativeToken.logoURI ?? '',
-          amount: new BigNumber(output.amount)
-            .shiftedBy(-network.decimals)
-            .toFixed(),
+          amount: chainValueUtils.convertChainValueToAmount({
+            value: output.amount,
+            network,
+          }),
           amountValue: output.amount,
           symbol: network.symbol,
         });
