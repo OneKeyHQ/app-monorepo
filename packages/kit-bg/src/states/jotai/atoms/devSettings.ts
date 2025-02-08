@@ -49,7 +49,7 @@ export const {
       disableNumberShortcuts: false,
       disableSearchAndAccountSelectorShortcuts: false,
       webviewDebuggingEnabled: false,
-      showPrimeTest: true,
+      showPrimeTest: false,
     },
   },
 });
