@@ -8,6 +8,11 @@ interface IStakeProgressProps {
   currentStep: number;
 }
 
+export enum EStakeProgressStep {
+  approve = 1,
+  supply = 2,
+}
+
 export function StakeProgress({ currentStep }: IStakeProgressProps) {
   const intl = useIntl();
   return (
@@ -18,11 +23,15 @@ export function StakeProgress({ currentStep }: IStakeProgressProps) {
       <Icon
         name="ArrowRightOutline"
         size="$4"
-        color={currentStep > 1 ? '$icon' : '$iconSubdued'}
+        color={
+          currentStep > EStakeProgressStep.approve ? '$icon' : '$iconSubdued'
+        }
       />
       <SizableText
         size="$bodyMdMedium"
-        color={currentStep > 1 ? undefined : '$textDisabled'}
+        color={
+          currentStep > EStakeProgressStep.approve ? undefined : '$textDisabled'
+        }
       >
         2. {intl.formatMessage({ id: ETranslations.earn_supply })}
       </SizableText>
