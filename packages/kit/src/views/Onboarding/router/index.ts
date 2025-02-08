@@ -76,6 +76,8 @@ const ImportKeyTag = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportKeyTag'),
 );
 
+const Transfer = LazyLoadPage(() => import('../pages/Transfer/Transfer'));
+
 export const OnboardingRouter: IModalFlowNavigatorConfig<
   EOnboardingPages,
   IOnboardingParamList
@@ -160,6 +162,10 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.ImportCloudBackup,
     component: ImportCloudBackup,
+  },
+  {
+    name: EOnboardingPages.Transfer,
+    component: Transfer,
   },
 
   // connect 3rd-party wallet

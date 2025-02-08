@@ -109,6 +109,11 @@ export function ImportWalletOptions() {
     navigation.push(EOnboardingPages.ImportCloudBackup);
   };
 
+  const handleTransferPress = async () => {
+    await backgroundApiProxy.servicePassword.promptPasswordVerify();
+    navigation.push(EOnboardingPages.Transfer);
+  };
+
   const options: IOptionSection[] = [
     {
       data: [
@@ -181,7 +186,7 @@ export function ImportWalletOptions() {
         {
           icon: 'MultipleDevicesOutline',
           title: 'Transfer',
-          onPress: handleImportKeyTag,
+          onPress: handleTransferPress,
         },
       ],
     },

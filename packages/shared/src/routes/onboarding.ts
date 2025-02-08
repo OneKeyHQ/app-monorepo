@@ -37,6 +37,7 @@ export enum EOnboardingPages {
   // finalize wallet setup
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   ImportKeyTag = 'ImportKeyTag',
+  Transfer = 'Transfer',
 }
 
 export type IOnboardingParamList = {
