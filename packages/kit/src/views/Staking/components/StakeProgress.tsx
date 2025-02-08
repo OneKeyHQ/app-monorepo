@@ -3,7 +3,12 @@ import { useIntl } from 'react-intl';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-export function StakeProgress({ currentStep }: { currentStep: number }) {
+interface IStakeProgressProps {
+  /** Current step in the staking process (1 or 2) */
+  currentStep: number;
+}
+
+export function StakeProgress({ currentStep }: IStakeProgressProps) {
   const intl = useIntl();
   return (
     <XStack gap="$1" ai="center">
