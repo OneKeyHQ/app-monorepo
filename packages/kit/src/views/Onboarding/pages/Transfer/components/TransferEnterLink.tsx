@@ -15,7 +15,7 @@ export function TransferEnterLink() {
   const [value, setValue] = useState('');
 
   return (
-    <YStack gap="$4">
+    <Stack gap="$4">
       <YStack gap="$1">
         <SizableText size="$bodyMdMedium">Link</SizableText>
 
@@ -58,6 +58,6 @@ export function TransferEnterLink() {
         OneKey doesn't back up hardware wallets, please record and safeguard
         your recovery phrase.
       </SizableText>
-    </YStack>
+    </Stack>
   );
 }

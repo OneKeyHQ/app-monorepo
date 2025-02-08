@@ -2,6 +2,7 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+import { TransferData } from '../pages/TransferData/TransferData';
 
 const ActivateDevice = LazyLoadPage(
   () => import('../pages/ConnectHardwareWallet/ActivateDevice'),
@@ -166,6 +167,10 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.Transfer,
     component: Transfer,
+  },
+  {
+    name: EOnboardingPages.TransferData,
+    component: TransferData,
   },
 
   // connect 3rd-party wallet

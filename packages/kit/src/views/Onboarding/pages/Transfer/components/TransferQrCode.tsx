@@ -11,7 +11,7 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import { TransferSteps } from './TransferSteps';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 export function TransferQrCode() {
   const { copyText } = useClipboard();
@@ -31,16 +31,17 @@ export function TransferQrCode() {
           <Image height="$60" width="$60" />
         </Stack>
 
-        <XStack gap="$2" onPress={copyLink} alignItems="center">
+        <XStack
+          gap="$2"
+          onPress={copyLink}
+          alignItems="center"
+          hoverStyle={{
+            opacity: 0.8,
+            cursor: 'pointer',
+          }}
+        >
           <Icon name="Link2Solid" size="$5" color="$iconSubdued" />
-          <SizableText
-            color="$text"
-            size="$bodyLgMedium"
-            hoverStyle={{
-              opacity: 0.9,
-              cursor: 'pointer',
-            }}
-          >
+          <SizableText color="$text" size="$bodyLgMedium">
             192.168.5.178:2997
           </SizableText>
         </XStack>

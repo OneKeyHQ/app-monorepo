@@ -29,6 +29,8 @@ export enum EOnboardingPages {
   ImportPrivateKey = 'ImportPrivateKey',
   ImportAddress = 'ImportAddress',
   ImportCloudBackup = 'ImportCloudBackup',
+  Transfer = 'Transfer',
+  TransferData = 'TransferData',
 
   // connect 3rd-party wallet
   ConnectWallet = 'ConnectWallet',
@@ -37,7 +39,6 @@ export enum EOnboardingPages {
   // finalize wallet setup
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   ImportKeyTag = 'ImportKeyTag',
-  Transfer = 'Transfer',
 }
 
 export type IOnboardingParamList = {
