@@ -110,7 +110,6 @@ export function ImportWalletOptions() {
   };
 
   const handleTransferPress = async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
     navigation.push(EOnboardingPages.Transfer);
   };
 
