@@ -4,12 +4,21 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeLoginDialogAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
+import { PrimeDeviceLogoutAlertDialog } from '../../../views/Prime/components/PrimeDeviceLogoutAlertDialog';
 import { PrimeLoginEmailCodeDialog } from '../../../views/Prime/components/PrimeLoginEmailCodeDialog';
 import { PrimeLoginEmailDialog } from '../../../views/Prime/components/PrimeLoginEmailDialog';
 import { PrimeLoginPasswordDialog } from '../../../views/Prime/components/PrimeLoginPasswordDialog';
 
+// TODO rename to PrimeDialogContainer
 export function PrimeLoginContainer() {
   const [
     {
@@ -18,6 +27,7 @@ export function PrimeLoginContainer() {
       promptPrimeLoginEmailCodeDialog,
     },
   ] = usePrimeLoginDialogAtom();
+  const navigation = useAppNavigation();
 
   const passwordDataRef = useRef<IPrimeLoginDialogAtomPasswordData | undefined>(
     undefined,
@@ -95,6 +105,30 @@ export function PrimeLoginContainer() {
       }
     })();
   }, [promptPrimeLoginEmailCodeDialog?.promiseId]);
+
+  useEffect(() => {
+    const fn = () => {
+      navigation.pushFullModal(EModalRoutes.PrimeModal, {
+        screen: EPrimePages.PrimeDeviceLimit,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.PrimeExceedDeviceLimit, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PrimeExceedDeviceLimit, fn);
+    };
+  }, [navigation]);
+
+  useEffect(() => {
+    const fn = () => {
+      Dialog.show({
+        renderContent: <PrimeDeviceLogoutAlertDialog />,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.PrimeDeviceLogout, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PrimeDeviceLogout, fn);
+    };
+  }, []);
 
   return null;
 }

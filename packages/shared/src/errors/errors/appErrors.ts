@@ -110,7 +110,7 @@ export class OneKeyErrorPrimeLoginInvalidToken extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Login invalid, please login again',
+        defaultMessage: 'Prime login invalid, please login again',
         defaultAutoToast: true,
       }),
     );
@@ -121,7 +121,7 @@ export class OneKeyErrorPrimeLoginExceedDeviceLimit extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
       normalizeErrorProps(props, {
-        defaultMessage: 'Exceed device limit',
+        defaultMessage: 'Prime exceed device limit',
         defaultAutoToast: true,
       }),
     );
