@@ -20,30 +20,32 @@ const StepNumber = ({ children }: { children: ReactNode }) => (
 export function TransferSteps() {
   return (
     <YStack gap="$2">
-      <XStack gap="$2" alignItems="center">
+      <XStack gap="$2">
         <StepNumber>1</StepNumber>
-        <SizableText size="$bodyMd" color="$text">
+        <SizableText size="$bodyMd" color="$text" pt="$1.5">
           Keep devices on same network
         </SizableText>
       </XStack>
 
-      <XStack gap="$2" alignItems="center">
+      <XStack gap="$2">
         <StepNumber>2</StepNumber>
-        <SizableText size="$bodyMd" color="$text">
+        <SizableText size="$bodyMd" color="$text" pt="$1.5">
           Open OneKey on another device
         </SizableText>
       </XStack>
 
-      <XStack gap="$2" alignItems="center">
+      <XStack gap="$2">
         <StepNumber>3</StepNumber>
         <YStack gap="$1">
-          <SizableText size="$bodyMd" color="$text">
+          <SizableText size="$bodyMd" color="$text" pt="$1.5">
             Scan the QR code on this page.
           </SizableText>
 
-          <SizableText width="100%" size="$bodyMd" color="$textSubdued">
-            {`Alternatively, go to "Wallet > Account > Add wallet" and click "Transfer." Then, paste the link below the QR code`}
-          </SizableText>
+          <Stack flex={1}>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {`Alternatively, go to "Wallet > Account > Add wallet" and click "Transfer." Then, paste the link below the QR code`}
+            </SizableText>
+          </Stack>
         </YStack>
       </XStack>
     </YStack>
