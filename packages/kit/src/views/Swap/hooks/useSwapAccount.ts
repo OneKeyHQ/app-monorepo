@@ -195,7 +195,9 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: undefined,
       activeAccount: undefined,
     };
-
+    if (networkUtils.isAllNetwork({ networkId: activeAccount.network?.id })) {
+      return res;
+    }
     if (
       type === ESwapDirectionType.TO &&
       swapToAnotherAccountSwitchOn &&

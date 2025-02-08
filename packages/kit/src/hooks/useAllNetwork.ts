@@ -7,6 +7,7 @@ import type { ICustomTokenDBStruct } from '@onekeyhq/kit-bg/src/dbs/simple/entit
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { POLLING_DEBOUNCE_INTERVAL } from '@onekeyhq/shared/src/consts/walletConsts';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -178,20 +179,23 @@ function useAllNetworkRequests<T>(params: {
       abortAllNetworkRequests?.();
 
       perf.markStart('getAllNetworkAccountsWithEnabledNetworks');
+
       const {
         accountsInfo,
         accountsInfoBackendIndexed,
         accountsInfoBackendNotIndexed,
         allAccountsInfo,
-      } =
-        await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccountsWithEnabledNetworks(
-          {
-            accountId: currentAccountId,
-            networkId: currentNetworkId,
-            deriveType: undefined,
-            nftEnabledOnly: isNFTRequests,
-          },
-        );
+      } = await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+        accountId: currentAccountId,
+        networkId: currentNetworkId,
+        deriveType: undefined,
+        nftEnabledOnly: isNFTRequests,
+        excludeTestNetwork: false,
+        // For watching accounts, display all available network data without filtering
+        networksEnabledOnly: !accountUtils.isWatchingAccount({
+          accountId: currentAccountId,
+        }),
+      });
       perf.markEnd('getAllNetworkAccountsWithEnabledNetworks');
 
       allNetworkAccountsData?.({

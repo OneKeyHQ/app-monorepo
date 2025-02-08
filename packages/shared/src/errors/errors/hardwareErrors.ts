@@ -28,6 +28,8 @@ export class OneKeyHardwareError<
 > extends OneKeyError<I18nInfoT, DataT> {
   override className = EOneKeyErrorClassNames.OneKeyHardwareError;
 
+  override name = 'OneKeyHardwareError';
+
   $isHardwareError = true;
 
   reconnect: boolean | undefined; // TODO move to $$config
