@@ -5,15 +5,19 @@ import { useIntl } from 'react-intl';
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
-
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 export function PrimeLoginEmailDialogV2() {
-  const { useLoginWithEmail } = usePrivyUniversalV2();
+  const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
-    onComplete: () => {
+    onComplete: async () => {
       console.log('🔑 ✅ User successfully logged in with email');
+      const token = await getAccessToken();
+      await backgroundApiProxy.servicePrime.apiLogin({
+        accessToken: token || '',
+      });
     },
     onError: (error) => {
       console.log(error);
@@ -36,6 +40,7 @@ export function PrimeLoginEmailDialogV2() {
 
       try {
         console.log('onEmailSubmitted', data);
+        // TODO dialog not close when submit by press Enter
 
         void sendCode({ email: data.email });
 

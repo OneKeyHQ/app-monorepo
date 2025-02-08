@@ -12,6 +12,7 @@ const nonStandardPropsKeys: {
     'contentContainerStyle': true,
     'borderCurve': true,
     'delayMs': true,
+    'resizeMode': true,
     'data-on-drag-start': true,
   },
 };

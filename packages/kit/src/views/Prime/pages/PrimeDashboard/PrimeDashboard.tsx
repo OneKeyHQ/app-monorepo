@@ -17,11 +17,15 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import PrimeBannerBgDark from '@onekeyhq/kit/assets/animations/prime-banner-bg-dark.json';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -111,7 +115,11 @@ export default function PrimeDashboard() {
 
       if (!user?.isLoggedIn) {
         Dialog.show({ renderContent: <PrimeLoginEmailDialogV2 /> });
-      } else if (platformEnv.isNative) {
+        // loginWithEmail();
+        return;
+      }
+      
+      if (platformEnv.isNative) {
         ActionList.show({
           title: 'Purchase',
           onClose: () => {},
@@ -282,6 +290,24 @@ export default function PrimeDashboard() {
                 }}
               >
                 PaywallPackages
+              </Button>
+              <Button
+                onPress={() => {
+                  void backgroundApiProxy.servicePrime
+                    .apiGetPrimeUserDevices()
+                    .then(console.log);
+                }}
+              >
+                UserDevices
+              </Button>
+              <Button
+                onPress={() => {
+                  navigation.pushFullModal(EModalRoutes.PrimeModal, {
+                    screen: EPrimePages.PrimeDeviceLimit,
+                  });
+                }}
+              >
+                DeviceLimit
               </Button>
             </XStack>
           </Page.Body>

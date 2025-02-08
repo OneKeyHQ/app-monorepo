@@ -11,6 +11,10 @@ import {
   OneKeyErrorPrimeLoginInvalidToken,
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IApiClientResponse } from '@onekeyhq/shared/types/endpoint';
@@ -30,7 +34,6 @@ import ServiceBase from '../ServiceBase';
 
 import type { IPrimeLoginDialogKeys } from '../../states/jotai/atoms/prime';
 import type { AxiosInstance } from 'axios';
-import { appEventBus, EAppEventBusNames } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 class ServicePrime extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
@@ -67,7 +70,9 @@ class ServicePrime extends ServiceBase {
           appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
           throw new OneKeyErrorPrimeLoginInvalidToken();
         }
-        if (errorCode === 90_005) {
+
+        if ([90_004].includes(errorCode)) {
+          appEventBus.emit(EAppEventBusNames.PrimeExceedDeviceLimit, undefined);
           throw new OneKeyErrorPrimeLoginExceedDeviceLimit();
         }
         throw error;
@@ -75,6 +80,58 @@ class ServicePrime extends ServiceBase {
     );
     this._primeAuthClient = client;
     return this._primeAuthClient;
+  }
+
+  @backgroundMethod()
+  async apiLogin({ accessToken }: { accessToken: string }) {
+    if (accessToken) {
+      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken || '');
+    }
+    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    if (!authToken) {
+      return;
+    }
+    const client = await this.getPrimeClient();
+    await client.post('/prime/v1/user/login');
+  }
+
+  @backgroundMethod()
+  async apiLogout() {
+    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    if (!authToken) {
+      return;
+    }
+    const client = await this.getPrimeClient();
+    await client.post('/prime/v1/user/logout');
+  }
+
+  @backgroundMethod()
+  async apiLogoutPrimeUserDevice({ instanceId }: { instanceId: string }) {
+    const client = await this.getPrimeClient();
+    // TODO 404 not found
+    await client.post(`/prime/v1/user/device/${instanceId}`);
+    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
+    if (authToken) {
+      await this.apiLogin({ accessToken: authToken });
+    }
+  }
+
+  @backgroundMethod()
+  async apiGetPrimeUserDevices() {
+    const client = await this.getPrimeClient();
+    const result = await client.get<
+      IApiClientResponse<
+        Array<{
+          instanceId: string;
+          lastLoginTime: string;
+          platform: string;
+          version: string;
+          deviceName: string;
+        }>
+      >
+    >('/prime/v1/user/devices');
+    const devices = result?.data?.data;
+    return devices;
   }
 
   @backgroundMethod()

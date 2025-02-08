@@ -97,6 +97,8 @@ export enum EAppEventBusNames {
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
   PrimeLoginInvalidToken = 'PrimeLoginInvalidToken',
+  PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
+  PrimeDeviceLogout = 'PrimeDeviceLogout',
   CreateAddressByDialog = 'CreateAddressByDialog',
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   // AccountNameChanged = 'AccountNameChanged',
@@ -293,6 +295,8 @@ export interface IAppEventBusPayload {
     deriveType: IAccountDeriveTypes;
   };
   [EAppEventBusNames.PrimeLoginInvalidToken]: undefined;
+  [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
+  [EAppEventBusNames.PrimeDeviceLogout]: undefined;
   [EAppEventBusNames.CheckAddressBeforeSending]: {
     promiseId: number;
     type: 'scam' | 'contract';
