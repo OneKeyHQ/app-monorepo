@@ -167,11 +167,6 @@ export function WebViewWebEmbed({
     return nativeWebviewSource?.uri || '';
   }, [nativeWebviewSource?.uri, remoteUrl]);
 
-  if (config) {
-    // TODO remove
-    config.debug = true;
-  }
-
   const debugViewSize = useMemo(() => {
     if (config?.debug) {
       if (minimized) {

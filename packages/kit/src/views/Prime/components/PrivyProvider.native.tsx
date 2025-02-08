@@ -11,7 +11,7 @@ function PrivyAuthSyncToAtom() {
 }
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
-  const appId = process.env.PRIVY_APP_ID || 'cm6c9xup40017zyrnnp8zh0bt';
+  const appId = process.env.PRIVY_APP_ID;
   const clientId =
     process.env.PRIVY_MOBILE_CLIENT_ID ||
     'client-WY5gESiXQgTXogYv2M8iCM3LaaDDaKAdigE9Bg7a9pr1W';

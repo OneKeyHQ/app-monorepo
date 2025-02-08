@@ -8,10 +8,8 @@ function PrivyAuthSyncToAtom() {
 }
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
-  const appId = process.env.PRIVY_APP_ID || 'cm6c9xup40017zyrnnp8zh0bt';
-  const clientId =
-    process.env.PRIVY_MOBILE_CLIENT_ID ||
-    'client-WY5gESiXQgTXogYv2M8iCM3LaaDDaKAdigGMM4dCxSzy6';
+  const appId = process.env.PRIVY_APP_ID;
+  const clientId = process.env.PRIVY_MOBILE_CLIENT_ID;
   if (!appId) {
     throw new Error('PRIVY_APP_ID is not set');
   }
