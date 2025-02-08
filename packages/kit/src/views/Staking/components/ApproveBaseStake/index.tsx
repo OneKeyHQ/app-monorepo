@@ -34,7 +34,7 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { StakeProgress } from '../StakeProgress';
+import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { renderStakeText } from '../utils';
@@ -491,7 +491,13 @@ export function ApproveBaseStake({
           $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
         >
           <Stack pl="$5">
-            <StakeProgress currentStep={isApprove ? 2 : 1} />
+            <StakeProgress
+              currentStep={
+                isApprove
+                  ? EStakeProgressStep.supply
+                  : EStakeProgressStep.approve
+              }
+            />
           </Stack>
           <Page.FooterActions
             onConfirmText={onConfirmText}
