@@ -176,22 +176,6 @@ class ProviderApiPrivate extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     { time = 0 }: { time?: number } = {},
   ) {
-    setTimeout(() => {
-      if (request.origin) {
-        /*
-        const skipDomReadyNotifySites: Record<string, boolean> = {
-          'https://wallet.keplr.app': true,
-        };
-      */
-        void this.backgroundApi.serviceDApp.notifyDAppAccountsChanged(
-          request.origin,
-        );
-        void this.backgroundApi.serviceDApp.notifyDAppChainChanged(
-          request.origin,
-        );
-      }
-    }, 200);
-
     // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
     // TODO: (await getDebugLoggerSettings())

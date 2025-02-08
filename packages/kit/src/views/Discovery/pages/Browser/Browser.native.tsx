@@ -30,6 +30,7 @@ import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
   useActiveTabId,
@@ -51,6 +52,7 @@ function MobileBrowser() {
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
   const { handleScroll, toolbarRef, toolbarAnimatedStyle } =
     useMobileBottomBarAnimation(activeTabId);
+  useDAppNotifyChanges({ tabId: activeTabId });
 
   useDebugComponentRemountLog({
     name: 'MobileBrowser3864',
