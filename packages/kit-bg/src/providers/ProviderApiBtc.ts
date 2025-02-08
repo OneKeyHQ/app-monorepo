@@ -577,6 +577,31 @@ class ProviderApiBtc extends ProviderApiBase {
         isBtcWalletProvider: options?.isBtcWalletProvider ?? false,
       });
     }
+
+    const inputAddresses = new Map<string, BigNumber>();
+    decodedPsbt.inputInfos.forEach((input) => {
+      const value = new BigNumber(input.value?.toString() ?? 0);
+      const addressKey = input.address;
+      if (addressKey) {
+        inputAddresses.set(
+          addressKey,
+          (inputAddresses.get(addressKey) || new BigNumber(0)).plus(value),
+        );
+      }
+    });
+
+    const outputAddresses = new Map<string, BigNumber>();
+    decodedPsbt.outputInfos.forEach((output) => {
+      const value = new BigNumber(output.value?.toString() ?? 0);
+      const addressKey = output.address;
+      if (addressKey) {
+        outputAddresses.set(
+          addressKey,
+          (outputAddresses.get(addressKey) || new BigNumber(0)).plus(value),
+        );
+      }
+    });
+
     // Check for change address:
     // 1. More than one output
     // 2. Not all output addresses are the same as the current account address
@@ -584,6 +609,30 @@ class ProviderApiBtc extends ProviderApiBase {
     const hasChangeAddress =
       decodedPsbt.outputInfos.length > 1 &&
       !(decodedPsbt.outputInfos ?? []).every((v) => v.address === address);
+
+    const outputs: IBtcOutput[] = (decodedPsbt.outputInfos ?? []).map((v) => {
+      const isChange = hasChangeAddress ? v.address === address : false;
+      // check if the output is an inscription structure output
+      const inputValue =
+        inputAddresses.get(v.address ?? '') || new BigNumber(0);
+      const outputValue =
+        outputAddresses.get(v.address ?? '') || new BigNumber(0);
+      // allow 1000 satoshi error for fee
+      const isInscriptionStructure = inputValue
+        .minus(outputValue)
+        .abs()
+        .lt(1000);
+
+      return {
+        ...v,
+        value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
+        payload: {
+          isChange,
+          isInscriptionStructure,
+        },
+      };
+    });
+
     const resp =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -595,15 +644,7 @@ class ProviderApiBtc extends ProviderApiBase {
             path: '',
             value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
           })) as IBtcInput[],
-          outputs: (decodedPsbt.outputInfos ?? []).map((v) => ({
-            ...v,
-            value: new BigNumber(v.value?.toString() ?? 0).toFixed(),
-            payload: hasChangeAddress
-              ? {
-                  isChange: v.address === address,
-                }
-              : undefined,
-          })) as IBtcOutput[],
+          outputs,
           inputsForCoinSelect: [],
           outputsForCoinSelect: [],
           fee: new BigNumber(decodedPsbt.fee).toFixed(),
