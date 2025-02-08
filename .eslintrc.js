@@ -1,4 +1,4 @@
-require('./development/lint/eslint-rule-force-async-bg-api');
+// require('./development/lint/eslint-rule-force-async-bg-api'); // TODO not working
 
 const isDev = process.env.NODE_ENV !== 'production';
 const jsRules = {

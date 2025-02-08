@@ -166,6 +166,6 @@ jobs:
           artifact-type: Desktop
           artifact-name: OneKey-Desktop-MAS
           artifact-bundle-id: 'so.onekey.wallet'
-          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'

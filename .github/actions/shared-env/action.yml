@@ -153,22 +153,22 @@ runs:
     - name: Print ENV file content
       shell: bash
       run: |
-        echo "=== .env ==="
-        if [ -f .env ]; then
-          cat .env
-        fi
-        echo "--------------------------------"
+        # echo "=== .env ==="
+        # if [ -f .env ]; then
+        #   cat .env
+        # fi
+        # echo "--------------------------------"
 
-        echo "=== .env.expo ==="
-        if [ -f .env.expo ]; then
-          cat .env.expo
-        fi
-        echo "--------------------------------"
+        # echo "=== .env.expo ==="
+        # if [ -f .env.expo ]; then
+        #   cat .env.expo
+        # fi
+        # echo "--------------------------------"
 
-        echo "=== .env.version ==="
-        if [ -f .env.version ]; then
-          cat .env.version
-        fi
-        echo "--------------------------------"
+        # echo "=== .env.version ==="
+        # if [ -f .env.version ]; then
+        #   cat .env.version
+        # fi
+        # echo "--------------------------------"
 
 

@@ -118,7 +118,7 @@ export default function PrimeDashboard() {
         // loginWithEmail();
         return;
       }
-      
+
       if (platformEnv.isNative) {
         ActionList.show({
           title: 'Purchase',
