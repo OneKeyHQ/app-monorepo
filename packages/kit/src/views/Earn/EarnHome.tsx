@@ -66,6 +66,12 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
+const BANNER_ICON_OFFSET = 34;
+const BANNER_TITLE_OFFSET = {
+  desktop: '$5',
+  mobile: '$10',
+};
+
 const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 const getNumberColor = (
   value: string | number,
@@ -852,11 +858,11 @@ function BasicEarnHome() {
           isLoading={false}
           leftIconButtonStyle={{
             ...bannerIconStyle,
-            left: media.gtLg ? '$3.5' : 34,
+            left: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
-            right: media.gtLg ? '$3.5' : 34,
+            right: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
           }}
           indicatorContainerStyle={{
             right: 0,
@@ -869,7 +875,9 @@ function BasicEarnHome() {
             top: 0,
             bottom: 0,
             right: '$5',
-            left: media.gtLg ? '$5' : '$10',
+            left: media.gtLg
+              ? BANNER_TITLE_OFFSET.desktop
+              : BANNER_TITLE_OFFSET.mobile,
             justifyContent: 'center',
           }}
         />
