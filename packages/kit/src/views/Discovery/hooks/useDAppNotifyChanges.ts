@@ -37,8 +37,11 @@ const notifyChanges = throttle((url: string, fromScene?: string) => {
     targetOrigin,
   );
   if (targetOrigin) {
-    void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(targetOrigin);
-    void backgroundApiProxy.serviceDApp.notifyDAppChainChanged(targetOrigin);
+    void backgroundApiProxy.serviceDApp.notifyDAppAccountAndChainChangedWithCache(
+      {
+        targetOrigin,
+      },
+    );
   }
 }, 800);
 

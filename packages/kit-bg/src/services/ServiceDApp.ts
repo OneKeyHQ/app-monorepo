@@ -33,10 +33,12 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ensureSerializable } from '@onekeyhq/shared/src/utils/assertUtils';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { buildModalRouteParams } from '@onekeyhq/shared/src/utils/routeUtils';
 import { sidePanelState } from '@onekeyhq/shared/src/utils/sidePanelUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { implToNamespaceMap } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -993,6 +995,36 @@ class ServiceDApp extends ServiceBase {
     );
     return Promise.resolve();
   }
+
+  @backgroundMethod()
+  async notifyDAppAccountAndChainChangedWithCache({
+    targetOrigin,
+  }: {
+    targetOrigin: string;
+  }) {
+    // console.log(
+    //   '[DApp] call notifyDAppAccountAndChainChangedWithCache: ',
+    //   targetOrigin,
+    // );
+    return this._notifyDAppAccountAndChainChangedWithCache(targetOrigin);
+  }
+
+  _notifyDAppAccountAndChainChangedWithCache = memoizee(
+    async (targetOrigin: string) => {
+      // console.log(
+      //   '[DApp] Cache miss - executing real notification for:',
+      //   targetOrigin,
+      // );
+      void this.notifyDAppAccountsChanged(targetOrigin);
+      void this.notifyDAppChainChanged(targetOrigin);
+    },
+    {
+      promise: true,
+      // useDAppNotifyChanges has 800ms throttle delay, while PrivateProvider calls after 200ms when page loads
+      // therefore we need a longer cache time here
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 2 }),
+    },
+  );
 
   @backgroundMethod()
   async notifyChainSwitchUIToDappSite(params: {
