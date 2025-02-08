@@ -22,7 +22,7 @@ export const NetworkAvatarBase = ({
   }
   return (
     <Image size={size} src={logoURI} borderRadius="$full">
-      <Image.Source bg="$bgStrong" source={{ uri: logoURI }} />
+      <Image.Source bg="$gray5" source={{ uri: logoURI }} />
       <Image.Fallback
         delayMs={1000}
         alignItems="center"

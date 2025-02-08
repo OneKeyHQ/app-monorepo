@@ -30,6 +30,7 @@ import { CalculationList, CalculationListItem } from '../CalculationList';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
+import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalWithdrawProps = {
   balance: string;
@@ -253,6 +254,11 @@ export const UniversalWithdraw = ({
 
   const editable = initialAmount === undefined;
 
+  const fiatValue = useMemo(
+    () => BigNumber(amountValue).multipliedBy(price).toFixed(),
+    [amountValue, price],
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
@@ -305,18 +311,17 @@ export const UniversalWithdraw = ({
       ) : null}
       <CalculationList>
         {amountValue && !hideReceived ? (
-          <CalculationListItem>
+          <CalculationListItem ai="flex-start">
             <CalculationListItem.Label>
               {intl.formatMessage({ id: ETranslations.earn_receive })}
             </CalculationListItem.Label>
             <CalculationListItem.Value>
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyLgMedium"
-                formatterOptions={{ tokenSymbol }}
-              >
-                {amountValue}
-              </NumberSizeableText>
+              <ValuePriceListItem
+                tokenSymbol={tokenSymbol ?? ''}
+                fiatSymbol={symbol}
+                amount={amountValue}
+                fiatValue={fiatValue}
+              />
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
