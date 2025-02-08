@@ -1,3 +1,5 @@
+import { Stack } from '@onekeyhq/components';
+
 import {
   SizableText,
   YStack,
@@ -5,18 +7,42 @@ import {
   Image,
   Icon,
   Divider,
+  useClipboard,
+  Toast,
 } from '@onekeyhq/components';
 import { TransferSteps } from './TransferSteps';
+import { useCallback } from 'react';
 
 export function TransferQrCode() {
+  const { copyText } = useClipboard();
+
+  const copyLink = useCallback(() => {
+    copyText('192.168.5.178:2997');
+
+    Toast.success({
+      title: 'Copied',
+    });
+  }, [copyText]);
+
   return (
     <YStack gap="$6">
-      <YStack gap="$6">
-        <Image width={100} height={100} />
+      <YStack gap="$2.5" alignItems="center">
+        <Stack height="$60" width="$60" bg="$gray4">
+          <Image height="$60" width="$60" />
+        </Stack>
 
-        <XStack gap="$2">
-          <Icon name="Link2Solid" size={24} />
-          <SizableText>192.168.5.178:2997</SizableText>
+        <XStack gap="$2" onPress={copyLink} alignItems="center">
+          <Icon name="Link2Solid" size="$5" color="$iconSubdued" />
+          <SizableText
+            color="$text"
+            size="$bodyLgMedium"
+            hoverStyle={{
+              opacity: 0.9,
+              cursor: 'pointer',
+            }}
+          >
+            192.168.5.178:2997
+          </SizableText>
         </XStack>
       </YStack>
 
