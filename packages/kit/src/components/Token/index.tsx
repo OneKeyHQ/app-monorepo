@@ -70,7 +70,7 @@ export function Token({
       {...rest}
     >
       <Image.Source
-        bg="$bgStrong"
+        bg="$gray5"
         source={{
           uri: tokenImageUri,
         }}

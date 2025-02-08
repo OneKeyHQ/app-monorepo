@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import {
   Badge,
   HeaderIconButton,
@@ -57,32 +58,30 @@ function AddressSecurityHeaderRightButton() {
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const { gtMd } = useMedia();
   const intl = useIntl();
-  const iconColor = useMemo(
-    () => (isEnableTransferAllowList ? '$iconSuccess' : '$iconCaution'),
-    [isEnableTransferAllowList],
-  );
+  const { icon, iconColor } = useMemo(() => {
+    if (isEnableTransferAllowList) {
+      return {
+        icon: 'ShieldCheckDoneSolid',
+        iconColor: '$iconSuccess',
+      };
+    }
+    return {
+      icon: 'ShieldOutline',
+      iconColor: '$iconSubdued',
+    };
+  }, [isEnableTransferAllowList]);
+
   const PopoverTitle = useMemo(
     () => (
       <XStack gap="$2">
-        <HeaderIconButton
-          key="allowList"
-          titlePlacement="bottom"
-          iconProps={{
-            color: iconColor,
-          }}
-          icon="ShieldCheckDoneOutline"
-          testID="setting"
-        />
         <SizableText size="$headingLg">
           {intl.formatMessage({
-            id: isEnableTransferAllowList
-              ? ETranslations.allowlist_enabled_popover_title
-              : ETranslations.settings_protection_allowlist_title,
+            id: ETranslations.settings_protection_allowlist_title,
           })}
         </SizableText>
       </XStack>
     ),
-    [iconColor, intl, isEnableTransferAllowList],
+    [intl],
   );
   return (
     <Popover
@@ -92,9 +91,9 @@ function AddressSecurityHeaderRightButton() {
           key="allowList"
           titlePlacement="bottom"
           iconProps={{
-            color: iconColor,
+            color: iconColor as ColorTokens,
           }}
-          icon="ShieldCheckDoneOutline"
+          icon={icon as IKeyOfIcons}
           testID="setting"
         />
       }

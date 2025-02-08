@@ -66,6 +66,12 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
+const BANNER_ICON_OFFSET = 34;
+const BANNER_TITLE_OFFSET = {
+  desktop: '$5',
+  mobile: '$10',
+};
+
 const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 const getNumberColor = (
   value: string | number,
@@ -358,7 +364,15 @@ function Recommended({
   return null;
 }
 
-function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
+function Overview({
+  isFetchingAccounts,
+  isLoading,
+  onRefresh,
+}: {
+  isFetchingAccounts: boolean;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
@@ -420,15 +434,23 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
         >
           {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
         </SizableText>
-        <NumberSizeableText
-          size="$heading5xl"
-          formatter="price"
-          color={getNumberColor(totalFiatValue, '$text')}
-          formatterOptions={{ currency: settings.currencyInfo.symbol }}
-          numberOfLines={1}
-        >
-          {totalFiatValue}
-        </NumberSizeableText>
+        <XStack gap="$3" ai="center">
+          <NumberSizeableText
+            size="$heading5xl"
+            formatter="price"
+            color={getNumberColor(totalFiatValue, '$text')}
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            numberOfLines={1}
+          >
+            {totalFiatValue}
+          </NumberSizeableText>
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            loading={isLoading}
+            onPress={onRefresh}
+          />
+        </XStack>
       </YStack>
       {/* 24h earnings */}
       <XStack
@@ -489,7 +511,7 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
       </XStack>
 
       {/* details button */}
-      {isFetchingAccounts || !isOverviewLoaded ? null : (
+      {!isOverviewLoaded ? null : (
         <Button
           childrenAsText={!hasClaimableAssets}
           onPress={onPress}
@@ -645,7 +667,11 @@ function BasicEarnHome() {
   const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
-  const { isLoading: isFetchingAccounts, result } = usePromiseResult(
+  const {
+    isLoading: isFetchingAccounts,
+    result,
+    run: refreshOverViewData,
+  } = usePromiseResult(
     async () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
         account?.id,
@@ -696,14 +722,15 @@ function BasicEarnHome() {
         });
       };
       const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-      if (earnAccountData) {
-        setTimeout(() => {
-          void fetchAndUpdateOverview();
-          void fetchAndUpdateAction();
-        });
-      } else {
+      const fetchData = async () => {
         await fetchAndUpdateAction();
-        void fetchAndUpdateOverview();
+        await fetchAndUpdateOverview();
+      };
+      if (earnAccountData) {
+        await timerUtils.wait(350);
+        void fetchData();
+      } else {
+        await fetchData();
       }
       return { loaded: true };
     },
@@ -831,11 +858,11 @@ function BasicEarnHome() {
           isLoading={false}
           leftIconButtonStyle={{
             ...bannerIconStyle,
-            left: media.md ? 34 : '$3.5',
+            left: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
-            right: '$3.5',
+            right: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
           }}
           indicatorContainerStyle={{
             right: 0,
@@ -848,7 +875,9 @@ function BasicEarnHome() {
             top: 0,
             bottom: 0,
             right: '$5',
-            left: media.md ? '$10' : '$5',
+            left: media.gtLg
+              ? BANNER_TITLE_OFFSET.desktop
+              : BANNER_TITLE_OFFSET.mobile,
             justifyContent: 'center',
           }}
         />
@@ -863,7 +892,7 @@ function BasicEarnHome() {
         width="100%"
       />
     );
-  }, [earnBanners, media.gtLg, media.md, onBannerPress]);
+  }, [earnBanners, media.gtLg, onBannerPress]);
 
   return (
     <Page fullPage>
@@ -884,6 +913,8 @@ function BasicEarnHome() {
               }}
             >
               <Overview
+                onRefresh={refreshOverViewData}
+                isLoading={!!isFetchingAccounts}
                 isFetchingAccounts={Boolean(
                   result === undefined || !!isFetchingAccounts,
                 )}
