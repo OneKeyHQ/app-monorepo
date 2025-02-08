@@ -1002,19 +1002,17 @@ class ServiceDApp extends ServiceBase {
   }: {
     targetOrigin: string;
   }) {
-    // console.log(
-    //   '[DApp] call notifyDAppAccountAndChainChangedWithCache: ',
-    //   targetOrigin,
-    // );
+    const skipNotifySites: Record<string, boolean> = {
+      'https://wallet.keplr.app': true,
+    };
+    if (skipNotifySites[targetOrigin]) {
+      return;
+    }
     return this._notifyDAppAccountAndChainChangedWithCache(targetOrigin);
   }
 
   _notifyDAppAccountAndChainChangedWithCache = memoizee(
     async (targetOrigin: string) => {
-      // console.log(
-      //   '[DApp] Cache miss - executing real notification for:',
-      //   targetOrigin,
-      // );
       void this.notifyDAppAccountsChanged(targetOrigin);
       void this.notifyDAppChainChanged(targetOrigin);
     },
