@@ -28,10 +28,6 @@ const notifyChanges = throttle((url: string, fromScene?: string) => {
   if (fromScene === 'domReady') {
     return;
   }
-  console.log(
-    'useDAppNotifyChanges targetOrigin ======>>>>>>> : ',
-    targetOrigin,
-  );
   if (targetOrigin) {
     void backgroundApiProxy.serviceDApp.notifyDAppAccountAndChainChangedWithCache(
       {
