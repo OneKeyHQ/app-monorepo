@@ -248,14 +248,14 @@ function AddressInputWarnings({
     () =>
       queryResult.validStatus === 'valid' &&
       !queryResult?.addressBookId &&
-      !queryResult?.walletAccountId &&
+      // !queryResult?.walletAccountId &&
       queryResult?.addressInteractionStatus ===
         EAddressInteractionStatus.INTERACTED,
     [
       queryResult?.addressBookId,
       queryResult?.addressInteractionStatus,
       queryResult.validStatus,
-      queryResult?.walletAccountId,
+      // queryResult?.walletAccountId,
     ],
   );
   const navigation = useAppNavigation();
@@ -276,8 +276,11 @@ function AddressInputWarnings({
   );
   return isShowTransferredAddressAddWarning ? (
     <HyperlinkText
+      pt="$1.5"
       translationId={ETranslations.send_transferred_address_add}
       onAction={onAction}
+      color="$textSubdued"
+      size="$bodyMd"
     />
   ) : null;
 }
