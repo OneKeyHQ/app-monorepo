@@ -43,8 +43,10 @@ const PickItemPage = () => {
   );
 
   const onCreate = useCallback(() => {
-    navigation.push(EModalAddressBookRoutes.EditItemModal);
-  }, [navigation]);
+    navigation.push(EModalAddressBookRoutes.EditItemModal, {
+      networkId,
+    });
+  }, [navigation, networkId]);
 
   const renderHeaderRightComponent = useCallback(
     () => (
