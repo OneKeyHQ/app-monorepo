@@ -29,6 +29,7 @@ module.exports = [
   'ttl',
   'Cbc',
   'facebook',
+  'captcha',
   'privy',
   'google',
   'Sollet',

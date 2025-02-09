@@ -268,17 +268,8 @@ export default function PageWebEmbedPrimePurchase() {
   );
 
   const [searchParams] = useSearchParams();
-  let primeUserId = searchParams.get('primeUserId') || '';
-  let primeUserEmail = searchParams.get('primeUserEmail') || '';
-
-  if (process.env.NODE_ENV !== 'production') {
-    if (!primeUserId) {
-      primeUserId = 'did:privy:j32hasdfgg3288372';
-    }
-    if (!primeUserEmail) {
-      primeUserEmail = 'hhhh1@gmail.com';
-    }
-  }
+  const primeUserId = searchParams.get('primeUserId') || '';
+  const primeUserEmail = searchParams.get('primeUserEmail') || '';
 
   const fetchPackages = useCallback(async () => {
     try {
@@ -355,8 +346,6 @@ export default function PageWebEmbedPrimePurchase() {
             settings,
             primeUserId,
             primeUserEmail,
-            revenuecatApiKeySandbox: process.env.REVENUECAT_API_KEY_WEB_SANDBOX,
-            revenuecatApiKey: process.env.REVENUECAT_API_KEY_WEB,
           })}
         </div>
         <div>{window.location.href}</div>

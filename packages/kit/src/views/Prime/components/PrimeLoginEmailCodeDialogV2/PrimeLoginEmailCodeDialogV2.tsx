@@ -48,7 +48,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   }, [email, isResending, sendCode]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     if (countdown > 0) {
       timer = setInterval(() => {
         setCountdown((prev) => prev - 1);

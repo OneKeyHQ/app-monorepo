@@ -193,41 +193,43 @@ class ServicePrime extends ServiceBase {
     captchaRequired: boolean;
     emailCodeRequired: boolean;
   }> {
-    await timerUtils.wait(600);
-    try {
-      const client = await this.getClient(EServiceEndpointEnum.Prime);
-      const result = await client.get<
-        IApiClientResponse<{
-          isRegistered: boolean;
-          verifyUUID: string;
-          captchaRequired: boolean;
-          emailCodeRequired: boolean;
-        }>
-      >('/api/prime/check-email-registered', {
-        params: {
-          email,
-        },
-      });
-      return result?.data?.data;
-    } catch (error) {
-      console.error(error);
-    }
+    // await timerUtils.wait(600);
+    // try {
+    //   const client = await this.getClient(EServiceEndpointEnum.Prime);
+    //   const result = await client.get<
+    //     IApiClientResponse<{
+    //       isRegistered: boolean;
+    //       verifyUUID: string;
+    //       captchaRequired: boolean;
+    //       emailCodeRequired: boolean;
+    //     }>
+    //   >('/api/prime/check-email-registered', {
+    //     params: {
+    //       email,
+    //     },
+    //   });
+    //   return result?.data?.data;
+    // } catch (error) {
+    //   console.error(error);
+    // }
 
-    if (email.startsWith('1')) {
-      return {
-        isRegistered: true,
-        verifyUUID: stringUtils.generateUUID(),
-        captchaRequired: false,
-        emailCodeRequired: false,
-      };
-    }
+    // if (email.startsWith('1')) {
+    //   return {
+    //     isRegistered: true,
+    //     verifyUUID: stringUtils.generateUUID(),
+    //     captchaRequired: false,
+    //     emailCodeRequired: false,
+    //   };
+    // }
 
-    return {
-      isRegistered: false,
-      verifyUUID: stringUtils.generateUUID(),
-      captchaRequired: true,
-      emailCodeRequired: true,
-    };
+    // return {
+    //   isRegistered: false,
+    //   verifyUUID: stringUtils.generateUUID(),
+    //   captchaRequired: true,
+    //   emailCodeRequired: true,
+    // };
+
+    throw new Error('Deprecated, use Privy instead');
   }
 
   @backgroundMethod()
