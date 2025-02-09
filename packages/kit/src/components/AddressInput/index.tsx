@@ -41,6 +41,7 @@ import { renderAddressInputHyperlinkText } from './AddressInputHyperlinkText';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
+import { useIsEnableTransferAllowList } from './hooks';
 
 type IResolvedAddressProps = {
   value: string;
@@ -237,13 +238,13 @@ export const createValidateAddressRule =
 function AddressInputWarnings({
   queryResult,
   networkId,
-  enableAllowListValidation,
 }: {
   queryResult: IAddressQueryResult;
   networkId: string;
-  enableAllowListValidation?: boolean;
 }) {
-  const isShowTransferredAddressAddWaring = useMemo(
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
+
+  const isShowTransferredAddressAddWarning = useMemo(
     () =>
       queryResult.validStatus === 'valid' &&
       !queryResult?.addressBookId &&
@@ -257,7 +258,6 @@ function AddressInputWarnings({
       queryResult?.walletAccountId,
     ],
   );
-  console.log('queryResult---', queryResult);
   const navigation = useAppNavigation();
   const onAction = useCallback(
     (actionId: string) => {
@@ -267,16 +267,16 @@ function AddressInputWarnings({
           params: {
             address: queryResult?.input ?? '',
             networkId,
-            isAllowListed: !!enableAllowListValidation,
+            isAllowListed: isEnableTransferAllowList,
           },
         });
       }
     },
-    [enableAllowListValidation, navigation, networkId, queryResult?.input],
+    [isEnableTransferAllowList, navigation, networkId, queryResult?.input],
   );
-  return isShowTransferredAddressAddWaring ? (
+  return isShowTransferredAddressAddWarning ? (
     <HyperlinkText
-      id={ETranslations.send_transferred_address_add}
+      translationId={ETranslations.send_transferred_address_add}
       onAction={onAction}
     />
   ) : null;
@@ -562,11 +562,7 @@ export function AddressInput(props: IAddressInputProps) {
         extension={AddressInputExtension}
         {...rest}
       />
-      <AddressInputWarnings
-        queryResult={queryResult}
-        networkId={networkId}
-        enableAllowListValidation={enableAllowListValidation}
-      />
+      <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
     </>
   );
 }
