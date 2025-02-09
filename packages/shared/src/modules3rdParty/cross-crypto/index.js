@@ -4,6 +4,7 @@ console.log('================ cross-crypto (web)');
 if (process.env.NODE_ENV !== 'production') {
   const getRandomValuesOld = globalThis.crypto.getRandomValues;
   globalThis.crypto.getRandomValues = function (...args) {
+    // console.trace(
     console.log(
       '------------ call global.crypto.getRandomValues (web)',
       getRandomValuesOld,

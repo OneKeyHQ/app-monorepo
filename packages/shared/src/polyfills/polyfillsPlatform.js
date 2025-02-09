@@ -1,4 +1,4 @@
-/* eslint-disable global-require, no-restricted-syntax, import/no-unresolved */
+/* eslint-disable global-require, no-restricted-syntax, import/no-unresolved, unicorn/prefer-global-this */
 require('setimmediate');
 require('./intlShim');
 require('react-native-url-polyfill/auto');

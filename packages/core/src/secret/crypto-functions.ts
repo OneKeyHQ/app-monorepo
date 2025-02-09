@@ -1,4 +1,4 @@
-import { createHash, pbkdf2 as pbkdf2Node } from 'crypto';
+import { createHash as createHashNode, pbkdf2 as pbkdf2Node } from 'crypto';
 
 import { hmac as nobleHmac } from '@noble/hashes/hmac';
 import { ripemd160 as nobleRipemd160 } from '@noble/hashes/ripemd160';
@@ -111,7 +111,7 @@ export async function hash160(data: Buffer): Promise<Buffer> {
     throw new Error('Zero-length data is not supported');
   }
   const sha256Hash = await sha256(data);
-  return createHash('ripemd160').update(sha256Hash).digest();
+  return createHashNode('ripemd160').update(sha256Hash).digest();
 }
 
 export function hash160Sync(data: Buffer): Buffer {

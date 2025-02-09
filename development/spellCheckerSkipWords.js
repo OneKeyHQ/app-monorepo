@@ -64,6 +64,7 @@ module.exports = [
   'onsuccess',
   'ethereumjs',
   'pwkey',
+  'Ripemd160',
   'uid',
   'rdns',
   'rnd',

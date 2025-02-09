@@ -79,6 +79,7 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { IDeviceType } from '@onekeyfe/hd-core';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
@@ -108,7 +109,6 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
-import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const getOrderByWalletType = (walletType: IDBWalletType): number => {
   switch (walletType) {
@@ -437,10 +437,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
 
       // update context verifyString
+      const verifyString = await encryptVerifyString({ password: newPassword });
+      console.log('update context verifyString 1');
+
       await this.txUpdateContextVerifyString({
         tx,
-        verifyString: await encryptVerifyString({ password: newPassword }),
+        verifyString,
       });
+
+      console.log('update context verifyString 2');
     });
   }
 

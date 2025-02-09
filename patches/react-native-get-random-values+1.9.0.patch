@@ -1,0 +1,66 @@
+diff --git a/node_modules/react-native-get-random-values/index.js b/node_modules/react-native-get-random-values/index.js
+index d5a72cc..4c6aead 100644
+--- a/node_modules/react-native-get-random-values/index.js
++++ b/node_modules/react-native-get-random-values/index.js
+@@ -19,20 +19,34 @@ function insecureRandomValues (array) {
+   return array
+ }
+ 
++function markNativeGetRandomValuesCall(message, isCallNativeModule) {
++  if (__DEV__) {
++    console.log('------------ call crypto.getRandomValues(): ' + message);
++  }
++  if(isCallNativeModule){
++    global.$$onekeyCryptoGetRandomValuesCalls = (global.$$onekeyCryptoGetRandomValuesCalls || 0) + 1;
++    global.$$onekeyCryptoGetRandomValuesCallsLastMessage = message;
++  }
++}
++
+ /**
+  * @param {number} byteLength
+  * @returns {string}
+  */
+ function getRandomBase64 (byteLength) {
+   if (NativeModules.RNGetRandomValues) {
++    markNativeGetRandomValuesCall('NativeModules.RNGetRandomValues.getRandomBase64(byteLength)', true);
+     return NativeModules.RNGetRandomValues.getRandomBase64(byteLength)
+   } else if (NativeModules.ExpoRandom) {
+     // Expo SDK 41-44
++    markNativeGetRandomValuesCall('Expo SDK 41-44 NativeModules.ExpoRandom.getRandomBase64String(byteLength)', true);
+     return NativeModules.ExpoRandom.getRandomBase64String(byteLength)
+   } else if (global.ExpoModules) {
+     // Expo SDK 45+
++    markNativeGetRandomValuesCall('Expo SDK 45+ global.ExpoModules.ExpoRandom.getRandomBase64String(byteLength)', true);
+     return global.ExpoModules.ExpoRandom.getRandomBase64String(byteLength);
+   } else {
++    markNativeGetRandomValuesCall('throw new Error("Native module not found")', false);
+     throw new Error('Native module not found')
+   }
+ }
+@@ -42,15 +56,18 @@ function getRandomBase64 (byteLength) {
+  */
+ function getRandomValues (array) {
+   if (!(array instanceof Int8Array || array instanceof Uint8Array || array instanceof Int16Array || array instanceof Uint16Array || array instanceof Int32Array || array instanceof Uint32Array || array instanceof Uint8ClampedArray)) {
++    markNativeGetRandomValuesCall('throw new TypeMismatchError("Expected an integer array")', false);
+     throw new TypeMismatchError('Expected an integer array')
+   }
+ 
+   if (array.byteLength > 65536) {
++    markNativeGetRandomValuesCall('throw new QuotaExceededError("Can only request a maximum of 65536 bytes")', false);
+     throw new QuotaExceededError('Can only request a maximum of 65536 bytes')
+   }
+ 
+   // Expo SDK 48+
+   if (global.expo && global.expo.modules && global.expo.modules.ExpoCrypto && global.expo.modules.ExpoCrypto.getRandomValues) {
++    markNativeGetRandomValuesCall('Expo SDK 48+ global.expo.modules.ExpoCrypto.getRandomValues(array)', true);
+     // ExpoCrypto.getRandomValues doesn't return the array
+     global.expo.modules.ExpoCrypto.getRandomValues(array)
+     return array
+@@ -61,6 +78,7 @@ function getRandomValues (array) {
+   // So in that specific case we fall back to just using Math.random.
+   if (__DEV__) {
+     if (typeof global.nativeCallSyncHook === 'undefined') {
++      markNativeGetRandomValuesCall('insecureRandomValues(array)', false);
+       return insecureRandomValues(array)
+     }
+   }

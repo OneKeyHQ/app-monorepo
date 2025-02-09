@@ -45,6 +45,8 @@ export type IAppGlobals = {
   $$localforage?: any;
   $$appEventBus?: any;
   $$platformEnv?: any;
+  $$cryptoGlobal?: any;
+  $$cryptoNode?: any;
 };
 
 const appGlobals: IAppGlobals = {

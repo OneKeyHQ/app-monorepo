@@ -5,10 +5,13 @@
 //      (react-native-crypto depend on) react-native-randombytes (deprecated)
 console.log('================ cross-crypto (native)');
 
+// delete globalThis.crypto.getRandomValues first
+// make sure react-native-get-random-values can be shimmed
 if (globalThis.crypto && globalThis.crypto.getRandomValues) {
   delete globalThis.crypto.getRandomValues;
 }
 // shim global.crypto.getRandomValues
+// node_modules/react-native-get-random-values/index.js
 require('react-native-get-random-values');
 
 if (process.env.NODE_ENV !== 'production') {
@@ -40,4 +43,6 @@ if (process.env.NODE_ENV !== 'production') {
   console.log('react-native-crypto polyfilled', crypto, globalThis.crypto);
 }
 
+// re-assign crypto to global.crypto by packages/shared/src/polyfills/polyfillsPlatform.js
+//      global.crypto = require('crypto')
 module.exports = crypto;
