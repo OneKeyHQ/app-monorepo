@@ -36,17 +36,15 @@ export function TransferSteps() {
 
       <XStack gap="$2">
         <StepNumber>3</StepNumber>
-        <YStack gap="$1">
+        <Stack gap="$1" flex={1}>
           <SizableText size="$bodyMd" color="$text" pt="$1.5">
             Scan the QR code on this page.
           </SizableText>
 
-          <Stack flex={1}>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {`Alternatively, go to "Wallet > Account > Add wallet" and click "Transfer." Then, paste the link below the QR code`}
-            </SizableText>
-          </Stack>
-        </YStack>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {`Alternatively, go to "Wallet > Account > Add wallet" and click "Transfer." Then, paste the link below the QR code`}
+          </SizableText>
+        </Stack>
       </XStack>
     </YStack>
   );
