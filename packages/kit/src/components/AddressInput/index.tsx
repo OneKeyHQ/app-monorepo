@@ -10,22 +10,24 @@ import {
   Form,
   Icon,
   IconButton,
-  Popover,
   Select,
-  SizableText,
   Spinner,
   Stack,
   XStack,
   useFormContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 import type {
-  EAddressInteractionStatus,
   EInputAddressChangeType,
   IAddressValidateStatus,
   IQueryCheckAddressArgs,
@@ -231,6 +233,54 @@ export const createValidateAddressRule =
     }
     return undefined;
   };
+
+function AddressInputWarnings({
+  queryResult,
+  networkId,
+  enableAllowListValidation,
+}: {
+  queryResult: IAddressQueryResult;
+  networkId: string;
+  enableAllowListValidation?: boolean;
+}) {
+  const isShowTransferredAddressAddWaring = useMemo(
+    () =>
+      queryResult.validStatus === 'valid' &&
+      !queryResult?.addressBookId &&
+      !queryResult?.walletAccountId &&
+      queryResult?.addressInteractionStatus ===
+        EAddressInteractionStatus.INTERACTED,
+    [
+      queryResult?.addressBookId,
+      queryResult?.addressInteractionStatus,
+      queryResult.validStatus,
+      queryResult?.walletAccountId,
+    ],
+  );
+  console.log('queryResult---', queryResult);
+  const navigation = useAppNavigation();
+  const onAction = useCallback(
+    (actionId: string) => {
+      if (actionId === 'to_edit_address_book_page') {
+        navigation.pushModal(EModalRoutes.AddressBookModal, {
+          screen: EModalAddressBookRoutes.EditItemModal,
+          params: {
+            address: queryResult?.input ?? '',
+            networkId,
+            isAllowListed: !!enableAllowListValidation,
+          },
+        });
+      }
+    },
+    [enableAllowListValidation, navigation, networkId, queryResult?.input],
+  );
+  return isShowTransferredAddressAddWaring ? (
+    <HyperlinkText
+      id={ETranslations.send_transferred_address_add}
+      onAction={onAction}
+    />
+  ) : null;
+}
 
 export function AddressInput(props: IAddressInputProps) {
   const {
@@ -504,13 +554,20 @@ export function AddressInput(props: IAddressInputProps) {
   }, [intl, networkId]);
 
   return (
-    <BaseInput
-      value={inputText}
-      onChangeText={onChangeText}
-      placeholder={placeholder ?? getAddressInputPlaceholder}
-      extension={AddressInputExtension}
-      {...rest}
-    />
+    <>
+      <BaseInput
+        value={inputText}
+        onChangeText={onChangeText}
+        placeholder={placeholder ?? getAddressInputPlaceholder}
+        extension={AddressInputExtension}
+        {...rest}
+      />
+      <AddressInputWarnings
+        queryResult={queryResult}
+        networkId={networkId}
+        enableAllowListValidation={enableAllowListValidation}
+      />
+    </>
   );
 }
 
