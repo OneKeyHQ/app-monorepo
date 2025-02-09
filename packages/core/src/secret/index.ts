@@ -296,7 +296,9 @@ async function batchGetKeys(
   // Process prefix path components
   const prefixComponents = prefix.split('/').filter((p) => p !== 'm');
   const indices = prefixComponents.map((p) =>
-    p.endsWith("'") ? parseInt(p.slice(0, -1), 10) + 2 ** 31 : parseInt(p, 10),
+    p.endsWith("'")
+      ? Number.parseInt(p.slice(0, -1), 10) + 2 ** 31
+      : Number.parseInt(p, 10),
   );
 
   // Derive prefix path key

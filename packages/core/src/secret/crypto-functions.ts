@@ -139,6 +139,8 @@ export async function keyFromPasswordAndSalt(
     NSData *passwordData = [password dataUsingEncoding:NSUTF8StringEncoding];
     NSData *saltData = [salt dataUsingEncoding:NSUTF8StringEncoding];
     */
+
+    // RN_AES version ----------------------------------------------
     // TODO not matched with RN_AES.pbkdf2
     // const hashedPassword = await sha256(Buffer.from(password, 'utf8'));
     // const key = await RN_AES.pbkdf2(
@@ -148,6 +150,12 @@ export async function keyFromPasswordAndSalt(
     //   PBKDF2_KEY_LENGTH * 8, // 32
     //   'sha256', // sha512 sha256
     // );
+    // console.log('key', key);
+    // return Buffer.from(key, 'hex');
+
+    // noble hashes version ----------------------------------------------
+    // import { pbkdf2 as pbkdf2Noble } from '@noble/hashes/pbkdf2';
+    // const key = pbkdf2Noble(hashedPassword, salt, PBKDF2_NUM_OF_ITERATIONS, PBKDF2_KEY_LENGTH, 'sha256');
     // console.log('key', key);
     // return Buffer.from(key, 'hex');
 

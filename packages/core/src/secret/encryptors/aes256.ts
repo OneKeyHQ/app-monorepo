@@ -234,12 +234,6 @@ async function decryptAsync({
     if (!ignoreLogger) {
       defaultLogger.account.secretPerf.decryptAES();
     }
-    // TODO make to async call RN_AES(@metamask/react-native-aes-crypto)
-    // const aesDecryptData = await RN_AES.decrypt(
-    //   dataBuffer.slice(ENCRYPTED_DATA_OFFSET).toString('base64'),
-    //   key.toString('base64'),
-    //   iv.toString('base64'),
-    // );
 
     const aesDecryptData = await aesCbcDecrypt({
       data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
