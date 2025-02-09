@@ -2100,7 +2100,7 @@ class ServiceAccount extends ServiceBase {
   }: {
     mnemonic: string;
     name?: string;
-    walletHashBuilder?: (options: { realMnemonic: string }) => string;
+    walletHashBuilder?: (options: { realMnemonic: string }) => Promise<string>;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -2118,7 +2118,7 @@ class ServiceAccount extends ServiceBase {
 
     let walletHash: string | undefined;
     if (walletHashBuilder) {
-      walletHash = walletHashBuilder({ realMnemonic });
+      walletHash = await walletHashBuilder({ realMnemonic });
     }
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;

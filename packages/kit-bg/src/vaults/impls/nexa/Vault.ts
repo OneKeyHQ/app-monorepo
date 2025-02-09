@@ -77,7 +77,7 @@ export default class VaultNexa extends VaultBase {
   ): Promise<INetworkAccountAddressDetail> {
     const { account, networkId } = params;
     const network = await this.getNetwork();
-    const displayAddress = getDisplayAddress({
+    const displayAddress = await getDisplayAddress({
       address: account.address,
       chainId: network.chainId,
     });

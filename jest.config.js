@@ -41,9 +41,13 @@ module.exports = async () => {
       '\\./adaWebSdk$':
         '<rootDir>/packages/core/src/chains/ada/sdkAda/sdk/adaWebSdk.jest.ts',
       '^lodash-es$': 'lodash',
+      // 'react-native-aes-crypto': '<rootDir>/__mocks__/emptyMock.js',
+      // 'react-native-reanimated': '<rootDir>/__mocks__/emptyMock.js',
     },
     // TODO unify with transpile modules
-    transformIgnorePatterns: ['nodo_modules/react-native-reanimated'],
+    transformIgnorePatterns: [
+      'node_modules/(?!(react-native-reanimated|react-native-aes-crypto|@keystonehq/bc-ur-registry-eth)/)',
+    ],
     transform: {
       '^.+\\.(ts|tsx)$': [
         'ts-jest',

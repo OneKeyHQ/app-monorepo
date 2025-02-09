@@ -34,7 +34,6 @@
     "@starcoin/starcoin": "^2.3.7",
     "@zondax/izari-filecoin": "^1.2.0",
     "algosdk": "^2.6.0",
-    "asmcrypto.js": "2.3.2",
     "base32-decode": "^1.0.0",
     "bchaddrjs": "^0.5.2",
     "bip32": "^4.0.0",

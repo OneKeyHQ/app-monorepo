@@ -982,7 +982,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     );
   }
 
-  buildIndexedAccountIdHash({
+  async buildIndexedAccountIdHash({
     firstEvmAddress,
     index,
     indexedAccountId,
@@ -1001,7 +1001,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       firstEvmAddress && !isNil(index)
         ? `${firstEvmAddress}--${index.toString()}`
         : indexedAccountId;
-    const hashBuffer = sha256(bufferUtils.toBuffer(hashContent, 'utf-8'));
+    const hashBuffer = await sha256(bufferUtils.toBuffer(hashContent, 'utf-8'));
     let idHash = bufferUtils.bytesToHex(hashBuffer);
     idHash = idHash.slice(-42);
     checkIsDefined(idHash);
@@ -1048,29 +1048,32 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         dbDevice = device;
       }
     }
-    const records: IDBIndexedAccount[] = indexes.map((index) => {
-      const indexedAccountId = accountUtils.buildIndexedAccountId({
-        walletId,
-        index,
-      });
-
-      const r: IDBIndexedAccount = {
-        id: indexedAccountId,
-        idHash: this.buildIndexedAccountIdHash({
-          firstEvmAddress: dbWallet?.firstEvmAddress,
-          indexedAccountId,
+    const recordsPromise: Promise<IDBIndexedAccount>[] = indexes.map(
+      async (index) => {
+        const indexedAccountId = accountUtils.buildIndexedAccountId({
+          walletId,
           index,
-        }),
-        walletId,
-        index,
-        name:
-          names?.[index] ||
-          accountUtils.buildIndexedAccountName({
-            pathIndex: index,
+        });
+
+        const r: IDBIndexedAccount = {
+          id: indexedAccountId,
+          idHash: await this.buildIndexedAccountIdHash({
+            firstEvmAddress: dbWallet?.firstEvmAddress,
+            indexedAccountId,
+            index,
           }),
-      };
-      return r;
-    });
+          walletId,
+          index,
+          name:
+            names?.[index] ||
+            accountUtils.buildIndexedAccountName({
+              pathIndex: index,
+            }),
+        };
+        return r;
+      },
+    );
+    const records = await Promise.all(recordsPromise);
     console.log('txAddIndexedAccount txAddRecords', records);
     await this.txAddRecords({
       tx,
@@ -1435,7 +1438,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     if (passphraseState || qrDevice.buildBy === 'hdkey') {
       xfpHash = bufferUtils.bytesToHex(
-        sha256(bufferUtils.toBuffer(xfp, 'utf8')),
+        await sha256(bufferUtils.toBuffer(xfp, 'utf8')),
       );
     }
     let walletName = deviceName;
@@ -2405,8 +2408,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
           ids: [firstAccount.indexedAccountId],
-          updater: (item) => {
-            item.idHash = this.buildIndexedAccountIdHash({
+          updater: async (item) => {
+            item.idHash = await this.buildIndexedAccountIdHash({
               firstEvmAddress,
               indexedAccountId: item.id,
               index: firstAccount.pathIndex,
