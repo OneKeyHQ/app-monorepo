@@ -78,6 +78,7 @@ export enum EGalleryRoutes {
   SignatureConfirmationGallery = 'component-SignatureConfirmation',
   HyperlinkTextGallery = 'component-HyperlinkText',
   HapticsGallery = 'component-Haptics',
+  ComponentOTPInput = 'component-OTPInput',
   ComponentAccordion = 'component-Accordion',
   ComponentRichSizeableText = 'component-RichSizeableText',
 }

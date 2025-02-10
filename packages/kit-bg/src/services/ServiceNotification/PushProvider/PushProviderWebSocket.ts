@@ -1,6 +1,10 @@
 import { cloneDeep } from 'lodash';
 import { io } from 'socket.io-client';
 
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
@@ -8,6 +12,8 @@ import type {
   INotificationPushMessageInfo,
 } from '@onekeyhq/shared/types/notification';
 import { EPushProviderEventNames } from '@onekeyhq/shared/types/notification';
+import type { IPrimeDeviceLogoutInfo } from '@onekeyhq/shared/types/socket';
+import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import { getEndpointInfo } from '../../../endpoints';
 
@@ -25,7 +31,9 @@ export class PushProviderWebSocket extends PushProviderBase {
   private socket: Socket | null = null;
 
   async ping(payload: any) {
-    return this.socket?.timeout(3000).emitWithAck('ping', payload);
+    return this.socket
+      ?.timeout(3000)
+      .emitWithAck(EAppSocketEventNames.ping, payload);
   }
 
   async ackMessage(
@@ -39,7 +47,7 @@ export class PushProviderWebSocket extends PushProviderBase {
         }
         const r = await this.socket
           .timeout(3000)
-          .emitWithAck('ack', { msgId, action });
+          .emitWithAck(EAppSocketEventNames.ack, { msgId, action });
         return !!r;
       }
       return false;
@@ -99,25 +107,40 @@ export class PushProviderWebSocket extends PushProviderBase {
       );
     });
 
-    this.socket.on('ping', (payload) => {
-      this.socket?.emit('pong', payload);
+    this.socket.on(EAppSocketEventNames.ping, (payload) => {
+      this.socket?.emit(EAppSocketEventNames.pong, payload);
     });
 
-    this.socket.on('notification', (message: INotificationPushMessageInfo) => {
-      defaultLogger.notification.websocket.consoleLog(
-        'WebSocket 收到 notification 消息:',
-        message,
-      );
-      const data: INotificationPushMessageInfo = cloneDeep(message);
-      data.pushSource = 'websocket';
-      if (data.extras) {
-        data.extras.badge = data?.extras?.badge ?? message?.badge;
-      }
-      this.eventEmitter.emit(
-        EPushProviderEventNames.notification_received,
-        data,
-      );
-    });
+    this.socket.on(
+      EAppSocketEventNames.notification,
+      (message: INotificationPushMessageInfo) => {
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket 收到 notification 消息:',
+          message,
+        );
+        const data: INotificationPushMessageInfo = cloneDeep(message);
+        data.pushSource = 'websocket';
+        if (data.extras) {
+          data.extras.badge = data?.extras?.badge ?? message?.badge;
+        }
+        this.eventEmitter.emit(
+          EPushProviderEventNames.notification_received,
+          data,
+        );
+      },
+    );
+
+    this.socket.on(
+      EAppSocketEventNames.primeDeviceLogout,
+      (payload: IPrimeDeviceLogoutInfo) => {
+        appEventBus.emit(EAppEventBusNames.PrimeDeviceLogout, undefined);
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket 收到 primeDeviceLogout 消息:',
+          payload,
+        );
+      },
+    );
+
     defaultLogger.notification.websocket.consoleLog('WebSocket 初始化完成');
 
     // this.socket.off('notification');

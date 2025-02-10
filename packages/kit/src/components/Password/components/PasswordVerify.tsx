@@ -83,7 +83,7 @@ const PasswordVerify = ({
   if (disableInputRef.current !== disableInput) {
     disableInputRef.current = disableInput;
   }
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     timeoutRef.current = setTimeout(() => {
       if (!isEnableRef.current && !disableInputRef.current) {

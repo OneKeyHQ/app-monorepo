@@ -324,6 +324,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get servicePrime() {
+    const Service =
+      require('../services/ServicePrime') as typeof import('../services/ServicePrime');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePrime', { value });
+    return value;
+  }
+
   get serviceQrWallet() {
     const Service =
       require('../services/ServiceQrWallet') as typeof import('../services/ServiceQrWallet');

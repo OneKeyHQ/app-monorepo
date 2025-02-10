@@ -180,7 +180,7 @@ function sortMapData(data: { [key: string]: number }) {
   return sortedResult;
 }
 
-let resetTimer: NodeJS.Timeout | undefined;
+let resetTimer: ReturnType<typeof setTimeout> | undefined;
 
 type ILogResultParams = {
   autoReset?: boolean;

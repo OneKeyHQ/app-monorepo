@@ -3,6 +3,7 @@ import { forEach, isNil, isString } from 'lodash';
 import { defaultLogger } from '../logger/logger';
 import { isEnableLogNetwork } from '../logger/scopes/app/scenes/network';
 
+import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
 import { HEADER_REQUEST_ID_KEY, getRequestHeaders } from './Interceptor';
 import requestHelper from './requestHelper';
 
