@@ -1,0 +1,174 @@
+name: Shared Environment Variables Setup
+description: Setup environment variables for the project
+
+inputs:
+  additional_env:
+    required: false
+    type: string
+    description: "Additional environment variables to inject"
+  env_file_name:
+    required: false
+    type: string
+    default: ".env"
+    description: "Target environment file name"
+  sentry_project:
+    required: false
+    type: string
+    default: ''
+    description: "Sentry project name"
+  covalent_key:
+    required: true
+    type: string
+    description: "Covalent API Key"
+  sentry_token:
+    required: true
+    type: string
+    description: "Sentry Auth Token"
+  privy_app_id:
+    required: true
+    type: string
+    description: "Privy App ID"
+  privy_mobile_client_id:
+    required: true
+    type: string
+    description: "Privy Mobile Client ID"
+  revenuecat_api_key_web:
+    required: true
+    type: string
+    description: "RevenueCat Web API Key"
+  revenuecat_api_key_web_sandbox:
+    required: true
+    type: string
+    description: "RevenueCat Web Sandbox API Key"
+  revenuecat_api_key_apple:
+    required: true
+    type: string
+    description: "RevenueCat Apple API Key"
+  revenuecat_api_key_google:
+    required: true
+    type: string
+    description: "RevenueCat Google API Key"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout Source Code
+      uses: actions/checkout@v3
+      with:
+        lfs: true
+
+    - name: Dotenv Action
+      id: dotenv
+      uses: OneKeyHQ/actions/dotenv-action@main
+      with:
+        path: .env.version
+
+    - name: Setup ENV 
+      shell: bash
+      run: |
+        # Generate app version ------- start
+        app_version=${{ steps.dotenv.outputs.version }}
+        echo '$app_version='$app_version
+        echo "BUILD_APP_VERSION=$app_version" >> $GITHUB_ENV
+        # Generate app version ------- end
+
+        # Generate github tag ------- start
+        github_ref="${github_ref////-}"
+        github_ref="${github_ref/refs-heads-/}"
+        github_ref="${github_ref/refs-tags-/}"
+        echo '$github_ref='$github_ref
+        echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
+        # echo "::set-env name=GITHUB_TAG::$github_ref"
+        # Generate github tag ------- end
+      env:
+        github_ref: ${{ github.ref }}
+        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+    - name: Setup ENV BUILD_NUMBER to 1
+      if: ${{ !github.event.workflow_run }}
+      shell: bash
+      run: |
+        # Generate build number ------- start
+        echo "BUILD_NUMBER=1" >> $GITHUB_ENV
+        # Generate build number ------- end
+      env:
+        github_ref: ${{ github.ref }}
+        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+
+    - name: Setup ENV BUILD_NUMBER by workflow_run
+      if: ${{ github.event.workflow_run }}
+      shell: bash
+      run: |
+        echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
+
+        # Generate build number ------- start
+        DATE=`date "+%Y%m%d"`
+        run_number=$(($workflow_run_number % 100))
+        run_number=$(printf "%02d" $run_number)
+        build_number="${DATE}${run_number}"
+        echo '$build_number='$build_number
+        echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
+        # Generate build number ------- end
+      env:
+        github_ref: ${{ github.ref }}
+        workflow_run_number: ${{ github.event.workflow_run.run_number}}
+
+    - name: Inject Environment Variables
+      shell: bash
+      env:
+        GITHUB_SHA: ${{ github.sha }}
+        COVALENT_KEY: ${{ inputs.covalent_key }}
+        SENTRY_TOKEN: ${{ inputs.sentry_token }}
+        SENTRY_PROJECT: ${{ inputs.sentry_project || '' }}
+        TARGET_ENV_FILE: ${{ inputs.env_file_name || '.env' }}
+        PRIVY_APP_ID: ${{ inputs.privy_app_id }}
+        PRIVY_MOBILE_CLIENT_ID: ${{ inputs.privy_mobile_client_id }}
+        REVENUECAT_API_KEY_WEB: ${{ inputs.revenuecat_api_key_web }}
+        REVENUECAT_API_KEY_WEB_SANDBOX: ${{ inputs.revenuecat_api_key_web_sandbox }}
+        REVENUECAT_API_KEY_APPLE: ${{ inputs.revenuecat_api_key_apple }}
+        REVENUECAT_API_KEY_GOOGLE: ${{ inputs.revenuecat_api_key_google }}
+      run: |
+        echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> ${TARGET_ENV_FILE}
+        echo "GITHUB_TAG=${{ env.GITHUB_TAG }}" >> ${TARGET_ENV_FILE}
+        echo "CI_BUILD_APP_VERSION=${{ env.BUILD_APP_VERSION }}" >> ${TARGET_ENV_FILE}
+        echo "CI_BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> ${TARGET_ENV_FILE}
+        echo "ENABLE_ANALYZER=1" >> ${TARGET_ENV_FILE}
+        echo "ENABLE_ANALYZER_HTML_REPORT=1" >> ${TARGET_ENV_FILE}
+        echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> ${TARGET_ENV_FILE}
+        echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
+        echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> ${TARGET_ENV_FILE}
+        echo "PRIVY_APP_ID=${{ env.PRIVY_APP_ID }}" >> ${TARGET_ENV_FILE}
+        echo "PRIVY_MOBILE_CLIENT_ID=${{ env.PRIVY_MOBILE_CLIENT_ID }}" >> ${TARGET_ENV_FILE}
+        echo "REVENUECAT_API_KEY_WEB=${{ env.REVENUECAT_API_KEY_WEB }}" >> ${TARGET_ENV_FILE}
+        echo "REVENUECAT_API_KEY_WEB_SANDBOX=${{ env.REVENUECAT_API_KEY_WEB_SANDBOX }}" >> ${TARGET_ENV_FILE}
+        echo "REVENUECAT_API_KEY_APPLE=${{ env.REVENUECAT_API_KEY_APPLE }}" >> ${TARGET_ENV_FILE}
+        echo "REVENUECAT_API_KEY_GOOGLE=${{ env.REVENUECAT_API_KEY_GOOGLE }}" >> ${TARGET_ENV_FILE}
+        if [[ ! -z "${{ inputs.additional_env }}" ]]; then
+          echo "${{ inputs.additional_env }}" >> ${TARGET_ENV_FILE}
+        fi 
+
+    - name: Print ENV file content
+      shell: bash
+      run: |
+        # echo "=== .env ==="
+        # if [ -f .env ]; then
+        #   cat .env
+        # fi
+        # echo "--------------------------------"
+
+        # echo "=== .env.expo ==="
+        # if [ -f .env.expo ]; then
+        #   cat .env.expo
+        # fi
+        # echo "--------------------------------"
+
+        # echo "=== .env.version ==="
+        # if [ -f .env.version ]; then
+        #   cat .env.version
+        # fi
+        # echo "--------------------------------"
+
+

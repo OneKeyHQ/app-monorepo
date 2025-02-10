@@ -41,23 +41,7 @@ if (!platformName) {
   throw new Error('platformName is empty');
 }
 
-function getPlatformShortName() {
-  if (platformEnv.isNativeAndroid) {
-    return 'Android';
-  }
-  if (platformEnv.isNativeIOS) {
-    return 'iOS';
-  }
-  if (platformEnv.isDesktop) {
-    return 'Desktop';
-  }
-  if (platformEnv.isExtension) {
-    return 'Extension';
-  }
-  return 'Wallet';
-}
-
-export const WALLET_CONNECT_CLIENT_NAME = `OneKey ${getPlatformShortName()}`;
+export const WALLET_CONNECT_CLIENT_NAME = platformEnv.appFullName;
 export const WALLET_CONNECT_CLIENT_DESC = 'Connect with OneKey';
 export const WALLET_CONNECT_CLIENT_META = {
   name: WALLET_CONNECT_CLIENT_NAME,

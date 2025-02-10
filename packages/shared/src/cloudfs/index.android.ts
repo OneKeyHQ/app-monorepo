@@ -3,6 +3,7 @@ import RNCloudFs from 'react-native-cloud-fs';
 
 // import debugLogger from '@onekeyhq/shared/src/logger/debugLogger';
 
+import googlePlayService from '../googlePlayService/googlePlayService';
 import platformEnv from '../platformEnv';
 
 const GoogleSignInConfigure = {
@@ -18,14 +19,7 @@ export function backupPlatform() {
 }
 
 export async function isAvailable(): Promise<boolean> {
-  try {
-    const hasPlayServices = await GoogleSignin.hasPlayServices({
-      showPlayServicesUpdateDialog: false,
-    });
-    return hasPlayServices;
-  } catch (e) {
-    return false;
-  }
+  return googlePlayService.isAvailable();
 }
 
 export async function loginIfNeeded(

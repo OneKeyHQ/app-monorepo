@@ -22,32 +22,22 @@ jobs:
         with:
           lfs: true
 
-      - name: Dotenv Action
-        id: dotenv
-        uses: OneKeyHQ/actions/dotenv-action@main
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
         with:
-          path: .env.version
+          env_file_name: '.env'
+          sentry_project: 'chrome-extension'
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          privy_app_id: ${{ secrets.PRIVY_APP_ID }}
+          privy_mobile_client_id: ${{ secrets.PRIVY_MOBILE_CLIENT_ID }}
+          revenuecat_api_key_web: ${{ secrets.REVENUECAT_API_KEY_WEB }}
+          revenuecat_api_key_web_sandbox: ${{ secrets.REVENUECAT_API_KEY_WEB_SANDBOX }}
+          revenuecat_api_key_apple: ${{ secrets.REVENUECAT_API_KEY_APPLE }}
+          revenuecat_api_key_google: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
 
       - name: 'Setup ENV'
         run: |
-          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
-
-          # Generate build number ------- start
-          DATE=`date "+%Y%m%d"`
-          run_number=$(($workflow_run_number % 100))
-          run_number=$(printf "%02d" $run_number)
-          build_number="${DATE}${run_number}"
-          echo '$build_number='$build_number
-          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
-          # Generate build number ------- end
-
-          github_ref="${github_ref////-}"
-          github_ref="${github_ref/refs-heads-/}"
-          github_ref="${github_ref/refs-tags-/}"
-          echo '$github_ref='$github_ref
-          echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
-          # echo "::set-env name=GITHUB_TAG::$github_ref"
-
           eval "$(node -e 'const v=require("./apps/ext/package.json").version; console.log("pkg_version="+v)')"
           echo '$pkg_version='$pkg_version
           echo "PKG_VERSION=$pkg_version" >> $GITHUB_ENV
@@ -86,18 +76,6 @@ jobs:
         run: |
           yarn
 
-      - name: Inject Environment Variables
-        env:
-          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
-          GITHUB_SHA: ${{ github.sha }}
-          SENTRY_PROJECT: 'chrome-extension'
-          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
-        run: |
-          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env
-          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
-          echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> .env
-          echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> .env
-
       - name: Build Ext
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -120,6 +98,6 @@ jobs:
           artifact-type: Extension
           artifact-name: OneKey-Extension-RN
           artifact-bundle-id: 'so.onekey.wallet.extension'
-          artifact-version-name: '${{ steps.dotenv.outputs.version }}@${{ env.BUILD_NUMBER }}'
+          artifact-version-name: '${{ env.BUILD_APP_VERSION }}@${{ env.BUILD_NUMBER }}'
           artifact-version-code: '${{ env.BUILD_NUMBER }}'
           artifact-download-url: '${{ env.ARTIFACTS_URL }}'

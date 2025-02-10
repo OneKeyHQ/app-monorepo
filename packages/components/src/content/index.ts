@@ -18,3 +18,4 @@ export * from './SecureView';
 export * from './SheetGrabber';
 export * from './ConfirmHighlighter';
 export * from './DescriptionList';
+export * from './Theme';
