@@ -170,17 +170,6 @@ export function ImportWalletOptions() {
           onPress: handleImportPrivateKeyPress,
           testID: 'import-private-key',
         },
-        ...(platformEnv.isNative
-          ? [
-              {
-                title: intl.formatMessage({
-                  id: ETranslations.global_onekey_lite,
-                }),
-                icon: 'OnekeyLiteOutline',
-                onPress: liteCard.importWallet,
-              } as IOptionItem,
-            ]
-          : []),
       ],
     },
     {
@@ -210,6 +199,17 @@ export function ImportWalletOptions() {
               onPress: handleImportFromCloud,
             } as IOptionItem)
           : null,
+        ...(platformEnv.isNative
+          ? [
+              {
+                title: intl.formatMessage({
+                  id: ETranslations.global_onekey_lite,
+                }),
+                icon: 'OnekeyLiteOutline',
+                onPress: liteCard.importWallet,
+              } as IOptionItem,
+            ]
+          : []),
         {
           icon: 'OnekeyKeytagOutline',
           title: 'OneKey KeyTag',
