@@ -246,12 +246,14 @@ function AddressInputWarnings({
 
   const isShowTransferredAddressAddWarning = useMemo(
     () =>
+      !isEnableTransferAllowList &&
       queryResult?.input?.length &&
       !queryResult?.addressBookId &&
       !queryResult?.walletAccountId &&
       queryResult?.addressInteractionStatus ===
         EAddressInteractionStatus.INTERACTED,
     [
+      isEnableTransferAllowList,
       queryResult?.addressBookId,
       queryResult?.addressInteractionStatus,
       queryResult?.input?.length,
