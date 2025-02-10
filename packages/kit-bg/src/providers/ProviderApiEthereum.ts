@@ -14,7 +14,6 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
