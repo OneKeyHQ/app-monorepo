@@ -1,6 +1,11 @@
 import Svg, { SvgProps, Path } from 'react-native-svg';
 const SvgKey2 = (props: SvgProps) => (
-  <Svg viewBox="0 0 24 24" fill="none" accessibilityRole="image" {...props}>
+  <Svg
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    accessibilityRole="image"
+    {...props}
+  >
     <Path
       d="M15.5 7a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"
       fill="#000"
