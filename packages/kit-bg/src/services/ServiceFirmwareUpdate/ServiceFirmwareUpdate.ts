@@ -80,6 +80,7 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
+import { defaultLogger } from '../../../../shared/src/logger/logger';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -403,7 +404,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade,
       isBootloaderMode: features
         ? (await deviceUtils.getDeviceModeFromFeatures({ features })) ===
-          EOneKeyDeviceMode.bootloader
+        EOneKeyDeviceMode.bootloader
         : false,
       updateInfos: {
         firmware,
@@ -552,9 +553,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     toVersion,
   }: {
     releasePayload:
-      | IFirmwareReleasePayload
-      | IBleFirmwareReleasePayload
-      | IBootloaderReleasePayload;
+    | IFirmwareReleasePayload
+    | IBleFirmwareReleasePayload
+    | IBootloaderReleasePayload;
     firmwareType: IDeviceFirmwareType;
     fromVersion: string;
     toVersion: string;
@@ -785,16 +786,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
           }
           const deviceExist = bootloaderMode
             ? // bootloader mode does not have connect id for classic
-              (response.payload ?? []).length > 0
+            (response.payload ?? []).length > 0
             : (response.payload ?? []).find((d) =>
-                equalsIgnoreCase(d.connectId, connectId),
-              );
+              equalsIgnoreCase(d.connectId, connectId),
+            );
           if (deviceExist) {
             scanner.stopScan();
             resolve(true);
           }
         },
-        () => {},
+        () => { },
         1,
         3000,
         Number.MAX_VALUE,
@@ -851,15 +852,33 @@ class ServiceFirmwareUpdate extends ServiceBase {
             },
           },
         });
-        const result = convertDeviceResponse(async () =>
-          // TODO connectId can be undefined
-          hardwareSDK.deviceUpdateBootloader(
-            params.releaseResult.updatingConnectId as string,
-            {},
-          ),
-        );
-
-        return result;
+        try {
+          const result = convertDeviceResponse(async () =>
+            // TODO connectId can be undefined
+            hardwareSDK.deviceUpdateBootloader(
+              params.releaseResult.updatingConnectId as string,
+              {},
+            ),
+          );
+          defaultLogger.update.firmware.updateBootloader({
+            deviceType,
+            connectType: platformEnv.isNative ? 'ble' : 'usb',
+            firmwareVersion: updateInfo.fromVersion,
+            targetVersion: updateInfo.toVersion,
+            success: true,
+          });
+          return result;
+        } catch (error) {
+          defaultLogger.update.firmware.updateBootloader({
+            deviceType,
+            connectType: platformEnv.isNative ? 'ble' : 'usb',
+            firmwareVersion: updateInfo.fromVersion,
+            targetVersion: updateInfo.toVersion,
+            success: false,
+            error,
+          });
+          throw error;
+        }
       }
     });
   }
@@ -950,30 +969,44 @@ class ServiceFirmwareUpdate extends ServiceBase {
           },
         },
       });
-      const result = await convertDeviceResponse(() =>
-        hardwareSDK.firmwareUpdateV2(
-          deviceUtils.getUpdatingConnectId({ connectId }),
-          {
-            updateType: firmwareType as any,
-            // update res is always enabled when firmware version changed
-            // forcedUpdateRes for TEST only, means always update res even if firmware version is same (re-flash the same firmware)
-            forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
-            version: versionArr,
-            platform: platformEnv.symbol ?? 'web',
-          },
-        ),
-      );
-
-      // TODO update bootloader after firmware update??
-      // update bootloader
-      if (result && deviceType === 'touch' && firmwareType === 'firmware') {
-        // const updateBootRes = await this.updateBootloader(connectId);
-        // if (!updateBootRes.success) return updateBootRes;
+      try {
+        const result = await convertDeviceResponse(() =>
+          hardwareSDK.firmwareUpdateV2(
+            deviceUtils.getUpdatingConnectId({ connectId }),
+            {
+              updateType: firmwareType as any,
+              // update res is always enabled when firmware version changed
+              // forcedUpdateRes for TEST only, means always update res even if firmware version is same (re-flash the same firmware)
+              forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
+              version: versionArr,
+              platform: platformEnv.symbol ?? 'web',
+            },
+          ),
+        );
+        if (result && deviceType === 'touch' && firmwareType === 'firmware') {
+          // const updateBootRes = await this.updateBootloader(connectId);
+          // if (!updateBootRes.success) return updateBootRes;
+        }
+        // TODO handleErrors UpdatingModal
+        defaultLogger.update.firmware.updateFirmware({
+          connectType: platformEnv.isNative ? 'ble' : 'usb',
+          deviceType: deviceType ?? 'unknown',
+          firmwareVersion: updateInfo.fromVersion,
+          targetVersion: version,
+          success: true,
+        });
+        return result;
+      } catch (error) {
+        defaultLogger.update.firmware.updateFirmware({
+          connectType: platformEnv.isNative ? 'ble' : 'usb',
+          deviceType: deviceType ?? 'unknown',
+          firmwareVersion: updateInfo.fromVersion,
+          targetVersion: version,
+          success: false,
+          error,
+        });
+        throw error;
       }
-
-      // TODO handleErrors UpdatingModal
-
-      return result;
     });
   }
 
