@@ -123,7 +123,7 @@ interface IFetchSwapQuoteBaseParams {
 }
 
 export interface IFetchTokensParams {
-  protocol: string;
+  protocol?: string;
   networkId?: string;
   keywords?: string;
   limit?: number;
@@ -283,6 +283,7 @@ export interface IFetchQuoteResult {
   eventId?: string;
   info: IFetchQuoteInfo;
   errorMessage?: string;
+  shouldWrappedToken?: ISwapTokenBase;
   fromAmount?: string;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
   fee?: IFetchQuoteFee;
