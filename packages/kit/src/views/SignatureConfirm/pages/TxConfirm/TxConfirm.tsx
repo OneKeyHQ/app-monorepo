@@ -24,6 +24,7 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
@@ -41,7 +42,6 @@ import SwapInfo from '../../components/SwapInfo';
 import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
 
 import type { RouteProp } from '@react-navigation/core';
-import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
 function TxConfirm() {
   const route =
