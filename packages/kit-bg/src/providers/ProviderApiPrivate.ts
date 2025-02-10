@@ -183,16 +183,10 @@ class ProviderApiPrivate extends ProviderApiBase {
   ) {
     setTimeout(() => {
       if (request.origin) {
-        /*
-        const skipDomReadyNotifySites: Record<string, boolean> = {
-          'https://wallet.keplr.app': true,
-        };
-      */
-        void this.backgroundApi.serviceDApp.notifyDAppAccountsChanged(
-          request.origin,
-        );
-        void this.backgroundApi.serviceDApp.notifyDAppChainChanged(
-          request.origin,
+        void this.backgroundApi.serviceDApp.notifyDAppAccountAndChainChangedWithCache(
+          {
+            targetOrigin: request.origin,
+          },
         );
       }
     }, 200);
