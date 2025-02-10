@@ -787,4 +787,5 @@ module.exports = [
   'Apy',
   'Apys',
   'hashify',
+  'onboard',
 ];

@@ -1,5 +1,3 @@
-import { useCallback, useMemo } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import type {
@@ -8,7 +6,6 @@ import type {
   IXStackProps,
 } from '@onekeyhq/components';
 import {
-  Anchor,
   Divider,
   Group,
   Heading,
@@ -25,23 +22,16 @@ import {
   XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
-import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
-import {
-  EModalRoutes,
-  EOnboardingPages,
-  ERootRoutes,
-} from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../../hooks/useAppNavigation';
-
-import type { FormatXMLElementFn } from 'intl-messageformat';
+import { TermsAndPrivacy } from './components/TermsAndPrivacy';
 
 type IActionsGroupItem = {
   iconName: IKeyOfIcons;
@@ -151,57 +141,13 @@ export function GetStarted({
     navigation.push(EOnboardingPages.ImportAddress);
   };
 
-  const termsLink = useHelpLink({ path: 'articles/360002014776' });
-  const privacyLink = useHelpLink({ path: 'articles/360002003315' });
-
   const isDappMode = platformEnv.isWebDappMode;
-
-  const renderAnchor = useCallback(
-    (link: string, chunks: string[]) =>
-      // Due to bugs such as the onPress event of the Text component,
-      //  only the last of multiple Anchors will take effect.
-      platformEnv.isNative ? (
-        <View
-          onPress={() => {
-            openUrlExternal(link);
-          }}
-        >
-          <SizableText
-            left={platformEnv.isNativeIOS ? 20.5 : undefined}
-            top={platformEnv.isNativeIOS ? 2.5 : 3.5}
-            size="$bodySm"
-          >
-            {chunks[0]}
-          </SizableText>
-        </View>
-      ) : (
-        <Anchor
-          href={link}
-          size="$bodySm"
-          color="$text"
-          target="_blank"
-          textDecorationLine="none"
-        >
-          {chunks}
-        </Anchor>
-      ),
-    [],
-  );
-
-  const renderTermsTag: FormatXMLElementFn<string, any> = useCallback(
-    (chunks: string[]) => renderAnchor(termsLink, chunks),
-    [renderAnchor, termsLink],
-  );
-
-  const renderPrivacyTag: FormatXMLElementFn<string, any> = useCallback(
-    (chunks: string[]) => renderAnchor(privacyLink, chunks),
-    [privacyLink, renderAnchor],
-  );
 
   return (
     <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
+        {/* Title and description */}
         <Stack flex={1}>
           <ThemeableStack
             fullscreen
@@ -234,8 +180,6 @@ export function GetStarted({
               }}
             />
             <Stack zIndex={1}>
-              {/* Welcome to OneKey
-              Simple, secure crypto management */}
               <Heading size="$heading4xl" textAlign="center">
                 {intl.formatMessage({
                   id: ETranslations.onboarding_welcome_message,
@@ -253,6 +197,8 @@ export function GetStarted({
             </Stack>
           </Stack>
         </Stack>
+
+        {/* Actions */}
         <Stack
           py="$6"
           px="$5"
@@ -278,6 +224,7 @@ export function GetStarted({
               },
             ]}
           />
+
           {!isDappMode ? (
             <ActionsGroup
               items={[
@@ -336,21 +283,9 @@ export function GetStarted({
             />
           )}
         </Stack>
-        <SizableText
-          size="$bodySm"
-          color="$textDisabled"
-          textAlign="center"
-          p="$5"
-          pt="$0"
-        >
-          {intl.formatMessage(
-            { id: ETranslations.terms_privacy },
-            {
-              termsTag: renderTermsTag,
-              privacyTag: renderPrivacyTag,
-            },
-          )}
-        </SizableText>
+
+        <TermsAndPrivacy />
+
         {showCloseButton ? (
           <View position="absolute" left="$5" top={top || '$5'}>
             <Page.Close>
@@ -364,48 +299,3 @@ export function GetStarted({
 }
 
 export default GetStarted;
-
-export const openOnBoardingFromExt = () => {
-  // eslint-disable-next-line unicorn/prefer-global-this
-  if (platformEnv.isExtension && typeof window !== 'undefined') {
-    return globalThis.location.hash.includes('fromExt=true');
-  }
-  return false;
-};
-
-export const useToOnBoardingPage = () => {
-  const navigation = useAppNavigation();
-  return useMemo(
-    () =>
-      async ({
-        isFullModal = false,
-        params,
-      }: {
-        isFullModal?: boolean;
-        params?: IOnboardingParamList[EOnboardingPages.GetStarted];
-      } = {}) => {
-        if (platformEnv.isExtensionUiPopup) {
-          await backgroundApiProxy.serviceApp.openExtensionExpandTab({
-            routes: [
-              isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
-              EModalRoutes.OnboardingModal,
-              EOnboardingPages.GetStarted,
-            ],
-            params: {
-              ...params,
-              fromExt: true,
-            },
-          });
-        } else {
-          navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
-            EModalRoutes.OnboardingModal,
-            {
-              screen: EOnboardingPages.GetStarted,
-              params,
-            },
-          );
-        }
-      },
-    [navigation],
-  );
-};

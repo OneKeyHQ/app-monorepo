@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, YStack } from '@onekeyhq/components';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -15,13 +16,20 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { openOnBoardingFromExt, useToOnBoardingPage } from '../pages';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
 let lastAutoStartV4MigrationTime = 0;
 let isBaseSettingsMigrated = false;
 let downgradeConfirmDialogShown = false;
 let isAutoStartV4MigrationShown = false;
+
+export const openOnBoardingFromExt = () => {
+  // eslint-disable-next-line unicorn/prefer-global-this
+  if (platformEnv.isExtension && typeof window !== 'undefined') {
+    return globalThis.location.hash.includes('fromExt=true');
+  }
+  return false;
+};
 
 function DowngradeWarningDialogContent({
   onConfirm,
