@@ -171,11 +171,11 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     );
-    // const primeButton =
-    //   devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
-    //     <PrimeHeaderIconButton key="prime" />
-    //   ) : null;
-    const primeButton = <PrimeHeaderIconButton key="prime" />;
+    const primeButton =
+      devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
+        <PrimeHeaderIconButton key="prime" />
+      ) : null;
+    // const primeButton = <PrimeHeaderIconButton key="prime" />;
     let notificationsButton: ReactNode | null = (
       <Stack key="notifications" testID="headerRightNotificationsButton">
         <HeaderIconButton
@@ -269,6 +269,7 @@ export function HeaderRight({
     openSettingPage,
     onScanButtonPressed,
     devSettings.enabled,
+    devSettings?.settings?.showPrimeTest,
     openNotificationsModal,
     firstTimeGuideOpened,
     badge,
