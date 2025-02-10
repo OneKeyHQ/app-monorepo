@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { Button, Page, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
