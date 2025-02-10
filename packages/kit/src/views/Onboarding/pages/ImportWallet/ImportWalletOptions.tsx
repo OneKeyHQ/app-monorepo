@@ -3,6 +3,7 @@ import { InteractionManager, Keyboard } from 'react-native';
 
 import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
+  Badge,
   Button,
   Dialog,
   Divider,
@@ -32,6 +33,7 @@ type IOptionItem = IPropsWithTestId<{
   description?: string;
   icon: IIconProps['name'];
   iconColor?: IIconProps['color'];
+  badge?: React.ReactNode;
   onPress?: IListItemProps['onPress'];
   isLoading?: boolean;
   comingSoon?: boolean;
@@ -116,7 +118,7 @@ export function ImportWalletOptions() {
           title: intl.formatMessage({
             id: ETranslations.global_recovery_phrase,
           }),
-          icon: 'Document2Outline',
+          icon: 'SecretPhraseOutline',
           onPress: () => {
             const dialog = Dialog.show({
               tone: 'warning',
@@ -162,6 +164,12 @@ export function ImportWalletOptions() {
           },
           testID: 'import-recovery-phrase',
         },
+        {
+          title: intl.formatMessage({ id: ETranslations.global_private_key }),
+          icon: 'Key2Outline',
+          onPress: handleImportPrivateKeyPress,
+          testID: 'import-private-key',
+        },
         ...(platformEnv.isNative
           ? [
               {
@@ -173,23 +181,14 @@ export function ImportWalletOptions() {
               } as IOptionItem,
             ]
           : []),
-        {
-          icon: 'OnekeyKeytagOutline',
-          title: 'OneKey KeyTag',
-          onPress: handleImportKeyTag,
-        },
       ],
     },
     {
       data: [
         {
-          title: intl.formatMessage({ id: ETranslations.global_private_key }),
-          icon: 'KeyOutline',
-          onPress: handleImportPrivateKeyPress,
-          testID: 'import-private-key',
-        },
-        {
-          title: intl.formatMessage({ id: ETranslations.global_address }),
+          title: intl.formatMessage({
+            id: ETranslations.global_watch_only_address,
+          }),
           icon: 'EyeOutline',
           onPress: handleImportAddressPress,
           testID: 'import-address',
@@ -198,6 +197,24 @@ export function ImportWalletOptions() {
     },
     {
       data: [
+        !platformEnv.isWeb
+          ? ({
+              icon: 'MultipleDevicesOutline',
+              title: intl.formatMessage({
+                id: ETranslations.global_transfer,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.onboarding_transfer_desc,
+              }),
+              badge: <Badge badgeType="success">Prime</Badge>,
+              onPress: handleImportFromCloud,
+            } as IOptionItem)
+          : null,
+        {
+          icon: 'OnekeyKeytagOutline',
+          title: 'OneKey KeyTag',
+          onPress: handleImportKeyTag,
+        },
         platformEnv.isNative
           ? ({
               icon: 'CloudOutline',
@@ -243,6 +260,7 @@ export function ImportWalletOptions() {
             {index !== 0 ? <Divider m="$5" /> : null}
             {data.map(
               ({
+                badge,
                 title,
                 icon,
                 description,
@@ -260,13 +278,9 @@ export function ImportWalletOptions() {
                   isLoading={isLoading}
                   testID={testID}
                 >
-                  <Stack
-                    bg="$bgStrong"
-                    p="$2"
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                  >
+                  <Stack py="$2">
                     <Icon
+                      color="$iconSubdued"
                       name={icon}
                       flexShrink={0}
                       {...(iconColor && {
@@ -277,7 +291,12 @@ export function ImportWalletOptions() {
                   <ListItem.Text
                     userSelect="none"
                     flex={1}
-                    primary={title}
+                    primary={
+                      <Stack flexDirection="row" alignItems="center" gap="$1.5">
+                        <SizableText>{title}</SizableText>
+                        {badge}
+                      </Stack>
+                    }
                     secondary={description}
                   />
                   {comingSoon ? (

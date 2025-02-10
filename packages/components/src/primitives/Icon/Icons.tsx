@@ -713,6 +713,7 @@ const icons = {
   ItalicOutline: () => import("./react/outline/Italic"),
   JudgeGavelOutline: () => import("./react/outline/JudgeGavel"),
   KeyOutline: () => import("./react/outline/Key"),
+  Key2Outline: () => import("./react/outline/Key2"),
   KeyboardConnectOutline: () => import("./react/outline/KeyboardConnect"),
   KeyboardDownOutline: () => import("./react/outline/KeyboardDown"),
   KeyboardUpOutline: () => import("./react/outline/KeyboardUp"),
@@ -916,6 +917,7 @@ const icons = {
   SdCard2Outline: () => import("./react/outline/SdCard2"),
   SearchOutline: () => import("./react/outline/Search"),
   SearchMenuOutline: () => import("./react/outline/SearchMenu"),
+  SecretPhraseOutline: () => import("./react/outline/SecretPhrase"),
   SendOutline: () => import("./react/outline/Send"),
   ServerOutline: () => import("./react/outline/Server"),
   SettingsOutline: () => import("./react/outline/Settings"),
@@ -1954,7 +1956,6 @@ const icons = {
   ZipSolid: () => import("./react/solid/Zip"),
   ZoomInSolid: () => import("./react/solid/ZoomIn"),
   ZoomOutSolid: () => import("./react/solid/ZoomOut"),
-  F2PoolSolid: () => import("./react/solid/F2Pool"),
 };
 export type IKeyOfIcons = keyof typeof icons;
 export default icons;
