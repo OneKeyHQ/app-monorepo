@@ -8,8 +8,9 @@ import {
   initSentry,
   withSentryHOC,
 } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 
 initSentry();
 
-export default withSentryHOC(KitProvider);
+export default withSentryHOC(KitProvider, SentryErrorBoundaryFallback);
 // export default KitProvider;

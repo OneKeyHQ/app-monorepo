@@ -63,3 +63,11 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=4096'
         run: |
           yarn test
+
+      - name: Upload Test Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report
+          path: test-report.html
+

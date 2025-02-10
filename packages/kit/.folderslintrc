@@ -17,7 +17,10 @@
     "views/*/components/**",
     "views/*/assets/*",
     "views/*/hooks",
+    "views/*/hooks/usePrivyUniversal",
+    "views/*/hooks/usePrivyUniversalV2",
+    "views/*/purchasesSdk",
     "views/*/router",
     "views/*/utils/**"
-   ]
+  ]
 }

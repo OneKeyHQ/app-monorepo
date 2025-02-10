@@ -21,6 +21,10 @@ export interface IDevSettings {
   disableSolanaPriorityFee?: boolean;
   disableAllShortcuts?: boolean;
   webviewDebuggingEnabled?: boolean;
+  // show trading view
+  showTradingView?: boolean;
+  showPrimeTest?: boolean;
+  usePrimeSandboxPayment?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -43,6 +47,7 @@ export const {
       disableSolanaPriorityFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
+      showPrimeTest: false,
     },
   },
 });

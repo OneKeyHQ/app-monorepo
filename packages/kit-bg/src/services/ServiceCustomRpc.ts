@@ -239,7 +239,7 @@ class ServiceCustomRpc extends ServiceBase {
           !lastFetchTime ||
           now - lastFetchTime >= timerUtils.getTimeDurationMs({ hour: 1 })
         ) {
-          this.fetchNetworkFromServer().catch((error) => {
+          void this.fetchNetworkFromServer().catch((error) => {
             defaultLogger.account.wallet.getServerNetworksError(error);
           });
         }
@@ -254,6 +254,7 @@ class ServiceCustomRpc extends ServiceBase {
 
   @backgroundMethod()
   public async fetchNetworkFromServer(): Promise<IServerNetwork[]> {
+    // await timerUtils.wait(3000 * 10);
     defaultLogger.account.wallet.fetchNetworkFromServer();
     // Request /wallet/v1/network/list to get all evm networks
     const client = await this.getClient(EServiceEndpointEnum.Wallet);

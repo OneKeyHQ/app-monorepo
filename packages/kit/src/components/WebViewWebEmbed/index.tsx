@@ -2,9 +2,15 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SizableText, Stack, View, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
+import type { IWebEmbedOnekeyAppSettings } from '@onekeyhq/web-embed/utils/webEmbedAppSettings';
 
+import { useLocaleVariant } from '../../hooks/useLocaleVariant';
+import { useThemeVariant } from '../../hooks/useThemeVariant';
 import WebView from '../WebView';
 
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
@@ -16,9 +22,13 @@ const initTop = '15%';
 export function WebViewWebEmbed({
   isSingleton,
   customReceiveHandler,
+  hashRoutePath,
+  hashRouteQueryParams,
 }: {
   isSingleton?: boolean;
   customReceiveHandler?: IJsBridgeReceiveHandler;
+  hashRoutePath?: EWebEmbedRoutePath;
+  hashRouteQueryParams?: Record<string, string>;
 }) {
   const webviewRef = useRef<IWebViewWrapperRef | null>(null);
   const onWebViewRef = useCallback(($ref: IWebViewWrapperRef | null) => {
@@ -27,27 +37,53 @@ export function WebViewWebEmbed({
   const [top, setTop] = useState(initTop);
   const [minimized, setMinimized] = useState(false);
   const config = useMemo(() => webEmbedConfig.getWebEmbedConfig(), []);
+  const themeVariant = useThemeVariant();
+  const localeVariant = useLocaleVariant();
+  const [devSettingsPersistAtom] = useDevSettingsPersistAtom();
+
+  const [revenuecatApiKey, setRevenuecatApiKey] = useState<string>('');
+
   useEffect(() => {
-    if (!platformEnv.isNative) {
-      return;
+    async function getApiKey() {
+      const devSettings =
+        await backgroundApiProxy.serviceDevSetting.getDevSetting();
+      let apiKey = process.env.REVENUECAT_API_KEY_WEB;
+      if (devSettings?.settings?.usePrimeSandboxPayment) {
+        apiKey = process.env.REVENUECAT_API_KEY_WEB_SANDBOX;
+      }
+      if (!apiKey) {
+        throw new Error('No REVENUECAT api key found');
+      }
+      setRevenuecatApiKey(apiKey);
     }
-    const jsBridge = webviewRef?.current?.jsBridge;
-    if (!jsBridge) {
-      return;
+    void getApiKey();
+  }, []);
+
+  const webEmbedAppSettings = useMemo<
+    IWebEmbedOnekeyAppSettings | undefined
+  >(() => {
+    if (!themeVariant || !localeVariant || !revenuecatApiKey) {
+      return undefined;
     }
-    jsBridge.globalOnMessageEnabled = true;
-    backgroundApiProxy.connectWebEmbedBridge(
-      jsBridge as unknown as JsBridgeBase,
-    );
-  }, [webviewRef]);
+    return {
+      themeVariant,
+      localeVariant,
+      revenuecatApiKey,
+    };
+  }, [themeVariant, localeVariant, revenuecatApiKey]);
+
   const remoteUrl = useMemo(() => {
-    if (process.env.NODE_ENV !== 'production') {
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      devSettingsPersistAtom.enabled
+    ) {
       if (config?.url) {
         return config?.url;
       }
     }
     return undefined;
-  }, [config?.url]);
+  }, [config?.url, devSettingsPersistAtom.enabled]);
+
   const nativeWebviewSource = useMemo(() => {
     if (remoteUrl) {
       return undefined;
@@ -67,8 +103,16 @@ export function WebViewWebEmbed({
     return undefined;
   }, [remoteUrl]);
 
-  const webview = useMemo(
-    () => (
+  const webview = useMemo(() => {
+    if (!webEmbedAppSettings) {
+      return null;
+    }
+    const fullHash = uriUtils.buildUrl({
+      path: hashRoutePath,
+      query: hashRouteQueryParams,
+    });
+    console.log('WebViewWebEmbed fullHash', hashRoutePath, fullHash);
+    return (
       <WebView
         // *** use remote url
         src={remoteUrl || ''}
@@ -76,10 +120,45 @@ export function WebViewWebEmbed({
         nativeWebviewSource={nativeWebviewSource}
         onWebViewRef={onWebViewRef}
         customReceiveHandler={customReceiveHandler}
+        nativeInjectedJavaScriptBeforeContentLoaded={`
+            window.location.hash = "${fullHash}";
+            window.WEB_EMBED_ONEKEY_APP_SETTINGS = {
+              themeVariant: "${webEmbedAppSettings?.themeVariant}",
+              localeVariant: "${webEmbedAppSettings?.localeVariant}",
+              revenuecatApiKey: "${webEmbedAppSettings?.revenuecatApiKey}"
+            };
+          `}
       />
-    ),
-    [customReceiveHandler, nativeWebviewSource, onWebViewRef, remoteUrl],
-  );
+    );
+  }, [
+    customReceiveHandler,
+    hashRoutePath,
+    hashRouteQueryParams,
+    nativeWebviewSource,
+    onWebViewRef,
+    remoteUrl,
+    webEmbedAppSettings,
+  ]);
+
+  useEffect(() => {
+    if (!platformEnv.isNative) {
+      return;
+    }
+    const jsBridge = webviewRef?.current?.jsBridge;
+    if (!jsBridge) {
+      return;
+    }
+    if (!webview) {
+      return;
+    }
+    if (!webEmbedAppSettings) {
+      return;
+    }
+    jsBridge.globalOnMessageEnabled = true;
+    backgroundApiProxy.connectWebEmbedBridge(
+      jsBridge as unknown as JsBridgeBase,
+    );
+  }, [webviewRef, webview, webEmbedAppSettings]);
 
   const webviewUrlOrUri = useMemo(() => {
     if (remoteUrl) {
@@ -143,7 +222,12 @@ export function WebViewWebEmbed({
 }
 
 function WebViewWebEmbedSingletonView() {
-  return <WebViewWebEmbed isSingleton />;
+  return (
+    <WebViewWebEmbed
+      isSingleton
+      hashRoutePath={EWebEmbedRoutePath.webEmbedApi}
+    />
+  );
 }
 
 export const WebViewWebEmbedSingleton = memo(WebViewWebEmbedSingletonView);
