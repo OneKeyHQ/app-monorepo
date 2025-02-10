@@ -45,13 +45,13 @@ export function PrimeLoginEmailCodeDialog({
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     if (countdown > 0) {
-      timer = setInterval(() => {
+      timer = setTimeout(() => {
         setCountdown((prev) => prev - 1);
       }, 1000);
     }
     return () => {
       if (timer) {
-        clearInterval(timer);
+        clearTimeout(timer);
       }
     };
   }, [countdown]);

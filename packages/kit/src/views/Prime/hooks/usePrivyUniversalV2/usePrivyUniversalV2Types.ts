@@ -24,5 +24,6 @@ export interface IUsePrivyUniversalV2 {
   authenticated: boolean;
   user?: {
     id: string;
+    email: string;
   };
 }

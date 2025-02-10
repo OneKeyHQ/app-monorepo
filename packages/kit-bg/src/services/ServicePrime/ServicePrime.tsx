@@ -61,8 +61,7 @@ class ServicePrime extends ServiceBase {
     client.interceptors.response.use(
       (response) => response,
       (error) => {
-        // TODO check invalid token and logout
-        // this.setPrimePersistAtomNotLoggedIn()
+        // check invalid token and logout
         const errorCode: number | undefined = (
           error as { data: { code: number } }
         )?.data?.code;
@@ -152,10 +151,6 @@ class ServicePrime extends ServiceBase {
       '/prime/v1/user/info',
     );
     const serverUserInfo = result?.data?.data;
-    console.log(
-      'serverPrimeUserInfo >>>>> ',
-      JSON.stringify(serverUserInfo, null, 2),
-    );
     let primeSubscription: IPrimeSubscriptionInfo | undefined;
     if (serverUserInfo.isPrime) {
       primeSubscription = {

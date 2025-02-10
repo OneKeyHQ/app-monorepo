@@ -76,7 +76,7 @@ if (!isMac) {
   setupTitlebar();
 }
 
-let systemIdleInterval: ReturnType<typeof setTimeout>;
+let systemIdleInterval: ReturnType<typeof setInterval>;
 
 export type IDesktopOpenUrlEventData = {
   url?: string;

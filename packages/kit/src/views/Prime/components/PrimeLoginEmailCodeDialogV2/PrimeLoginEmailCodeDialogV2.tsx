@@ -21,7 +21,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   onLoginSuccess?: () => void;
 }) {
-  const { email, sendCode, loginWithCode } = props;
+  const { email, sendCode, loginWithCode, onLoginSuccess } = props;
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -31,16 +31,12 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   const intl = useIntl();
 
   const sendEmailVerificationCode = useCallback(async () => {
-    setIsResending(true);
-
     if (isResending) {
       return;
     }
-
+    setIsResending(true);
     try {
-      console.log('sendCode', email);
-      void sendCode({ email });
-
+      await sendCode({ email });
       setCountdown(COUNTDOWN_TIME);
     } finally {
       setIsResending(false);
@@ -50,13 +46,13 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     if (countdown > 0) {
-      timer = setInterval(() => {
+      timer = setTimeout(() => {
         setCountdown((prev) => prev - 1);
       }, 1000);
     }
     return () => {
       if (timer) {
-        clearInterval(timer);
+        clearTimeout(timer);
       }
     };
   }, [countdown]);
@@ -126,6 +122,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               email,
             });
             setState({ status: 'done' });
+            onLoginSuccess?.();
           } catch (error) {
             setState({ status: 'error' });
             preventClose();

@@ -11,23 +11,15 @@ import {
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
-import { usePrivyUniversal } from './usePrivyUniversal';
+import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 export function usePrivyAuthSyncToAtom() {
   const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
   const [primeInitAtom, setPrimeInitAtom] = usePrimeInitAtom();
 
   // https://github.com/privy-io/create-next-app/blob/main/pages/index.tsx
-  const {
-    isReady,
-    logout,
-    authenticated,
-    userEmail,
-    privyUserId,
-    native,
-    web,
-    getAccessToken,
-  } = usePrivyUniversal();
+  const { isReady, logout, authenticated, getAccessToken, user } =
+    usePrivyUniversalV2();
 
   useEffect(() => {
     void (async () => {
@@ -45,8 +37,8 @@ export function usePrivyAuthSyncToAtom() {
         setPrimePersistAtom((v) => ({
           ...v,
           isLoggedIn: true,
-          email: userEmail,
-          privyUserId,
+          email: user?.email,
+          privyUserId: user?.id,
         }));
       } else {
         setPrimePersistAtom((v) => ({
@@ -68,8 +60,8 @@ export function usePrivyAuthSyncToAtom() {
     authenticated,
     getAccessToken,
     isReady,
-    userEmail,
-    privyUserId,
+    user?.email,
+    user?.id,
   ]);
 
   useEffect(() => {

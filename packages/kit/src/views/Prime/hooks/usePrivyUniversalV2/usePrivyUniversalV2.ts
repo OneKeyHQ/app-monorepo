@@ -32,6 +32,7 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
     user: authenticated
       ? {
           id: user?.id || '',
+          email: user?.email?.address || '',
         }
       : undefined,
   };
