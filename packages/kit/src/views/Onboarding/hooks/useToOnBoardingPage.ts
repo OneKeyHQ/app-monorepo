@@ -10,6 +10,14 @@ import {
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 
+export const isOnboardingFromExtensionUrl = () => {
+  // eslint-disable-next-line unicorn/prefer-global-this
+  if (platformEnv.isExtension && typeof window !== 'undefined') {
+    return globalThis.location.hash.includes('fromExt=true');
+  }
+  return false;
+};
+
 export const useToOnBoardingPage = () => {
   const navigation = useAppNavigation();
 
