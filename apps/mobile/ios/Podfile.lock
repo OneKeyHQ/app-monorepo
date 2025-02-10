@@ -116,12 +116,9 @@ PODS:
   - libwebp/sharpyuv (1.3.2)
   - libwebp/webp (1.3.2):
     - libwebp/sharpyuv
-  - lottie-ios (4.5.0)
-  - lottie-react-native (7.2.2):
-    - glog
-    - lottie-ios (= 4.5.0)
-    - RCT-Folly (= 2022.05.16.00)
-    - React-Core
+  - lottie-ios (4.3.3)
+  - lottie-react-native (6.3.1):
+    - lottie-ios (~> 4.3.0)
   - MMKV (1.3.1):
     - MMKVCore (~> 1.3.1)
   - MMKVCore (1.3.1)
