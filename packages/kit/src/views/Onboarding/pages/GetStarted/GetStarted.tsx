@@ -1,29 +1,14 @@
 import { useIntl } from 'react-intl';
 
-import type {
-  IKeyOfIcons,
-  IPageScreenProps,
-  IXStackProps,
-} from '@onekeyhq/components';
+import type { IPageScreenProps } from '@onekeyhq/components';
 import {
-  Divider,
-  Group,
-  Heading,
-  Icon,
   IconButton,
-  Image,
-  LinearGradient,
   Page,
-  SizableText,
-  Spinner,
   Stack,
-  ThemeableStack,
   View,
-  XStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -31,77 +16,9 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
+import { ActionsGroup } from './components/ActionsGroup';
 import { TermsAndPrivacy } from './components/TermsAndPrivacy';
-
-type IActionsGroupItem = {
-  iconName: IKeyOfIcons;
-  label: string;
-  primary?: boolean;
-  isLoading?: boolean;
-} & IXStackProps;
-
-type IActionsProp = {
-  items: IActionsGroupItem[];
-};
-
-function ActionsGroup({ items }: IActionsProp) {
-  return (
-    <Group
-      borderRadius="$3"
-      $gtMd={{
-        borderRadius: '$2',
-      }}
-      separator={<Divider />}
-    >
-      {items.map((item: IActionsGroupItem, index) => (
-        <Group.Item key={index}>
-          <XStack
-            flexDirection="row"
-            py="$3.5"
-            px="$4"
-            bg={item.primary ? '$bgPrimary' : '$bgStrong'}
-            $gtMd={{
-              py: '$2',
-            }}
-            hoverStyle={{
-              bg: item.primary ? '$bgPrimaryHover' : '$bgStrongHover',
-            }}
-            pressStyle={{
-              bg: item.primary ? '$bgPrimaryActive' : '$bgStrongActive',
-            }}
-            focusVisibleStyle={{
-              outlineColor: '$focusRing',
-              outlineStyle: 'solid',
-              outlineWidth: 2,
-            }}
-            focusable
-            userSelect="none"
-            borderCurve="continuous"
-            onPress={item.onPress}
-            testID={item.testID}
-          >
-            <Icon
-              name={item.iconName}
-              color={item.primary ? '$iconInverse' : '$icon'}
-            />
-            <SizableText
-              pl="$3"
-              size="$bodyLgMedium"
-              color={item.primary ? '$textInverse' : '$text'}
-            >
-              {item.label}
-            </SizableText>
-            {item?.isLoading ? (
-              <XStack ml="$2">
-                <Spinner />
-              </XStack>
-            ) : null}
-          </XStack>
-        </Group.Item>
-      ))}
-    </Group>
-  );
-}
+import { Welcome } from './components/Welcome';
 
 export function GetStarted({
   route,
@@ -147,56 +64,7 @@ export function GetStarted({
     <Page safeAreaEnabled>
       <Page.Header headerShown={false} />
       <Page.Body>
-        {/* Title and description */}
-        <Stack flex={1}>
-          <ThemeableStack
-            fullscreen
-            alignItems="center"
-            justifyContent="center"
-          >
-            <MultipleClickStack
-              onPress={() => {
-                void navigation.popStack();
-              }}
-            >
-              <Image
-                w={360}
-                h={360}
-                source={require('@onekeyhq/kit/assets/logo-press.png')}
-              />
-            </MultipleClickStack>
-          </ThemeableStack>
-
-          <Stack px="$5" pt="$10" mt="auto">
-            <LinearGradient
-              position="absolute"
-              top="$0"
-              left="$0"
-              right="$0"
-              bottom="$0"
-              colors={['transparent', '$bgApp']}
-              $platform-native={{
-                display: 'none',
-              }}
-            />
-            <Stack zIndex={1}>
-              <Heading size="$heading4xl" textAlign="center">
-                {intl.formatMessage({
-                  id: ETranslations.onboarding_welcome_message,
-                })}
-              </Heading>
-              <SizableText
-                size="$bodyLg"
-                textAlign="center"
-                color="$textSubdued"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.onboarding_welcome_description,
-                })}
-              </SizableText>
-            </Stack>
-          </Stack>
-        </Stack>
+        <Welcome />
 
         {/* Actions */}
         <Stack
