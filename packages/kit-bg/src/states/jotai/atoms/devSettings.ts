@@ -19,9 +19,12 @@ export interface IDevSettings {
   showDevExportPrivateKey?: boolean;
   // disable Solana priority fee
   disableSolanaPriorityFee?: boolean;
-  disableNumberShortcuts?: boolean;
-  disableSearchAndAccountSelectorShortcuts?: boolean;
+  disableAllShortcuts?: boolean;
   webviewDebuggingEnabled?: boolean;
+  // show trading view
+  showTradingView?: boolean;
+  showPrimeTest?: boolean;
+  usePrimeSandboxPayment?: boolean;
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -42,9 +45,9 @@ export const {
       enableTestEndpoint: !!platformEnv.isDev || !!platformEnv.isE2E,
       showDevOverlayWindow: platformEnv.isE2E ? true : undefined,
       disableSolanaPriorityFee: false,
-      disableNumberShortcuts: false,
-      disableSearchAndAccountSelectorShortcuts: false,
+      disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
+      showPrimeTest: false,
     },
   },
 });

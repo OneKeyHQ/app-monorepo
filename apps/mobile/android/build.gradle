@@ -18,7 +18,7 @@ buildscript {
         mavenCentral()
     }
     dependencies {
-        classpath('com.android.tools.build:gradle')
+        classpath('com.android.tools.build:gradle:8.5.0')
         classpath('com.facebook.react:react-native-gradle-plugin')
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
         classpath 'com.google.gms:google-services:4.3.15'
@@ -56,9 +56,11 @@ allprojects { repositories { maven { url(expoCameraMavenPath) } } }
 // Execution failed for task ':bufgix-react-native-secure-window:compileDebugKotlin'.
 // 'compileDebugJavaWithJavac' task (current target is 17) and 'compileDebugKotlin' task (current target is 11) jvm target compatibility should be set to the same Java version.
 allprojects {
-    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-        kotlinOptions {
-            jvmTarget = "17"
+    project(':bufgix-react-native-secure-window') {
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            kotlinOptions {
+                jvmTarget = "17"
+            }
         }
     }
 }

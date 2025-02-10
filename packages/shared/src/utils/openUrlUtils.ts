@@ -14,6 +14,7 @@ import {
 import appGlobals from '../appGlobals';
 
 import type { IPrefType } from '../../types/desktop';
+import type { EWebEmbedRoutePath } from '../consts/webEmbedConsts';
 
 const openUrlByWebview = (url: string, title?: string) => {
   appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
@@ -27,6 +28,34 @@ const openUrlByWebview = (url: string, title?: string) => {
     },
   });
 };
+
+function openUrlByWebviewPro({
+  url,
+  title,
+  isWebEmbed,
+  hashRoutePath,
+  hashRouteQueryParams,
+}: {
+  url: string;
+  title: string;
+  isWebEmbed?: boolean;
+  hashRoutePath?: EWebEmbedRoutePath;
+  hashRouteQueryParams?: Record<string, string>;
+}) {
+  appGlobals.$navigationRef.current?.navigate(ERootRoutes.Modal, {
+    screen: EModalRoutes.WebViewModal,
+    params: {
+      screen: EModalWebViewRoutes.WebView,
+      params: {
+        url,
+        title,
+        isWebEmbed,
+        hashRoutePath,
+        hashRouteQueryParams,
+      },
+    },
+  });
+}
 
 const openUrlOutsideNative = (url: string): void => {
   if (platformEnv.isExtension) {
@@ -65,6 +94,7 @@ export const openSettings = (prefType: IPrefType) => {
 };
 
 export default {
+  openUrlByWebviewPro,
   openUrlInApp,
   openUrlExternal,
   openSettings,

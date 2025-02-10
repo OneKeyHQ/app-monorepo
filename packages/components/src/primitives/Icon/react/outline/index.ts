@@ -620,6 +620,7 @@ export { default as PlusSquare } from './PlusSquare';
 export { default as Postcard } from './Postcard';
 export { default as Pound } from './Pound';
 export { default as Power } from './Power';
+export { default as Prime } from './Prime';
 export { default as Printer } from './Printer';
 export { default as Processor } from './Processor';
 export { default as PullRequest } from './PullRequest';

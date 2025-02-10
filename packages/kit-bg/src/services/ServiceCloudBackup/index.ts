@@ -665,7 +665,7 @@ class ServiceCloudBackup extends ServiceBase {
     }
   }
 
-  private timer?: NodeJS.Timeout;
+  private timer?: ReturnType<typeof setTimeout>;
 
   requestAutoBackupDebounce = debounce(
     async () => {

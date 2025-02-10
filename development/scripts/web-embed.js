@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs');
 const { exit } = require('process');
 
+require('../env');
+
 const BASEDIR = path.dirname(__filename);
 const webBuildPath = path.resolve(BASEDIR, '../../apps/web-embed/web-build');
 

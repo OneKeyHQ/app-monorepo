@@ -143,7 +143,9 @@ const SwapInputContainer = ({
       }
       return (
         <XStack alignItems="center">
-          <SizableText color={color}>(</SizableText>
+          <SizableText size="$bodyMd" color={color}>
+            (
+          </SizableText>
           <SizableText
             size="$bodyMd"
             color={color}
@@ -155,7 +157,9 @@ const SwapInputContainer = ({
           >
             {rateDifference.value}
           </SizableText>
-          <SizableText color={color}>)</SizableText>
+          <SizableText size="$bodyMd" color={color}>
+            )
+          </SizableText>
         </XStack>
       );
     }

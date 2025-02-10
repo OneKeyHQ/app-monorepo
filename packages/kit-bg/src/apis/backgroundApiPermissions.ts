@@ -21,6 +21,8 @@ export const WEB_EMBED_API_WHITE_LIST_ORIGIN = [
         'http://localhost:8081',
 
         // real iOS Device web-embed origin allowed in DEV (LAN ip)
+        'http://192.168.6.37:3008',
+        'http://192.168.6.37',
         'http://192.168.31.215:3008',
         'http://192.168.31.204:3008',
         'http://192.168.31.205:3008',

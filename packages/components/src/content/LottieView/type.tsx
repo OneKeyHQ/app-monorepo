@@ -14,4 +14,4 @@ export type ILottieViewProps = Omit<
 } & Omit<StackProps, 'width' | 'height'> & {
     width?: StackProps['width'];
     height?: StackProps['height'];
-  } & ({ width: StackProps['width'] } | { height: StackProps['height'] });
+  } & ({ width?: StackProps['width'] } | { height?: StackProps['height'] });

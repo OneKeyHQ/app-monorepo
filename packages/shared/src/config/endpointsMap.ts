@@ -36,6 +36,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       env: 'test',
       isWebSocket: true,
     }),
+    prime: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Prime,
+      env: 'test',
+    }),
   },
   prod: {
     wallet: buildServiceEndpoint({
@@ -66,6 +70,10 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Notification,
       env: 'prod',
       isWebSocket: true,
+    }),
+    prime: buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Prime,
+      env: 'prod',
     }),
   },
 };

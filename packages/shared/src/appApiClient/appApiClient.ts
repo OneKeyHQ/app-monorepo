@@ -18,6 +18,7 @@ const clients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.Earn]: null,
   [EServiceEndpointEnum.Notification]: null,
   [EServiceEndpointEnum.NotificationWebSocket]: null,
+  [EServiceEndpointEnum.Prime]: null,
 };
 
 const rawDataClients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
@@ -28,6 +29,7 @@ const rawDataClients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.Earn]: null,
   [EServiceEndpointEnum.Notification]: null,
   [EServiceEndpointEnum.NotificationWebSocket]: null,
+  [EServiceEndpointEnum.Prime]: null,
 };
 
 const getBasicClient = async ({
@@ -100,6 +102,7 @@ const getRawDataClient = memoizee(
 );
 
 const appApiClient = {
+  getBasicClient,
   getClient,
   getRawDataClient,
 };

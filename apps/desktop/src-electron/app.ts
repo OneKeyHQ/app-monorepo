@@ -76,7 +76,7 @@ if (!isMac) {
   setupTitlebar();
 }
 
-let systemIdleInterval: NodeJS.Timeout;
+let systemIdleInterval: ReturnType<typeof setInterval>;
 
 export type IDesktopOpenUrlEventData = {
   url?: string;
@@ -542,8 +542,7 @@ function createMainWindow() {
     (
       event,
       params: {
-        disableNumberShortcuts: boolean;
-        disableSearchAndAccountSelectorShortcuts: boolean;
+        disableAllShortcuts: boolean;
       },
     ) => {
       store.setDisableKeyboardShortcuts(params);

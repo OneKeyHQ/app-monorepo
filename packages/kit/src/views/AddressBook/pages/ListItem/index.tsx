@@ -2,6 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { ColorTokens, IKeyOfIcons } from '@onekeyhq/components';
 import { IconButton, Page, XStack, useMedia } from '@onekeyhq/components';
 import { showAddressSafeNotificationDialog } from '@onekeyhq/kit/src/components/AddressInput/AddressSafeDialog';
 import { useIsEnableTransferAllowList } from '@onekeyhq/kit/src/components/AddressInput/hooks';
@@ -17,10 +18,18 @@ function ListPage() {
   const intl = useIntl();
   const isEnableTransferAllowList = useIsEnableTransferAllowList();
   const { isLoading, result } = useAddressBookItems();
-  const iconColor = useMemo(
-    () => (isEnableTransferAllowList ? '$iconSuccess' : '$iconCaution'),
-    [isEnableTransferAllowList],
-  );
+  const { icon, iconColor } = useMemo(() => {
+    if (isEnableTransferAllowList) {
+      return {
+        icon: 'ShieldCheckDoneSolid',
+        iconColor: '$iconSuccess',
+      };
+    }
+    return {
+      icon: 'ShieldOutline',
+      iconColor: '$iconSubdued',
+    };
+  }, [isEnableTransferAllowList]);
 
   const navigation = useAppNavigation();
   const handleShowDialog = useCallback(async () => {
@@ -37,9 +46,9 @@ function ListPage() {
       <XStack gap="$3.5">
         <IconButton
           variant="tertiary"
-          icon="ShieldCheckDoneOutline"
+          icon={icon as IKeyOfIcons}
           iconProps={{
-            color: iconColor,
+            color: iconColor as ColorTokens,
           }}
           onPress={handleShowDialog}
         />
@@ -53,7 +62,7 @@ function ListPage() {
         ) : null}
       </XStack>
     ),
-    [gtMd, handleShowDialog, iconColor, onCreate],
+    [gtMd, handleShowDialog, icon, iconColor, onCreate],
   );
   return (
     <Page>

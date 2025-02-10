@@ -63,7 +63,10 @@ module.exports = ({
   });
   const extConfigs = ({ name }) =>
     ENABLE_ANALYZER
-      ? [extConfig({ name }), analyzerConfig({ configName: platform })]
+      ? [
+          extConfig({ name }),
+          analyzerConfig({ configName: [platform, name].join('-') }),
+        ]
       : [extConfig({ name })];
 
   const multipleEntryConfigs = [

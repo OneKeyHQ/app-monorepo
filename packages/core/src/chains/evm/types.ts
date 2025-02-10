@@ -15,6 +15,12 @@ export type IEncodedTxEvm = {
   maxPriorityFeePerGas?: string;
 
   chainId?: string; // server require string
+
+  // EIP-2930
+  accessList?: {
+    address: string;
+    storageKeys: string[];
+  }[];
 };
 
 export type INativeTxEvm = IEthersTransaction;
