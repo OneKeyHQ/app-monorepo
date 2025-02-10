@@ -38,10 +38,10 @@ import { BaseInput } from '../BaseInput';
 
 import { AddressInputContext } from './AddressInputContext';
 import { renderAddressInputHyperlinkText } from './AddressInputHyperlinkText';
+import { useIsEnableTransferAllowList } from './hooks';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
-import { useIsEnableTransferAllowList } from './hooks';
 
 type IResolvedAddressProps = {
   value: string;
@@ -246,7 +246,7 @@ function AddressInputWarnings({
 
   const isShowTransferredAddressAddWarning = useMemo(
     () =>
-      queryResult.validStatus === 'valid' &&
+      queryResult?.input?.length &&
       !queryResult?.addressBookId &&
       !queryResult?.walletAccountId &&
       queryResult?.addressInteractionStatus ===
@@ -254,7 +254,7 @@ function AddressInputWarnings({
     [
       queryResult?.addressBookId,
       queryResult?.addressInteractionStatus,
-      queryResult.validStatus,
+      queryResult?.input?.length,
       queryResult?.walletAccountId,
     ],
   );
