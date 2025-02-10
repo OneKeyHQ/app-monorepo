@@ -80,7 +80,7 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import { defaultLogger } from '../../../../shared/src/logger/logger';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -868,14 +868,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
             success: true,
           });
           return result;
-        } catch (error) {
+        } catch (error: any) {
           defaultLogger.update.firmware.updateBootloader({
             deviceType,
             connectType: platformEnv.isNative ? 'ble' : 'usb',
             firmwareVersion: updateInfo.fromVersion,
             targetVersion: updateInfo.toVersion,
             success: false,
-            error,
+            errorCode: error?.payload?.code,
+            errorMessage: error?.payload?.message,
           });
           throw error;
         }
@@ -996,14 +997,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
           success: true,
         });
         return result;
-      } catch (error) {
+      } catch (error: any) {
         defaultLogger.update.firmware.updateFirmware({
           connectType: platformEnv.isNative ? 'ble' : 'usb',
           deviceType: deviceType ?? 'unknown',
           firmwareVersion: updateInfo.fromVersion,
           targetVersion: version,
           success: false,
-          error,
+          errorCode: error?.payload?.code,
+          errorMessage: error?.payload?.message,
         });
         throw error;
       }

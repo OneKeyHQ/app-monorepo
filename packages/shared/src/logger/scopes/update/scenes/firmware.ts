@@ -10,7 +10,8 @@ export class FirmwareScene extends BaseScene {
     firmwareVersion: string;
     targetVersion: string;
     success: boolean;
-    error?: any;
+    errorCode?: string;
+    errorMessage?: string;
   }) {
     return params;
   }
@@ -23,7 +24,8 @@ export class FirmwareScene extends BaseScene {
     firmwareVersion: string;
     targetVersion: string;
     success: boolean;
-    error?: any;
+    errorCode?: string;
+    errorMessage?: string;
   }) {
     return params;
   }

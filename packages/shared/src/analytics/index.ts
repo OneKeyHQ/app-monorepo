@@ -76,7 +76,7 @@ export class Analytics {
     eventName: string,
     eventProps?: Record<string, any>,
   ) {
-    if (platformEnv.isE2E) {
+    if (platformEnv.isDev || platformEnv.isE2E) {
       return;
     }
     const event = {
