@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
-import { Stack } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
+import { ActionList, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -41,7 +42,51 @@ export function Actions() {
     navigation.push(EOnboardingPages.ImportAddress);
   };
 
-  const isDappMode = platformEnv.isWebDappMode;
+  const items: IActionListItemProps[] = platformEnv.isWebDappMode
+    ? [
+        {
+          icon: 'Link2Outline',
+          label: intl.formatMessage({
+            id: ETranslations.global_connect_wallet,
+          }),
+          onPress: handleConnectWalletPress,
+          testID: '3rd-party-wallet',
+        },
+        {
+          icon: 'EyeOutline',
+          label: intl.formatMessage({
+            id: ETranslations.global_track_any_address,
+          }),
+          onPress: handleTrackAnyAddressPress,
+          testID: 'track-any-address',
+        },
+      ]
+    : [
+        {
+          icon: 'PlusCircleOutline',
+          label: intl.formatMessage({
+            id: ETranslations.global_create_wallet,
+          }),
+          onPress: handleCreateWalletPress,
+          testID: 'create-wallet',
+        },
+        {
+          icon: 'ArrowBottomCircleOutline',
+          label: intl.formatMessage({
+            id: ETranslations.global_import_wallet,
+          }),
+          onPress: handleImportWalletPress,
+          testID: 'import-wallet',
+        },
+        {
+          icon: 'Link2Outline',
+          label: intl.formatMessage({
+            id: ETranslations.global_connect_wallet,
+          }),
+          onPress: handleConnectWalletPress,
+          testID: '3rd-party-wallet',
+        },
+      ];
 
   return (
     <Stack
@@ -64,71 +109,18 @@ export function Actions() {
         testID="hardware-wallet"
       />
 
-      <Action
-        label={intl.formatMessage({
-          id: ETranslations.onboarding_create_or_import_wallet,
-        })}
-        onPress={handleConnectHardwareWallet}
-        testID="onboarding-create-or-import-wallet"
+      <ActionList
+        title={ETranslations.onboarding_create_or_import_wallet}
+        renderTrigger={
+          <Action
+            label={intl.formatMessage({
+              id: ETranslations.onboarding_create_or_import_wallet,
+            })}
+            testID="onboarding-create-or-import-wallet"
+          />
+        }
+        items={items}
       />
-
-      {/* {!isDappMode ? (
-        <ActionsGroup
-          items={[
-            {
-              iconName: 'PlusCircleOutline',
-              label: intl.formatMessage({
-                id: ETranslations.global_create_wallet,
-              }),
-              onPress: handleCreateWalletPress,
-              testID: 'create-wallet',
-            },
-            {
-              iconName: 'ArrowBottomCircleOutline',
-              label: intl.formatMessage({
-                id: ETranslations.global_import_wallet,
-              }),
-              onPress: handleImportWalletPress,
-              testID: 'import-wallet',
-            },
-          ]}
-        />
-      ) : null}
-      {isDappMode ? (
-        <ActionsGroup
-          items={[
-            {
-              iconName: 'Link2Outline',
-              label: intl.formatMessage({
-                id: ETranslations.global_connect_wallet,
-              }),
-              onPress: handleConnectWalletPress,
-              testID: '3rd-party-wallet',
-            },
-            {
-              iconName: 'EyeOutline',
-              label: intl.formatMessage({
-                id: ETranslations.global_track_any_address,
-              }),
-              onPress: handleTrackAnyAddressPress,
-              testID: 'track-any-address',
-            },
-          ]}
-        />
-      ) : (
-        <ActionsGroup
-          items={[
-            {
-              iconName: 'Link2Outline',
-              label: intl.formatMessage({
-                id: ETranslations.global_connect_wallet,
-              }),
-              onPress: handleConnectWalletPress,
-              testID: '3rd-party-wallet',
-            },
-          ]}
-        />
-      )} */}
     </Stack>
   );
 }
