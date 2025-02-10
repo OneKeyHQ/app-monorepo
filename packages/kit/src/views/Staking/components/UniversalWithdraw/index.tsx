@@ -370,7 +370,7 @@ export const UniversalWithdraw = ({
 
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
+          id: ETranslations.global_withdraw,
         })}
         confirmButtonProps={{
           onPress,
