@@ -11,10 +11,8 @@ import {
   Button,
   Dialog,
   Form,
-  HeaderIconButton,
   Input,
   Page,
-  Popover,
   SizableText,
   TextArea,
   TextAreaInput,
@@ -74,8 +72,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-
-import { showContractWarningDialog } from './ContractWarningDialog';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -466,10 +462,6 @@ function SendDataInputContainer() {
           const toAddress = form.getValues('to').resolved;
           const isToContract = form.getValues('to').isContract;
           if (!toAddress) return;
-
-          if (isToContract && !(await showContractWarningDialog())) {
-            return;
-          }
 
           let realAmount = amount;
 

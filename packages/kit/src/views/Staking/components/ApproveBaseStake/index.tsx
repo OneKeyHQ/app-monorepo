@@ -483,7 +483,11 @@ export function ApproveBaseStake({
         <Stack
           bg="$bgApp"
           flexDirection="column"
-          $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
+          $gtMd={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            jc: 'space-between',
+          }}
         >
           <Stack pl="$5">
             <StakeProgress
