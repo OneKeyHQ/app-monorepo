@@ -81,7 +81,7 @@ export function Actions() {
         {
           icon: 'Link2Outline',
           label: intl.formatMessage({
-            id: ETranslations.global_connect_wallet,
+            id: ETranslations.onboarding_connect_external_wallet,
           }),
           onPress: handleConnectWalletPress,
           testID: '3rd-party-wallet',
@@ -100,7 +100,7 @@ export function Actions() {
       w="100%"
     >
       <Action
-        iconName="BluetoothOutline"
+        iconName="UsbOutline"
         label={intl.formatMessage({
           id: ETranslations.global_connect_hardware_wallet,
         })}
