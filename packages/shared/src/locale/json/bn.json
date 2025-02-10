@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "আমদানি পদ্ধতি চয়ন করুন",
   "onboarding.connect_external_wallet": "বাহ্যিক ওয়ালেট সংযুক্ত করুন",
   "onboarding.connect_your_device": "আপনার ডিভাইস সংযুক্ত করুন",
+  "onboarding.create_new_wallet": "নতুন ওয়ালেট তৈরি করুন",
   "onboarding.create_or_import_wallet": "ওয়ালেট তৈরি করুন বা আমদানি করুন",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "এখানে ফিরে আসুন, নিচের বোতামটি ক্লিক করে QR কোড স্ক্যান করুন",
   "onboarding.create_qr_wallet_show_qr_code_desc": "\"Connect App Wallet\" এ যান > \"QR Code\" > \"OneKey Wallet\" এ যান এবং QR কোডটি দেখুন",
