@@ -65,7 +65,7 @@ export function Actions() {
         {
           icon: 'PlusCircleOutline',
           label: intl.formatMessage({
-            id: ETranslations.global_create_wallet,
+            id: ETranslations.onboarding_create_new_wallet,
           }),
           onPress: handleCreateWalletPress,
           testID: 'create-wallet',

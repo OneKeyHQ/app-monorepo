@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "Scegli il metodo di importazione",
   "onboarding.connect_external_wallet": "Collega portafoglio esterno",
   "onboarding.connect_your_device": "Collega il tuo dispositivo",
+  "onboarding.create_new_wallet": "Crea un nuovo portafoglio",
   "onboarding.create_or_import_wallet": "Crea o importa portafoglio",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "Torna qui, fai clic sul pulsante sottostante per scansionare il codice QR",
   "onboarding.create_qr_wallet_show_qr_code_desc": "Vai su \"Collega App Wallet\" > \"Codice QR\" > \"OneKey Wallet\" per visualizzare il codice QR",

@@ -198,26 +198,23 @@ export function ImportWalletOptions() {
     },
     {
       data: [
-        ...(platformEnv.isNative
-          ? [
-              {
-                icon: 'CloudOutline',
-                title: intl.formatMessage({
-                  id: platformEnv.isNativeAndroid
-                    ? ETranslations.global_google_drive
-                    : ETranslations.global_icloud,
-                }),
-                onPress: handleImportFromCloud,
-              } as IOptionItem,
-            ]
-          : []),
+        platformEnv.isNative
+          ? ({
+              icon: 'CloudOutline',
+              title: intl.formatMessage({
+                id: platformEnv.isNativeAndroid
+                  ? ETranslations.global_google_drive
+                  : ETranslations.global_icloud,
+              }),
+              onPress: handleImportFromCloud,
+            } as IOptionItem)
+          : null,
         isV4DbExist
           ? {
               title: intl.formatMessage({
                 id: ETranslations.onboarding_migrate_from_v4,
               }),
               icon: 'StorageOutline',
-              // onPress: handleMigrateFromV4,
               onPress: async () => {
                 navigation.popStack();
                 await timerUtils.wait(100);
@@ -239,11 +236,7 @@ export function ImportWalletOptions() {
       />
       <Page.Body>
         {options.map(({ sectionTitle, data }, index) => (
-          <Stack
-            key={sectionTitle || index}
-            // {...(index !== 0 && { mt: '$5' })}
-            // {...(index === options.length - 1 && { pb: '$5' })}
-          >
+          <Stack key={sectionTitle || index}>
             {sectionTitle ? (
               <SectionList.SectionHeader title={sectionTitle} />
             ) : null}
