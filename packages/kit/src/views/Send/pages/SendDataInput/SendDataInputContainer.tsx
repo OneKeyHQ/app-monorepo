@@ -535,7 +535,7 @@ function SendDataInputContainer() {
               : tokenInfo?.address,
           });
 
-          await signatureConfirm.navigationToSignatureConfirm({
+          await signatureConfirm.navigationToTxConfirm({
             transfersInfo,
             sameModal: true,
             onSuccess,

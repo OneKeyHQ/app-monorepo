@@ -76,7 +76,7 @@ export enum EAppEventBusNames {
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
   TxFeeInfoChanged = 'TxFeeInfoChanged',
-  SendConfirmContainerMounted = 'SendConfirmContainerMounted',
+  SignatureConfirmContainerMounted = 'SignatureConfirmContainerMounted',
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
   HardCloseHardwareUiStateDialog = 'CloseHardwareUiStateDialog',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
@@ -220,7 +220,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.TxFeeInfoChanged]: {
     feeSelectorItems: IFeeSelectorItem[];
   };
-  [EAppEventBusNames.SendConfirmContainerMounted]: undefined;
+  [EAppEventBusNames.SignatureConfirmContainerMounted]: undefined;
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
   [EAppEventBusNames.HardCloseHardwareUiStateDialog]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;

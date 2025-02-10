@@ -32,6 +32,7 @@ export enum EModalSignatureConfirmRoutes {
   TxConfirm = 'TxConfirm',
   MessageConfirm = 'MessageConfirm',
   TxConfirmFromDApp = 'TxConfirmFromDApp',
+  MessageConfirmFromDApp = 'MessageConfirmFromDApp',
   TxConfirmFromSwap = 'TxConfirmFromSwap',
 
   TxReplace = 'TxReplace',
@@ -75,12 +76,17 @@ export type IModalSignatureConfirmParamList = {
     popStack?: boolean;
   };
   [EModalSignatureConfirmRoutes.MessageConfirm]: {
-    unsignedMessage: IUnsignedMessage;
     accountId: string;
     networkId: string;
-    sceneName?: EAccountSelectorSceneName;
+    unsignedMessage: IUnsignedMessage;
+    walletInternalSign?: boolean;
+    sourceInfo?: IDappSourceInfo;
+    onSuccess?: (result: string) => void;
+    onFail?: (error: Error) => void;
+    onCancel?: () => void;
   };
   [EModalSignatureConfirmRoutes.TxConfirmFromDApp]: undefined;
+  [EModalSignatureConfirmRoutes.MessageConfirmFromDApp]: undefined;
   [EModalSignatureConfirmRoutes.TxConfirmFromSwap]: {
     networkId: string;
     accountId: string;
