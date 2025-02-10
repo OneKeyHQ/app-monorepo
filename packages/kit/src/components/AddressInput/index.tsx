@@ -248,14 +248,14 @@ function AddressInputWarnings({
     () =>
       queryResult.validStatus === 'valid' &&
       !queryResult?.addressBookId &&
-      // !queryResult?.walletAccountId &&
+      !queryResult?.walletAccountId &&
       queryResult?.addressInteractionStatus ===
         EAddressInteractionStatus.INTERACTED,
     [
       queryResult?.addressBookId,
       queryResult?.addressInteractionStatus,
       queryResult.validStatus,
-      // queryResult?.walletAccountId,
+      queryResult?.walletAccountId,
     ],
   );
   const navigation = useAppNavigation();
