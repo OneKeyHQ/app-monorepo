@@ -252,7 +252,7 @@ export function DesktopLeftSideBar({
               p="$3"
               borderTopWidth={StyleSheet.hairlineWidth}
               borderTopColor="$borderSubdued"
-              bg="$bgApp"
+              bg="$bg"
             >
               <DesktopTabItem
                 onPress={openSettingPage}
