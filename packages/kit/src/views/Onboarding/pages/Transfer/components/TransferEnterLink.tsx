@@ -6,13 +6,17 @@ import {
   Input,
   SizableText,
   Stack,
+  useClipboard,
   YStack,
 } from '@onekeyhq/components';
 
 import { TransferSteps } from './TransferSteps';
+import useScanQrCode from '../../../../ScanQrCode/hooks/useScanQrCode';
 
 export function TransferEnterLink() {
-  const [value, setValue] = useState('');
+  const { start } = useScanQrCode();
+  const [address, setAddress] = useState('');
+  const { onPasteClearText } = useClipboard();
 
   return (
     <Stack gap="$4">
@@ -21,8 +25,9 @@ export function TransferEnterLink() {
 
         <Input
           size="large"
-          value={value}
-          onChangeText={setValue}
+          value={address}
+          onChangeText={setAddress}
+          onPaste={onPasteClearText}
           placeholder="192.168.X.XX:XXXXX/XXXX"
           addOns={[
             {
@@ -33,8 +38,12 @@ export function TransferEnterLink() {
             },
             {
               iconName: 'ScanOutline',
-              onPress: () => {
-                console.log('clicked');
+              onPress: async () => {
+                const address = await start({
+                  handlers: [],
+                  autoHandleResult: false,
+                });
+                setAddress(address?.raw);
               },
             },
           ]}
