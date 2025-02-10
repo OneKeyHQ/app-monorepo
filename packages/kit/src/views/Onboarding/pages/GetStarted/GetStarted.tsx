@@ -10,9 +10,7 @@ import type {
   IOnboardingParamList,
 } from '@onekeyhq/shared/src/routes';
 
-import { Actions } from './components/Actions';
-import { TermsAndPrivacy } from './components/TermsAndPrivacy';
-import { Welcome } from './components/Welcome';
+import { Actions, TermsAndPrivacy, Welcome } from './components';
 
 export function GetStarted({
   route,
