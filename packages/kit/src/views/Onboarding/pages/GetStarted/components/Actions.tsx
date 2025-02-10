@@ -8,7 +8,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-import { ActionsGroup } from './ActionsGroup';
+import { Action } from './Action';
 
 export function Actions() {
   const navigation = useAppNavigation();
@@ -54,21 +54,25 @@ export function Actions() {
       alignSelf="center"
       w="100%"
     >
-      <ActionsGroup
-        items={[
-          {
-            iconName: platformEnv.isNative ? 'BluetoothOutline' : 'UsbOutline',
-            label: intl.formatMessage({
-              id: ETranslations.global_connect_hardware_wallet,
-            }),
-            primary: true,
-            onPress: handleConnectHardwareWallet,
-            testID: 'hardware-wallet',
-          },
-        ]}
+      <Action
+        iconName="BluetoothOutline"
+        label={intl.formatMessage({
+          id: ETranslations.global_connect_hardware_wallet,
+        })}
+        primary
+        onPress={handleConnectHardwareWallet}
+        testID="hardware-wallet"
       />
 
-      {!isDappMode ? (
+      <Action
+        label={intl.formatMessage({
+          id: ETranslations.onboarding_create_or_import_wallet,
+        })}
+        onPress={handleConnectHardwareWallet}
+        testID="onboarding-create-or-import-wallet"
+      />
+
+      {/* {!isDappMode ? (
         <ActionsGroup
           items={[
             {
@@ -124,7 +128,7 @@ export function Actions() {
             },
           ]}
         />
-      )}
+      )} */}
     </Stack>
   );
 }
