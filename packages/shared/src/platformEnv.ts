@@ -33,8 +33,10 @@ export type IAppChannel =
   | 'linuxSnap';
 
 export type IPlatformEnv = {
+  mobileDetectInfo: MobileDetect | undefined;
   isNewRouteMode: boolean;
 
+  appFullName: string;
   version: string | undefined;
   buildNumber: string | undefined;
   githubSHA: string | undefined;
@@ -350,12 +352,14 @@ let isWebMobileAndroid = false;
 let isWebMobileIOS = false;
 let isWebSafari = false;
 let isWebDappMode = false;
+let mobileDetectInfo: MobileDetect | undefined;
 (function () {
   if (!isWeb) {
     return;
   }
   // https://hgoebl.github.io/mobile-detect.js/doc/MobileDetect.html
   const md = new MobileDetect(globalThis.navigator?.userAgent);
+  mobileDetectInfo = md;
   const mobileInfo = md.mobile();
   isWebMobile = Boolean(mobileInfo);
   const os = md.os();
@@ -429,8 +433,10 @@ export const supportAutoUpdate: boolean =
 export const isAppleStoreEnv = isMas || isNativeIOSStore || isNativeIOSPadStore;
 
 const platformEnv: IPlatformEnv = {
+  mobileDetectInfo,
   isNewRouteMode: true,
 
+  appFullName: '',
   version: process.env.VERSION,
   buildNumber: process.env.BUILD_NUMBER,
   githubSHA: process.env.GITHUB_SHA,
@@ -507,6 +513,28 @@ const platformEnv: IPlatformEnv = {
 if (isDev) {
   appGlobals.$$platformEnv = platformEnv;
 }
+
+function getPlatformShortName() {
+  if (platformEnv.isNativeAndroid) {
+    return 'Android';
+  }
+  if (platformEnv.isNativeIOS) {
+    return 'iOS';
+  }
+  if (platformEnv.isDesktop) {
+    return 'Desktop';
+  }
+  if (platformEnv.isExtension) {
+    return 'Extension';
+  }
+  if (platformEnv.isWeb) {
+    return 'Web';
+  }
+  return 'Wallet';
+}
+
+const appFullName = `OneKey ${getPlatformShortName()}`;
+platformEnv.appFullName = appFullName;
 
 /*
 DO NOT Expose any sensitive data here, this file will be injected to Dapp!!!!

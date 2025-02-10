@@ -31,6 +31,7 @@ import type { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTok
 import type { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import type { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import type { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
+import type { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import type { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import type { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import type { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -56,6 +57,8 @@ export class SimpleDbProxy
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return this.backgroundApiProxy.callBackground(method, ...params);
   }
+
+  prime = this._createProxyService('prime') as SimpleDbEntityPrime;
 
   browserTabs = this._createProxyService(
     'browserTabs',

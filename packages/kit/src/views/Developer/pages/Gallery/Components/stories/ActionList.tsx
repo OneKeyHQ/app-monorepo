@@ -289,13 +289,13 @@ const ActionListGallery = () => (
         ),
       },
       {
-        title: 'Long Press',
+        title: 'Long Press (function call)',
         element: (
           <Stack gap="$1">
             <Button
               onLongPress={() => {
                 ActionList.show({
-                  title: 'Action List',
+                  title: 'Action List (function call)',
                   sections: [
                     {
                       items: [

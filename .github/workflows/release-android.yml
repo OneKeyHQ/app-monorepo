@@ -12,15 +12,33 @@ on:
         description: "Should it run as split-bundle? (keep it null if you don't need it)"
         required: false
         default: ''
+
 jobs:
   release-android:
     runs-on: ubuntu-latest
-
     if: ${{ !github.event.workflow_run || (github.event.workflow_run && github.event.workflow_run.conclusion == 'success') }}
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout Source Code
+        uses: actions/checkout@v3
         with:
           lfs: true
+
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
+        with:
+          additional_env: |
+            NO_FLIPPER=1
+            SENTRY_DISABLE_AUTO_UPLOAD=false
+          env_file_name: '.env.expo'
+          sentry_project: ''
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          privy_app_id: ${{ secrets.PRIVY_APP_ID }}
+          privy_mobile_client_id: ${{ secrets.PRIVY_MOBILE_CLIENT_ID }}
+          revenuecat_api_key_web: ${{ secrets.REVENUECAT_API_KEY_WEB }}
+          revenuecat_api_key_web_sandbox: ${{ secrets.REVENUECAT_API_KEY_WEB_SANDBOX }}
+          revenuecat_api_key_apple: ${{ secrets.REVENUECAT_API_KEY_APPLE }}
+          revenuecat_api_key_google: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -42,41 +60,11 @@ jobs:
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
-      - name: Setup ENV BUILD_NUMBER to 1
-        if: ${{ !github.event.workflow_run }}
-        run: |
-          # Generate build number ------- start
-          echo "BUILD_NUMBER=1" >> $GITHUB_ENV
-          # Generate build number ------- end
-
-      - name: Setup ENV BUILD_NUMBER by workflow_run
-        if: ${{ github.event.workflow_run }}
-        run: |
-          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
-
-          # Generate build number ------- start
-          DATE=`date "+%Y%m%d"`
-          run_number=$(($workflow_run_number % 100))
-          run_number=$(printf "%02d" $run_number)
-          build_number="${DATE}${run_number}"
-          echo '$build_number='$build_number
-          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
-          # Generate build number ------- end
-
-        env:
-          workflow_run_number: ${{ github.event.workflow_run.run_number}}
-
-      - name: Dotenv Action
-        id: dotenv
-        uses: OneKeyHQ/actions/dotenv-action@main
-        with:
-          path: .env.version
-
       - name: Modify build.gradle
         uses: OneKeyHQ/actions/build-gradle-edit@main
         with:
           versionCode: ${{ env.BUILD_NUMBER }}
-          versionName: ${{ steps.dotenv.outputs.version }}
+          versionName: ${{ env.BUILD_APP_VERSION }}
           packageName: 'so.onekey.app.wallet'
           android_dir: ./apps/mobile
 
@@ -85,19 +73,6 @@ jobs:
           # pass BUILD_NUMBER as env variable to expo server
           echo "BUILD_NUMBER=${{ env.BUILD_NUMBER }}" >> .env.version
 
-      - name: Inject Environment Variables
-        env:
-          COVALENT_KEY: ${{ secrets.COVALENT_KEY }}
-          GITHUB_SHA: ${{ github.sha }}
-          SENTRY_TOKEN: ${{ secrets.SENTRY_TOKEN }}
-        run: |
-          echo "COVALENT_KEY=${{ env.COVALENT_KEY }}" >> .env.expo
-          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env.expo
-          echo "SPLIT_BUNDLE=${{ inputs.is-split-bundle }}" >> .env.expo
-          echo "NO_FLIPPER=1" >> .env.expo
-          echo "SENTRY_DISABLE_AUTO_UPLOAD=false" >> .env.expo
-          echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> .env.expo
-      
       - name: Write .sentry.properties
         run: |
           echo "auth.token=${{ secrets.SENTRY_TOKEN }}" >> apps/mobile/android/sentry.properties
@@ -108,6 +83,13 @@ jobs:
           NODE_OPTIONS: '--max_old_space_size=8192'
         run: |
           yarn
+
+      - name: Build WebEmbed
+        env:
+          NODE_OPTIONS: '--max_old_space_size=8192'
+          SENTRY_DISABLE_AUTO_UPLOAD: 'true'
+        run: |
+          yarn app:web-embed:build
 
       - name: Build on EAS And Submit
         if: ${{ github.event.workflow_run }}
@@ -122,3 +104,11 @@ jobs:
         run: |
           cd apps/mobile
           eas build --profile=production --platform android --non-interactive --no-wait --resource-class large
+
+      - name: Upload WebEmbed Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: upload-web-embed-artifacts
+          path: |
+            ./apps/web-embed/web-build
+          if-no-files-found: error

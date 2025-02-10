@@ -138,7 +138,7 @@ export function Layout({
               </Stack>
             </Stack>
           ) : null}
-          {suggestions ? (
+          {suggestions && suggestions.length > 0 ? (
             <Stack gap="$2">
               <Stack>
                 <SizableText size="$headingXl">使用建议</SizableText>

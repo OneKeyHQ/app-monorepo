@@ -7,6 +7,7 @@ on:
         description: "Should it run as split-bundle? (keep it null if you don't need it)"
         required: false
         default: ''
+
 jobs:
   release-ios-debug:
     runs-on: macos-14
@@ -22,34 +23,19 @@ jobs:
         with:
           lfs: true
 
-      - name: Dotenv Action
-        id: dotenv
-        uses: OneKeyHQ/actions/dotenv-action@main
+      - name: Run Shared Env Setup
+        uses: ./.github/actions/shared-env
         with:
-          path: .env.version
-
-      - name: 'Setup ENV'
-        run: |
-          echo "ActionTriggerBy = ${{ github.event.action }} / ${{ github.event_name }}"
-
-          # Generate build number ------- start
-          DATE=`date "+%Y%m%d"`
-          run_number=$(($workflow_run_number % 100))
-          run_number=$(printf "%02d" $run_number)
-          build_number="${DATE}${run_number}"
-          echo '$build_number='$build_number
-          echo "BUILD_NUMBER=$build_number" >> $GITHUB_ENV
-          # Generate build number ------- end
-
-          github_ref="${github_ref////-}"
-          github_ref="${github_ref/refs-heads-/}"
-          github_ref="${github_ref/refs-tags-/}"
-          echo '$github_ref='$github_ref
-          echo "GITHUB_TAG=$github_ref" >> $GITHUB_ENV
-          # echo "::set-env name=GITHUB_TAG::$github_ref"
-        env:
-          github_ref: ${{ github.ref }}
-          workflow_run_number: ${{ github.event.workflow_run.run_number}}
+          env_file_name: '.env.expo'
+          sentry_project: ''
+          covalent_key: ${{ secrets.COVALENT_KEY }}
+          sentry_token: ${{ secrets.SENTRY_TOKEN }}
+          privy_app_id: ${{ secrets.PRIVY_APP_ID }}
+          privy_mobile_client_id: ${{ secrets.PRIVY_MOBILE_CLIENT_ID }}
+          revenuecat_api_key_web: ${{ secrets.REVENUECAT_API_KEY_WEB }}
+          revenuecat_api_key_web_sandbox: ${{ secrets.REVENUECAT_API_KEY_WEB_SANDBOX }}
+          revenuecat_api_key_apple: ${{ secrets.REVENUECAT_API_KEY_APPLE }}
+          revenuecat_api_key_google: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
 
       - name: Setup Node
         uses: actions/setup-node@v3
@@ -91,12 +77,6 @@ jobs:
           gem install cocoapods -v 1.15.2
           pod install
 
-      - name: Inject Environment Variables
-        env:
-          GITHUB_SHA: ${{ github.sha }}
-        run: |
-          echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> .env
-
       - name: Build App File
         env:
           NODE_OPTIONS: '--max_old_space_size=8192'
@@ -105,7 +85,7 @@ jobs:
           yarn app:web-embed:build
           cd apps/mobile/ios
           xcodebuild -workspace OneKeyWallet.xcworkspace -configuration Debug -scheme OneKeyWallet -sdk iphonesimulator -derivedDataPath ./outputs
-      
+
       - name: Zip artifact
         run: |
           cd apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator
@@ -118,5 +98,3 @@ jobs:
           path: |
             ./apps/mobile/ios/outputs/Build/Products/Debug-iphonesimulator/OneKeyWallet-Debug.zip
           if-no-files-found: error
-
-

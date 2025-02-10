@@ -3,6 +3,11 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpointInfo } from '../endpoints';
@@ -53,5 +58,27 @@ export default class ServiceBase {
   }) {
     this._currentNetworkId = networkId;
     this._currentAccountId = accountId;
+  }
+
+  showDialogLoading(
+    payload: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
+  ) {
+    appEventBus.emit(EAppEventBusNames.ShowDialogLoading, payload);
+  }
+
+  hideDialogLoading() {
+    appEventBus.emit(EAppEventBusNames.HideDialogLoading, undefined);
+  }
+
+  async withDialogLoading<T>(
+    payload: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
+    fn: () => Promise<T>,
+  ) {
+    try {
+      this.showDialogLoading(payload);
+      return await fn();
+    } finally {
+      this.hideDialogLoading();
+    }
   }
 }
