@@ -42,7 +42,7 @@ import {
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
-import { useSwapInit } from '../../hooks/useSwapTokens';
+import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { validateAmountInput } from '../../utils/utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 

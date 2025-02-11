@@ -634,6 +634,34 @@ export interface ISwapTxHistory {
   };
 }
 
+// limit order
+export interface IFetchLimitOrderRes {
+  orderId: string;
+  status: ESwapLimitOrderStatus;
+  fromTokenAddress: string;
+  toTokenAddress: string;
+  payAddress: string;
+  receiveAddress: string;
+  fromAmount: string;
+  toAmount: string;
+  createdAt: number;
+  expiredAt: number;
+  txHash?: string;
+  providerInfo: IFetchQuoteInfo;
+  enableCancel: boolean;
+  partiallyFillable: boolean;
+  networkId: string;
+  userAddress: string;
+}
+
+export enum ESwapLimitOrderStatus {
+  PRESIGNATURE_PENDING = 'presignaturePending',
+  OPEN = 'open',
+  FULFILLED = 'fulfilled',
+  CANCELLED = 'cancelled',
+  EXPIRED = 'expired',
+}
+
 // component -----------------
 
 export interface IExplorersInfo {

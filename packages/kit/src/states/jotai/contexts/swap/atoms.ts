@@ -9,6 +9,7 @@ import {
 import type {
   ESwapDirectionType,
   ESwapRateDifferenceUnit,
+  IFetchLimitOrderRes,
   IFetchQuoteResult,
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
