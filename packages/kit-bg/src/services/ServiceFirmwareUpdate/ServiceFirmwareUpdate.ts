@@ -404,7 +404,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       hasUpgrade,
       isBootloaderMode: features
         ? (await deviceUtils.getDeviceModeFromFeatures({ features })) ===
-        EOneKeyDeviceMode.bootloader
+          EOneKeyDeviceMode.bootloader
         : false,
       updateInfos: {
         firmware,
@@ -553,9 +553,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
     toVersion,
   }: {
     releasePayload:
-    | IFirmwareReleasePayload
-    | IBleFirmwareReleasePayload
-    | IBootloaderReleasePayload;
+      | IFirmwareReleasePayload
+      | IBleFirmwareReleasePayload
+      | IBootloaderReleasePayload;
     firmwareType: IDeviceFirmwareType;
     fromVersion: string;
     toVersion: string;
@@ -786,16 +786,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
           }
           const deviceExist = bootloaderMode
             ? // bootloader mode does not have connect id for classic
-            (response.payload ?? []).length > 0
+              (response.payload ?? []).length > 0
             : (response.payload ?? []).find((d) =>
-              equalsIgnoreCase(d.connectId, connectId),
-            );
+                equalsIgnoreCase(d.connectId, connectId),
+              );
           if (deviceExist) {
             scanner.stopScan();
             resolve(true);
           }
         },
-        () => { },
+        () => {},
         1,
         3000,
         Number.MAX_VALUE,
@@ -869,7 +869,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             success: true,
           });
           return result;
-        } catch (error: any) {
+        } catch (error) {
           defaultLogger.update.firmware.updateFirmware({
             updateType: 'bootloader',
             deviceType,
@@ -877,8 +877,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
             firmwareVersion: updateInfo.fromVersion,
             targetVersion: updateInfo.toVersion,
             success: false,
-            errorCode: error?.payload?.code,
-            errorMessage: error?.payload?.message,
+            errorCode: (error as { payload?: { code?: string } })?.payload
+              ?.code,
+            errorMessage: (error as { payload?: { message?: string } })?.payload
+              ?.message,
           });
           throw error;
         }
@@ -1000,7 +1002,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
           success: true,
         });
         return result;
-      } catch (error: any) {
+      } catch (error) {
         defaultLogger.update.firmware.updateFirmware({
           updateType: 'firmware',
           connectType: platformEnv.isNative ? 'ble' : 'usb',
@@ -1008,8 +1010,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
           firmwareVersion: updateInfo.fromVersion,
           targetVersion: version,
           success: false,
-          errorCode: error?.payload?.code,
-          errorMessage: error?.payload?.message,
+          errorCode: (error as { payload?: { code?: string } })?.payload?.code,
+          errorMessage: (error as { payload?: { message?: string } })?.payload
+            ?.message,
         });
         throw error;
       }
