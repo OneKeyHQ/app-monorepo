@@ -153,7 +153,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
         showUrl: true,
         showParams: true,
       },
-    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.MessageConfirm}`]:
+    [pagePath`${ERootRoutes.Modal}${EModalRoutes.SignatureConfirmModal}${EModalSignatureConfirmRoutes.MessageConfirmFromDApp}`]:
       {
         showUrl: true,
         showParams: true,

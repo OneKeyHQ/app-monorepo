@@ -1,14 +1,21 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Page, YStack } from '@onekeyhq/components';
-import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
-import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type {
+  EModalSignatureConfirmRoutes,
+  IModalSignatureConfirmParamList,
+} from '@onekeyhq/shared/src/routes';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   convertAddressToSignatureConfirmAddress,
@@ -36,6 +43,8 @@ import { MessageConfirmDetails } from '../../components/SignatureConfirmDetails'
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
+import type { RouteProp } from '@react-navigation/core';
+
 export function useDappCloseHandler(
   dappApprove: ReturnType<typeof useDappApproveAction>,
   onClose?: (extra?: { flag?: string }) => void,
@@ -53,24 +62,29 @@ export function useDappCloseHandler(
 }
 
 function MessageConfirm() {
-  const {
-    $sourceInfo,
-    unsignedMessage,
-    accountId,
-    networkId,
-    walletInternalSign,
-  } = useDappQuery<{
-    unsignedMessage: IUnsignedMessage;
-    accountId: string;
-    networkId: string;
-    indexedAccountId: string;
-    walletInternalSign?: boolean;
-  }>();
+  const route =
+    useRoute<
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.MessageConfirm
+      >
+    >();
 
   const intl = useIntl();
 
+  const {
+    accountId,
+    networkId,
+    sourceInfo,
+    unsignedMessage,
+    walletInternalSign,
+    onSuccess,
+    onFail,
+    onCancel,
+  } = route.params;
+
   const dappApprove = useDappApproveAction({
-    id: $sourceInfo?.id ?? '',
+    id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
 
@@ -80,7 +94,7 @@ function MessageConfirm() {
     setContinueOperate,
     urlSecurityInfo,
     isRiskSignMethod,
-  } = useRiskDetection({ origin: $sourceInfo?.origin ?? '', unsignedMessage });
+  } = useRiskDetection({ origin: sourceInfo?.origin ?? '', unsignedMessage });
 
   const isSignTypedDataV3orV4Method =
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
@@ -109,7 +123,7 @@ function MessageConfirm() {
             backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
               networkId,
               accountId,
-              origin: $sourceInfo?.origin ?? '',
+              origin: sourceInfo?.origin ?? '',
               typedData,
             }),
           ]
@@ -174,7 +188,7 @@ function MessageConfirm() {
       accountId,
       isSignTypedDataV3orV4Method,
       unsignedMessage.message,
-      $sourceInfo?.origin,
+      sourceInfo?.origin,
       typedData,
     ],
     {
@@ -190,8 +204,8 @@ function MessageConfirm() {
   );
 
   const showDAppRiskyAlert = useMemo(
-    () => $sourceInfo?.origin && !walletInternalSign,
-    [$sourceInfo?.origin, walletInternalSign],
+    () => sourceInfo?.origin && !walletInternalSign,
+    [sourceInfo?.origin, walletInternalSign],
   );
 
   const showMessageAlerts = useMemo(
@@ -202,8 +216,8 @@ function MessageConfirm() {
   );
 
   const showDAppSiteMark = useMemo(
-    () => $sourceInfo?.origin && !walletInternalSign,
-    [$sourceInfo?.origin, walletInternalSign],
+    () => sourceInfo?.origin && !walletInternalSign,
+    [sourceInfo?.origin, walletInternalSign],
   );
 
   const renderMessageConfirmContent = useCallback(() => {
@@ -221,7 +235,7 @@ function MessageConfirm() {
           <>
             {showDAppRiskyAlert ? (
               <DAppRiskyAlert
-                origin={$sourceInfo?.origin ?? ''}
+                origin={sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
                 hideSecurityAlert
                 alertProps={{
@@ -239,7 +253,7 @@ function MessageConfirm() {
             ) : null}
             {showDAppSiteMark ? (
               <DAppSiteMark
-                origin={$sourceInfo?.origin ?? ''}
+                origin={sourceInfo?.origin ?? ''}
                 urlSecurityInfo={urlSecurityInfo}
               />
             ) : null}
@@ -262,7 +276,7 @@ function MessageConfirm() {
     showDAppRiskyAlert,
     showMessageAlerts,
     showDAppSiteMark,
-    $sourceInfo?.origin,
+    sourceInfo?.origin,
     urlSecurityInfo,
     unsignedMessage,
     isRiskSignMethod,
@@ -278,6 +292,13 @@ function MessageConfirm() {
     },
     [dappApprove],
   );
+
+  useEffect(() => {
+    appEventBus.emit(
+      EAppEventBusNames.SignatureConfirmContainerMounted,
+      undefined,
+    );
+  }, []);
 
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
@@ -298,6 +319,11 @@ function MessageConfirm() {
         setContinueOperate={setContinueOperate}
         urlSecurityInfo={urlSecurityInfo}
         isConfirmationRequired={isConfirmationRequired}
+        sourceInfo={sourceInfo}
+        walletInternalSign={walletInternalSign}
+        onSuccess={onSuccess}
+        onFail={onFail}
+        onCancel={onCancel}
       />
     </Page>
   );
