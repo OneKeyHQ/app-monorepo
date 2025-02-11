@@ -33,12 +33,12 @@ import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type {
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsResponse,
 } from '../../vaults/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
-import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export type IBatchCreateAccountProgressInfo = {
   totalCount: number;
@@ -319,7 +319,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }: {
     walletId: string;
   }): Promise<IBatchBuildAccountsBaseParams[]> {
-    return buildDefaultAddAccountNetworks().map((item) => ({
+    const networks = await buildDefaultAddAccountNetworks({
+      backgroundApi: this.backgroundApi,
+      includingNetworkWithGlobalDeriveType: true,
+    });
+    return networks.map((item) => ({
       ...item,
       walletId,
     }));
