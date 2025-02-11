@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -33,12 +34,12 @@ import { getVaultSettings } from '../../vaults/settings';
 import { buildDefaultAddAccountNetworks } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 
-import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 import type {
   IAccountDeriveTypes,
   IHwAllNetworkPrepareAccountsResponse,
 } from '../../vaults/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export type IBatchCreateAccountProgressInfo = {
   totalCount: number;
@@ -399,6 +400,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
           networkId: string;
           deriveType: IAccountDeriveTypes;
         }[];
+        failedAccounts: Array<{
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+          error: IOneKeyError;
+        }>;
       }
     | undefined
   > {
@@ -650,6 +656,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
           deriveType: IAccountDeriveTypes;
         }> = [];
 
+        const failedAccounts: Array<{
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+          error: IOneKeyError;
+        }> = [];
+
         const hwAllNetworkPrepareAccountsResponse =
           await this.getHwAllNetworkPrepareAccountsResponse({
             walletId: params.walletId,
@@ -682,6 +694,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
               saveToDb,
               autoHandleExitError: params.autoHandleExitError,
             });
+            failedAccounts.push({
+              networkId: networkParams.networkId,
+              deriveType: networkParams.deriveType,
+              error: errorUtils.toPlainErrorObject(error),
+            });
           }
         }
 
@@ -697,7 +714,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           walletId: params.walletId,
           addedAccountsCount: addedAccounts.length,
         });
-        return { addedAccounts };
+        return { addedAccounts, failedAccounts };
       },
       {
         deviceParams,

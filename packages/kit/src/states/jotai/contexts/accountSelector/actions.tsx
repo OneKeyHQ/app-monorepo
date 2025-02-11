@@ -4,7 +4,7 @@ import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { tonMnemonicToKeyPair } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
@@ -642,7 +642,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccount,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
-        autoHandleExitError,
+        autoHandleExitError = true,
       } = params;
       defaultLogger.account.batchCreatePerf.addDefaultNetworkAccounts({
         wallet,
@@ -653,18 +653,42 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
       const networkId = selectedAccount.networkId;
       const deriveType = selectedAccount.deriveType;
-      return backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
-        {
-          walletId: wallet.id,
-          indexedAccountId: indexedAccount?.id,
-          customNetworks:
-            networkId && deriveType ? [{ networkId, deriveType }] : undefined,
+      const result =
+        await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+          {
+            walletId: wallet.id,
+            indexedAccountId: indexedAccount?.id,
+            customNetworks:
+              networkId && deriveType ? [{ networkId, deriveType }] : undefined,
 
-          skipDeviceCancel,
-          hideCheckingDeviceLoading,
-          autoHandleExitError,
-        },
-      );
+            skipDeviceCancel,
+            hideCheckingDeviceLoading,
+            autoHandleExitError,
+          },
+        );
+
+      if (autoHandleExitError) {
+        void (async () => {
+          for (const failedAccount of result?.failedAccounts || []) {
+            const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+              networkId: failedAccount.networkId,
+            });
+            const deriveTypeInfo =
+              await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
+                networkId: failedAccount.networkId,
+                deriveType: failedAccount.deriveType,
+              });
+            Toast.error({
+              title: `Create address failed: ${
+                network?.name || failedAccount.networkId
+              } ${deriveTypeInfo?.label || failedAccount.deriveType} `,
+              message: failedAccount.error.message || 'Unknown error',
+            });
+          }
+        })();
+      }
+
+      return result;
     },
   );
 
