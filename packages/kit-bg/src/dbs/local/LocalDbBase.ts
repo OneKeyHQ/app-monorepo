@@ -1258,7 +1258,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             id: walletId,
             name: walletName,
             hash: walletHash || undefined,
-            avatar: avatar && JSON.stringify(avatar), // TODO save object to realmDB?
+            avatar: avatar ? JSON.stringify(avatar) : undefined, // TODO save object to realmDB?
             type: WALLET_TYPE_HD,
             backuped,
             nextIds: {

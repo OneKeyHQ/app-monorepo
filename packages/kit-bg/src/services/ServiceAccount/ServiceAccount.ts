@@ -11,6 +11,7 @@ import {
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
+  sha256,
   tonMnemonicFromEntropy,
   tonValidateMnemonic,
   validateMnemonic,
@@ -114,6 +115,7 @@ import type {
   IValidateGeneralInputParams,
 } from '../../vaults/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 export type IAddHDOrHWAccountsParams = {
   walletId: string | undefined;
@@ -2123,6 +2125,15 @@ class ServiceAccount extends ServiceBase {
     }
 
     let walletHash: string | undefined;
+    // eslint-disable-next-line no-param-reassign
+    walletHashBuilder =
+      walletHashBuilder ||
+      ((options) => {
+        const text = `${options.realMnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375`;
+        const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+        const walletHash0 = bufferUtils.bytesToHex(buff);
+        return walletHash0;
+      });
     if (walletHashBuilder) {
       walletHash = walletHashBuilder({ realMnemonic });
     }
@@ -2187,7 +2198,11 @@ class ServiceAccount extends ServiceBase {
     avatarInfo?: IAvatarInfo;
     name?: string;
     walletHash?: string;
-  }): Promise<{ wallet: IDBWallet; indexedAccount?: IDBIndexedAccount }> {
+  }): Promise<{
+    wallet: IDBWallet;
+    indexedAccount?: IDBIndexedAccount;
+    isOverrideWallet?: boolean;
+  }> {
     if (platformEnv.isWebDappMode) {
       throw new Error('createHDWallet ERROR: Not supported in Dapp mode');
     }
@@ -2200,13 +2215,22 @@ class ServiceAccount extends ServiceBase {
         (item) => walletHash && item.hash && item.hash === walletHash,
       );
       if (existsSameHashWallet) {
+        const indexedAccounts = await this.addIndexedAccount({
+          walletId: existsSameHashWallet.id,
+          indexes: [0],
+          skipIfExists: true,
+        });
         // localDb.buildCreateHDAndHWWalletResult({
         //   walletId: existsSameHashWallet.id,
         //   addedHdAccountIndex:
         // })
         // DO NOT throw error, just return the exists wallet, so v4 migration can continue
         // throw new Error('Wallet with the same mnemonic hash already exists');
-        return { wallet: existsSameHashWallet };
+        return {
+          wallet: existsSameHashWallet,
+          isOverrideWallet: true,
+          indexedAccount: indexedAccounts[0],
+        };
       }
     }
 

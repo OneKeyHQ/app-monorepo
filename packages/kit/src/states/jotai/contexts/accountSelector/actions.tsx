@@ -682,7 +682,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          const { wallet, indexedAccount } =
+          const { wallet, indexedAccount, isOverrideWallet } =
             await serviceAccount.createHDWallet({
               mnemonic,
             });
@@ -690,7 +690,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             wallet,
             indexedAccount,
           });
-          return { wallet, indexedAccount };
+          return { wallet, indexedAccount, isOverrideWallet };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount }) => {
           await this.addDefaultNetworkAccounts.call(set, {

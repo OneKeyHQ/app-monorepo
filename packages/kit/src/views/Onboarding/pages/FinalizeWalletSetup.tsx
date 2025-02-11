@@ -10,6 +10,7 @@ import {
   Page,
   Spinner,
   Stack,
+  Toast,
 } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -90,9 +91,19 @@ function FinalizeWalletSetupPage({
                 return;
               }
 
-              await actions.current.createHDWallet({
+              const createResult = await actions.current.createHDWallet({
                 mnemonic,
               });
+              if (createResult.wallet && createResult.isOverrideWallet) {
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.feedback_wallet_exists_title,
+                  }),
+                  message: intl.formatMessage({
+                    id: ETranslations.feedback_wallet_exists_desc,
+                  }),
+                });
+              }
             },
           });
           created.current = true;
@@ -106,7 +117,7 @@ function FinalizeWalletSetupPage({
         throw error;
       }
     })();
-  }, [actions, mnemonic, mnemonicType, navigation]);
+  }, [actions, intl, mnemonic, mnemonicType, navigation]);
 
   useEffect(() => {
     const fn = (
