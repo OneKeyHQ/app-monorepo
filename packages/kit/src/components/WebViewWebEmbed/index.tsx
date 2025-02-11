@@ -52,10 +52,10 @@ export function WebViewWebEmbed({
       if (devSettings?.settings?.usePrimeSandboxPayment) {
         apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
       }
-      // if (!apiKey) {
-      //   throw new Error('No REVENUECAT api key found');
-      // }
-      setRevenuecatApiKey(apiKey);
+      if (!apiKey) {
+        throw new Error('No REVENUECAT api key found');
+      }
+      setRevenuecatApiKey(apiKey || '');
     }
     void getApiKey();
   }, []);
