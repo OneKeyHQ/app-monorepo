@@ -9,6 +9,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import InpageProviderWebView from './InpageProviderWebView';
 
 import type { IElectronWebViewEvents, IWebViewOnScroll } from './types';
+import type { ESiteMode } from '../../views/Discovery/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
@@ -18,7 +19,6 @@ import type {
   WebViewOpenWindowEvent,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
-import { ESiteMode } from '../../views/Discovery/types';
 
 interface IWebViewProps extends IElectronWebViewEvents {
   id?: string;
