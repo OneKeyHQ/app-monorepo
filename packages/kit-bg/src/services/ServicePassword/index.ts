@@ -67,7 +67,8 @@ export default class ServicePassword extends ServiceBase {
     hour: 2,
   });
 
-  private cachedPasswordTimeOutObject: NodeJS.Timeout | null = null;
+  private cachedPasswordTimeOutObject: ReturnType<typeof setTimeout> | null =
+    null;
 
   private passwordPromptTTL: number = timerUtils.getTimeDurationMs({
     minute: 5,
