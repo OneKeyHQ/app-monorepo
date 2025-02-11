@@ -18,6 +18,6 @@ export default class PurchasesSdkWeb extends PurchasesSdkWebBase {
     if (!apiKey) {
       throw new Error('No REVENUECAT api key found');
     }
-    return apiKey || '';
+    return apiKey;
   }
 }
