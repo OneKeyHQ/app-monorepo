@@ -1,4 +1,8 @@
-import { REVENUECAT_API_KEY_WEB, REVENUECAT_API_KEY_WEB_SANDBOX } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  REVENUECAT_API_KEY_WEB,
+  REVENUECAT_API_KEY_WEB_SANDBOX,
+} from '@onekeyhq/shared/src/consts/primeConsts';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { PurchasesSdkWebBase } from './PurchasesSdkWebBase';
@@ -11,9 +15,9 @@ export default class PurchasesSdkWeb extends PurchasesSdkWebBase {
     if (devSettings?.settings?.usePrimeSandboxPayment) {
       apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
     }
-    // if (!apiKey) {
-    //   throw new Error('No REVENUECAT api key found');
-    // }
-    return apiKey;
+    if (!apiKey) {
+      throw new Error('No REVENUECAT api key found');
+    }
+    return apiKey || '';
   }
 }
