@@ -30,6 +30,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -80,7 +81,6 @@ import type {
   IVersionArray,
 } from '@onekeyfe/hd-core';
 import type { Success } from '@onekeyfe/hd-transport';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export type IAutoUpdateFirmwareParams = {
   connectId: string | undefined;
@@ -860,7 +860,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
               {},
             ),
           );
-          defaultLogger.update.firmware.updateBootloader({
+          defaultLogger.update.firmware.updateFirmware({
+            updateType: 'bootloader',
             deviceType,
             connectType: platformEnv.isNative ? 'ble' : 'usb',
             firmwareVersion: updateInfo.fromVersion,
@@ -869,7 +870,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           });
           return result;
         } catch (error: any) {
-          defaultLogger.update.firmware.updateBootloader({
+          defaultLogger.update.firmware.updateFirmware({
+            updateType: 'bootloader',
             deviceType,
             connectType: platformEnv.isNative ? 'ble' : 'usb',
             firmwareVersion: updateInfo.fromVersion,
@@ -971,7 +973,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         },
       });
       try {
-        const result = await convertDeviceResponse(() =>
+        const result = await convertDeviceResponse(async () =>
           hardwareSDK.firmwareUpdateV2(
             deviceUtils.getUpdatingConnectId({ connectId }),
             {
@@ -990,6 +992,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         }
         // TODO handleErrors UpdatingModal
         defaultLogger.update.firmware.updateFirmware({
+          updateType: 'firmware',
           connectType: platformEnv.isNative ? 'ble' : 'usb',
           deviceType: deviceType ?? 'unknown',
           firmwareVersion: updateInfo.fromVersion,
@@ -999,6 +1002,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         return result;
       } catch (error: any) {
         defaultLogger.update.firmware.updateFirmware({
+          updateType: 'firmware',
           connectType: platformEnv.isNative ? 'ble' : 'usb',
           deviceType: deviceType ?? 'unknown',
           firmwareVersion: updateInfo.fromVersion,

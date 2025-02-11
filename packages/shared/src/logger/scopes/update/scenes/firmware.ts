@@ -5,20 +5,7 @@ export class FirmwareScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public updateFirmware(params: {
-    connectType: 'usb' | 'ble';
-    deviceType: string;
-    firmwareVersion: string;
-    targetVersion: string;
-    success: boolean;
-    errorCode?: string;
-    errorMessage?: string;
-  }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public updateBootloader(params: {
+    updateType: 'firmware' | 'bootloader';
     connectType: 'usb' | 'ble';
     deviceType: string;
     firmwareVersion: string;
