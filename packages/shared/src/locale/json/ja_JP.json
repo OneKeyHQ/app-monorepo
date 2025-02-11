@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "インポート方法を選択",
   "onboarding.connect_external_wallet": "外部ウォレットを接続",
   "onboarding.connect_your_device": "あなたのデバイスを接続してください",
+  "onboarding.create_new_wallet": "新しいウォレットを作成する",
   "onboarding.create_or_import_wallet": "ウォレットを作成またはインポート",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "ここに戻って、以下のボタンをクリックしてQRコードをスキャンしてください",
   "onboarding.create_qr_wallet_show_qr_code_desc": "\"Connect App Wallet\" > \"QR Code\" > \"OneKey Wallet\"に移動してQRコードを表示します",

@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "Виберіть метод імпорту",
   "onboarding.connect_external_wallet": "Підключити зовнішній гаманець",
   "onboarding.connect_your_device": "Підключіть свій пристрій",
+  "onboarding.create_new_wallet": "Створіть новий гаманець",
   "onboarding.create_or_import_wallet": "Створити або імпортувати гаманець",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "Повернутися сюди, натисніть кнопку нижче, щоб відсканувати QR-код",
   "onboarding.create_qr_wallet_show_qr_code_desc": "Перейдіть до \"Підключити гаманець App\" > \"QR-код\" > \"OneKey Wallet\", щоб переглянути QR-код",

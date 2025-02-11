@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "Выберите метод импорта",
   "onboarding.connect_external_wallet": "Подключить внешний кошелек",
   "onboarding.connect_your_device": "Подключите ваше устройство",
+  "onboarding.create_new_wallet": "Создать новый кошелек",
   "onboarding.create_or_import_wallet": "Создать или импортировать кошелек",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "Вернитесь сюда и нажмите кнопку ниже, чтобы отсканировать QR-код",
   "onboarding.create_qr_wallet_show_qr_code_desc": "Перейдите в \"Подключить кошелек App\" > \"QR-код\" > \"OneKey Wallet\", чтобы просмотреть QR-код",

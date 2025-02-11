@@ -1522,6 +1522,7 @@
   onboarding_choose_import_method = 'onboarding.choose_import_method',
   onboarding_connect_external_wallet = 'onboarding.connect_external_wallet',
   onboarding_connect_your_device = 'onboarding.connect_your_device',
+  onboarding_create_new_wallet = 'onboarding.create_new_wallet',
   onboarding_create_or_import_wallet = 'onboarding.create_or_import_wallet',
   onboarding_create_qr_wallet_scan_qr_code_desc = 'onboarding.create_qr_wallet_scan_qr_code_desc',
   onboarding_create_qr_wallet_show_qr_code_desc = 'onboarding.create_qr_wallet_show_qr_code_desc',

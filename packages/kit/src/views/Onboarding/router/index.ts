@@ -35,7 +35,7 @@ const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
 );
 
-const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
+const GetStarted = LazyLoadPage(() => import('../pages/GetStarted/GetStarted'));
 
 const V4MigrationGetStarted = LazyLoadPage(
   () => import('../pages/V4Migration/V4MigrationGetStarted'),
