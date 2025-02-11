@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { Stack } from '@onekeyhq/components';
+import { Stack, onVisibilityStateChange } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import {
@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -76,6 +77,31 @@ const PasswordVerifyContainer = ({
   const resetPasswordStatus = useCallback(() => {
     void backgroundApiProxy.servicePassword.resetPasswordStatus();
   }, []);
+
+  const checkAuthChanged = useCallback(async () => {
+    const changed = await checkBiometricAuthChanged();
+    console.log('----changed', changed)
+    if (changed) {
+      alert(
+        'Biometric authentication has changed. Please manually re-enable it.',
+      );
+      void backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void checkAuthChanged();
+    const handleVisibilityStateChange = (visible: boolean) => {
+      if (visible) {
+        void checkAuthChanged();
+      }
+    };
+    const removeSubscription = onVisibilityStateChange(
+      handleVisibilityStateChange,
+    );
+    return removeSubscription;
+  }, [checkAuthChanged]);
+
   useEffect(() => {
     if (webAuthCredentialId && isBiologyAuthSwitchOn) {
       void (async () => {
