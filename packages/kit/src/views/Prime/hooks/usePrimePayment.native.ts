@@ -4,6 +4,10 @@ import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import RevenueCatUI from 'react-native-purchases-ui';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  REVENUECAT_API_KEY_APPLE,
+  REVENUECAT_API_KEY_GOOGLE,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -81,10 +85,10 @@ export function usePrimePayment(): IUsePrimePayment {
 
       let apiKey = '';
       if (platformEnv.isNativeIOS) {
-        apiKey = process.env.REVENUECAT_API_KEY_APPLE || '';
+        apiKey = REVENUECAT_API_KEY_APPLE || '';
       }
       if (platformEnv.isNativeAndroid) {
-        apiKey = process.env.REVENUECAT_API_KEY_GOOGLE || '';
+        apiKey = REVENUECAT_API_KEY_GOOGLE || '';
       }
       if (!apiKey) {
         throw new Error('No REVENUECAT api key found');
