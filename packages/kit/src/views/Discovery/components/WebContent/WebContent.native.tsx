@@ -146,7 +146,6 @@ function WebContent({
 
   const webview = useMemo(
     () => {
-      console.log('---WebContent.native.tsx', siteMode);
       return (
         <WebView
           key={url}

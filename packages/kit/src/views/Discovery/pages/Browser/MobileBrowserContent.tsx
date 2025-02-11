@@ -19,7 +19,6 @@ function MobileBrowserContent({
   onScroll?: (event: IWebViewOnScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
-  console.log('---tab', tab?.siteMode);
   const { addBrowserHistory } = useBrowserHistoryAction().current;
   const { activeTabId } = useActiveTabId();
   const [, setBackEnabled] = useState(false);

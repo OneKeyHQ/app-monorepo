@@ -47,7 +47,6 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
-    console.log('----InpageProviderWebView-siteMode', siteMode);
     const [progress, setProgress] = useState(5);
     const { webviewRef, setWebViewRef } = useWebViewBridge();
 

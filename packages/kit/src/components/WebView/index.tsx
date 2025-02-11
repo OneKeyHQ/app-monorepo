@@ -60,7 +60,6 @@ const WebView: FC<IWebViewProps> = ({
   webviewDebuggingEnabled,
   ...rest
 }) => {
-  console.log('---WebView-siteMode', rest.siteMode)
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
       const result = await backgroundApiProxy.bridgeReceiveHandler(payload);
