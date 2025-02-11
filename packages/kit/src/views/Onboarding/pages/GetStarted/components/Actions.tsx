@@ -15,10 +15,11 @@ export function Actions() {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const handleCreateWalletPress = async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    navigation.push(EOnboardingPages.BeforeShowRecoveryPhrase);
-    defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
+  const handleCreateWalletPress = () => {
+    void backgroundApiProxy.servicePassword.promptPasswordVerify().then(() => {
+      navigation.push(EOnboardingPages.BeforeShowRecoveryPhrase);
+      defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
+    });
   };
 
   const handleImportWalletPress = async () => {
