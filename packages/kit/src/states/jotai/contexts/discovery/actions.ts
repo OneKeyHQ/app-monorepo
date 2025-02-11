@@ -8,6 +8,7 @@ import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import type {
+  ESiteMode,
   IBrowserBookmark,
   IBrowserHistory,
   IGotoSiteFnParams,
@@ -392,6 +393,16 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       } else {
         defaultLogger.discovery.browser.unpinTab(trackParams);
       }
+    },
+  );
+
+  setSiteMode = contextAtomMethod(
+    (get, set, payload: { id: string; siteMode: ESiteMode }) => {
+      this.setWebTabData.call(set, {
+        id: payload.id,
+        siteMode: payload.siteMode,
+      });
+      this.setTabs.call(set);
     },
   );
 
@@ -940,7 +951,7 @@ export function useBrowserTabActions() {
   const setDisplayHomePage = actions.setDisplayHomePage.use();
   const setBrowserDataReady = actions.setBrowserDataReady.use();
   const reOpenLastClosedTab = actions.reOpenLastClosedTab.use();
-
+  const setSiteMode = actions.setSiteMode.use();
   return useRef({
     addWebTab,
     addBlankWebTab,
@@ -956,6 +967,7 @@ export function useBrowserTabActions() {
     setDisplayHomePage,
     setBrowserDataReady,
     reOpenLastClosedTab,
+    setSiteMode,
   });
 }
 

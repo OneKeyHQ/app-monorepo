@@ -68,6 +68,11 @@ export type IOnWebviewNavigation = ({
   handlePhishingUrl,
 }: IOnWebviewNavigationFnParams) => void;
 
+export enum ESiteMode {
+  desktop = 'desktop',
+  mobile = 'mobile',
+}
+
 export interface IWebTab {
   id: string;
   url: string;
@@ -84,6 +89,7 @@ export interface IWebTab {
   canGoForward?: boolean;
   refReady?: boolean;
   timestamp?: number;
+  siteMode?: ESiteMode;
 }
 
 export interface IWebTabsAtom {
@@ -105,6 +111,8 @@ export interface IMobileBottomOptionsProps {
   onCloseTab: () => void;
   displayDisconnectOption: boolean;
   onDisconnect: () => void;
+  siteMode?: ESiteMode;
+  onRequestSiteMode: (siteMode: ESiteMode) => void;
 }
 
 export interface IMobileTabListOptionsProps {

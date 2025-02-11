@@ -18,6 +18,7 @@ import type {
   WebViewOpenWindowEvent,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
+import { ESiteMode } from '../../views/Discovery/types';
 
 interface IWebViewProps extends IElectronWebViewEvents {
   id?: string;
@@ -43,6 +44,10 @@ interface IWebViewProps extends IElectronWebViewEvents {
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
   webviewDebuggingEnabled?: boolean;
+  /** @platform native
+   * @description Open website in desktop mode or mobile mode
+   */
+  siteMode?: ESiteMode;
 }
 
 const WebView: FC<IWebViewProps> = ({
@@ -55,6 +60,7 @@ const WebView: FC<IWebViewProps> = ({
   webviewDebuggingEnabled,
   ...rest
 }) => {
+  console.log('---WebView-siteMode', rest.siteMode)
   const receiveHandler = useCallback<IJsBridgeReceiveHandler>(
     async (payload, hostBridge) => {
       const result = await backgroundApiProxy.bridgeReceiveHandler(payload);

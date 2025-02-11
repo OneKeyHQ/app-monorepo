@@ -40,6 +40,7 @@ function WebContent({
   setForwardEnabled,
   addBrowserHistory,
   onScroll,
+  siteMode,
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
@@ -144,39 +145,46 @@ function WebContent({
   );
 
   const webview = useMemo(
-    () => (
-      <WebView
-        key={url}
-        androidLayerType={androidLayerType}
-        src={url}
-        onWebViewRef={(ref) => {
-          if (ref && ref.innerRef) {
-            if (!webviewRefs[id]) {
-              setWebTabData({
-                id,
-                refReady: true,
-              });
+    () => {
+      console.log('---WebContent.native.tsx', siteMode);
+      return (
+        <WebView
+          key={url}
+          siteMode={siteMode}
+          androidLayerType={androidLayerType}
+          src={url}
+          onWebViewRef={(ref) => {
+            if (ref && ref.innerRef) {
+              if (!webviewRefs[id]) {
+                setWebTabData({
+                  id,
+                  refReady: true,
+                });
+              }
+              if (id !== homeTab.id) {
+                webviewRefs[id] = ref;
+              }
             }
-            if (id !== homeTab.id) {
-              webviewRefs[id] = ref;
-            }
-          }
-        }}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        onNavigationStateChange={onNavigationStateChange}
-        onOpenWindow={(e) => {
-          void gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
-        }}
-        allowpopups
-        onLoadStart={onLoadStart}
-        onLoadEnd={onLoadEnd as any}
-        onScroll={onScroll}
-        displayProgressBar={false}
-        onProgress={(p) => setProgress(p)}
-      />
-    ),
+          }}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          onNavigationStateChange={onNavigationStateChange}
+          onOpenWindow={(e) => {
+            void gotoSite({
+              url: e.nativeEvent.targetUrl,
+              userTriggered: true,
+            });
+          }}
+          allowpopups
+          onLoadStart={onLoadStart}
+          onLoadEnd={onLoadEnd as any}
+          onScroll={onScroll}
+          displayProgressBar={false}
+          onProgress={(p) => setProgress(p)}
+        />
+      );
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, gotoSite, showHome, androidLayerType],
+    [id, siteMode, gotoSite, showHome, androidLayerType],
   );
 
   const progressBar = useMemo(() => {

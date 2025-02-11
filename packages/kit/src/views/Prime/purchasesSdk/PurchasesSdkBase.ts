@@ -37,9 +37,9 @@ export abstract class PurchasesSdkBase {
 
   async login(params: { userId: string }): Promise<void> {
     const apiKey = await this.getApiKey();
-    if (!apiKey) {
-      throw new Error('No REVENUECAT api key found');
-    }
+    // if (!apiKey) {
+    //   throw new Error('No REVENUECAT api key found');
+    // }
     if (!params.userId) {
       throw new Error('No userId found');
     }

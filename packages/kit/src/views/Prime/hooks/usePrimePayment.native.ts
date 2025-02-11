@@ -86,9 +86,9 @@ export function usePrimePayment(): IUsePrimePayment {
       if (platformEnv.isNativeAndroid) {
         apiKey = process.env.REVENUECAT_API_KEY_GOOGLE || '';
       }
-      if (!apiKey) {
-        throw new Error('No REVENUECAT api key found');
-      }
+      // if (!apiKey) {
+      //   throw new Error('No REVENUECAT api key found');
+      // }
       Purchases.configure({
         apiKey,
         // useAmazon: true
