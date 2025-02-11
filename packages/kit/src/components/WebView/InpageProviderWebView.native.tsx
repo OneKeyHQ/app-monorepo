@@ -4,13 +4,12 @@ import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
-
-// refresh hash: 889263555577754
-// @ts-expect-error
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ESiteMode } from '../../views/Discovery/types';
 
+// refresh hash: 889263555577754
+// @ts-expect-error
 import injectedNativeCode from './injectedNative.text-js';
 import { NativeWebView } from './NativeWebView';
 
