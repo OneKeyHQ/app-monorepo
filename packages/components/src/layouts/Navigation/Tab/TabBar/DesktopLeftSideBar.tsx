@@ -20,10 +20,14 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components/src/primitives';
+// TODO: remove this after address book is merged
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
+import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalDeviceManagementRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   ERootRoutes,
@@ -201,6 +205,17 @@ export function DesktopLeftSideBar({
     });
   }, [appNavigation]);
 
+  const openAddressBookPage = useShowAddressBook({
+    useNewModal: true,
+  });
+
+  const openDeviceManagementPage = useCallback(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+    appNavigation.navigate(ERootRoutes.Modal, {
+      screen: EModalRoutes.DeviceManagementModal,
+      params: EModalDeviceManagementRoutes.DeviceListModal,
+    });
+  }, [appNavigation]);
   return (
     <MotiView
       testID="Desktop-AppSideBar-Container"
@@ -254,6 +269,22 @@ export function DesktopLeftSideBar({
               borderTopColor="$borderSubdued"
               bg="$bg"
             >
+              <DesktopTabItem
+                onPress={openDeviceManagementPage}
+                selected={false}
+                icon="PhoneOutline"
+                label="My OneKey"
+                testID="my-onekey"
+              />
+              <DesktopTabItem
+                onPress={openAddressBookPage}
+                selected={false}
+                icon="BookOpenOutline"
+                label={intl.formatMessage({
+                  id: ETranslations.address_book_title,
+                })}
+                testID="address-book"
+              />
               <DesktopTabItem
                 onPress={openSettingPage}
                 selected={false}
