@@ -50,11 +50,7 @@ export function PrimeDebugPanel({
       >
         User Info
       </Button>
-      <Button
-        onPress={() => {
-          //
-        }}
-      >
+      <Button>
         shouldShowConfirmButton={shouldShowConfirmButton.toString()}
       </Button>
       <Button
