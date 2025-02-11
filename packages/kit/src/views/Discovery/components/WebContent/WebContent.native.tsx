@@ -170,6 +170,7 @@ function WebContent({
           void gotoSite({
             url: e.nativeEvent.targetUrl,
             userTriggered: true,
+            siteMode,
           });
         }}
         allowpopups

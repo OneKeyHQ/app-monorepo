@@ -32,6 +32,7 @@ export interface IGotoSiteFnParams {
   isInPlace?: boolean;
   id?: string;
   userTriggered?: boolean;
+  siteMode?: ESiteMode;
 }
 
 export interface IMatchDAppItemType {

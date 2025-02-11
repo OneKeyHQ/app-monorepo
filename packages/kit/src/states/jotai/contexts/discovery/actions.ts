@@ -592,6 +592,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         url,
         title,
         favicon,
+        siteMode,
         isNewWindow,
         isInPlace,
         userTriggered,
@@ -635,6 +636,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             url: validatedUrl,
             favicon,
             isBookmark,
+            siteMode,
           });
         } else {
           this.setWebTabData.call(set, {
