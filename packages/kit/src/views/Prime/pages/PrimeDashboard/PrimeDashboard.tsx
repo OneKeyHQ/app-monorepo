@@ -213,7 +213,7 @@ export default function PrimeDashboard() {
             >
               <PrimeLottieAnimation />
               <PrimeBanner />
-              {user?.isLoggedIn ? (
+              {user?.isLoggedIn && platformEnv.isDev ? (
                 <PrimeUserInfo doPurchase={doPurchase} />
               ) : null}
               {subscriptionPlans}
