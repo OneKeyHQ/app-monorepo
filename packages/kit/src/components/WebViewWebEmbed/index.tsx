@@ -55,7 +55,7 @@ export function WebViewWebEmbed({
       if (!apiKey) {
         throw new Error('No REVENUECAT api key found');
       }
-      setRevenuecatApiKey(apiKey || '');
+      setRevenuecatApiKey(apiKey);
     }
     void getApiKey();
   }, []);
