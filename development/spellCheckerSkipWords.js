@@ -799,6 +799,7 @@ module.exports = [
   'Apy',
   'Apys',
   'hashify',
+  'onboard',
   'Otp',
   'onekeyid',
   'passcode',

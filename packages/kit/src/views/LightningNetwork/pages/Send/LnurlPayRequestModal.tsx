@@ -164,7 +164,7 @@ function LnurlPayRequestModal() {
               : undefined,
           },
         ];
-        await signatureConfirm.normalizeSignatureConfirm({
+        await signatureConfirm.normalizeTxConfirm({
           transfersInfo: newTransfersInfo,
           sameModal: true,
           onSuccess: () => {

@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "가져오기 방법 선택",
   "onboarding.connect_external_wallet": "외부 지갑 연결",
   "onboarding.connect_your_device": "장치를 연결하세요",
+  "onboarding.create_new_wallet": "새로운 지갑을 만드세요",
   "onboarding.create_or_import_wallet": "지갑 생성 또는 가져오기",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "다시 이곳으로 돌아와서 아래 버튼을 클릭하여 QR 코드를 스캔하세요",
   "onboarding.create_qr_wallet_show_qr_code_desc": "\"Connect App Wallet\"로 이동 > \"QR Code\" > \"OneKey Wallet\"에서 QR 코드를 확인하세요",

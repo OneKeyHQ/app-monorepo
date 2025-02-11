@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "आयात करने का तरीका चुनें",
   "onboarding.connect_external_wallet": "बाहरी वॉलेट कनेक्ट करें",
   "onboarding.connect_your_device": "अपने उपकरण को कनेक्ट करें",
+  "onboarding.create_new_wallet": "नया वॉलेट बनाएं",
   "onboarding.create_or_import_wallet": "वॉलेट बनाएं या आयात करें",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "वापस यहाँ पर, QR कोड स्कैन करने के लिए नीचे दिए गए बटन पर क्लिक करें",
   "onboarding.create_qr_wallet_show_qr_code_desc": "\"Connect App Wallet\" पर जाएं > \"QR Code\" > \"OneKey Wallet\" QR कोड देखने के लिए",
