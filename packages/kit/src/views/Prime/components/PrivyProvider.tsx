@@ -1,5 +1,10 @@
 import { PrivyProvider as PrivyProviderBase } from '@privy-io/react-auth';
 
+import {
+  PRIVY_APP_ID,
+  PRIVY_MOBILE_CLIENT_ID,
+} from '@onekeyhq/shared/src/consts/primeConsts';
+
 import { usePrivyAuthSyncToAtom } from '../hooks/usePrivyAuthSyncToAtom';
 
 function PrivyAuthSyncToAtom() {
@@ -8,9 +13,8 @@ function PrivyAuthSyncToAtom() {
 }
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
-  const appId = process.env.PRIVY_APP_ID;
-  const clientId = process.env.PRIVY_MOBILE_CLIENT_ID;
-
+  const appId = PRIVY_APP_ID;
+  const clientId = PRIVY_MOBILE_CLIENT_ID;
   if (!appId) {
     throw new Error('PRIVY_APP_ID is not set');
   }

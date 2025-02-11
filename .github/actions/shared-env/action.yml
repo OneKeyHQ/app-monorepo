@@ -24,30 +24,6 @@ inputs:
     required: true
     type: string
     description: "Sentry Auth Token"
-  privy_app_id:
-    required: true
-    type: string
-    description: "Privy App ID"
-  privy_mobile_client_id:
-    required: true
-    type: string
-    description: "Privy Mobile Client ID"
-  revenuecat_api_key_web:
-    required: true
-    type: string
-    description: "RevenueCat Web API Key"
-  revenuecat_api_key_web_sandbox:
-    required: true
-    type: string
-    description: "RevenueCat Web Sandbox API Key"
-  revenuecat_api_key_apple:
-    required: true
-    type: string
-    description: "RevenueCat Apple API Key"
-  revenuecat_api_key_google:
-    required: true
-    type: string
-    description: "RevenueCat Google API Key"
 
 runs:
   using: "composite"
@@ -122,12 +98,6 @@ runs:
         SENTRY_TOKEN: ${{ inputs.sentry_token }}
         SENTRY_PROJECT: ${{ inputs.sentry_project || '' }}
         TARGET_ENV_FILE: ${{ inputs.env_file_name || '.env' }}
-        PRIVY_APP_ID: ${{ inputs.privy_app_id }}
-        PRIVY_MOBILE_CLIENT_ID: ${{ inputs.privy_mobile_client_id }}
-        REVENUECAT_API_KEY_WEB: ${{ inputs.revenuecat_api_key_web }}
-        REVENUECAT_API_KEY_WEB_SANDBOX: ${{ inputs.revenuecat_api_key_web_sandbox }}
-        REVENUECAT_API_KEY_APPLE: ${{ inputs.revenuecat_api_key_apple }}
-        REVENUECAT_API_KEY_GOOGLE: ${{ inputs.revenuecat_api_key_google }}
       run: |
         echo "GITHUB_SHA=${{ env.GITHUB_SHA }}" >> ${TARGET_ENV_FILE}
         echo "GITHUB_TAG=${{ env.GITHUB_TAG }}" >> ${TARGET_ENV_FILE}
@@ -140,12 +110,6 @@ runs:
         echo "SENTRY_AUTH_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_TOKEN=${{ env.SENTRY_TOKEN }}" >> ${TARGET_ENV_FILE}
         echo "SENTRY_PROJECT=${{ env.SENTRY_PROJECT }}" >> ${TARGET_ENV_FILE}
-        echo "PRIVY_APP_ID=${{ env.PRIVY_APP_ID }}" >> ${TARGET_ENV_FILE}
-        echo "PRIVY_MOBILE_CLIENT_ID=${{ env.PRIVY_MOBILE_CLIENT_ID }}" >> ${TARGET_ENV_FILE}
-        echo "REVENUECAT_API_KEY_WEB=${{ env.REVENUECAT_API_KEY_WEB }}" >> ${TARGET_ENV_FILE}
-        echo "REVENUECAT_API_KEY_WEB_SANDBOX=${{ env.REVENUECAT_API_KEY_WEB_SANDBOX }}" >> ${TARGET_ENV_FILE}
-        echo "REVENUECAT_API_KEY_APPLE=${{ env.REVENUECAT_API_KEY_APPLE }}" >> ${TARGET_ENV_FILE}
-        echo "REVENUECAT_API_KEY_GOOGLE=${{ env.REVENUECAT_API_KEY_GOOGLE }}" >> ${TARGET_ENV_FILE}
         if [[ ! -z "${{ inputs.additional_env }}" ]]; then
           echo "${{ inputs.additional_env }}" >> ${TARGET_ENV_FILE}
         fi 
