@@ -213,14 +213,17 @@ export default function PrimeDashboard() {
             >
               <PrimeLottieAnimation />
               <PrimeBanner />
-              {user?.isLoggedIn && platformEnv.isDev ? (
+              {user?.isLoggedIn ? (
                 <PrimeUserInfo doPurchase={doPurchase} />
               ) : null}
               {subscriptionPlans}
             </Stack>
-            <PrimeDebugPanel
-              shouldShowConfirmButton={shouldShowConfirmButton}
-            />
+
+            {platformEnv.isDev ? (
+              <PrimeDebugPanel
+                shouldShowConfirmButton={shouldShowConfirmButton}
+              />
+            ) : null}
             <PrimeBenefitsList />
           </Page.Body>
 
