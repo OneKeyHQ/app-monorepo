@@ -5,6 +5,7 @@ import type {
   PageFaviconUpdatedEvent,
   PageTitleUpdatedEvent,
 } from './DesktopWebView';
+import type { ESiteMode } from '../../views/Discovery/types';
 import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   WebViewErrorEvent,
@@ -49,6 +50,10 @@ export interface IInpageProviderWebViewProps
    * Only works in iOS and Android devices.
    */
   webviewDebuggingEnabled?: boolean;
+  /** @platform native
+   * @description Open website in desktop mode or mobile mode
+   */
+  siteMode?: ESiteMode;
 }
 
 export type IElectronWebView = {

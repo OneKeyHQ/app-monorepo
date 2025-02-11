@@ -1,4 +1,8 @@
-import { REVENUECAT_API_KEY_WEB, REVENUECAT_API_KEY_WEB_SANDBOX } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  REVENUECAT_API_KEY_WEB,
+  REVENUECAT_API_KEY_WEB_SANDBOX,
+} from '@onekeyhq/shared/src/consts/primeConsts';
+
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import { PurchasesSdkWebBase } from './PurchasesSdkWebBase';
