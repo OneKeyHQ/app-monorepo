@@ -3,6 +3,7 @@ import { InteractionManager, Keyboard } from 'react-native';
 
 import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
+  Badge,
   Button,
   Dialog,
   Divider,
@@ -32,6 +33,7 @@ type IOptionItem = IPropsWithTestId<{
   description?: string;
   icon: IIconProps['name'];
   iconColor?: IIconProps['color'];
+  badge?: React.ReactNode;
   onPress?: IListItemProps['onPress'];
   isLoading?: boolean;
   comingSoon?: boolean;
@@ -120,7 +122,7 @@ export function ImportWalletOptions() {
           title: intl.formatMessage({
             id: ETranslations.global_recovery_phrase,
           }),
-          icon: 'Document2Outline',
+          icon: 'SecretPhraseOutline',
           onPress: () => {
             const dialog = Dialog.show({
               tone: 'warning',
@@ -166,6 +168,46 @@ export function ImportWalletOptions() {
           },
           testID: 'import-recovery-phrase',
         },
+        {
+          title: intl.formatMessage({ id: ETranslations.global_private_key }),
+          icon: 'Key2Outline',
+          onPress: handleImportPrivateKeyPress,
+          testID: 'import-private-key',
+        },
+        {
+          icon: 'MultipleDevicesOutline',
+          title: 'Transfer',
+          onPress: handleTransferPress,
+        },
+      ],
+    },
+    {
+      data: [
+        {
+          title: intl.formatMessage({
+            id: ETranslations.global_watch_only_address,
+          }),
+          icon: 'EyeOutline',
+          onPress: handleImportAddressPress,
+          testID: 'import-address',
+        },
+      ],
+    },
+    {
+      data: [
+        !platformEnv.isWeb
+          ? ({
+              icon: 'MultipleDevicesOutline',
+              title: intl.formatMessage({
+                id: ETranslations.global_transfer,
+              }),
+              description: intl.formatMessage({
+                id: ETranslations.onboarding_transfer_desc,
+              }),
+              badge: <Badge badgeType="success">Prime</Badge>,
+              onPress: handleImportFromCloud,
+            } as IOptionItem)
+          : null,
         ...(platformEnv.isNative
           ? [
               {
@@ -182,51 +224,23 @@ export function ImportWalletOptions() {
           title: 'OneKey KeyTag',
           onPress: handleImportKeyTag,
         },
-        {
-          icon: 'MultipleDevicesOutline',
-          title: 'Transfer',
-          onPress: handleTransferPress,
-        },
-      ],
-    },
-    {
-      data: [
-        {
-          title: intl.formatMessage({ id: ETranslations.global_private_key }),
-          icon: 'KeyOutline',
-          onPress: handleImportPrivateKeyPress,
-          testID: 'import-private-key',
-        },
-        {
-          title: intl.formatMessage({ id: ETranslations.global_address }),
-          icon: 'EyeOutline',
-          onPress: handleImportAddressPress,
-          testID: 'import-address',
-        },
-      ],
-    },
-    {
-      data: [
-        ...(platformEnv.isNative
-          ? [
-              {
-                icon: 'CloudOutline',
-                title: intl.formatMessage({
-                  id: platformEnv.isNativeAndroid
-                    ? ETranslations.global_google_drive
-                    : ETranslations.global_icloud,
-                }),
-                onPress: handleImportFromCloud,
-              } as IOptionItem,
-            ]
-          : []),
+        platformEnv.isNative
+          ? ({
+              icon: 'CloudOutline',
+              title: intl.formatMessage({
+                id: platformEnv.isNativeAndroid
+                  ? ETranslations.global_google_drive
+                  : ETranslations.global_icloud,
+              }),
+              onPress: handleImportFromCloud,
+            } as IOptionItem)
+          : null,
         isV4DbExist
           ? {
               title: intl.formatMessage({
                 id: ETranslations.onboarding_migrate_from_v4,
               }),
               icon: 'StorageOutline',
-              // onPress: handleMigrateFromV4,
               onPress: async () => {
                 navigation.popStack();
                 await timerUtils.wait(100);
@@ -248,17 +262,14 @@ export function ImportWalletOptions() {
       />
       <Page.Body>
         {options.map(({ sectionTitle, data }, index) => (
-          <Stack
-            key={sectionTitle || index}
-            // {...(index !== 0 && { mt: '$5' })}
-            // {...(index === options.length - 1 && { pb: '$5' })}
-          >
+          <Stack key={sectionTitle || index}>
             {sectionTitle ? (
               <SectionList.SectionHeader title={sectionTitle} />
             ) : null}
             {index !== 0 ? <Divider m="$5" /> : null}
             {data.map(
               ({
+                badge,
                 title,
                 icon,
                 description,
@@ -276,13 +287,9 @@ export function ImportWalletOptions() {
                   isLoading={isLoading}
                   testID={testID}
                 >
-                  <Stack
-                    bg="$bgStrong"
-                    p="$2"
-                    borderRadius="$2"
-                    borderCurve="continuous"
-                  >
+                  <Stack py="$2">
                     <Icon
+                      color="$iconSubdued"
                       name={icon}
                       flexShrink={0}
                       {...(iconColor && {
@@ -293,7 +300,12 @@ export function ImportWalletOptions() {
                   <ListItem.Text
                     userSelect="none"
                     flex={1}
-                    primary={title}
+                    primary={
+                      <Stack flexDirection="row" alignItems="center" gap="$1.5">
+                        <SizableText>{title}</SizableText>
+                        {badge}
+                      </Stack>
+                    }
                     secondary={description}
                   />
                   {comingSoon ? (

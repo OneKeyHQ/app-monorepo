@@ -23,7 +23,7 @@ export function Slider({
   ...props
 }: ISliderProps) {
   const isSlidingRef = useRef(false);
-  const isSlideEndRef = useRef<NodeJS.Timeout>();
+  const isSlideEndRef = useRef<ReturnType<typeof setTimeout>>();
 
   const [restProps, style] = usePropsAndStyle(props, {
     resolveValues: 'auto',

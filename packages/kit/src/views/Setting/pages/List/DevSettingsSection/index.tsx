@@ -17,6 +17,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
@@ -61,7 +62,7 @@ if (process.env.NODE_ENV !== 'production') {
   correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
 }
 
-function showDevOnlyPasswordDialog({
+export function showDevOnlyPasswordDialog({
   title,
   description,
   onConfirm,
@@ -294,6 +295,16 @@ export const DevSettingsSection = () => {
         title="首页导出私钥临时入口"
         subtitle=""
         testID="export-private-key"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem name="showPrimeTest" title="开启 Prime" subtitle="">
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        name="usePrimeSandboxPayment"
+        title="Prime Sandbox 支付"
+        subtitle=""
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
@@ -613,6 +624,16 @@ export const DevSettingsSection = () => {
       <AddressBookDevSetting />
       <SentryCrashSettings />
       <CrashDevSettings />
+
+      <SectionPressItem
+        title="WebEmbedDevConfig"
+        onPress={() => {
+          const dialog = Dialog.cancel({
+            title: 'WebEmbedDevConfig',
+            renderContent: <WebEmbedDevConfig />,
+          });
+        }}
+      />
     </Section>
   );
 };

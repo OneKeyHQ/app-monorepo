@@ -16,7 +16,7 @@ PODS:
     - ExpoModulesCore
     - ZXingObjC/OneD
     - ZXingObjC/PDF417
-  - EXConstants (15.4.5):
+  - EXConstants (15.4.6):
     - ExpoModulesCore
   - EXFont (11.10.3):
     - ExpoModulesCore
@@ -27,9 +27,13 @@ PODS:
     - ExpoModulesCore
   - Expo (50.0.20):
     - ExpoModulesCore
+  - ExpoAppleAuthentication (6.3.0):
+    - ExpoModulesCore
   - ExpoBlur (12.9.1):
     - ExpoModulesCore
   - ExpoClipboard (5.0.1):
+    - ExpoModulesCore
+  - ExpoCrypto (12.8.1):
     - ExpoModulesCore
   - ExpoDevice (5.9.3):
     - ExpoModulesCore
@@ -57,6 +61,8 @@ PODS:
     - React-NativeModulesApple
     - React-RCTAppDelegate
     - ReactCommon/turbomodule/core
+  - ExpoNativeExtensions (0.0.3):
+    - ExpoModulesCore
   - ExpoScreenOrientation (6.4.1):
     - ExpoModulesCore
     - glog
@@ -65,6 +71,8 @@ PODS:
   - ExpoSecureStore (12.5.0):
     - ExpoModulesCore
   - ExpoSharing (11.10.0):
+    - ExpoModulesCore
+  - ExpoWebBrowser (12.8.2):
     - ExpoModulesCore
   - EXScreenCapture (5.8.0):
     - ExpoModulesCore
@@ -108,7 +116,7 @@ PODS:
   - libwebp/sharpyuv (1.3.2)
   - libwebp/webp (1.3.2):
     - libwebp/sharpyuv
-  - lottie-ios (4.3.3)
+  - lottie-ios (4.3.4)
   - lottie-react-native (6.3.1):
     - lottie-ios (~> 4.3.0)
     - React-Core
@@ -116,6 +124,11 @@ PODS:
     - MMKVCore (~> 1.3.1)
   - MMKVCore (1.3.1)
   - MultiplatformBleAdapter (0.1.9)
+  - PurchasesHybridCommon (13.14.0):
+    - RevenueCat (= 5.14.0)
+  - PurchasesHybridCommonUI (13.14.0):
+    - PurchasesHybridCommon (= 13.14.0)
+    - RevenueCatUI (= 5.14.0)
   - RCT-Folly (2022.05.16.00):
     - boost
     - DoubleConversion
@@ -1223,6 +1236,9 @@ PODS:
     - ScreenshotPreventing
   - RealmJS (12.3.0):
     - React
+  - RevenueCat (5.14.0)
+  - RevenueCatUI (5.14.0):
+    - RevenueCat (= 5.14.0)
   - RNCAsyncStorage (1.22.0):
     - React-Core
   - RNDeviceInfo (10.11.0):
@@ -1256,7 +1272,13 @@ PODS:
     - RNNotifee/NotifeeCore (= 9.0.0)
   - RNNotifee/NotifeeCore (9.0.0):
     - React-Core
+  - RNPaywalls (8.5.0):
+    - PurchasesHybridCommonUI (= 13.14.0)
+    - React-Core
   - RNPermissions (4.1.5):
+    - React-Core
+  - RNPurchases (8.5.0):
+    - PurchasesHybridCommon (= 13.14.0)
     - React-Core
   - RNReanimated (3.6.1):
     - glog
@@ -1318,8 +1340,10 @@ DEPENDENCIES:
   - EXImageLoader (from `../../../node_modules/expo-image-loader/ios`)
   - EXNotifications (from `../../../node_modules/expo-notifications/ios`)
   - Expo (from `../../../node_modules/expo`)
+  - ExpoAppleAuthentication (from `../../../node_modules/expo-apple-authentication/ios`)
   - ExpoBlur (from `../../../node_modules/expo-blur/ios`)
   - ExpoClipboard (from `../../../node_modules/expo-clipboard/ios`)
+  - ExpoCrypto (from `../../../node_modules/expo-crypto/ios`)
   - ExpoDevice (from `../../../node_modules/expo-device/ios`)
   - ExpoFileSystem (from `../../../node_modules/expo-file-system/ios`)
   - ExpoHaptics (from `../../../node_modules/expo-haptics/ios`)
@@ -1330,9 +1354,11 @@ DEPENDENCIES:
   - ExpoLocalAuthentication (from `../../../node_modules/expo-local-authentication/ios`)
   - ExpoLocalization (from `../../../node_modules/expo-localization/ios`)
   - ExpoModulesCore (from `../../../node_modules/expo-modules-core`)
+  - "ExpoNativeExtensions (from `../../../node_modules/@privy-io/expo-native-extensions/ios`)"
   - ExpoScreenOrientation (from `../../../node_modules/expo-screen-orientation/ios`)
   - ExpoSecureStore (from `../../../node_modules/expo-secure-store/ios`)
   - ExpoSharing (from `../../../node_modules/expo-sharing/ios`)
+  - ExpoWebBrowser (from `../../../node_modules/expo-web-browser/ios`)
   - EXScreenCapture (from `../../../node_modules/expo-screen-capture/ios`)
   - EXSplashScreen (from `../../../node_modules/expo-splash-screen/ios`)
   - FBLazyVector (from `../../../node_modules/react-native/Libraries/FBLazyVector`)
@@ -1419,7 +1445,9 @@ DEPENDENCIES:
   - RNGestureHandler (from `../../../node_modules/react-native-gesture-handler`)
   - RNImageCropPicker (from `../../../node_modules/react-native-image-crop-picker`)
   - "RNNotifee (from `../../../node_modules/@notifee/react-native`)"
+  - RNPaywalls (from `../../../node_modules/react-native-purchases-ui`)
   - RNPermissions (from `../../../node_modules/react-native-permissions`)
+  - RNPurchases (from `../../../node_modules/react-native-purchases`)
   - RNReanimated (from `../../../node_modules/react-native-reanimated`)
   - RNScreens (from `../../../node_modules/react-native-screens`)
   - "RNSentry (from `../../../node_modules/@sentry/react-native`)"
@@ -1443,6 +1471,10 @@ SPEC REPOS:
     - MMKV
     - MMKVCore
     - MultiplatformBleAdapter
+    - PurchasesHybridCommon
+    - PurchasesHybridCommonUI
+    - RevenueCat
+    - RevenueCatUI
     - ScreenshotPreventing
     - SDWebImage
     - SDWebImageWebPCoder
@@ -1475,10 +1507,14 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-notifications/ios"
   Expo:
     :path: "../../../node_modules/expo"
+  ExpoAppleAuthentication:
+    :path: "../../../node_modules/expo-apple-authentication/ios"
   ExpoBlur:
     :path: "../../../node_modules/expo-blur/ios"
   ExpoClipboard:
     :path: "../../../node_modules/expo-clipboard/ios"
+  ExpoCrypto:
+    :path: "../../../node_modules/expo-crypto/ios"
   ExpoDevice:
     :path: "../../../node_modules/expo-device/ios"
   ExpoFileSystem:
@@ -1499,12 +1535,16 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/expo-localization/ios"
   ExpoModulesCore:
     :path: "../../../node_modules/expo-modules-core"
+  ExpoNativeExtensions:
+    :path: "../../../node_modules/@privy-io/expo-native-extensions/ios"
   ExpoScreenOrientation:
     :path: "../../../node_modules/expo-screen-orientation/ios"
   ExpoSecureStore:
     :path: "../../../node_modules/expo-secure-store/ios"
   ExpoSharing:
     :path: "../../../node_modules/expo-sharing/ios"
+  ExpoWebBrowser:
+    :path: "../../../node_modules/expo-web-browser/ios"
   EXScreenCapture:
     :path: "../../../node_modules/expo-screen-capture/ios"
   EXSplashScreen:
@@ -1672,8 +1712,12 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/react-native-image-crop-picker"
   RNNotifee:
     :path: "../../../node_modules/@notifee/react-native"
+  RNPaywalls:
+    :path: "../../../node_modules/react-native-purchases-ui"
   RNPermissions:
     :path: "../../../node_modules/react-native-permissions"
+  RNPurchases:
+    :path: "../../../node_modules/react-native-purchases"
   RNReanimated:
     :path: "../../../node_modules/react-native-reanimated"
   RNScreens:
@@ -1694,16 +1738,18 @@ SPEC CHECKSUMS:
   Burnt: dde5dd245f124a4594098e3938ba71aae4ec83c3
   CocoaAsyncSocket: 065fd1e645c7abab64f7a6a2007a48038fdc6a99
   CocoaLumberjack: 5c7e64cdb877770859bddec4d3d5a0d7c9299df9
-  DoubleConversion: 76ab83afb40bddeeee456813d9c04f67f78771b5
+  DoubleConversion: fea03f2699887d960129cc54bba7e52542b6f953
   EXApplication: 137189a3f149b4e8e546884629392c3efc94cbd3
   EXBarCodeScanner: d59fd943cebee3f913ebf4ffde0d05d344da8b78
-  EXConstants: 988aa430ca0f76b43cd46b66e7fae3287f9cc2fc
+  EXConstants: a5f6276e565d98f9eb4280f81241fc342d641590
   EXFont: f20669cb266ef48b004f1eb1f2b20db96cd1df9f
   EXImageLoader: 03063370bc06ea1825713d3f55fe0455f7c88d04
   EXNotifications: e11f0e9a5b657c064a481a5d522f3bc5a07bf7cd
   Expo: d86f597bbab83615207499c5b3bfd80992e2bbd3
+  ExpoAppleAuthentication: 4fc9972356977f009911f2f3a5f56319c2a5b11b
   ExpoBlur: 2eb7f7ac50c0818ee7d596996e4c0112b3d225f6
   ExpoClipboard: b597982124f067ff9f5b89093eb3d97898d5d877
+  ExpoCrypto: b6428f48599c007676dc81a9b5f72c07e62fdccc
   ExpoDevice: d204395e17fffdcefa7470bdef33b07719ac41b1
   ExpoFileSystem: 04795dd4d47e76eaf12e38c92091f77d794f9e7f
   ExpoHaptics: 28a771b630353cd6e8dcf1b1e3e693e38ad7c3c3
@@ -1714,15 +1760,17 @@ SPEC CHECKSUMS:
   ExpoLocalAuthentication: 2fed4b25cf8e54d36d5d1ebc9917e8325b3b5911
   ExpoLocalization: 2d5f47577d67ce991ebdd951edf14fe1db85fa06
   ExpoModulesCore: 370096473359f5f6aade0871400d063333747719
+  ExpoNativeExtensions: 6c442ddce49ea2d1780e56224b222e5b103193f1
   ExpoScreenOrientation: 47c10dbd934cf76ba67c73652030432ea64b1151
   ExpoSecureStore: 5372610a4bbcf5e50fafbe6f38f8d9c22edf8253
   ExpoSharing: 752ad6ae2b693de9cd4e7fddb78297bdc658b815
+  ExpoWebBrowser: e31c97230ea93b51a2a74c6c2381b0d4fca5698c
   EXScreenCapture: d23d01882ce614ba2a341f9fe4bf4a9559830d92
   EXSplashScreen: 6bd596128cd52fac91997ebc64f3d394c843a8f9
   FBLazyVector: 9f533d5a4c75ca77c8ed774aced1a91a0701781e
   FBReactNativeSpec: 2db5940ee4b58968274eec0a4f1c736fc4caefa3
   fmt: ff9d55029c625d3757ed641535fd4a75fedc7ce9
-  glog: 69ef571f3de08433d766d614c73a9838a06bf7eb
+  glog: c5d68082e772fa1c511173d6b30a9de2c05a69a2
   hermes-engine: 39589e9c297d024e90fe68f6830ff86c4e01498a
   ImageColors: 88be684570585c07ae2750bff34eb7b78bfc53b4
   IQKeyboardManagerSwift: c7955c0bdbf7b2eb29bb7daaa44e3d90f55a9a85
@@ -1732,11 +1780,13 @@ SPEC CHECKSUMS:
   JXPagingView: afdd2e9af09c90160dd232b970d603cc6e7ddd0e
   libevent: 4049cae6c81cdb3654a443be001fb9bdceff7913
   libwebp: 1786c9f4ff8a279e4dac1e8f385004d5fc253009
-  lottie-ios: 25e7b2675dad5c3ddad369ac9baab03560c5bfdd
+  lottie-ios: 3d98679b41fa6fd6aff2352b3953dbd3df8a397e
   lottie-react-native: c9f1db4f4124dcce9f8159e65d8dc6e8bcb11fb4
   MMKV: 5a07930c70c70b86cd87761a42c8f3836fb681d7
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
+  PurchasesHybridCommon: ea662e5a551e6fc79c1eb17feb0478c01c59f3e6
+  PurchasesHybridCommonUI: 7f6a7707655327740f4b7e2842985bcb38745030
   RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
   RCTRequired: 77f73950d15b8c1a2b48ba5b79020c3003d1c9b5
   RCTTypeSafety: ede1e2576424d89471ef553b2aed09fbbcc038e3
@@ -1801,6 +1851,8 @@ SPEC CHECKSUMS:
   ReactNativeKeyboardManager: 60292dbac467c49841a7d69588208ec4a4f7b2a2
   ReactNativeSecureWindow: b9dcbfe769995b0e0f499c4558819b440987afb9
   RealmJS: 4c52a15602e70b64cd9230b0a17a9c12741371f4
+  RevenueCat: 34f4147c8d26d2f3c691be4e3c9f033698e557f2
+  RevenueCatUI: d07cd11f991f9fe72fbc64aa14257438ff1b3189
   RNCAsyncStorage: c43e6d71e13bb4748503797784839e0fbbf89d56
   RNDeviceInfo: bf8a32acbcb875f568217285d1793b0e8588c974
   RNFastImage: 5c9c9fed9c076e521b3f509fe79e790418a544e8
@@ -1810,7 +1862,9 @@ SPEC CHECKSUMS:
   RNGestureHandler: 12833709769dde5fdb36ec9d4cdf4d3a1a024122
   RNImageCropPicker: 771e2ca319d2cf92e04ebf334ece892ee9a6728f
   RNNotifee: e940770a09b9a3e7fe6c4155b7849fb00271b154
+  RNPaywalls: 87b0a5aaa0ae343f7e4416c9541287ecd57adcde
   RNPermissions: ac5ac3a8f5f63166a4ea5473c73d7e28447e8178
+  RNPurchases: a99a9d9139c977811e5db73178ea21d8c12f11ac
   RNReanimated: f5cb331578e0c4263050d77ba8bbec209f6b82d7
   RNScreens: 99476adb9f898a77872e67836bbb9d47988788cc
   RNSentry: 780f6c64063f176a9f8296ef32390c3025c97e80
@@ -1831,4 +1885,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 5b7f20a90e19262f325cab10e37056b7f3cd0ffb
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

@@ -1,7 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { isEmpty, isNil } from 'lodash';
+import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {

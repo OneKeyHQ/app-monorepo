@@ -4,6 +4,8 @@ import * as Sentry from '@sentry/react';
 
 import { basicOptions, buildIntegrations, buildOptions } from './basicOptions';
 
+import type { FallbackRender } from '@sentry/react';
+
 export * from '@sentry/react';
 
 export * from './basicOptions';
@@ -22,11 +24,16 @@ export const initSentry = () => {
 
 export const nativeCrash = () => {};
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const addBreadcrumb = (args: any) => {};
+
 export const withSentryHOC = (
   Component: ComponentType<any>,
+  errorBoundaryFallback?: FallbackRender,
 ): ComponentType<any> =>
   Sentry.withErrorBoundary(Sentry.withProfiler(Component), {
     onError: (error, info) => {
       console.error('error', error, info);
     },
+    fallback: errorBoundaryFallback,
   });
