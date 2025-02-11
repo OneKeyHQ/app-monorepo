@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IActionListItemProps } from '@onekeyhq/components';
 import { ActionList } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ESiteMode, type IMobileBottomOptionsProps } from '../../types';
 
@@ -59,28 +60,30 @@ function MobileBrowserBottomOptions({
             onPress: () => onPinnedPress(!isPinned),
             testID: `action-list-item-${!isPinned ? 'pin' : 'un-pin'}`,
           },
-          {
-            label: intl.formatMessage({
-              id:
-                siteMode === ESiteMode.desktop
-                  ? ETranslations.browser_request_mobile_site
-                  : ETranslations.browser_request_desktop_site,
-            }),
-            icon:
-              siteMode === ESiteMode.desktop
-                ? 'PhoneOutline'
-                : 'ComputerOutline',
-            onPress: () => {
-              onRequestSiteMode(
-                siteMode === ESiteMode.desktop
-                  ? ESiteMode.mobile
-                  : ESiteMode.desktop,
-              );
-            },
-            testID: `action-list-item-${
-              siteMode === ESiteMode.desktop ? 'mobile' : 'desktop'
-            }`,
-          },
+          platformEnv.isNativeIOSPad
+            ? undefined
+            : {
+                label: intl.formatMessage({
+                  id:
+                    siteMode === ESiteMode.desktop
+                      ? ETranslations.browser_request_mobile_site
+                      : ETranslations.browser_request_desktop_site,
+                }),
+                icon:
+                  siteMode === ESiteMode.desktop
+                    ? 'PhoneOutline'
+                    : 'ComputerOutline',
+                onPress: () => {
+                  onRequestSiteMode(
+                    siteMode === ESiteMode.desktop
+                      ? ESiteMode.mobile
+                      : ESiteMode.desktop,
+                  );
+                },
+                testID: `action-list-item-${
+                  siteMode === ESiteMode.desktop ? 'mobile' : 'desktop'
+                }`,
+              },
           {
             label: intl.formatMessage({
               id: ETranslations.explore_open_in_browser,
