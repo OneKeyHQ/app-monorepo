@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 
 import { Anchor, SizableText, View } from '@onekeyhq/components';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { HELP_LINKS } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -12,8 +13,8 @@ import type { FormatXMLElementFn } from 'intl-messageformat';
 
 export function TermsAndPrivacy() {
   const intl = useIntl();
-  const termsLink = useHelpLink({ path: 'articles/360002014776' });
-  const privacyLink = useHelpLink({ path: 'articles/360002003315' });
+  const termsLink = useHelpLink({ path: HELP_LINKS.TERMS_OF_SERVICE });
+  const privacyLink = useHelpLink({ path: HELP_LINKS.PRIVACY_POLICY });
 
   const renderAnchor = useCallback(
     (link: string, chunks: string[]) =>

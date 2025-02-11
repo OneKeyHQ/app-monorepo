@@ -8,6 +8,7 @@ import { Section } from '@onekeyhq/kit/src/components/Section';
 import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { HELP_LINKS } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -76,10 +77,10 @@ function ListShortcutsItem() {
 }
 
 export const ResourceSection = () => {
-  const userAgreementUrl = useHelpLink({ path: 'articles/360002014776' });
-  const privacyPolicyUrl = useHelpLink({ path: 'articles/360002003315' });
-  const requestUrl = useHelpLink({ path: 'requests/new' });
-  const helpCenterUrl = useHelpLink({ path: '' });
+  const userAgreementUrl = useHelpLink({ path: HELP_LINKS.TERMS_OF_SERVICE });
+  const privacyPolicyUrl = useHelpLink({ path: HELP_LINKS.PRIVACY_POLICY });
+  const requestUrl = useHelpLink({ path: HELP_LINKS.SUBMIT_REQUEST });
+  const helpCenterUrl = useHelpLink({ path: HELP_LINKS.HELP_CENTER });
   const intl = useIntl();
 
   return (
