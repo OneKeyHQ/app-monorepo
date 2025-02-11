@@ -11,6 +11,12 @@ const TxConfirmFromDApp = LazyLoadPage(
     ),
 );
 
+const MessageConfirmFromDApp = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/SignatureConfirm/pages/MessageConfirm/MessageConfirmFromDapp'
+    ),
+);
 const TxConfirmFromSwap = LazyLoadPage(
   () =>
     import(
@@ -98,6 +104,10 @@ export const ModalSignatureConfirmStack: IModalFlowNavigatorConfig<
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromDApp,
     component: TxConfirmFromDApp,
+  },
+  {
+    name: EModalSignatureConfirmRoutes.MessageConfirmFromDApp,
+    component: MessageConfirmFromDApp,
   },
   {
     name: EModalSignatureConfirmRoutes.TxConfirmFromSwap,

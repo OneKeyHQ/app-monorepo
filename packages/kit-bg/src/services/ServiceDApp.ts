@@ -277,7 +277,7 @@ class ServiceDApp extends ServiceBase {
       request,
       screens: [
         EModalRoutes.SignatureConfirmModal,
-        EModalSignatureConfirmRoutes.MessageConfirm,
+        EModalSignatureConfirmRoutes.MessageConfirmFromDApp,
       ],
       params: {
         unsignedMessage,

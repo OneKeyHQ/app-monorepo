@@ -24,6 +24,7 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
@@ -210,9 +211,11 @@ function TxConfirm() {
     return stakingTx?.stakingInfo;
   }, [unsignedTxs]);
 
-  const handleTxConfirmOnClose = useCallback(() => {
-    dappApprove.reject();
-  }, [dappApprove]);
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+      dappApprove.reject();
+    }
+  };
 
   usePreCheckNativeBalance({
     networkId,
@@ -221,7 +224,10 @@ function TxConfirm() {
 
   useEffect(() => {
     updateUnsignedTxs(unsignedTxs);
-    appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
+    appEventBus.emit(
+      EAppEventBusNames.SignatureConfirmContainerMounted,
+      undefined,
+    );
     return () => {
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
     };
@@ -265,7 +271,7 @@ function TxConfirm() {
   ]);
 
   return (
-    <Page scrollEnabled onClose={handleTxConfirmOnClose} safeAreaEnabled>
+    <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header title={txConfirmTitle} />
       <Page.Body testID="tx-confirmation-body" px="$5">
         {renderTxConfirmContent()}

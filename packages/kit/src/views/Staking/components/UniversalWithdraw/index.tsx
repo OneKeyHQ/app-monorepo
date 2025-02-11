@@ -127,48 +127,16 @@ export const UniversalWithdraw = ({
   ).result;
 
   const onPress = useCallback(async () => {
-    Dialog.show({
-      renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
-      title: intl.formatMessage(
-        { id: ETranslations.earn_provider_asset_withdrawal },
-        {
-          'provider': capitalizeString(providerName ?? ''),
-          'asset': tokenSymbol?.toUpperCase() ?? '',
-        },
-      ),
-      description: isMorphoProvider
-        ? intl.formatMessage({
-            id: ETranslations.earn_withdrawal_processed_immediately,
-          })
-        : undefined,
-      renderContent: isMorphoProvider ? null : (
-        <WithdrawShouldUnderstand withdrawalPeriod={unstakingPeriod ?? 3} />
-      ),
-      onConfirm: async (inst) => {
-        try {
-          setLoading(true);
-          await inst.close();
-          await onConfirm?.({
-            amount: amountValue,
-            withdrawAll: withdrawAllRef.current,
-          });
-        } finally {
-          setLoading(false);
-        }
-      },
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_withdraw }),
-      showCancelButton: false,
-    });
-  }, [
-    amountValue,
-    onConfirm,
-    intl,
-    tokenImageUri,
-    tokenSymbol,
-    providerName,
-    unstakingPeriod,
-    isMorphoProvider,
-  ]);
+    try {
+      setLoading(true);
+      await onConfirm?.({
+        amount: amountValue,
+        withdrawAll: withdrawAllRef.current,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [amountValue, onConfirm]);
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const checkAmount = useDebouncedCallback(async (amount: string) => {
@@ -402,7 +370,7 @@ export const UniversalWithdraw = ({
 
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
+          id: ETranslations.global_withdraw,
         })}
         confirmButtonProps={{
           onPress,

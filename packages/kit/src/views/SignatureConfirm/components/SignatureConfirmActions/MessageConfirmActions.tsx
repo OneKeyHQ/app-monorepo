@@ -1,14 +1,13 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import { isEmpty } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Checkbox, Page, Toast } from '@onekeyhq/components';
+import { Checkbox, Page, Toast, usePageUnMounted } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
-import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   validateSignMessageData,
@@ -16,6 +15,7 @@ import {
   validateTypedSignMessageDataV3V4,
 } from '@onekeyhq/shared/src/utils/messageUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import type { IHostSecurity } from '@onekeyhq/shared/types/discovery';
 import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
@@ -32,6 +32,11 @@ type IProps = {
   showContinueOperate?: boolean;
   urlSecurityInfo?: IHostSecurity;
   isConfirmationRequired?: boolean;
+  sourceInfo?: IDappSourceInfo;
+  walletInternalSign?: boolean;
+  onSuccess?: (result: string) => void;
+  onFail?: (error: Error) => void;
+  onCancel?: () => void;
 };
 
 function MessageConfirmActions(props: IProps) {
@@ -45,28 +50,32 @@ function MessageConfirmActions(props: IProps) {
     showContinueOperate: showContinueOperateLocal,
     urlSecurityInfo,
     isConfirmationRequired,
+    sourceInfo,
+    walletInternalSign,
+    onSuccess,
+    onFail,
+    onCancel,
   } = props;
 
   const intl = useIntl();
-  const { $sourceInfo, walletInternalSign } = useDappQuery<{
-    walletInternalSign?: boolean;
-  }>();
+
   const { network } = useAccountData({
     networkId,
   });
 
+  const isSubmitted = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [continueOperate, setContinueOperate] = useState(false);
 
   const dappApprove = useDappApproveAction({
-    id: $sourceInfo?.id ?? '',
+    id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
   });
 
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
       setIsLoading(true);
-
+      isSubmitted.current = true;
       try {
         if (
           unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
@@ -88,7 +97,9 @@ function MessageConfirmActions(props: IProps) {
           );
         }
       } catch (e: any) {
+        isSubmitted.current = false;
         setIsLoading(false);
+        onFail?.(e);
         dappApprove?.reject({ error: e });
         close?.();
         return;
@@ -103,12 +114,13 @@ function MessageConfirmActions(props: IProps) {
         void dappApprove.resolve({
           result,
         });
+        onSuccess?.(result);
         try {
           await backgroundApiProxy.serviceSignature.addItemFromSignMessage({
             networkId,
             accountId,
             message: unsignedMessage.message,
-            sourceInfo: $sourceInfo,
+            sourceInfo,
           });
         } catch {
           // noop
@@ -127,10 +139,12 @@ function MessageConfirmActions(props: IProps) {
       unsignedMessage,
       network?.impl,
       networkId,
+      onFail,
       dappApprove,
       accountId,
+      onSuccess,
       intl,
-      $sourceInfo,
+      sourceInfo,
     ],
   );
 
@@ -164,6 +178,34 @@ function MessageConfirmActions(props: IProps) {
     isConfirmationRequired,
   ]);
 
+  const cancelCalledRef = useRef(false);
+  const onCancelOnce = useCallback(() => {
+    if (cancelCalledRef.current) {
+      return;
+    }
+    cancelCalledRef.current = true;
+    onCancel?.();
+  }, [onCancel]);
+
+  const handleOnCancel = useCallback(
+    (close: () => void, closePageStack: () => void) => {
+      dappApprove.reject();
+      if (!sourceInfo) {
+        closePageStack();
+      } else {
+        close();
+      }
+      onCancelOnce();
+    },
+    [dappApprove, onCancelOnce, sourceInfo],
+  );
+
+  usePageUnMounted(() => {
+    if (!isSubmitted.current) {
+      onCancelOnce();
+    }
+  });
+
   return (
     <Page.Footer disableKeyboardAnimation>
       <Page.FooterActions
@@ -171,7 +213,7 @@ function MessageConfirmActions(props: IProps) {
           id: ETranslations.dapp_connect_confirm,
         })}
         onConfirm={(params) => handleSignMessage(params)}
-        onCancel={() => dappApprove.reject()}
+        onCancel={handleOnCancel}
         confirmButtonProps={{
           loading: isLoading,
           disabled:
