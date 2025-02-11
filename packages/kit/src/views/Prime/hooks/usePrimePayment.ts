@@ -48,9 +48,9 @@ export function usePrimePayment(): IUsePrimePayment {
     if (devSettings?.settings?.usePrimeSandboxPayment) {
       apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
     }
-    // if (!apiKey) {
-    //   throw new Error('No REVENUECAT api key found');
-    // }
+    if (!apiKey) {
+      throw new Error('No REVENUECAT api key found');
+    }
 
     // TODO VPN required
     // await Purchases.setProxyURL('https://api.rc-backup.com/');
