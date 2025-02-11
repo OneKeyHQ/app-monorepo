@@ -158,7 +158,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
 
           // *** Note that static HTML will require setting originWhitelist to ["*"].
           originWhitelist={['*']}
-          userAgent={siteMode === ESiteMode.desktop ? desktopUserAgent : ''}
+          userAgent={
+            siteMode === ESiteMode.desktop ? desktopUserAgent : undefined
+          }
           {...nativeWebviewProps}
         />
       </Stack>
