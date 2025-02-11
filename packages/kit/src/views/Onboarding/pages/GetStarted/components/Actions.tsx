@@ -112,7 +112,9 @@ export function Actions() {
 
       <ActionList
         placement="bottom"
-        title={ETranslations.onboarding_create_or_import_wallet}
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_create_or_import_wallet,
+        })}
         renderTrigger={
           <Action
             label={intl.formatMessage({

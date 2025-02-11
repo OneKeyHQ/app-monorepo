@@ -55,7 +55,7 @@ class MarketTokenPriceEvent {
   ) {
     const cacheKey = this.buildKey(tokenName, tokenSymbol);
     const listeners = this.priceChangedListenerMap.get(cacheKey) || [];
-    const throttleCallback = throttle(callback, 200);
+    const throttleCallback = throttle(callback, 450);
     listeners.push(throttleCallback);
     this.priceChangedListenerMap.set(cacheKey, listeners);
     return () => {

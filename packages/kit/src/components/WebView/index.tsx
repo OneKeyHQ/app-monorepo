@@ -9,6 +9,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import InpageProviderWebView from './InpageProviderWebView';
 
 import type { IElectronWebViewEvents, IWebViewOnScroll } from './types';
+import type { ESiteMode } from '../../views/Discovery/types';
 import type { IJsBridgeReceiveHandler } from '@onekeyfe/cross-inpage-provider-types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type {
@@ -43,6 +44,10 @@ interface IWebViewProps extends IElectronWebViewEvents {
   displayProgressBar?: boolean;
   onProgress?: (progress: number) => void;
   webviewDebuggingEnabled?: boolean;
+  /** @platform native
+   * @description Open website in desktop mode or mobile mode
+   */
+  siteMode?: ESiteMode;
 }
 
 const WebView: FC<IWebViewProps> = ({
