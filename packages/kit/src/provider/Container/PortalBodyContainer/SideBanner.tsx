@@ -22,6 +22,7 @@ import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EModalDeviceManagementRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EOnboardingPages,
@@ -29,6 +30,8 @@ import {
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -133,7 +136,16 @@ function BottomMenu() {
     useNewModal: true,
   });
 
-  const openDeviceManagementPage = useCallback(() => {
+  const openDeviceManagementPage = useCallback(async () => {
+    const { devices } =
+      await backgroundApiProxy.serviceAccount.getAllActiveDevices();
+    if (devices.length > 0) {
+      appNavigation.pushModal(EModalRoutes.DeviceManagementModal, {
+        screen: EModalDeviceManagementRoutes.DeviceListModal,
+      });
+      return;
+    }
+
     appNavigation.pushModal(EModalRoutes.OnboardingModal, {
       screen: EOnboardingPages.DeviceManagementGuide,
     });

@@ -269,6 +269,13 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAllActiveDevices() {
+    const devices = await localDb.getAllActiveDevices();
+    console.log('==========>>>>>>active devices: ', devices);
+    return { devices };
+  }
+
+  @backgroundMethod()
   async isWalletHasIndexedAccounts({ walletId }: { walletId: string }) {
     const { accounts: indexedAccounts } = await this.getIndexedAccountsOfWallet(
       {

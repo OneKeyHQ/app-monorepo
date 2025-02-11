@@ -3231,6 +3231,47 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async getAllActiveDevices(): Promise<IDBDevice[]> {
+    try {
+      const { wallets = [] } = await this.getAllWallets();
+
+      if (!wallets.length) {
+        return [];
+      }
+
+      // filter hardware wallets
+      const hwWallets = wallets.filter(
+        (wallet) => wallet && wallet.type === WALLET_TYPE_HW,
+      );
+
+      if (!hwWallets.length) {
+        return [];
+      }
+
+      // collect all associated device ids
+      const deviceIds = new Set(
+        hwWallets
+          .map((wallet) => wallet.associatedDevice)
+          .filter((id): id is string => Boolean(id)),
+      );
+
+      if (!deviceIds.size) {
+        return [];
+      }
+
+      // get all devices and filter out associated hardware devices
+      const { devices = [] } = await this.getAllDevices();
+      const activeDevices = devices.filter(
+        (device) => device && deviceIds.has(device.id),
+      );
+
+      return activeDevices;
+    } catch (error) {
+      console.error('Failed to get active devices:', error);
+      return [];
+    }
+  }
+
   // ---------------------------------------------- signature record
   async addSignedMessage(params: ICreateSignedMessageParams) {
     await this.withTransaction(async (tx) => {
