@@ -17,13 +17,13 @@ const StepNumber = ({ children }: { children: ReactNode }) => (
   </Stack>
 );
 
-type TransferStepProps = {
+type ITransferStepProps = {
   number: number;
   title: string;
   description?: string;
 };
 
-function TransferStep({ number, title, description }: TransferStepProps) {
+function TransferStep({ number, title, description }: ITransferStepProps) {
   return (
     <XStack gap="$2">
       <StepNumber>{number}</StepNumber>

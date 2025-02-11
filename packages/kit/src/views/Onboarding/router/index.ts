@@ -2,6 +2,7 @@ import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
+
 import { TransferData } from '../pages/TransferData/TransferData';
 
 const ActivateDevice = LazyLoadPage(

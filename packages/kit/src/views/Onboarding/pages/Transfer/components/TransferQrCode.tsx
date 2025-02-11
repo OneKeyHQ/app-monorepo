@@ -1,17 +1,18 @@
-import { Stack } from '@onekeyhq/components';
+import { useCallback } from 'react';
 
 import {
-  SizableText,
-  YStack,
-  XStack,
-  Image,
-  Icon,
   Divider,
-  useClipboard,
+  Icon,
+  Image,
+  SizableText,
+  Stack,
   Toast,
+  XStack,
+  YStack,
+  useClipboard,
 } from '@onekeyhq/components';
+
 import { TransferSteps } from './TransferSteps';
-import { useCallback, useState } from 'react';
 
 export function TransferQrCode() {
   const { copyText } = useClipboard();

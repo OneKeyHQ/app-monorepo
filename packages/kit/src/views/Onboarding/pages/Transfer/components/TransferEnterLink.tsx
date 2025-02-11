@@ -6,12 +6,12 @@ import {
   Input,
   SizableText,
   Stack,
-  useClipboard,
   YStack,
+  useClipboard,
 } from '@onekeyhq/components';
+import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
 
 import { TransferSteps } from './TransferSteps';
-import useScanQrCode from '../../../../ScanQrCode/hooks/useScanQrCode';
 
 export function TransferEnterLink() {
   const { start } = useScanQrCode();
@@ -39,11 +39,11 @@ export function TransferEnterLink() {
             {
               iconName: 'ScanOutline',
               onPress: async () => {
-                const address = await start({
+                const result = await start({
                   handlers: [],
                   autoHandleResult: false,
                 });
-                setAddress(address?.raw);
+                setAddress(result?.raw);
               },
             },
           ]}
