@@ -55,7 +55,6 @@ const NativeWebView = forwardRef(
     }: INativeWebViewProps,
     ref,
   ) => {
-    console.log('---userAgent', props.userAgent);
     const webviewRef = useRef<WebView>();
     const refreshControlRef = useMemo(() => createRef<RefreshControl>(), []);
     const [isRefresh] = useState(false);
