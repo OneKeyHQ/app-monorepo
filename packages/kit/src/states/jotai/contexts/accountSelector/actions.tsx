@@ -679,9 +679,16 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 deriveType: failedAccount.deriveType,
               });
             Toast.error({
-              title: `Create address failed: ${
-                network?.name || failedAccount.networkId
-              } ${deriveTypeInfo?.label || failedAccount.deriveType} `,
+              title: appLocale.intl.formatMessage(
+                {
+                  id: ETranslations.feedback_hw_create_unsupported_address_title,
+                },
+                {
+                  network: network?.name || failedAccount.networkId,
+                  addressType:
+                    deriveTypeInfo?.label || failedAccount.deriveType,
+                },
+              ),
               message: failedAccount.error.message || 'Unknown error',
             });
           }

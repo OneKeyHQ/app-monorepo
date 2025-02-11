@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "Vous pouvez rencontrer une erreur de chemin de clé interdit. Désactivez la \"Vérification de sécurité\" du matériel pour résoudre le problème.",
   "feedback.hardware_is_busy": "Le matériel est actuellement occupé. Veuillez réessayer plus tard",
   "feedback.hardware_unsupported_current_address_type": "Cet appareil ne prend pas en charge ce type d'adresse",
+  "feedback.hw_create_unsupported_address_title": "Échec de la création de l'adresse {addressType} {network}",
   "feedback.hw_polling_time_out": "Délai de connexion dépassé",
   "feedback.invalid_phrases": "Phrases invalides",
   "feedback.invalid_qr_code": "Code QR invalide",

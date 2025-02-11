@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "금지된 키 경로 오류를 만날 수 있습니다. 하드웨어 \"보안 검사\"를 비활성화하여 해결하세요.",
   "feedback.hardware_is_busy": "하드웨어가 현재 사용 중입니다. 나중에 다시 시도해 주세요.",
   "feedback.hardware_unsupported_current_address_type": "이 장치는 이 유형의 주소를 지원하지 않습니다",
+  "feedback.hw_create_unsupported_address_title": "{network} {addressType} 주소 생성 실패",
   "feedback.hw_polling_time_out": "연결 시간 초과",
   "feedback.invalid_phrases": "잘못된 문구",
   "feedback.invalid_qr_code": "잘못된 QR 코드",

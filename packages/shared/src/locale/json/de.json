@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "Sie könnten auf einen Fehler mit einem verbotenen Schlüsselpfad stoßen. Deaktivieren Sie die Hardware-\"Sicherheitsprüfung\", um das Problem zu beheben.",
   "feedback.hardware_is_busy": "Die Hardware ist derzeit beschäftigt. Bitte versuchen Sie es später erneut",
   "feedback.hardware_unsupported_current_address_type": "Dieses Gerät unterstützt diesen Adresstyp nicht",
+  "feedback.hw_create_unsupported_address_title": "Fehler beim Erstellen der {network} {addressType} Adresse",
   "feedback.hw_polling_time_out": "Verbindungszeitüberschreitung",
   "feedback.invalid_phrases": "Ungültige Phrasen",
   "feedback.invalid_qr_code": "Ungültiger QR-Code",

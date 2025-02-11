@@ -720,6 +720,7 @@
   feedback_forbidden_key_path_error = 'feedback.forbidden_key_path_error',
   feedback_hardware_is_busy = 'feedback.hardware_is_busy',
   feedback_hardware_unsupported_current_address_type = 'feedback.hardware_unsupported_current_address_type',
+  feedback_hw_create_unsupported_address_title = 'feedback.hw_create_unsupported_address_title',
   feedback_hw_polling_time_out = 'feedback.hw_polling_time_out',
   feedback_invalid_phrases = 'feedback.invalid_phrases',
   feedback_invalid_qr_code = 'feedback.invalid_qr_code',

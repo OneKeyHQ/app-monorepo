@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "คุณอาจพบกับข้อผิดพลาดเกี่ยวกับเส้นทางคีย์ที่ถูกห้าม ปิดใช้งาน \"การตรวจสอบความปลอดภัย\" ของฮาร์ดแวร์เพื่อแก้ไขปัญหา",
   "feedback.hardware_is_busy": "ฮาร์ดแวร์กำลังทำงานอยู่ กรุณาลองใหม่ภายหลัง",
   "feedback.hardware_unsupported_current_address_type": "อุปกรณ์นี้ไม่รองรับประเภทของที่อยู่นี้",
+  "feedback.hw_create_unsupported_address_title": "ไม่สามารถสร้างที่อยู่ {network} {addressType} ได้",
   "feedback.hw_polling_time_out": "การเชื่อมต่อหมดเวลา",
   "feedback.invalid_phrases": "วลีที่ไม่ถูกต้อง",
   "feedback.invalid_qr_code": "รหัส QR ไม่ถูกต้อง",

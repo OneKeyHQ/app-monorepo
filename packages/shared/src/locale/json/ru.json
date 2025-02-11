@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "Вы можете столкнуться с ошибкой запрещенного ключевого пути. Отключите аппаратную \"Проверку безопасности\", чтобы решить эту проблему.",
   "feedback.hardware_is_busy": "Оборудование в данный момент занято. Пожалуйста, попробуйте позже",
   "feedback.hardware_unsupported_current_address_type": "Это устройство не поддерживает этот тип адреса",
+  "feedback.hw_create_unsupported_address_title": "Не удалось создать {network} адрес {addressType}",
   "feedback.hw_polling_time_out": "Тайм-аут соединения",
   "feedback.invalid_phrases": "Недопустимые фразы",
   "feedback.invalid_qr_code": "Неверный QR-код",

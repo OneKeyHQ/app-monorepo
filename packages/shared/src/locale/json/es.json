@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "Puede encontrar un error de ruta de clave prohibida. Desactive la \"Verificación de seguridad\" del hardware para resolverlo.",
   "feedback.hardware_is_busy": "El hardware está ocupado en este momento. Por favor, inténtelo de nuevo más tarde",
   "feedback.hardware_unsupported_current_address_type": "Este dispositivo no admite este tipo de dirección",
+  "feedback.hw_create_unsupported_address_title": "Error al crear la dirección {addressType} de {network}",
   "feedback.hw_polling_time_out": "Tiempo de conexión agotado",
   "feedback.invalid_phrases": "Frases inválidas",
   "feedback.invalid_qr_code": "Código QR no válido",

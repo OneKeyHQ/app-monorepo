@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "Bạn có thể gặp lỗi đường dẫn khóa bị cấm. Tắt chức năng \"Kiểm tra Bảo mật\" phần cứng để giải quyết.",
   "feedback.hardware_is_busy": "Phần cứng hiện đang bận. Vui lòng thử lại sau",
   "feedback.hardware_unsupported_current_address_type": "Thiết bị này không hỗ trợ loại địa chỉ này",
+  "feedback.hw_create_unsupported_address_title": "Không thể tạo địa chỉ {addressType} {network}",
   "feedback.hw_polling_time_out": "Kết nối quá thời gian",
   "feedback.invalid_phrases": "Cụm từ không hợp lệ",
   "feedback.invalid_qr_code": "Mã QR không hợp lệ",

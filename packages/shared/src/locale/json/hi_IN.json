@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "आपको एक निषिद्ध कुंजी पथ त्रुटि का सामना करना पड़ सकता है। \"सुरक्षा जांच\" हार्डवेयर को निष्क्रिय करके समस्या का समाधान करें।",
   "feedback.hardware_is_busy": "हार्डवेयर वर्तमान में व्यस्त है। कृपया बाद में पुनः प्रयास करें",
   "feedback.hardware_unsupported_current_address_type": "यह उपकरण इस प्रकार के पते का समर्थन नहीं करता है",
+  "feedback.hw_create_unsupported_address_title": "{network} {addressType} पता बनाने में विफल",
   "feedback.hw_polling_time_out": "कनेक्शन टाइमआउट",
   "feedback.invalid_phrases": "अमान्य वाक्यांश",
   "feedback.invalid_qr_code": "अमान्य क्यूआर कोड",

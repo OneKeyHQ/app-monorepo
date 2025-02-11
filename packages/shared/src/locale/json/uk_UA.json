@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "Ви можете зіткнутися з помилкою забороненого ключового шляху. Вимкніть апаратну \"Перевірку безпеки\", щоб вирішити цю проблему.",
   "feedback.hardware_is_busy": "Обладнання зараз зайняте. Будь ласка, спробуйте пізніше",
   "feedback.hardware_unsupported_current_address_type": "Цей пристрій не підтримує цей тип адреси",
+  "feedback.hw_create_unsupported_address_title": "Не вдалося створити адресу {network} {addressType}",
   "feedback.hw_polling_time_out": "Таймаут з'єднання",
   "feedback.invalid_phrases": "Неправильні фрази",
   "feedback.invalid_qr_code": "Недійсний QR-код",

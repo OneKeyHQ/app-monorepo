@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "Potresti riscontrare un errore relativo a un percorso chiave proibito. Disabilita il \"Controllo di sicurezza\" hardware per risolvere.",
   "feedback.hardware_is_busy": "L'hardware è attualmente occupato. Si prega di riprovare più tardi",
   "feedback.hardware_unsupported_current_address_type": "Questo dispositivo non supporta questo tipo di indirizzo",
+  "feedback.hw_create_unsupported_address_title": "Impossibile creare l'indirizzo {addressType} {network}",
   "feedback.hw_polling_time_out": "Timeout della connessione",
   "feedback.invalid_phrases": "Frasi non valide",
   "feedback.invalid_qr_code": "Codice QR non valido",

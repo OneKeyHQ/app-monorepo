@@ -715,6 +715,7 @@
   "feedback.forbidden_key_path_error": "আপনি একটি নিষিদ্ধ কী পথ ত্রুটি পেতে পারেন। সমাধান করার জন্য হার্ডওয়্যার \"সিকিউরিটি চেক\" অক্ষম করুন।",
   "feedback.hardware_is_busy": "হার্ডওয়্যার বর্তমানে ব্যস্ত। দয়া করে পরে আবার চেষ্টা করুন।",
   "feedback.hardware_unsupported_current_address_type": "এই ডিভাইসটি এই ধরণের ঠিকানা সমর্থন করে না",
+  "feedback.hw_create_unsupported_address_title": "{network} {addressType} ঠিকানা তৈরি করতে ব্যর্থ হয়েছে",
   "feedback.hw_polling_time_out": "সংযোগ সময়সীমা অতিক্রান্ত",
   "feedback.invalid_phrases": "অবৈধ বাক্যাংশ",
   "feedback.invalid_qr_code": "অবৈধ QR কোড",
