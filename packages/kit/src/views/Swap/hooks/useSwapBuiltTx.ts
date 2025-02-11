@@ -93,10 +93,11 @@ export function useSwapBuildTx() {
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const [, setSettings] = useSettingsAtom();
-  const { navigationToSignatureConfirm } = useSignatureConfirm({
-    accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
-    networkId: swapFromAddressInfo.networkId ?? '',
-  });
+  const { navigationToTxConfirm, navigationToMessageConfirm } =
+    useSignatureConfirm({
+      accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+      networkId: swapFromAddressInfo.networkId ?? '',
+    });
 
   const pageType = usePageType();
 
@@ -365,7 +366,7 @@ export function useSwapBuildTx() {
         receivingAddress: swapToAddressInfo.address,
         swapBuildResData: { result: selectQuote },
       };
-      await navigationToSignatureConfirm({
+      await navigationToTxConfirm({
         wrappedInfo,
         swapInfo,
         isInternalSwap: true,
@@ -387,7 +388,7 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     setSwapBuildTxFetching,
-    navigationToSignatureConfirm,
+    navigationToTxConfirm,
     handleBuildTxSuccess,
     handleTxFail,
     syncRecentTokenPairs,
@@ -452,25 +453,49 @@ export function useSwapBuildTx() {
               );
             }
             if (dataMessage) {
-              const signHash =
-                (await backgroundApiProxy.serviceDApp.openSignMessageModal({
-                  accountId: swapFromAddressInfo.accountInfo?.account?.id,
-                  networkId: swapFromAddressInfo.networkId,
-                  request: {
-                    origin: unSignedInfo.origin,
-                    scope: unSignedInfo.scope as IInjectedProviderNamesStrings,
-                  },
-                  unsignedMessage: {
-                    type:
-                      unSignedInfo.signedType ?? EMessageTypesEth.TYPED_DATA_V4,
-                    message: dataMessage,
-                    payload: [
-                      swapFromAddressInfo.address.toLowerCase(),
-                      dataMessage,
-                    ],
-                  },
-                  walletInternalSign: true,
-                })) as string;
+              const signHash = await new Promise<string>((resolve, reject) => {
+                if (
+                  dataMessage &&
+                  swapFromAddressInfo.address &&
+                  swapFromAddressInfo.networkId
+                ) {
+                  navigationToMessageConfirm({
+                    accountId:
+                      swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                    networkId: swapFromAddressInfo.networkId,
+                    unsignedMessage: {
+                      type:
+                        unSignedInfo.signedType ??
+                        EMessageTypesEth.TYPED_DATA_V4,
+                      message: dataMessage,
+                      payload: [
+                        swapFromAddressInfo.address.toLowerCase(),
+                        dataMessage,
+                      ],
+                    },
+                    walletInternalSign: true,
+                    onSuccess: (result: string) => {
+                      resolve(result);
+                    },
+                    onFail: (error: Error) => {
+                      reject(error);
+                    },
+                    onCancel: () => {
+                      reject(new Error('user cancel'));
+                    },
+                  });
+                } else {
+                  reject(
+                    new Error(
+                      `missing data: dataMessage: ${
+                        dataMessage ?? ''
+                      }, address: ${
+                        swapFromAddressInfo.address ?? ''
+                      }, networkId: ${swapFromAddressInfo.networkId ?? ''}`,
+                    ),
+                  );
+                }
+              });
               if (signHash) {
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
                 selectQuoteRes.quoteResultCtx.cowSwapUnSignedOrder =
@@ -645,6 +670,7 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
+    navigationToMessageConfirm,
     swapTypeSwitch,
   ]);
 
@@ -701,7 +727,7 @@ export function useSwapBuildTx() {
                   swapInfo: createBuildTxRes.swapInfo,
                 });
               } else {
-                await navigationToSignatureConfirm({
+                await navigationToTxConfirm({
                   isInternalSwap: true,
                   transfersInfo: createBuildTxRes.transferInfo
                     ? [createBuildTxRes.transferInfo]
@@ -777,7 +803,7 @@ export function useSwapBuildTx() {
                 resetApproveIsMax: isMax,
               },
             }));
-            await navigationToSignatureConfirm({
+            await navigationToTxConfirm({
               approvesInfo: [approveInfo],
               isInternalSwap: true,
               onSuccess: handleApproveTxSuccess,
@@ -799,7 +825,7 @@ export function useSwapBuildTx() {
       isBatchTransfer,
       setSwapBuildTxFetching,
       createBuildTx,
-      navigationToSignatureConfirm,
+      navigationToTxConfirm,
       handleBuildTxSuccess,
       cancelBuildTx,
       syncRecentTokenPairs,
@@ -831,7 +857,7 @@ export function useSwapBuildTx() {
       try {
         if (createBuildTxRes) {
           if (!createBuildTxRes.skipSendTransAction) {
-            await navigationToSignatureConfirm({
+            await navigationToTxConfirm({
               isInternalSwap: true,
               transfersInfo: createBuildTxRes.transferInfo
                 ? [createBuildTxRes.transferInfo]
@@ -892,7 +918,7 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     setSwapBuildTxFetching,
     createBuildTx,
-    navigationToSignatureConfirm,
+    navigationToTxConfirm,
     handleBuildTxSuccess,
     cancelBuildTx,
     syncRecentTokenPairs,
