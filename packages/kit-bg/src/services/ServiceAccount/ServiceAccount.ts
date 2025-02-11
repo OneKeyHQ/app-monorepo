@@ -1047,6 +1047,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     walletId: string;
     accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
   }> {
     if (platformEnv.isWebDappMode) {
       throw new Error(
@@ -1112,10 +1113,11 @@ class ServiceAccount extends ServiceBase {
         networkId,
         walletId,
         accounts: [],
+        isOverrideAccounts: false,
       };
     }
 
-    await localDb.addAccountsToWallet({
+    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
@@ -1128,6 +1130,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
       accounts,
+      isOverrideAccounts,
     };
   }
 
@@ -1252,6 +1255,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     walletId: string;
     accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
   }> {
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new Error(
@@ -1353,10 +1357,11 @@ class ServiceAccount extends ServiceBase {
         networkId,
         walletId,
         accounts: [],
+        isOverrideAccounts: false,
       };
     }
 
-    await localDb.addAccountsToWallet({
+    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
@@ -1370,6 +1375,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
       accounts,
+      isOverrideAccounts,
     };
   }
 

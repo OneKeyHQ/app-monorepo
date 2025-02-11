@@ -97,6 +97,7 @@ export type IAccountSelectorSyncFromSceneParams = {
 export type IFinalizeWalletSetupCreateWalletResult = {
   wallet: IDBWallet;
   indexedAccount: IDBIndexedAccount | undefined;
+  isOverrideWallet?: boolean;
   hidden?: {
     wallet: IDBWallet;
     indexedAccount: IDBIndexedAccount | undefined;
@@ -586,10 +587,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         await timerUtils.wait(100);
 
-        const [{ wallet, indexedAccount, hidden }] = await Promise.all([
-          await createWalletFn(),
-          await timerUtils.wait(1000),
-        ]);
+        const [{ wallet, indexedAccount, hidden, isOverrideWallet }] =
+          await Promise.all([
+            await createWalletFn(),
+            await timerUtils.wait(1000),
+          ]);
 
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.GeneratingAccounts,
@@ -614,7 +616,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         await timerUtils.wait(1000);
 
-        return { wallet, indexedAccount };
+        return { wallet, indexedAccount, isOverrideWallet };
       } catch (error) {
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
@@ -792,7 +794,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, params: IDBCreateHwWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          const { wallet, device, indexedAccount } =
+          const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
               { ...params, skipDeviceCancel: true },
@@ -840,6 +842,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
 
           return {
+            isOverrideWallet,
             wallet,
             indexedAccount,
             hidden: hiddenWalletCreatedResult
