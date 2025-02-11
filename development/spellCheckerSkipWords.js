@@ -803,4 +803,5 @@ module.exports = [
   'Otp',
   'onekeyid',
   'passcode',
+  'signup',
 ];
