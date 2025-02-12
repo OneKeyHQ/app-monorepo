@@ -18,15 +18,20 @@ import {
   SizableText,
   XStack,
   YStack,
+  onVisibilityStateChange,
   useForm,
 } from '@onekeyhq/components';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EPasswordMode,
   EPasswordVerifyStatus,
 } from '@onekeyhq/shared/types/password';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
 import { getPasswordKeyboardType } from '../utils';
@@ -166,14 +171,50 @@ const PasswordVerify = ({
     }
   }, [form, passwordMode, status]);
 
+  const checkAuthChanged = useCallback(async () => {
+    const isSupport = await biologyAuth.isSupportBiologyAuth();
+    if (!isSupport) {
+      return false;
+    }
+    const changed = await checkBiometricAuthChanged();
+    if (changed) {
+      void backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
+      alert(
+        'Biometric authentication has changed. Please manually re-enable it.',
+      );
+    }
+    return changed;
+  }, []);
+
   useLayoutEffect(() => {
-    if (
-      isEnable &&
-      !passwordInput &&
-      status.value === EPasswordVerifyStatus.DEFAULT &&
-      !manualLocking
-    ) {
-      void onBiologyAuth();
+    void (async () => {
+      if (
+        isEnable &&
+        !passwordInput &&
+        status.value === EPasswordVerifyStatus.DEFAULT &&
+        !manualLocking
+      ) {
+        let changed = false;
+        if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
+          changed = await checkAuthChanged();
+        }
+        if (changed) {
+          return;
+        }
+        void onBiologyAuth();
+      }
+    })();
+
+    if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
+      const handleVisibilityStateChange = (visible: boolean) => {
+        if (visible) {
+          void checkAuthChanged();
+        }
+      };
+      const removeSubscription = onVisibilityStateChange(
+        handleVisibilityStateChange,
+      );
+      return removeSubscription;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEnable, manualLocking]);
