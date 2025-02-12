@@ -47,35 +47,3 @@ export const useBiometricAuthInfo = () => {
     };
   }, [authType, intl]);
 };
-
-export const useCheckBiometricAuthChanged =
-  platformEnv.isNativeIOS || platformEnv.isDesktopMac
-    ? () => {
-        const checkAuthChanged = useCallback(async () => {
-          const isSupport = await biologyAuth.isSupportBiologyAuth();
-          if (!isSupport) {
-            return;
-          }
-          const changed = await checkBiometricAuthChanged();
-          if (changed) {
-            void backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
-            alert(
-              'Biometric authentication has changed. Please manually re-enable it.',
-            );
-          }
-        }, []);
-
-        useEffect(() => {
-          void checkAuthChanged();
-          const handleVisibilityStateChange = (visible: boolean) => {
-            if (visible) {
-              void checkAuthChanged();
-            }
-          };
-          const removeSubscription = onVisibilityStateChange(
-            handleVisibilityStateChange,
-          );
-          return removeSubscription;
-        }, [checkAuthChanged]);
-      }
-    : () => {};
