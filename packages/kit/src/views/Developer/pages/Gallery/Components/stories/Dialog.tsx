@@ -25,7 +25,6 @@ import type {
   IDialogInstance,
 } from '@onekeyhq/components/src/composite/Dialog/type';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EGalleryRoutes,
   EModalRoutes,
