@@ -6998,7 +6998,7 @@ __metadata:
     cross-env: "npm:^7.0.3"
     electron: "npm:27.3.1"
     electron-builder: "npm:24.13.3"
-    electron-check-biometric-auth-changed: "npm:0.0.1"
+    electron-check-biometric-auth-changed: "npm:0.0.2"
     electron-context-menu: "npm:^3.5.0"
     electron-is-dev: "npm:^2.0.0"
     electron-log: "npm:5.2.0"
@@ -22060,14 +22060,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-check-biometric-auth-changed@npm:0.0.1":
-  version: 0.0.1
-  resolution: "electron-check-biometric-auth-changed@npm:0.0.1"
+"electron-check-biometric-auth-changed@npm:0.0.2":
+  version: 0.0.2
+  resolution: "electron-check-biometric-auth-changed@npm:0.0.2"
   dependencies:
     bindings: "npm:^1.5.0"
     node-addon-api: "npm:^7.1.0"
     node-gyp: "npm:latest"
-  checksum: 10/91f91d099f9529cf6dd9561da8b9251fca410c58fe56d904aedf676f9314cc991184f448ca8784b74416a3fe1f67e31c608aa18bbe1988738d48815fe6b7936b
+  checksum: 10/91212db256c9a36d45302e75231672b3280a70ff72e9f628b90e9b673bc4ab7ef26fce00d8f44cd23132e5dd38ca685e49c1a2aaef745c1cbec0f15053823314
   conditions: os=darwin
   languageName: node
   linkType: hard
