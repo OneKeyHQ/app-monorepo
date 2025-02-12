@@ -54,6 +54,7 @@ function MobileBrowserContent({
             <WebContent
               id={tab.id}
               url={tab.url}
+              siteMode={tab.siteMode}
               isCurrent={isActive}
               setBackEnabled={setBackEnabled}
               setForwardEnabled={setForwardEnabled}
@@ -67,7 +68,7 @@ function MobileBrowserContent({
       </>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, isActive]);
+  }, [tab?.id, tab?.url, tab?.siteMode, isActive]);
   return <>{content}</>;
 }
 

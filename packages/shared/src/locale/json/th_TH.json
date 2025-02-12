@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "เลือกวิธีการนำเข้า",
   "onboarding.connect_external_wallet": "เชื่อมต่อกระเป๋าเงินภายนอก",
   "onboarding.connect_your_device": "เชื่อมต่ออุปกรณ์ของคุณ",
+  "onboarding.create_new_wallet": "สร้างกระเป๋าสตางค์ใหม่",
   "onboarding.create_or_import_wallet": "สร้างหรือเพิ่มกระเป๋าเงิน",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "กลับมาที่นี่ คลิกที่ปุ่มด้านล่างเพื่อสแกนรหัส QR",
   "onboarding.create_qr_wallet_show_qr_code_desc": "ไปที่ \"เชื่อมต่อ App Wallet\" > \"QR Code\" > \"OneKey Wallet\" เพื่อดูรหัส QR",

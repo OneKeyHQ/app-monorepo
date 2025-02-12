@@ -100,7 +100,7 @@ export function ApproveBaseStake({
 }: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const { navigationToSignatureConfirm } = useSignatureConfirm({
+  const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
   });
@@ -206,7 +206,7 @@ export function ApproveBaseStake({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
-    await navigationToSignatureConfirm({
+    await navigationToTxConfirm({
       approvesInfo: [
         {
           owner: account.address,
@@ -226,12 +226,7 @@ export function ApproveBaseStake({
         setApproving(false);
       },
     });
-  }, [
-    amountValue,
-    approveTarget,
-    navigationToSignatureConfirm,
-    trackAllowance,
-  ]);
+  }, [amountValue, approveTarget, navigationToTxConfirm, trackAllowance]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -488,7 +483,11 @@ export function ApproveBaseStake({
         <Stack
           bg="$bgApp"
           flexDirection="column"
-          $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
+          $gtMd={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            jc: 'space-between',
+          }}
         >
           <Stack pl="$5">
             <StakeProgress

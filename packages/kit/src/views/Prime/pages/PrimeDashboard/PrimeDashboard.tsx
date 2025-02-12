@@ -5,7 +5,6 @@ import { StyleSheet } from 'react-native';
 
 import {
   ActionList,
-  Button,
   Dialog,
   Icon,
   IconButton,
@@ -13,19 +12,14 @@ import {
   SizableText,
   Stack,
   Theme,
-  XStack,
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
-import PrimeBannerBgDark from '@onekeyhq/kit/assets/animations/prime-banner-bg-dark.json';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
-import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -35,15 +29,10 @@ import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
+import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { PrimeUserInfo } from './PrimeUserInfo';
-
-function showDebugMessageByDialog(obj: any) {
-  Dialog.debugMessage({
-    debugMessage: obj,
-  });
-}
 
 function PrimeBanner() {
   const intl = useIntl();
@@ -70,8 +59,7 @@ function PrimeBanner() {
 
 export default function PrimeDashboard() {
   const intl = useIntl();
-  const { getAccessToken, user, logout, isReady, authenticated } =
-    usePrimeAuthV2();
+  const { user } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const navigation = useAppNavigation();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
@@ -86,8 +74,6 @@ export default function PrimeDashboard() {
     presentPaywallNative,
     purchasePaywallPackageWeb,
     getPaywallPackagesWeb,
-    getPaywallPackagesNative,
-    getCustomerInfo,
   } = usePrimePayment();
 
   const purchaseByWebview = useCallback(async () => {
@@ -233,83 +219,12 @@ export default function PrimeDashboard() {
               {subscriptionPlans}
             </Stack>
 
+            {platformEnv.isDev ? (
+              <PrimeDebugPanel
+                shouldShowConfirmButton={shouldShowConfirmButton}
+              />
+            ) : null}
             <PrimeBenefitsList />
-
-            <XStack flexWrap="wrap">
-              <Button
-                onPress={() => {
-                  void logout();
-                }}
-              >
-                Logout
-              </Button>
-              <Button
-                onPress={() => {
-                  void getAccessToken().then(showDebugMessageByDialog);
-                }}
-              >
-                Get Access Token
-              </Button>
-              <Button
-                onPress={() => {
-                  showDebugMessageByDialog({
-                    ready: isReady,
-                    authenticated,
-                  });
-                }}
-              >
-                User Info
-              </Button>
-              <Button
-                onPress={() => {
-                  //
-                }}
-              >
-                shouldShowConfirmButton={shouldShowConfirmButton.toString()}
-              </Button>
-              <Button
-                onPress={() => {
-                  void getCustomerInfo().then(showDebugMessageByDialog);
-                }}
-              >
-                CustomerInfo
-              </Button>
-              <Button
-                onPress={() => {
-                  void fetchPrimeUserInfo().then(showDebugMessageByDialog);
-                }}
-              >
-                ServerPrimeUserInfo
-              </Button>
-              <Button
-                onPress={() => {
-                  void getPaywallPackagesNative?.().then(
-                    showDebugMessageByDialog,
-                  );
-                  void getPaywallPackagesWeb?.().then(showDebugMessageByDialog);
-                }}
-              >
-                PaywallPackages
-              </Button>
-              <Button
-                onPress={() => {
-                  void backgroundApiProxy.servicePrime
-                    .apiGetPrimeUserDevices()
-                    .then(console.log);
-                }}
-              >
-                UserDevices
-              </Button>
-              <Button
-                onPress={() => {
-                  navigation.pushFullModal(EModalRoutes.PrimeModal, {
-                    screen: EPrimePages.PrimeDeviceLimit,
-                  });
-                }}
-              >
-                DeviceLimit
-              </Button>
-            </XStack>
           </Page.Body>
 
           <Page.Footer

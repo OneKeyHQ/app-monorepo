@@ -176,6 +176,7 @@ export function HeaderRight({
     //     <PrimeHeaderIconButton key="prime" />
     //   ) : null;
     const primeButton = <PrimeHeaderIconButton key="prime" />;
+
     let notificationsButton: ReactNode | null = (
       <Stack key="notifications" testID="headerRightNotificationsButton">
         <HeaderIconButton

@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "选择导入方式",
   "onboarding.connect_external_wallet": "连接外部钱包",
   "onboarding.connect_your_device": "连接您的设备",
+  "onboarding.create_new_wallet": "创建新钱包",
   "onboarding.create_or_import_wallet": "创建或导入钱包",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "回到这里，点击下方按钮扫描二维码",
   "onboarding.create_qr_wallet_show_qr_code_desc": "前往「连接 App 钱包」>「二维码」>「OneKey Wallet」查看二维码",

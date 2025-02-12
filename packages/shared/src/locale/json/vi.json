@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "Chọn phương pháp nhập",
   "onboarding.connect_external_wallet": "Kết nối ví bên ngoài",
   "onboarding.connect_your_device": "Kết nối thiết bị của bạn",
+  "onboarding.create_new_wallet": "Tạo ví mới",
   "onboarding.create_or_import_wallet": "Tạo hoặc nhập ví",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "Quay lại đây, nhấn nút dưới đây để quét mã QR",
   "onboarding.create_qr_wallet_show_qr_code_desc": "Đi đến \"Kết nối Ví App\" > \"Mã QR\" > \"OneKey Wallet\" để xem mã QR",

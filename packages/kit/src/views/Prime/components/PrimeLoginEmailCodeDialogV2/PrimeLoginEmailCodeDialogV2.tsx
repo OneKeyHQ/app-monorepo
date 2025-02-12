@@ -35,6 +35,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       return;
     }
     setIsResending(true);
+    setState({ status: 'initial' });
+    setVerificationCode('');
     try {
       await sendCode({ email });
       setCountdown(COUNTDOWN_TIME);
@@ -75,7 +77,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         })}
       </Dialog.Title>
 
-      <SizableText textDecorationLine="underline">
+      <SizableText size="$bodyLg" color="$text">
         {`${intl.formatMessage(
           { id: ETranslations.prime_sent_to },
           { email },
@@ -105,13 +107,21 @@ export function PrimeLoginEmailCodeDialogV2(props: {
               setVerificationCode(value);
             }}
           />
+
+          {state.status === 'error' ? (
+            <SizableText size="$bodyMd" color="$red9">
+              {intl.formatMessage({
+                id: ETranslations.prime_invalid_verification_code,
+              })}
+            </SizableText>
+          ) : null}
         </YStack>
       </Stack>
       <Dialog.Footer
         confirmButtonProps={{
           disabled: verificationCode.length !== 6,
         }}
-        showCancelButton={false}
+        showCancelButton
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,
         })}
