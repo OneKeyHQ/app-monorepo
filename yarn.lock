@@ -15913,15 +15913,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@walletconnect/modal-core@npm:2.7.0":
-  version: 2.7.0
-  resolution: "@walletconnect/modal-core@npm:2.7.0"
-  dependencies:
-    valtio: "npm:1.11.2"
-  checksum: 10/1549f9ba5c98dfed2f97fbfccfcd2e342550c7ba7a85970bff224258dd397bad0a29721b90fef408dcc6cdfa65c52253476a04c16fece9b4d48792f03c3a4b4f
-  languageName: node
-  linkType: hard
-
 "@walletconnect/modal-react-native@npm:1.1.0":
   version: 1.1.0
   resolution: "@walletconnect/modal-react-native@npm:1.1.0"
@@ -15955,18 +15946,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@walletconnect/modal-ui@npm:2.7.0":
-  version: 2.7.0
-  resolution: "@walletconnect/modal-ui@npm:2.7.0"
-  dependencies:
-    "@walletconnect/modal-core": "npm:2.7.0"
-    lit: "npm:2.8.0"
-    motion: "npm:10.16.2"
-    qrcode: "npm:1.5.3"
-  checksum: 10/00d17001bde7646def34eaffef81c4a580f09fdf10902a7a938cd2a3738f8f1cbb10520c229989b64e147df9f4df8ca31bd1d904f9019acc63327b495fb5b3ed
-  languageName: node
-  linkType: hard
-
 "@walletconnect/modal@npm:2.6.2":
   version: 2.6.2
   resolution: "@walletconnect/modal@npm:2.6.2"
@@ -15974,16 +15953,6 @@ __metadata:
     "@walletconnect/modal-core": "npm:2.6.2"
     "@walletconnect/modal-ui": "npm:2.6.2"
   checksum: 10/f8f132c89d1d7f44f2fa564c8d5122163610be4afb0cadc9576c77083471297c37ff62aae3a25492c0ddb480240a2a6ffefe3eba1fd48f1664160c6bac01466d
-  languageName: node
-  linkType: hard
-
-"@walletconnect/modal@npm:2.7.0, @walletconnect/modal@npm:^2.6.2":
-  version: 2.7.0
-  resolution: "@walletconnect/modal@npm:2.7.0"
-  dependencies:
-    "@walletconnect/modal-core": "npm:2.7.0"
-    "@walletconnect/modal-ui": "npm:2.7.0"
-  checksum: 10/a6b78cc06479e0aa98516784ff1f81b24839777f0ec38d2f9cc85b4dc932ad6e823187bbb699f80f898e7d4b09d1232134f348eb9d12697e74e742eeaec189f2
   languageName: node
   linkType: hard
 
