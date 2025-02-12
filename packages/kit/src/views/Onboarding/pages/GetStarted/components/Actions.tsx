@@ -15,10 +15,11 @@ export function Actions() {
   const navigation = useAppNavigation();
   const intl = useIntl();
 
-  const handleCreateWalletPress = async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    navigation.push(EOnboardingPages.BeforeShowRecoveryPhrase);
-    defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
+  const handleCreateWalletPress = () => {
+    void backgroundApiProxy.servicePassword.promptPasswordVerify().then(() => {
+      navigation.push(EOnboardingPages.BeforeShowRecoveryPhrase);
+      defaultLogger.account.wallet.onboard({ onboardMethod: 'createWallet' });
+    });
   };
 
   const handleImportWalletPress = async () => {
@@ -111,7 +112,9 @@ export function Actions() {
 
       <ActionList
         placement="bottom"
-        title={ETranslations.onboarding_create_or_import_wallet}
+        title={intl.formatMessage({
+          id: ETranslations.onboarding_create_or_import_wallet,
+        })}
         renderTrigger={
           <Action
             label={intl.formatMessage({
