@@ -4,6 +4,9 @@ import { forwardRef, useImperativeHandle, useMemo, useState } from 'react';
 import { useWebViewBridge } from '@onekeyfe/onekey-cross-webview';
 
 import { Progress, Spinner, Stack } from '@onekeyhq/components';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import { ESiteMode } from '../../views/Discovery/types';
 
 // refresh hash: 889263555577754
 // @ts-expect-error
@@ -13,6 +16,10 @@ import { NativeWebView } from './NativeWebView';
 import type { IInpageProviderWebViewProps } from './types';
 import type { IWebViewWrapperRef } from '@onekeyfe/onekey-cross-webview';
 import type { WebViewProps } from 'react-native-webview';
+
+const desktopUserAgent = platformEnv.isNativeIOS
+  ? 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15'
+  : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
@@ -35,6 +42,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       displayProgressBar,
       onProgress,
       webviewDebuggingEnabled,
+      siteMode,
     }: IInpageProviderWebViewProps,
     ref: any,
   ) => {
@@ -150,6 +158,9 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
 
           // *** Note that static HTML will require setting originWhitelist to ["*"].
           originWhitelist={['*']}
+          userAgent={
+            siteMode === ESiteMode.desktop ? desktopUserAgent : undefined
+          }
           {...nativeWebviewProps}
         />
       </Stack>
