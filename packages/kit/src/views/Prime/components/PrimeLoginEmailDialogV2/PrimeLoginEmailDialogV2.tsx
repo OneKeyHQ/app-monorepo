@@ -11,7 +11,8 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-export function PrimeLoginEmailDialogV2() {
+export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
+  const { onComplete } = props;
   const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
@@ -60,12 +61,14 @@ export function PrimeLoginEmailDialogV2() {
             maxTimeout: 10_000,
           },
         );
+
+        onComplete?.();
       } catch (error) {
         preventClose?.();
         throw error;
       }
     },
-    [form, loginWithCode, sendCode],
+    [form, loginWithCode, onComplete, sendCode],
   );
 
   return (
