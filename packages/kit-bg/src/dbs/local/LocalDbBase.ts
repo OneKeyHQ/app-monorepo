@@ -809,6 +809,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateWalletsHash(walletsHashMap: { [walletId: string]: string }) {
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: Object.keys(walletsHashMap),
+        updater(item) {
+          const newHash = walletsHashMap[item.id];
+          if (!isNil(newHash)) {
+            item.hash = newHash;
+          }
+          return item;
+        },
+      });
+    });
+  }
+
   async updateIndexedAccountOrder({
     indexedAccountId,
     order,
