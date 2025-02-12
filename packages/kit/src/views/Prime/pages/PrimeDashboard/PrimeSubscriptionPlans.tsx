@@ -7,7 +7,6 @@ import {
   Badge,
   NumberSizeableText,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -42,7 +41,6 @@ function PrimeSubscriptionPlanItem({
   }
   return (
     <YStack
-      alignItems="baseline"
       pl="$5"
       pr="$4"
       py="$5"
@@ -59,10 +57,11 @@ function PrimeSubscriptionPlanItem({
           <Badge.Text color="$textInverse">{promoText}</Badge.Text>
         </Badge>
       ) : null}
-      <XStack>
-        <SizableText size="$headingXl" mr="$2">
-          {title}
-        </SizableText>
+      <SizableText size="$headingXl" mr="$2">
+        {title}
+      </SizableText>
+
+      <XStack flex={1} justifyContent="space-between" alignItems="center">
         <NumberSizeableText
           flex={1}
           size="$headingXl"
@@ -73,20 +72,20 @@ function PrimeSubscriptionPlanItem({
         >
           {price}
         </NumberSizeableText>
-      </XStack>
 
-      <NumberSizeableText
-        ml="$2"
-        size="$bodyMd"
-        color="$textSubdued"
-        formatter="price"
-        formatterOptions={{
-          currency,
-          tokenSymbol: '/month', // TODO i18n
-        }}
-      >
-        {pricePerMonth}
-      </NumberSizeableText>
+        <NumberSizeableText
+          ml="$2"
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="price"
+          formatterOptions={{
+            currency,
+            tokenSymbol: '/month', // TODO i18n
+          }}
+        >
+          {pricePerMonth}
+        </NumberSizeableText>
+      </XStack>
     </YStack>
   );
 }
