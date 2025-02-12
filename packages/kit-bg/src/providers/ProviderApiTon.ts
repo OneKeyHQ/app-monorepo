@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { isNaN } from 'lodash';
 import TonWeb from 'tonweb';
 
 import type { IEncodedTxTon } from '@onekeyhq/core/src/chains/ton/types';
@@ -26,7 +27,6 @@ import type {
   SignDataRequest,
   SignProofRequest,
 } from '@onekeyfe/onekey-ton-provider';
-import { isNaN } from 'lodash';
 
 enum ETonNetwork {
   Mainnet = '-239',
