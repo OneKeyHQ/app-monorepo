@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const EmptyGallery = () => (
   <Layout
+    componentName="Empty"
     elements={[
       {
         title: 'Default',

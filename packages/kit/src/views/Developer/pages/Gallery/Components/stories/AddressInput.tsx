@@ -145,6 +145,7 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
 
 const AddressInputGallery = () => (
   <Layout
+    componentName="AddressInput"
     elements={[
       {
         title: 'AddressInput',

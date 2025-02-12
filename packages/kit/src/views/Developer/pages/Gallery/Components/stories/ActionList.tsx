@@ -207,6 +207,7 @@ const ActionListDemo3 = () => (
 
 const ActionListGallery = () => (
   <Layout
+    componentName="ActionList"
     elements={[
       {
         title: 'Simple',

@@ -42,6 +42,7 @@ const ChainSelectorInputDemo = () => {
 
 const ChainSelectorGallery = () => (
   <Layout
+    componentName="ChainSelector"
     elements={[
       {
         title: 'ChainSelector',

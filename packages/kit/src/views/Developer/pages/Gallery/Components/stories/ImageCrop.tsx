@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const ImageCropGallery = () => (
   <Layout
+    componentName="ImageCrop"
     elements={[
       {
         title: 'Default',

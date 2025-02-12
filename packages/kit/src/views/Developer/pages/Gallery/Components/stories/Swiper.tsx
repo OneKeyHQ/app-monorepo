@@ -33,6 +33,7 @@ const bannerData = [
 
 const SliderGallery = () => (
   <Layout
+    componentName="Swiper"
     elements={[
       {
         title: 'Default',

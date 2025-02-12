@@ -47,6 +47,7 @@ const ScrollViewDemo = () => {
 
 const ScrollViewGallery = () => (
   <Layout
+    componentName="ScrollView"
     elements={[
       {
         title: 'Basic',

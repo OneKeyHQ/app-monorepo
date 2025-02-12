@@ -408,9 +408,7 @@ function LocalDBDemo1() {
 
 const LocalDBGallery = () => (
   <Layout
-    description="localDB"
-    suggestions={['localDB']}
-    boundaryConditions={['localDB']}
+    componentName="LocalDB"
     elements={[
       {
         title: 'localDB',

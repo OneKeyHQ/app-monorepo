@@ -21,6 +21,7 @@ const RadioExample = () => {
 
 const RadioGallery = () => (
   <Layout
+    componentName="Radio"
     elements={[
       {
         title: 'Default',

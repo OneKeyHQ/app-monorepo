@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const LinearGradientGallery = () => (
   <Layout
+    componentName="LinearGradient"
     elements={[
       {
         title: 'default',

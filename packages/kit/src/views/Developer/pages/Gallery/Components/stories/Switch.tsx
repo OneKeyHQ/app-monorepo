@@ -21,6 +21,7 @@ const SwitchDemo = ({ ...rest }: ISwitchProps) => {
 
 const SwitchGallery = () => (
   <Layout
+    componentName="Switch"
     elements={[
       {
         title: 'Sizes',

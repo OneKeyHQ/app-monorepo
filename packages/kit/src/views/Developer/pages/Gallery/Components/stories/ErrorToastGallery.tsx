@@ -191,6 +191,7 @@ function Demo1() {
 
 const ErrorToastGallery = () => (
   <Layout
+    componentName="ErrorToast"
     elements={[
       {
         title: 'ErrorToast',

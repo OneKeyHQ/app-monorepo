@@ -22,6 +22,7 @@ function ProgressDemo() {
 
 const ProgressGallery = () => (
   <Layout
+    componentName="Progress"
     elements={[
       {
         title: 'Default',

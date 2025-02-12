@@ -12,6 +12,7 @@ const fetchResult = () =>
 
 const UsePromiseResultGallery = () => (
   <Layout
+    componentName="UsePromiseResult"
     elements={[
       {
         title: 'Native',

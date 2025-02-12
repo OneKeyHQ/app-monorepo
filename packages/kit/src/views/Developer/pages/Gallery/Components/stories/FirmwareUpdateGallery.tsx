@@ -398,6 +398,7 @@ function FirmwareUpdateGalleryStaticUI() {
 
 const FirmwareUpdateGallery = () => (
   <Layout
+    componentName="FirmwareUpdate"
     elements={[
       {
         title: 'FirmwareUpdate',

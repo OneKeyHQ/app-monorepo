@@ -19,6 +19,7 @@ const Demo = () => {
 
 const PasswordKeyboardGallery = () => (
   <Layout
+    componentName="PasswordKeyboard"
     elements={[
       {
         title: 'Uncontrolled',

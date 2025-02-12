@@ -21,6 +21,7 @@ import { Layout } from './utils/Layout';
 
 const AmountInputGallery = () => (
   <Layout
+    componentName="AmountInput"
     elements={[
       {
         title: 'Example 1 (Send)',

@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const CurrencyGallery = () => (
   <Layout
+    componentName="Currency"
     elements={[
       {
         title: 'default targetCurrency',

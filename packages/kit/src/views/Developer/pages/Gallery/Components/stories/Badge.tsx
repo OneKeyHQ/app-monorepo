@@ -276,6 +276,7 @@ function SwapProviderItem({
 
 const BadgeGallery = () => (
   <Layout
+    componentName="Badge"
     elements={[
       {
         title: '默认状态',

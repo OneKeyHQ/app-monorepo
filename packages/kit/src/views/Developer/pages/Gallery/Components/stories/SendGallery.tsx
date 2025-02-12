@@ -165,6 +165,7 @@ function SendTestButton() {
 
 const SendGallery = () => (
   <Layout
+    componentName="Send"
     elements={[
       {
         title: 'Default',

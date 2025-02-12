@@ -33,6 +33,7 @@ const ActiveDemo = () => {
 
 const PortalGallery = () => (
   <Layout
+    componentName="Portal"
     elements={[
       {
         title: '',

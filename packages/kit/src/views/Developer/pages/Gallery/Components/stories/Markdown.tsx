@@ -26,6 +26,7 @@ const content = `
 
 const MarkdownGallery = () => (
   <Layout
+    componentName="Markdown"
     elements={[
       {
         title: 'default',

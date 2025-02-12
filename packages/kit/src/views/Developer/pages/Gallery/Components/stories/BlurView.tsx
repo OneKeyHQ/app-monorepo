@@ -100,6 +100,7 @@ function DynamicDemo() {
 
 const BlurViewGallery = () => (
   <Layout
+    componentName="BlurView"
     elements={[
       {
         title: 'Default',

@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const ShortcutGallery = () => (
   <Layout
+    componentName="Shortcut"
     elements={[
       {
         title: 'State',

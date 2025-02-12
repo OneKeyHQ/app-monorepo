@@ -195,6 +195,7 @@ const HardwareActionTest = () => {
 
 const HardwareGallery = () => (
   <Layout
+    componentName="Hardware"
     elements={[
       {
         title: 'Interactive with hardware wallet',

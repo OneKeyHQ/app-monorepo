@@ -104,6 +104,7 @@ const SegmentControlExample3 = () => {
 
 const SegmentControlGallery = () => (
   <Layout
+    componentName="SegmentControl"
     elements={[
       {
         title: 'Default',

@@ -30,6 +30,7 @@ const DotMapInputDemo = () => {
 
 const DotMapGallery = () => (
   <Layout
+    componentName="DotMap"
     elements={[
       {
         title: '12 words',

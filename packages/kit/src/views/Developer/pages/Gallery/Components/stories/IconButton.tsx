@@ -11,6 +11,7 @@ import { Layout } from './utils/Layout';
 
 const IconButtonGallery = () => (
   <Layout
+    componentName="IconButton"
     elements={[
       {
         title: 'Varaints',

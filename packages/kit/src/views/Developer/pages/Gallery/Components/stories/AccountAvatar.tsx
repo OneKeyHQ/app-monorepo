@@ -63,6 +63,7 @@ const invalidExternalAccount: IDBExternalAccount = {
 
 const ToastGallery = () => (
   <Layout
+    componentName="AccountAvatar"
     elements={[
       {
         title: 'Default',

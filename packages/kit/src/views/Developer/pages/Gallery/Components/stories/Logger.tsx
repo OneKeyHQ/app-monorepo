@@ -136,6 +136,7 @@ const LoggerDemo = () => {
 
 const LoggerGallery = () => (
   <Layout
+    componentName="Logger"
     elements={[
       {
         title: 'Logger',

@@ -89,9 +89,10 @@ const LottieDemo = () => {
 
 const LottieViewGallery = () => (
   <Layout
+    componentName="LottieView"
     elements={[
       {
-        title: '默认',
+        title: 'Default',
         element: <LottieDemo />,
       },
     ]}

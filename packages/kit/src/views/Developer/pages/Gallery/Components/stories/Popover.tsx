@@ -51,6 +51,7 @@ const Content = () => {
 
 const PopoverGallery = () => (
   <Layout
+    componentName="Popover"
     elements={[
       {
         title: 'Controlled',

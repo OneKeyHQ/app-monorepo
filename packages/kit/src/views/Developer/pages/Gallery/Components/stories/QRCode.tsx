@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const QRCodeGallery = () => (
   <Layout
+    componentName="QRCode"
     elements={[
       {
         title: 'this logo is came from internet.',

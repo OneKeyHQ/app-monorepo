@@ -81,6 +81,7 @@ function CheckboxGroupDemo() {
 
 const CheckboxGallery = () => (
   <Layout
+    componentName="Checkbox"
     elements={[
       {
         title: 'Default',

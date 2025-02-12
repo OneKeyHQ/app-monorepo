@@ -32,6 +32,7 @@ const PasswordDemoGallery = () => {
   };
   return (
     <Layout
+      componentName="Password"
       elements={[
         {
           title: 'Native',

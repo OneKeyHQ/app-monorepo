@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const NumberSizeableTextGallery = () => (
   <Layout
+    componentName="NumberSizeableText"
     elements={[
       {
         title: 'balance',

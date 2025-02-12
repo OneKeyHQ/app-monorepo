@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const DividerGallery = () => (
   <Layout
+    componentName="Divider"
     elements={[
       {
         title: '默认状态',

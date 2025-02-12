@@ -68,6 +68,7 @@ const SkeletonGroupDemo = () => {
 
 const SelectGallery = () => (
   <Layout
+    componentName="Skeleton"
     boundaryConditions={['不要建议同屏绘制超过20个视图']}
     elements={[
       {

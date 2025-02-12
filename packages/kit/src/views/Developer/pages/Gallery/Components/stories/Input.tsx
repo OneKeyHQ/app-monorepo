@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const InputGallery = () => (
   <Layout
+    componentName="Input"
     elements={[
       {
         title: 'Sizes',

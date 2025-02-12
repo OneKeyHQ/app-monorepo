@@ -158,6 +158,7 @@ function JotaiDemo2() {
 
 const JotaiGlobalGallery = () => (
   <Layout
+    componentName="JotaiGlobal"
     elements={[
       {
         title: 'DemoAtom',

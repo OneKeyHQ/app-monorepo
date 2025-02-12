@@ -49,6 +49,7 @@ const SlidingEventDemo = () => {
 
 const SliderGallery = () => (
   <Layout
+    componentName="Slider"
     elements={[
       {
         title: 'Default',

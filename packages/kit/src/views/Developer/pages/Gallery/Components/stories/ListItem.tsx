@@ -86,6 +86,7 @@ export const NFTDATA = [
 
 const ListItemGallery = () => (
   <Layout
+    componentName="ListItem"
     elements={[
       {
         title: 'Token',

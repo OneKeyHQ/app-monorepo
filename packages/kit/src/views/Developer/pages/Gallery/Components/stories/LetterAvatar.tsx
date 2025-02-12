@@ -9,6 +9,7 @@ import { Layout } from './utils/Layout';
 
 const LetterAvatarGallery = () => (
   <Layout
+    componentName="LetterAvatar"
     elements={[
       {
         title: 'Default',

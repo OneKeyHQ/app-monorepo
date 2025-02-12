@@ -18,6 +18,7 @@ function NotificationGallery() {
   const [icon, setIcon] = useState<string | undefined>(undefined);
   return (
     <Layout
+      componentName="Notification"
       elements={[
         {
           title: 'Default',

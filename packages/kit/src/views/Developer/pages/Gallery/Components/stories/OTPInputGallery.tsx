@@ -10,6 +10,7 @@ function OTPInputGallery() {
 
   return (
     <Layout
+      componentName="OTPInput"
       description="OTP (One-Time Password) on iOS, Android, and Web."
       elements={[
         {

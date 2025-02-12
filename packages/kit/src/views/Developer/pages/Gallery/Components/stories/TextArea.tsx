@@ -5,6 +5,7 @@ import { Layout } from './utils/Layout';
 
 const TextAreaGallery = () => (
   <Layout
+    componentName="TextArea"
     elements={[
       {
         title: 'States',

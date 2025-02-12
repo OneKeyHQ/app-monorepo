@@ -79,6 +79,7 @@ export function WebEmbedDevConfig() {
 function WebEmbedGallery() {
   return (
     <Layout
+      componentName="WebEmbed"
       elements={[
         {
           title: 'WebEmbedDevConfig',

@@ -8,6 +8,7 @@ const SecureQRToastGallery = () => {
   const scanQrCode = useScanQrCode();
   return (
     <Layout
+      componentName="SecureQRToast"
       elements={[
         {
           title: 'SecureQRToast',

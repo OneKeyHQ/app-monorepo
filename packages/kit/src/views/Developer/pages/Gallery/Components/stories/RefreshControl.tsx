@@ -34,6 +34,7 @@ const Demo = () => {
 
 const RefreshControllerGallery = () => (
   <Layout
+    componentName="RefreshControl"
     scrollEnabled={false}
     elements={[
       {

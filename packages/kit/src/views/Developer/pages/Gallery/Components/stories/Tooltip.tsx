@@ -4,6 +4,7 @@ import { Layout } from './utils/Layout';
 
 const TooltipGallery = () => (
   <Layout
+    componentName="Tooltip"
     description="A tooltip on web, with only accessibility output on native"
     elements={[
       {
