@@ -1,17 +1,12 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { AuthenticationType } from 'expo-local-authentication';
 import { useIntl } from 'react-intl';
 
-import { onVisibilityStateChange } from '@onekeyhq/components';
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { usePasswordBiologyAuthInfoAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 export const useBiometricAuthInfo = () => {
   const [{ authType }] = usePasswordBiologyAuthInfoAtom();
