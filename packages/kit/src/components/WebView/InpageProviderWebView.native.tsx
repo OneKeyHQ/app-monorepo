@@ -22,14 +22,13 @@ const desktopUserAgent = platformEnv.isNativeIOS
   : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 const injectedJavaScript = `
-document.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     const meta = document.createElement('meta');
     meta.setAttribute('content', 'width=device-width, initial-scale=0.5, maximum-scale=2, user-scalable=2'); 
     meta.setAttribute('name', 'viewport');
     document.getElementsByTagName('head')[0].appendChild(meta);
-  }, 1500) 
-});`;
+  }, 3500);
+`;
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
   (
@@ -146,7 +145,7 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       <Stack flex={1}>
         {progressLoading}
         <NativeWebView
-          scalesPageToFit={false}
+          scalesPageToFit={!isDesktopMode}
           webviewDebuggingEnabled={webviewDebuggingEnabled}
           ref={setWebViewRef}
           src={src}
@@ -177,10 +176,11 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
           // allowFileAccessFromFileURLs
           // allowFileAccess
           // allowUniversalAccessFromFileURLs
-
           // *** Note that static HTML will require setting originWhitelist to ["*"].
           originWhitelist={['*']}
           userAgent={isDesktopMode ? desktopUserAgent : undefined}
+          // https://github.com/react-native-webview/react-native-webview/issues/1779
+          onMessage={(event) => {}}
           {...nativeWebviewProps}
         />
       </Stack>
