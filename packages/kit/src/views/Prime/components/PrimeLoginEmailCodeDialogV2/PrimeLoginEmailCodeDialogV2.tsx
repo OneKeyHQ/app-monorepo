@@ -22,6 +22,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   onLoginSuccess?: () => void;
 }) {
   const { email, sendCode, loginWithCode, onLoginSuccess } = props;
+  const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
+    useState(false);
   const [countdown, setCountdown] = useState(COUNTDOWN_TIME);
   const [isResending, setIsResending] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
@@ -68,7 +70,12 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
   }, [intl, countdown]);
 
-  async function handleConfirm() {
+  const handleConfirm = useCallback(async () => {
+    if (isSubmittingVerificationCode) {
+      return;
+    }
+    setIsSubmittingVerificationCode(true);
+
     try {
       await loginWithCode({
         code: verificationCode,
@@ -78,8 +85,22 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       onLoginSuccess?.();
     } catch (error) {
       setState({ status: 'error' });
+    } finally {
+      setIsSubmittingVerificationCode(false);
     }
-  }
+  }, [
+    isSubmittingVerificationCode,
+    loginWithCode,
+    verificationCode,
+    email,
+    onLoginSuccess,
+  ]);
+
+  useEffect(() => {
+    if (verificationCode.length === 6) {
+      void handleConfirm();
+    }
+  }, [verificationCode, handleConfirm]);
 
   return (
     <Stack>
@@ -116,12 +137,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             numberOfDigits={6}
             value={verificationCode}
             onTextChange={(value) => {
-              setState({ status: 'initial' });
               setVerificationCode(value);
-
-              if (value.length === 6) {
-                void handleConfirm();
-              }
+              setState({ status: 'initial' });
             }}
           />
 
@@ -136,6 +153,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       </Stack>
       <Dialog.Footer
         confirmButtonProps={{
+          loading: isSubmittingVerificationCode,
           disabled: verificationCode.length !== 6,
         }}
         onConfirmText={intl.formatMessage({
