@@ -63,7 +63,6 @@ function PrimeSubscriptionPlanItem({
 
       <XStack flex={1} justifyContent="space-between" alignItems="center">
         <NumberSizeableText
-          flex={1}
           size="$headingXl"
           formatter="price"
           formatterOptions={{
