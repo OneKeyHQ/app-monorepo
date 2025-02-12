@@ -56,6 +56,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -115,7 +116,6 @@ import type {
   IValidateGeneralInputParams,
 } from '../../vaults/types';
 import type { IWithHardwareProcessingControlParams } from '../ServiceHardwareUI/ServiceHardwareUI';
-import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 export type IAddHDOrHWAccountsParams = {
   walletId: string | undefined;

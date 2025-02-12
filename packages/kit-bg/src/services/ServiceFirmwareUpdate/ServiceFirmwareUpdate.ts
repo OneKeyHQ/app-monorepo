@@ -868,7 +868,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
             targetVersion: updateInfo.toVersion,
             success: true,
           });
-          return result;
+          return await result;
         } catch (error) {
           defaultLogger.update.firmware.updateFirmware({
             updateType: 'bootloader',
