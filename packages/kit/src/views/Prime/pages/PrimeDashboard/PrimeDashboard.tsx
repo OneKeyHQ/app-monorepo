@@ -96,12 +96,18 @@ export default function PrimeDashboard() {
   const doPurchase = useCallback(async () => {
     try {
       setIsLoading(true);
-      // await 1s
       await timerUtils.wait(500);
 
       if (!user?.isLoggedIn) {
-        Dialog.show({ renderContent: <PrimeLoginEmailDialogV2 /> });
-        // loginWithEmail();
+        const dialog = Dialog.show({
+          renderContent: (
+            <PrimeLoginEmailDialogV2
+              onComplete={() => {
+                void dialog.close();
+              }}
+            />
+          ),
+        });
         return;
       }
 
