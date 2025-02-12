@@ -2452,15 +2452,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@emotion/is-prop-valid@npm:1.2.1":
-  version: 1.2.1
-  resolution: "@emotion/is-prop-valid@npm:1.2.1"
-  dependencies:
-    "@emotion/memoize": "npm:^0.8.1"
-  checksum: 10/fe231c472d38b3bbe519bcc9a5585cd41c45604147f3a065e333caf0f695d668aa21bc4229e657c1b6ea7398e096899e6ad54662548c73f11f6ba594aebd76a1
-  languageName: node
-  linkType: hard
-
 "@emotion/is-prop-valid@npm:1.2.2":
   version: 1.2.2
   resolution: "@emotion/is-prop-valid@npm:1.2.2"
@@ -2490,13 +2481,6 @@ __metadata:
   version: 0.8.1
   resolution: "@emotion/memoize@npm:0.8.1"
   checksum: 10/a19cc01a29fcc97514948eaab4dc34d8272e934466ed87c07f157887406bc318000c69ae6f813a9001c6a225364df04249842a50e692ef7a9873335fbcc141b0
-  languageName: node
-  linkType: hard
-
-"@emotion/unitless@npm:0.8.0":
-  version: 0.8.0
-  resolution: "@emotion/unitless@npm:0.8.0"
-  checksum: 10/176141117ed23c0eb6e53a054a69c63e17ae532ec4210907a20b2208f91771821835f1c63dd2ec63e30e22fcc984026d7f933773ee6526dd038e0850919fae7a
   languageName: node
   linkType: hard
 
@@ -3982,15 +3966,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@floating-ui/core@npm:^1.3.0":
-  version: 1.5.2
-  resolution: "@floating-ui/core@npm:1.5.2"
-  dependencies:
-    "@floating-ui/utils": "npm:^0.1.3"
-  checksum: 10/a1102f8713f8971771fea11d2e0c0c3dbff421db302ca6b4a0b4b9f0f0b082c2baa9b71c9b0ee4b8708bf9d5b91f5e561e189b85b0336f562df6ed414dcdb296
-  languageName: node
-  linkType: hard
-
 "@floating-ui/dom@npm:^1.0.0":
   version: 1.6.8
   resolution: "@floating-ui/dom@npm:1.6.8"
@@ -4022,18 +3997,6 @@ __metadata:
     react: ">=16.8.0"
     react-dom: ">=16.8.0"
   checksum: 10/cafabfb5dd0b25547863520b3bcf6faee7f087d0c3187a8779910a6838d496bf494f237bf1fe883bbfae1a7fcc399611ae52377b696065d8118bd7c1b9c0d253
-  languageName: node
-  linkType: hard
-
-"@floating-ui/react-native@npm:^0.10.1":
-  version: 0.10.1
-  resolution: "@floating-ui/react-native@npm:0.10.1"
-  dependencies:
-    "@floating-ui/core": "npm:^1.3.0"
-  peerDependencies:
-    react: ">=16.8.0"
-    react-native: ">=0.64.0"
-  checksum: 10/1e9d847332569a4d43ebc7137c24180fdda07d15a4b06e92251b8f9716b1a43b58570cb13701a463b7c8926fb047ff378ab95dd5cbc1ef0d84f4ab851a7b7102
   languageName: node
   linkType: hard
 
@@ -4074,13 +4037,6 @@ __metadata:
     react: ">=16.8.0"
     react-dom: ">=16.8.0"
   checksum: 10/7f8e6b27db48b68ca94756687af21857be04e7360ac922d7c8e22411f2895df6384af7bd40f4b48663d3cc5809bb5c6574cd9c9ea15543ec747b9a8e1c8c3008
-  languageName: node
-  linkType: hard
-
-"@floating-ui/utils@npm:^0.1.3":
-  version: 0.1.6
-  resolution: "@floating-ui/utils@npm:0.1.6"
-  checksum: 10/450ec4ecc1dd8161b1904d4e1e9d95e653cc06f79af6c3b538b79efb10541d90bcc88646ab3cdffc5b92e00c4804ca727b025d153ad285f42dbbb39aec219ec9
   languageName: node
   linkType: hard
 
@@ -7042,6 +6998,7 @@ __metadata:
     cross-env: "npm:^7.0.3"
     electron: "npm:27.3.1"
     electron-builder: "npm:24.13.3"
+    electron-check-biometric-auth-changed: "npm:0.0.3"
     electron-context-menu: "npm:^3.5.0"
     electron-is-dev: "npm:^2.0.0"
     electron-log: "npm:5.2.0"
@@ -7187,6 +7144,7 @@ __metadata:
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:14.0.0-beta15"
     react-native-canvas: "npm:^0.1.39"
+    react-native-check-biometric-auth-changed: "npm:0.1.1"
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
@@ -7215,7 +7173,6 @@ __metadata:
     react-native-safe-area-context: "npm:4.7.2"
     react-native-screens: "npm:3.28.0"
     react-native-share: "npm:^10.2.1"
-    react-native-spotlight-tour: "npm:^3.0.1"
     react-native-svg: "npm:^13.9.0"
     react-native-tcp-socket: "npm:^6.0.6"
     react-native-video: "npm:6.2.0"
@@ -15166,13 +15123,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/stylis@npm:4.2.0":
-  version: 4.2.0
-  resolution: "@types/stylis@npm:4.2.0"
-  checksum: 10/02a47584acd2fcb664f7d8270a69686c83752bdfb855f804015d33116a2b09c0b2ac535213a4a7b6d3a78b2915b22b4024cce067ae979beee0e4f8f5fdbc26a9
-  languageName: node
-  linkType: hard
-
 "@types/stylis@npm:4.2.5":
   version: 4.2.5
   resolution: "@types/stylis@npm:4.2.5"
@@ -20950,13 +20900,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"csstype@npm:3.1.2":
-  version: 3.1.2
-  resolution: "csstype@npm:3.1.2"
-  checksum: 10/1f39c541e9acd9562996d88bc9fb62d1cb234786ef11ed275567d4b2bd82e1ceacde25debc8de3d3b4871ae02c2933fa02614004c97190711caebad6347debc2
-  languageName: node
-  linkType: hard
-
 "csstype@npm:3.1.3, csstype@npm:^3.0.2, csstype@npm:^3.0.7":
   version: 3.1.3
   resolution: "csstype@npm:3.1.3"
@@ -22083,6 +22026,17 @@ __metadata:
     electron-builder: cli.js
     install-app-deps: install-app-deps.js
   checksum: 10/d210e787cd1763c108f4600184a02860a3d00553278ef7c9d3a23b46d1646cdbcfa7514f774effb917de17f037a53773b5a6159819fc19da764ad2a3235b1c0f
+  languageName: node
+  linkType: hard
+
+"electron-check-biometric-auth-changed@npm:0.0.3":
+  version: 0.0.3
+  resolution: "electron-check-biometric-auth-changed@npm:0.0.3"
+  dependencies:
+    bindings: "npm:^1.5.0"
+    node-addon-api: "npm:^7.1.0"
+    node-gyp: "npm:latest"
+  checksum: 10/053d106e2aeb6ce1c5c2b1adf80013b380b1f8d095428d387e6db60ca4780d2abe6b5998e43339870e7abaf4fc86b33ae9b31c2777bbb9fc6816fce31666c152
   languageName: node
   linkType: hard
 
@@ -31540,7 +31494,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"nanoid@npm:^3.1.23, nanoid@npm:^3.3.6, nanoid@npm:^3.3.7":
+"nanoid@npm:^3.1.23, nanoid@npm:^3.3.7":
   version: 3.3.7
   resolution: "nanoid@npm:3.3.7"
   bin:
@@ -31803,6 +31757,15 @@ __metadata:
   dependencies:
     node-gyp: "npm:latest"
   checksum: 10/f1a54ae38f6cbd4cdfe69d1b2f3f0c4a3d227eb50f5073f0a3b985d29a0c39c94b82c88213e5075ee1bc262f2e869841c733ebe7111a5e376f1732649edf6a93
+  languageName: node
+  linkType: hard
+
+"node-addon-api@npm:^7.1.0":
+  version: 7.1.1
+  resolution: "node-addon-api@npm:7.1.1"
+  dependencies:
+    node-gyp: "npm:latest"
+  checksum: 10/ee1e1ed6284a2f8cd1d59ac6175ecbabf8978dcf570345e9a8095a9d0a2b9ced591074ae77f9009287b00c402352b38aa9322a34f2199cdc9f567b842a636b94
   languageName: node
   linkType: hard
 
@@ -33748,17 +33711,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"postcss@npm:8.4.31":
-  version: 8.4.31
-  resolution: "postcss@npm:8.4.31"
-  dependencies:
-    nanoid: "npm:^3.3.6"
-    picocolors: "npm:^1.0.0"
-    source-map-js: "npm:^1.0.2"
-  checksum: 10/1a6653e72105907377f9d4f2cd341d8d90e3fde823a5ddea1e2237aaa56933ea07853f0f2758c28892a1d70c53bbaca200eb8b80f8ed55f13093003dbec5afa0
-  languageName: node
-  linkType: hard
-
 "postcss@npm:8.4.38":
   version: 8.4.38
   resolution: "postcss@npm:8.4.38"
@@ -34769,6 +34721,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-check-biometric-auth-changed@npm:0.1.1":
+  version: 0.1.1
+  resolution: "react-native-check-biometric-auth-changed@npm:0.1.1"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/83a656b0244594db3177ffb670d0791ec9f5d8ce217fd2deb64ee2c7ca0f4a897352c24e5b622adb380b24ceb2dadec0b75b74d683f8d303ea5f836b55d78e4f
+  languageName: node
+  linkType: hard
+
 "react-native-cloud-fs@npm:@onekeyfe/react-native-cloud-fs@2.6.3":
   version: 2.6.3
   resolution: "@onekeyfe/react-native-cloud-fs@npm:2.6.3"
@@ -35211,15 +35173,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-responsive-dimensions@npm:^3.1.1":
-  version: 3.1.1
-  resolution: "react-native-responsive-dimensions@npm:3.1.1"
-  peerDependencies:
-    react-native: ">=0.44.1"
-  checksum: 10/fa16d076bf81af486fc6f1eb50057574bc5f96f0e24a52b92f66a8af153e5a5f9e838cf942d1c26390273cceea1de894f0e214c232ec890875a82267f83a86f6
-  languageName: node
-  linkType: hard
-
 "react-native-restart@npm:0.0.27":
   version: 0.0.27
   resolution: "react-native-restart@npm:0.0.27"
@@ -35275,32 +35228,6 @@ __metadata:
   version: 10.2.1
   resolution: "react-native-share@npm:10.2.1"
   checksum: 10/6b579233f521a9c2e47181b80992f5e8da730b7711b7108111b2be13f202b6ce2845799fba2a44e15810c12e0240fc540772e16b3e98aafe3f7baa17130d3c06
-  languageName: node
-  linkType: hard
-
-"react-native-spotlight-tour@npm:^3.0.1":
-  version: 3.0.1
-  resolution: "react-native-spotlight-tour@npm:3.0.1"
-  dependencies:
-    "@floating-ui/react-native": "npm:^0.10.1"
-    react-fast-compare: "npm:^3.2.2"
-    react-native-responsive-dimensions: "npm:^3.1.1"
-    styled-components: "npm:^6.0.8"
-  peerDependencies:
-    react: ">=16.8.0"
-    react-dom: ">=16.8.0"
-    react-native: ">=0.50.0"
-    react-native-svg: ">=12.1.0"
-  peerDependenciesMeta:
-    react:
-      optional: false
-    react-dom:
-      optional: true
-    react-native:
-      optional: false
-    react-native-svg:
-      optional: false
-  checksum: 10/219319ec63a99bb8351e4a2684ace3380dff8de316a59d57d2e5c08c7c59898ecb9a353ced4b0d8fe85ac55f15e2ac83db00f3b6e08e1276231dd6b5c5093532
   languageName: node
   linkType: hard
 
@@ -38514,26 +38441,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"styled-components@npm:^6.0.8":
-  version: 6.1.3
-  resolution: "styled-components@npm:6.1.3"
-  dependencies:
-    "@emotion/is-prop-valid": "npm:1.2.1"
-    "@emotion/unitless": "npm:0.8.0"
-    "@types/stylis": "npm:4.2.0"
-    css-to-react-native: "npm:3.2.0"
-    csstype: "npm:3.1.2"
-    postcss: "npm:8.4.31"
-    shallowequal: "npm:1.1.0"
-    stylis: "npm:4.3.0"
-    tslib: "npm:2.5.0"
-  peerDependencies:
-    react: ">= 16.8.0"
-    react-dom: ">= 16.8.0"
-  checksum: 10/3ac7b86e305eab51fc91925437bc1ad751c99c4a25cb5013b24cd38d86eb917bc97e87460eb6cc46497ecdbf0527cce214b1f50ef74484229e547fdb8dfe8b14
-  languageName: node
-  linkType: hard
-
 "styled-components@npm:^6.1.13":
   version: 6.1.14
   resolution: "styled-components@npm:6.1.14"
@@ -38570,13 +38477,6 @@ __metadata:
   version: 0.1.3
   resolution: "styleq@npm:0.1.3"
   checksum: 10/9a75a1b635f8ebf5c0fdc3ffb56f466254f29aa1b2962ab2af776015d3b3bb1732a53edcda0c9ac9b97be96c22459db768feac0d61c1a319cc3954011ca9dcd8
-  languageName: node
-  linkType: hard
-
-"stylis@npm:4.3.0":
-  version: 4.3.0
-  resolution: "stylis@npm:4.3.0"
-  checksum: 10/54eb1a13a9ec394a01a2e1a5ca8f856b96ecd8b85b8c04a24c0ff0aa8416798a6a1e9555f6a4345b6f088d03424f5a4376ea093d0ec73e419698415a3c8b59d0
   languageName: node
   linkType: hard
 
@@ -39632,13 +39532,6 @@ __metadata:
   version: 2.4.0
   resolution: "tslib@npm:2.4.0"
   checksum: 10/d8379e68b36caf082c1905ec25d17df8261e1d68ddc1abfd6c91158a064f6e4402039ae7c02cf4c81d12e3a2a2c7cd8ea2f57b233eb80136a2e3e7279daf2911
-  languageName: node
-  linkType: hard
-
-"tslib@npm:2.5.0":
-  version: 2.5.0
-  resolution: "tslib@npm:2.5.0"
-  checksum: 10/ea556fbdf396fe15dbd45e242754e86e7c36e0dce8644404a7c8a81ae1e940744dc639569aeca1ae370a7f804d82872f3fd8564eb23be9adb7618201d0314dac
   languageName: node
   linkType: hard
 
