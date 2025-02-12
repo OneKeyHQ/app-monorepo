@@ -26,6 +26,7 @@ import type {
   SignDataRequest,
   SignProofRequest,
 } from '@onekeyfe/onekey-ton-provider';
+import { isNaN } from 'lodash';
 
 enum ETonNetwork {
   Mainnet = '-239',
@@ -162,6 +163,35 @@ class ProviderApiTon extends ProviderApiBase {
       valid_until: number;
     },
   ): Promise<any> {
+    const validUntil = encodedTx.validUntil || encodedTx.valid_until;
+    if (
+      validUntil !== undefined &&
+      (isNaN(validUntil) ||
+        validUntil === null ||
+        validUntil < Date.now() / 1000)
+    ) {
+      throw new Error('Bad request: Invalid validUntil');
+    }
+
+    // check messages
+    if (encodedTx.messages.length === 0) {
+      throw new Error('Bad request: Empty messages');
+    }
+
+    // check address and amount
+    for (const message of encodedTx.messages) {
+      if (!('address' in message && 'amount' in message)) {
+        throw new Error('Bad request: Invalid message');
+      }
+      if (typeof message.amount !== 'string') {
+        throw new Error('Bad request: Invalid amount');
+      }
+      // raw address type throw error
+      if (message.address.startsWith('0:')) {
+        throw new Error('Bad request: Invalid address');
+      }
+    }
+
     const accounts = await this.getAccountsInfo(request);
     const account = accounts[0];
     if (encodedTx.from) {
@@ -187,7 +217,7 @@ class ProviderApiTon extends ProviderApiBase {
         signOnly: false,
       });
 
-    return result.txid;
+    return result.rawTx;
   }
 
   @permissionRequired()

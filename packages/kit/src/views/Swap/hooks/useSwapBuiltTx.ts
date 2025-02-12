@@ -70,8 +70,6 @@ import {
 } from './useSwapState';
 import { useSwapTxHistoryActions } from './useSwapTxHistory';
 
-import type { IInjectedProviderNamesStrings } from '@onekeyfe/cross-inpage-provider-types';
-
 export function useSwapBuildTx() {
   const intl = useIntl();
   const [fromToken] = useSwapSelectFromTokenAtom();
