@@ -182,7 +182,7 @@ const PasswordVerify = ({
     }
     try {
       const changed = await checkBiometricAuthChanged();
-      if (true) {
+      if (changed) {
         await backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
         setTimeout(() => {
           Dialog.confirm({
