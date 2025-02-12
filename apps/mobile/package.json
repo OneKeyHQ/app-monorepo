@@ -94,7 +94,7 @@
     "react-native-ble-manager": "^10.0.2",
     "react-native-camera-kit": "14.0.0-beta15",
     "react-native-canvas": "^0.1.39",
-    "react-native-check-biometric-auth-changed": "0.1.0",
+    "react-native-check-biometric-auth-changed": "0.1.1",
     "react-native-cloud-fs": "npm:@onekeyfe/react-native-cloud-fs@2.6.3",
     "react-native-crypto": "^2.2.0",
     "react-native-device-info": "10.11.0",
