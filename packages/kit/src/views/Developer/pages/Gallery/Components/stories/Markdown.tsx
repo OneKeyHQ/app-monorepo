@@ -26,9 +26,6 @@ const content = `
 
 const MarkdownGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'default',

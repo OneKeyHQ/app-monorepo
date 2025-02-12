@@ -191,9 +191,6 @@ function Demo1() {
 
 const ErrorToastGallery = () => (
   <Layout
-    description="ErrorToast"
-    suggestions={['ErrorToast']}
-    boundaryConditions={['ErrorToast']}
     elements={[
       {
         title: 'ErrorToast',

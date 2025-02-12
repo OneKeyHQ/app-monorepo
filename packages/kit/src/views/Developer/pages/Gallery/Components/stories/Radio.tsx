@@ -21,9 +21,6 @@ const RadioExample = () => {
 
 const RadioGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Default',

@@ -398,12 +398,9 @@ function FirmwareUpdateGalleryStaticUI() {
 
 const FirmwareUpdateGallery = () => (
   <Layout
-    description="--"
-    suggestions={['--']}
-    boundaryConditions={['--']}
     elements={[
       {
-        title: '--',
+        title: 'FirmwareUpdate',
         element: (
           <Stack gap="$1">
             <FirmwareUpdateGalleryDemo />

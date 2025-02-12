@@ -5,9 +5,6 @@ import { Layout } from './utils/Layout';
 
 const NumberSizeableTextGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'balance',

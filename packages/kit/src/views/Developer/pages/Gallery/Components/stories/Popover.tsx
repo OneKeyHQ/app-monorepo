@@ -51,9 +51,6 @@ const Content = () => {
 
 const PopoverGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Controlled',

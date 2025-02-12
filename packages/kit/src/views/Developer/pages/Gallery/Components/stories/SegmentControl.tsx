@@ -104,9 +104,6 @@ const SegmentControlExample3 = () => {
 
 const SegmentControlGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Default',

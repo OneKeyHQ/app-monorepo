@@ -12,9 +12,6 @@ const fetchResult = () =>
 
 const UsePromiseResultGallery = () => (
   <Layout
-    description=""
-    suggestions={['']}
-    boundaryConditions={['']}
     elements={[
       {
         title: 'Native',

@@ -4,9 +4,6 @@ import { Layout } from './utils/Layout';
 
 const InputGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Sizes',

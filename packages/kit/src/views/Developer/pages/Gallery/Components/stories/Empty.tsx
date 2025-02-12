@@ -4,9 +4,6 @@ import { Layout } from './utils/Layout';
 
 const EmptyGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Default',

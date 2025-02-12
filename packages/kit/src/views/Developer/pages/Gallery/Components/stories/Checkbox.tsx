@@ -81,9 +81,6 @@ function CheckboxGroupDemo() {
 
 const CheckboxGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Default',

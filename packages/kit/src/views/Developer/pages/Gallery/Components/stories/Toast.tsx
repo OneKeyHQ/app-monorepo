@@ -7,9 +7,6 @@ const ONE_HOUR = 60 * 60 * 1000;
 
 const ToastGallery = () => (
   <Layout
-    description=""
-    suggestions={['']}
-    boundaryConditions={['']}
     elements={[
       {
         title: 'Native',

@@ -79,9 +79,6 @@ export function WebEmbedDevConfig() {
 function WebEmbedGallery() {
   return (
     <Layout
-      description="..."
-      suggestions={[]}
-      boundaryConditions={[]}
       elements={[
         {
           title: 'WebEmbedDevConfig',

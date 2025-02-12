@@ -5,8 +5,6 @@ import { Layout } from './utils/Layout';
 const TooltipGallery = () => (
   <Layout
     description="A tooltip on web, with only accessibility output on native"
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Default',

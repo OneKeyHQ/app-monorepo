@@ -86,9 +86,6 @@ export const NFTDATA = [
 
 const ListItemGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Token',

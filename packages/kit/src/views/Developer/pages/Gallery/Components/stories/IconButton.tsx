@@ -11,9 +11,6 @@ import { Layout } from './utils/Layout';
 
 const IconButtonGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Varaints',

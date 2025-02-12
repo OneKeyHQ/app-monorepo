@@ -30,9 +30,6 @@ const DotMapInputDemo = () => {
 
 const DotMapGallery = () => (
   <Layout
-    description=""
-    suggestions={[]}
-    boundaryConditions={[]}
     elements={[
       {
         title: '12 words',

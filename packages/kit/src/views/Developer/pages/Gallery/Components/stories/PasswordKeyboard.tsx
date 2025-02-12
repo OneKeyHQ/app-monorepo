@@ -19,9 +19,6 @@ const Demo = () => {
 
 const PasswordKeyboardGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Uncontrolled',

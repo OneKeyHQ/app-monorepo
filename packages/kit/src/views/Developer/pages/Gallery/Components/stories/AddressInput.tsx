@@ -145,9 +145,6 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
 
 const AddressInputGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'AddressInput',

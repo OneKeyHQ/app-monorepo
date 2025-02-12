@@ -5,9 +5,6 @@ import { Layout } from './utils/Layout';
 
 const ShortcutGallery = () => (
   <Layout
-    description="..."
-    suggestions={[]}
-    boundaryConditions={[]}
     elements={[
       {
         title: 'State',

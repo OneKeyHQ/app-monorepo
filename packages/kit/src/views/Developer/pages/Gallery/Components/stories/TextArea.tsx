@@ -5,9 +5,6 @@ import { Layout } from './utils/Layout';
 
 const TextAreaGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'States',

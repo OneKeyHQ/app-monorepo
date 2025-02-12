@@ -5,9 +5,6 @@ import { Layout } from './utils/Layout';
 
 const CurrencyGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'default targetCurrency',

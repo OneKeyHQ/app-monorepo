@@ -22,9 +22,6 @@ function ProgressDemo() {
 
 const ProgressGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Default',

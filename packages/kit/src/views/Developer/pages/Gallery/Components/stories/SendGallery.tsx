@@ -165,9 +165,6 @@ function SendTestButton() {
 
 const SendGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Default',

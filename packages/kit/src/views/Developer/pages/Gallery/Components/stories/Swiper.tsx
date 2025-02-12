@@ -33,9 +33,6 @@ const bannerData = [
 
 const SliderGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
     elements={[
       {
         title: 'Default',

@@ -89,9 +89,6 @@ const LottieDemo = () => {
 
 const LottieViewGallery = () => (
   <Layout
-    description=""
-    suggestions={[]}
-    boundaryConditions={[]}
     elements={[
       {
         title: '默认',

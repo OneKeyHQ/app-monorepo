@@ -18,9 +18,6 @@ function NotificationGallery() {
   const [icon, setIcon] = useState<string | undefined>(undefined);
   return (
     <Layout
-      description=".."
-      suggestions={['...']}
-      boundaryConditions={['...']}
       elements={[
         {
           title: 'Default',

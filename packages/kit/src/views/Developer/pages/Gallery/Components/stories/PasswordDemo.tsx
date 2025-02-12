@@ -32,9 +32,6 @@ const PasswordDemoGallery = () => {
   };
   return (
     <Layout
-      description=""
-      suggestions={['']}
-      boundaryConditions={['']}
       elements={[
         {
           title: 'Native',
