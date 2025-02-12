@@ -1104,6 +1104,9 @@ export default class ServiceSwap extends ServiceBase {
             ...currentSwapTxHistory.swapInfo,
             surplus:
               txStatusRes.surplus ?? currentSwapTxHistory.swapInfo.surplus,
+            chainFlipExplorerUrl:
+              txStatusRes.chainFlipExplorerUrl ??
+              currentSwapTxHistory.swapInfo?.chainFlipExplorerUrl,
           },
           swapOrderHash:
             txStatusRes.swapOrderHash ?? currentSwapTxHistory.swapOrderHash,

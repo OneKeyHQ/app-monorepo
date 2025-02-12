@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "Pilih metode impor",
   "onboarding.connect_external_wallet": "Hubungkan dompet eksternal",
   "onboarding.connect_your_device": "Sambungkan perangkat Anda",
+  "onboarding.create_new_wallet": "Buat dompet baru",
   "onboarding.create_or_import_wallet": "Buat atau impor dompet",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "Kembali ke sini, klik tombol di bawah untuk memindai kode QR",
   "onboarding.create_qr_wallet_show_qr_code_desc": "Pergi ke \"Hubungkan Dompet Aplikasi\" > \"Kode QR\" > \"OneKey Wallet\" untuk melihat kode QR",

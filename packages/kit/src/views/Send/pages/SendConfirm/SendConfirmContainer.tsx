@@ -73,7 +73,10 @@ function SendConfirmContainer() {
   });
 
   useEffect(() => {
-    appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
+    appEventBus.emit(
+      EAppEventBusNames.SignatureConfirmContainerMounted,
+      undefined,
+    );
   }, []);
 
   const { network } =

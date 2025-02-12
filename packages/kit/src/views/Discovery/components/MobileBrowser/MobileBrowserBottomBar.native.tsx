@@ -34,6 +34,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { THUMB_CROP_SIZE } from '../../config/TabList.constants';
@@ -49,6 +50,7 @@ import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
+import type { ESiteMode } from '../../types';
 import type WebView from 'react-native-webview';
 
 export interface IMobileBrowserBottomBarProps extends IStackProps {
@@ -87,8 +89,13 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     }, [origin]);
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const { setWebTabData, setPinnedTab, setCurrentWebTab, closeWebTab } =
-    useBrowserTabActions().current;
+  const {
+    setWebTabData,
+    setPinnedTab,
+    setCurrentWebTab,
+    closeWebTab,
+    setSiteMode,
+  } = useBrowserTabActions().current;
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
@@ -258,6 +265,19 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
     void refreshConnectState();
   }, [origin, refreshConnectState]);
 
+  const handleRefresh = useCallback(() => {
+    webviewRefs[id]?.reload();
+  }, [id]);
+
+  const handleRequestSiteMode = useCallback(
+    async (siteMode: ESiteMode) => {
+      setSiteMode({ id, siteMode });
+      await timerUtils.wait(150);
+      handleRefresh();
+    },
+    [handleRefresh, id, setSiteMode],
+  );
+
   const disabledGoBack = displayHomePage || !tab?.canGoBack;
   const disabledGoForward = displayHomePage ? true : !tab?.canGoForward;
   return (
@@ -337,9 +357,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           disabled={displayHomePage}
           isBookmark={tab?.isBookmark ?? false}
           onBookmarkPress={handleBookmarkPress}
-          onRefresh={() => {
-            webviewRefs[id]?.reload();
-          }}
+          onRefresh={handleRefresh}
           onShare={onShare}
           onCopyUrl={onCopyUrl}
           isPinned={tab?.isPinned ?? false}
@@ -353,6 +371,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
           onCloseTab={handleCloseTab}
           displayDisconnectOption={!!hasConnectedAccount}
           onDisconnect={handleDisconnect}
+          siteMode={tab?.siteMode}
+          onRequestSiteMode={handleRequestSiteMode}
         >
           <IconButton
             variant="tertiary"

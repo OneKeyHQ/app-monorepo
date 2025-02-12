@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/pages';
+import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalRoutes,

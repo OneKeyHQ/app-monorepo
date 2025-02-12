@@ -40,6 +40,7 @@ function WebContent({
   setForwardEnabled,
   addBrowserHistory,
   onScroll,
+  siteMode,
 }: IWebContentProps) {
   const lastNavEventSnapshot = useRef('');
   const showHome = url === homeTab.url;
@@ -147,6 +148,7 @@ function WebContent({
     () => (
       <WebView
         key={url}
+        siteMode={siteMode}
         androidLayerType={androidLayerType}
         src={url}
         onWebViewRef={(ref) => {
@@ -165,7 +167,11 @@ function WebContent({
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onNavigationStateChange={onNavigationStateChange}
         onOpenWindow={(e) => {
-          void gotoSite({ url: e.nativeEvent.targetUrl, userTriggered: true });
+          void gotoSite({
+            url: e.nativeEvent.targetUrl,
+            userTriggered: true,
+            siteMode,
+          });
         }}
         allowpopups
         onLoadStart={onLoadStart}
@@ -176,7 +182,7 @@ function WebContent({
       />
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [id, gotoSite, showHome, androidLayerType],
+    [id, siteMode, gotoSite, showHome, androidLayerType],
   );
 
   const progressBar = useMemo(() => {

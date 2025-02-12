@@ -572,6 +572,7 @@ export interface IFetchSwapTxHistoryStatusResponse {
   blockNumber?: number;
   txId?: string;
   swapOrderHash?: ISwapOrderHash;
+  chainFlipExplorerUrl?: string;
   surplus?: string;
 }
 
@@ -619,6 +620,7 @@ export interface ISwapTxHistory {
   swapInfo: {
     provider: IFetchQuoteInfo;
     socketBridgeScanUrl?: string;
+    chainFlipExplorerUrl?: string;
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
@@ -695,3 +697,7 @@ export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';
+
+export const ChainFlipLogo =
+  'https://uni.onekey-asset.com/static/logo/chainFlip_logo.png';
+export const ChainFlipName = 'ChainFlip';

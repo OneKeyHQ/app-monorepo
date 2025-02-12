@@ -1517,6 +1517,7 @@
   "onboarding.choose_import_method": "Elija el método de importación",
   "onboarding.connect_external_wallet": "Conectar billetera externa",
   "onboarding.connect_your_device": "Conecta tu dispositivo",
+  "onboarding.create_new_wallet": "Crear nueva billetera",
   "onboarding.create_or_import_wallet": "Crear o importar billetera",
   "onboarding.create_qr_wallet_scan_qr_code_desc": "Regresa aquí, haz clic en el botón de abajo para escanear el código QR",
   "onboarding.create_qr_wallet_show_qr_code_desc": "Vaya a \"Conectar billetera de la App\" > \"Código QR\" > \"OneKey Wallet\" para ver el código QR",

@@ -3,6 +3,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SizableText, Stack, View, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src//background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import {
+  REVENUECAT_API_KEY_WEB,
+  REVENUECAT_API_KEY_WEB_SANDBOX,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import webEmbedConfig from '@onekeyhq/shared/src/storage/webEmbedConfig';
@@ -47,9 +51,9 @@ export function WebViewWebEmbed({
     async function getApiKey() {
       const devSettings =
         await backgroundApiProxy.serviceDevSetting.getDevSetting();
-      let apiKey = process.env.REVENUECAT_API_KEY_WEB;
+      let apiKey = REVENUECAT_API_KEY_WEB;
       if (devSettings?.settings?.usePrimeSandboxPayment) {
-        apiKey = process.env.REVENUECAT_API_KEY_WEB_SANDBOX;
+        apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
       }
       if (!apiKey) {
         throw new Error('No REVENUECAT api key found');

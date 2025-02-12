@@ -3,6 +3,10 @@ import { useCallback, useEffect, useRef } from 'react';
 import { LogLevel, Purchases } from '@revenuecat/purchases-js';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  REVENUECAT_API_KEY_WEB,
+  REVENUECAT_API_KEY_WEB_SANDBOX,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
@@ -43,9 +47,9 @@ export function usePrimePayment(): IUsePrimePayment {
     }
     const devSettings =
       await backgroundApiProxy.serviceDevSetting.getDevSetting();
-    let apiKey = process.env.REVENUECAT_API_KEY_WEB;
+    let apiKey = REVENUECAT_API_KEY_WEB;
     if (devSettings?.settings?.usePrimeSandboxPayment) {
-      apiKey = process.env.REVENUECAT_API_KEY_WEB_SANDBOX;
+      apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
     }
     if (!apiKey) {
       throw new Error('No REVENUECAT api key found');
