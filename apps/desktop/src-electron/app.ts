@@ -18,6 +18,7 @@ import {
   shell,
   systemPreferences,
 } from 'electron';
+import { checkBiometricAuthChanged } from 'electron-check-biometric-auth-changed';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
@@ -585,8 +586,6 @@ function createMainWindow() {
       event.returnValue = false;
       return;
     }
-    const { checkBiometricAuthChanged } =
-      require('electron-check-biometric-auth-changed') as typeof import('electron-check-biometric-auth-changed');
     event.returnValue = checkBiometricAuthChanged();
   });
 
