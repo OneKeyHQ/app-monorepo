@@ -21,7 +21,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
-import { EMessageTypesSolana } from '@onekeyhq/shared/types/message';
+import {
+  EMessageTypesCommon,
+  EMessageTypesSolana,
+} from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -213,36 +216,47 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();
 
-    // exists other sign message type
-    const notSolanaSignOffchainMessage = params.messages.find(
-      (msg) => msg.type !== EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE,
-    );
-
-    if (notSolanaSignOffchainMessage) {
-      throw new Error('signMessage not supported on hardware');
-    }
-
     const result = await Promise.all(
       params.messages.map(
         async (payload: { type: string; message: string }) => {
-          const response = await HardwareSDK.solSignOffchainMessage(
-            connectId,
-            deviceId,
-            {
-              ...params.deviceParams?.deviceCommonParams,
-              path: dbAccount.path,
-              messageHex: Buffer.from(payload.message).toString('hex'),
-              // @ts-expect-error
-              messageFormat: OffchainMessage.guessMessageFormat(
-                Buffer.from(payload.message),
-              ),
-            },
-          );
+          if (payload.type === EMessageTypesCommon.SIGN_MESSAGE) {
+            const response = await HardwareSDK.solSignMessage(
+              connectId,
+              deviceId,
+              {
+                ...params.deviceParams?.deviceCommonParams,
+                path: dbAccount.path,
+                messageHex: Buffer.from(payload.message).toString('hex'),
+              },
+            );
 
-          if (!response.success) {
-            throw convertDeviceError(response.payload);
+            if (!response.success) {
+              throw convertDeviceError(response.payload);
+            }
+            return response.payload?.signature;
           }
-          return response.payload?.signature;
+          if (payload.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+            const response = await HardwareSDK.solSignOffchainMessage(
+              connectId,
+              deviceId,
+              {
+                ...params.deviceParams?.deviceCommonParams,
+                path: dbAccount.path,
+                messageHex: Buffer.from(payload.message).toString('hex'),
+                // @ts-expect-error
+                messageFormat: OffchainMessage.guessMessageFormat(
+                  Buffer.from(payload.message),
+                ),
+              },
+            );
+
+            if (!response.success) {
+              throw convertDeviceError(response.payload);
+            }
+            return response.payload?.signature;
+          }
+
+          throw new Error('signMessage not supported on hardware');
         },
       ),
     );

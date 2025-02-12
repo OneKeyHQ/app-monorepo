@@ -15,6 +15,8 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  ChainFlipLogo,
+  ChainFlipName,
   EExplorerType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -141,21 +143,34 @@ const SwapTxHistoryViewInBrowser = ({
     [item.swapInfo.socketBridgeScanUrl],
   );
 
+  const isChainFlipSwap = useMemo(
+    () => !!item.swapInfo.chainFlipExplorerUrl,
+    [item.swapInfo.chainFlipExplorerUrl],
+  );
+
   const providerExplorer = useMemo(() => {
-    const logo = item.swapInfo.provider?.providerLogo;
-    const url =
+    let logo = item.swapInfo.provider?.providerLogo;
+    let name = item.swapInfo.provider.providerName;
+    let url =
       item.swapInfo.socketBridgeScanUrl && item.txInfo.txId
         ? `${item.swapInfo.socketBridgeScanUrl}${item.txInfo.txId}`
         : '';
+    if (isChainFlipSwap) {
+      url = item.swapInfo.chainFlipExplorerUrl ?? '';
+      name = ChainFlipName;
+      logo = ChainFlipLogo;
+    }
     return {
-      name: item.swapInfo.provider.providerName,
+      name,
       url,
       logo,
       status: item.status,
       type: EExplorerType.PROVIDER,
     };
   }, [
+    isChainFlipSwap,
     item.status,
+    item.swapInfo.chainFlipExplorerUrl,
     item.swapInfo.provider?.providerLogo,
     item.swapInfo.provider.providerName,
     item.swapInfo.socketBridgeScanUrl,
@@ -173,11 +188,17 @@ const SwapTxHistoryViewInBrowser = ({
 
   const explorersDataCall = useCallback(async () => {
     let data = [await fromTxExplorer(), await toTxExplorer()];
-    if (isSocketBridgeSwap) {
+    if (isSocketBridgeSwap || isChainFlipSwap) {
       data = [providerExplorer, ...data];
     }
     return data;
-  }, [fromTxExplorer, isSocketBridgeSwap, providerExplorer, toTxExplorer]);
+  }, [
+    fromTxExplorer,
+    isSocketBridgeSwap,
+    isChainFlipSwap,
+    providerExplorer,
+    toTxExplorer,
+  ]);
 
   const explorersData = usePromiseResult(
     explorersDataCall,
