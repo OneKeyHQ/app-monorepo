@@ -233,6 +233,7 @@ const DialogGallery = () => (
                   tone: 'default',
                 });
 
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 d = Dialog.show({
                   title: 'Lorem ipsum 2222',
                   icon: 'PlaceholderOutline',

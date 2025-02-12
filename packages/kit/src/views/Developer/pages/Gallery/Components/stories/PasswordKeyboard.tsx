@@ -1,10 +1,21 @@
-/* eslint-disable react-hooks/rules-of-hooks */
-/* eslint-disable react/no-unstable-nested-components */
 import { useState } from 'react';
 
 import { PasswordKeyboard } from '@onekeyhq/kit/src/views/LiteCard/components/PasswordKeyboard';
 
 import { Layout } from './utils/Layout';
+
+const Demo = () => {
+  const [value, setValue] = useState('');
+  return (
+    <PasswordKeyboard
+      value={value}
+      onChange={(v) => {
+        setValue(v);
+        console.log(v);
+      }}
+    />
+  );
+};
 
 const PasswordKeyboardGallery = () => (
   <Layout
@@ -14,18 +25,7 @@ const PasswordKeyboardGallery = () => (
     elements={[
       {
         title: 'Uncontrolled',
-        element: () => {
-          const [value, setValue] = useState('');
-          return (
-            <PasswordKeyboard
-              value={value}
-              onChange={(v) => {
-                setValue(v);
-                console.log(v);
-              }}
-            />
-          );
-        },
+        element: Demo,
       },
     ]}
   />

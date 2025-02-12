@@ -16,9 +16,6 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { ILoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
 import { defaultLoggerConfig } from '@onekeyhq/shared/src/logger/loggerConfig';
-import perfUtils, {
-  EPerformanceTimerLogNames,
-} from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 interface ILoggingEnabledConfig {

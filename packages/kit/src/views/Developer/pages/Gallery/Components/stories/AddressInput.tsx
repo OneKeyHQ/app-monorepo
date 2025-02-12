@@ -85,7 +85,6 @@ const Demo1 = () => {
 };
 
 const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
-  const intl = useIntl();
   const form = useForm<IAddressFormValues>({
     defaultValues: {
       name: '',

@@ -8,7 +8,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useTheme,
   useThemeName,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
