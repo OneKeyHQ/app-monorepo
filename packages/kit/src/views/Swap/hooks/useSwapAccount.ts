@@ -195,9 +195,6 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
       accountInfo: undefined,
       activeAccount: undefined,
     };
-    if (networkUtils.isAllNetwork({ networkId: activeAccount.network?.id })) {
-      return res;
-    }
     if (
       type === ESwapDirectionType.TO &&
       swapToAnotherAccountSwitchOn &&
@@ -208,7 +205,11 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     ) {
       return {
         ...res,
-        address: swapToAnotherAccountAddressAtom.address,
+        address: networkUtils.isAllNetwork({
+          networkId: activeAccount.network?.id,
+        })
+          ? ''
+          : swapToAnotherAccountAddressAtom.address,
         networkId: swapToAnotherAccountAddressAtom.networkId,
         accountInfo: swapToAnotherAccountAddressAtom.accountInfo,
         activeAccount: { ...activeAccount },
@@ -217,7 +218,11 @@ export function useSwapAddressInfo(type: ESwapDirectionType) {
     if (activeAccount) {
       return {
         ...res,
-        address: activeAccount.account?.address,
+        address: networkUtils.isAllNetwork({
+          networkId: activeAccount.network?.id,
+        })
+          ? ''
+          : activeAccount.account?.address,
         networkId: activeAccount.network?.id,
         accountInfo: { ...activeAccount },
         activeAccount: { ...activeAccount },
