@@ -12,37 +12,49 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBDevice,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
-import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  EModalDeviceManagementRoutes,
+  EModalRoutes,
+  EOnboardingPages,
+} from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 function DeviceManagementListModal() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
 
-  const { result: deviceList = [], run: refreshDeviceList } =
-    usePromiseResult(async () => {
-      const { devices } =
-        await backgroundApiProxy.serviceAccount.getAllActiveDevices();
-      return devices;
+  const { result: hwQrWalletList = [], run: refreshHwQrWalletList } =
+    usePromiseResult<Array<IHwQrWalletWithDevice>>(async () => {
+      const r =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+      return Object.values(r).filter((item): item is IHwQrWalletWithDevice =>
+        Boolean(item.device),
+      );
     }, []);
 
   useEffect(() => {
     const fn = () => {
-      void refreshDeviceList();
+      void refreshHwQrWalletList();
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
     };
-  }, [refreshDeviceList]);
+  }, [refreshHwQrWalletList]);
 
   const onAddDevice = useCallback(async () => {
     appNavigation.pushModal(EModalRoutes.OnboardingModal, {
@@ -50,20 +62,40 @@ function DeviceManagementListModal() {
     });
   }, [appNavigation]);
 
+  const onDevicePressed = useCallback(
+    (device: IDBDevice) => {
+      if (device.id) {
+        appNavigation.push(EModalDeviceManagementRoutes.DeviceDetailModal, {
+          deviceId: device.id,
+        });
+      }
+    },
+    [appNavigation],
+  );
+
   const renderItem = useCallback(
-    ({ item }: { item: IDBDevice }) => (
-      <ListItem
-        title={item.name}
-        drillIn
-        avatarProps={{
-          src: HwWalletAvatarImages[item.deviceType] as string,
-        }}
-        onPress={() => {
-          console.log('device pressed:', item);
-        }}
-      />
-    ),
-    [],
+    ({ item }: { item: IHwQrWalletWithDevice }) => {
+      const walletAvatarProps: IWalletAvatarProps = {
+        wallet: item.wallet,
+        status: 'default',
+        badge: accountUtils.isQrWallet({ walletId: item.wallet.id })
+          ? 'QR'
+          : undefined,
+      };
+      return (
+        <ListItem
+          title={item.wallet.name}
+          drillIn
+          renderAvatar={() => <WalletAvatar {...walletAvatarProps} />}
+          onPress={() => {
+            if (item.device) {
+              onDevicePressed(item.device);
+            }
+          }}
+        />
+      );
+    },
+    [onDevicePressed],
   );
 
   const footer = useMemo(
@@ -100,7 +132,8 @@ function DeviceManagementListModal() {
       />
       <Page.Body pb="$9">
         <ListView
-          data={deviceList}
+          keyExtractor={(item) => item.wallet.id}
+          data={hwQrWalletList}
           renderItem={renderItem}
           estimatedItemSize={68}
           ListFooterComponent={footer}

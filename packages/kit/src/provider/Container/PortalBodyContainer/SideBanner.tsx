@@ -137,9 +137,9 @@ function BottomMenu() {
   });
 
   const openDeviceManagementPage = useCallback(async () => {
-    const { devices } =
-      await backgroundApiProxy.serviceAccount.getAllActiveDevices();
-    if (devices.length > 0) {
+    const allHwQrWallet =
+      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+    if (Object.keys(allHwQrWallet).length > 0) {
       appNavigation.pushModal(EModalRoutes.DeviceManagementModal, {
         screen: EModalDeviceManagementRoutes.DeviceListModal,
       });

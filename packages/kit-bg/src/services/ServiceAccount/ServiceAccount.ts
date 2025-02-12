@@ -68,6 +68,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
+  IHwQrWalletWithDevice,
   INetworkAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
@@ -269,10 +270,28 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllActiveDevices() {
-    const devices = await localDb.getAllActiveDevices();
-    console.log('==========>>>>>>active devices: ', devices);
-    return { devices };
+  async getAllHwQrWalletWithDevice() {
+    const { wallets } = await this.getAllWallets();
+    const { devices } = await this.getAllDevices();
+
+    const result: {
+      [walletId: string]: IHwQrWalletWithDevice;
+    } = {};
+
+    for (const wallet of wallets) {
+      if (
+        accountUtils.isHwWallet({ walletId: wallet.id }) ||
+        accountUtils.isQrWallet({ walletId: wallet.id })
+      ) {
+        const device = devices.find((d) => d.id === wallet.associatedDevice);
+        result[wallet.id] = {
+          wallet,
+          device,
+        };
+      }
+    }
+
+    return result;
   }
 
   @backgroundMethod()
