@@ -176,14 +176,19 @@ const PasswordVerify = ({
     if (!isSupport) {
       return false;
     }
-    const changed = await checkBiometricAuthChanged();
-    if (changed) {
-      void backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
-      alert(
-        'Biometric authentication has changed. Please manually re-enable it.',
-      );
+    try {
+      const changed = await checkBiometricAuthChanged();
+      if (changed) {
+        void backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
+        alert(
+          'Biometric authentication has changed. Please manually re-enable it.',
+        );
+      }
+      return changed;
+    } catch (error) {
+      console.error(error);
     }
-    return changed;
+    return false;
   }, []);
 
   useLayoutEffect(() => {
