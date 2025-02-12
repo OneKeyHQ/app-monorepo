@@ -7144,7 +7144,7 @@ __metadata:
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:14.0.0-beta15"
     react-native-canvas: "npm:^0.1.39"
-    react-native-check-biometric-auth-changed: "https://github.com/OneKeyHQ/react-native-check-biometric-auth-changed.git#init"
+    react-native-check-biometric-auth-changed: "npm:0.1.0"
     react-native-cloud-fs: "npm:@onekeyfe/react-native-cloud-fs@2.6.3"
     react-native-crypto: "npm:^2.2.0"
     react-native-device-info: "npm:10.11.0"
@@ -34753,13 +34753,13 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-check-biometric-auth-changed@https://github.com/OneKeyHQ/react-native-check-biometric-auth-changed.git#init":
+"react-native-check-biometric-auth-changed@npm:0.1.0":
   version: 0.1.0
-  resolution: "react-native-check-biometric-auth-changed@https://github.com/OneKeyHQ/react-native-check-biometric-auth-changed.git#commit=a5cc8f45d156bbf2b8c0f12dc0b89d12c8cdad9c"
+  resolution: "react-native-check-biometric-auth-changed@npm:0.1.0"
   peerDependencies:
     react: "*"
     react-native: "*"
-  checksum: 10/9e06cc24414fcebf6d00406c278ea25196173ffec008b81770183fb868f8e4fd18089df38be140d8bdb40e25e35f99bf79dbd2a316b67152fb1865ac5d5e24e8
+  checksum: 10/3c9ff6b89dc4d699a941aa622ce8204cc0386b7338208b12fb7add0d104c0b9f0b09a3c230ae35b7187b96084b4beef10486ddedde7c372e435e4c54d53247d2
   languageName: node
   linkType: hard
 
