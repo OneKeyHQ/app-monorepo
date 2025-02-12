@@ -1,4 +1,4 @@
-import * as Loader from '@onekeyfe/cardano-coin-selection';
+import * as Loader from '@onekeyfe/cardano-coin-selection-asmjs';
 
 import type { IGetCardanoApi } from './types';
 

@@ -40,8 +40,7 @@ function PrimeSubscriptionPlanItem({
     promoText = `Save 33%`;
   }
   return (
-    <XStack
-      alignItems="baseline"
+    <YStack
       pl="$5"
       pr="$4"
       py="$5"
@@ -59,31 +58,34 @@ function PrimeSubscriptionPlanItem({
         </Badge>
       ) : null}
       <SizableText size="$headingXl" mr="$2">
-        {title} ({periodDuration})
+        {title}
       </SizableText>
-      <NumberSizeableText
-        flex={1}
-        size="$headingXl"
-        formatter="price"
-        formatterOptions={{
-          currency,
-        }}
-      >
-        {price}
-      </NumberSizeableText>
-      <NumberSizeableText
-        ml="$2"
-        size="$bodyMd"
-        color="$textSubdued"
-        formatter="price"
-        formatterOptions={{
-          currency,
-          tokenSymbol: '/month', // TODO i18n
-        }}
-      >
-        {pricePerMonth}
-      </NumberSizeableText>
-    </XStack>
+
+      <XStack flex={1} justifyContent="space-between" alignItems="center">
+        <NumberSizeableText
+          size="$headingXl"
+          formatter="price"
+          formatterOptions={{
+            currency,
+          }}
+        >
+          {price}
+        </NumberSizeableText>
+
+        <NumberSizeableText
+          ml="$2"
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="price"
+          formatterOptions={{
+            currency,
+            tokenSymbol: '/month', // TODO i18n
+          }}
+        >
+          {pricePerMonth}
+        </NumberSizeableText>
+      </XStack>
+    </YStack>
   );
 }
 

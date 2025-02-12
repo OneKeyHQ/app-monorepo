@@ -47,7 +47,7 @@ export const {
       disableSolanaPriorityFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
-      showPrimeTest: false,
+      showPrimeTest: true,
     },
   },
 });
