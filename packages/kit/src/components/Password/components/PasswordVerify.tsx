@@ -12,9 +12,11 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import {
+  Dialog,
   Form,
   IconButton,
   Input,
+  Portal,
   SizableText,
   XStack,
   YStack,
@@ -34,6 +36,7 @@ import {
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
+import { inAppStateLockStyle } from '../../../views/Setting/hooks';
 import { getPasswordKeyboardType } from '../utils';
 
 import PassCodeInput from './PassCodeInput';
@@ -109,7 +112,8 @@ const PasswordVerify = ({
     passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
   );
   const [{ manualLocking }] = usePasswordAtom();
-  const { icon: biologyAuthIconName } = useBiometricAuthInfo();
+  const { icon: biologyAuthIconName, title: authTitle } =
+    useBiometricAuthInfo();
 
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{
@@ -178,34 +182,58 @@ const PasswordVerify = ({
     }
     try {
       const changed = await checkBiometricAuthChanged();
-      if (changed) {
-        void backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
-        alert(
-          'Biometric authentication has changed. Please manually re-enable it.',
-        );
+      if (true) {
+        await backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
+        setTimeout(() => {
+          Dialog.confirm({
+            icon: 'ErrorOutline',
+            tone: 'warning',
+            ...inAppStateLockStyle,
+            portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
+            title: intl.formatMessage(
+              {
+                id: ETranslations.global_biometric_disabled,
+              },
+              {
+                authentication: authTitle,
+              },
+            ),
+            description: intl.formatMessage(
+              {
+                id: ETranslations.global_biometric_disabled_desc,
+              },
+              {
+                authentication: authTitle,
+              },
+            ),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_i_got_it,
+            }),
+          });
+        }, 50);
       }
       return changed;
     } catch (error) {
       console.error(error);
     }
     return false;
-  }, []);
+  }, [authTitle, intl]);
 
   useLayoutEffect(() => {
     void (async () => {
+      const changed =
+        platformEnv.isNativeIOS || platformEnv.isDesktopMac
+          ? await checkAuthChanged()
+          : false;
+      if (changed) {
+        return;
+      }
       if (
         isEnable &&
         !passwordInput &&
         status.value === EPasswordVerifyStatus.DEFAULT &&
         !manualLocking
       ) {
-        let changed = false;
-        if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
-          changed = await checkAuthChanged();
-        }
-        if (changed) {
-          return;
-        }
         void onBiologyAuth();
       }
     })();
