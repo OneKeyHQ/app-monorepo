@@ -246,6 +246,11 @@ function HardwareSingletonDialogCmp(
   ) {
     return <RequireBlePermissionDialog key={dialogKey} ref={ref} {...props} />;
   }
+
+  if (action === EHardwareUiStateAction.FIRMWARE_PROCESSING) {
+    return undefined;
+  }
+
   return (
     <DialogContainer
       ref={ref}
@@ -456,6 +461,7 @@ function HardwareUiStateContainerCmpControlled() {
       [
         EHardwareUiStateAction.FIRMWARE_TIP,
         EHardwareUiStateAction.FIRMWARE_PROGRESS,
+        EHardwareUiStateAction.FIRMWARE_PROCESSING,
       ].includes(action)
     ) {
       return true;
