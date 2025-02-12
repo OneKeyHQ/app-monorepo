@@ -1,19 +1,8 @@
-import RNFingerprintChange from 'react-native-fingerprint-change';
+import { checkBiometricAuthChanged as nativeCheckBiometricAuthChanged } from 'react-native-check-biometric-auth-changed';
 
 import type { ICheckBiometricAuthChanged } from './type';
 
 export const checkBiometricAuthChanged: ICheckBiometricAuthChanged = () =>
-  new Promise((resolve, reject) => {
-    console.log('RNFingerprintChange', RNFingerprintChange)
-    RNFingerprintChange.hasFingerPrintChanged(
-      (error) => {
-        reject(error);
-      },
-      (fingerprintHasChanged) => {
-        console.log('--fingerprintHasChanged', fingerprintHasChanged);
-        resolve(fingerprintHasChanged);
-      },
-    );
-  });
+  nativeCheckBiometricAuthChanged();
 
 export * from './type';

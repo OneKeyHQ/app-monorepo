@@ -11,7 +11,7 @@ module.exports = {
         android: null,
       },
     },
-    'react-native-fingerprint-change': {
+    'react-native-check-biometric-auth-changed': {
       platforms: {
         android: null,
       },
