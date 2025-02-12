@@ -68,6 +68,19 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     return intl.formatMessage({ id: ETranslations.prime_code_resend });
   }, [intl, countdown]);
 
+  async function handleConfirm() {
+    try {
+      await loginWithCode({
+        code: verificationCode,
+        email,
+      });
+      setState({ status: 'done' });
+      onLoginSuccess?.();
+    } catch (error) {
+      setState({ status: 'error' });
+    }
+  }
+
   return (
     <Stack>
       <Dialog.Icon icon="BarcodeSolid" />
@@ -105,6 +118,10 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             onTextChange={(value) => {
               setState({ status: 'initial' });
               setVerificationCode(value);
+
+              if (value.length === 6) {
+                void handleConfirm();
+              }
             }}
           />
 
@@ -121,22 +138,12 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         confirmButtonProps={{
           disabled: verificationCode.length !== 6,
         }}
-        showCancelButton
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
+          id: ETranslations.global_next,
         })}
-        onConfirm={async ({ preventClose }) => {
-          try {
-            await loginWithCode({
-              code: verificationCode,
-              email,
-            });
-            setState({ status: 'done' });
-            onLoginSuccess?.();
-          } catch (error) {
-            setState({ status: 'error' });
-            preventClose();
-          }
+        onConfirm={({ preventClose }) => {
+          preventClose();
+          void handleConfirm();
         }}
       />
     </Stack>
