@@ -1,8 +1,10 @@
+import { Address, OpCode, Script } from '@onekeyfe/kaspa-core-lib';
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import type { IKaspaUnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
+  BASE_KAS_TO_P2SH_ADDRESS,
   CONFIRMATION_COUNT,
   DEFAULT_FEE_RATE,
   DUST_AMOUNT,
@@ -19,6 +21,7 @@ import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
+  tweakPublicKey,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -27,7 +30,10 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -41,6 +47,7 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -111,16 +118,29 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
     }
+
+    let encodedTx;
+
     const dbAccount = await this.getAccount();
     const confirmUtxos = await this._collectUTXOsInfoByApi({
       address: dbAccount.address,
     });
 
-    let encodedTx = await this.prepareAndBuildTx({
-      confirmUtxos,
-      transferInfo,
-      specifiedFeeRate,
-    });
+    // KRC20
+    if (transferInfo.tokenInfo && !transferInfo.tokenInfo.isNative) {
+      encodedTx = await this._createKRC20CommitTransaction({
+        tokenInfo: transferInfo.tokenInfo,
+        amount: transferInfo.amount,
+        to: transferInfo.to,
+        confirmUtxos,
+      });
+    } else {
+      encodedTx = await this.prepareAndBuildTx({
+        confirmUtxos,
+        transferInfo,
+        specifiedFeeRate,
+      });
+    }
 
     // validate tx size
     let txn = toTransaction(encodedTx);
@@ -628,5 +648,80 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: txId,
     };
+  }
+
+  // -------------------KRC20-----------------------------------------
+
+  _createKRC20TransferData({
+    tokenInfo,
+    amount,
+    to,
+  }: {
+    tokenInfo: IToken;
+    amount: string;
+    to: string;
+  }) {
+    return {
+      'p': 'KRC-20',
+      'op': 'transfer',
+      'tick': tokenInfo.symbol,
+      'amt': chainValueUtils.convertTokenAmountToChainValue({
+        value: amount,
+        token: tokenInfo,
+        decimalPlaces: tokenInfo.decimals,
+        roundingMode: BigNumber.ROUND_DOWN,
+      }),
+      'to': to,
+    };
+  }
+
+  async _createKRC20CommitTransaction({
+    tokenInfo,
+    amount,
+    to,
+    confirmUtxos,
+  }: {
+    tokenInfo: IToken;
+    amount: string;
+    to: string;
+    confirmUtxos: IKaspaUnspentOutputInfo[];
+  }) {
+    const account = await this.getAccount();
+    const originalPubkey = Buffer.from(
+      bufferUtils.hexToBytes(checkIsDefined(account.pub)),
+    );
+
+    const tweakPublic = tweakPublicKey(originalPubkey.subarray(1));
+    if (!tweakPublic) throw new Error('Public key tweak failed');
+    const { x: xOnlyPubkey } = tweakPublic;
+    const transferData = this._createKRC20TransferData({
+      tokenInfo,
+      amount,
+      to,
+    });
+
+    const script = new Script(xOnlyPubkey)
+      .add(OpCode.OP_CHECKSIG)
+      .add(OpCode.OP_FALSE)
+      .add(OpCode.OP_EQUALVERIFY)
+      .add(OpCode.OP_IF)
+      .add(Buffer.from('kasplex'))
+      .add(OpCode.OP_0)
+      .add(Buffer.from(JSON.stringify(transferData, null, 2)))
+      .add(OpCode.OP_ENDIF);
+
+    const scriptPublicKey = Script.buildScriptHashOut(script);
+    const P2SHAddress = scriptPublicKey.toAddress();
+
+    const encodedTx = await this.prepareAndBuildTx({
+      confirmUtxos,
+      transferInfo: {
+        from: '',
+        amount: BASE_KAS_TO_P2SH_ADDRESS,
+        to: P2SHAddress.toString(),
+      },
+    });
+
+    return encodedTx;
   }
 }
