@@ -22,12 +22,18 @@ const desktopUserAgent = platformEnv.isNativeIOS
   : 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_7_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 const injectedJavaScript = `
-  setTimeout(() => {
-    const meta = document.createElement('meta');
-    meta.setAttribute('content', 'width=device-width, initial-scale=0.5, maximum-scale=2, user-scalable=2'); 
-    meta.setAttribute('name', 'viewport');
-    document.getElementsByTagName('head')[0].appendChild(meta);
-  }, 3500);
+  const updateMedate = () => {
+    setTimeout(() => {
+      const meta = document.createElement('meta');
+      meta.setAttribute('content', 'width=device-width, initial-scale=0.5, maximum-scale=2, user-scalable=2'); 
+      meta.setAttribute('name', 'viewport');
+      document.getElementsByTagName('head')[0].appendChild(meta);
+    }, 1500);
+  };
+  document.addEventListener("DOMContentLoaded", () => {
+    updateMedate();
+  });
+  updateMedate();
 `;
 
 const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
