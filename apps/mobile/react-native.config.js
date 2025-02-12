@@ -11,5 +11,10 @@ module.exports = {
         android: null,
       },
     },
+    'react-native-fingerprint-change': {
+      platforms: {
+        android: null,
+      },
+    },
   },
 };

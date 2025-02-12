@@ -7042,7 +7042,7 @@ __metadata:
     cross-env: "npm:^7.0.3"
     electron: "npm:27.3.1"
     electron-builder: "npm:24.13.3"
-    electron-check-biometric-auth-changed: "git@github.com:huhuanming/electron-check-biometric-auth-changed.git#7bf2d71ec127eec36787c73be58536e21a3019f3"
+    electron-check-biometric-auth-changed: "npm:0.0.1"
     electron-context-menu: "npm:^3.5.0"
     electron-is-dev: "npm:^2.0.0"
     electron-log: "npm:5.2.0"
@@ -7193,6 +7193,7 @@ __metadata:
     react-native-device-info: "npm:10.11.0"
     react-native-fast-image: "npm:8.6.3"
     react-native-file-logger: "npm:^0.4.1"
+    react-native-fingerprint-change: "npm:1.0.4"
     react-native-fs: "npm:^2.20.0"
     react-native-gesture-handler: "npm:2.14.1"
     react-native-get-random-values: "npm:1.9.0"
@@ -22118,13 +22119,14 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-check-biometric-auth-changed@git@github.com:huhuanming/electron-check-biometric-auth-changed.git#7bf2d71ec127eec36787c73be58536e21a3019f3":
+"electron-check-biometric-auth-changed@npm:0.0.1":
   version: 0.0.1
-  resolution: "electron-check-biometric-auth-changed@git@github.com:huhuanming/electron-check-biometric-auth-changed.git#commit=7bf2d71ec127eec36787c73be58536e21a3019f3"
+  resolution: "electron-check-biometric-auth-changed@npm:0.0.1"
   dependencies:
     bindings: "npm:^1.5.0"
     node-addon-api: "npm:^7.1.0"
-  checksum: 10/5dada4c448af00d19913cfb7ae7697d2a197b4d8073a2dd93f9d70f96325cd6291f9745ce6f8276363e84b155e100106ddcb7433069c5396378fa2344ba676f4
+    node-gyp: "npm:latest"
+  checksum: 10/91f91d099f9529cf6dd9561da8b9251fca410c58fe56d904aedf676f9314cc991184f448ca8784b74416a3fe1f67e31c608aa18bbe1988738d48815fe6b7936b
   conditions: os=darwin
   languageName: node
   linkType: hard
@@ -34919,6 +34921,15 @@ __metadata:
     react: ">=16.0.0"
     react-native: ">=0.60.0"
   checksum: 10/59fabf0ed17616264530d66678660e078ca120ff54fdc7671591fe568eb4d380620ce5df02ae88b207224f4fef459635a9992d0419f662a02a505b06730cedb9
+  languageName: node
+  linkType: hard
+
+"react-native-fingerprint-change@npm:1.0.4":
+  version: 1.0.4
+  resolution: "react-native-fingerprint-change@npm:1.0.4"
+  peerDependencies:
+    react-native: ^0.41.2
+  checksum: 10/f9daf0ff95a9f3f20c8b172c9d3f406e7d5d558244e82995f4d98f7f0764e3cf1e27963187cbdce5518aaaddc5f26481425c1c7d585785fffcac6b8072e1586c
   languageName: node
   linkType: hard
 
