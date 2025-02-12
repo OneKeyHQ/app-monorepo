@@ -271,8 +271,10 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getAllHwQrWalletWithDevice() {
-    const { wallets } = await this.getAllWallets();
-    const { devices } = await this.getAllDevices();
+    const { wallets, allDevices } = await this.getAllWallets({
+      refillWalletInfo: true,
+    });
+    // const { devices } = await this.getAllDevices();
 
     const result: {
       [walletId: string]: IHwQrWalletWithDevice;
@@ -283,7 +285,9 @@ class ServiceAccount extends ServiceBase {
         accountUtils.isHwWallet({ walletId: wallet.id }) ||
         accountUtils.isQrWallet({ walletId: wallet.id })
       ) {
-        const device = devices.find((d) => d.id === wallet.associatedDevice);
+        const device = (allDevices ?? []).find(
+          (d) => d.id === wallet.associatedDevice,
+        );
         result[wallet.id] = {
           wallet,
           device,

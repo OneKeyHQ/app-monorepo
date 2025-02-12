@@ -11,9 +11,9 @@ const DeviceListModal = LazyLoadPage(
   () => import('../pages/DeviceManagementListModal'),
 );
 
-// const DeviceDetailModal = LazyLoadPage(
-//   () => import('../pages/DeviceDetailModal'),
-// );
+const DeviceDetailModal = LazyLoadPage(
+  () => import('../pages/DeviceDetailsModal'),
+);
 
 export const DeviceManagementStacks: IModalFlowNavigatorConfig<
   EModalDeviceManagementRoutes,
@@ -27,8 +27,8 @@ export const DeviceManagementStacks: IModalFlowNavigatorConfig<
     name: EModalDeviceManagementRoutes.DeviceListModal,
     component: DeviceListModal,
   },
-  // {
-  //   name: EModalDeviceManagementRoutes.DeviceDetailModal,
-  //   component: DeviceDetailModal,
-  // },
+  {
+    name: EModalDeviceManagementRoutes.DeviceDetailModal,
+    component: DeviceDetailModal,
+  },
 ];

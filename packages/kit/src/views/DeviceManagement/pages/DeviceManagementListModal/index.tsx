@@ -16,10 +16,6 @@ import type { IWalletAvatarProps } from '@onekeyhq/kit/src/components/WalletAvat
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import type {
-  IDBDevice,
-  IDBWallet,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -62,11 +58,11 @@ function DeviceManagementListModal() {
     });
   }, [appNavigation]);
 
-  const onDevicePressed = useCallback(
-    (device: IDBDevice) => {
-      if (device.id) {
+  const onWalletPressed = useCallback(
+    (wallet: IHwQrWalletWithDevice['wallet']) => {
+      if (wallet.id) {
         appNavigation.push(EModalDeviceManagementRoutes.DeviceDetailModal, {
-          deviceId: device.id,
+          walletId: wallet.id,
         });
       }
     },
@@ -88,14 +84,12 @@ function DeviceManagementListModal() {
           drillIn
           renderAvatar={() => <WalletAvatar {...walletAvatarProps} />}
           onPress={() => {
-            if (item.device) {
-              onDevicePressed(item.device);
-            }
+            onWalletPressed(item.wallet);
           }}
         />
       );
     },
-    [onDevicePressed],
+    [onWalletPressed],
   );
 
   const footer = useMemo(

@@ -8,6 +8,6 @@ export type IModalDeviceManagementParamList = {
   [EModalDeviceManagementRoutes.GuideModal]: undefined;
   [EModalDeviceManagementRoutes.DeviceListModal]: undefined;
   [EModalDeviceManagementRoutes.DeviceDetailModal]: {
-    deviceId: string;
+    walletId: string;
   };
 };
