@@ -5,7 +5,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../../components/AccountSelector';
-import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 const InAppNotification = () => {
@@ -17,18 +16,20 @@ const InAppNotification = () => {
   }, [swapHistoryPendingList]);
 
   const { activeAccount } = useActiveAccount({ num: 0 });
-  usePromiseResult(async () => {
-    if (activeAccount) {
-      // void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
-      //   activeAccount.address,
-      //   activeAccount.networkId,
-      // );
-    }
-  }, [activeAccount]);
 
   useEffect(() => {
-    // void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop();
-  }, [swapLimitOrders]);
+    void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
+      activeAccount?.indexedAccount?.id,
+      !activeAccount?.indexedAccount?.id
+        ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
+        : undefined,
+    );
+  }, [
+    activeAccount?.account?.id,
+    activeAccount?.dbAccount?.id,
+    activeAccount?.indexedAccount?.id,
+    swapLimitOrders,
+  ]);
 
   return null;
 };

@@ -31,6 +31,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
+  useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { truncateDecimalPlaces } from '../utils/utils';
 
@@ -61,6 +62,8 @@ export function useSwapQuote() {
   const { closeQuoteEvent } = useSwapActions().current;
   const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
+  const [swapTabSwitchType] = useSwapTypeSwitchAtom();
+
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
@@ -190,6 +193,7 @@ export function useSwapQuote() {
     }
     // fromToken & address change will trigger effect twice. so this use skip
     if (
+      swapTabSwitchType === swapQuoteActionLockRef.current?.type &&
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount === fromAmountDebounce &&
       equalTokenNoCaseSensitive({
@@ -232,6 +236,7 @@ export function useSwapQuote() {
     toToken?.contractAddress,
     alignmentDecimal,
     fromAmountDebounce,
+    swapTabSwitchType,
   ]);
 
   // Due to the changes in derived types causing address changes, this is not in the swap tab.
@@ -322,24 +327,4 @@ export function useSwapQuote() {
       }
     }
   }, [isFocused, pageType, quoteEventHandler]);
-
-  // useEffect(() => {
-  //   setTimeout(() => {
-  //     if (pageType === EPageType.modal) {
-  //       if (
-  //         isFocused &&
-  //         !swapApprovingTxRef.current?.txId &&
-  //         !swapShouldRefreshRef.current
-  //       ) {
-  //         void recoverQuoteInterval(
-  //           swapSlippageRef.current,
-  //           activeAccountRef.current?.address,
-  //           activeAccountRef.current?.accountInfo?.account?.id,
-  //         );
-  //       } else {
-  //         cleanQuoteInterval();
-  //       }
-  //     }
-  //   }, 100);
-  // }, [cleanQuoteInterval, isFocused, pageType, recoverQuoteInterval]);
 }

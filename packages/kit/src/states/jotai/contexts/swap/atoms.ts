@@ -148,6 +148,7 @@ export const {
   atom: swapQuoteActionLockAtom,
   use: useSwapQuoteActionLockAtom,
 } = contextAtom<{
+  type?: ESwapTabSwitchType;
   actionLock: boolean;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;

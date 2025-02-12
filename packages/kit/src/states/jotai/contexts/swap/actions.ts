@@ -91,6 +91,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private approvingIntervalCount = 0;
 
   syncNetworksSort = contextAtomMethod(async (get, set, netWorkId: string) => {
+    if (!netWorkId) return;
     const networks = get(swapNetworks());
     const sortNetworks = moveNetworkToFirst(networks, netWorkId);
     set(swapNetworks(), sortNetworks);
@@ -511,7 +512,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                       equalTokenNoCaseSensitive({
                         token1: q.toTokenInfo,
                         token2: event.tokenPairs.toToken,
-                      }),
+                      }) &&
+                      q.protocol === event.params.protocol,
                   )
                   ?.filter(
                     (q) =>
@@ -596,8 +598,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
+      const swapTabSwitchType = get(swapTypeSwitchAtom());
       set(swapQuoteActionLockAtom(), (v) => ({
         ...v,
+        type: swapTabSwitchType,
         actionLock: true,
         fromToken,
         toToken,
@@ -1622,6 +1626,41 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 set,
                 fromNetworkDefault?.toToken?.networkId,
               );
+            } else {
+              void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
+            }
+          }
+        } else if (type === ESwapTabSwitchType.LIMIT) {
+          if (
+            !fromToken &&
+            !equalTokenNoCaseSensitive({
+              token1: fromNetworkDefault?.limitFromToken,
+              token2: toToken,
+            })
+          ) {
+            set(swapSelectFromTokenAtom(), fromNetworkDefault?.limitFromToken);
+          }
+          // limit only support single network
+          if (toToken?.networkId !== fromToken?.networkId) {
+            if (
+              fromNetworkDefault?.limitToToken ||
+              fromNetworkDefault?.toToken
+            ) {
+              set(
+                swapSelectToTokenAtom(),
+                fromNetworkDefault?.limitToToken ?? fromNetworkDefault?.toToken,
+              );
+              if (
+                fromNetworkDefault.limitToToken?.networkId ||
+                fromNetworkDefault?.toToken?.networkId
+              ) {
+                void this.syncNetworksSort.call(
+                  set,
+                  fromNetworkDefault.limitToToken?.networkId ??
+                    fromNetworkDefault?.toToken?.networkId ??
+                    '',
+                );
+              }
             } else {
               void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
             }

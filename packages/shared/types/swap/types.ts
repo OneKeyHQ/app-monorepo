@@ -281,6 +281,7 @@ export interface IQuoteTip {
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
+  protocol?: string;
   info: IFetchQuoteInfo;
   errorMessage?: string;
   shouldWrappedToken?: ISwapTokenBase;
