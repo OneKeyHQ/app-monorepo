@@ -76,7 +76,6 @@ const PasswordVerifyContainer = ({
   const resetPasswordStatus = useCallback(() => {
     void backgroundApiProxy.servicePassword.resetPasswordStatus();
   }, []);
-
   useEffect(() => {
     if (webAuthCredentialId && isBiologyAuthSwitchOn) {
       void (async () => {
