@@ -1,9 +1,12 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
 
 type ISpecItemProps = {
   title: string;
@@ -25,8 +28,46 @@ function SpecItem({ title, value }: ISpecItemProps) {
 
 function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
   const intl = useIntl();
-  const featuresInfo =
-    (data.device?.featuresInfo as IOneKeyDeviceFeatures) || {};
+  const { device } = data;
+  const defaultDeviceInfo = useMemo(
+    () => ({
+      model: '-',
+      bleName: '-',
+      bleVersion: '-',
+      bootloaderVersion: '-',
+      firmwareVersion: '-',
+      serialNumber: '-',
+    }),
+    [],
+  );
+  const { result: deviceInfo } = usePromiseResult(
+    async () => {
+      if (!device || !device.featuresInfo) {
+        return defaultDeviceInfo;
+      }
+
+      const versions = await deviceUtils.getDeviceVersion({
+        device,
+        features: device.featuresInfo,
+      });
+
+      return {
+        model: deviceUtils.getDeviceModelName(device.deviceType),
+        bleName: device.featuresInfo.ble_name ?? '-',
+        bleVersion: versions?.bleVersion ?? '-',
+        bootloaderVersion: versions?.bootloaderVersion ?? '-',
+        firmwareVersion: versions?.firmwareVersion ?? '-',
+        serialNumber:
+          device.featuresInfo.onekey_serial ??
+          device.featuresInfo.serial_no ??
+          '-',
+      };
+    },
+    [device, defaultDeviceInfo],
+    {
+      initResult: defaultDeviceInfo,
+    },
+  );
 
   return (
     <YStack gap="$1">
@@ -42,25 +83,31 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
           title={intl.formatMessage({
             id: ETranslations.global_model,
           })}
-          value={data.device?.deviceType || '-'}
+          value={deviceInfo.model}
         />
         <SpecItem
           title={intl.formatMessage({
             id: ETranslations.global_serial_number,
           })}
-          value={data.device?.deviceId || '-'}
+          value={deviceInfo.serialNumber}
         />
         <SpecItem
           title={intl.formatMessage({
-            id: ETranslations.global_serial_number,
+            id: ETranslations.global_bluetooth,
           })}
-          value="-"
+          value={deviceInfo.bleName}
         />
         <SpecItem
           title={intl.formatMessage({
             id: ETranslations.global_bluetooth_firmware,
           })}
-          value={data.device?.connectId || '-'}
+          value={deviceInfo.bleVersion}
+        />
+        <SpecItem
+          title={intl.formatMessage({
+            id: ETranslations.global_bootloader,
+          })}
+          value={deviceInfo.bootloaderVersion}
         />
       </YStack>
     </YStack>

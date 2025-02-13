@@ -37,7 +37,8 @@ function DeviceBasicInfoSection({
         };
       }
 
-      const versions = await deviceUtils.getDeviceVerifyVersionsFromFeatures({
+      const versions = await deviceUtils.getDeviceVersion({
+        device,
         features: device.featuresInfo,
       });
 
