@@ -107,12 +107,7 @@ export function PrimeSubscriptionPlans({
   }, [onPackageSelected, selectedPackageId]);
 
   return (
-    <YStack
-      gap="$2.5"
-      $gtMd={{
-        flexDirection: 'row',
-      }}
-    >
+    <YStack gap="$2.5">
       {packages?.map((p) => {
         const selected = selectedPackageId === p.identifier;
         return (
