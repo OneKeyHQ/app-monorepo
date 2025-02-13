@@ -296,6 +296,14 @@ class ServiceHardwareUI extends ServiceBase {
         }
       };
 
+      if (connectId) {
+        // The device update detection is postponed for two hours
+        // and the automatic detection is resumed after the device communication is completed
+        void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheckWithDelay(
+          { connectId, delay: timerUtils.getTimeDurationMs({ hour: 2 }) },
+        );
+      }
+
       if (this.isOuterProcessing()) {
         // >>> mock hardware connectId
         // if (deviceParams?.dbDevice && deviceParams) {
