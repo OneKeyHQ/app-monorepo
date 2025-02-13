@@ -1,6 +1,8 @@
+import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
@@ -11,6 +13,7 @@ export function PrimeUserInfo({
 }: {
   doPurchase?: () => Promise<void>;
 }) {
+  const intl = useIntl();
   const { user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
 
@@ -47,7 +50,9 @@ export function PrimeUserInfo({
         </Badge>
       ) : (
         <Badge badgeType="default" badgeSize="sm">
-          Free
+          {intl.formatMessage({
+            id: ETranslations.prime_status_free,
+          })}
         </Badge>
       )}
       <PrimeUserInfoMoreButton doPurchase={doPurchase} />

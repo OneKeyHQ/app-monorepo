@@ -4,9 +4,7 @@ import { Layout } from './utils/Layout';
 
 const ImageCropGallery = () => (
   <Layout
-    description=""
-    suggestions={['']}
-    boundaryConditions={['']}
+    componentName="ImageCrop"
     elements={[
       {
         title: 'Default',

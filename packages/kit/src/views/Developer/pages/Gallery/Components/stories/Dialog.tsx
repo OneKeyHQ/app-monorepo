@@ -25,7 +25,6 @@ import type {
   IDialogInstance,
 } from '@onekeyhq/components/src/composite/Dialog/type';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import {
   EGalleryRoutes,
   EModalRoutes,
@@ -186,6 +185,7 @@ function ContentFooter({
 
 const DialogGallery = () => (
   <Layout
+    componentName="Dialog"
     description="需要用户处理事务，又不希望跳转路由以致打断工作流程时，可以使用 Dialog 组件"
     suggestions={[
       'Dialog 的呈现层级高于页面，但低于 Toast',
@@ -234,6 +234,7 @@ const DialogGallery = () => (
                   tone: 'default',
                 });
 
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 d = Dialog.show({
                   title: 'Lorem ipsum 2222',
                   icon: 'PlaceholderOutline',

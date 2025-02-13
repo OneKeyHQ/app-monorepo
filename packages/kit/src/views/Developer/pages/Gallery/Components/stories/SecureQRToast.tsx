@@ -8,9 +8,7 @@ const SecureQRToastGallery = () => {
   const scanQrCode = useScanQrCode();
   return (
     <Layout
-      description=""
-      suggestions={[]}
-      boundaryConditions={[]}
+      componentName="SecureQRToast"
       elements={[
         {
           title: 'SecureQRToast',

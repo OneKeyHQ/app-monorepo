@@ -26,6 +26,9 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
+    // if (params) {
+    //   throw new Error('Tron HD Account is not supported');
+    // }
     return this.basePrepareAccountsHd(params);
   }
 
