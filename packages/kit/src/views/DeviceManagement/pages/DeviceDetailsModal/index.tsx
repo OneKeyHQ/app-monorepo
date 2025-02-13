@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
@@ -44,6 +44,8 @@ function DeviceDetailsModal() {
     >();
   const { walletId } = route.params;
 
+  const [passphraseEnabled, setPassphraseEnabled] = useState(false);
+  const [pinOnAppEnabled, setPinOnAppEnabled] = useState(false);
   const {
     result,
     isLoading,
@@ -51,6 +53,11 @@ function DeviceDetailsModal() {
   } = usePromiseResult<IHwQrWalletWithDevice | undefined>(async () => {
     const r =
       await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+
+    const device = r?.[walletId]?.device;
+    setPassphraseEnabled(Boolean(device?.featuresInfo?.passphrase_protection));
+    setPinOnAppEnabled(Boolean(device?.settings?.inputPinOnSoftware));
+
     return r?.[walletId] ?? undefined;
   }, [walletId]);
 
@@ -64,10 +71,15 @@ function DeviceDetailsModal() {
     };
   }, [refreshData]);
 
+  const isQrWallet = result
+    ? accountUtils.isQrWallet({ walletId: result.wallet.id })
+    : false;
+
   useEffect(() => {
     console.log('result: ====>>>>>>: ', result);
   }, [result]);
 
+  // Basic Info Section
   const onPressHomescreen = useCallback(() => {
     if (!result?.device) return;
     navigation.pushModal(EModalRoutes.AccountManagerStacks, {
@@ -99,9 +111,41 @@ function DeviceDetailsModal() {
     });
   }, [result?.device?.connectId, actions]);
 
-  const isQrWallet = result
-    ? accountUtils.isQrWallet({ walletId: result.wallet.id })
-    : false;
+  // Advance Section
+  const inputPinOnSoftwareSupport = ['classic', 'mini', 'classic1s'].includes(
+    result?.device?.deviceType || '',
+  );
+
+  const onPassphraseEnabledChange = useCallback(
+    async (value: boolean) => {
+      try {
+        await backgroundApiProxy.serviceHardware.setPassphraseEnabled({
+          walletId: result?.wallet.id || '',
+          passphraseEnabled: value,
+        });
+        setPassphraseEnabled(value);
+      } catch (error) {
+        console.error(error);
+      }
+    },
+    [result?.wallet.id],
+  );
+
+  const onPinOnAppEnabledChange = useCallback(
+    async (value: boolean) => {
+      try {
+        setPinOnAppEnabled(value);
+        await backgroundApiProxy.serviceHardware.setInputPinOnSoftware({
+          walletId: result?.wallet.id || '',
+          inputPinOnSoftware: value,
+        });
+      } catch (error) {
+        console.error(error);
+        setPinOnAppEnabled(!value);
+      }
+    },
+    [result?.wallet.id],
+  );
 
   const renderContent = useCallback(() => {
     if (isLoading || !result) {
@@ -114,11 +158,26 @@ function DeviceDetailsModal() {
 
     return (
       <>
-        <DeviceAdvanceSection data={result} />
+        <DeviceAdvanceSection
+          passphraseEnabled={passphraseEnabled}
+          pinOnAppEnabled={pinOnAppEnabled}
+          onPassphraseEnabledChange={onPassphraseEnabledChange}
+          onPinOnAppEnabledChange={onPinOnAppEnabledChange}
+          inputPinOnSoftwareSupport={inputPinOnSoftwareSupport}
+        />
         <DeviceSpecsSection data={result} />
       </>
     );
-  }, [isLoading, result, isQrWallet]);
+  }, [
+    isLoading,
+    result,
+    isQrWallet,
+    passphraseEnabled,
+    pinOnAppEnabled,
+    inputPinOnSoftwareSupport,
+    onPassphraseEnabledChange,
+    onPinOnAppEnabledChange,
+  ]);
 
   return (
     <Page scrollEnabled>

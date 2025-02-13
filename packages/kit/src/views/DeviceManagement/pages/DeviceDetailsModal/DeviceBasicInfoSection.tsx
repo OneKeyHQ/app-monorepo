@@ -71,7 +71,7 @@ function DeviceBasicInfoSection({
   );
 
   return (
-    <YStack pt="$3" pb="$3" gap="$1.5" bg="$bgSubdued" borderRadius="$4">
+    <YStack pt="$3" pb="$3" gap="$5" bg="$bgSubdued" borderRadius="$4">
       <XStack pt={9} flex={1} ai="center">
         <XStack h={50} w={80} ai="center" jc="center">
           <WalletAvatar

@@ -1,17 +1,23 @@
-import { useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import { SizableText, Switch, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
-function DeviceAdvanceSection({ data }: { data: IHwQrWalletWithDevice }) {
+function DeviceAdvanceSection({
+  passphraseEnabled,
+  pinOnAppEnabled,
+  onPassphraseEnabledChange,
+  onPinOnAppEnabledChange,
+  inputPinOnSoftwareSupport,
+}: {
+  passphraseEnabled: boolean;
+  pinOnAppEnabled: boolean;
+  onPassphraseEnabledChange: (value: boolean) => void;
+  onPinOnAppEnabledChange: (value: boolean) => void;
+  inputPinOnSoftwareSupport: boolean;
+}) {
   const intl = useIntl();
-  const [passphraseEnabled, setPassphraseEnabled] = useState(false);
-  const [pinOnAppEnabled, setPinOnAppEnabled] = useState(false);
-
   return (
     <YStack gap="$1">
       <XStack ai="center" h="$9">
@@ -23,6 +29,7 @@ function DeviceAdvanceSection({ data }: { data: IHwQrWalletWithDevice }) {
       </XStack>
       <YStack py="$1" bg="$bgSubdued" borderRadius="$4">
         <ListItem
+          alignItems="flex-start"
           title={intl.formatMessage({
             id: ETranslations.global_passphrase,
           })}
@@ -34,23 +41,25 @@ function DeviceAdvanceSection({ data }: { data: IHwQrWalletWithDevice }) {
             size="small"
             value={passphraseEnabled}
             onChange={() => {
-              setPassphraseEnabled(!passphraseEnabled);
+              onPassphraseEnabledChange(!passphraseEnabled);
             }}
           />
         </ListItem>
-        <ListItem
-          title={intl.formatMessage({
-            id: ETranslations.enter_pin_on_app,
-          })}
-        >
-          <Switch
-            size="small"
-            value={pinOnAppEnabled}
-            onChange={() => {
-              setPinOnAppEnabled(!pinOnAppEnabled);
-            }}
-          />
-        </ListItem>
+        {inputPinOnSoftwareSupport ? (
+          <ListItem
+            title={intl.formatMessage({
+              id: ETranslations.enter_pin_on_app,
+            })}
+          >
+            <Switch
+              size="small"
+              value={pinOnAppEnabled}
+              onChange={() => {
+                onPinOnAppEnabledChange(!pinOnAppEnabled);
+              }}
+            />
+          </ListItem>
+        ) : null}
       </YStack>
     </YStack>
   );
