@@ -115,7 +115,6 @@
     "react-native-passkeys": "^0.3.0",
     "react-native-permissions": "^4.1.5",
     "react-native-purchases": "^8.5.0",
-    "react-native-purchases-ui": "^8.5.0",
     "react-native-qrcode-styled": "^0.3.3",
     "react-native-randombytes": "^3.6.1",
     "react-native-reanimated": "3.6.1",

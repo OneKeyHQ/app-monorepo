@@ -7,7 +7,6 @@ import type {
   CustomerInfo as CustomerInfoNative,
   PurchasesPackage,
 } from '@revenuecat/purchases-typescript-internal';
-import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 export type IUsePrimePayment = {
   isReady: boolean;
@@ -22,7 +21,7 @@ export type IUsePrimePayment = {
         packages: Package[];
       }>)
     | undefined;
-  presentPaywallNative: (() => Promise<PAYWALL_RESULT>) | undefined;
+  presentPaywallNative: (() => Promise<boolean>) | undefined;
   purchasePaywallPackageWeb:
     | (({
         packageId,
