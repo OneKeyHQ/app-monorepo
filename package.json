@@ -251,6 +251,7 @@
     "@babel/highlight": "7.23.4",
     "@babel/types": "7.23.5",
     "@babel/parser": "7.23.5",
+    "@walletconnect/modal": "2.6.2",
     "protobufjs": "6.11.2",
     "@metamask/eth-sig-util": "5.1.0",
     "@polkadot/util": "12.6.2",
