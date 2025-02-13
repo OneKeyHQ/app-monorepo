@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { Animated, StyleSheet } from 'react-native';
@@ -33,20 +33,20 @@ export default function MobileBottomTabBar({
   const { routes } = state;
   const { bottom } = useSafeAreaInsets();
 
-  const [heightAnim] = useState(new Animated.Value(54));
-  const [opacityAnim] = useState(new Animated.Value(1));
+  const heightAnim = useMemo(() => new Animated.Value(54), []);
+  const opacityAnim = useMemo(() => new Animated.Value(1), []);
 
   useEffect(() => {
     appEventBus.on(EAppEventBusNames.HideTabBar, (hide) => {
       Animated.parallel([
         Animated.timing(heightAnim, {
           toValue: hide ? 0 : 54,
-          duration: 300,
+          duration: 250,
           useNativeDriver: false,
         }),
         Animated.timing(opacityAnim, {
           toValue: hide ? 0 : 1,
-          duration: 300,
+          duration: 250,
           useNativeDriver: false,
         }),
       ]).start();
