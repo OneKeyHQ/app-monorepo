@@ -28,7 +28,7 @@ export function useLocaleOptions() {
   return localeOptions;
 }
 
-const inAppStateLockStyle: {
+export const inAppStateLockStyle: {
   sheetProps: IDialogProps['sheetProps'];
   floatingPanelProps: IDialogProps['floatingPanelProps'];
 } = {
