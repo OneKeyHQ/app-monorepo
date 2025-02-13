@@ -9,12 +9,7 @@ import {
 } from 'react';
 
 import { useWindowDimensions } from 'react-native';
-import {
-  Stack,
-  Popover as TMPopover,
-  useMedia,
-  withStaticProperties,
-} from 'tamagui';
+import { Popover as TMPopover, useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -25,7 +20,7 @@ import {
   useKeyboardHeight,
   useSafeAreaInsets,
 } from '../../hooks';
-import { SizableText, XStack, YStack } from '../../primitives';
+import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
