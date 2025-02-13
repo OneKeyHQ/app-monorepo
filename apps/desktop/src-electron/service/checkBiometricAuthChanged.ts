@@ -5,7 +5,9 @@ import { ECheckBiometricAuthChangedEventType } from './enum';
 // Child process
 process.parentPort.on(
   'message',
-  (e: { data: { type: string; params: unknown } }) => {
+  (e: {
+    data: { type: ECheckBiometricAuthChangedEventType; params: unknown };
+  }) => {
     switch (e.data.type) {
       case ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged:
         {

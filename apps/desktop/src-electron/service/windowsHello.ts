@@ -45,7 +45,7 @@ function requestVerificationAsync(
 // Child process
 process.parentPort.on(
   'message',
-  (e: { data: { type: string; params: unknown } }) => {
+  (e: { data: { type: EWindowHelloEventType; params: unknown } }) => {
     switch (e.data.type) {
       case EWindowHelloEventType.CheckAvailabilityAsync:
         checkWindowsHelloAvailability((result) => {
