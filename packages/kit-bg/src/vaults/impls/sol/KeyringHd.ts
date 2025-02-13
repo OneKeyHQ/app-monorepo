@@ -1,5 +1,3 @@
-import bs58 from 'bs58';
-
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 
@@ -28,6 +26,9 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
+    // if (params.deriveInfo?.label === 'Ledger Live') {
+    //   throw new Error('Solana HD Account with Ledger Live is not supported');
+    // }
     return this.basePrepareAccountsHd(params);
   }
 
