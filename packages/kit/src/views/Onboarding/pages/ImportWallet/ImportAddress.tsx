@@ -10,7 +10,6 @@ import {
   SegmentControl,
   SizableText,
   Stack,
-  Toast,
   useClipboard,
   useForm,
   useFormWatch,
@@ -46,6 +45,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
 import { Tutorials } from '../../components';
+
+import importWalletUiUtils from './importWalletUiUtils';
 
 type IFormValues = {
   networkId?: string;
@@ -459,11 +460,11 @@ function ImportAddress() {
               await backgroundApiProxy.serviceAccount.addWatchingAccount(data);
 
             const accountId = r?.accounts?.[0]?.id;
-            if (accountId) {
-              Toast.success({
-                title: intl.formatMessage({ id: ETranslations.global_success }),
-              });
-            }
+
+            importWalletUiUtils.toastSuccessWhenImportAddressOrPrivateKey({
+              isOverrideAccounts: r?.isOverrideAccounts,
+              accountId,
+            });
 
             void actions.current.updateSelectedAccountForSingletonAccount({
               num: 0,

@@ -65,6 +65,7 @@ export const ipcMessageKeys = {
   TOUCH_ID_CAN_PROMPT: 'touchId/canPrompt',
   TOUCH_ID_PROMPT_RES: 'touchId/prompt-res',
   TOUCH_ID_PROMPT: 'touchId/prompt',
+  CHECK_BIOMETRIC_AUTH_CHANGED: 'touchId/checkBiometricAuthChanged',
   TOUCH_RES: 'touch/res',
   TOUCH_OPEN_PRIVACY_PANEL: 'touch/openPrivacyPanel',
 

@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -20,6 +19,7 @@ import {
   ImportSingleChainBase,
   fixInputImportSingleChain,
 } from './ImportSingleChainBase';
+import importWalletUiUtils from './importWalletUiUtils';
 
 function ImportPrivateKey() {
   const intl = useIntl();
@@ -82,11 +82,12 @@ function ImportPrivateKey() {
         // global.success
 
         const accountId = r?.accounts?.[0]?.id;
-        if (accountId) {
-          Toast.success({
-            title: intl.formatMessage({ id: ETranslations.global_success }),
-          });
-        }
+
+        importWalletUiUtils.toastSuccessWhenImportAddressOrPrivateKey({
+          isOverrideAccounts: r?.isOverrideAccounts,
+          accountId,
+        });
+
         void actions.current.updateSelectedAccountForSingletonAccount({
           num: 0,
           networkId: values.networkId,
