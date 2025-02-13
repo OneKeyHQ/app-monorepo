@@ -11,6 +11,7 @@ import {
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
+  sha256,
   tonMnemonicFromEntropy,
   tonValidateMnemonic,
   validateMnemonic,
@@ -55,6 +56,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -78,6 +80,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
+import simpleDb from '../../dbs/simple/simpleDb';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -1047,6 +1050,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     walletId: string;
     accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
   }> {
     if (platformEnv.isWebDappMode) {
       throw new Error(
@@ -1112,10 +1116,11 @@ class ServiceAccount extends ServiceBase {
         networkId,
         walletId,
         accounts: [],
+        isOverrideAccounts: false,
       };
     }
 
-    await localDb.addAccountsToWallet({
+    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
@@ -1128,6 +1133,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
       accounts,
+      isOverrideAccounts,
     };
   }
 
@@ -1252,6 +1258,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     walletId: string;
     accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
   }> {
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new Error(
@@ -1353,10 +1360,11 @@ class ServiceAccount extends ServiceBase {
         networkId,
         walletId,
         accounts: [],
+        isOverrideAccounts: false,
       };
     }
 
-    await localDb.addAccountsToWallet({
+    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
@@ -1370,6 +1378,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
       accounts,
+      isOverrideAccounts,
     };
   }
 
@@ -2092,15 +2101,20 @@ class ServiceAccount extends ServiceBase {
     return result;
   }
 
+  walletHashBuilder = (options: { realMnemonic: string }) => {
+    const text = `${options.realMnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375`;
+    const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+    const walletHash0 = bufferUtils.bytesToHex(buff);
+    return walletHash0;
+  };
+
   @backgroundMethod()
   async createHDWallet({
     name,
     mnemonic,
-    walletHashBuilder,
   }: {
     mnemonic: string;
     name?: string;
-    walletHashBuilder?: (options: { realMnemonic: string }) => string;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -2116,10 +2130,11 @@ class ServiceAccount extends ServiceBase {
       throw new Error('TON mnemonic is not supported');
     }
 
-    let walletHash: string | undefined;
-    if (walletHashBuilder) {
-      walletHash = walletHashBuilder({ realMnemonic });
-    }
+    await this.generateHDWalletsMissingHash({ password });
+
+    const walletHash: string | undefined = this.walletHashBuilder({
+      realMnemonic,
+    });
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
@@ -2181,7 +2196,11 @@ class ServiceAccount extends ServiceBase {
     avatarInfo?: IAvatarInfo;
     name?: string;
     walletHash?: string;
-  }): Promise<{ wallet: IDBWallet; indexedAccount?: IDBIndexedAccount }> {
+  }): Promise<{
+    wallet: IDBWallet;
+    indexedAccount?: IDBIndexedAccount;
+    isOverrideWallet?: boolean;
+  }> {
     if (platformEnv.isWebDappMode) {
       throw new Error('createHDWallet ERROR: Not supported in Dapp mode');
     }
@@ -2194,13 +2213,22 @@ class ServiceAccount extends ServiceBase {
         (item) => walletHash && item.hash && item.hash === walletHash,
       );
       if (existsSameHashWallet) {
+        const indexedAccounts = await this.addIndexedAccount({
+          walletId: existsSameHashWallet.id,
+          indexes: [0],
+          skipIfExists: true,
+        });
         // localDb.buildCreateHDAndHWWalletResult({
         //   walletId: existsSameHashWallet.id,
         //   addedHdAccountIndex:
         // })
         // DO NOT throw error, just return the exists wallet, so v4 migration can continue
         // throw new Error('Wallet with the same mnemonic hash already exists');
-        return { wallet: existsSameHashWallet };
+        return {
+          wallet: existsSameHashWallet,
+          isOverrideWallet: true,
+          indexedAccount: indexedAccounts[0],
+        };
       }
     }
 
@@ -2898,6 +2926,49 @@ class ServiceAccount extends ServiceBase {
       }
     }
     return undefined;
+  }
+
+  async generateHDWalletsMissingHash({ password }: { password: string }) {
+    const { wallets } = await this.getAllWallets({ refillWalletInfo: false });
+    const hdWallets = wallets.filter((wallet) =>
+      accountUtils.isHdWallet({ walletId: wallet.id }),
+    );
+    if (!hdWallets?.length) {
+      return;
+    }
+    let hdWalletsToProcess = [];
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (!appStatus?.hdWalletHashGenerated) {
+      hdWalletsToProcess = hdWallets;
+    } else {
+      hdWalletsToProcess = hdWallets.filter((wallet) => !wallet.hash);
+    }
+    if (!hdWalletsToProcess?.length) {
+      return;
+    }
+    const walletsHashMap: { [walletId: string]: string } = {};
+    for (const wallet of hdWalletsToProcess) {
+      try {
+        const credentialInfo = await localDb.getCredential(wallet.id);
+        if (!credentialInfo) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const realMnemonic = await mnemonicFromEntropy(
+          credentialInfo.credential,
+          password,
+        );
+        const walletHash = this.walletHashBuilder({ realMnemonic });
+        walletsHashMap[wallet.id] = walletHash;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    await localDb.updateWalletsHash(walletsHashMap);
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      hdWalletHashGenerated: true,
+    }));
   }
 }
 

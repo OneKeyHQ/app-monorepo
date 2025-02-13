@@ -7,6 +7,7 @@ import type { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccount
 import type { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import type { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import type { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
+import type { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import type { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import type { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
@@ -189,6 +190,8 @@ export class SimpleDbProxy
   babylonSync = this._createProxyService(
     'babylonSync',
   ) as SimpleDbEntityBabylonSync;
+
+  appStatus = this._createProxyService('appStatus') as SimpleDbEntityAppStatus;
 
   allNetworks = this._createProxyService(
     'allNetworks',

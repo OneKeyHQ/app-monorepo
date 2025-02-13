@@ -1625,13 +1625,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 name: v4wallet.name,
                 mnemonic: await servicePassword.encodeSensitiveText({
                   text: mnemonic,
-                }),
-                walletHashBuilder: () => {
-                  const text = `${mnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375--${v4wallet.id}`;
-                  const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
-                  const walletHash = bufferUtils.bytesToHex(buff);
-                  return walletHash;
-                },
+                })
               });
             v5dbWallet = v5walletSaved;
           }
