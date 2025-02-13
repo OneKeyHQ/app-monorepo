@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
-import { StyleSheet } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
@@ -15,7 +15,7 @@ import { MobileTabItem } from './MobileTabItem';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
-import type { Animated, StyleProp, ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
@@ -32,14 +32,26 @@ export default function MobileBottomTabBar({
 }) {
   const { routes } = state;
   const { bottom } = useSafeAreaInsets();
-  const [hideTabBar, setIsHideTabBar] = useState(false);
+
+  const [heightAnim] = useState(new Animated.Value(54));
+  const [opacityAnim] = useState(new Animated.Value(1));
 
   useEffect(() => {
-    appEventBus.on(EAppEventBusNames.HideTabBar, setIsHideTabBar);
-    return () => {
-      appEventBus.off(EAppEventBusNames.HideTabBar, setIsHideTabBar);
-    };
-  }, []);
+    appEventBus.on(EAppEventBusNames.HideTabBar, (hide) => {
+      Animated.parallel([
+        Animated.timing(heightAnim, {
+          toValue: hide ? 0 : 54,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: hide ? 0 : 1,
+          duration: 300,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    });
+  }, [heightAnim, opacityAnim]);
 
   const tabs = useMemo(
     () =>
@@ -109,16 +121,16 @@ export default function MobileBottomTabBar({
       borderTopColor="$borderSubdued"
       pb={bottom}
     >
-      <Stack
-        testID="Mobile-AppTabBar-Content"
-        accessibilityRole="tablist"
-        flexDirection="row"
-        justifyContent="space-around"
-        display={hideTabBar ? 'none' : undefined}
-        h={54}
+      <Animated.View
+        style={{
+          height: heightAnim,
+          opacity: opacityAnim,
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+        }}
       >
         {tabs}
-      </Stack>
+      </Animated.View>
     </Stack>
   );
 }
