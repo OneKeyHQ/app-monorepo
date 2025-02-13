@@ -1,27 +1,19 @@
 import { useIntl } from 'react-intl';
 
-import {
-  Badge,
-  Icon,
-  IconButton,
-  Image,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Badge, Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import { WalletRenameButton } from '@onekeyhq/kit/src/views/AccountManagerStacks/components/WalletRename';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
-function DeviceBasicInfo({ data }: { data: IHwQrWalletWithDevice }) {
+function DeviceBasicInfoSection({ data }: { data: IHwQrWalletWithDevice }) {
   const { wallet, device } = data;
   const intl = useIntl();
   return (
-    <YStack pt="$0.5" pb="$3" gap="$1.5">
-      <XStack flex={1} ai="center">
+    <YStack pt="$3" pb="$3" gap="$1.5" bg="$bgSubdued" borderRadius="$4">
+      <XStack pt={9} flex={1} ai="center">
         <XStack h={50} w={80} ai="center" jc="center">
           <WalletAvatar
             size={50}
@@ -59,8 +51,37 @@ function DeviceBasicInfo({ data }: { data: IHwQrWalletWithDevice }) {
           </XStack>
         </YStack>
       </XStack>
+      <YStack>
+        <ListItem
+          title={intl.formatMessage({
+            id: ETranslations.global_homescreen,
+          })}
+          drillIn
+          onPress={() => {
+            console.log('onPress');
+          }}
+        />
+        <ListItem
+          title={intl.formatMessage({
+            id: ETranslations.device_auth_request_title,
+          })}
+          drillIn
+          onPress={() => {
+            console.log('onPress');
+          }}
+        />
+        <ListItem
+          title={intl.formatMessage({
+            id: ETranslations.global_check_for_updates,
+          })}
+          drillIn
+          onPress={() => {
+            console.log('onPress');
+          }}
+        />
+      </YStack>
     </YStack>
   );
 }
 
-export default DeviceBasicInfo;
+export default DeviceBasicInfoSection;

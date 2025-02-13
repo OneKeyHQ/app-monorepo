@@ -14,9 +14,9 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
-import DeviceActions from './DeviceActions';
-import DeviceBasicInfo from './DeviceBasicInfo';
-import DeviceSpecs from './DeviceSpecs';
+import DeviceAdvanceSection from './DeviceAdvanceSection';
+import DeviceBasicInfoSection from './DeviceBasicInfoSection';
+import DeviceSpecsSection from './DeviceSpecsSection';
 
 import type { RouteProp } from '@react-navigation/native';
 
@@ -41,17 +41,17 @@ function DeviceDetailsModal() {
   }, [walletId]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_about_device })}
       />
       <Page.Body>
         <YStack px="$5" py="$3" gap="$3" bg="$bgApp">
-          {result ? <DeviceBasicInfo data={result} /> : null}
-          {result?.device ? (
+          {result ? (
             <>
-              <DeviceActions device={result.device} />
-              <DeviceSpecs device={result.device} />
+              <DeviceBasicInfoSection data={result} />
+              <DeviceAdvanceSection data={result} />
+              <DeviceSpecsSection data={result} />
             </>
           ) : null}
         </YStack>
