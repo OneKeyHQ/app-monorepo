@@ -125,7 +125,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
 
   return (
     <Stack pt="$6">
-      {user?.isLoggedIn && paywallPackages?.packages?.length ? (
+      {paywallPackages?.packages?.length ? (
         <PrimeSubscriptionPlans
           packages={paywallPackages?.packages}
           onPackageSelected={setSelectedPackageId}
