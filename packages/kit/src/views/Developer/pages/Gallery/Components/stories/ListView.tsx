@@ -85,6 +85,7 @@ const ListViewGallery = () => {
 
   return !showPerformanceList ? (
     <Layout
+      componentName="ListView"
       elements={[
         {
           title: 'Styled ListView',

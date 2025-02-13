@@ -158,9 +158,7 @@ function JotaiDemo2() {
 
 const JotaiGlobalGallery = () => (
   <Layout
-    description="jotai"
-    suggestions={['jotai']}
-    boundaryConditions={['jotai']}
+    componentName="JotaiGlobal"
     elements={[
       {
         title: 'DemoAtom',

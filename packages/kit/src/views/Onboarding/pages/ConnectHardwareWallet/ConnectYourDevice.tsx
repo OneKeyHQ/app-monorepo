@@ -552,16 +552,24 @@ function ConnectByUSBOrBLE({
 
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
-        await Promise.all([
-          await actions.current.createHWWalletWithHidden({
-            device,
-            // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
-            hideCheckingDeviceLoading: true,
-            features,
-            isFirmwareVerified,
-            defaultIsTemp: true,
-          }),
-        ]);
+        const createResult = await actions.current.createHWWalletWithHidden({
+          device,
+          // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
+          hideCheckingDeviceLoading: true,
+          features,
+          isFirmwareVerified,
+          defaultIsTemp: true,
+        });
+        if (createResult.wallet && createResult.isOverrideWallet) {
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_wallet_exists_title,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.feedback_wallet_exists_desc,
+            }),
+          });
+        }
       } catch (error) {
         errorToastUtils.toastIfError(error);
         navigation.pop();
@@ -575,7 +583,7 @@ function ConnectByUSBOrBLE({
         });
       }
     },
-    [actions, navigation, stopScan, scanDevice],
+    [stopScan, navigation, actions, intl, scanDevice],
   );
 
   const handleHwWalletCreateFlow = useCallback(

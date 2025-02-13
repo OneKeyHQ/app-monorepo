@@ -32,6 +32,7 @@ function DefaultPage() {
 export default function SpotlightGallery() {
   return (
     <Layout
+      componentName="Spotlight"
       description="Spotlight 组件"
       suggestions={[
         '如果需要重复测试需用 backgroundApiProxy.serviceSpotlight.reset(); 重置',

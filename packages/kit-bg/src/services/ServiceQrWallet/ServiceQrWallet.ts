@@ -188,15 +188,20 @@ class ServiceQrWallet extends ServiceBase {
     }
 
     let networkIds: string[] = [];
-    const allDefaultAddAccountNetworks = uniq(
-      buildDefaultAddAccountNetworksForQrWallet().map((item) => item.networkId),
+    const allDefaultAddAccountNetworks =
+      await buildDefaultAddAccountNetworksForQrWallet({
+        backgroundApi: this.backgroundApi,
+        includingNetworkWithGlobalDeriveType: true,
+      });
+    const allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
+      (item) => item.networkId,
     );
     if (networkUtils.isAllNetwork({ networkId })) {
-      networkIds = allDefaultAddAccountNetworks;
+      networkIds = allDefaultAddAccountNetworksIds;
     } else {
       // networkIds = [networkId];
       // TODO always create all default networks?
-      networkIds = [...allDefaultAddAccountNetworks, networkId];
+      networkIds = uniq([...allDefaultAddAccountNetworksIds, networkId]);
     }
 
     const params: {

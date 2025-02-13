@@ -4,7 +4,7 @@ import { Semaphore } from 'async-mutex';
 import { cloneDeep, isEqual, isUndefined, omitBy } from 'lodash';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { tonMnemonicToKeyPair } from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { CommonDeviceLoading } from '@onekeyhq/kit/src/components/Hardware/Hardware';
@@ -97,6 +97,7 @@ export type IAccountSelectorSyncFromSceneParams = {
 export type IFinalizeWalletSetupCreateWalletResult = {
   wallet: IDBWallet;
   indexedAccount: IDBIndexedAccount | undefined;
+  isOverrideWallet?: boolean;
   hidden?: {
     wallet: IDBWallet;
     indexedAccount: IDBIndexedAccount | undefined;
@@ -586,10 +587,11 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         await timerUtils.wait(100);
 
-        const [{ wallet, indexedAccount, hidden }] = await Promise.all([
-          await createWalletFn(),
-          await timerUtils.wait(1000),
-        ]);
+        const [{ wallet, indexedAccount, hidden, isOverrideWallet }] =
+          await Promise.all([
+            await createWalletFn(),
+            await timerUtils.wait(1000),
+          ]);
 
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupStep, {
           step: EFinalizeWalletSetupSteps.GeneratingAccounts,
@@ -614,7 +616,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
 
         await timerUtils.wait(1000);
 
-        return { wallet, indexedAccount };
+        return { wallet, indexedAccount, isOverrideWallet };
       } catch (error) {
         qrHiddenCreateGuideDialog.showDialogIfErrorMatched(error);
         appEventBus.emit(EAppEventBusNames.FinalizeWalletSetupError, {
@@ -642,7 +644,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
         indexedAccount,
         skipDeviceCancel,
         hideCheckingDeviceLoading,
-        autoHandleExitError,
+        autoHandleExitError = true,
       } = params;
       defaultLogger.account.batchCreatePerf.addDefaultNetworkAccounts({
         wallet,
@@ -653,18 +655,49 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
       });
       const networkId = selectedAccount.networkId;
       const deriveType = selectedAccount.deriveType;
-      return backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
-        {
-          walletId: wallet.id,
-          indexedAccountId: indexedAccount?.id,
-          customNetworks:
-            networkId && deriveType ? [{ networkId, deriveType }] : undefined,
+      const result =
+        await backgroundApiProxy.serviceBatchCreateAccount.addDefaultNetworkAccounts(
+          {
+            walletId: wallet.id,
+            indexedAccountId: indexedAccount?.id,
+            customNetworks:
+              networkId && deriveType ? [{ networkId, deriveType }] : undefined,
 
-          skipDeviceCancel,
-          hideCheckingDeviceLoading,
-          autoHandleExitError,
-        },
-      );
+            skipDeviceCancel,
+            hideCheckingDeviceLoading,
+            autoHandleExitError,
+          },
+        );
+
+      if (autoHandleExitError) {
+        void (async () => {
+          for (const failedAccount of result?.failedAccounts || []) {
+            const network = await backgroundApiProxy.serviceNetwork.getNetwork({
+              networkId: failedAccount.networkId,
+            });
+            const deriveTypeInfo =
+              await backgroundApiProxy.serviceNetwork.getDeriveInfoOfNetwork({
+                networkId: failedAccount.networkId,
+                deriveType: failedAccount.deriveType,
+              });
+            Toast.error({
+              title: appLocale.intl.formatMessage(
+                {
+                  id: ETranslations.feedback_hw_create_unsupported_address_title,
+                },
+                {
+                  network: network?.name || failedAccount.networkId,
+                  addressType:
+                    deriveTypeInfo?.label || failedAccount.deriveType,
+                },
+              ),
+              message: failedAccount.error.message || 'Unknown error',
+            });
+          }
+        })();
+      }
+
+      return result;
     },
   );
 
@@ -680,7 +713,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     ) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          const { wallet, indexedAccount } =
+          const { wallet, indexedAccount, isOverrideWallet } =
             await serviceAccount.createHDWallet({
               mnemonic,
             });
@@ -688,7 +721,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
             wallet,
             indexedAccount,
           });
-          return { wallet, indexedAccount };
+          return { wallet, indexedAccount, isOverrideWallet };
         },
         generatingAccountsFn: async ({ wallet, indexedAccount }) => {
           await this.addDefaultNetworkAccounts.call(set, {
@@ -792,7 +825,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     async (_, set, params: IDBCreateHwWalletParamsBase) =>
       this.withFinalizeWalletSetupStep.call(set, {
         createWalletFn: async () => {
-          const { wallet, device, indexedAccount } =
+          const { wallet, device, indexedAccount, isOverrideWallet } =
             await this.createHWWallet.call(
               set,
               { ...params, skipDeviceCancel: true },
@@ -840,6 +873,7 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
           }
 
           return {
+            isOverrideWallet,
             wallet,
             indexedAccount,
             hidden: hiddenWalletCreatedResult
