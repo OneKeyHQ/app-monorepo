@@ -77,7 +77,7 @@ const postServiceMessage = <T>(
   serviceName: EServiceName,
   type: string,
   params?: any,
-) =>
+): Promise<T> =>
   new Promise<T>((resolve) => {
     processConfig[serviceName].callbacks.push({
       type,
