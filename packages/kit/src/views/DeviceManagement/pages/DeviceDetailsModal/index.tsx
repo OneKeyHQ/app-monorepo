@@ -75,10 +75,6 @@ function DeviceDetailsModal() {
     ? accountUtils.isQrWallet({ walletId: result.wallet.id })
     : false;
 
-  useEffect(() => {
-    console.log('result: ====>>>>>>: ', result);
-  }, [result]);
-
   // Basic Info Section
   const onPressHomescreen = useCallback(() => {
     if (!result?.device) return;

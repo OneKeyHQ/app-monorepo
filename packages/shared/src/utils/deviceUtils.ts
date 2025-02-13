@@ -205,10 +205,12 @@ async function checkDeviceBonded(connectId: string) {
 
 async function buildDeviceLabel({
   features,
+  buildModelName,
 }: {
   features: IOneKeyDeviceFeatures;
+  buildModelName?: boolean;
 }): Promise<string | ''> {
-  if (features.label) {
+  if (features.label && !buildModelName) {
     return features.label;
   }
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
@@ -389,18 +391,6 @@ export function compareDeviceVersions({
   );
 }
 
-function getDeviceModelName(deviceType: string): string {
-  const modelMap: Record<string, string> = {
-    classic: 'OneKey Classic',
-    classic1s: 'OneKey Classic 1S',
-    mini: 'OneKey Mini',
-    pro: 'OneKey Pro',
-    touch: 'OneKey Touch',
-  };
-
-  return modelMap[deviceType.toLowerCase()] ?? 'UNKNOWN';
-}
-
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -422,5 +412,4 @@ export default {
   parseLocalDeviceVersions,
   parseServerVersionInfos,
   compareDeviceVersions,
-  getDeviceModelName,
 };

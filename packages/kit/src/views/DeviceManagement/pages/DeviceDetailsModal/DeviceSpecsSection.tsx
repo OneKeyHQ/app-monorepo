@@ -51,8 +51,13 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
         features: device.featuresInfo,
       });
 
+      const model = await deviceUtils.buildDeviceLabel({
+        features: device.featuresInfo,
+        buildModelName: true,
+      });
+
       return {
-        model: deviceUtils.getDeviceModelName(device.deviceType),
+        model,
         bleName: device.featuresInfo.ble_name ?? '-',
         bleVersion: versions?.bleVersion ?? '-',
         bootloaderVersion: versions?.bootloaderVersion ?? '-',
