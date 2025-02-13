@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { StyleSheet } from 'react-native';
@@ -6,6 +6,10 @@ import { StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { MobileTabItem } from './MobileTabItem';
 
@@ -26,11 +30,16 @@ export default function MobileBottomTabBar({
 }: IMobileBottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
-  // const isKeyboardShown = useIsKeyboardShown();
   const { routes } = state;
   const { bottom } = useSafeAreaInsets();
+  const [hideTabBar, setIsHideTabBar] = useState(false);
 
-  // const isHide = isKeyboardShown;
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.HideTabBar, setIsHideTabBar);
+    return () => {
+      appEventBus.off(EAppEventBusNames.HideTabBar, setIsHideTabBar);
+    };
+  }, []);
 
   const tabs = useMemo(
     () =>
@@ -105,6 +114,7 @@ export default function MobileBottomTabBar({
         accessibilityRole="tablist"
         flexDirection="row"
         justifyContent="space-around"
+        display={hideTabBar ? 'none' : undefined}
         h={54}
       >
         {tabs}
