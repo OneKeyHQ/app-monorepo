@@ -43,7 +43,7 @@ const startService = (key: EServiceName) => {
     );
   }
 
-  processConfig[key].childProcess.on(
+  processConfig[key].childProcess?.on(
     'message',
     (e: { type: string; result: boolean }) => {
       Logger.info(`${key}ChildProcess-onMessage`, e);
@@ -63,7 +63,7 @@ const startService = (key: EServiceName) => {
       }
     },
   );
-  processConfig[key].childProcess.on('exit', (code) => {
+  processConfig[key].childProcess?.on('exit', (code) => {
     Logger.info(`${key}ChildProcess--onExit`, code);
   });
 };
