@@ -641,12 +641,14 @@ export interface ISwapTxHistory {
 export interface IFetchLimitOrderRes {
   orderId: string;
   status: ESwapLimitOrderStatus;
-  fromTokenAddress: string;
-  toTokenAddress: string;
+  fromTokenInfo: ISwapToken;
+  toTokenInfo: ISwapToken;
   payAddress: string;
   receiveAddress: string;
   fromAmount: string;
   toAmount: string;
+  executedBuyAmount: string;
+  executedSellAmount: string;
   createdAt: number;
   expiredAt: number;
   txHash?: string;
@@ -655,6 +657,7 @@ export interface IFetchLimitOrderRes {
   partiallyFillable: boolean;
   networkId: string;
   userAddress: string;
+  currency?: string;
 }
 
 export enum ESwapLimitOrderStatus {
@@ -663,6 +666,16 @@ export enum ESwapLimitOrderStatus {
   FULFILLED = 'fulfilled',
   CANCELLED = 'cancelled',
   EXPIRED = 'expired',
+}
+
+export enum ESwapExpiryStep {
+  FIVE_MINUTES = 5 * 60 * 1000,
+  THIRTY_MINUTES = 30 * 60 * 1000,
+  ONE_HOUR = 60 * 60 * 1000,
+  ONE_DAY = 24 * 60 * 60 * 1000,
+  THREE_DAYS = 3 * 24 * 60 * 60 * 1000,
+  ONE_WEEK = 7 * 24 * 60 * 60 * 1000,
+  ONE_MONTH = 30 * 24 * 60 * 60 * 1000,
 }
 
 // component -----------------

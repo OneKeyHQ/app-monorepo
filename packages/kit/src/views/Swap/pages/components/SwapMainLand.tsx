@@ -37,12 +37,12 @@ import {
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { useSwapInit } from '../../hooks/useSwapGlobal';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
-import { useSwapInit } from '../../hooks/useSwapGlobal';
 import { validateAmountInput } from '../../utils/utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
@@ -233,7 +233,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             onSelectPercentageStage={onSelectPercentageStage}
           />
           {swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
-            <LimitInfoContainer />
+            <LimitInfoContainer quoteResult={quoteResult} />
           ) : null}
           <SwapActionsState
             onBuildTx={onBuildTx}

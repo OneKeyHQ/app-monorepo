@@ -1,9 +1,14 @@
 import { Select, SizableText, XStack, YStack } from '@onekeyhq/components';
+import type { IFetchQuoteResult } from '@onekeyhq/shared/types/swap/types';
 
 import LimitRateInput from '../../components/LimitRateInput';
 
-const LimitInfoContainer = () => {
-  console.log('LimitInfoContainer');
+interface ILimitInfoContainerProps {
+  quoteResult?: IFetchQuoteResult;
+}
+
+const LimitInfoContainer = ({ quoteResult }: ILimitInfoContainerProps) => {
+  console.log('swap__LimitInfoContainer', quoteResult);
   return (
     <XStack gap="$2">
       <YStack gap="$2">

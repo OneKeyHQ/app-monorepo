@@ -3,6 +3,7 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   ESwapDirectionType,
   ESwapTabSwitchType,
+  IFetchLimitOrderRes,
   ISwapNetwork,
   ISwapToken,
   ISwapTxHistory,
@@ -18,6 +19,8 @@ export enum EModalSwapRoutes {
   SwapToAnotherAddress = 'SwapToAnotherAddress',
   TokenRiskReminder = 'TokenRiskReminder',
   SwapLazyMarketModal = 'SwapLazyMarketModal',
+  LimitOrderList = 'LimitOrderList',
+  LimitOrderDetail = 'LimitOrderDetail',
 }
 
 export type IModalSwapParamList = {
@@ -42,6 +45,11 @@ export type IModalSwapParamList = {
     txHistoryOrderId?: string;
     txHistoryList?: ISwapTxHistory[];
     // storeName: EJotaiContextStoreNames;
+  };
+  [EModalSwapRoutes.LimitOrderList]: undefined;
+  [EModalSwapRoutes.LimitOrderDetail]: {
+    orderId?: string;
+    orderItem?: IFetchLimitOrderRes;
   };
   [EModalSwapRoutes.SwapToAnotherAddress]: {
     address?: string;
