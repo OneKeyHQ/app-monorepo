@@ -18,6 +18,7 @@ import {
   shell,
   systemPreferences,
 } from 'electron';
+import { checkBiometricAuthChanged } from 'electron-check-biometric-auth-changed';
 import contextMenu from 'electron-context-menu';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
@@ -578,6 +579,14 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;
+  });
+
+  ipcMain.on(ipcMessageKeys.CHECK_BIOMETRIC_AUTH_CHANGED, (event) => {
+    if (!isMac) {
+      event.returnValue = false;
+      return;
+    }
+    event.returnValue = checkBiometricAuthChanged();
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
