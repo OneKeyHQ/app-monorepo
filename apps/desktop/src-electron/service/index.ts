@@ -10,23 +10,39 @@ import {
 
 import type { UtilityProcess } from 'electron/main';
 
-let windowsHelloChildProcess: UtilityProcess | null = null;
-let windowsHelloCallbacks: {
-  type: string;
-  callback: (e: any) => void;
-  timestamp: number;
-}[] = [];
+const processConfig: Record<
+  string,
+  {
+    childProcess: UtilityProcess | null;
+    callbacks: {
+      type: string;
+      callback: (e: any) => void;
+      timestamp: number;
+    }[];
+  }
+> = {
+  windowsHello: {
+    childProcess: null,
+    callbacks: [],
+  },
+  checkBiometricAuthChanged: {
+    childProcess: null,
+    callbacks: [],
+  },
+};
 
-export const startWindowsHelloService = () => {
-  windowsHelloChildProcess = utilityProcess.fork(
-    // After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
-    path.join(__dirname, './service/windowsHello.js'),
-  );
-  windowsHelloChildProcess.on(
+const startService = (key: keyof typeof processConfig) => {
+  if (!processConfig[key].childProcess) {
+    processConfig[key].childProcess = utilityProcess.fork(
+      path.join(__dirname, `./service/${key}.js`),
+    );
+  }
+
+  processConfig[key].childProcess.on(
     'message',
     (e: { type: string; result: boolean }) => {
-      Logger.info('windowsHelloChildProcess-onMessage', e);
-      const callbacks = windowsHelloCallbacks.filter(
+      Logger.info(`${key}ChildProcess-onMessage`, e);
+      const callbacks = processConfig[key].callbacks.filter(
         (callbackItem) => callbackItem.type === e.type,
       );
       if (callbacks.length) {
@@ -36,56 +52,21 @@ export const startWindowsHelloService = () => {
             callbackItem.callback(e.result);
           }
         });
-        windowsHelloCallbacks = windowsHelloCallbacks.filter(
+        processConfig[key].callbacks = processConfig[key].callbacks.filter(
           (callbackItem) => !callbacks.includes(callbackItem),
         );
       }
     },
   );
-  windowsHelloChildProcess.on('exit', (code) => {
-    Logger.info('windowsHelloChildProcess--onExit', code);
-  });
-};
-
-let checkBiometricAuthChangedChildProcess: UtilityProcess | null = null;
-let checkBiometricAuthChangedCallbacks: {
-  type: string;
-  callback: (e: any) => void;
-  timestamp: number;
-}[] = [];
-const startCheckBiometricAuthChangedService = () => {
-  checkBiometricAuthChangedChildProcess = utilityProcess.fork(
-    path.join(__dirname, './service/checkBiometricAuthChanged.js'),
-  );
-  checkBiometricAuthChangedChildProcess.on(
-    'message',
-    (e: { type: string; result: boolean }) => {
-      Logger.info('checkBiometricAuthChangedChildProcess-onMessage', e);
-      const callbacks = checkBiometricAuthChangedCallbacks.filter(
-        (callbackItem) => callbackItem.type === e.type,
-      );
-      if (callbacks.length) {
-        callbacks.forEach((callbackItem) => {
-          // Callbacks older than 1 minute will not be executed
-          if (Date.now() - callbackItem.timestamp < 60 * 1000) {
-            callbackItem.callback(e.result);
-          }
-        });
-        checkBiometricAuthChangedCallbacks =
-          checkBiometricAuthChangedCallbacks.filter(
-            (callbackItem) => !callbacks.includes(callbackItem),
-          );
-      }
-    },
-  );
-  checkBiometricAuthChangedChildProcess.on('exit', (code) => {
-    Logger.info('checkBiometricAuthChangedChildProcess--onExit', code);
+  processConfig[key].childProcess.on('exit', (code) => {
+    Logger.info(`${key}ChildProcess--onExit`, code);
   });
 };
 
 export const startServices = () => {
-  startWindowsHelloService();
-  startCheckBiometricAuthChangedService();
+  Object.keys(processConfig).forEach((key) => {
+    startService(key);
+  });
 };
 
 let cacheWindowsHelloSupported: boolean | null = null;
@@ -93,12 +74,12 @@ export const checkAvailabilityAsync = async () => {
   if (cacheWindowsHelloSupported === null) {
     cacheWindowsHelloSupported = await Promise.race<boolean>([
       new Promise<boolean>((resolve) => {
-        windowsHelloCallbacks.push({
+        processConfig.windowsHello.callbacks.push({
           type: EWindowHelloEventType.CheckAvailabilityAsync,
           callback: resolve,
           timestamp: Date.now(),
         });
-        windowsHelloChildProcess?.postMessage({
+        processConfig.windowsHello.childProcess?.postMessage({
           type: EWindowHelloEventType.CheckAvailabilityAsync,
         });
       }),
@@ -118,12 +99,12 @@ export const requestVerificationAsync = (message: string) =>
     success: boolean;
     error?: string;
   }>((resolve) => {
-    windowsHelloCallbacks.push({
+    processConfig.windowsHello.callbacks.push({
       type: EWindowHelloEventType.RequestVerificationAsync,
       callback: resolve,
       timestamp: Date.now(),
     });
-    windowsHelloChildProcess?.postMessage({
+    processConfig.windowsHello.childProcess?.postMessage({
       type: EWindowHelloEventType.RequestVerificationAsync,
       params: message,
     });
@@ -132,12 +113,12 @@ export const requestVerificationAsync = (message: string) =>
 export const checkBiometricAuthChanged = async () =>
   Promise.race<boolean>([
     new Promise<boolean>((resolve) => {
-      checkBiometricAuthChangedCallbacks.push({
+      processConfig.checkBiometricAuthChanged.callbacks.push({
         type: ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
         callback: resolve,
         timestamp: Date.now(),
       });
-      checkBiometricAuthChangedChildProcess?.postMessage({
+      processConfig.checkBiometricAuthChanged.childProcess?.postMessage({
         type: ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
       });
     }),
