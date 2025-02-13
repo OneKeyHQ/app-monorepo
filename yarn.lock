@@ -7165,7 +7165,6 @@ __metadata:
     react-native-passkeys: "npm:^0.3.0"
     react-native-permissions: "npm:^4.1.5"
     react-native-purchases: "npm:^8.5.0"
-    react-native-purchases-ui: "npm:^8.5.0"
     react-native-qrcode-styled: "npm:^0.3.3"
     react-native-randombytes: "npm:^3.6.1"
     react-native-reanimated: "npm:3.6.1"
@@ -35087,20 +35086,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-purchases-ui@npm:^8.5.0":
-  version: 8.5.0
-  resolution: "react-native-purchases-ui@npm:8.5.0"
-  dependencies:
-    "@revenuecat/purchases-typescript-internal": "npm:13.14.0"
-    react-native-purchases: "npm:8.5.0"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/ee451ce0b0dec85df77082d27cd6dd6e0a8fe121f22a03864570369a6077cf1d5cb8f7fb7061f9c1b674507e5a85f07ce4525c0290444b98832ac4b32017af43
-  languageName: node
-  linkType: hard
-
-"react-native-purchases@npm:8.5.0, react-native-purchases@npm:^8.5.0":
+"react-native-purchases@npm:^8.5.0":
   version: 8.5.0
   resolution: "react-native-purchases@npm:8.5.0"
   dependencies:

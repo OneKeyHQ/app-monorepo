@@ -183,9 +183,7 @@ const SelectDefaultValue = () => {
 
 const SelectGallery = () => (
   <Layout
-    description="****"
-    suggestions={['****']}
-    boundaryConditions={['****']}
+    componentName="Select"
     elements={[
       {
         title: '默认状态',

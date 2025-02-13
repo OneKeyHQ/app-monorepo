@@ -49,9 +49,7 @@ const SlidingEventDemo = () => {
 
 const SliderGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="Slider"
     elements={[
       {
         title: 'Default',

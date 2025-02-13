@@ -26,9 +26,7 @@ const content = `
 
 const MarkdownGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="Markdown"
     elements={[
       {
         title: 'default',

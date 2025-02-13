@@ -124,9 +124,6 @@ function DemoCoverageDialogModal() {
 
   return (
     <Layout
-      description="这是一个测试 Dialog 覆盖 Modal 的测试"
-      suggestions={[]}
-      boundaryConditions={[]}
       elements={[
         {
           title: '下一个例子',

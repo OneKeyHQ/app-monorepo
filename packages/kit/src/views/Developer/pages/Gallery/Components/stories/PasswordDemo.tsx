@@ -8,7 +8,6 @@ import {
   Toast,
   XStack,
   YStack,
-  useTheme,
   useThemeName,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -33,9 +32,7 @@ const PasswordDemoGallery = () => {
   };
   return (
     <Layout
-      description=""
-      suggestions={['']}
-      boundaryConditions={['']}
+      componentName="Password"
       elements={[
         {
           title: 'Native',

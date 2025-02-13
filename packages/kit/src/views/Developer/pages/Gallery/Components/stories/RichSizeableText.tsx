@@ -6,6 +6,7 @@ import { Layout } from './utils/Layout';
 
 const RichSizeableTextGallery = () => (
   <Layout
+    componentName="RichSizeableText"
     description="一个支持富文本格式和尺寸选项的文本组件"
     suggestions={[
       '用于显示带链接的格式化文本',
