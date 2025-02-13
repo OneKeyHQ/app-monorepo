@@ -1,5 +1,3 @@
-import { useEffect, useState } from 'react';
-
 import { useIntl } from 'react-intl';
 
 import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
@@ -13,7 +11,17 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
-function DeviceBasicInfoSection({ data }: { data: IHwQrWalletWithDevice }) {
+function DeviceBasicInfoSection({
+  data,
+  onPressHomescreen,
+  onPressAuthRequest,
+  onPressCheckForUpdates,
+}: {
+  data: IHwQrWalletWithDevice;
+  onPressHomescreen: () => void;
+  onPressAuthRequest: () => void;
+  onPressCheckForUpdates: () => void;
+}) {
   const { wallet, device } = data;
   const intl = useIntl();
   const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
@@ -107,27 +115,21 @@ function DeviceBasicInfoSection({ data }: { data: IHwQrWalletWithDevice }) {
               id: ETranslations.global_homescreen,
             })}
             drillIn
-            onPress={() => {
-              console.log('onPress');
-            }}
+            onPress={onPressHomescreen}
           />
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.device_auth_request_title,
             })}
             drillIn
-            onPress={() => {
-              console.log('onPress');
-            }}
+            onPress={onPressAuthRequest}
           />
           <ListItem
             title={intl.formatMessage({
               id: ETranslations.global_check_for_updates,
             })}
             drillIn
-            onPress={() => {
-              console.log('onPress');
-            }}
+            onPress={onPressCheckForUpdates}
           />
         </YStack>
       )}
