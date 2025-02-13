@@ -282,8 +282,9 @@ class ServiceAccount extends ServiceBase {
 
     for (const wallet of wallets) {
       if (
-        accountUtils.isHwWallet({ walletId: wallet.id }) ||
-        accountUtils.isQrWallet({ walletId: wallet.id })
+        !accountUtils.isHwHiddenWallet({ wallet }) &&
+        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id }))
       ) {
         const device = (allDevices ?? []).find(
           (d) => d.id === wallet.associatedDevice,

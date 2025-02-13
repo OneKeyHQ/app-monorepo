@@ -15,6 +15,13 @@ const DeviceDetailModal = LazyLoadPage(
   () => import('../pages/DeviceDetailsModal'),
 );
 
+const BuyOneKeyHardwareWallet = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/OneKeyHardwareWallet'
+    ),
+);
+
 export const DeviceManagementStacks: IModalFlowNavigatorConfig<
   EModalDeviceManagementRoutes,
   IModalDeviceManagementParamList
@@ -30,5 +37,9 @@ export const DeviceManagementStacks: IModalFlowNavigatorConfig<
   {
     name: EModalDeviceManagementRoutes.DeviceDetailModal,
     component: DeviceDetailModal,
+  },
+  {
+    name: EModalDeviceManagementRoutes.BuyOneKeyHardwareWallet,
+    component: BuyOneKeyHardwareWallet,
   },
 ];

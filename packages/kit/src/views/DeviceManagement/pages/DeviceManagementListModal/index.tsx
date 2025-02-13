@@ -29,10 +29,11 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
+import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
+
 function DeviceManagementListModal() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-
   const { result: hwQrWalletList = [], run: refreshHwQrWalletList } =
     usePromiseResult<Array<IHwQrWalletWithDevice>>(async () => {
       const r =
@@ -117,12 +118,17 @@ function DeviceManagementListModal() {
     [intl, onAddDevice],
   );
 
+  const { headerRight } = useBuyOneKeyHeaderRightButton({
+    inDeviceManagementStack: true,
+  });
+
   return (
     <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_device_management,
         })}
+        headerRight={headerRight}
       />
       <Page.Body pb="$9">
         <ListView

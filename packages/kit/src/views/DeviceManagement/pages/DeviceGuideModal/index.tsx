@@ -3,25 +3,19 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Button, Image, Page, SizableText, YStack } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-const headerRight = (onPress: () => void) => (
-  <HeaderIconButton icon="QuestionmarkOutline" onPress={onPress} />
-);
+import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
 
 function DeviceGuideModal() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { headerRight } = useBuyOneKeyHeaderRightButton();
 
   const handleStartConnect = useCallback(() => {
     navigation.push(EOnboardingPages.ConnectYourDevice);
-  }, [navigation]);
-
-  const toOneKeyHardwareWalletPage = useCallback(() => {
-    navigation.push(EOnboardingPages.OneKeyHardwareWallet);
   }, [navigation]);
 
   return (
@@ -30,7 +24,7 @@ function DeviceGuideModal() {
         title={intl.formatMessage({
           id: ETranslations.global_device_management,
         })}
-        headerRight={() => headerRight(toOneKeyHardwareWalletPage)}
+        headerRight={headerRight}
       />
       <Page.Body>
         <YStack px="$5" alignItems="center" mt={56} mb="$12">
