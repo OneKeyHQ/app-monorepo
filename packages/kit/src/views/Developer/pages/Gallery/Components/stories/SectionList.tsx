@@ -202,9 +202,7 @@ const StickySectionListDemo = () => {
 
 const SectionListGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="SectionList"
     elements={[
       {
         title: 'Styled and cleared the SectionSeparatorComponent SectionList',

@@ -61,7 +61,7 @@ export function useUniversalStake({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSignatureConfirm } = useSignatureConfirm({
+  const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
   });
@@ -120,7 +120,7 @@ export function useUniversalStake({
         orderId: stakeTx.orderId,
       });
 
-      await navigationToSignatureConfirm({
+      await navigationToTxConfirm({
         encodedTx,
         stakingInfo: stakeInfoWithOrderId,
         onSuccess: async (data) => {
@@ -136,7 +136,7 @@ export function useUniversalStake({
         feeInfoEditable,
       });
     },
-    [navigationToSignatureConfirm, accountId, networkId],
+    [navigationToTxConfirm, accountId, networkId],
   );
 }
 
@@ -147,7 +147,7 @@ export function useUniversalWithdraw({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSignatureConfirm } = useSignatureConfirm({
+  const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
   });
@@ -254,7 +254,7 @@ export function useUniversalWithdraw({
         orderId: stakeTx.orderId,
       });
 
-      await navigationToSignatureConfirm({
+      await navigationToTxConfirm({
         encodedTx,
         stakingInfo,
         signOnly: stakingConfig?.withdrawSignOnly,
@@ -286,7 +286,7 @@ export function useUniversalWithdraw({
         onFail,
       });
     },
-    [accountId, networkId, navigationToSignatureConfirm],
+    [accountId, networkId, navigationToTxConfirm],
   );
 }
 
@@ -297,7 +297,7 @@ export function useUniversalClaim({
   networkId: string;
   accountId: string;
 }) {
-  const { navigationToSignatureConfirm } = useSignatureConfirm({
+  const { navigationToTxConfirm } = useSignatureConfirm({
     accountId,
     networkId,
   });
@@ -355,7 +355,7 @@ export function useUniversalClaim({
           orderId: stakeTx.orderId,
         });
 
-        await navigationToSignatureConfirm({
+        await navigationToTxConfirm({
           encodedTx,
           stakingInfo,
           onSuccess: async (data) => {
@@ -401,11 +401,6 @@ export function useUniversalClaim({
       }
       await continueClaim();
     },
-    [
-      navigationToSignatureConfirm,
-      accountId,
-      networkId,
-      showClaimEstimateGasAlert,
-    ],
+    [navigationToTxConfirm, accountId, networkId, showClaimEstimateGasAlert],
   );
 }

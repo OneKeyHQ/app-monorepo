@@ -19,11 +19,9 @@ import { TokenListItem } from '@onekeyhq/kit/src/components/TokenListItem';
 
 import { Layout } from './utils/Layout';
 
-const GalleryLayout = () => (
+const AmountInputGallery = () => (
   <Layout
-    description=""
-    suggestions={['']}
-    boundaryConditions={['']}
+    componentName="AmountInput"
     elements={[
       {
         title: 'Example 1 (Send)',
@@ -338,4 +336,4 @@ const GalleryLayout = () => (
     ]}
   />
 );
-export default GalleryLayout;
+export default AmountInputGallery;

@@ -68,9 +68,7 @@ const ScanQRCodeGallery = () => {
   );
   return (
     <Layout
-      description=".."
-      suggestions={['...']}
-      boundaryConditions={['...']}
+      componentName="ScanQrCode"
       elements={[
         {
           title: '命令式弹出 Modal(自动处理)',

@@ -129,6 +129,7 @@ const Form1 = () => {
 
 const FormGallery = () => (
   <Layout
+    componentName="Form"
     description="通过表单完成内容提交"
     suggestions={[
       '通过表单组件控制输入内容，尽可能避免直接操作输入组件',

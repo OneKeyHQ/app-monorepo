@@ -29,12 +29,6 @@ jobs:
           sentry_project: 'desktop-mas'
           covalent_key: ${{ secrets.COVALENT_KEY }}
           sentry_token: ${{ secrets.SENTRY_TOKEN }}
-          privy_app_id: ${{ secrets.PRIVY_APP_ID }}
-          privy_mobile_client_id: ${{ secrets.PRIVY_MOBILE_CLIENT_ID }}
-          revenuecat_api_key_web: ${{ secrets.REVENUECAT_API_KEY_WEB }}
-          revenuecat_api_key_web_sandbox: ${{ secrets.REVENUECAT_API_KEY_WEB_SANDBOX }}
-          revenuecat_api_key_apple: ${{ secrets.REVENUECAT_API_KEY_APPLE }}
-          revenuecat_api_key_google: ${{ secrets.REVENUECAT_API_KEY_GOOGLE }}
 
       - name: 'Setup ENV'
         run: |

@@ -11,7 +11,6 @@ assignees: ''
 Please answer the following questions for yourself before submitting an issue. **YOU MAY DELETE THE PREREQUISITES SECTION.**
 
 - [ ] I checked to make sure that this issue has not already been filed
-- [ ] I've asked for help in the [OneKey Discord](https://discord.com/invite/onekey) before filing this issue.
 
 **Describe the bug**
 A clear and concise description of what the bug is.

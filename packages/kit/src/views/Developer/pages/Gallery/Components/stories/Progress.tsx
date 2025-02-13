@@ -22,9 +22,7 @@ function ProgressDemo() {
 
 const ProgressGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="Progress"
     elements={[
       {
         title: 'Default',
