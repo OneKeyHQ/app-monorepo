@@ -42,12 +42,15 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
       const data = form.getValues();
 
       try {
-        Dialog.show({
+        const dialog = Dialog.show({
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
               sendCode={sendCode}
               loginWithCode={loginWithCode}
               email={data.email}
+              onLoginSuccess={() => {
+                void dialog.close();
+              }}
             />
           ),
         });
