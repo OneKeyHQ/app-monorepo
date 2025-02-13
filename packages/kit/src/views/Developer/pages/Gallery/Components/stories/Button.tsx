@@ -4,9 +4,7 @@ import { Layout } from './utils/Layout';
 
 const ButtonGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="Button"
     elements={[
       {
         title: 'Variants',

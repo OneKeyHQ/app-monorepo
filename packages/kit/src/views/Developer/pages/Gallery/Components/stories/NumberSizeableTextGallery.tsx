@@ -5,9 +5,7 @@ import { Layout } from './utils/Layout';
 
 const NumberSizeableTextGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="NumberSizeableText"
     elements={[
       {
         title: 'balance',

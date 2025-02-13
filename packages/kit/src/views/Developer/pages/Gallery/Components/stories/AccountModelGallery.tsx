@@ -134,9 +134,7 @@ function Demo() {
 
 const AccountModelGallery = () => (
   <Layout
-    description="Account Model"
-    suggestions={['Account Model']}
-    boundaryConditions={['Account Model']}
+    componentName="AccountModel"
     elements={[
       {
         title: 'Account Model',

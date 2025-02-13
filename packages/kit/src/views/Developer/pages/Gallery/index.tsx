@@ -635,15 +635,15 @@ export const galleryScreenList: {
     component: TabViewGallery,
   },
   {
-    name: EGalleryRoutes.componentQRCode,
+    name: EGalleryRoutes.ComponentQRCode,
     component: QRCodeGallery,
   },
   {
-    name: EGalleryRoutes.componentSecureQRToast,
+    name: EGalleryRoutes.ComponentSecureQRToast,
     component: SecureQRToastGallery,
   },
   {
-    name: EGalleryRoutes.componentScanQrCode,
+    name: EGalleryRoutes.ComponentScanQrCode,
     component: ScanQrCodeGallery,
   },
   {

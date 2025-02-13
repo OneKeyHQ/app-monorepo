@@ -33,9 +33,7 @@ const ActiveDemo = () => {
 
 const PortalGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="Portal"
     elements={[
       {
         title: '',
