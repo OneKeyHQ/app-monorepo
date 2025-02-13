@@ -3,8 +3,11 @@ import { useCallback } from 'react';
 
 import { isEmpty } from 'lodash';
 
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type {
+  IEncodedTx,
+  IUnsignedMessage,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import type {
   IApproveInfo,
   ITransferInfo,
@@ -16,6 +19,7 @@ import {
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
@@ -56,7 +60,7 @@ function useSignatureConfirm(params: IParams) {
 
   const navigation = useAppNavigation();
 
-  const normalizeSignatureConfirm = useCallback(
+  const normalizeTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       const {
         sameModal,
@@ -232,25 +236,76 @@ function useSignatureConfirm(params: IParams) {
       }
 
       // send invoice
-      await normalizeSignatureConfirm(params);
+      await normalizeTxConfirm(params);
     },
-    [accountId, navigation, networkId, normalizeSignatureConfirm],
+    [accountId, navigation, networkId, normalizeTxConfirm],
   );
 
-  const navigationToSignatureConfirm = useCallback(
+  const navigationToTxConfirm = useCallback(
     async (params: IBuildUnsignedTxParams) => {
       if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
         await lightningSignatureConfirm(params);
       } else {
-        await normalizeSignatureConfirm(params);
+        await normalizeTxConfirm(params);
       }
     },
-    [networkId, normalizeSignatureConfirm, lightningSignatureConfirm],
+    [networkId, normalizeTxConfirm, lightningSignatureConfirm],
+  );
+
+  const navigationToMessageConfirm = useCallback(
+    (params: {
+      unsignedMessage: IUnsignedMessage;
+      accountId: string;
+      networkId: string;
+      walletInternalSign?: boolean;
+      sameModal?: boolean;
+      onSuccess?: (result: string) => void;
+      onFail?: (error: Error) => void;
+      onCancel?: () => void;
+    }) => {
+      const {
+        unsignedMessage,
+        accountId,
+        networkId,
+        sameModal,
+        walletInternalSign,
+        onSuccess,
+        onFail,
+        onCancel,
+      } = params;
+      const target = EModalSignatureConfirmRoutes.MessageConfirm;
+      if (sameModal) {
+        navigation.push(target, {
+          accountId,
+          networkId,
+          unsignedMessage,
+          walletInternalSign,
+          onSuccess,
+          onFail,
+          onCancel,
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: target,
+          params: {
+            accountId,
+            networkId,
+            unsignedMessage,
+            walletInternalSign,
+            onSuccess,
+            onFail,
+            onCancel,
+          },
+        });
+      }
+    },
+    [navigation],
   );
 
   return {
-    navigationToSignatureConfirm,
-    normalizeSignatureConfirm,
+    navigationToMessageConfirm,
+    navigationToTxConfirm,
+    normalizeTxConfirm,
   };
 }
 

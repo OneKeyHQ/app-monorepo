@@ -63,9 +63,12 @@ function SendConfirmFromDApp() {
       const timerId = setTimeout(() => {
         dappApprove.reject();
       }, 1200);
-      appEventBus.once(EAppEventBusNames.SendConfirmContainerMounted, () => {
-        clearTimeout(timerId);
-      });
+      appEventBus.once(
+        EAppEventBusNames.SignatureConfirmContainerMounted,
+        () => {
+          clearTimeout(timerId);
+        },
+      );
       navigation.dispatch(action);
     },
     [dappApprove, navigation],

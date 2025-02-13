@@ -47,7 +47,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
           </Badge>
         ) : (
           <Badge badgeType="default" badgeSize="sm">
-            Free
+            {intl.formatMessage({
+              id: ETranslations.prime_status_free,
+            })}
           </Badge>
         )}
       </XStack>
@@ -61,17 +63,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   return (
     <>
       {userInfo}
-      {/* <ActionList.Item
-        label="Change email"
-        icon="EmailOutline"
-        onClose={handleActionListClose}
-        onPress={() => {
-          Toast.success({
-            title: 'Change email not implemented',
-          });
-          updateEmail();
-        }}
-      /> */}
       {isPrime ? (
         <>
           <ActionList.Item
@@ -112,7 +103,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
             title: intl.formatMessage({
               id: ETranslations.prime_onekeyid_log_out,
             }),
-            description: 'Are you sure you want to log out?',
+            description: intl.formatMessage({
+              id: ETranslations.prime_onekeyid_log_out_decription,
+            }),
             onConfirmText: intl.formatMessage({
               id: ETranslations.prime_log_out,
             }),
@@ -129,6 +122,7 @@ export function PrimeUserInfoMoreButton({
 }: {
   doPurchase?: () => Promise<void>;
 }) {
+  const intl = useIntl();
   const renderItems = useCallback(
     ({
       handleActionListClose,
@@ -145,7 +139,9 @@ export function PrimeUserInfoMoreButton({
   );
   return (
     <ActionList
-      title="Account"
+      title={intl.formatMessage({
+        id: ETranslations.global_account,
+      })}
       floatingPanelProps={{
         w: '$80',
       }}

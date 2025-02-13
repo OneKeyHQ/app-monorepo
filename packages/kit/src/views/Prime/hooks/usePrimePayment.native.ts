@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
-import RevenueCatUI from 'react-native-purchases-ui';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  REVENUECAT_API_KEY_APPLE,
+  REVENUECAT_API_KEY_GOOGLE,
+} from '@onekeyhq/shared/src/consts/primeConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -15,13 +18,12 @@ import type {
   CustomerInfo,
   PurchasesPackage,
 } from '@revenuecat/purchases-typescript-internal';
-import type { PAYWALL_RESULT } from 'react-native-purchases-ui';
 
 export function usePrimePayment(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
   const { isReady: isAuthReady, user } = usePrivyUniversalV2();
 
-  const [primePersistAtom, setPrimePersistAtom] = usePrimePersistAtom();
+  const [, setPrimePersistAtom] = usePrimePersistAtom();
 
   const isReady = isPaymentReady && isAuthReady;
 
@@ -81,10 +83,10 @@ export function usePrimePayment(): IUsePrimePayment {
 
       let apiKey = '';
       if (platformEnv.isNativeIOS) {
-        apiKey = process.env.REVENUECAT_API_KEY_APPLE || '';
+        apiKey = REVENUECAT_API_KEY_APPLE || '';
       }
       if (platformEnv.isNativeAndroid) {
-        apiKey = process.env.REVENUECAT_API_KEY_GOOGLE || '';
+        apiKey = REVENUECAT_API_KEY_GOOGLE || '';
       }
       if (!apiKey) {
         throw new Error('No REVENUECAT api key found');
@@ -153,31 +155,16 @@ export function usePrimePayment(): IUsePrimePayment {
       //   JSON.stringify(packages, null, 2),
       // );
 
-      // const offerings = await Purchases.getOfferings();
-      // console.log('offerings >>>>> ', JSON.stringify(offerings, null, 2));
-      // const offeringYearly = offerings.all.Yearly;
-      // const offeringMonthly = offerings.all.Monthly;
+      const offerings = await Purchases.getOfferings();
+      console.log('offerings >>>>> ', JSON.stringify(offerings, null, 2));
 
-      // const customerInfo = await Purchases.getCustomerInfo();
-      // console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
-
-      const paywallResult: PAYWALL_RESULT = await RevenueCatUI.presentPaywall({
-        // offering: offeringYearly,
-        // offering: offering // Optional Offering object obtained through getOfferings
-      });
-
-      // const paywallResult: PAYWALL_RESULT =
-      //   await RevenueCatUI.presentPaywallIfNeeded({
-      //     // offering: offering, // Optional Offering object obtained through getOfferings
-      //     requiredEntitlementIdentifier: 'Prime',
-      //   });
-
-      console.log(
-        'paywallResult >>>>> ',
-        JSON.stringify(paywallResult, null, 2),
+      const { customerInfo } = await Purchases.purchasePackage(
+        offerings.all.Yearly.availablePackages[0],
       );
 
-      return paywallResult;
+      console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
+
+      return true;
     } catch (error) {
       errorToastUtils.toastIfError(error);
       throw error;

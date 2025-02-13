@@ -10,6 +10,7 @@ import {
   Page,
   Spinner,
   Stack,
+  Toast,
 } from '@onekeyhq/components';
 import { EMnemonicType } from '@onekeyhq/core/src/secret';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
@@ -82,6 +83,7 @@ function FinalizeWalletSetupPage({
           await withPromptPasswordVerify({
             run: async () => {
               if (mnemonicType === EMnemonicType.TON) {
+                // TODO check TON case
                 // **** TON mnemonic case
                 // Create TON imported account when mnemonicType is TON
                 await actions.current.createTonImportedWallet({ mnemonic });
@@ -89,9 +91,19 @@ function FinalizeWalletSetupPage({
                 return;
               }
 
-              await actions.current.createHDWallet({
+              const createResult = await actions.current.createHDWallet({
                 mnemonic,
               });
+              if (createResult.wallet && createResult.isOverrideWallet) {
+                Toast.success({
+                  title: intl.formatMessage({
+                    id: ETranslations.feedback_wallet_exists_title,
+                  }),
+                  message: intl.formatMessage({
+                    id: ETranslations.feedback_wallet_exists_desc,
+                  }),
+                });
+              }
             },
           });
           created.current = true;
@@ -105,7 +117,7 @@ function FinalizeWalletSetupPage({
         throw error;
       }
     })();
-  }, [actions, mnemonic, mnemonicType, navigation]);
+  }, [actions, intl, mnemonic, mnemonicType, navigation]);
 
   useEffect(() => {
     const fn = (

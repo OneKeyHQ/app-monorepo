@@ -85,7 +85,6 @@ const Demo1 = () => {
 };
 
 const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
-  const intl = useIntl();
   const form = useForm<IAddressFormValues>({
     defaultValues: {
       name: '',
@@ -146,9 +145,7 @@ const Demo2 = ({ networkId, num = 0 }: { networkId: string; num: number }) => {
 
 const AddressInputGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="AddressInput"
     elements={[
       {
         title: 'AddressInput',

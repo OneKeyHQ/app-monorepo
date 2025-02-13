@@ -42,9 +42,7 @@ const ChainSelectorInputDemo = () => {
 
 const ChainSelectorGallery = () => (
   <Layout
-    description=""
-    suggestions={[]}
-    boundaryConditions={[]}
+    componentName="ChainSelector"
     elements={[
       {
         title: 'ChainSelector',

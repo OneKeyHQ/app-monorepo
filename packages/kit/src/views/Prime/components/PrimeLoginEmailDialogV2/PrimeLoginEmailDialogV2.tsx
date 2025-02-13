@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
 
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
@@ -10,11 +11,11 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-export function PrimeLoginEmailDialogV2() {
+export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
+  const { onComplete } = props;
   const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
-      console.log('🔑 ✅ User successfully logged in with email');
       const token = await getAccessToken();
       await backgroundApiProxy.servicePrime.apiLogin({
         accessToken: token || '',
@@ -32,34 +33,45 @@ export function PrimeLoginEmailDialogV2() {
 
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
+      const { preventClose } = options;
       await form.trigger();
       if (!form.formState.isValid) {
-        options?.preventClose?.();
+        preventClose?.();
         return;
       }
       const data = form.getValues();
 
       try {
-        console.log('onEmailSubmitted', data);
-        // TODO dialog not close when submit by press Enter
-
-        void sendCode({ email: data.email });
-
-        Dialog.show({
+        const dialog = Dialog.show({
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
               sendCode={sendCode}
               loginWithCode={loginWithCode}
               email={data.email}
+              onLoginSuccess={() => {
+                void dialog.close();
+              }}
             />
           ),
         });
+
+        await pRetry(
+          async () => {
+            await sendCode({ email: data.email });
+          },
+          {
+            retries: 2,
+            maxTimeout: 10_000,
+          },
+        );
+
+        onComplete?.();
       } catch (error) {
-        options?.preventClose?.();
+        preventClose?.();
         throw error;
       }
     },
-    [form, loginWithCode, sendCode],
+    [form, loginWithCode, onComplete, sendCode],
   );
 
   return (
@@ -67,7 +79,7 @@ export function PrimeLoginEmailDialogV2() {
       <Dialog.Icon icon="EmailOutline" />
       <Dialog.Title>
         {intl.formatMessage({
-          id: ETranslations.prime_onekeyid_continue,
+          id: ETranslations.prime_signup_login,
         })}
       </Dialog.Title>
       <Dialog.Description>
@@ -82,16 +94,18 @@ export function PrimeLoginEmailDialogV2() {
             rules={{
               validate: (value) => {
                 if (!value) {
-                  return 'email is required';
+                  return false;
                 }
                 if (!stringUtils.isValidEmail(value)) {
-                  return 'invalid email';
+                  return intl.formatMessage({
+                    id: ETranslations.prime_onekeyid_email_error,
+                  });
                 }
                 return true;
               },
               required: {
                 value: true,
-                message: 'email is required',
+                message: '',
               },
               onChange: () => {
                 form.clearErrors();
@@ -99,6 +113,7 @@ export function PrimeLoginEmailDialogV2() {
             }}
           >
             <Input
+              keyboardType="email-address"
               autoFocus
               autoCapitalize="none"
               size="large"
