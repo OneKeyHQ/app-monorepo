@@ -586,8 +586,13 @@ function createMainWindow() {
       event.returnValue = false;
       return;
     }
-    const result = await checkBiometricAuthChanged();
-    event.returnValue = result;
+    try {
+      const result = await checkBiometricAuthChanged();
+      event.returnValue = result;
+    } catch (error) {
+      logger.error('[CHECK_BIOMETRIC_AUTH_CHANGED] Error:', error);
+      event.returnValue = false;
+    }
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
