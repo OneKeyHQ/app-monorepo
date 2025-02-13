@@ -3,7 +3,10 @@ import path from 'path';
 import { utilityProcess } from 'electron/main';
 import Logger from 'electron-log/main';
 
-import { EWindowHelloEventType } from './enum';
+import {
+  ECheckBiometricAuthChangedEventType,
+  EWindowHelloEventType,
+} from './enum';
 
 import type { UtilityProcess } from 'electron/main';
 
@@ -13,7 +16,8 @@ let windowsHelloCallbacks: {
   callback: (e: any) => void;
   timestamp: number;
 }[] = [];
-export const startServices = () => {
+
+export const startWindowsHelloService = () => {
   windowsHelloChildProcess = utilityProcess.fork(
     // After build, the directory is 'dist' and WindowsHello file is located in 'dist/service'
     path.join(__dirname, './service/windowsHello.js'),
@@ -41,6 +45,47 @@ export const startServices = () => {
   windowsHelloChildProcess.on('exit', (code) => {
     Logger.info('windowsHelloChildProcess--onExit', code);
   });
+};
+
+let checkBiometricAuthChangedChildProcess: UtilityProcess | null = null;
+let checkBiometricAuthChangedCallbacks: {
+  type: string;
+  callback: (e: any) => void;
+  timestamp: number;
+}[] = [];
+const startCheckBiometricAuthChangedService = () => {
+  checkBiometricAuthChangedChildProcess = utilityProcess.fork(
+    path.join(__dirname, './service/checkBiometricAuthChanged.js'),
+  );
+  checkBiometricAuthChangedChildProcess.on(
+    'message',
+    (e: { type: string; result: boolean }) => {
+      Logger.info('checkBiometricAuthChangedChildProcess-onMessage', e);
+      const callbacks = checkBiometricAuthChangedCallbacks.filter(
+        (callbackItem) => callbackItem.type === e.type,
+      );
+      if (callbacks.length) {
+        callbacks.forEach((callbackItem) => {
+          // Callbacks older than 1 minute will not be executed
+          if (Date.now() - callbackItem.timestamp < 60 * 1000) {
+            callbackItem.callback(e.result);
+          }
+        });
+        checkBiometricAuthChangedCallbacks =
+          checkBiometricAuthChangedCallbacks.filter(
+            (callbackItem) => !callbacks.includes(callbackItem),
+          );
+      }
+    },
+  );
+  checkBiometricAuthChangedChildProcess.on('exit', (code) => {
+    Logger.info('checkBiometricAuthChangedChildProcess--onExit', code);
+  });
+};
+
+export const startServices = () => {
+  startWindowsHelloService();
+  startCheckBiometricAuthChangedService();
 };
 
 let cacheWindowsHelloSupported: boolean | null = null;
@@ -83,3 +128,22 @@ export const requestVerificationAsync = (message: string) =>
       params: message,
     });
   });
+
+export const checkBiometricAuthChanged = async () =>
+  Promise.race<boolean>([
+    new Promise<boolean>((resolve) => {
+      checkBiometricAuthChangedCallbacks.push({
+        type: ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
+        callback: resolve,
+        timestamp: Date.now(),
+      });
+      checkBiometricAuthChangedChildProcess?.postMessage({
+        type: ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
+      });
+    }),
+    new Promise((resolve) =>
+      setTimeout(() => {
+        resolve(false);
+      }, 500),
+    ),
+  ]);
