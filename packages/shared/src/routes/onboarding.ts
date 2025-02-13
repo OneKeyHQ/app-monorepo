@@ -37,6 +37,9 @@ export enum EOnboardingPages {
   // finalize wallet setup
   FinalizeWalletSetup = 'FinalizeWalletSetup',
   ImportKeyTag = 'ImportKeyTag',
+
+  // device management guide page
+  DeviceManagementGuide = 'DeviceManagementGuide',
 }
 
 export type IOnboardingParamList = {
@@ -96,4 +99,7 @@ export type IOnboardingParamList = {
     mnemonic?: string;
     mnemonicType?: EMnemonicType;
   };
+
+  // device management guide page
+  [EOnboardingPages.DeviceManagementGuide]: undefined;
 };

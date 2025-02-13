@@ -205,10 +205,12 @@ async function checkDeviceBonded(connectId: string) {
 
 async function buildDeviceLabel({
   features,
+  buildModelName,
 }: {
   features: IOneKeyDeviceFeatures;
+  buildModelName?: boolean;
 }): Promise<string | ''> {
-  if (features.label) {
+  if (features.label && !buildModelName) {
     return features.label;
   }
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {

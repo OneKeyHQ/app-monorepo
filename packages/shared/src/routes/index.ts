@@ -36,3 +36,4 @@ export * from './staking';
 export * from './walletAddress';
 export * from './tabEarn';
 export * from './signatureConfirm';
+export * from './deviceManagement';
