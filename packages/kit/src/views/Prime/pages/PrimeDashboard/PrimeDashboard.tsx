@@ -28,11 +28,15 @@ import { PrimeUserInfo } from './PrimeUserInfo';
 
 const PrimePurchaseDialog = LazyLoadPage(
   () => import('../../components/PrimePurchaseDialog/PrimePurchaseDialog'),
+  0,
+  true,
 );
 
 const PrimeLoginEmailDialogV2 = LazyLoadPage(
   () =>
     import('../../components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'),
+  0,
+  true,
 );
 
 function PrimeBanner() {
