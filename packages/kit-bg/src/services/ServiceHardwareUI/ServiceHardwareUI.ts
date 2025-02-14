@@ -4,7 +4,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { isHardwareErrorByCode } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+import {
+  isHardwareError,
+  isHardwareErrorByCode,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -408,6 +411,7 @@ class ServiceHardwareUI extends ServiceBase {
           code: [
             HardwareErrorCode.ActionCancelled,
             HardwareErrorCode.PinCancelled,
+            HardwareErrorCode.DeviceNotFound,
             // Hardware interrupts generally have follow-up actions; skip reset to home
             HardwareErrorCode.DeviceInterruptedFromUser,
             HardwareErrorCode.DeviceInterruptedFromOutside,
@@ -432,6 +436,9 @@ class ServiceHardwareUI extends ServiceBase {
           ],
         })
       ) {
+        deviceResetToHome = false;
+      } else if (!isHardwareError({ error: error as any })) {
+        // not hardware error, reset to home
         deviceResetToHome = false;
       }
       throw error;
