@@ -134,6 +134,9 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
         onConfirmText={intl.formatMessage({
           id: ETranslations.prime_subscribe,
         })}
+        confirmButtonProps={{
+          disabled: !packages,
+        }}
         onConfirm={purchase}
       />
     </Stack>
