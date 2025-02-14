@@ -12,13 +12,13 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import type {
-  IDBAccount,
   IDBDevice,
   IDBWalletId,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -92,7 +92,6 @@ export function useAccountSelectorCreateAddress() {
           | {
               walletId: string | undefined;
               indexedAccountId: string | undefined;
-              accounts: IDBAccount[];
             }
           | undefined,
       ) => {
@@ -127,15 +126,22 @@ export function useAccountSelectorCreateAddress() {
         }
 
         // TODO: cancel creating workflow by close checking device UI dialog
-        await serviceBatchCreateAccount.addDefaultNetworkAccounts({
-          walletId: account?.walletId,
-          indexedAccountId: account?.indexedAccountId,
-          ...hwUiControlParams,
-        });
+        const result =
+          await serviceBatchCreateAccount.addDefaultNetworkAccounts({
+            walletId: account?.walletId,
+            indexedAccountId: account?.indexedAccountId,
+            ...hwUiControlParams,
+          });
+        if (
+          result &&
+          result?.failedAccounts?.length &&
+          accountUtils.isQrWallet({ walletId: account.walletId })
+        ) {
+          throw new OneKeyErrorAirGapAccountNotFound();
+        }
         return handleAddAccounts({
           walletId: account?.walletId,
           indexedAccountId: account?.indexedAccountId,
-          accounts: [],
         });
       };
 
