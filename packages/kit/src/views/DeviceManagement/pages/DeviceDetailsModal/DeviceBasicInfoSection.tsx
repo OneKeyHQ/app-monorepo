@@ -98,7 +98,7 @@ function DeviceBasicInfoSection({
           />
         </XStack>
         <YStack flex={1}>
-          <XStack ml={-5}>
+          <XStack ml={-5} pr="$5">
             <WalletRenameButton wallet={wallet} />
           </XStack>
           {isQrWallet ? null : (
