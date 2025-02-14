@@ -34,9 +34,7 @@ const Demo = () => {
 
 const RefreshControllerGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="RefreshControl"
     scrollEnabled={false}
     elements={[
       {

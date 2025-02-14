@@ -25,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import RNFS from '@onekeyhq/shared/src/modules3rdParty/react-native-fs';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -85,6 +86,7 @@ class ServiceCloudBackup extends ServiceBase {
 
   @backgroundMethod()
   async getDataForBackup(password: string): Promise<IBackupData> {
+    defaultLogger.cloudBackup.getDataForBackupScene.getDataForBackup();
     const { serviceAccount, serviceAddressBook, serviceDiscovery } =
       this.backgroundApi;
     const publicBackupData: IPublicBackupData = {
@@ -94,16 +96,25 @@ class ServiceCloudBackup extends ServiceBase {
       HDWallets: {},
       discoverBookmarks: [],
     };
+
+    const credentials = password ? await serviceAccount.dumpCredentials() : {};
+    defaultLogger.cloudBackup.getDataForBackupScene.dumpCredentials(
+      Object.keys(credentials).length,
+    );
+
     const privateBackupData: IPrivateBackupData = {
       contacts: {},
       discoverBookmarks: [],
-      credentials: password ? await serviceAccount.dumpCredentials() : {},
+      credentials,
       importedAccounts: {},
       watchingAccounts: {},
       wallets: {},
     };
     const { version } = platformEnv;
     const contacts = await serviceAddressBook.getSafeRawItems();
+    defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
+      contacts.length,
+    );
 
     contacts.forEach((contact) => {
       const contactUUID = getContactUUID(contact);
@@ -117,13 +128,22 @@ class ServiceCloudBackup extends ServiceBase {
     const bookmarks = await serviceDiscovery.getBookmarkData(undefined);
     publicBackupData.discoverBookmarks = bookmarks;
     privateBackupData.discoverBookmarks = bookmarks;
+    defaultLogger.cloudBackup.getDataForBackupScene.getBookmarks(
+      bookmarks.length,
+    );
 
     const { wallets } = await serviceAccount.getWallets();
+    defaultLogger.cloudBackup.getDataForBackupScene.getWallets(wallets.length);
+
     const walletAccountMap = wallets.reduce((summary, current) => {
       summary[current.id] = current;
       return summary;
     }, {} as Record<string, IDBWallet>);
     const { accounts: allAccounts } = await serviceAccount.getAllAccounts();
+    defaultLogger.cloudBackup.getDataForBackupScene.getAllAccounts(
+      allAccounts.length,
+    );
+
     for (const account of allAccounts) {
       const walletId = accountUtils.parseAccountId({
         accountId: account.id,
@@ -164,37 +184,49 @@ class ServiceCloudBackup extends ServiceBase {
           };
           const HDAccountUUID = getHDAccountUUID(account);
           if (account.indexedAccountId) {
-            const indexedAccount = await serviceAccount.getIndexedAccount({
+            const indexedAccount = await serviceAccount.getIndexedAccountSafe({
               id: account.indexedAccountId,
             });
-            account.name = indexedAccount.name;
-            walletToBackup.indexedAccountUUIDs.push(account.indexedAccountId);
-          }
-          walletToBackup.accounts.push(account);
-          walletToBackup.accountIds.push(HDAccountUUID);
+            // indexedAccount may be removed, but account not clean yet (check ServiceAppCleanup)
+            if (indexedAccount) {
+              account.name = indexedAccount.name;
+              walletToBackup.indexedAccountUUIDs.push(account.indexedAccountId);
+              walletToBackup.accounts.push(account);
+              walletToBackup.accountIds.push(HDAccountUUID);
 
-          publicBackupData.HDWallets[wallet.id] = {
-            name: walletToBackup.name,
-            avatar: walletToBackup.avatar,
-            accountUUIDs: walletToBackup.accountIds,
-            indexedAccountUUIDs: Array.from(
-              new Set(walletToBackup.indexedAccountUUIDs),
-            ).map(() => generateUUID()),
-          };
-          privateBackupData.wallets[wallet.id] = walletToBackup;
+              publicBackupData.HDWallets[wallet.id] = {
+                name: walletToBackup.name,
+                avatar: walletToBackup.avatar,
+                accountUUIDs: walletToBackup.accountIds,
+                indexedAccountUUIDs: Array.from(
+                  new Set(walletToBackup.indexedAccountUUIDs),
+                ).map(() => generateUUID()),
+              };
+              privateBackupData.wallets[wallet.id] = walletToBackup;
+            }
+          }
         }
       }
     }
 
+    const privateData = password
+      ? (
+          await encryptAsync({
+            password,
+            data: Buffer.from(JSON.stringify(privateBackupData), 'utf8'),
+          })
+        ).toString('base64')
+      : '';
+    defaultLogger.cloudBackup.getDataForBackupScene.getDataForBackupDone({
+      privateDataLength: privateData.length,
+      publicDataLength:
+        Object.keys(publicBackupData.HDWallets).length +
+        Object.keys(publicBackupData.importedAccounts).length +
+        Object.keys(publicBackupData.watchingAccounts).length,
+      appVersion: version ?? '',
+    });
     return {
-      privateData: password
-        ? (
-            await encryptAsync({
-              password,
-              data: Buffer.from(JSON.stringify(privateBackupData), 'utf8'),
-            })
-          ).toString('base64')
-        : '',
+      privateData,
       publicData: publicBackupData,
       appVersion: version ?? '',
     };
@@ -633,7 +665,7 @@ class ServiceCloudBackup extends ServiceBase {
     }
   }
 
-  private timer?: NodeJS.Timeout;
+  private timer?: ReturnType<typeof setTimeout>;
 
   requestAutoBackupDebounce = debounce(
     async () => {

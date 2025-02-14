@@ -6,11 +6,12 @@ import { useIntl } from 'react-intl';
 
 import {
   Empty,
-  IconButton,
+  Icon,
+  MatchSizeableText,
   SearchBar,
   SectionList,
-  SizableText,
   Stack,
+  XStack,
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -19,6 +20,9 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+
+import { AccountAvatar } from '../../../components/AccountAvatar';
 
 import { AddressBookSectionList } from './AddressBookSectionList';
 import { ListItemIconButton } from './ListItemIconButton';
@@ -71,33 +75,68 @@ const RenderAddressBookItem: FC<IRenderAddressItemProps> = ({
 }) => {
   const renderAvatar = useCallback(
     () => (
-      <Stack
-        justifyContent="center"
-        alignItems="center"
-        w="$10"
-        h="$10"
-        borderRadius="$full"
-        backgroundColor="$gray3"
-      >
-        <SizableText size="$bodyLgMedium">
-          {item.name.slice(0, 1).toUpperCase()}
-        </SizableText>
+      <Stack>
+        <AccountAvatar
+          justifyContent="center"
+          alignItems="center"
+          w="$10"
+          h="$10"
+          borderRadius="$2"
+          address={item.address}
+        />
+        {item.isAllowListed ? (
+          <Stack
+            w="$6"
+            h="$6"
+            ai="center"
+            jc="center"
+            borderRadius="$full"
+            bg="$bgApp"
+            position="absolute"
+            bottom={-5}
+            right={-8}
+          >
+            <Icon name="ShieldCheckDoneSolid" size="$5" color="$iconSuccess" />
+          </Stack>
+        ) : null}
       </Stack>
     ),
-    [item.name],
+    [item.address, item.isAllowListed],
   );
+
+  const handlePress = useCallback(() => {
+    onPress?.(item);
+  }, [item, onPress]);
 
   return (
     <ListItem
-      title={item.name}
-      titleMatch={item.nameMatch}
-      subtitle={item.address}
-      subTitleMatch={item.addressMatch}
       renderAvatar={renderAvatar}
-      onPress={() => onPress?.(item)}
+      onPress={handlePress}
       testID={`address-item-${item.address || ''}`}
     >
-      {showActions ? <ListItemIconButton item={item} /> : null}
+      <ListItem.Text
+        flexGrow={1}
+        flexBasis={0}
+        primary={
+          <XStack gap="$1" alignItems="center">
+            <MatchSizeableText size="$bodyLgMedium" match={item.nameMatch}>
+              {item.name}
+            </MatchSizeableText>
+          </XStack>
+        }
+        secondary={
+          <MatchSizeableText
+            size="$bodyMd"
+            color="$textSubdued"
+            match={item.addressMatch}
+          >
+            {item.address}
+          </MatchSizeableText>
+        }
+      />
+      {showActions ? (
+        <ListItemIconButton id={item.id} address={item.address} />
+      ) : null}
     </ListItem>
   );
 };
@@ -128,7 +167,7 @@ const RenderEmptyAddressBook: FC<IRenderEmptyAddressBookProps> = ({
                 id: ETranslations.address_book_add_address_title,
               }),
               onPress: () => {
-                navigation.push(EModalAddressBookRoutes.AddItemModal);
+                navigation.push(EModalAddressBookRoutes.EditItemModal);
               },
               testID: 'address-book-add-button',
             }
@@ -198,19 +237,23 @@ export const AddressBookListContent = ({
         <SectionList.SectionHeader
           title={section.title.toUpperCase()}
           justifyContent="space-between"
+          userSelect="none"
+          {...listItemPressStyle}
+          borderRadius="$2"
+          px="$3"
+          mx="$2"
+          onPress={() => onToggle(section.title)}
         >
-          <IconButton
+          <Icon
             size="small"
-            variant="tertiary"
             testID={`address-cat-${section.title.toUpperCase()}-${
               section.isFold ? 'fold' : 'unfold'
             }`}
-            icon={
+            name={
               section.isFold
                 ? 'ChevronRightSmallOutline'
                 : 'ChevronDownSmallSolid'
             }
-            onPress={() => onToggle(section.title)}
           />
         </SectionList.SectionHeader>
       ) : null,

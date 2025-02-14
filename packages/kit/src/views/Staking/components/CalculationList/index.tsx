@@ -36,13 +36,21 @@ function CalculationListItemLabel({
   ...rest
 }: ISizableTextProps & { tooltip?: string }) {
   const content = (
-    <SizableText color="$textSubdued" {...rest}>
+    <SizableText
+      color="$textSubdued"
+      maxWidth="50%"
+      flex={1}
+      flexWrap="wrap"
+      {...rest}
+    >
       {children}
     </SizableText>
   );
   return tooltip ? (
-    <XStack gap="$1" ai="center">
-      {content}
+    <XStack gap="$1" ai="center" maxWidth="50%" flex={1}>
+      <SizableText color="$textSubdued" flexWrap="wrap" {...rest}>
+        {children}
+      </SizableText>
       <Popover.Tooltip
         iconSize="$5"
         title={children}

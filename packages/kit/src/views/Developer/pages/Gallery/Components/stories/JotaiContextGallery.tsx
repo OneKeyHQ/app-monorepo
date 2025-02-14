@@ -47,9 +47,7 @@ function JotaiDemo1() {
 const JotaiGlobalGallery = () => (
   <ProviderJotaiContextDemo>
     <Layout
-      description="jotai context"
-      suggestions={['jotai']}
-      boundaryConditions={['jotai']}
+      componentName="JotaiContext"
       elements={[
         {
           title: 'DemoAtom',

@@ -123,7 +123,11 @@ export function useSwapQuoteEventFetching() {
   );
 }
 
-export function useSwapBatchTransfer(networkId?: string, accountId?: string) {
+export function useSwapBatchTransfer(
+  networkId?: string,
+  accountId?: string,
+  providerDisableBatchTransfer?: boolean,
+) {
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const isExternalAccount = accountUtils.isExternalAccount({
     accountId: accountId ?? '',
@@ -133,7 +137,8 @@ export function useSwapBatchTransfer(networkId?: string, accountId?: string) {
   return (
     settingsPersistAtom.swapBatchApproveAndSwap &&
     !isUnSupportBatchTransferNet &&
-    !isExternalAccount
+    !isExternalAccount &&
+    !providerDisableBatchTransfer
   );
 }
 
@@ -159,6 +164,7 @@ export function useSwapActionState() {
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
+    quoteCurrentSelect?.providerDisableBatchTransfer,
   );
   const isRefreshQuote = useMemo(
     () => quoteIntervalCount > swapQuoteIntervalMaxCount || shouldRefreshQuote,

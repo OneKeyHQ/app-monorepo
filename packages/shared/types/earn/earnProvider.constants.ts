@@ -1,6 +1,16 @@
 import { getNetworkIdsMap } from '../../src/config/networkIds';
+import {
+  EthereumCbBTC,
+  EthereumDAI,
+  EthereumMatic,
+  EthereumUSDC,
+  EthereumUSDT,
+  EthereumWBTC,
+  EthereumWETH,
+} from '../../src/consts/addresses';
 import { ESwapTabSwitchType } from '../swap/types';
 
+import type { ISupportedSymbol } from '../earn';
 import type { ISwapTokenBase } from '../swap/types';
 
 const earnTradeDefaultSetETH = {
@@ -35,17 +45,60 @@ const earnTradeDefaultSetSOL = {
 };
 
 export const isSupportStaking = (symbol: string) =>
-  ['BTC', 'SBTC', 'ETH', 'SOL', 'APT', 'ATOM', 'MATIC'].includes(
-    symbol.toUpperCase(),
-  );
+  [
+    'BTC',
+    'SBTC',
+    'ETH',
+    'SOL',
+    'APT',
+    'ATOM',
+    'MATIC',
+    'USDC',
+    'USDT',
+    'DAI',
+    'WETH',
+    'CBBTC',
+    'WBTC',
+  ].includes(symbol.toUpperCase());
+
+export const earnMainnetNetworkIds = [
+  getNetworkIdsMap().eth,
+  getNetworkIdsMap().base,
+  getNetworkIdsMap().cosmoshub,
+  getNetworkIdsMap().apt,
+  getNetworkIdsMap().sol,
+  getNetworkIdsMap().btc,
+];
+
+export function normalizeToEarnSymbol(
+  symbol: string,
+): ISupportedSymbol | undefined {
+  const symbolMap: Record<string, ISupportedSymbol> = {
+    'btc': 'BTC',
+    'sbtc': 'SBTC',
+    'eth': 'ETH',
+    'sol': 'SOL',
+    'apt': 'APT',
+    'atom': 'ATOM',
+    'matic': 'MATIC',
+    'usdc': 'USDC',
+    'usdt': 'USDT',
+    'dai': 'DAI',
+    'weth': 'WETH',
+    'cbbtc': 'cbBTC',
+    'wbtc': 'WBTC',
+  };
+
+  return symbolMap[symbol.toLowerCase()];
+}
 
 export function getImportFromToken({
   networkId,
-  tokenSymbol,
+  tokenAddress,
   isSupportSwap = true,
 }: {
   networkId: string;
-  tokenSymbol: string;
+  tokenAddress: string;
   isSupportSwap: boolean;
 }) {
   let importFromToken: ISwapTokenBase | undefined;
@@ -62,7 +115,17 @@ export function getImportFromToken({
     case networkIdsMap.eth:
     case networkIdsMap.holesky:
     case networkIdsMap.sepolia: {
-      if (tokenSymbol === 'MATIC') {
+      if (
+        [
+          EthereumMatic.toLowerCase(),
+          EthereumUSDC.toLowerCase(),
+          EthereumUSDT.toLowerCase(),
+          EthereumDAI.toLowerCase(),
+          EthereumWETH.toLowerCase(),
+          EthereumWBTC.toLowerCase(),
+          EthereumCbBTC.toLowerCase(),
+        ].includes(tokenAddress.toLowerCase())
+      ) {
         importFromToken = earnTradeDefaultSetETH;
       } else {
         importFromToken = earnTradeDefaultSetUSDC;

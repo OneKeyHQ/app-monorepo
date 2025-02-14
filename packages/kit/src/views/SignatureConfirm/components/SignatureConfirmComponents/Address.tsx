@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { Badge, IconButton, XStack } from '@onekeyhq/components';
+import { Badge, Icon, IconButton, XStack } from '@onekeyhq/components';
 import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -14,24 +14,45 @@ type IProps = {
   component: IDisplayComponentAddress;
   showAddressLocalTags?: boolean;
 };
+
+function formatTagValue(value: string | string[]) {
+  if (typeof value === 'string' || typeof value === 'number') {
+    return value;
+  }
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    return '';
+  }
+}
+
 function Address(props: IProps) {
   const intl = useIntl();
-  const { accountId, networkId, component, showAddressLocalTags } = props;
+  const {
+    accountId,
+    networkId: currentNetworkId,
+    component,
+    showAddressLocalTags,
+  } = props;
+
+  const networkId = component.networkId || currentNetworkId;
+
   return (
     <SignatureConfirmItem>
       <SignatureConfirmItem.Label>
         {component.label ||
           intl.formatMessage({ id: ETranslations.copy_address_modal_title })}
       </SignatureConfirmItem.Label>
-      {component.isNavigable ? (
-        <XStack alignItems="flex-start" justifyContent="space-between" flex={1}>
-          <SignatureConfirmItem.Value
-            flex={1}
-            maxWidth="$96"
-            style={{ wordBreak: 'break-all' }}
-          >
-            {component.address}
-          </SignatureConfirmItem.Value>
+
+      <XStack alignItems="flex-start" justifyContent="space-between">
+        <SignatureConfirmItem.Value
+          flex={1}
+          maxWidth="$96"
+          style={{ wordBreak: 'break-all' }}
+        >
+          {component.address}
+        </SignatureConfirmItem.Value>
+        {component.isNavigable ? (
           <XStack gap="$3" ml="$5">
             <IconButton
               title={intl.formatMessage({
@@ -44,32 +65,45 @@ function Address(props: IProps) {
                 openExplorerAddressUrl({
                   networkId,
                   address: component.address,
+                  openInExternal: true,
                 })
               }
             />
           </XStack>
-        </XStack>
-      ) : (
-        <SignatureConfirmItem.Value style={{ wordBreak: 'break-all' }}>
-          {component.address}
-        </SignatureConfirmItem.Value>
-      )}
-
-      <XStack gap="$1" flexWrap="wrap" flex={1}>
-        {accountId && networkId && showAddressLocalTags ? (
-          <AddressInfo
-            accountId={accountId}
-            networkId={networkId}
-            address={component.address}
-            withWrapper={false}
-          />
         ) : null}
-        {component.tags?.map((tag) => (
-          <Badge key={tag.value} badgeType={tag.displayType}>
-            {tag.value}
-          </Badge>
-        ))}
       </XStack>
+
+      {(accountId && networkId && showAddressLocalTags) ||
+      component.tags.length ? (
+        <XStack gap="$1" flexWrap="wrap" flex={1}>
+          {accountId && networkId && showAddressLocalTags ? (
+            <AddressInfo
+              accountId={accountId}
+              networkId={networkId}
+              address={component.address}
+              withWrapper={false}
+            />
+          ) : null}
+          {component.tags?.map((tag) => {
+            const value = formatTagValue(tag.value);
+            if (value === '') {
+              return null;
+            }
+            return tag.icon ? (
+              <Badge key={value} badgeType={tag.displayType}>
+                <XStack gap="$1" alignItems="center">
+                  <Icon name={tag.icon} width={16} height={16} />
+                  <Badge.Text>{value}</Badge.Text>
+                </XStack>
+              </Badge>
+            ) : (
+              <Badge key={value} badgeType={tag.displayType}>
+                {value}
+              </Badge>
+            );
+          })}
+        </XStack>
+      ) : null}
     </SignatureConfirmItem>
   );
 }

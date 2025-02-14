@@ -1,6 +1,8 @@
 export const DEFAULT_FEE = 1000;
 export const CONFIRMATION_COUNT = 10;
 
+export const MAX_UTXO_SIZE = 80;
+
 export const DUST_AMOUNT = 20_000_000;
 export const MAX_BLOCK_SIZE = 1_000_000;
 export const MAX_ORPHAN_TX_MASS = 100_000;

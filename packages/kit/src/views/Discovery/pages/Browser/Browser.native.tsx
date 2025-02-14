@@ -165,23 +165,21 @@ function MobileBrowser() {
             )}
             <Freeze freeze={displayHomePage}>{content}</Freeze>
           </Stack>
-          {gtMd ? null : (
-            <Freeze freeze={!displayBottomBar}>
-              <Animated.View
-                ref={toolbarRef}
-                style={[
-                  toolbarAnimatedStyle,
-                  {
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                  },
-                ]}
-              >
-                <MobileBrowserBottomBar id={activeTabId ?? ''} />
-              </Animated.View>
-            </Freeze>
-          )}
+          <Freeze freeze={!displayBottomBar}>
+            <Animated.View
+              ref={toolbarRef}
+              style={[
+                toolbarAnimatedStyle,
+                {
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                },
+              ]}
+            >
+              <MobileBrowserBottomBar id={activeTabId ?? ''} />
+            </Animated.View>
+          </Freeze>
         </Stack>
       </Page.Body>
     </Page>

@@ -12,7 +12,7 @@ import { noopObject } from '@onekeyhq/shared/src/utils/miscUtils';
 
 import type { IAddressItem } from '../type';
 
-export const useAddressBookItems = (networkId?: string) => {
+export const useAddressBookItems = (networkId?: string, exact?: boolean) => {
   const [{ updateTimestamp }] = useAddressBookPersistAtom();
   return usePromiseResult(
     async () => {
@@ -20,9 +20,10 @@ export const useAddressBookItems = (networkId?: string) => {
       noopObject(networkId);
       return backgroundApiProxy.serviceAddressBook.getSafeItems({
         networkId,
+        exact,
       });
     },
-    [updateTimestamp, networkId],
+    [updateTimestamp, networkId, exact],
     { watchLoading: true },
   );
 };
@@ -34,7 +35,6 @@ export const useAddressBookPick = () => {
       onPick?: (item: IAddressItem) => void;
       networkId?: string;
     }) => {
-      await backgroundApiProxy.servicePassword.promptPasswordVerify();
       navigation.pushModal(EModalRoutes.AddressBookModal, {
         screen: EModalAddressBookRoutes.PickItemModal,
         params,

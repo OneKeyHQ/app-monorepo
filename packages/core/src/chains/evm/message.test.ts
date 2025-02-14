@@ -2,6 +2,10 @@ import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 
 import { hashMessage } from './message';
 
+/*
+yarn jest packages/core/src/chains/evm/message.test.ts
+*/
+
 const MAX_SAFE_INTEGER_AS_HEX = `0x${Number.MAX_SAFE_INTEGER.toString(16)}`;
 const MAX_SAFE_INTEGER_PLUS_ONE_CHAR_AS_HEX = `0x${Number.MAX_SAFE_INTEGER.toString(
   16,

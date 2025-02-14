@@ -104,6 +104,7 @@ export interface IMarketDetailLinks {
 }
 
 export interface IMarketDetailTicker {
+  localId: string;
   base: string;
   target: string;
   market: {
@@ -132,6 +133,12 @@ export interface IMarketTokenDetail {
   explorers: IMarketTokenExplorer[];
   links: IMarketDetailLinks;
   stats: IMarketDetailStats;
+  fallbackToChart: boolean;
+  tvPlatform?: {
+    identifier: string;
+    baseToken: string;
+    targetToken: string;
+  };
   detailPlatforms: IMarketDetailPlatform;
   platforms: Record<string, string>;
   tickers?: IMarketDetailTicker[];
@@ -204,6 +211,7 @@ interface IMarketDetailPoolAttributes {
 
 export interface IMarketDetailPool {
   id: string;
+  localId: string;
   dexLogoUrl: string;
   dexName: string;
   baseTokenImageUrl: string;

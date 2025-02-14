@@ -100,9 +100,7 @@ function DynamicDemo() {
 
 const BlurViewGallery = () => (
   <Layout
-    description="****"
-    suggestions={['****']}
-    boundaryConditions={['****']}
+    componentName="BlurView"
     elements={[
       {
         title: 'Default',

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,41 +8,71 @@ import type {
   IPropsWithTestId,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
-import { useWebTabDataById } from '../../hooks/useWebTabs';
+import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 
 function DesktopCustomTabBarItem({
   id,
-  activeTabId,
   shortcutKey,
   onPress,
   onBookmarkPress,
   onPinnedPress,
   onClose,
-  displayDisconnectOption,
   onDisconnect,
   testID,
 }: IPropsWithTestId<{
   id: string;
   shortcutKey?: EShortcutEvents;
-  activeTabId: string | null;
   onPress: (id: string) => void;
   onBookmarkPress: (bookmark: boolean, url: string, title: string) => void;
   onPinnedPress: (id: string, pinned: boolean) => void;
   onClose: (id: string) => void;
-  displayDisconnectOption: boolean;
   onDisconnect: (url: string | undefined) => Promise<void>;
 }>) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
-  const isActive = activeTabId === id;
+  const {
+    result: displayDisconnectOption,
+    run: refreshDisplayDisconnectOptionStatus,
+  } = usePromiseResult(async () => {
+    const origin = tab?.url ? new URL(tab.url).origin : null;
+    if (origin) {
+      const connectedAccounts =
+        await backgroundApiProxy.serviceDApp.findInjectedAccountByOrigin(
+          origin,
+        );
+      return (connectedAccounts ?? []).length > 0;
+    }
+    return false;
+  }, [tab?.url]);
+
+  useEffect(() => {
+    const handler = () => {
+      void refreshDisplayDisconnectOptionStatus({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.DAppConnectUpdate, handler);
+    return () => {
+      appEventBus.off(EAppEventBusNames.DAppConnectUpdate, handler);
+    };
+  }, [refreshDisplayDisconnectOptionStatus, tab]);
+
   const { copyText } = useClipboard();
   const { handleRenameTab } = useBrowserOptionsAction();
+  const { activeTabId } = useActiveTabId();
+  const isActive = activeTabId === id;
   const closeTab = useCallback(() => {
-    onClose?.(tab?.id);
+    if (tab?.id) {
+      onClose?.(tab?.id);
+    }
   }, [onClose, tab?.id]);
   const actionListItems = useMemo(
     () => [
@@ -57,7 +87,9 @@ function DesktopCustomTabBarItem({
             }),
             icon: tab?.isBookmark ? 'StarSolid' : 'StarOutline',
             onPress: () => {
-              onBookmarkPress(!tab?.isBookmark, tab?.url, tab?.title ?? '');
+              if (tab) {
+                onBookmarkPress(!tab?.isBookmark, tab?.url, tab?.title ?? '');
+              }
             },
             testID: `action-list-item-${
               !tab?.isBookmark ? 'bookmark' : 'remove-bookmark'
@@ -72,7 +104,9 @@ function DesktopCustomTabBarItem({
             }),
             icon: tab?.isPinned ? 'ThumbtackSolid' : 'ThumbtackOutline',
             onPress: () => {
-              onPinnedPress(tab?.id, !tab?.isPinned);
+              if (tab) {
+                onPinnedPress(tab?.id, !tab?.isPinned);
+              }
             },
             testID: `action-list-item-${!tab?.isPinned ? 'pin' : 'un-pin'}`,
           },
@@ -82,7 +116,9 @@ function DesktopCustomTabBarItem({
             }),
             icon: 'PencilOutline',
             onPress: () => {
-              void handleRenameTab(tab);
+              if (tab) {
+                void handleRenameTab(tab);
+              }
             },
             testID: `action-list-item-rename`,
           },
@@ -97,7 +133,9 @@ function DesktopCustomTabBarItem({
             }),
             icon: 'LinkOutline',
             onPress: () => {
-              copyText(tab?.url);
+              if (tab?.url) {
+                copyText(tab.url);
+              }
             },
             testID: `action-list-item-copy`,
           },
@@ -175,4 +213,7 @@ function DesktopCustomTabBarItem({
   );
 }
 
-export default DesktopCustomTabBarItem;
+export default memo(
+  DesktopCustomTabBarItem,
+  (prevProps, nextProps) => prevProps.id === nextProps.id,
+);

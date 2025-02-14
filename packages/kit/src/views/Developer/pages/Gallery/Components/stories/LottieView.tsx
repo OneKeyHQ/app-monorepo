@@ -89,12 +89,10 @@ const LottieDemo = () => {
 
 const LottieViewGallery = () => (
   <Layout
-    description=""
-    suggestions={[]}
-    boundaryConditions={[]}
+    componentName="LottieView"
     elements={[
       {
-        title: '默认',
+        title: 'Default',
         element: <LottieDemo />,
       },
     ]}

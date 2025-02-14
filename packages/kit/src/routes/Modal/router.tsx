@@ -12,6 +12,7 @@ import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
+import { DeviceManagementStacks } from '../../views/DeviceManagement/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
@@ -19,6 +20,7 @@ import { KeyTagModalRouter } from '../../views/KeyTag/router';
 import { LiteCardPages } from '../../views/LiteCard/router';
 import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
+import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
@@ -62,6 +64,8 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.SettingModal,
     children: ModalSettingStack,
+    rewrite: '/settings',
+    exact: true,
   },
   {
     name: EModalRoutes.SwapModal,
@@ -76,6 +80,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     },
   },
   onboardingRouterConfig,
+  {
+    name: EModalRoutes.PrimeModal,
+    children: PrimeRouter,
+  },
   {
     name: EModalRoutes.FirmwareUpdateModal,
     children: ModalFirmwareUpdateStack,
@@ -156,6 +164,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
     name: EModalRoutes.ShortcutsModal,
     children: ShortcutsModalRouter,
   },
+  {
+    name: EModalRoutes.DeviceManagementModal,
+    children: DeviceManagementStacks,
+  },
 ];
 
 // Pages in Dev Mode
@@ -185,5 +197,9 @@ export const fullModalRouter = [
   {
     name: EModalRoutes.SendModal,
     children: ModalSendStack,
+  },
+  {
+    name: EModalRoutes.SignatureConfirmModal,
+    children: ModalSignatureConfirmStack,
   },
 ];

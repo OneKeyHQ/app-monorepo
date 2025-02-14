@@ -306,11 +306,18 @@ export function calculateFeeForSend({
     estimateFeeParams,
   });
   const total = new BigNumber(feeRange.max).toFixed();
+  const totalMin = new BigNumber(feeRange.min).toFixed();
 
   const totalForDisplay = new BigNumber(feeRange.maxForDisplay).toFixed();
+  const totalMinForDisplay = new BigNumber(feeRange.minForDisplay).toFixed();
 
   const totalNative = calculateTotalFeeNative({
     amount: total,
+    feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
+  });
+  const totalNativeMin = calculateTotalFeeNative({
+    amount: totalMin,
     feeInfo,
     withoutBaseFee: feeRange.withoutBaseFee,
   });
@@ -319,8 +326,17 @@ export function calculateFeeForSend({
     feeInfo,
     withoutBaseFee: feeRange.withoutBaseFee,
   });
+  const totalNativeMinForDisplay = calculateTotalFeeNative({
+    amount: totalMinForDisplay,
+    feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
+  });
 
   const totalFiat = new BigNumber(totalNative)
+    .multipliedBy(nativeTokenPrice)
+    .toFixed();
+
+  const totalFiatMin = new BigNumber(totalNativeMin)
     .multipliedBy(nativeTokenPrice)
     .toFixed();
 
@@ -328,12 +344,21 @@ export function calculateFeeForSend({
     .multipliedBy(nativeTokenPrice)
     .toFixed();
 
+  const totalFiatMinForDisplay = new BigNumber(totalNativeMinForDisplay)
+    .multipliedBy(nativeTokenPrice)
+    .toFixed();
+
   return {
     total,
+    totalMin,
     totalNative,
+    totalNativeMin,
     totalFiat,
+    totalFiatMin,
     totalNativeForDisplay,
+    totalNativeMinForDisplay,
     totalFiatForDisplay,
+    totalFiatMinForDisplay,
     feeRange,
   };
 }

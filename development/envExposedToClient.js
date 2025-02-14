@@ -22,6 +22,7 @@ function buildEnvExposedToClientDangerously({ platform }) {
     'STORYBOOK_ENABLED',
     'WALLETCONNECT_PROJECT_ID',
   ];
+  // ***        also update Inject Environment Variables at release-ios.yml, release-android      ***
 
   if (platform === developmentConsts.platforms.app) {
     transformInlineEnvironmentVariables.push('JPUSH_KEY');

@@ -51,6 +51,8 @@ function HeaderView({
     headerStyle,
     headerBackground,
     headerShown = true,
+    headerRightContainerStyle = {},
+    headerTitleContainerStyle = {},
     // native HeaderSearchBar in packages/components/src/layouts/Page/PageHeader.tsx
     headerSearchBarOptions,
     headerTitleStyle,
@@ -158,8 +160,10 @@ function HeaderView({
               fontWeight: '600',
               ...(headerTitleStyle as any),
             }}
+            headerRightContainerStyle={headerRightContainerStyle}
             headerTitleContainerStyle={{
               marginHorizontal: 0,
+              ...(headerTitleContainerStyle as any),
             }}
             headerTransparent
             headerBackground={headerBackground}

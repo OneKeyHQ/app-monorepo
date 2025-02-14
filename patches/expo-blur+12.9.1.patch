@@ -1,0 +1,11 @@
+diff --git a/node_modules/expo-blur/android/build.gradle b/node_modules/expo-blur/android/build.gradle
+index 5aec8da..38f6c54 100644
+--- a/node_modules/expo-blur/android/build.gradle
++++ b/node_modules/expo-blur/android/build.gradle
+@@ -105,5 +105,5 @@ dependencies {
+     implementation project(':expo-modules-core')
+     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:${getKotlinVersion()}"
+   }
+-  implementation 'com.github.Dimezis:BlurView:version-2.0.3'
++  implementation 'com.github.Dimezis:BlurView:version-2.0.6'
+ }

@@ -666,6 +666,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   txId: undefined,
                   status: ESwapApproveTransactionStatus.FAILED,
                 };
+              } else {
+                // update quote list
+                const quoteList = get(swapQuoteListAtom());
+                const updateQuoteList = quoteList.filter(
+                  (quote) =>
+                    quote.info.provider !== preApproveTx.provider ||
+                    quote.quoteId !== preApproveTx.quoteId,
+                );
+                set(swapQuoteListAtom(), [...updateQuoteList]);
               }
               await backgroundApiProxy.serviceSwap.setApprovingTransaction(
                 newApproveTx,
@@ -987,57 +996,57 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               }
             }
             rateDifferenceRes = {
-              value: `(${difference.isPositive() ? '+' : ''}${
+              value: `${difference.isPositive() ? '+' : ''}${
                 numberFormat(difference.toFixed(), {
                   formatter: 'priceChange',
                 }) as string
-              })`,
+              }`,
               unit,
             };
           }
-          if (quoteRateBN.isZero()) {
-            alertsRes = [
-              ...alertsRes,
-              {
-                title: appLocale.intl.formatMessage(
-                  { id: ETranslations.swap_page_alert_value_drop_title },
-                  { number: '100%' },
-                ),
-                message: appLocale.intl.formatMessage({
-                  id: ETranslations.swap_page_alert_value_drop,
-                }),
-                alertLevel: ESwapAlertLevel.WARNING,
-                icon: 'ActivityOutline',
-                action: {
-                  actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-                },
-              },
-            ];
-          } else if (difference.lt(swapRateDifferenceMax)) {
-            alertsRes = [
-              ...alertsRes,
-              {
-                title: appLocale.intl.formatMessage(
-                  {
-                    id: ETranslations.swap_page_alert_value_drop_title,
-                  },
-                  {
-                    number: numberFormat(difference.absoluteValue().toFixed(), {
-                      formatter: 'priceChange',
-                    }) as string,
-                  },
-                ),
-                message: appLocale.intl.formatMessage({
-                  id: ETranslations.swap_page_alert_value_drop,
-                }),
-                alertLevel: ESwapAlertLevel.WARNING,
-                icon: 'ActivityOutline',
-                action: {
-                  actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-                },
-              },
-            ];
-          }
+          // if (quoteRateBN.isZero()) {
+          //   alertsRes = [
+          //     ...alertsRes,
+          //     {
+          //       title: appLocale.intl.formatMessage(
+          //         { id: ETranslations.swap_page_alert_value_drop_title },
+          //         { number: '100%' },
+          //       ),
+          //       message: appLocale.intl.formatMessage({
+          //         id: ETranslations.swap_page_alert_value_drop,
+          //       }),
+          //       alertLevel: ESwapAlertLevel.WARNING,
+          //       icon: 'ActivityOutline',
+          //       action: {
+          //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
+          //       },
+          //     },
+          //   ];
+          // } else if (difference.lt(swapRateDifferenceMax)) {
+          //   alertsRes = [
+          //     ...alertsRes,
+          //     {
+          //       title: appLocale.intl.formatMessage(
+          //         {
+          //           id: ETranslations.swap_page_alert_value_drop_title,
+          //         },
+          //         {
+          //           number: numberFormat(difference.absoluteValue().toFixed(), {
+          //             formatter: 'priceChange',
+          //           }) as string,
+          //         },
+          //       ),
+          //       message: appLocale.intl.formatMessage({
+          //         id: ETranslations.swap_page_alert_value_drop,
+          //       }),
+          //       alertLevel: ESwapAlertLevel.WARNING,
+          //       icon: 'ActivityOutline',
+          //       action: {
+          //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
+          //       },
+          //     },
+          //   ];
+          // }
         }
       }
 
@@ -1086,34 +1095,34 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
 
-      const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
-      const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
+      // const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
+      // const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
 
       // check network fee
-      const gasFeeBN = new BigNumber(
-        quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
-      );
-      if (
-        !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
-        gasFeeBN.gt(tokenFiatValueBN)
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            icon: 'GasOutline',
-            title: appLocale.intl.formatMessage({
-              id: ETranslations.swap_page_alert_fee_exceeds_amount_title,
-            }),
-            message: appLocale.intl.formatMessage({
-              id: ETranslations.swap_page_alert_fee_exceeds_amount,
-            }),
-            alertLevel: ESwapAlertLevel.WARNING,
-            action: {
-              actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-            },
-          },
-        ];
-      }
+      // const gasFeeBN = new BigNumber(
+      //   quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
+      // );
+      // if (
+      //   !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
+      //   gasFeeBN.gt(tokenFiatValueBN)
+      // ) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       icon: 'GasOutline',
+      //       title: appLocale.intl.formatMessage({
+      //         id: ETranslations.swap_page_alert_fee_exceeds_amount_title,
+      //       }),
+      //       message: appLocale.intl.formatMessage({
+      //         id: ETranslations.swap_page_alert_fee_exceeds_amount,
+      //       }),
+      //       alertLevel: ESwapAlertLevel.WARNING,
+      //       action: {
+      //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
+      //       },
+      //     },
+      //   ];
+      // }
 
       // check other fee
       const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
@@ -1378,7 +1387,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
-      if (equalTokenNoCaseSensitive({ token1: newToken, token2: token })) {
+      if (
+        equalTokenNoCaseSensitive({ token1: newToken, token2: token }) ||
+        (!token && !newToken)
+      ) {
         if (type === ESwapDirectionType.FROM) {
           set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
         } else {

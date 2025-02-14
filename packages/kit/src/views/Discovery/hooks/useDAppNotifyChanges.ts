@@ -22,18 +22,19 @@ import { useWebTabDataById } from './useWebTabs';
 import type { IHandleAccountChangedParams } from '../../DAppConnection/hooks/useHandleAccountChanged';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
 
-const skipDomReadyNotifySites: Record<string, boolean> = {
-  'https://wallet.keplr.app': true,
-};
-
 const notifyChanges = throttle((url: string, fromScene?: string) => {
   console.log('webview notify changed events: ', url, fromScene);
   const targetOrigin = new URL(url).origin;
-  if (fromScene === 'domReady' && skipDomReadyNotifySites[targetOrigin]) {
+  if (fromScene === 'domReady') {
     return;
   }
-  void backgroundApiProxy.serviceDApp.notifyDAppAccountsChanged(targetOrigin);
-  void backgroundApiProxy.serviceDApp.notifyDAppChainChanged(targetOrigin);
+  if (targetOrigin) {
+    void backgroundApiProxy.serviceDApp.notifyDAppAccountAndChainChangedWithCache(
+      {
+        targetOrigin,
+      },
+    );
+  }
 }, 800);
 
 export function useDAppNotifyChanges({ tabId }: { tabId: string | null }) {

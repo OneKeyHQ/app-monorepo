@@ -1,3 +1,4 @@
+/* eslint-disable react/no-unstable-nested-components */
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -85,6 +86,7 @@ import {
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
+import { useBuyOneKeyHeaderRightButton } from '../../../DeviceManagement/hooks/useBuyOneKeyHeaderRightButton';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
@@ -100,10 +102,6 @@ type IConnectYourDeviceItem = {
   opacity?: number;
   device: SearchDevice | undefined;
 };
-
-const headerRight = (onPress: () => void) => (
-  <HeaderIconButton icon="QuestionmarkOutline" onPress={onPress} />
-);
 
 function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -551,16 +549,24 @@ function ConnectByUSBOrBLE({
 
         navigation.push(EOnboardingPages.FinalizeWalletSetup);
 
-        await Promise.all([
-          await actions.current.createHWWalletWithHidden({
-            device,
-            // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
-            hideCheckingDeviceLoading: true,
-            features,
-            isFirmwareVerified,
-            defaultIsTemp: true,
-          }),
-        ]);
+        const createResult = await actions.current.createHWWalletWithHidden({
+          device,
+          // device checking loading is not need for onboarding, use FinalizeWalletSetup instead
+          hideCheckingDeviceLoading: true,
+          features,
+          isFirmwareVerified,
+          defaultIsTemp: true,
+        });
+        if (createResult.wallet && createResult.isOverrideWallet) {
+          Toast.success({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_wallet_exists_title,
+            }),
+            message: intl.formatMessage({
+              id: ETranslations.feedback_wallet_exists_desc,
+            }),
+          });
+        }
       } catch (error) {
         errorToastUtils.toastIfError(error);
         navigation.pop();
@@ -574,7 +580,7 @@ function ConnectByUSBOrBLE({
         });
       }
     },
-    [actions, navigation, stopScan, scanDevice],
+    [stopScan, navigation, actions, intl, scanDevice],
   );
 
   const handleHwWalletCreateFlow = useCallback(
@@ -1176,9 +1182,8 @@ export function ConnectYourDevicePage() {
     channel ?? EConnectDeviceChannel.usbOrBle,
   );
 
-  const toOneKeyHardwareWalletPage = useCallback(() => {
-    navigation.push(EOnboardingPages.OneKeyHardwareWallet);
-  }, [navigation]);
+  const { headerRight, toOneKeyHardwareWalletPage } =
+    useBuyOneKeyHeaderRightButton();
 
   return (
     <Page>
@@ -1186,7 +1191,7 @@ export function ConnectYourDevicePage() {
         title={intl.formatMessage({
           id: ETranslations.onboarding_connect_your_device,
         })}
-        headerRight={() => headerRight(toOneKeyHardwareWalletPage)}
+        headerRight={headerRight}
       />
       <Page.Body>
         <Stack px="$5" pt="$2" pb="$4">

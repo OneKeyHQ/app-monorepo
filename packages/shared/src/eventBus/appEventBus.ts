@@ -1,7 +1,11 @@
 /* eslint-disable import/no-named-as-default-member */
 import { CrossEventEmitter } from '@onekeyfe/cross-inpage-provider-core';
+import { cloneDeep } from 'lodash';
 
-import type { IQrcodeDrawType } from '@onekeyhq/components';
+import type {
+  IDialogLoadingProps,
+  IQrcodeDrawType,
+} from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
@@ -14,6 +18,8 @@ import platformEnv from '../platformEnv';
 import type { EAccountSelectorSceneName, EHomeTab } from '../../types';
 import type { IFeeSelectorItem } from '../../types/fee';
 import type {
+  ESwapCrossChainStatus,
+  ESwapTxHistoryStatus,
   IFetchQuotesParams,
   ISwapQuoteEvent,
   ISwapToken,
@@ -51,6 +57,8 @@ export enum EAppEventBusNames {
   WalletConnectOpenModal = 'WalletConnectOpenModal',
   WalletConnectCloseModal = 'WalletConnectCloseModal',
   WalletConnectModalState = 'WalletConnectModalState',
+  ShowDialogLoading = 'ShowDialogLoading',
+  HideDialogLoading = 'HideDialogLoading',
   ShowToast = 'ShowToast',
   ShowAirGapQrcode = 'ShowAirGapQrcode',
   HideAirGapQrcode = 'HideAirGapQrcode',
@@ -68,7 +76,7 @@ export enum EAppEventBusNames {
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
   ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
   TxFeeInfoChanged = 'TxFeeInfoChanged',
-  SendConfirmContainerMounted = 'SendConfirmContainerMounted',
+  SignatureConfirmContainerMounted = 'SignatureConfirmContainerMounted',
   CloseHardwareUiStateDialogManually = 'CloseHardwareUiStateDialogManually',
   HardCloseHardwareUiStateDialog = 'CloseHardwareUiStateDialog',
   HistoryTxStatusChanged = 'HistoryTxStatusChanged',
@@ -82,12 +90,17 @@ export enum EAppEventBusNames {
   SidePanel_BgToUI = 'SidePanel_BgToUI',
   SidePanel_UIToBg = 'SidePanel_UIToBg',
   SwapQuoteEvent = 'SwapQuoteEvent',
+  SwapTxHistoryStatusUpdate = 'SwapTxHistoryStatusUpdate',
   AddedCustomNetwork = 'AddedCustomNetwork',
   ShowFindInWebPage = 'ShowFindInWebPage',
   ChangeTokenDetailTabVerticalScrollEnabled = 'ChangeTokenDetailTabVerticalScrollEnabled',
   RefreshNetInfo = 'RefreshNetInfo',
   ShowSwitchAccountSelector = 'ShowSwitchAccountSelector',
+  PrimeLoginInvalidToken = 'PrimeLoginInvalidToken',
+  PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
+  PrimeDeviceLogout = 'PrimeDeviceLogout',
   CreateAddressByDialog = 'CreateAddressByDialog',
+  CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -97,8 +110,19 @@ export enum EAppEventBusNames {
   // HttpServerRequest = 'HttpServerRequest',
 }
 
+export type IEventBusPayloadShowToast = {
+  // IToastProps
+  method: 'success' | 'error' | 'message';
+  title: string;
+  message?: string;
+  duration?: number;
+  errorCode?: number;
+  toastId?: string;
+};
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
+  [EAppEventBusNames.ShowDialogLoading]: IDialogLoadingProps;
+  [EAppEventBusNames.HideDialogLoading]: undefined;
   [EAppEventBusNames.WalletClear]: undefined;
   [EAppEventBusNames.WalletUpdate]: undefined;
   [EAppEventBusNames.WalletRemove]: {
@@ -149,14 +173,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.WalletConnectModalState]: {
     open: boolean;
   };
-  [EAppEventBusNames.ShowToast]: {
-    // IToastProps
-    method: 'success' | 'error' | 'message';
-    title: string;
-    message?: string;
-    duration?: number;
-    errorCode?: number;
-  };
+  [EAppEventBusNames.ShowToast]: IEventBusPayloadShowToast;
   [EAppEventBusNames.ShowAirGapQrcode]: {
     title?: string;
     drawType: IQrcodeDrawType;
@@ -203,7 +220,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.TxFeeInfoChanged]: {
     feeSelectorItems: IFeeSelectorItem[];
   };
-  [EAppEventBusNames.SendConfirmContainerMounted]: undefined;
+  [EAppEventBusNames.SignatureConfirmContainerMounted]: undefined;
   [EAppEventBusNames.CloseHardwareUiStateDialogManually]: undefined;
   [EAppEventBusNames.HardCloseHardwareUiStateDialog]: undefined;
   [EAppEventBusNames.HistoryTxStatusChanged]: undefined;
@@ -250,6 +267,12 @@ export interface IAppEventBusPayload {
     accountId?: string;
     tokenPairs: { fromToken: ISwapToken; toToken: ISwapToken };
   };
+  [EAppEventBusNames.SwapTxHistoryStatusUpdate]: {
+    status: ESwapTxHistoryStatus;
+    crossChainStatus?: ESwapCrossChainStatus;
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
+  };
   [EAppEventBusNames.AddedCustomNetwork]: undefined;
   [EAppEventBusNames.SyncDappAccountToHomeAccount]: {
     selectedAccount: IAccountSelectorSelectedAccount;
@@ -270,6 +293,13 @@ export interface IAppEventBusPayload {
     promiseId: number;
     autoCreateAddress: boolean;
     deriveType: IAccountDeriveTypes;
+  };
+  [EAppEventBusNames.PrimeLoginInvalidToken]: undefined;
+  [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
+  [EAppEventBusNames.PrimeDeviceLogout]: undefined;
+  [EAppEventBusNames.CheckAddressBeforeSending]: {
+    promiseId: number;
+    type: 'scam' | 'contract';
   };
 }
 
@@ -334,22 +364,10 @@ class AppEventBus extends CrossEventEmitter {
     type: T,
     payload: IAppEventBusPayload[T],
   ): boolean {
+    void this.emitToRemote({ type, payload });
     if (this.shouldEmitToSelf) {
-      defaultLogger.app.eventBus.emitToSelf({
-        eventName: type,
-      });
-      try {
-        // @ts-ignore
-        if (payload?.$$isRemoteEvent) {
-          // @ts-ignore
-          delete payload.$$isRemoteEvent;
-        }
-      } catch (e) {
-        // ignore
-      }
-      this.emitToSelf(type, payload);
+      this.emitToSelf({ type, payload });
     }
-    void this.emitToRemote(type, payload);
     return true;
   }
 
@@ -388,21 +406,50 @@ class AppEventBus extends CrossEventEmitter {
     return super.removeListener(type, listener);
   }
 
-  emitToSelf(type: EAppEventBusNames, ...args: any[]) {
-    super.emit(type, ...args);
-    return true;
-  }
-
-  async emitToRemote(type: string, payload: any) {
+  emitToSelf(params: {
+    type: EAppEventBusNames;
+    payload: any;
+    isRemote?: boolean;
+  }) {
+    const { type, payload, isRemote } = params;
+    defaultLogger.app.eventBus.emitToSelf({
+      eventName: type,
+    });
+    const payloadCloned = cloneDeep(payload);
     try {
-      if (payload) {
+      // @ts-ignore
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      if (payloadCloned?.$$isRemoteEvent && !isRemote) {
         // @ts-ignore
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        payload.$$isRemoteEvent = true;
+        payloadCloned.$$isRemoteEvent = undefined;
       }
     } catch (e) {
       // ignore
     }
+    super.emit(type, payloadCloned);
+    return true;
+  }
+
+  //
+
+  async emitToRemote(params: { type: string; payload: any }) {
+    const { type, payload } = params;
+    const convertToRemoteEventPayload = (p: any) => {
+      const payloadCloned = cloneDeep(p);
+      try {
+        if (payloadCloned) {
+          // @ts-ignore
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          payloadCloned.$$isRemoteEvent = true;
+        }
+      } catch (e) {
+        // ignore
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return payloadCloned;
+    };
+
     if (platformEnv.isExtensionOffscreen || platformEnv.isWebEmbed) {
       // request background
       throw new Error('offscreen or webembed event bus not support yet.');
@@ -412,12 +459,18 @@ class AppEventBus extends CrossEventEmitter {
     }
     if (platformEnv.isExtensionUi) {
       // request background
-      return this.broadcastMethods.uiToBg(type, payload);
+      return this.broadcastMethods.uiToBg(
+        type,
+        convertToRemoteEventPayload(payload),
+      );
     }
     if (platformEnv.isExtensionBackground) {
       // requestToOffscreen
       // requestToAllUi
-      return this.broadcastMethods.bgToUi(type, payload);
+      return this.broadcastMethods.bgToUi(
+        type,
+        convertToRemoteEventPayload(payload),
+      );
     }
   }
 }

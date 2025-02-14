@@ -1,9 +1,11 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { Dialog, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
@@ -12,6 +14,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
@@ -59,6 +62,7 @@ const SwapInputContainer = ({
   });
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [alerts] = useSwapAlertsAtom();
+  const intl = useIntl();
   const { address, accountInfo } = useSwapAddressInfo(direction);
   const [rateDifference] = useRateDifferenceAtom();
   const amountPrice = useMemo(() => {
@@ -104,7 +108,27 @@ const SwapInputContainer = ({
     fromTokenAmount,
     fromToken,
   ]);
-
+  const onRateDifferencePress = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.swap_page_price_impact_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.swap_page_price_impact_content_1,
+      }),
+      renderContent: (
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.swap_page_price_impact_content_2,
+          })}
+        </SizableText>
+      ),
+      showCancelButton: false,
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_ok,
+      }),
+    });
+  }, [intl]);
   const valueMoreComponent = useMemo(() => {
     if (rateDifference && direction === ESwapDirectionType.TO) {
       let color = '$textSubdued';
@@ -118,13 +142,29 @@ const SwapInputContainer = ({
         color = '$textSuccess';
       }
       return (
-        <SizableText size="$bodyMd" color={color}>
-          {rateDifference.value}
-        </SizableText>
+        <XStack alignItems="center">
+          <SizableText size="$bodyMd" color={color}>
+            (
+          </SizableText>
+          <SizableText
+            size="$bodyMd"
+            color={color}
+            cursor="pointer"
+            onPress={onRateDifferencePress}
+            {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
+              textDecorationLine: 'underline',
+            })}
+          >
+            {rateDifference.value}
+          </SizableText>
+          <SizableText size="$bodyMd" color={color}>
+            )
+          </SizableText>
+        </XStack>
       );
     }
     return null;
-  }, [direction, inputLoading, rateDifference]);
+  }, [direction, inputLoading, onRateDifferencePress, rateDifference]);
 
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);
@@ -147,6 +187,10 @@ const SwapInputContainer = ({
     [direction, percentageInputStageShow, amountValue],
   );
 
+  const showPercentageInputDebounce = useDebounce(showPercentageInput, 100, {
+    leading: true,
+  });
+
   const showActionBuy = useMemo(
     () =>
       direction === ESwapDirectionType.FROM &&
@@ -156,8 +200,8 @@ const SwapInputContainer = ({
     [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
   );
   return (
-    <YStack>
-      <XStack justifyContent="space-between">
+    <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
+      <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
         <SwapAccountAddressContainer
           type={direction}
           onClickNetwork={onSelectToken}
@@ -165,23 +209,23 @@ const SwapInputContainer = ({
         <SwapInputActions
           fromToken={fromToken}
           accountInfo={accountInfo}
-          showPercentageInput={showPercentageInput}
+          showPercentageInput={showPercentageInputDebounce}
           showActionBuy={showActionBuy}
           onSelectStage={onSelectPercentageStage}
         />
       </XStack>
       <AmountInput
+        borderRadius="$0"
+        borderWidth="$0"
         onChange={onAmountChange}
         value={amountValue}
-        onFocus={onFromInputFocus}
-        onBlur={onFromInputBlur}
         hasError={
           fromInputHasError.accountError || fromInputHasError.hasBalanceError
         }
         balanceProps={{
           value: balance,
           onPress:
-            direction === ESwapDirectionType.FROM && !token?.isNative
+            direction === ESwapDirectionType.FROM
               ? onBalanceMaxPress
               : undefined,
         }}
@@ -214,6 +258,8 @@ const SwapInputContainer = ({
           autoCorrect: false,
           spellCheck: false,
           autoComplete: 'off',
+          onFocus: onFromInputFocus,
+          onBlur: onFromInputBlur,
         }}
         tokenSelectorTriggerProps={{
           loading: selectTokenLoading,
@@ -224,9 +270,7 @@ const SwapInputContainer = ({
             onSelectToken(direction);
           },
         }}
-        enableMaxAmount={
-          !!(direction === ESwapDirectionType.FROM && !token?.isNative)
-        }
+        enableMaxAmount={!!(direction === ESwapDirectionType.FROM)}
       />
     </YStack>
   );

@@ -1,13 +1,12 @@
 /* eslint-disable @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access,@typescript-eslint/no-unsafe-return */
 
-// TODO: remove components from background.
-// import { Toast } from '@onekeyhq/components';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { INTERNAL_METHOD_PREFIX } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
+import { OneKeyError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';

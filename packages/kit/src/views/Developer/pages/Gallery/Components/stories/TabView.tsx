@@ -138,12 +138,11 @@ const TabViewScrollPageDemo = () => {
 
 const TabViewGallery = () => (
   <Layout
-    description=""
+    componentName="TabView"
     suggestions={[
       '吸顶用 Tab',
       '不需要吸顶用 Tab.Page, 它继承自 Fragment, 尽量不要把 Tab.Page 放到 ScrollView 里面',
     ]}
-    boundaryConditions={[]}
     elements={[
       {
         title: 'Header 自定义1',

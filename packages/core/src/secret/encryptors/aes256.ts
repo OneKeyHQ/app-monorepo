@@ -1,6 +1,4 @@
-import * as crypto from 'crypto';
-
-import { AES_CBC, Pbkdf2HmacSha256 } from 'asmcrypto.js';
+import crypto from 'crypto';
 
 import { IncorrectPassword } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -8,29 +6,16 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 
-import { sha256 } from '../hash';
+import {
+  AES256_IV_LENGTH,
+  ENCRYPTED_DATA_OFFSET,
+  PBKDF2_SALT_LENGTH,
+  aesCbcDecrypt,
+  aesCbcEncrypt,
+  keyFromPasswordAndSalt,
+} from '../crypto-functions';
 
 import { xorDecrypt, xorEncrypt } from './xor';
-
-// Below codes are comments to note algorithm and digest method used.
-// const ALGORITHM = 'aes-256-cbc';
-// const PBKDF2_DIGEST_METHOD = 'sha256';
-const PBKDF2_NUM_OF_ITERATIONS = 5000;
-const PBKDF2_KEY_LENGTH = 32;
-const PBKDF2_SALT_LENGTH = 32;
-const AES256_IV_LENGTH = 16;
-const ENCRYPTED_DATA_OFFSET = PBKDF2_SALT_LENGTH + AES256_IV_LENGTH;
-
-function keyFromPasswordAndSalt(password: string, salt: Buffer): Buffer {
-  return Buffer.from(
-    Pbkdf2HmacSha256(
-      sha256(Buffer.from(password, 'utf8')),
-      salt,
-      PBKDF2_NUM_OF_ITERATIONS,
-      PBKDF2_KEY_LENGTH,
-    ),
-  );
-}
 
 export const encodeKeyPrefix =
   'ENCODE_KEY::755174C1-6480-401A-8C3D-84ADB2E0C376::';
@@ -168,7 +153,12 @@ async function encryptAsync({
   return Buffer.concat([
     salt,
     iv,
-    Buffer.from(AES_CBC.encrypt(dataBuffer, key, true, iv)),
+    aesCbcEncrypt({
+      data: dataBuffer,
+      key,
+      iv,
+      //
+    }),
   ]);
 }
 
@@ -251,12 +241,11 @@ async function decryptAsync({
     //   iv.toString('base64'),
     // );
 
-    const aesDecryptData = AES_CBC.decrypt(
-      dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
+    const aesDecryptData = aesCbcDecrypt({
+      data: dataBuffer.slice(ENCRYPTED_DATA_OFFSET),
       key,
-      true,
       iv,
-    );
+    });
     if (!ignoreLogger) {
       defaultLogger.account.secretPerf.decryptAESDone();
     }

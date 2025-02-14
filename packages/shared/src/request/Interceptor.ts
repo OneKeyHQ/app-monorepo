@@ -1,15 +1,18 @@
-/* eslint-disable @typescript-eslint/no-restricted-imports */
 import { Appearance } from 'react-native';
 
-import { defaultColorScheme } from '@onekeyhq/kit/src/hooks/useSystemColorScheme';
-import { checkIsOneKeyDomain } from '@onekeyhq/kit-bg/src/endpoints';
-import {
-  settingsPersistAtom,
-  settingsValuePersistAtom,
+import type {
+  ISettingsPersistAtom,
+  ISettingsValuePersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { getDefaultLocale } from '@onekeyhq/shared/src/locale/getDefaultLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+
+import { defaultColorScheme } from '../config/appConfig';
+
+import { checkIsOneKeyDomain } from './checkIsOneKeyDomain';
+import { headerPlatform } from './InterceptorConsts';
+import requestHelper from './requestHelper';
 
 import type { InternalAxiosRequestConfig } from 'axios';
 
@@ -27,7 +30,7 @@ export async function checkRequestIsOneKeyDomain({
   const check = async (url: string | undefined) => {
     try {
       if (url) {
-        isOneKeyDomain = await checkIsOneKeyDomain(url ?? '');
+        isOneKeyDomain = await requestHelper.checkIsOneKeyDomain(url ?? '');
       }
     } catch (error) {
       isOneKeyDomain = false;
@@ -53,15 +56,11 @@ export async function checkRequestIsOneKeyDomain({
 
 export const HEADER_REQUEST_ID_KEY = normalizeHeaderKey('X-Onekey-Request-ID');
 
-// Be consistent with backend platform definition
-// https://onekeyhq.atlassian.net/wiki/spaces/ONEKEY/pages/390266887#%E5%85%AC%E5%85%B1%E5%8F%82%E6%95%B0
-export const headerPlatform = [platformEnv.appPlatform, platformEnv.appChannel]
-  .filter(Boolean)
-  .join('-');
-
 export async function getRequestHeaders() {
-  const settings = await settingsPersistAtom.get();
-  const valueSettings = await settingsValuePersistAtom.get();
+  const settings: ISettingsPersistAtom =
+    await requestHelper.getSettingsPersistAtom();
+  const valueSettings: ISettingsValuePersistAtom =
+    await requestHelper.getSettingsValuePersistAtom();
 
   let { locale, theme } = settings;
 
@@ -82,6 +81,8 @@ export async function getRequestHeaders() {
     [normalizeHeaderKey('X-Onekey-Request-Locale')]: locale.toLowerCase(),
     [normalizeHeaderKey('X-Onekey-Request-Theme')]: theme,
     [normalizeHeaderKey('X-Onekey-Request-Platform')]: headerPlatform,
+    [normalizeHeaderKey('X-Onekey-Request-Device-Name')]:
+      platformEnv.appFullName,
     [normalizeHeaderKey('X-Onekey-Request-Version')]:
       platformEnv.version as string,
     [normalizeHeaderKey('X-Onekey-Hide-Asset-Details')]: (

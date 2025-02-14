@@ -120,3 +120,5 @@ export const SortableListView = withStaticProperties(
     ShadowDecorator,
   },
 );
+
+export * from './types';

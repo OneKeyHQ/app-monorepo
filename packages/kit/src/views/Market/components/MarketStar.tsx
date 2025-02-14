@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,19 +15,15 @@ import type { EWatchlistFrom } from '@onekeyhq/shared/src/logger/scopes/market/s
 
 import { useWatchListAction } from './wachListHooks';
 
-function BasicMarketStar({
+export const useStarChecked = ({
   coingeckoId,
-  size,
   tabIndex,
   from,
-  ...props
 }: {
-  tabIndex?: number;
-  size?: IIconButtonProps['size'];
   coingeckoId: string;
+  tabIndex?: number;
   from: EWatchlistFrom;
-} & IStackProps) {
-  const intl = useIntl();
+}) => {
   const actions = useWatchListAction();
 
   const [checked, setIsChecked] = useState(() =>
@@ -84,6 +80,34 @@ function BasicMarketStar({
     }
     setIsChecked(!checked);
   }, [checked, actions, coingeckoId, from]);
+  return useMemo(
+    () => ({
+      checked,
+      setIsChecked,
+      onPress: handlePress,
+    }),
+    [checked, handlePress],
+  );
+};
+
+function BasicMarketStar({
+  coingeckoId,
+  size,
+  tabIndex,
+  from,
+  ...props
+}: {
+  tabIndex?: number;
+  size?: IIconButtonProps['size'];
+  coingeckoId: string;
+  from: EWatchlistFrom;
+} & IStackProps) {
+  const intl = useIntl();
+  const { onPress, checked } = useStarChecked({
+    tabIndex,
+    coingeckoId,
+    from,
+  });
 
   return (
     <IconButton
@@ -99,7 +123,7 @@ function BasicMarketStar({
       iconProps={{
         color: checked ? '$iconActive' : '$iconDisabled',
       }}
-      onPress={handlePress}
+      onPress={onPress}
       {...props}
     />
   );

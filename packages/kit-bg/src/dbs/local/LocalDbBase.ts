@@ -809,6 +809,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateWalletsHash(walletsHashMap: { [walletId: string]: string }) {
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        ids: Object.keys(walletsHashMap),
+        updater(item) {
+          const newHash = walletsHashMap[item.id];
+          if (!isNil(newHash)) {
+            item.hash = newHash;
+          }
+          return item;
+        },
+      });
+    });
+  }
+
   async updateIndexedAccountOrder({
     indexedAccountId,
     order,
@@ -1199,9 +1216,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async buildCreateHDAndHWWalletResult({
     walletId,
     addedHdAccountIndex,
+    isOverrideWallet,
   }: {
     walletId: string;
     addedHdAccountIndex: number;
+    isOverrideWallet?: boolean;
   }) {
     const dbWallet = await this.getWallet({
       walletId,
@@ -1228,6 +1247,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       wallet: dbWallet,
       indexedAccount: dbIndexedAccount,
       device: dbDevice,
+      isOverrideWallet,
     };
   }
 
@@ -1255,7 +1275,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             id: walletId,
             name: walletName,
             hash: walletHash || undefined,
-            avatar: avatar && JSON.stringify(avatar), // TODO save object to realmDB?
+            avatar: avatar ? JSON.stringify(avatar) : undefined, // TODO save object to realmDB?
             type: WALLET_TYPE_HD,
             backuped,
             nextIds: {
@@ -1736,6 +1756,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { dbDeviceId, dbWalletId, deviceUUID, rawDeviceId } =
       await this.buildHwWalletId(params);
 
+    const existingWallet = await this.getWalletSafe({
+      walletId: dbWalletId,
+    });
+    const isExistingHiddenWallet = accountUtils.isHwHiddenWallet({
+      wallet: existingWallet,
+    });
+
     let parentWalletId: string | undefined;
     const deviceName = await deviceUtils.buildDeviceName({ device, features });
     let walletName = name || deviceName;
@@ -1881,6 +1908,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return this.buildCreateHDAndHWWalletResult({
       walletId: dbWalletId,
       addedHdAccountIndex,
+      isOverrideWallet: existingWallet && !isExistingHiddenWallet,
     });
   }
 
@@ -2240,12 +2268,18 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
             if (wallet && account) {
               const order = getOrderByWalletType(wallet.type);
-              result.push({
-                walletName: wallet.name,
-                accountName: account.name,
-                accountId: account.id,
-                order,
-              });
+              if (
+                !accountUtils.isUrlAccountFn({
+                  accountId: account?.id,
+                })
+              ) {
+                result.push({
+                  walletName: wallet.name,
+                  accountName: account.name,
+                  accountId: account.id,
+                  order,
+                });
+              }
             }
           } catch (error) {
             errorUtils.autoPrintErrorIgnore(error);
@@ -2267,7 +2301,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     account,
   }: {
     networkId: string;
-    account: INetworkAccount;
+    account: INetworkAccount; // TODO support accounts array
   }) {
     const accountId = account.id;
     const { indexedAccountId, address, addressDetail, type } = account;
@@ -2367,7 +2401,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     importedCredential?: ICoreImportedCredentialEncryptHex | undefined;
     // accountNameBuilder for watching, imported, external account
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
-  }): Promise<void> {
+  }): Promise<{ isOverrideAccounts: boolean }> {
     this.validateAccountsFields(accounts);
 
     const wallet = await this.getWallet({ walletId });
@@ -2377,7 +2411,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       defaultValue: 1,
     });
 
-    await this.withTransaction(async (tx) => {
+    const addResults = await this.withTransaction(async (tx) => {
       const firstAccount: IDBAccount | undefined = accounts?.[0];
       if (
         firstAccount &&
@@ -2529,6 +2563,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         });
       }
 
+      const isOverrideAccounts = removed > 0 && actualAdded === 0;
+
+      return {
+        isOverrideAccounts,
+      };
       // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
     });
 
@@ -2549,6 +2588,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId,
       accounts,
     });
+    return addResults;
   }
 
   async saveTonImportedAccountMnemonic({
@@ -2729,9 +2769,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
   async getAllDevices(): Promise<{ devices: IDBDevice[] }> {
     const cacheKey = 'allDbDevices';
-    const allDevicesInCache = this.dbAllRecordsCache.get(
-      cacheKey,
-    ) as IDBDevice[];
+    const allDevicesInCache = this.getAllRecordsByCache<IDBDevice>(cacheKey);
     if (allDevicesInCache && allDevicesInCache.length) {
       return { devices: allDevicesInCache };
     }
@@ -2747,9 +2785,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     wallets: IDBWallet[];
   }> {
     const cacheKey = 'allDbWallets';
-    const allWalletsInCache = this.dbAllRecordsCache.get(
-      cacheKey,
-    ) as IDBWallet[];
+    const allWalletsInCache = this.getAllRecordsByCache<IDBWallet>(cacheKey);
     if (allWalletsInCache && allWalletsInCache.length) {
       return { wallets: allWalletsInCache };
     }
@@ -2790,9 +2826,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexedAccounts: IDBIndexedAccount[];
   }> {
     const cacheKey = 'allDbIndexedAccounts';
-    const allIndexedAccountsInCache = this.dbAllRecordsCache.get(
-      cacheKey,
-    ) as IDBIndexedAccount[];
+    const allIndexedAccountsInCache =
+      this.getAllRecordsByCache<IDBIndexedAccount>(cacheKey);
     if (allIndexedAccountsInCache && allIndexedAccountsInCache.length) {
       return { indexedAccounts: allIndexedAccountsInCache };
     }
@@ -2808,9 +2843,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   }> {
     const cacheKey = 'allDbAccounts';
     if (!ids) {
-      const allDbAccountsInCache = this.dbAllRecordsCache.get(
-        cacheKey,
-      ) as IDBAccount[];
+      const allDbAccountsInCache =
+        this.getAllRecordsByCache<IDBAccount>(cacheKey);
       if (allDbAccountsInCache && allDbAccountsInCache?.length) {
         return { accounts: allDbAccountsInCache };
       }

@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 import { findIndex, isEmpty } from 'lodash';
 
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type {
   IDecodedTx,
   IDecodedTxAction,
@@ -16,7 +17,10 @@ import {
   EDecodedTxDirection,
 } from '@onekeyhq/shared/types/tx';
 
-import { EParseTxComponentType } from '../../types/signatureConfirm';
+import {
+  EParseTxComponentType,
+  ETransferDirection,
+} from '../../types/signatureConfirm';
 import { EEarnLabels, type IStakingInfo } from '../../types/staking';
 import { ETranslations } from '../locale';
 import { appLocale } from '../locale/appLocale';
@@ -25,8 +29,8 @@ import type {
   IDisplayComponent,
   IDisplayComponentAddress,
   IDisplayComponentApprove,
-  IDisplayComponentAssets,
   IDisplayComponentDefault,
+  IDisplayComponentInternalAssets,
   IDisplayComponentNetwork,
   IDisplayComponentToken,
 } from '../../types/signatureConfirm';
@@ -218,10 +222,14 @@ export function getStakingActionLabel({
 
 export function convertAddressToSignatureConfirmAddress({
   address,
+  networkId,
   label,
+  owner,
 }: {
   address: string;
+  networkId: string;
   label?: string;
+  owner?: string;
 }): IDisplayComponentAddress {
   return {
     type: EParseTxComponentType.Address,
@@ -230,7 +238,9 @@ export function convertAddressToSignatureConfirmAddress({
       appLocale.intl.formatMessage({
         id: ETranslations.copy_address_modal_title,
       }),
-    address,
+    address: networkUtils.isLightningNetworkByNetworkId(networkId)
+      ? owner ?? ''
+      : address,
     tags: [],
   };
 }
@@ -256,9 +266,11 @@ export function convertNetworkToSignatureConfirmNetwork({
 function convertAssetTransferActionToSignatureConfirmComponent({
   action,
   unsignedTx,
+  isUTXO,
 }: {
   action: IDecodedTxActionAssetTransfer;
   unsignedTx: IUnsignedTxPro;
+  isUTXO?: boolean;
 }) {
   const components: IDisplayComponent[] = [];
 
@@ -274,8 +286,8 @@ function convertAssetTransferActionToSignatureConfirmComponent({
           id: ETranslations.global_asset,
         });
 
-    const assetsComponent: IDisplayComponentAssets = {
-      type: EParseTxComponentType.Assets,
+    const assetsComponent: IDisplayComponentInternalAssets = {
+      type: EParseTxComponentType.InternalAssets,
       label: assetsLabel,
       name: send.name,
       icon: send.icon,
@@ -284,6 +296,8 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       amountParsed: send.amount,
       networkId: send.networkId,
       isNFT: send.isNFT,
+      NFTType: send.NFTType,
+      transferDirection: ETransferDirection.Out,
     };
 
     components.push(assetsComponent);
@@ -292,14 +306,14 @@ function convertAssetTransferActionToSignatureConfirmComponent({
   action.receives.forEach((receive) => {
     const assetsLabel = isInternalSwap
       ? appLocale.intl.formatMessage({
-          id: ETranslations.global_receive,
+          id: ETranslations.sign_swap_estimate_receive,
         })
       : appLocale.intl.formatMessage({
           id: ETranslations.global_asset,
         });
 
-    const assetsComponent: IDisplayComponentAssets = {
-      type: EParseTxComponentType.Assets,
+    const assetsComponent: IDisplayComponentInternalAssets = {
+      type: EParseTxComponentType.InternalAssets,
       label: assetsLabel,
       name: receive.name,
       icon: receive.icon,
@@ -308,6 +322,8 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       amountParsed: receive.amount,
       networkId: receive.networkId,
       isNFT: receive.isNFT,
+      NFTType: receive.NFTType,
+      transferDirection: ETransferDirection.In,
     };
 
     components.push(assetsComponent);
@@ -321,25 +337,33 @@ function convertAssetTransferActionToSignatureConfirmComponent({
       }),
       address: unsignedTx.swapInfo.receivingAddress,
       tags: [],
+      networkId: unsignedTx.swapInfo.receiver.accountInfo.networkId,
     };
 
     components.push(receiveAddressComponent);
   }
 
   if (action.to) {
+    let showInteractWithContract = false;
+
+    if (isInternalSwap) {
+      showInteractWithContract = true;
+    } else if (isInternalStake) {
+      showInteractWithContract = !isUTXO;
+    }
+
     const toAddressComponent: IDisplayComponentAddress = {
       type: EParseTxComponentType.Address,
-      label:
-        isInternalSwap || isInternalStake
-          ? appLocale.intl.formatMessage({
-              id: ETranslations.interact_with_contract,
-            })
-          : appLocale.intl.formatMessage({
-              id: ETranslations.global_to,
-            }),
+      label: showInteractWithContract
+        ? appLocale.intl.formatMessage({
+            id: ETranslations.sig_interact_contract_label,
+          })
+        : appLocale.intl.formatMessage({
+            id: ETranslations.global_to,
+          }),
       address: action.to,
       tags: [],
-      isNavigable: isInternalSwap || isInternalStake,
+      isNavigable: showInteractWithContract,
     };
 
     components.push(toAddressComponent);
@@ -447,23 +471,31 @@ function convertFunctionCallActionToSignatureConfirmComponent({
 }: {
   action: IDecodedTxActionFunctionCall;
 }) {
+  const components: IDisplayComponent[] = [];
+
   const component: IDisplayComponentDefault = {
     type: EParseTxComponentType.Default,
     label: 'Operation',
     value: action.functionName,
   };
 
-  const interactWithContractComponent: IDisplayComponentAddress = {
-    type: EParseTxComponentType.Address,
-    label: appLocale.intl.formatMessage({
-      id: ETranslations.interact_with_contract,
-    }),
-    address: action.to,
-    tags: [],
-    isNavigable: true,
-  };
+  components.push(component);
 
-  return [component, interactWithContractComponent];
+  if (action.to) {
+    const interactWithContractComponent: IDisplayComponentAddress = {
+      type: EParseTxComponentType.Address,
+      label: appLocale.intl.formatMessage({
+        id: ETranslations.sig_interact_contract_label,
+      }),
+      address: action.to,
+      tags: [],
+      isNavigable: true,
+    };
+
+    components.push(interactWithContractComponent);
+  }
+
+  return components;
 }
 
 function convertUnknownActionToSignatureConfirmComponent({
@@ -471,10 +503,14 @@ function convertUnknownActionToSignatureConfirmComponent({
 }: {
   action: IDecodedTxActionUnknown;
 }) {
+  if (!action.to) {
+    return [];
+  }
+
   const interactWithContractComponent: IDisplayComponentAddress = {
     type: EParseTxComponentType.Address,
     label: appLocale.intl.formatMessage({
-      id: ETranslations.interact_with_contract,
+      id: ETranslations.sig_interact_contract_label,
     }),
     address: action.to,
     tags: [],
@@ -488,10 +524,12 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
   decodedTx,
   isMultiTxs,
   unsignedTx,
+  isUTXO,
 }: {
   decodedTx: IDecodedTx;
   unsignedTx: IUnsignedTxPro;
   isMultiTxs?: boolean;
+  isUTXO?: boolean;
 }): IDisplayComponent[] {
   const { actions, networkId } = decodedTx;
   const components: IDisplayComponent[] = [];
@@ -505,6 +543,7 @@ export function convertDecodedTxActionsToSignatureConfirmTxDisplayComponents({
         ...convertAssetTransferActionToSignatureConfirmComponent({
           action: action.assetTransfer,
           unsignedTx,
+          isUTXO,
         }),
       );
     } else if (

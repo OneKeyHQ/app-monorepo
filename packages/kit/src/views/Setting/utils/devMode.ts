@@ -1,6 +1,8 @@
 import { Dialog } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 
+import { showDevOnlyPasswordDialog } from '../pages/List/DevSettingsSection';
+
 // for open dev mode
 let clickCount = 0;
 let startTime: Date | undefined;
@@ -48,17 +50,27 @@ export const handleOpenDevMode = async (callback: () => void) => {
     isPasswordVerifying = true;
     try {
       await showPromoteDialog();
-      await backgroundApiProxy.servicePassword.promptPasswordVerify({
-        dialogProps: {
-          confirmButtonProps: {
-            testID: 'confirm-button',
+      try {
+        await backgroundApiProxy.servicePassword.promptPasswordVerify({
+          dialogProps: {
+            confirmButtonProps: {
+              testID: 'confirm-button',
+            },
+            description:
+              'Danger Zone: Are you sure you want to enable developer-related features?',
+            dismissOnOverlayPress: false,
           },
-          description:
-            'Danger Zone: Are you sure you want to enable developer-related features?',
-          dismissOnOverlayPress: false,
-        },
-      });
-      await backgroundApiProxy.serviceDevSetting.switchDevMode(true);
+        });
+        await backgroundApiProxy.serviceDevSetting.switchDevMode(true);
+      } catch (error) {
+        showDevOnlyPasswordDialog({
+          title: 'Danger Zone',
+          description: 'Fallback to devOnlyPassword verification',
+          onConfirm: async () => {
+            await backgroundApiProxy.serviceDevSetting.switchDevMode(true);
+          },
+        });
+      }
     } catch (error) {
       /* empty */
     } finally {

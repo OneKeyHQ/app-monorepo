@@ -596,9 +596,7 @@ function YourComponentDemo() {
 
 const SignatureConfirmationGallery = () => (
   <Layout
-    description="Description of your component"
-    suggestions={['Suggestion 1', 'Suggestion 2']}
-    boundaryConditions={['Boundary condition 1']}
+    componentName="SignatureConfirmation"
     elements={[
       {
         title: 'Default',

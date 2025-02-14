@@ -21,12 +21,16 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import type {
+  IEarnRewardNum,
+  IEarnTokenItem,
   IEarnUnbondingDelegationList,
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { formatStakingDistanceToNowStrict } from '../utils';
+
+import { ProtocolRewards } from './ProtocolRewards';
 
 type IPortfolioItemProps = {
   tokenImageUri?: string;
@@ -133,8 +137,8 @@ type IPortfolioInfoProps = {
   pendingActiveTooltip?: string;
   claimable?: string;
   rewards?: string;
-  rewardNum?: Record<string, string>;
-  rewardAssets?: Record<string, IToken>;
+  rewardNum?: IEarnRewardNum;
+  rewardAssets?: Record<string, IEarnTokenItem>;
 
   tooltipForClaimable?: string;
   labelForClaimable?: string;
@@ -220,8 +224,10 @@ function PortfolioInfo({
     const hasMultipleRewards =
       rewardNum &&
       Object.keys(rewardNum).length > 1 &&
-      Object.values(rewardNum).some((value) =>
-        new BigNumber(value).isGreaterThan(0),
+      Object.values(rewardNum).some(
+        (value) =>
+          new BigNumber(value.claimableNow).isGreaterThan(0) ||
+          new BigNumber(value.claimableNext).isGreaterThan(0),
       );
 
     return (
@@ -375,13 +381,13 @@ function PortfolioInfo({
               disabled={isLessThanMinClaimable}
             />
           ) : null}
-          {rewardNum && Object.keys(rewardNum).length > 0
+          {/* {rewardNum && Object.keys(rewardNum).length > 0
             ? Object.entries(rewardNum).map(([rewardTokenAddress, amount]) => {
                 const rewardToken = rewardAssets?.[rewardTokenAddress];
 
                 // defensive check
                 // if the reward token info is missing, log a warning and return null
-                if (!rewardToken?.symbol || !rewardToken?.logoURI) {
+                if (!rewardToken?.info?.symbol || !rewardToken?.info?.logoURI) {
                   console.warn(
                     `Missing token info for reward token: ${rewardTokenAddress}`,
                   );
@@ -397,8 +403,8 @@ function PortfolioInfo({
                 return (
                   <PortfolioItem
                     key={rewardTokenAddress}
-                    tokenImageUri={rewardToken.logoURI}
-                    tokenSymbol={rewardToken.symbol}
+                    tokenImageUri={rewardToken.info?.logoURI}
+                    tokenSymbol={rewardToken.info?.symbol}
                     amount={amount}
                     statusText={intl.formatMessage({
                       id: ETranslations.earn_rewards,
@@ -418,7 +424,15 @@ function PortfolioInfo({
                   />
                 );
               })
-            : null}
+            : null} */}
+          {rewardNum && Object.keys(rewardNum).length > 0 ? (
+            <ProtocolRewards
+              rewardNum={rewardNum}
+              rewardAssets={rewardAssets}
+              onClaim={onClaim}
+            />
+          ) : null}
+
           {Number(babylonOverflow) > 0 ? (
             <Alert
               fullBleed

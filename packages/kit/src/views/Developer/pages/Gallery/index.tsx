@@ -480,6 +480,40 @@ const SignatureConfirmationGallery = LazyLoadPage(
     ),
 );
 
+const HyperlinkTextGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/HyperlinkTextGallery'
+    ),
+);
+const HapticsGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Haptics'
+    ),
+);
+
+const AccordionGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/AccordionGallery'
+    ),
+);
+
+const OTPInputGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/OTPInputGallery'
+    ),
+);
+
+const RichSizeableTextGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/RichSizeableText'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -536,7 +570,7 @@ export const galleryScreenList: {
     component: SwipeableCellGallery,
   },
   {
-    name: EGalleryRoutes.ComponentSpotlightTour,
+    name: EGalleryRoutes.ComponentSpotlight,
     component: SpotlightGallery,
   },
   {
@@ -601,15 +635,15 @@ export const galleryScreenList: {
     component: TabViewGallery,
   },
   {
-    name: EGalleryRoutes.componentQRCode,
+    name: EGalleryRoutes.ComponentQRCode,
     component: QRCodeGallery,
   },
   {
-    name: EGalleryRoutes.componentSecureQRToast,
+    name: EGalleryRoutes.ComponentSecureQRToast,
     component: SecureQRToastGallery,
   },
   {
-    name: EGalleryRoutes.componentScanQrCode,
+    name: EGalleryRoutes.ComponentScanQrCode,
     component: ScanQrCodeGallery,
   },
   {
@@ -695,5 +729,25 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.SignatureConfirmationGallery,
     component: SignatureConfirmationGallery,
+  },
+  {
+    name: EGalleryRoutes.HyperlinkTextGallery,
+    component: HyperlinkTextGallery,
+  },
+  {
+    name: EGalleryRoutes.HapticsGallery,
+    component: HapticsGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentAccordion,
+    component: AccordionGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentOTPInput,
+    component: OTPInputGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentRichSizeableText,
+    component: RichSizeableTextGallery,
   },
 ];

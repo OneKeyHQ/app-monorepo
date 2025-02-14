@@ -37,7 +37,6 @@ import {
   getFeeLabel,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 import {
   BATCH_SEND_TXS_FEE_DOWN_RATIO_FOR_TOTAL,
   BATCH_SEND_TXS_FEE_UP_RATIO_FOR_APPROVE,
@@ -53,6 +52,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import { EFeeType, ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import type {
   IFeeInfoUnit,
@@ -69,10 +69,17 @@ type IProps = {
   useFeeInTx?: boolean;
   feeInfoEditable?: boolean;
   tableLayout?: boolean;
+  feeInfoWrapperProps?: React.ComponentProps<typeof Stack>;
 };
 
 function TxFeeInfo(props: IProps) {
-  const { accountId, networkId, useFeeInTx, feeInfoEditable = true } = props;
+  const {
+    accountId,
+    networkId,
+    useFeeInTx,
+    feeInfoEditable = true,
+    feeInfoWrapperProps,
+  } = props;
   const intl = useIntl();
   const [txFeeInit, setTxFeeInit] = useState(false);
   const feeInTxUpdated = useRef(false);
@@ -711,10 +718,15 @@ function TxFeeInfo(props: IProps) {
     const feeInfos: {
       feeInfo: IFeeInfoUnit;
       total: string;
+      totalMin: string;
       totalNative: string;
+      totalNativeMin: string;
       totalFiat: string;
+      totalFiatMin: string;
       totalNativeForDisplay: string;
       totalFiatForDisplay: string;
+      totalNativeMinForDisplay: string;
+      totalFiatMinForDisplay: string;
     }[] = [];
 
     let baseGasLimit =
@@ -722,10 +734,15 @@ function TxFeeInfo(props: IProps) {
       selectedFeeInfos[0].gasEIP1559?.gasLimit;
 
     let total = new BigNumber(0);
+    let totalMin = new BigNumber(0);
     let totalNative = new BigNumber(0);
+    let totalNativeMin = new BigNumber(0);
     let totalFiat = new BigNumber(0);
+    let totalFiatMin = new BigNumber(0);
     let totalNativeForDisplay = new BigNumber(0);
+    let totalNativeMinForDisplay = new BigNumber(0);
     let totalFiatForDisplay = new BigNumber(0);
+    let totalFiatMinForDisplay = new BigNumber(0);
 
     for (let i = 0; i < unsignedTxs.length; i += 1) {
       const selectedFeeInfo = selectedFeeInfos[i];
@@ -804,20 +821,34 @@ function TxFeeInfo(props: IProps) {
       });
 
       total = total.plus(feeResult.total);
+      totalMin = totalMin.plus(feeResult.totalMin);
       totalNative = totalNative.plus(feeResult.totalNative);
+      totalNativeMin = totalNativeMin.plus(feeResult.totalNativeMin);
       totalFiat = totalFiat.plus(feeResult.totalFiat);
+      totalFiatMin = totalFiatMin.plus(feeResult.totalFiatMin);
       totalNativeForDisplay = totalNativeForDisplay.plus(
         feeResult.totalNativeForDisplay,
       );
+      totalNativeMinForDisplay = totalNativeMinForDisplay.plus(
+        feeResult.totalNativeMinForDisplay,
+      );
       totalFiatForDisplay = totalFiatForDisplay.plus(
         feeResult.totalFiatForDisplay,
+      );
+      totalFiatMinForDisplay = totalFiatMinForDisplay.plus(
+        feeResult.totalFiatMinForDisplay,
       );
 
       feeInfos.push({
         feeInfo: txFeeInfo,
         total: feeResult.total,
+        totalMin: feeResult.totalMin,
         totalNative: feeResult.totalNative,
+        totalNativeMin: feeResult.totalNativeMin,
+        totalNativeMinForDisplay: feeResult.totalNativeMinForDisplay,
         totalFiat: feeResult.totalFiat,
+        totalFiatMin: feeResult.totalFiatMin,
+        totalFiatMinForDisplay: feeResult.totalFiatMinForDisplay,
         totalNativeForDisplay: feeResult.totalNativeForDisplay,
         totalFiatForDisplay: feeResult.totalFiatForDisplay,
       });
@@ -843,10 +874,15 @@ function TxFeeInfo(props: IProps) {
       selectedFee: {
         feeInfos,
         total: total.toFixed(),
+        totalMin: totalMin.toFixed(),
         totalNative: totalNative.toFixed(),
+        totalNativeMin: totalNativeMin.toFixed(),
         totalFiat: totalFiat.toFixed(),
+        totalFiatMin: totalFiatMin.toFixed(),
         totalNativeForDisplay: totalNativeForDisplay.toFixed(),
+        totalNativeMinForDisplay: totalNativeMinForDisplay.toFixed(),
         totalFiatForDisplay: totalFiatForDisplay.toFixed(),
+        totalFiatMinForDisplay: totalFiatMinForDisplay.toFixed(),
       },
     };
   }, [
@@ -909,13 +945,28 @@ function TxFeeInfo(props: IProps) {
   useEffect(() => {
     if (!txFeeInit || nativeTokenInfo.isLoading || !nativeTokenInfo) return;
 
+    const requiredNativeBalance = new BigNumber(
+      nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0,
+    )
+      .plus(selectedFee?.totalNative ?? 0)
+      .plus(extraFeeInfo.feeNative ?? 0);
+
+    const fillUpNativeBalance = requiredNativeBalance.minus(
+      nativeTokenInfo.balance ?? 0,
+    );
+
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
         ? false
-        : new BigNumber(nativeTokenTransferAmountToUpdate.amountToUpdate ?? 0)
-            .plus(selectedFee?.totalNative ?? 0)
-            .plus(extraFeeInfo.feeNative ?? 0)
-            .gt(nativeTokenInfo.balance ?? 0),
+        : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0),
+      fillUpNativeBalance: fillUpNativeBalance
+        .sd(4, BigNumber.ROUND_UP)
+        .toString(),
+      isBaseOnEstimateMaxFee:
+        selectedFee?.totalNativeMinForDisplay !== selectedFee?.totalNative,
+      maxFeeNative: new BigNumber(selectedFee?.totalNative ?? 0)
+        .sd(4, BigNumber.ROUND_UP)
+        .toString(),
     });
   }, [
     extraFeeInfo.feeNative,
@@ -1038,16 +1089,16 @@ function TxFeeInfo(props: IProps) {
     () => (
       <NumberSizeableText
         size="$bodyMd"
-        color="$textSubdued"
+        color="$text"
         formatter="balance"
         formatterOptions={{
           tokenSymbol: txFee?.common.nativeSymbol,
         }}
       >
-        {selectedFee?.totalNativeForDisplay ?? '-'}
+        {selectedFee?.totalNativeMinForDisplay ?? '-'}
       </NumberSizeableText>
     ),
-    [selectedFee?.totalNativeForDisplay, txFee?.common.nativeSymbol],
+    [selectedFee?.totalNativeMinForDisplay, txFee?.common.nativeSymbol],
   );
 
   const renderTotalFiat = useCallback(
@@ -1056,18 +1107,18 @@ function TxFeeInfo(props: IProps) {
         (
         <NumberSizeableText
           size="$bodyMd"
-          color="$textSubdued"
+          color="$text"
           formatter="value"
           formatterOptions={{
             currency: settings.currencyInfo.symbol,
           }}
         >
-          {selectedFee?.totalFiatForDisplay ?? '-'}
+          {selectedFee?.totalFiatMinForDisplay ?? '-'}
         </NumberSizeableText>
         )
       </SizableText>
     ),
-    [selectedFee?.totalFiatForDisplay, settings.currencyInfo.symbol],
+    [selectedFee?.totalFiatMinForDisplay, settings.currencyInfo.symbol],
   );
 
   useEffect(() => {
@@ -1081,14 +1132,9 @@ function TxFeeInfo(props: IProps) {
   ]);
 
   return (
-    <Stack
-      mb="$5"
-      $gtMd={{
-        mb: '$0',
-      }}
-    >
+    <Stack {...feeInfoWrapperProps}>
       <XStack gap="$2" alignItems="center" pb="$1">
-        <SizableText size="$bodyMdMedium">
+        <SizableText size="$bodyMd" color="$textSubdued">
           {intl.formatMessage({
             id: ETranslations.global_est_network_fee,
           })}
@@ -1110,7 +1156,7 @@ function TxFeeInfo(props: IProps) {
             <Skeleton height="$3" width="$24" />
           </Stack>
         )}
-        {txFeeInit && !isNil(selectedFee?.totalFiatForDisplay)
+        {txFeeInit && !isNil(selectedFee?.totalFiatMinForDisplay)
           ? renderTotalFiat()
           : ''}
       </XStack>

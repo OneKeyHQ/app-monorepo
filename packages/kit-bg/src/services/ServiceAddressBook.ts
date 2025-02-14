@@ -18,6 +18,7 @@ import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { addressBookPersistAtom } from '../states/jotai/atoms/addressBooks';
 import { devSettingsPersistAtom } from '../states/jotai/atoms/devSettings';
@@ -115,8 +116,9 @@ class ServiceAddressBook extends ServiceBase {
   @toastIfError()
   async getSafeItems(params?: {
     networkId?: string;
+    exact?: boolean;
   }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
-    const { networkId } = params ?? {};
+    const { networkId, exact } = params ?? {};
     // throw new Error('address book failed to verify hash');
     const isSafe: boolean = await this.verifyHash(true);
     if (!isSafe) {
@@ -124,10 +126,14 @@ class ServiceAddressBook extends ServiceBase {
     }
     let rawItems = await this.getItems();
     if (networkId) {
-      const [impl] = networkId.split('--');
-      rawItems = rawItems.filter((item) =>
-        item.networkId.startsWith(`${impl}--`),
-      );
+      if (exact) {
+        rawItems = rawItems.filter((item) => item.networkId === networkId);
+      } else {
+        const [impl] = networkId.split('--');
+        rawItems = rawItems.filter((item) =>
+          item.networkId.startsWith(`${impl}--`),
+        );
+      }
     }
     const promises = rawItems.map(async (item) => {
       const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
@@ -164,7 +170,9 @@ class ServiceAddressBook extends ServiceBase {
       throw new Error('failed to reset items when verify result is ok');
     }
     const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify();
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
     await this.setItems([], password);
   }
 
@@ -200,7 +208,9 @@ class ServiceAddressBook extends ServiceBase {
     newObj.createdAt = Date.now();
     newObj.updatedAt = Date.now();
     items.push(newObj);
-    const { password } = await servicePassword.promptPasswordVerify();
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
     await this.setItems(items, password);
     defaultLogger.setting.page.addAddressBook({ network: newObj.networkId });
   }
@@ -220,7 +230,9 @@ class ServiceAddressBook extends ServiceBase {
       const newObj = { ...data, ...obj };
       newObj.updatedAt = Date.now();
       items[dataIndex] = newObj;
-      const { password } = await servicePassword.promptPasswordVerify();
+      const { password } = await servicePassword.promptPasswordVerify({
+        reason: EReasonForNeedPassword.Security,
+      });
       await this.setItems(items, password);
     } else {
       throw new Error(`Failed to find item with id = ${obj.id}`);
@@ -231,7 +243,9 @@ class ServiceAddressBook extends ServiceBase {
   public async removeItem(id: string) {
     await this.verifyHash();
     const { servicePassword } = this.backgroundApi;
-    const { password } = await servicePassword.promptPasswordVerify();
+    const { password } = await servicePassword.promptPasswordVerify({
+      reason: EReasonForNeedPassword.Security,
+    });
     const items = await this.getItems();
     const data = items.filter((i) => i.id !== id);
     await this.setItems(data, password);
@@ -267,6 +281,13 @@ class ServiceAddressBook extends ServiceBase {
       }
       return match;
     });
+    return item;
+  }
+
+  @backgroundMethod()
+  public async findItemById(id: string): Promise<IAddressItem | undefined> {
+    const items = await this.getItems();
+    const item = items.find((i) => i.id === id);
     return item;
   }
 

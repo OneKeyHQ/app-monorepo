@@ -86,11 +86,11 @@ export type IEncodedTxAda = {
 //     tx_size: number;
 //     total_output: string;
 //     fee: string;
-//     actions: IAdaNativeTranfer[] | IAdaTokenTranfer[];
+//     actions: IAdaNativeTransfer[] | IAdaTokenTransfer[];
 //   };
 // };
 
-// type IAdaNativeTranfer = {
+// type IAdaNativeTransfer = {
 //   type: 'NATIVE_TRANSFER';
 //   direction: IDecodedTxDirection;
 //   utxoFrom: IUtxoForm[];
@@ -109,7 +109,7 @@ export type IEncodedTxAda = {
 //   isMine: boolean;
 // };
 
-// type IAdaTokenTranfer = {
+// type IAdaTokenTransfer = {
 //   type: 'TOKEN_TRANSFER';
 //   direction: IDecodedTxDirection;
 //   from: string;

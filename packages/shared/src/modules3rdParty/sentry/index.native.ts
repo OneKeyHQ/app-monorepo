@@ -12,6 +12,8 @@ import {
 
 import { basicOptions, navigationIntegration } from './basicOptions';
 
+import type { FallbackRender } from '@sentry/react';
+
 export * from '@sentry/react-native';
 
 export * from './basicOptions';
@@ -41,9 +43,11 @@ export const nativeCrash = sentryNativeCrash;
 
 export const withSentryHOC = (
   Component: ComponentType<any>,
+  errorBoundaryFallback?: FallbackRender,
 ): ComponentType<any> =>
   withErrorBoundary(withProfiler(wrap(Component)), {
     onError: (error, info) => {
       console.error('error', error, info);
     },
+    fallback: errorBoundaryFallback,
   });

@@ -2,16 +2,14 @@ import { useCallback, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, YStack } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useBackupEntryStatus } from '@onekeyhq/kit/src/views/CloudBackup/components/useBackupEntryStatus';
-import {
-  useAddressBookPersistAtom,
-  usePasswordPersistAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { usePasswordPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -23,7 +21,6 @@ import {
   ECloudBackupRoutes,
   EDAppConnectionModal,
   ELiteCardRoutes,
-  EModalAddressBookRoutes,
   EModalKeyTagRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
@@ -46,42 +43,9 @@ export const useOnLock = () => {
 
 const AddressBookItem = () => {
   const intl = useIntl();
-  const navigation = useAppNavigation();
-  const showAddressBook = useCallback(async () => {
-    await backgroundApiProxy.servicePassword.promptPasswordVerify();
-    navigation.push(EModalAddressBookRoutes.ListItemModal);
-    defaultLogger.setting.page.enterAddressBook();
-  }, [navigation]);
-  const [{ hideDialogInfo }] = useAddressBookPersistAtom();
-  const onPress = useCallback(async () => {
-    if (!hideDialogInfo) {
-      Dialog.show({
-        title: intl.formatMessage({
-          id: ETranslations.address_book_encrypted_storage_title,
-        }),
-        icon: 'ShieldKeyholeOutline',
-        description: intl.formatMessage({
-          id: ETranslations.address_book_encrypted_storage_description,
-        }),
-        tone: 'default',
-        showConfirmButton: true,
-        showCancelButton: false,
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.address_book_button_next,
-        }),
-        onConfirm: async (inst) => {
-          await inst.close();
-          await showAddressBook();
-          await backgroundApiProxy.serviceAddressBook.hideDialogInfo();
-        },
-        confirmButtonProps: {
-          testID: 'encrypted-storage-confirm',
-        },
-      });
-    } else {
-      await showAddressBook();
-    }
-  }, [showAddressBook, hideDialogInfo, intl]);
+  const onPress = useShowAddressBook({
+    useNewModal: false,
+  });
   return (
     <ListItem
       icon="ContactsOutline"

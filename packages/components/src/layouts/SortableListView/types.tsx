@@ -1,11 +1,19 @@
+import type { IListViewProps } from '../ListView/list';
 import type { StackStyle } from '@tamagui/web/types/types';
 import type {
+  DragEndParams,
   DraggableFlatListProps,
   RenderItemParams,
 } from 'react-native-draggable-flatlist';
 import type { FlatList } from 'react-native-gesture-handler';
 
+export type IDragEndParams<T> = DragEndParams<T>;
 export type ISortableListViewRef<T> = FlatList<T>;
+
+export type IRenderItemParams<T> = RenderItemParams<T> & {
+  dragProps: Record<string, any> | undefined;
+  index: number;
+};
 
 export type ISortableListViewProps<T> = Omit<
   DraggableFlatListProps<T>,
@@ -21,13 +29,10 @@ export type ISortableListViewProps<T> = Omit<
   | 'ListFooterComponentStyle'
 > &
   StackStyle & {
+    ref?: any;
     data: T[];
     keyExtractor: (item: T, index: number) => string;
-    renderItem: (
-      params: RenderItemParams<T> & {
-        dragProps: Record<string, any> | undefined;
-      },
-    ) => React.ReactNode;
+    renderItem: (params: IRenderItemParams<T>) => React.ReactNode;
     getItemLayout: (
       item: ArrayLike<T> | undefined | null,
       index: number,

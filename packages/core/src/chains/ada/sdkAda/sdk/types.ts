@@ -8,13 +8,13 @@ export interface IAdaSdk {
 }
 
 export interface IAdaSdkApi {
-  composeTxPlan: typeof import('@onekeyfe/cardano-coin-selection').onekeyUtils.composeTxPlan;
-  signTransaction: typeof import('@onekeyfe/cardano-coin-selection').onekeyUtils.signTransaction;
-  hwSignTransaction: typeof import('@onekeyfe/cardano-coin-selection').trezorUtils.signTransaction;
-  txToOneKey: typeof import('@onekeyfe/cardano-coin-selection').onekeyUtils.txToOneKey;
-  dAppGetBalance: typeof import('@onekeyfe/cardano-coin-selection').dAppUtils.getBalance;
-  dAppGetAddresses: typeof import('@onekeyfe/cardano-coin-selection').dAppUtils.getAddresses;
-  dAppGetUtxos: typeof import('@onekeyfe/cardano-coin-selection').dAppUtils.getUtxos;
-  dAppConvertCborTxToEncodeTx: typeof import('@onekeyfe/cardano-coin-selection').dAppUtils.convertCborTxToEncodeTx;
-  dAppSignData: typeof import('@onekeyfe/cardano-coin-selection').dAppUtils.signData;
+  composeTxPlan: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.composeTxPlan;
+  signTransaction: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.signTransaction;
+  hwSignTransaction: typeof import('@onekeyfe/cardano-coin-selection-asmjs').trezorUtils.signTransaction;
+  txToOneKey: typeof import('@onekeyfe/cardano-coin-selection-asmjs').onekeyUtils.txToOneKey;
+  dAppGetBalance: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.getBalance;
+  dAppGetAddresses: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.getAddresses;
+  dAppGetUtxos: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.getUtxos;
+  dAppConvertCborTxToEncodeTx: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.convertCborTxToEncodeTx;
+  dAppSignData: typeof import('@onekeyfe/cardano-coin-selection-asmjs').dAppUtils.signData;
 }

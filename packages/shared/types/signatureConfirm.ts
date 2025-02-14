@@ -1,6 +1,7 @@
-import type { IBadgeType } from '@onekeyhq/components';
+import type { IBadgeType, IKeyOfIcons } from '@onekeyhq/components';
+import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
-import type { IAccountNFT } from './nft';
+import type { ENFTType, IAccountNFT } from './nft';
 import type { IToken, ITokenFiat } from './token';
 
 export enum EParseTxComponentType {
@@ -13,10 +14,33 @@ export enum EParseTxComponentType {
   Assets = 'assets',
   Approve = 'tokenApproval',
   Divider = 'divider',
+  InternalAssets = 'internalAssets',
+  DateTime = 'datetime',
 }
 
 export enum EParseTxType {
   Unknown = 'unknown',
+  Approve = 'approveToken',
+}
+
+export enum EParseMessageType {
+  Permit = 'permit',
+}
+
+export enum EParseTxDateTimeFormat {
+  Duration = 'duration',
+}
+
+export enum ETransferDirection {
+  In = 'in',
+  Out = 'out',
+}
+
+export interface IDisplayComponentDateTime {
+  type: EParseTxComponentType.DateTime;
+  label: string;
+  value: number;
+  format: string;
 }
 
 export interface IDisplayComponentDivider {
@@ -36,8 +60,11 @@ export interface IDisplayComponentAddress {
   tags: {
     value: string;
     displayType: IBadgeType;
+    icon?: IKeyOfIcons;
+    iconURL?: string;
   }[];
   isNavigable?: boolean;
+  networkId?: string;
 }
 
 export interface IDisplayComponentAmount {
@@ -51,6 +78,7 @@ export interface IDisplayComponentNFT {
   label: string;
   nft: IAccountNFT;
   amount: string;
+  transferDirection?: ETransferDirection;
 }
 
 export interface IDisplayComponentToken {
@@ -63,10 +91,21 @@ export interface IDisplayComponentToken {
   amountParsed: string;
   networkId: string;
   showNetwork: boolean;
+  transferDirection?: ETransferDirection;
 }
 
 export interface IDisplayComponentAssets {
   type: EParseTxComponentType.Assets;
+  label: string;
+  assets: (
+    | IDisplayComponentInternalAssets
+    | IDisplayComponentNFT
+    | IDisplayComponentToken
+  )[];
+}
+
+export interface IDisplayComponentInternalAssets {
+  type: EParseTxComponentType.InternalAssets;
   label: string;
   name: string;
   icon: string;
@@ -75,6 +114,8 @@ export interface IDisplayComponentAssets {
   amountParsed: string;
   networkId?: string;
   isNFT?: boolean;
+  transferDirection?: ETransferDirection;
+  NFTType?: ENFTType;
 }
 
 export interface IDisplayComponentApprove {
@@ -102,11 +143,13 @@ export interface IDisplayComponentDefault {
 export type IDisplayComponent =
   | IDisplayComponentDivider
   | IDisplayComponentAssets
+  | IDisplayComponentInternalAssets
   | IDisplayComponentToken
   | IDisplayComponentApprove
   | IDisplayComponentNFT
   | IDisplayComponentNetwork
   | IDisplayComponentAddress
+  | IDisplayComponentDateTime
   | IDisplayComponentDefault;
 
 export interface ITransactionData {
@@ -116,10 +159,17 @@ export interface ITransactionData {
   hexSignature: string;
 }
 
-export interface ITransactionDisplay {
+export interface ISignatureConfirmDisplay {
   title: string;
   components: IDisplayComponent[];
   alerts: string[];
+}
+
+export interface IParseTransactionParams {
+  networkId: string;
+  accountId: string;
+  encodedTx: IEncodedTx;
+  accountAddress?: string;
 }
 
 export interface IParseTransactionResp {
@@ -134,6 +184,21 @@ export interface IParseTransactionResp {
     };
     data: ITransactionData;
   };
-  display: ITransactionDisplay;
+  display: ISignatureConfirmDisplay | null;
   type: EParseTxType;
+  isConfirmationRequired?: boolean;
+}
+
+export interface IParseMessageParams {
+  accountId: string;
+  networkId: string;
+  accountAddress?: string;
+  message: string;
+}
+
+export interface IParseMessageResp {
+  accountAddress: string;
+  display: ISignatureConfirmDisplay;
+  type: EParseTxType;
+  isConfirmationRequired?: boolean;
 }

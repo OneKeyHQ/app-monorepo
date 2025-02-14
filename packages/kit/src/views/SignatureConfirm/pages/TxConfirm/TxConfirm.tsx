@@ -5,7 +5,7 @@ import BigNumber from 'bignumber.js';
 import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Page } from '@onekeyhq/components';
+import { Page, YStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -24,17 +24,19 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 
-import TxConfirmActions from '../../components/SignatureConfirmActions';
+import { DAppSiteMark } from '../../../DAppConnection/components/DAppRequestLayout';
+import { useRiskDetection } from '../../../DAppConnection/hooks/useRiskDetection';
+import { TxConfirmActions } from '../../components/SignatureConfirmActions';
 import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
-import SignatureConfirmAlert from '../../components/SignatureConfirmAlert';
-import SignatureConfirmDetails from '../../components/SignatureConfirmDetails';
+import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
+import { TxConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
-import SourceInfo from '../../components/SourceInfo/SourceInfo';
 import StakingInfo from '../../components/StakingInfo';
 import SwapInfo from '../../components/SwapInfo';
 import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
@@ -72,6 +74,10 @@ function TxConfirm() {
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
     closeWindowAfterResolved: true,
+  });
+
+  const { urlSecurityInfo } = useRiskDetection({
+    origin: sourceInfo?.origin ?? '',
   });
 
   const { result: decodedTxs, isLoading: isBuildingDecodedTxs } =
@@ -205,9 +211,11 @@ function TxConfirm() {
     return stakingTx?.stakingInfo;
   }, [unsignedTxs]);
 
-  const handleTxConfirmOnClose = useCallback(() => {
-    dappApprove.reject();
-  }, [dappApprove]);
+  const handleOnClose = (extra?: { flag?: string }) => {
+    if (extra?.flag !== EDAppModalPageStatus.Confirmed) {
+      dappApprove.reject();
+    }
+  };
 
   usePreCheckNativeBalance({
     networkId,
@@ -216,7 +224,10 @@ function TxConfirm() {
 
   useEffect(() => {
     updateUnsignedTxs(unsignedTxs);
-    appEventBus.emit(EAppEventBusNames.SendConfirmContainerMounted, undefined);
+    appEventBus.emit(
+      EAppEventBusNames.SignatureConfirmContainerMounted,
+      undefined,
+    );
     return () => {
       updateSendFeeStatus({ status: ESendFeeStatus.Idle, errMessage: '' });
     };
@@ -228,10 +239,15 @@ function TxConfirm() {
     }
 
     return (
-      <>
-        <SignatureConfirmAlert networkId={networkId} />
-        <SourceInfo sourceInfo={sourceInfo} />
-        <SignatureConfirmDetails accountId={accountId} networkId={networkId} />
+      <YStack gap="$5">
+        <TxConfirmAlert networkId={networkId} />
+        {sourceInfo?.origin ? (
+          <DAppSiteMark
+            origin={sourceInfo.origin}
+            urlSecurityInfo={urlSecurityInfo}
+          />
+        ) : null}
+        <TxConfirmDetails accountId={accountId} networkId={networkId} />
         <TxConfirmExtraInfo
           accountId={accountId}
           networkId={networkId}
@@ -240,13 +256,14 @@ function TxConfirm() {
         {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         {stakingInfo ? <StakingInfo data={stakingInfo} /> : null}
         <TxAdvancedSettings accountId={accountId} networkId={networkId} />
-      </>
+      </YStack>
     );
   }, [
     isBuildingDecodedTxs,
     decodedTxs,
     networkId,
     sourceInfo,
+    urlSecurityInfo,
     accountId,
     unsignedTxs,
     swapInfo,
@@ -254,7 +271,7 @@ function TxConfirm() {
   ]);
 
   return (
-    <Page scrollEnabled onClose={handleTxConfirmOnClose} safeAreaEnabled>
+    <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
       <Page.Header title={txConfirmTitle} />
       <Page.Body testID="tx-confirmation-body" px="$5">
         {renderTxConfirmContent()}

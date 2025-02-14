@@ -27,6 +27,7 @@ import {
   EFirmwareAuthenticationDialogContentType,
   EnumBasicDialogContentContainer,
 } from '@onekeyhq/kit/src/views/Onboarding/pages/ConnectHardwareWallet/FirmwareVerifyDialog';
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { FIRMWARE_UPDATE_UPDATE_INFO_SAMPLE } from '@onekeyhq/kit-bg/src/services/ServiceFirmwareUpdate/firewareUpdateFixtures';
 import {
   useFirmwareUpdateRetryAtom,
@@ -397,12 +398,10 @@ function FirmwareUpdateGalleryStaticUI() {
 
 const FirmwareUpdateGallery = () => (
   <Layout
-    description="--"
-    suggestions={['--']}
-    boundaryConditions={['--']}
+    componentName="FirmwareUpdate"
     elements={[
       {
-        title: '--',
+        title: 'FirmwareUpdate',
         element: (
           <Stack gap="$1">
             <FirmwareUpdateGalleryDemo />

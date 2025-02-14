@@ -15,6 +15,7 @@ import { AirGapQrcodeDialogContainer } from './AirGapQrcodeDialogContainer';
 import { AppStateLockContainer } from './AppStateLockContainer';
 import { CloudBackupContainer } from './CloudBackupContainer';
 import { CreateAddressContainer } from './CreateAddressContainer';
+import { DialogLoadingContainer } from './DialogLoadingContainer';
 import { ErrorToastContainer } from './ErrorToastContainer';
 import { FlipperPluginsContainer } from './FlipperPluginsContainer';
 import { ForceFirmwareUpdateContainer } from './ForceFirmwareUpdateContainer';
@@ -24,6 +25,8 @@ import { HardwareUiStateContainer } from './HardwareUiStateContainer';
 import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
+import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
+import { PrimeLoginContainer } from './PrimeLoginContainer';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -96,7 +99,10 @@ export function Container() {
           <Bootstrap />
           <AirGapQrcodeDialogContainer />
           <CreateAddressContainer />
+          <PrevCheckBeforeSendingContainer />
           <HardwareUiStateContainer />
+          <PrimeLoginContainer />
+          <DialogLoadingContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />
           <PortalBodyContainer />

@@ -11,6 +11,7 @@ import {
   SizableText,
   Spinner,
   Stack,
+  XStack,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -21,13 +22,69 @@ const ContentSpinner = () => (
     <Spinner size="large" />
   </Stack>
 );
+const ContentQuestionList = () => {
+  const intl = useIntl();
+
+  const contentItems = [
+    {
+      index: 1,
+      titleId: ETranslations.address_book_data_anomaly_why_risk,
+      descriptionId:
+        ETranslations.address_book_data_anomaly_why_risk_description,
+    },
+    {
+      index: 2,
+      titleId: ETranslations.address_book_data_anomaly_what_do,
+      descriptionId:
+        ETranslations.address_book_data_anomaly_why_reset_description,
+    },
+    {
+      index: 3,
+      titleId: ETranslations.address_book_data_anomaly_will_lost,
+      descriptionId:
+        ETranslations.address_book_data_anomaly_will_lost_description,
+    },
+  ];
+
+  return (
+    <Stack px="$4" gap="$4">
+      {contentItems.map(({ index, titleId, descriptionId }) => (
+        <XStack key={index} gap="$2">
+          <Stack
+            m="$0.5"
+            w="$4"
+            h="$4"
+            userSelect="none"
+            borderRadius="$full"
+            borderColor="$icon"
+            borderWidth={1.2}
+            alignItems="center"
+            justifyContent="center"
+          >
+            <SizableText color="$text" size="$bodySm">
+              {index}
+            </SizableText>
+          </Stack>
+          <Stack gap="$2" flex={1}>
+            <SizableText size="$headingSm" flex={1} color="$text">
+              {intl.formatMessage({ id: titleId })}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: descriptionId })}
+            </SizableText>
+          </Stack>
+        </XStack>
+      ))}
+    </Stack>
+  );
+};
 
 const UnsafeAlert = () => {
   const intl = useIntl();
   const { copyText } = useClipboard();
   const onConfirm = useCallback(() => {
     Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_confirm }),
+      title: intl.formatMessage({ id: ETranslations.global_reset }),
       icon: 'ShieldKeyholeOutline',
       description: intl.formatMessage({
         id: ETranslations.address_book_confirm_message,
@@ -48,6 +105,9 @@ const UnsafeAlert = () => {
       onConfirmText: intl.formatMessage({
         id: ETranslations.address_book_button_reset,
       }),
+      confirmButtonProps: {
+        variant: 'destructive',
+      },
       onCancelText: intl.formatMessage({
         id: ETranslations.address_book_button_copy,
       }),
@@ -58,57 +118,36 @@ const UnsafeAlert = () => {
         const text =
           await backgroundApiProxy.serviceAddressBook.stringifyItems();
         copyText(text);
-        await close();
       },
     });
   }, [copyText, intl]);
   return (
-    <Stack p="$4">
+    <Stack gap="$5">
       <Alert
         type="critical"
         title={intl.formatMessage({
           id: ETranslations.address_book_data_anomaly,
         })}
+        fullBleed
         icon="ErrorOutline"
-      />
-      <SizableText size="$headingMd" py="$5">
-        {intl.formatMessage({
-          id: ETranslations.address_book_data_anomaly_description,
+        description={intl.formatMessage({
+          id: ETranslations.address_book_data_anomaly_content,
         })}
-      </SizableText>
-      <Stack mt="$5">
-        <SizableText size="$headingSm">
-          {intl.formatMessage({
-            id: ETranslations.address_book_data_anomaly_why_risk,
-          })}
-        </SizableText>
-        <SizableText size="$bodyMd">
-          {intl.formatMessage({
-            id: ETranslations.address_book_data_anomaly_why_risk_description,
-          })}
-        </SizableText>
-      </Stack>
-      <Stack mt="$5">
-        <SizableText size="$headingSm">
-          {intl.formatMessage({
-            id: ETranslations.address_book_data_anomaly_why_reset,
-          })}
-        </SizableText>
-        <SizableText size="$bodyMd">
-          {intl.formatMessage({
-            id: ETranslations.address_book_data_anomaly_why_reset_description,
-          })}
-        </SizableText>
-      </Stack>
+      />
+      <ContentQuestionList />
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.address_book_button_reset,
         })}
-        onCancelText={intl.formatMessage({
-          id: ETranslations.address_book_button_close,
-        })}
         onConfirm={onConfirm}
-        onCancel={(close) => close()}
+        onCancel={async (close) => {
+          const text =
+            await backgroundApiProxy.serviceAddressBook.stringifyItems();
+          copyText(text);
+        }}
+        onCancelText={intl.formatMessage({
+          id: ETranslations.address_book_button_copy,
+        })}
       />
     </Stack>
   );

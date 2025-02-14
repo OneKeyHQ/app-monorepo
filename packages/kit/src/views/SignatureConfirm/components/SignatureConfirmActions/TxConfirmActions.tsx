@@ -1,10 +1,17 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { Page, Toast, usePageUnMounted } from '@onekeyhq/components';
+import {
+  Checkbox,
+  Page,
+  Stack,
+  Toast,
+  usePageUnMounted,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
 import type { IUnsignedTxPro } from '@onekeyhq/core/src/types';
@@ -24,11 +31,11 @@ import {
   useTxAdvancedSettingsAtom,
   useUnsignedTxsAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
-import { checkIsEmptyData } from '@onekeyhq/kit-bg/src/vaults/impls/evm/decoder/utils';
 import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 import { getTxnType } from '@onekeyhq/shared/src/utils/txActionUtils';
 import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 import { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
@@ -71,6 +78,8 @@ function TxConfirmActions(props: IProps) {
   } = props;
   const intl = useIntl();
   const isSubmitted = useRef(false);
+  const [continueOperate, setContinueOperate] = useState(false);
+
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const [sendSelectedFeeInfo] = useSendSelectedFeeInfoAtom();
@@ -82,9 +91,13 @@ function TxConfirmActions(props: IProps) {
     useNativeTokenTransferAmountToUpdateAtom();
   const [preCheckTxStatus] = usePreCheckTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
-  const [{ isBuildingDecodedTxs }] = useDecodedTxsAtom();
+  const [{ isBuildingDecodedTxs, decodedTxs }] = useDecodedTxsAtom();
   const { updateSendTxStatus } = useSignatureConfirmActions().current;
   const successfullySentTxs = useRef<string[]>([]);
+  const { bottom } = useSafeAreaInsets();
+
+  const toAddress = transferPayload?.originalRecipient;
+  const unsignedTx = unsignedTxs[0];
 
   const dappApprove = useDappApproveAction({
     id: sourceInfo?.id ?? '',
@@ -110,9 +123,26 @@ function TxConfirmActions(props: IProps) {
 
     updateSendTxStatus({ isSubmitting: true });
     isSubmitted.current = true;
-
     // Pre-check before submit
+
+    const accountAddress =
+      await backgroundApiProxy.serviceAccount.getAccountAddressForApi({
+        accountId,
+        networkId,
+      });
     try {
+      if (
+        unsignedTx.isInternalTransfer &&
+        networkId &&
+        accountAddress &&
+        toAddress
+      ) {
+        await serviceSend.checkAddressBeforeSending({
+          networkId,
+          fromAddress: accountAddress,
+          toAddress,
+        });
+      }
       await serviceSend.precheckUnsignedTxs({
         networkId,
         accountId,
@@ -266,9 +296,11 @@ function TxConfirmActions(props: IProps) {
     }
   }, [
     updateSendTxStatus,
-    sendSelectedFeeInfo,
-    networkId,
     accountId,
+    networkId,
+    sendSelectedFeeInfo,
+    unsignedTx.isInternalTransfer,
+    toAddress,
     unsignedTxs,
     nativeTokenTransferAmountToUpdate.isMaxSend,
     nativeTokenTransferAmountToUpdate.amountToUpdate,
@@ -310,7 +342,14 @@ function TxConfirmActions(props: IProps) {
     [dappApprove, onCancelOnce, sourceInfo],
   );
 
+  const showTakeRiskAlert = useMemo(() => {
+    if (decodedTxs?.some((tx) => tx.isConfirmationRequired)) return true;
+    return false;
+  }, [decodedTxs]);
+
   const isSubmitDisabled = useMemo(() => {
+    if (showTakeRiskAlert && !continueOperate) return true;
+
     if (sendTxStatus.isSubmitting) return true;
     if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
       return true;
@@ -319,7 +358,10 @@ function TxConfirmActions(props: IProps) {
     if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
     if (preCheckTxStatus.errorMessage) return true;
     if (txAdvancedSettings.dataChanged) return true;
+    return false;
   }, [
+    showTakeRiskAlert,
+    continueOperate,
     sendTxStatus.isSubmitting,
     sendTxStatus.isInsufficientNativeBalance,
     nativeTokenInfo.isLoading,
@@ -342,6 +384,7 @@ function TxConfirmActions(props: IProps) {
         confirmButtonProps={{
           disabled: isSubmitDisabled,
           loading: sendTxStatus.isSubmitting,
+          variant: showTakeRiskAlert ? 'destructive' : 'primary',
         }}
         cancelButtonProps={{
           disabled: sendTxStatus.isSubmitting,
@@ -353,13 +396,39 @@ function TxConfirmActions(props: IProps) {
         }
         onConfirm={handleOnConfirm}
         onCancel={handleOnCancel}
+        $gtMd={{
+          flexDirection: 'row',
+          alignItems: 'flex-end',
+        }}
+        {...(bottom && {
+          mb: bottom,
+        })}
       >
-        <TxFeeInfo
-          accountId={accountId}
-          networkId={networkId}
-          useFeeInTx={useFeeInTx}
-          feeInfoEditable={feeInfoEditable}
-        />
+        <Stack
+          gap="$2.5"
+          pb="$5"
+          $gtMd={{
+            pb: '$0',
+          }}
+        >
+          <TxFeeInfo
+            accountId={accountId}
+            networkId={networkId}
+            useFeeInTx={useFeeInTx}
+            feeInfoEditable={feeInfoEditable}
+          />
+          {showTakeRiskAlert ? (
+            <Checkbox
+              label={intl.formatMessage({
+                id: ETranslations.dapp_connect_proceed_at_my_own_risk,
+              })}
+              value={continueOperate}
+              onChange={(checked) => {
+                setContinueOperate(!!checked);
+              }}
+            />
+          ) : null}
+        </Stack>
       </Page.FooterActions>
     </Page.Footer>
   );

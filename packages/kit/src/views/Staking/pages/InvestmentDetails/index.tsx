@@ -36,6 +36,7 @@ import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IEarnInvestmentItem,
+  IEarnRewardNum,
   IInvestment,
 } from '@onekeyhq/shared/types/staking';
 
@@ -58,6 +59,19 @@ function ListSkeletonItem() {
 }
 
 const isTrue = (value: number | string) => Number(value) > 0;
+const hasPositiveReward = ({
+  rewardNum,
+}: {
+  rewardNum: IEarnRewardNum | undefined;
+}): boolean => {
+  if (!rewardNum) {
+    return false;
+  }
+  return Object.values(rewardNum).some((value) =>
+    new BigNumber(value.claimableNow).isGreaterThan(0),
+  );
+};
+
 function BasicInvestmentDetails() {
   const accountInfo = useActiveAccount({ num: 0 });
   const actions = useEarnActions();
@@ -114,6 +128,8 @@ function BasicInvestmentDetails() {
         claimable,
         overflow,
         providerName,
+        rewardNum,
+        vault,
       },
     }: {
       item: IInvestment & { providerName: string };
@@ -130,8 +146,9 @@ function BasicInvestmentDetails() {
               indexedAccountId: indexedAccount?.id,
               accountId: account?.id ?? '',
               networkId: tokenInfo.networkId,
-              symbol: tokenInfo.symbol.toUpperCase(),
+              symbol: tokenInfo.symbol,
               provider: providerName,
+              vault,
             });
           }
         }}
@@ -161,7 +178,7 @@ function BasicInvestmentDetails() {
               </NumberSizeableText>
             </YStack>
             <Stack $gtMd={{ flexDirection: 'row' }} gap="$1.5">
-              {isTrue(claimable) ? (
+              {isTrue(claimable) || hasPositiveReward({ rewardNum }) ? (
                 <Badge
                   badgeType="info"
                   badgeSize="sm"
@@ -201,6 +218,7 @@ function BasicInvestmentDetails() {
       />
       <Page.Body>
         <SectionList
+          ListFooterComponent={<YStack height="$5" />}
           ListEmptyComponent={
             isLoading ? (
               <YStack>

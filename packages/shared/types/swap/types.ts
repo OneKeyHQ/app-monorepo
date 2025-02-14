@@ -12,7 +12,14 @@ import type {
   IEventSourceTimeoutEvent,
 } from '@onekeyhq/shared/src/eventSource';
 
+import type { EMessageTypesEth } from '../message';
 import type { IDecodedTxActionTokenApprove } from '../tx';
+import type { NormalizedOrder, TypedDataDomain } from '@cowprotocol/contracts';
+
+export enum EWrappedType {
+  DEPOSIT = 'deposit',
+  WITHDRAW = 'withdraw',
+}
 
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
@@ -34,6 +41,12 @@ export enum ESwapRateDifferenceUnit {
   POSITIVE = 'positive',
   NEGATIVE = 'negative',
   DEFAULT = 'default',
+}
+
+export enum EExplorerType {
+  PROVIDER = 'provider',
+  FROM = 'from',
+  TO = 'to',
 }
 
 export enum ETokenRiskLevel {
@@ -164,10 +177,36 @@ export enum ESwapApproveTransactionStatus {
   CANCEL = 'cancel',
   FAILED = 'failed',
 }
+
+export enum ESwapCrossChainStatus {
+  FROM_PENDING = 'FROM_PENDING',
+  FROM_SUCCESS = 'FROM_SUCCESS',
+  FROM_FAILED = 'FROM_FAILED',
+  BRIDGE_PENDING = 'BRIDGE_PENDING',
+  BRIDGE_SUCCESS = 'BRIDGE_SUCCESS',
+  BRIDGE_FAILED = 'BRIDGE_FAILED',
+  TO_PENDING = 'TO_PENDING',
+  TO_SUCCESS = 'TO_SUCCESS',
+  TO_FAILED = 'TO_FAILED',
+  REFUNDING = 'REFUNDING',
+  REFUNDED = 'REFUNDED',
+  REFUND_FAILED = 'REFUND_FAILED',
+  EXPIRED = 'EXPIRED',
+  PROVIDER_ERROR = 'PROVIDER_ERROR',
+}
+
+export interface ISwapOrderHash {
+  fromTxHash?: string;
+  bridgeHash?: string;
+  toTxHash?: string;
+  refundHash?: string;
+}
+
 export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
   provider: string;
+  quoteId: string;
   useAddress: string;
   spenderAddress: string;
   amount: string;
@@ -261,13 +300,29 @@ export interface IFetchQuoteResult {
   fromTokenInfo: ISwapTokenBase;
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
+  cowSwapQuoteResult?: any;
+  swapShouldSignedData?: {
+    unSignedData?: {
+      normalizeData: NormalizedOrder;
+      domain: TypedDataDomain;
+      types: { Order: { name: string; type: string }[] };
+    };
+    unSignedMessage?: string;
+    unSignedInfo: {
+      origin: string;
+      scope: string;
+      signedType: EMessageTypesEth;
+    };
+  };
   protocolNoRouterInfo?: string;
   supportUrl?: string;
+  orderSupportUrl?: string;
   isAntiMEV?: boolean;
   tokenMetadata?: ISwapTokenMetadata;
   quoteShowTip?: IQuoteTip;
   gasLimit?: number;
   slippage?: number;
+  providerDisableBatchTransfer?: boolean;
 }
 
 export interface IAllowanceResult {
@@ -504,12 +559,17 @@ export enum ESwapTxHistoryStatus {
 
 export interface IFetchSwapTxHistoryStatusResponse {
   state: ESwapTxHistoryStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
   crossChainReceiveTxHash?: string;
   gasFee?: string;
   gasFeeFiatValue?: string;
   timestamp?: number;
   dealReceiveAmount?: string;
   blockNumber?: number;
+  txId?: string;
+  swapOrderHash?: ISwapOrderHash;
+  chainFlipExplorerUrl?: string;
+  surplus?: string;
 }
 
 export interface ISwapCheckSupportResponse {
@@ -521,6 +581,8 @@ export interface ISwapCheckSupportResponse {
 
 export interface ISwapTxHistory {
   status: ESwapTxHistoryStatus;
+  crossChainStatus?: ESwapCrossChainStatus;
+  swapOrderHash?: ISwapOrderHash;
   ctx?: any;
   currency?: string;
   accountInfo: {
@@ -542,7 +604,8 @@ export interface ISwapTxHistory {
     toNetwork?: ISwapNetwork;
   };
   txInfo: {
-    txId: string;
+    txId?: string;
+    useOrderId?: boolean;
     orderId?: string; // swft orderId
     sender: string;
     receiver: string;
@@ -553,12 +616,15 @@ export interface ISwapTxHistory {
   swapInfo: {
     provider: IFetchQuoteInfo;
     socketBridgeScanUrl?: string;
+    chainFlipExplorerUrl?: string;
     instantRate: string;
     protocolFee?: number;
     oneKeyFee?: number;
     otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
     orderId?: string;
     supportUrl?: string;
+    orderSupportUrl?: string;
+    surplus?: string;
   };
   date: {
     created: number;
@@ -567,6 +633,14 @@ export interface ISwapTxHistory {
 }
 
 // component -----------------
+
+export interface IExplorersInfo {
+  url?: string;
+  logo?: string;
+  status: ESwapTxHistoryStatus;
+  type: EExplorerType;
+  name: string;
+}
 
 export interface ISwapSlippageSegmentItem {
   key: ESwapSlippageSegmentKey;
@@ -591,3 +665,7 @@ export const SwapBuildUseMultiplePopoversNetworkIds = ['tron--0x2b6653dc'];
 
 export const SwapAmountInputAccessoryViewID =
   'swap-amount-input-accessory-view';
+
+export const ChainFlipLogo =
+  'https://uni.onekey-asset.com/static/logo/chainFlip_logo.png';
+export const ChainFlipName = 'ChainFlip';

@@ -118,7 +118,7 @@ function WeblnSendPaymentModal() {
             ...transferInfo,
           },
         ];
-        await signatureConfirm.normalizeSignatureConfirm({
+        await signatureConfirm.normalizeTxConfirm({
           transfersInfo,
           sameModal: true,
           onSuccess: () => {
