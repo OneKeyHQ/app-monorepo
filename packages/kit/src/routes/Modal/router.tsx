@@ -12,6 +12,7 @@ import { AssetSelectorRouter } from '../../views/AssetSelector/router';
 import { ChainSelectorRouter } from '../../views/ChainSelector/router';
 import { CloudBackupPages } from '../../views/CloudBackup/router';
 import { DAppConnectionRouter } from '../../views/DAppConnection/router';
+import { DeviceManagementStacks } from '../../views/DeviceManagement/router';
 import { ModalDiscoveryStack } from '../../views/Discovery/router';
 import { ModalFiatCryptoRouter } from '../../views/FiatCrypto/router';
 import { ModalFirmwareUpdateStack } from '../../views/FirmwareUpdate/router';
@@ -162,6 +163,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.ShortcutsModal,
     children: ShortcutsModalRouter,
+  },
+  {
+    name: EModalRoutes.DeviceManagementModal,
+    children: DeviceManagementStacks,
   },
 ];
 

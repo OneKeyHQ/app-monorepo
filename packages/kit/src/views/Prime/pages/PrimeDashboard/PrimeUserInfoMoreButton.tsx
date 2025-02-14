@@ -103,7 +103,9 @@ function PrimeUserInfoMoreButtonDropDownMenu({
             title: intl.formatMessage({
               id: ETranslations.prime_onekeyid_log_out,
             }),
-            description: 'Are you sure you want to log out?',
+            description: intl.formatMessage({
+              id: ETranslations.prime_onekeyid_log_out_decription,
+            }),
             onConfirmText: intl.formatMessage({
               id: ETranslations.prime_log_out,
             }),

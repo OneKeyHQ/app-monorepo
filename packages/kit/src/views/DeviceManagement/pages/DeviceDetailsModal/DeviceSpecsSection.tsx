@@ -1,0 +1,122 @@
+import { useMemo } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+
+type ISpecItemProps = {
+  title: string;
+  value: string;
+};
+
+function SpecItem({ title, value }: ISpecItemProps) {
+  return (
+    <XStack justifyContent="space-between" alignItems="center" h="$9">
+      <SizableText size="$headingSm" color="$text" textAlign="left">
+        {title}
+      </SizableText>
+      <SizableText size="$bodyMdMedium" color="$textSubdued" textAlign="right">
+        {value}
+      </SizableText>
+    </XStack>
+  );
+}
+
+function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
+  const intl = useIntl();
+  const { device } = data;
+  const defaultDeviceInfo = useMemo(
+    () => ({
+      model: '-',
+      bleName: '-',
+      bleVersion: '-',
+      bootloaderVersion: '-',
+      firmwareVersion: '-',
+      serialNumber: '-',
+    }),
+    [],
+  );
+  const { result: deviceInfo } = usePromiseResult(
+    async () => {
+      if (!device || !device.featuresInfo) {
+        return defaultDeviceInfo;
+      }
+
+      const versions = await deviceUtils.getDeviceVersion({
+        device,
+        features: device.featuresInfo,
+      });
+
+      const model = await deviceUtils.buildDeviceLabel({
+        features: device.featuresInfo,
+        buildModelName: true,
+      });
+
+      return {
+        model,
+        bleName: device.featuresInfo.ble_name ?? '-',
+        bleVersion: versions?.bleVersion ?? '-',
+        bootloaderVersion: versions?.bootloaderVersion ?? '-',
+        firmwareVersion: versions?.firmwareVersion ?? '-',
+        serialNumber:
+          device.featuresInfo.onekey_serial ??
+          device.featuresInfo.serial_no ??
+          '-',
+      };
+    },
+    [device, defaultDeviceInfo],
+    {
+      initResult: defaultDeviceInfo,
+    },
+  );
+
+  return (
+    <YStack gap="$1">
+      <XStack ai="center" h="$9">
+        <SizableText size="$headingSm" color="$textSubdued">
+          {intl.formatMessage({
+            id: ETranslations.global_device_info,
+          })}
+        </SizableText>
+      </XStack>
+      <YStack py="$3" px="$5" bg="$bgSubdued" borderRadius="$4">
+        <SpecItem
+          title={intl.formatMessage({
+            id: ETranslations.global_model,
+          })}
+          value={deviceInfo.model}
+        />
+        <SpecItem
+          title={intl.formatMessage({
+            id: ETranslations.global_serial_number,
+          })}
+          value={deviceInfo.serialNumber}
+        />
+        <SpecItem
+          title={intl.formatMessage({
+            id: ETranslations.global_bluetooth,
+          })}
+          value={deviceInfo.bleName}
+        />
+        <SpecItem
+          title={intl.formatMessage({
+            id: ETranslations.global_bluetooth_firmware,
+          })}
+          value={deviceInfo.bleVersion}
+        />
+        <SpecItem
+          title={intl.formatMessage({
+            id: ETranslations.global_bootloader,
+          })}
+          value={deviceInfo.bootloaderVersion}
+        />
+      </YStack>
+    </YStack>
+  );
+}
+
+export default DeviceSpecsSection;

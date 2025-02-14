@@ -18,7 +18,6 @@ import {
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
-  DISCORD_URL,
   GITHUB_URL,
   ONEKEY_URL,
   TWITTER_URL,
@@ -93,11 +92,6 @@ const SocialButtonGroup = () => {
             text={intl.formatMessage({
               id: ETranslations.global_official_website,
             })}
-          />
-          <SocialButton
-            icon="DiscordBrand"
-            url={DISCORD_URL}
-            text={intl.formatMessage({ id: ETranslations.global_discord })}
           />
           <SocialButton
             icon="Xbrand"

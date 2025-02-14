@@ -4,9 +4,7 @@ import { Layout } from './utils/Layout';
 
 const LinearGradientGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="LinearGradient"
     elements={[
       {
         title: 'default',
