@@ -1,20 +1,13 @@
 /* eslint-disable unicorn/prefer-global-this */
 import { useCallback, useEffect, useState } from 'react';
 
-import { type Package, Purchases } from '@revenuecat/purchases-js';
 import { useSearchParams } from 'react-router-dom';
+
+import purchasesSdk from '@onekeyhq/kit/src/views/Prime/purchasesSdk/purchasesSdk';
 
 import webEmbedAppSettings from '../utils/webEmbedAppSettings';
 
-const testData = {
-  'settings': {
-    'themeVariant': 'light',
-    'localeVariant': 'en',
-    'revenuecatApiKey': 'rcb_OQDYrGcbnrzaKUaIDRhXQxEqBNTB',
-  },
-  'primeUserId': 'did:privy:cm6cunn8e00a710mbujncg4t8',
-  'primeUserEmail': 'yao.hou@onekey.so',
-};
+import type { Package } from '@revenuecat/purchases-js';
 
 async function showNativeToast({
   method,
@@ -25,14 +18,14 @@ async function showNativeToast({
   title: string;
   message?: string | undefined;
 }) {
-  // await globalThis.$onekey.$private.request({
-  //   method: 'wallet_showToast',
-  //   params: {
-  //     method,
-  //     title,
-  //     message,
-  //   },
-  // });
+  await globalThis.$onekey.$private.request({
+    method: 'wallet_showToast',
+    params: {
+      method,
+      title,
+      message,
+    },
+  });
 }
 
 async function closeNativeWebViewModal() {
@@ -240,38 +233,19 @@ function PurchaseButton({
           if (!selectedPackageId) {
             throw new Error('No package selected');
           }
-
-          const purchases = Purchases.configure(
-            testData.settings.revenuecatApiKey,
-            primeUserId,
-          );
-
-          await showNativeToast({
-            method: 'success',
-            title: `call2`,
+          const result = await purchasesSdk.purchasePackage({
+            userId: primeUserId,
+            email: primeUserEmail,
+            packageId: selectedPackageId,
           });
-
-          const offerings = await Purchases.getSharedInstance().getOfferings({
-            currency: 'USD',
-          });
-
-          await showNativeToast({
-            method: 'success',
-            title: 'Hello',
-            message: `offerings ${JSON.stringify(offerings)}`,
-          });
-
-          // const result = await purchasesSdk.purchasePackage({
-          //   userId: primeUserId,
-          //   email: primeUserEmail,
-          //   packageId: selectedPackageId,
-          // });
           // TODO toast error
-          await showNativeToast({
-            method: 'success',
-            title: `Purchase success`,
-          });
-          await closeNativeWebViewModal();
+          if (result) {
+            await showNativeToast({
+              method: 'success',
+              title: `Purchase success`,
+            });
+            await closeNativeWebViewModal();
+          }
         } finally {
           setIsLoading(false);
         }
@@ -302,28 +276,26 @@ export default function PageWebEmbedPrimePurchase() {
     }
   }, [packageId]);
 
-  // const fetchPackages = useCallback(async () => {
-  //   try {
-  //     setIsLoading(true);
-  //     await purchasesSdk.login({ userId: primeUserId });
-  //     const packages0 = await purchasesSdk.getPaywallPackages();
-  //     setPackages(packages0);
-  //     // TODO toast error
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // }, [primeUserId]);
+  const fetchPackages = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      await purchasesSdk.login({ userId: primeUserId });
+      const packages0 = await purchasesSdk.getPaywallPackages();
+      setPackages(packages0);
+      // TODO toast error
+    } finally {
+      setIsLoading(false);
+    }
+  }, [primeUserId]);
 
-  // useEffect(() => {
-  //   void fetchPackages();
-  // }, [fetchPackages]);
+  useEffect(() => {
+    void fetchPackages();
+  }, [fetchPackages]);
 
   const settings = webEmbedAppSettings.getSettings();
-
   return (
     <div
       style={{
-        background: 'gray',
         paddingTop: '32px',
         paddingBottom: '48px',
         paddingLeft: '16px',
@@ -343,30 +315,17 @@ export default function PageWebEmbedPrimePurchase() {
         primeUserEmail={primeUserEmail}
       />
 
-      <h2>
-        {JSON.stringify(
-          {
-            selectedPackageId,
-            primeUserId,
-            primeUserEmail,
-          },
-          null,
-          2,
-        )}
-      </h2>
-
       <div
         style={{
           paddingTop: '20px',
           display: 'flex',
           flexDirection: 'column',
           gap: '8px',
-          background: 'blue',
         }}
       >
-        {/* <button type="button" onClick={fetchPackages}>
-          Refresh Packages
-        </button> */}
+        <button type="button" onClick={fetchPackages}>
+          RefreshPackages
+        </button>
         <button
           type="button"
           onClick={async () => {
@@ -392,6 +351,7 @@ export default function PageWebEmbedPrimePurchase() {
             settings,
             primeUserId,
             primeUserEmail,
+            selectedPackageId,
           })}
         </div>
         <div>{window.location.href}</div>

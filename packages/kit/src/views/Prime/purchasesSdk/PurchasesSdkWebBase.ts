@@ -72,13 +72,9 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       await this.configureDonePromise.ready;
       const { packageId, email, locale } = params;
 
-      console.log('purchase >>>1>>> ', packageId, email, locale);
-
       const offerings = await Purchases.getSharedInstance().getOfferings({
         currency: 'USD',
       });
-
-      console.log('purchase >>>>>> ', packageId, email, locale);
 
       const paywallPackage = offerings?.current?.availablePackages.find(
         (p) => p.rcBillingProduct.normalPeriodDuration === packageId,
