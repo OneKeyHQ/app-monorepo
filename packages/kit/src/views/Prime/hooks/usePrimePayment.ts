@@ -20,15 +20,15 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type {
-  CustomerInfo,
-  Package,
-  PurchaseParams,
-} from '@revenuecat/purchases-js';
+  IPrimeSubscriptionPlan,
+  ISubscriptionPeriod,
+  IUsePrimePayment,
+} from './usePrimePaymentTypes';
+import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
 export function usePrimePayment(): IUsePrimePayment {
-  const { user, isReady: isAuthReady, authenticated } = usePrivyUniversalV2();
+  const { user, isReady: isAuthReady } = usePrivyUniversalV2();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
 
   const isReady = isAuthReady;
@@ -113,46 +113,27 @@ export function usePrimePayment(): IUsePrimePayment {
     })();
   }, [getCustomerInfo, isReady, user?.id]);
 
-  const getOfferings = useCallback(async () => {
+  const getPrimeSubscriptionPlanWeb = useCallback(async () => {
+    await configureDonePromise.current.ready;
+
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
-    if (!authenticated) {
-      return undefined;
-    }
+
     const offerings = await Purchases.getSharedInstance().getOfferings({
       currency: 'USD',
     });
-    return offerings;
-  }, [isReady, authenticated]);
 
-  const getPaywallPackagesWeb = useCallback(async () => {
-    await configureDonePromise.current.ready;
-    if (!isReady) {
-      throw new Error('PrimeAuth Not ready');
-    }
-    const offerings = await getOfferings();
-    const packages: Package[] = [];
+    const packages2: IPrimeSubscriptionPlan[] =
+      offerings?.current?.availablePackages?.map((p) => ({
+        subscriptionPeriod: p.rcBillingProduct
+          .normalPeriodDuration as ISubscriptionPeriod,
+        pricePerMonthString: p.rcBillingProduct.currentPrice.formattedPrice,
+        pricePerYearString: p.rcBillingProduct.currentPrice.formattedPrice,
+      })) || [];
 
-    // Object.values(offerings.all).forEach((offering) => {
-    //   packages.push(...offering.availablePackages);
-    // });
-    packages.push(...(offerings?.current?.availablePackages || []));
-
-    packages.sort((a) => {
-      // Yearly is the first
-      if (
-        a.rcBillingProduct.presentedOfferingContext.offeringIdentifier ===
-        'Yearly'
-      ) {
-        return -1;
-      }
-      return 1;
-    });
-    return {
-      packages,
-    };
-  }, [getOfferings, isReady]);
+    return packages2;
+  }, [isReady]);
 
   const purchasePaywallPackageWeb = useCallback(
     async ({
@@ -168,15 +149,23 @@ export function usePrimePayment(): IUsePrimePayment {
         if (!isReady) {
           throw new Error('PrimeAuth Not ready');
         }
-        // const offerings = await this.getPaywallOfferings();
-        // const paywallPackage = offerings?.all?.monthly?.packagesById?.[packageId];
-        const packages = await getPaywallPackagesWeb();
-        const paywallPackage = packages.packages.find(
-          (p) => p.identifier === packageId,
+
+        const offerings = await Purchases.getSharedInstance().getOfferings({
+          currency: 'USD',
+        });
+
+        if (!offerings.current) {
+          throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
+        }
+
+        const paywallPackage = offerings.current.availablePackages.find(
+          (p) => p.rcBillingProduct.normalPeriodDuration === packageId,
         );
+
         if (!paywallPackage) {
           throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
         }
+
         const purchaseParams: PurchaseParams = {
           rcPackage: paywallPackage,
           customerEmail: email,
@@ -191,21 +180,20 @@ export function usePrimePayment(): IUsePrimePayment {
         // https://docs.stripe.com/testing#testing-interactively
         // Mastercard: 5555555555554444
         // visa: 4242424242424242
-        console.log('purchase >>>>>> ', purchase);
         return purchase;
       } catch (error) {
         errorToastUtils.toastIfError(error);
         throw error;
       }
     },
-    [getPaywallPackagesWeb, isReady],
+    [isReady],
   );
 
   return {
     isReady,
     presentPaywallNative: undefined,
     getPaywallPackagesNative: undefined,
-    getPaywallPackagesWeb,
+    getPrimeSubscriptionPlanWeb,
     purchasePaywallPackageWeb,
     getCustomerInfo,
   };

@@ -36,7 +36,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   const {
     presentPaywallNative,
     purchasePaywallPackageWeb,
-    getPaywallPackagesWeb,
+    getPrimeSubscriptionPlanWeb,
   } = usePrimePayment();
 
   const purchaseByWebview = useCallback(async () => {
@@ -59,7 +59,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     try {
       setTimeout(() => {
         onPurchase?.();
-      }, 500);
+      }, 1000);
 
       if (platformEnv.isNativeIOS) {
         void presentPaywallNative?.();
@@ -95,6 +95,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
         await purchasePaywallPackageWeb?.({
           packageId: selectedPackageId,
           email: user?.email || '',
+          locale: intl.locale,
         });
         // await backgroundApiProxy.servicePrime.initRevenuecatPurchases({
         //   privyUserId: user.privyUserId || '',
@@ -109,6 +110,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     }
   }, [
     fetchPrimeUserInfo,
+    intl.locale,
     onPurchase,
     presentPaywallNative,
     purchaseByWebview,
@@ -117,17 +119,21 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     user?.email,
   ]);
 
-  const { result: paywallPackages } = usePromiseResult(async () => {
+  const { result: packages } = usePromiseResult(async () => {
     if (!platformEnv.isNative) {
-      return getPaywallPackagesWeb?.();
+      return getPrimeSubscriptionPlanWeb?.();
     }
-  }, [getPaywallPackagesWeb]);
+
+    return [];
+  }, [getPrimeSubscriptionPlanWeb]);
+
+  console.log('packages >>>>>> ', packages);
 
   return (
-    <Stack pt="$6">
-      {paywallPackages?.packages?.length ? (
+    <Stack mt="$8">
+      {packages ? (
         <PrimeSubscriptionPlans
-          packages={paywallPackages?.packages}
+          packages={packages}
           onPackageSelected={setSelectedPackageId}
         />
       ) : (
@@ -147,3 +153,5 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     </Stack>
   );
 };
+
+export default PrimePurchaseDialog;

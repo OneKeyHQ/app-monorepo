@@ -14,11 +14,10 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { PrimeLoginEmailDialogV2 } from '../../components/PrimeLoginEmailDialogV2';
-import { PrimePurchaseDialog } from '../../components/PrimePurchaseDialog/PrimePurchaseDialog';
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 
@@ -26,6 +25,15 @@ import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
 import { PrimeLottieAnimation } from './PrimeLottieAnimation';
 import { PrimeUserInfo } from './PrimeUserInfo';
+
+const PrimePurchaseDialog = LazyLoadPage(
+  () => import('../../components/PrimePurchaseDialog/PrimePurchaseDialog'),
+);
+
+const PrimeLoginEmailDialogV2 = LazyLoadPage(
+  () =>
+    import('../../components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'),
+);
 
 function PrimeBanner() {
   const intl = useIntl();

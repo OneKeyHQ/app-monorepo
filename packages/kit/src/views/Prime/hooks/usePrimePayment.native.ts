@@ -175,7 +175,7 @@ export function usePrimePayment(): IUsePrimePayment {
     isReady,
     presentPaywallNative,
     getPaywallPackagesNative,
-    getPaywallPackagesWeb: undefined,
+    getPrimeSubscriptionPlanWeb: undefined,
     purchasePaywallPackageWeb: undefined,
     getCustomerInfo,
   };

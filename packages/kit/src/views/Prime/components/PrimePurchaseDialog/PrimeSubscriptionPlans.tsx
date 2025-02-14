@@ -1,37 +1,29 @@
 import { useEffect, useState } from 'react';
 
-import { BigNumber } from 'bignumber.js';
-
 import type { IXStackProps } from '@onekeyhq/components';
-import {
-  Badge,
-  NumberSizeableText,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 
-import type { Package } from '@revenuecat/purchases-js';
+import type { IPrimeSubscriptionPlan } from '../../hooks/usePrimePaymentTypes';
 
 function PrimeSubscriptionPlanItem({
   selected,
   title,
   periodDuration,
-  price,
-  currency,
+  pricePerMonthString,
+  pricePerYearString,
   ...rest
 }: {
   selected?: boolean;
   title: string;
   periodDuration: 'P1Y' | 'P1M';
-  price: number;
-  currency: string;
+  pricePerMonthString: string;
+  pricePerYearString: string;
 } & IXStackProps) {
   let promoText = '';
-  let pricePerMonth = price;
+  // let pricePerMonth = price;
   if (periodDuration === 'P1Y') {
-    const pricePerMonthBN = new BigNumber(price).div(12);
-    pricePerMonth = pricePerMonthBN.toNumber();
+    // const pricePerMonthBN = new BigNumber(price).div(12);
+    // pricePerMonth = pricePerMonthBN.toNumber();
     // const savePercent = new BigNumber(1)
     //   .minus(pricePerMonthBN.div(price))
     //   .multipliedBy(100)
@@ -39,6 +31,7 @@ function PrimeSubscriptionPlanItem({
     // promoText = `Save ${savePercent}%`;
     promoText = `Save 33%`;
   }
+
   return (
     <YStack
       pl="$5"
@@ -62,28 +55,11 @@ function PrimeSubscriptionPlanItem({
       </SizableText>
 
       <XStack flex={1} justifyContent="space-between" alignItems="center">
-        <NumberSizeableText
-          size="$headingXl"
-          formatter="price"
-          formatterOptions={{
-            currency,
-          }}
-        >
-          {price}
-        </NumberSizeableText>
+        <SizableText size="$headingXl">{pricePerYearString}</SizableText>
 
-        <NumberSizeableText
-          ml="$2"
-          size="$bodyMd"
-          color="$textSubdued"
-          formatter="price"
-          formatterOptions={{
-            currency,
-            tokenSymbol: '/month', // TODO i18n
-          }}
-        >
-          {pricePerMonth}
-        </NumberSizeableText>
+        <SizableText ml="$2" size="$bodyMd" color="$textSubdued">
+          {`${pricePerMonthString}/month`}
+        </SizableText>
       </XStack>
     </YStack>
   );
@@ -93,12 +69,12 @@ export function PrimeSubscriptionPlans({
   packages,
   onPackageSelected,
 }: {
-  packages: Package[] | undefined;
+  packages?: IPrimeSubscriptionPlan[];
   onPackageSelected: (packageId: string) => void;
 }) {
   const [selectedPackageId, setSelectedPackageId] = useState<
     string | undefined
-  >(packages?.[0]?.identifier);
+  >('P1Y');
 
   useEffect(() => {
     if (selectedPackageId) {
@@ -109,22 +85,19 @@ export function PrimeSubscriptionPlans({
   return (
     <YStack gap="$2.5">
       {packages?.map((p) => {
-        const selected = selectedPackageId === p.identifier;
+        const selected = selectedPackageId === p.subscriptionPeriod;
         return (
           <PrimeSubscriptionPlanItem
-            key={p.identifier}
+            key={p.subscriptionPeriod}
             selected={selected}
-            title={p.rcBillingProduct.title}
-            periodDuration={
-              p.rcBillingProduct?.normalPeriodDuration as unknown as any
+            title={
+              p.subscriptionPeriod === 'P1Y' ? 'Prime Yearly' : 'Prime Monthly'
             }
-            price={p.rcBillingProduct.currentPrice.amountMicros / 1_000_000}
+            periodDuration={p.subscriptionPeriod}
+            pricePerMonthString={p.pricePerMonthString}
+            pricePerYearString={p.pricePerYearString}
             onPress={() => {
-              setSelectedPackageId(p.identifier);
-            }}
-            currency="$"
-            $gtMd={{
-              flex: 1,
+              setSelectedPackageId(p.subscriptionPeriod);
             }}
           />
         );
