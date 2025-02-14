@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import type { IIconProps, IKeyOfIcons } from '@onekeyhq/components';
+import type { IBadgeType, IIconProps, IKeyOfIcons } from '@onekeyhq/components';
 import { Badge, Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
@@ -26,15 +28,23 @@ function DeviceBasicInfoSection({
   const intl = useIntl();
   const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
 
+  const defaultInfo = useMemo(
+    () => ({
+      firmwareVersion: '-',
+      walletAvatarBadge: isQrWallet ? 'QR' : undefined,
+      verifiedBadgeType: 'default' as IBadgeType,
+      verifiedBadgeText: '-',
+      verifiedBadgeTextColor: '$iconCritical' as IIconProps['color'],
+      verifiedBadgeIconName: 'ErrorSolid' as IKeyOfIcons,
+      verifiedBadgeIconColor: '$iconCritical' as IIconProps['color'],
+    }),
+    [isQrWallet],
+  );
+
   const { result: deviceInfo } = usePromiseResult(
     async () => {
-      if (!device || !device.featuresInfo) {
-        return {
-          firmwareVersion: '-',
-          walletAvatarBadge: isQrWallet ? 'QR' : undefined,
-          verifiedBadgeIconName: 'DocumentSearch2Outline' as IKeyOfIcons,
-          verifiedBadgeIconColor: '$iconSubdued' as IIconProps['color'],
-        };
+      if (!device?.featuresInfo) {
+        return defaultInfo;
       }
 
       const versions = await deviceUtils.getDeviceVersion({
@@ -42,33 +52,38 @@ function DeviceBasicInfoSection({
         features: device.featuresInfo,
       });
 
-      let iconName: IKeyOfIcons = 'DocumentSearch2Outline';
-      let iconColor: IIconProps['color'] = '$iconSubdued';
+      const isVerified = Boolean(device.verifiedAtVersion);
+      const verificationStatus = {
+        success: {
+          type: 'success' as IBadgeType,
+          icon: 'BadgeVerifiedSolid' as IKeyOfIcons,
+          color: '$iconSuccess' as IIconProps['color'],
+          textId: ETranslations.global_verified,
+        },
+        critical: {
+          type: 'critical' as IBadgeType,
+          icon: 'ErrorSolid' as IKeyOfIcons,
+          color: '$iconCritical' as IIconProps['color'],
+          textId: ETranslations.global_unofficial,
+        },
+      };
 
-      if (device.verifiedAtVersion) {
-        iconName = 'BadgeVerifiedSolid';
-        iconColor = '$iconSuccess';
-      } else if (device.verifiedAtVersion === '') {
-        iconName = 'ErrorSolid';
-        iconColor = '$iconCritical';
-      }
+      const status = isVerified
+        ? verificationStatus.success
+        : verificationStatus.critical;
 
       return {
         firmwareVersion: versions?.firmwareVersion ?? '-',
         walletAvatarBadge: isQrWallet ? 'QR' : undefined,
-        verifiedBadgeIconName: iconName,
-        verifiedBadgeIconColor: iconColor,
+        verifiedBadgeType: status.type,
+        verifiedBadgeIconName: status.icon,
+        verifiedBadgeIconColor: status.color,
+        verifiedBadgeText: intl.formatMessage({ id: status.textId }),
+        verifiedBadgeTextColor: status.color,
       };
     },
-    [device, isQrWallet],
-    {
-      initResult: {
-        firmwareVersion: '-',
-        walletAvatarBadge: isQrWallet ? 'QR' : undefined,
-        verifiedBadgeIconName: 'DocumentSearch2Outline',
-        verifiedBadgeIconColor: '$iconSubdued',
-      },
-    },
+    [device, isQrWallet, intl, defaultInfo],
+    { initResult: defaultInfo },
   );
 
   return (
@@ -83,7 +98,7 @@ function DeviceBasicInfoSection({
           />
         </XStack>
         <YStack flex={1}>
-          <XStack ml={-5} h="$6">
+          <XStack ml={-5} pr="$5">
             <WalletRenameButton wallet={wallet} />
           </XStack>
           {isQrWallet ? null : (
@@ -91,17 +106,18 @@ function DeviceBasicInfoSection({
               <Badge badgeSize="sm" badgeType="default">
                 {`v${deviceInfo.firmwareVersion}`}
               </Badge>
-              <Badge badgeSize="sm" badgeType="success">
+              <Badge badgeSize="sm" badgeType={deviceInfo.verifiedBadgeType}>
                 <XStack ai="center" gap="$1.5">
                   <Icon
                     name={deviceInfo.verifiedBadgeIconName}
                     color={deviceInfo.verifiedBadgeIconColor}
                     size="$4"
                   />
-                  <SizableText size="$bodySmMedium" color="$iconSuccess">
-                    {intl.formatMessage({
-                      id: ETranslations.global_verified,
-                    })}
+                  <SizableText
+                    size="$bodySmMedium"
+                    color={deviceInfo.verifiedBadgeTextColor}
+                  >
+                    {deviceInfo.verifiedBadgeText}
                   </SizableText>
                 </XStack>
               </Badge>
