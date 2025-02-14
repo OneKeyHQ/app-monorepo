@@ -9,19 +9,16 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { EWebEmbedRoutePath } from '@onekeyhq/shared/src/consts/webEmbedConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
+import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
 import type { IPackageId } from '../../hooks/usePrimePaymentTypes';
 
@@ -30,7 +27,6 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   const intl = useIntl();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { user } = usePrimeAuthV2();
-  const navigation = useAppNavigation();
   const [selectedPackageId, setSelectedPackageId] = useState<IPackageId>('P1Y');
 
   const {
@@ -40,21 +36,9 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     getPackagesWeb,
   } = usePrimePayment();
 
-  const purchasePackageWebview = useCallback(async () => {
-    navigation.popStack();
-
-    openUrlUtils.openUrlByWebviewPro({
-      url: '',
-      title: 'WebView',
-      isWebEmbed: true,
-      hashRoutePath: EWebEmbedRoutePath.primePurchase,
-      hashRouteQueryParams: {
-        primeUserId: user?.privyUserId || '',
-        primeUserEmail: user?.email || '',
-        packageId: selectedPackageId,
-      },
-    });
-  }, [navigation, selectedPackageId, user]);
+  const purchasePackageWebview = usePurchasePackageWebview({
+    selectedPackageId,
+  });
 
   // TODO move to jotai context method
   const purchase = useCallback(async () => {

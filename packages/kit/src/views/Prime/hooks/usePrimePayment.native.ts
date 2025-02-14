@@ -73,32 +73,39 @@ export function usePrimePayment(): IUsePrimePayment {
     return customerInfo;
   }, [isReady, setPrimePersistAtom, user?.id]);
 
+  const getApiKey = useCallback(async () => {
+    if (process.env.NODE_ENV !== 'production') {
+      await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+      // TODO VPN required
+      await Purchases.setProxyURL('https://api.rc-backup.com/');
+    }
+
+    let apiKey = '';
+    if (platformEnv.isNativeIOS) {
+      apiKey = REVENUECAT_API_KEY_APPLE || '';
+    }
+    if (platformEnv.isNativeAndroid) {
+      apiKey = REVENUECAT_API_KEY_GOOGLE || '';
+    }
+    if (!apiKey) {
+      throw new Error('No REVENUECAT api key found');
+    }
+
+    return apiKey;
+  }, []);
+
   // TODO move to jotai context
   useEffect(() => {
     void (async () => {
-      if (process.env.NODE_ENV !== 'production') {
-        await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
-        // TODO VPN required
-        await Purchases.setProxyURL('https://api.rc-backup.com/');
-      }
+      const apiKey = await getApiKey();
 
-      let apiKey = '';
-      if (platformEnv.isNativeIOS) {
-        apiKey = REVENUECAT_API_KEY_APPLE || '';
-      }
-      if (platformEnv.isNativeAndroid) {
-        apiKey = REVENUECAT_API_KEY_GOOGLE || '';
-      }
-      if (!apiKey) {
-        throw new Error('No REVENUECAT api key found');
-      }
       Purchases.configure({
         apiKey,
         // useAmazon: true
       });
       setIsPaymentReady(true);
     })();
-  }, []);
+  }, [getApiKey]);
 
   useEffect(() => {
     void (async () => {
@@ -132,7 +139,6 @@ export function usePrimePayment(): IUsePrimePayment {
   const purchasePackageNative = useCallback(
     async ({ packageId }: { packageId: IPackageId }) => {
       try {
-        console.log('presentPaywallNative >>>>> ');
         if (!isReady) {
           throw new Error('PrimeAuth native not ready!!!');
         }
@@ -152,12 +158,6 @@ export function usePrimePayment(): IUsePrimePayment {
 
         const offerings = await Purchases.getOfferings();
 
-        console.log(
-          'offerings >>>>> ',
-          packageId,
-          JSON.stringify(offerings, null, 2),
-        );
-
         const offering = offerings.current?.availablePackages.find(
           (p) => p.product.subscriptionPeriod === packageId,
         );
@@ -167,11 +167,6 @@ export function usePrimePayment(): IUsePrimePayment {
         }
 
         const makePurchaseResult = await Purchases.purchasePackage(offering);
-
-        console.log(
-          'customerInfo >>>>> ',
-          JSON.stringify(makePurchaseResult, null, 2),
-        );
 
         return makePurchaseResult;
       } catch (error) {
