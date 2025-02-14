@@ -20,7 +20,7 @@ import {
   useKeyboardHeight,
   useSafeAreaInsets,
 } from '../../hooks';
-import { SizableText, XStack, YStack } from '../../primitives';
+import { SizableText, Stack, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';
@@ -315,62 +315,50 @@ function RawPopover({
                 mx: 'auto',
               }}
             >
-              {/* header */}
-              <XStack
-                borderTopLeftRadius="$6"
-                borderTopRightRadius="$6"
-                backgroundColor="$bg"
+              <Stack
                 marginHorizontal="$5"
-                paddingHorizontal="$5"
-                paddingVertical="$4"
-                justifyContent="space-between"
-                alignItems="center"
+                borderRadius="$6"
+                backgroundColor="$bg"
                 borderCurve="continuous"
-                gap="$2"
+                mb={bottom || '$5'}
               >
-                {typeof title === 'string' ? (
-                  <SizableText
-                    size="$headingXl"
-                    color="$text"
-                    flexShrink={1}
-                    style={{
-                      wordBreak: 'break-all',
-                    }}
-                  >
-                    {title}
-                  </SizableText>
-                ) : (
-                  title
-                )}
-                <IconButton
-                  icon="CrossedSmallOutline"
-                  size="small"
-                  hitSlop={NATIVE_HIT_SLOP}
-                  onPress={closePopover}
-                  testID="popover-btn-close"
-                />
-              </XStack>
+                <XStack
+                  px="$5"
+                  py="$4"
+                  justifyContent="space-between"
+                  alignItems="center"
+                  borderCurve="continuous"
+                  gap="$2"
+                >
+                  {typeof title === 'string' ? (
+                    <SizableText
+                      size="$headingXl"
+                      color="$text"
+                      flexShrink={1}
+                      style={{
+                        wordBreak: 'break-all',
+                      }}
+                    >
+                      {title}
+                    </SizableText>
+                  ) : (
+                    title
+                  )}
+                  <IconButton
+                    icon="CrossedSmallOutline"
+                    size="small"
+                    hitSlop={NATIVE_HIT_SLOP}
+                    onPress={closePopover}
+                    testID="popover-btn-close"
+                  />
+                </XStack>
 
-              {/* divider */}
-              {/* <YStack
-                backgroundColor="$bg"
-                marginHorizontal="$5"
-                paddingHorizontal="$5"
-              >
-                <Divider />
-              </YStack> */}
-
-              <TMPopover.Sheet.ScrollView
-                borderBottomLeftRadius="$6"
-                borderBottomRightRadius="$6"
-                backgroundColor="$bg"
-                showsVerticalScrollIndicator={false}
-                marginHorizontal="$5"
-                marginBottom={bottom || '$5'}
-                borderCurve="continuous"
-              >
-                {content}
-              </TMPopover.Sheet.ScrollView>
+                <TMPopover.Sheet.ScrollView
+                  showsVerticalScrollIndicator={false}
+                >
+                  {content}
+                </TMPopover.Sheet.ScrollView>
+              </Stack>
             </TMPopover.Sheet.Frame>
           </TMPopover.Sheet>
         </TMPopover.Adapt>
