@@ -147,7 +147,6 @@ function DeviceManagementListModal() {
           px="$5"
           justifyContent="center"
           alignItems="center"
-          bg="$bg"
         >
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
