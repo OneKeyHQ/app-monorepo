@@ -239,6 +239,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         fee,
         protocolMagic,
         networkId,
+        tagCborSets: true,
       };
     }
 
