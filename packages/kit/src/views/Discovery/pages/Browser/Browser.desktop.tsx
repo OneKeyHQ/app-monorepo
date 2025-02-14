@@ -48,6 +48,13 @@ function DesktopBrowser() {
         headerTitle={DesktopBrowserNavigationContainer}
         // @ts-expect-error
         headerRight={HeaderRightToolBar}
+        headerRightContainerStyle={{
+          flexBasis: 'auto',
+          flexGrow: 0,
+        }}
+        headerTitleContainerStyle={{
+          flex: 1,
+        }}
       />
       <Page.Body>
         {orderTabs.map((t) => (

@@ -70,6 +70,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
+  IHwQrWalletWithDevice,
   INetworkAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
@@ -269,6 +270,36 @@ class ServiceAccount extends ServiceBase {
     return {
       wallets,
     };
+  }
+
+  @backgroundMethod()
+  async getAllHwQrWalletWithDevice() {
+    const { wallets, allDevices } = await this.getAllWallets({
+      refillWalletInfo: true,
+    });
+    // const { devices } = await this.getAllDevices();
+
+    const result: {
+      [walletId: string]: IHwQrWalletWithDevice;
+    } = {};
+
+    for (const wallet of wallets) {
+      if (
+        !accountUtils.isHwHiddenWallet({ wallet }) &&
+        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id }))
+      ) {
+        const device = (allDevices ?? []).find(
+          (d) => d.id === wallet.associatedDevice,
+        );
+        result[wallet.id] = {
+          wallet,
+          device,
+        };
+      }
+    }
+
+    return result;
   }
 
   @backgroundMethod()

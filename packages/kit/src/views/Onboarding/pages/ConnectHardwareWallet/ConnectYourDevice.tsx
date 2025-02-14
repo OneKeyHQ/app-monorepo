@@ -86,6 +86,7 @@ import {
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
+import { useBuyOneKeyHeaderRightButton } from '../../../DeviceManagement/hooks/useBuyOneKeyHeaderRightButton';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
 import { useFirmwareVerifyDialog } from './FirmwareVerifyDialog';
@@ -101,10 +102,6 @@ type IConnectYourDeviceItem = {
   opacity?: number;
   device: SearchDevice | undefined;
 };
-
-const headerRight = (onPress: () => void) => (
-  <HeaderIconButton icon="QuestionmarkOutline" onPress={onPress} />
-);
 
 function DeviceListItem({ item }: { item: IConnectYourDeviceItem }) {
   const [isLoading, setIsLoading] = useState(false);
@@ -1185,9 +1182,8 @@ export function ConnectYourDevicePage() {
     channel ?? EConnectDeviceChannel.usbOrBle,
   );
 
-  const toOneKeyHardwareWalletPage = useCallback(() => {
-    navigation.push(EOnboardingPages.OneKeyHardwareWallet);
-  }, [navigation]);
+  const { headerRight, toOneKeyHardwareWalletPage } =
+    useBuyOneKeyHeaderRightButton();
 
   return (
     <Page>
@@ -1195,7 +1191,7 @@ export function ConnectYourDevicePage() {
         title={intl.formatMessage({
           id: ETranslations.onboarding_connect_your_device,
         })}
-        headerRight={() => headerRight(toOneKeyHardwareWalletPage)}
+        headerRight={headerRight}
       />
       <Page.Body>
         <Stack px="$5" pt="$2" pb="$4">

@@ -45,9 +45,9 @@ function requestVerificationAsync(
 // Child process
 process.parentPort.on(
   'message',
-  (e: { data: { type: string; params: unknown } }) => {
+  (e: { data: { type: EWindowHelloEventType; params: unknown } }) => {
     switch (e.data.type) {
-      case 'checkAvailabilityAsync':
+      case EWindowHelloEventType.CheckAvailabilityAsync:
         checkWindowsHelloAvailability((result) => {
           process.parentPort.postMessage({
             type: EWindowHelloEventType.CheckAvailabilityAsync,
@@ -55,7 +55,7 @@ process.parentPort.on(
           });
         });
         break;
-      case 'requestVerificationAsync':
+      case EWindowHelloEventType.RequestVerificationAsync:
         requestVerificationAsync(e.data.params as string, (result) => {
           process.parentPort.postMessage({
             type: EWindowHelloEventType.RequestVerificationAsync,
