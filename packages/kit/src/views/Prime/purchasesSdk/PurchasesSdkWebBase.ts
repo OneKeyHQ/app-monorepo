@@ -46,6 +46,8 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
     });
     const packages: Package[] = [];
 
+    console.log('getPaywallPackagesBase', packages);
+
     // Object.values(offerings.all).forEach((offering) => {
     //   packages.push(...offering.availablePackages);
     // });
@@ -69,10 +71,20 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
     try {
       await this.configureDonePromise.ready;
       const { packageId, email, locale } = params;
-      // const offerings = await this.getPaywallOfferings();
-      // const paywallPackage = offerings?.all?.monthly?.packagesById?.[packageId];
-      const packages = await this.getPaywallPackages();
-      const paywallPackage = packages.find((p) => p.identifier === packageId);
+
+      console.log('purchase >>>1>>> ', packageId, email, locale);
+
+      const offerings = await Purchases.getSharedInstance().getOfferings({
+        currency: 'USD',
+      });
+
+      console.log('purchase >>>>>> ', packageId, email, locale);
+
+      const paywallPackage = offerings?.current?.availablePackages.find(
+        (p) => p.rcBillingProduct.normalPeriodDuration === packageId,
+      );
+
+      console.log('paywallPackage >>>>>> ', paywallPackage);
       if (!paywallPackage) {
         throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
       }

@@ -120,7 +120,7 @@ export function usePrimePayment(): IUsePrimePayment {
       currency: 'USD',
     });
 
-    const packages2: IPackage[] =
+    const packages: IPackage[] =
       offerings?.current?.availablePackages?.map((p) => ({
         packageId: p.rcBillingProduct
           .normalPeriodDuration as IPackage['packageId'],
@@ -128,7 +128,7 @@ export function usePrimePayment(): IUsePrimePayment {
         pricePerYearString: p.rcBillingProduct.currentPrice.formattedPrice,
       })) || [];
 
-    return packages2;
+    return packages;
   }, [isReady]);
 
   const purchasePackageWeb = useCallback(

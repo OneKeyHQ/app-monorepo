@@ -42,7 +42,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
 
   const purchasePackageWebview = useCallback(async () => {
     navigation.popStack();
-    await timerUtils.wait(1000);
+
     openUrlUtils.openUrlByWebviewPro({
       url: '',
       title: 'WebView',
@@ -51,9 +51,10 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
       hashRouteQueryParams: {
         primeUserId: user?.privyUserId || '',
         primeUserEmail: user?.email || '',
+        packageId: selectedPackageId,
       },
     });
-  }, [navigation, user?.privyUserId, user?.email]);
+  }, [navigation, selectedPackageId, user]);
 
   // TODO move to jotai context method
   const purchase = useCallback(async () => {
@@ -62,13 +63,13 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
         onPurchase?.();
       }, 1000);
 
-      if (platformEnv.isNativeIOS) {
-        void purchasePackageNative?.({
-          packageId: selectedPackageId,
-        });
-      }
+      // if (platformEnv.isNativeIOS) {
+      //   void purchasePackageNative?.({
+      //     packageId: selectedPackageId,
+      //   });
+      // }
 
-      if (platformEnv.isNativeAndroid) {
+      if (platformEnv.isNative) {
         ActionList.show({
           title: 'Purchase',
           onClose: () => {},
@@ -129,8 +130,6 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
       platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.(),
     [getPackagesNative, getPackagesWeb],
   );
-
-  console.log('packages >>>>>> ', packages);
 
   return (
     <Stack mt="$8">
