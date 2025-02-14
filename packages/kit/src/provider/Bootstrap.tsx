@@ -276,6 +276,11 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
         onCancelText: intl.formatMessage({
           id: ETranslations.global_close,
         }),
+        onCancel: async () => {
+          await backgroundApiProxy.serviceSpotlight.firstVisitTour(
+            ESpotlightTour.showFloatingIconDialog,
+          );
+        },
       });
     }
   }
@@ -292,7 +297,7 @@ export const useLaunchEvents = (): void => {
     void backgroundApiProxy.serviceAppUpdate
       .getUpdateStatus()
       .then((updateStatus: EAppUpdateStatus) => {
-        if (updateStatus !== EAppUpdateStatus.done) {
+        if (updateStatus === EAppUpdateStatus.ready) {
           return;
         }
         hasLaunchEventsExecutedRef.current = true;
