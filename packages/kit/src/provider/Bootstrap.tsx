@@ -12,6 +12,8 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useSpotlightPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/spotlight';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,8 +25,10 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
+import { useSpotlight } from '../components/Spotlight';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
@@ -220,9 +224,85 @@ export const useFetchCurrencyList = () => {
   }, []);
 };
 
+export const useLaunchEvents = (): void => {
+  const intl = useIntl();
+  const [{ data: tours }] = useSpotlightPersistAtom(); 
+  const [isLocked] = useAppIsLockedAtom();
+  const hasLaunchEventsExecutedRef = useRef(false);
+  useEffect(() => {
+    if (isLocked || hasLaunchEventsExecutedRef.current) {
+      return;
+    }
+    hasLaunchEventsExecutedRef.current = true;
+    const isFirstVisit = (tourName: ESpotlightTour) => tours[tourName] === 0;
+    const visited = async (tourName: ESpotlightTour) => {
+      await backgroundApiProxy.serviceSpotlight.updateTourTimes({
+        tourName,
+        manualTimes: 1,
+      });
+    };
+    setTimeout(async () => {
+      await backgroundApiProxy.serviceApp.updateLaunchTimes();
+      if (
+        platformEnv.isExtension &&
+        isFirstVisit(ESpotlightTour.showFloatingIconDialog)
+      ) {
+        const isShowFloatingButton =
+          await backgroundApiProxy.serviceSetting.isShowFloatingButton();
+        const launchTimesLastReset =
+          await backgroundApiProxy.serviceApp.getLaunchTimesLastReset();
+        if (!isShowFloatingButton && launchTimesLastReset === 5) {
+          Dialog.show({
+            title: '',
+            showExitButton: false,
+            renderContent: (
+              <YStack gap="$4">
+                <Image
+                  borderRadius="$3"
+                  $md={{
+                    h: '$40',
+                  }}
+                  $gtMd={{
+                    w: 360,
+                    h: 163,
+                  }}
+                  source={require('@onekeyhq/kit/assets/floating_icon_placeholder.png')}
+                />
+                <YStack gap="$1">
+                  <SizableText size="$headingLg">
+                    {intl.formatMessage({
+                      id: ETranslations.setting_introducing_floating_icon,
+                    })}
+                  </SizableText>
+                  <SizableText size="$bodyLg" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.setting_floating_icon_always_display_description,
+                    })}
+                  </SizableText>
+                </YStack>
+              </YStack>
+            ),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_enable,
+            }),
+            onConfirm: async () => {
+              await visited(ESpotlightTour.showFloatingIconDialog);
+            },
+            onCancelText: intl.formatMessage({
+              id: ETranslations.global_close,
+            }),
+          });
+        }
+      }
+    }, 250);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLocked]);
+};
+
 export function Bootstrap() {
   useFetchCurrencyList();
   useAboutVersion();
   useDesktopEvents();
+  useLaunchEvents();
   return null;
 }

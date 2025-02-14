@@ -19,6 +19,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
+import simpleDb from '../dbs/simple/simpleDb';
 
 let extensionSyncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
@@ -148,6 +149,7 @@ class ServiceAppUpdate extends ServiceBase {
       updateAt: 0,
       status: EAppUpdateStatus.done,
     });
+    await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
   }
 
   @backgroundMethod()
