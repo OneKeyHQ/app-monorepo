@@ -115,6 +115,14 @@ export function usePrimePayment(): IUsePrimePayment {
     const offerings = await Purchases.getOfferings();
     const packages: IPackage[] = [];
 
+    offerings.current?.availablePackages.forEach((p) => {
+      packages.push({
+        packageId: p.product.subscriptionPeriod as IPackageId,
+        pricePerMonthString: p.product.pricePerMonthString,
+        pricePerYearString: p.product.pricePerYearString,
+      });
+    });
+
     console.log('offerings >>>>> ', JSON.stringify(offerings, null, 2));
 
     return packages;
@@ -142,22 +150,23 @@ export function usePrimePayment(): IUsePrimePayment {
           // }
         }
 
-        // const { packages } = await getPaywallPackagesNative();
-        // console.log(
-        //   'getPaywallPackagesNative: packages >>>>> ',
-        //   JSON.stringify(packages, null, 2),
-        // );
-
         const offerings = await Purchases.getOfferings();
+
         console.log(
           'offerings >>>>> ',
           packageId,
           JSON.stringify(offerings, null, 2),
         );
 
-        const makePurchaseResult = await Purchases.purchasePackage(
-          offerings.all.Yearly.availablePackages[0],
+        const offering = offerings.current?.availablePackages.find(
+          (p) => p.product.subscriptionPeriod === packageId,
         );
+
+        if (!offering) {
+          throw new Error('Offering not found');
+        }
+
+        const makePurchaseResult = await Purchases.purchasePackage(offering);
 
         console.log(
           'customerInfo >>>>> ',

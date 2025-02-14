@@ -34,10 +34,10 @@ function PrimeSubscriptionPlanItem({
 
   return (
     <YStack
+      bg="$bg"
       pl="$5"
       pr="$4"
       py="$5"
-      bg="$bg"
       borderWidth={2}
       borderColor={selected ? '$borderActive' : '$borderSubdued'}
       borderRadius="$3"
