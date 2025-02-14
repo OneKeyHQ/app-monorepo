@@ -2,6 +2,7 @@ import { useIntl } from 'react-intl';
 
 import {
   ESwitchSize,
+  Image,
   Page,
   SizableText,
   Switch,
@@ -23,7 +24,19 @@ function FloatingIconModal() {
       />
       <Page.Body>
         <YStack p="$5">
-          <XStack ai="center" jc="space-between">
+          <Image
+            borderRadius="$3"
+            $md={{
+              h: '$40',
+            }}
+            $gtMd={{
+              w: 600,
+              h: 272,
+            }}
+            // resizeMode="contain"
+            source={require('@onekeyhq/kit/assets/floating_icon_placeholder.png')}
+          />
+          <XStack ai="center" jc="space-between" pt="$4">
             <SizableText size="$bodyLgMedium">
               {intl.formatMessage({
                 id: ETranslations.setting_floating_icon_always_display,
