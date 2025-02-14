@@ -11,10 +11,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
-import type {
-  IDBDevice,
-  IDBWalletId,
-} from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -42,7 +39,7 @@ export function useAccountSelectorCreateAddress() {
   } = backgroundApiProxy;
   const intl = useIntl();
   const actions = useAccountSelectorActions();
-  const { createQrWallet, createQrWalletByUr } = useCreateQrWallet();
+  const { createQrWalletByAccount } = useCreateQrWallet();
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const createAddress = useCallback(
@@ -178,32 +175,10 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
-          let byDevice: IDBDevice | undefined;
-          const byWallet = await serviceAccount.getWallet({
+          const { wallet: walletCreated } = await createQrWalletByAccount({
             walletId: account.walletId,
-          });
-          if (byWallet.associatedDevice) {
-            byDevice = await serviceAccount.getDevice({
-              dbDeviceId: byWallet.associatedDevice,
-            });
-          }
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          // const { wallet: walletCreated } = await createQrWallet({
-          //   isOnboarding: false,
-          //   byDevice,
-          //   byWallet,
-          // });
-          const urJson = await serviceQrWallet.prepareQrcodeWalletAddressCreate(
-            {
-              walletId: account.walletId,
-              networkId: account.networkId,
-              indexedAccountId: account.indexedAccountId,
-            },
-          );
-          const { wallet: walletCreated } = await createQrWalletByUr({
-            urJson,
-            byDevice,
-            byWallet,
+            networkId: account.networkId,
+            indexedAccountId: account.indexedAccountId,
           });
 
           try {
@@ -281,13 +256,12 @@ export function useAccountSelectorCreateAddress() {
     },
     [
       actions,
-      createQrWalletByUr,
+      createQrWalletByAccount,
       intl,
       requestsUrl,
       serviceAccount,
       serviceBatchCreateAccount,
       serviceHardwareUI,
-      serviceQrWallet,
     ],
   );
 
