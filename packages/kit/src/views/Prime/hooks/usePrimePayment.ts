@@ -20,11 +20,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
-import type {
-  IPrimeSubscriptionPlan,
-  ISubscriptionPeriod,
-  IUsePrimePayment,
-} from './usePrimePaymentTypes';
+import type { IPackage, IUsePrimePayment } from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
 export function usePrimePayment(): IUsePrimePayment {
@@ -113,7 +109,7 @@ export function usePrimePayment(): IUsePrimePayment {
     })();
   }, [getCustomerInfo, isReady, user?.id]);
 
-  const getPrimeSubscriptionPlanWeb = useCallback(async () => {
+  const getPackagesWeb = useCallback(async () => {
     await configureDonePromise.current.ready;
 
     if (!isReady) {
@@ -124,10 +120,10 @@ export function usePrimePayment(): IUsePrimePayment {
       currency: 'USD',
     });
 
-    const packages2: IPrimeSubscriptionPlan[] =
+    const packages2: IPackage[] =
       offerings?.current?.availablePackages?.map((p) => ({
-        subscriptionPeriod: p.rcBillingProduct
-          .normalPeriodDuration as ISubscriptionPeriod,
+        packageId: p.rcBillingProduct
+          .normalPeriodDuration as IPackage['packageId'],
         pricePerMonthString: p.rcBillingProduct.currentPrice.formattedPrice,
         pricePerYearString: p.rcBillingProduct.currentPrice.formattedPrice,
       })) || [];
@@ -135,7 +131,7 @@ export function usePrimePayment(): IUsePrimePayment {
     return packages2;
   }, [isReady]);
 
-  const purchasePaywallPackageWeb = useCallback(
+  const purchasePackageWeb = useCallback(
     async ({
       packageId,
       email,
@@ -191,10 +187,10 @@ export function usePrimePayment(): IUsePrimePayment {
 
   return {
     isReady,
-    presentPaywallNative: undefined,
-    getPaywallPackagesNative: undefined,
-    getPrimeSubscriptionPlanWeb,
-    purchasePaywallPackageWeb,
+    purchasePackageNative: undefined,
+    getPackagesNative: undefined,
+    getPackagesWeb,
+    purchasePackageWeb,
     getCustomerInfo,
   };
 }

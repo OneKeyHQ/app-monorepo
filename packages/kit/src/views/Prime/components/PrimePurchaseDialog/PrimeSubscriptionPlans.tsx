@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import type { IXStackProps } from '@onekeyhq/components';
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 
-import type { IPrimeSubscriptionPlan } from '../../hooks/usePrimePaymentTypes';
+import type { IPackage, IPackageId } from '../../hooks/usePrimePaymentTypes';
 
 function PrimeSubscriptionPlanItem({
   selected,
@@ -69,12 +69,10 @@ export function PrimeSubscriptionPlans({
   packages,
   onPackageSelected,
 }: {
-  packages?: IPrimeSubscriptionPlan[];
-  onPackageSelected: (packageId: string) => void;
+  packages?: IPackage[];
+  onPackageSelected: (packageId: IPackageId) => void;
 }) {
-  const [selectedPackageId, setSelectedPackageId] = useState<
-    string | undefined
-  >('P1Y');
+  const [selectedPackageId, setSelectedPackageId] = useState<IPackageId>('P1Y');
 
   useEffect(() => {
     if (selectedPackageId) {
@@ -85,19 +83,17 @@ export function PrimeSubscriptionPlans({
   return (
     <YStack gap="$2.5">
       {packages?.map((p) => {
-        const selected = selectedPackageId === p.subscriptionPeriod;
+        const selected = selectedPackageId === p.packageId;
         return (
           <PrimeSubscriptionPlanItem
-            key={p.subscriptionPeriod}
+            key={p.packageId}
             selected={selected}
-            title={
-              p.subscriptionPeriod === 'P1Y' ? 'Prime Yearly' : 'Prime Monthly'
-            }
-            periodDuration={p.subscriptionPeriod}
+            title={p.packageId === 'P1Y' ? 'Prime Yearly' : 'Prime Monthly'}
+            periodDuration={p.packageId}
             pricePerMonthString={p.pricePerMonthString}
             pricePerYearString={p.pricePerYearString}
             onPress={() => {
-              setSelectedPackageId(p.subscriptionPeriod);
+              setSelectedPackageId(p.packageId);
             }}
           />
         );

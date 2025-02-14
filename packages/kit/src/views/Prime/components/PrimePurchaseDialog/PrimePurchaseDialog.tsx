@@ -23,23 +23,24 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 
+import type { IPackageId } from '../../hooks/usePrimePaymentTypes';
+
 export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   const { onPurchase } = props;
   const intl = useIntl();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { user } = usePrimeAuthV2();
   const navigation = useAppNavigation();
-  const [selectedPackageId, setSelectedPackageId] = useState<
-    string | undefined
-  >();
+  const [selectedPackageId, setSelectedPackageId] = useState<IPackageId>('P1Y');
 
   const {
-    presentPaywallNative,
-    purchasePaywallPackageWeb,
-    getPrimeSubscriptionPlanWeb,
+    purchasePackageNative,
+    getPackagesNative,
+    purchasePackageWeb,
+    getPackagesWeb,
   } = usePrimePayment();
 
-  const purchaseByWebview = useCallback(async () => {
+  const purchasePackageWebview = useCallback(async () => {
     navigation.popStack();
     await timerUtils.wait(1000);
     openUrlUtils.openUrlByWebviewPro({
@@ -62,7 +63,9 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
       }, 1000);
 
       if (platformEnv.isNativeIOS) {
-        void presentPaywallNative?.();
+        void purchasePackageNative?.({
+          packageId: selectedPackageId,
+        });
       }
 
       if (platformEnv.isNativeAndroid) {
@@ -75,13 +78,15 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
                 {
                   label: 'Purchase by AppStore/GooglePlay',
                   onPress: () => {
-                    void presentPaywallNative?.();
+                    void purchasePackageNative?.({
+                      packageId: selectedPackageId,
+                    });
                   },
                 },
                 {
                   label: 'Purchase by Webview',
                   onPress: () => {
-                    void purchaseByWebview();
+                    void purchasePackageWebview();
                   },
                 },
               ],
@@ -92,7 +97,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
       }
 
       if (selectedPackageId) {
-        await purchasePaywallPackageWeb?.({
+        await purchasePackageWeb?.({
           packageId: selectedPackageId,
           email: user?.email || '',
           locale: intl.locale,
@@ -112,20 +117,18 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     fetchPrimeUserInfo,
     intl.locale,
     onPurchase,
-    presentPaywallNative,
-    purchaseByWebview,
-    purchasePaywallPackageWeb,
+    purchasePackageNative,
+    purchasePackageWeb,
+    purchasePackageWebview,
     selectedPackageId,
     user?.email,
   ]);
 
-  const { result: packages } = usePromiseResult(async () => {
-    if (!platformEnv.isNative) {
-      return getPrimeSubscriptionPlanWeb?.();
-    }
-
-    return [];
-  }, [getPrimeSubscriptionPlanWeb]);
+  const { result: packages } = usePromiseResult(
+    async () =>
+      platformEnv.isNative ? getPackagesNative?.() : getPackagesWeb?.(),
+    [getPackagesNative, getPackagesWeb],
+  );
 
   console.log('packages >>>>>> ', packages);
 
