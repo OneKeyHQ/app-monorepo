@@ -19,7 +19,6 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { appUpdatePersistAtom } from '../states/jotai/atoms';
 
 import ServiceBase from './ServiceBase';
-import simpleDb from '../dbs/simple/simpleDb';
 
 let extensionSyncTimerId: ReturnType<typeof setTimeout>;
 let downloadTimeoutId: ReturnType<typeof setTimeout>;
@@ -61,6 +60,12 @@ class ServiceAppUpdate extends ServiceBase {
       return this.cachedUpdateInfo;
     }
     return this.fetchConfig();
+  }
+
+  @backgroundMethod()
+  async getUpdateStatus() {
+    const appInfo = await appUpdatePersistAtom.get();
+    return appInfo.status;
   }
 
   @backgroundMethod()
