@@ -3,15 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  ActionList,
-  Shortcut,
-  SizableText,
-  Stack,
-  Tooltip,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -28,9 +20,8 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -40,6 +31,7 @@ import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccoun
 import { PrimeHeaderIconButton } from '../../views/Prime/components/PrimeHeaderIconButton';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 
+import { MoreActionButton } from './MoreActionButton';
 import { UniversalSearchInput } from './UniversalSearchInput';
 
 export function HeaderRight({
@@ -58,11 +50,6 @@ export function HeaderRight({
   } = useActiveAccount({ num: 0 });
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
-  const openSettingPage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.SettingModal, {
-      screen: EModalSettingRoutes.SettingListModal,
-    });
-  }, [navigation]);
   const onScanButtonPressed = useCallback(
     () =>
       scanQrCode.start({
@@ -86,27 +73,6 @@ export function HeaderRight({
   }, [navigation]);
 
   const items = useMemo(() => {
-    const settingsButton = media.gtMd ? null : (
-      <HeaderIconButton
-        key="setting"
-        title={
-          <XStack gap="$2">
-            <Tooltip.Text>
-              {intl.formatMessage({ id: ETranslations.settings_settings })}
-            </Tooltip.Text>
-            <Shortcut pl="$2">
-              <Shortcut.Key>{shortcutsKeys.CmdOrCtrl}</Shortcut.Key>
-              <Shortcut.Key>,</Shortcut.Key>
-            </Shortcut>
-          </XStack>
-        }
-        titlePlacement="bottom"
-        icon="SettingsOutline"
-        testID="setting"
-        onPress={openSettingPage}
-      />
-    );
-
     const routeInfo = {
       routes: '',
     };
@@ -163,14 +129,15 @@ export function HeaderRight({
         }
       />
     );
-    const scanButton = (
+
+    const scanButton = media.gtMd ? (
       <HeaderIconButton
         key="scan"
         title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
         icon="ScanOutline"
         onPress={onScanButtonPressed}
       />
-    );
+    ) : null;
     // const primeButton =
     //   devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
     //     <PrimeHeaderIconButton key="prime" />
@@ -230,6 +197,11 @@ export function HeaderRight({
         ) : null}
       </Stack>
     );
+
+    const moreActionButton = media.gtMd ? null : (
+      <MoreActionButton key="more-action" />
+    );
+
     const searchInput = media.gtMd ? (
       <UniversalSearchInput key="searchInput" />
     ) : null;
@@ -248,7 +220,7 @@ export function HeaderRight({
         layoutExtView,
         primeButton,
         notificationsButton,
-        settingsButton,
+        moreActionButton,
       ].filter(Boolean);
     }
 
@@ -258,16 +230,15 @@ export function HeaderRight({
     }
 
     return [
-      scanButton,
       primeButton,
+      scanButton,
       notificationsButton,
-      settingsButton,
+      moreActionButton,
       searchInput,
     ].filter(Boolean);
   }, [
     media.gtMd,
     intl,
-    openSettingPage,
     onScanButtonPressed,
     devSettings.enabled,
     openNotificationsModal,
