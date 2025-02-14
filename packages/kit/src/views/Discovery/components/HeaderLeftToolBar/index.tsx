@@ -131,9 +131,9 @@ function HeaderLeftToolBar({
           testID={`action-header-item-${loading ? 'stop-loading' : 'reload'}`}
         />
       </HeaderButtonGroup>
-      <Stack>
+      <Stack flex={1}>
         <Input
-          containerProps={{ ml: '$6', w: '$80' } as any}
+          containerProps={{ mx: '$6', flex: 1 } as any}
           size="small"
           leftAddOnProps={{
             ...iconConfig,
