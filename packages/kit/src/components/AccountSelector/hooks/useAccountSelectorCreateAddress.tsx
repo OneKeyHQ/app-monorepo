@@ -11,7 +11,10 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
-import type { IDBWalletId } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBWalletId,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -89,6 +92,7 @@ export function useAccountSelectorCreateAddress() {
           | {
               walletId: string | undefined;
               indexedAccountId: string | undefined;
+              accounts: IDBAccount[];
             }
           | undefined,
       ) => {
@@ -139,6 +143,7 @@ export function useAccountSelectorCreateAddress() {
         return handleAddAccounts({
           walletId: account?.walletId,
           indexedAccountId: account?.indexedAccountId,
+          accounts: [],
         });
       };
 
