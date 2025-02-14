@@ -60,30 +60,8 @@ function MobileBrowserBottomOptions({
             onPress: () => onPinnedPress(!isPinned),
             testID: `action-list-item-${!isPinned ? 'pin' : 'un-pin'}`,
           },
-          // Enable desktop mode by default on iPad
           platformEnv.isNativeIOSPad
-            ? {
-                label: intl.formatMessage({
-                  id:
-                    siteMode === ESiteMode.mobile
-                      ? ETranslations.browser_request_desktop_site
-                      : ETranslations.browser_request_mobile_site,
-                }),
-                icon:
-                  siteMode === ESiteMode.mobile
-                    ? 'ComputerOutline'
-                    : 'PhoneOutline',
-                onPress: () => {
-                  onRequestSiteMode(
-                    siteMode === ESiteMode.mobile
-                      ? ESiteMode.desktop
-                      : ESiteMode.mobile,
-                  );
-                },
-                testID: `action-list-item-${
-                  siteMode === ESiteMode.desktop ? 'desktop' : 'mobile'
-                }`,
-              }
+            ? undefined
             : {
                 label: intl.formatMessage({
                   id:
