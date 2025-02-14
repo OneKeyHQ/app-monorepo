@@ -33,7 +33,6 @@ function FloatingIconModal() {
               w: 600,
               h: 272,
             }}
-            // resizeMode="contain"
             source={require('@onekeyhq/kit/assets/floating_icon_placeholder.png')}
           />
           <XStack ai="center" jc="space-between" pt="$4">
