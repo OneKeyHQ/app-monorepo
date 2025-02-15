@@ -26,6 +26,7 @@ const IconGallery = () => {
 
   return (
     <Layout
+      componentName="Icon"
       description="图标是一种视觉符号，用于表示对象或概念"
       suggestions={['图标的设计应该简洁、易于理解、易于识别']}
       boundaryConditions={[]}

@@ -7,6 +7,7 @@ import type { IAssetSelectorParamList } from './assetSelector';
 import type { IChainSelectorParamList } from './chainSelector';
 import type { ICloudBackupParamList } from './cloudBackup';
 import type { IDAppConnectionModalParamList } from './dAppConnection';
+import type { IModalDeviceManagementParamList } from './deviceManagement';
 import type { IDiscoveryModalParamList } from './discovery';
 import type { IModalFiatCryptoParamList } from './fiatCrypto';
 import type { IModalFirmwareUpdateParamList } from './firmwareUpdate';
@@ -58,6 +59,7 @@ export enum EModalRoutes {
   NotificationsModal = 'NotificationsModal',
   ShortcutsModal = 'ShortcutsModal',
   SignatureConfirmModal = 'SignatureConfirmModal',
+  DeviceManagementModal = 'DeviceManagementModal',
 }
 
 export type IModalParamList = {
@@ -91,4 +93,5 @@ export type IModalParamList = {
   [EModalRoutes.NotificationsModal]: IModalNotificationsParamList;
   [EModalRoutes.ShortcutsModal]: IModalShortcutsParamList;
   [EModalRoutes.SignatureConfirmModal]: IModalSignatureConfirmParamList;
+  [EModalRoutes.DeviceManagementModal]: IModalDeviceManagementParamList;
 };

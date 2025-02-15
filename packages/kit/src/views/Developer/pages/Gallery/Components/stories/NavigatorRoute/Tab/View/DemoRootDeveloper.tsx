@@ -12,9 +12,6 @@ const DemoRootDeveloper = () => {
 
   return (
     <Layout
-      description="这是一个关于路由 Modal 的相关演示"
-      suggestions={[]}
-      boundaryConditions={[]}
       elements={[
         {
           title: '输入文字测试冻结',

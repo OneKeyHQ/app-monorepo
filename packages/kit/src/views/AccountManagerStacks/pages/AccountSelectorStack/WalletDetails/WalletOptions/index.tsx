@@ -6,20 +6,17 @@ import { HiddenWalletAddButton } from '@onekeyhq/kit/src/views/AccountManagerSta
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-import { Advance } from './Advance';
 import { BatchCreateAccountButton } from './BatchCreateAccountButton';
-import { CheckFirmwareUpdateButton } from './CheckFirmwareUpdateButton';
-import { HardwareHomeScreenButton } from './HardwareHomeScreenButton';
+import { DeviceManagementButton } from './DeviceManagementButton';
 import { HdWalletBackupButton } from './HdWalletBackupButton';
 import { HiddenWalletRememberSwitch } from './HiddenWalletRememberSwitch';
-import { Verification } from './Verification';
 import { WalletProfile } from './WalletProfile';
 
 import type { IWalletDetailsProps } from '..';
 
 type IWalletOptionsProps = Partial<IWalletDetailsProps>;
 
-function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
+function WalletOptionsView({ wallet }: IWalletOptionsProps) {
   const [editMode] = useAccountSelectorEditModeAtom();
 
   const walletSpecifiedOptions = useMemo(() => {
@@ -48,10 +45,11 @@ function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
       // HW Normal Wallet
       return (
         <>
-          <CheckFirmwareUpdateButton device={device} />
+          {/* <CheckFirmwareUpdateButton device={device} />
           <Verification device={device} />
           <HardwareHomeScreenButton device={device} />
-          <Advance wallet={wallet} />
+          <Advance wallet={wallet} /> */}
+          <DeviceManagementButton wallet={wallet} />
           <BatchCreateAccountButton wallet={wallet} />
           <HiddenWalletAddButton wallet={wallet} />
         </>
@@ -77,7 +75,7 @@ function WalletOptionsView({ wallet, device }: IWalletOptionsProps) {
     }
 
     return null;
-  }, [device, wallet]);
+  }, [wallet]);
 
   return (
     // <HeightTransition></HeightTransition>

@@ -7,6 +7,7 @@ import type {
   StackActionHelpers,
   StackNavigationState,
 } from '@react-navigation/core';
+import type { HeaderOptions } from '@react-navigation/elements';
 import type { ParamListBase, Route, RouteProp } from '@react-navigation/native';
 import type {
   HeaderButtonProps,
@@ -97,7 +98,7 @@ export type IStackHeaderProps = {
   back?: {
     title: string;
   };
-  options: IStackNavigationOptions;
+  options: IStackNavigationOptions & HeaderOptions;
   route: Route<string>;
   navigation: IPageNavigationProp<ParamListBase>;
 };

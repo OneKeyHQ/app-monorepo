@@ -6,7 +6,6 @@ import {
   OneKeyError,
 } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -170,8 +169,7 @@ function Demo1() {
           appEventBus.emit(EAppEventBusNames.ShowToast, {
             method: 'error',
             title:
-              'Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, 444444444444444444444444' ??
-              'Error',
+              'Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, Hello World, 444444444444444444444444',
             message: '33333333-33333333-33333333-33333333',
           });
         }}
@@ -193,9 +191,7 @@ function Demo1() {
 
 const ErrorToastGallery = () => (
   <Layout
-    description="ErrorToast"
-    suggestions={['ErrorToast']}
-    boundaryConditions={['ErrorToast']}
+    componentName="ErrorToast"
     elements={[
       {
         title: 'ErrorToast',
