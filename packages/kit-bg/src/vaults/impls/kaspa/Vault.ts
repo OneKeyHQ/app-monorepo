@@ -1,5 +1,4 @@
 import BigNumber from 'bignumber.js';
-
 import { isEmpty } from 'lodash';
 
 import type { IKaspaUnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
@@ -20,6 +19,7 @@ import {
 import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
+import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
@@ -77,7 +77,6 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
-import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
