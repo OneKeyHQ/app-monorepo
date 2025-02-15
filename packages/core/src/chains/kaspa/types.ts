@@ -15,6 +15,10 @@ export type IEncodedTxKaspa = {
     price: string; // feerate
     limit: string;
   };
+
+  commitAddress?: string;
+  commitScriptPubKey?: string;
+  changeAddress?: string;
 };
 
 export type IKaspaSigner = {

@@ -35,10 +35,10 @@ export enum SigningMethodType {
 }
 
 export function toTransaction(tx: IEncodedTxKaspa): Transaction {
-  const { inputs, outputs, mass } = tx;
+  const { inputs, outputs, mass, changeAddress } = tx;
 
   const { address: from } = inputs[0] || {};
-  const { address: to, value } = outputs[0];
+  const { address: to, value } = outputs[0] || {};
 
   let sendAmount = new BigNumber(value);
 
@@ -56,13 +56,16 @@ export function toTransaction(tx: IEncodedTxKaspa): Transaction {
     });
   }
 
-  const txn = new Transaction()
+  let txn = new Transaction()
     .from(inputs.map((input) => new UnspentOutput(input)))
-    .to(to, sendAmount.toFixed())
     .setVersion(0)
     .fee(parseInt(fee, 10))
     // eslint-disable-next-line @typescript-eslint/no-unsafe-call,@typescript-eslint/no-unsafe-member-access
-    .change(from?.toString());
+    .change(changeAddress ?? from?.toString());
+
+  if (to) {
+    txn = txn.to(to, sendAmount.toFixed());
+  }
 
   // pending kaspa-core fix sequence field type
   txn.inputs.forEach((input) => {

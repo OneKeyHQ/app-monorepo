@@ -13,6 +13,9 @@ const getOrCreateWebEmbedApiModule = memoizee(
     if (name === 'chainAdaLegacy') {
       return new (await import('../WebEmbedApiChainAdaLegacy')).default();
     }
+    if (name === 'chainKaspa') {
+      return new (await import('../WebEmbedApiChainKaspa')).default();
+    }
     if (name === 'secret') {
       return new (await import('../WebEmbedApiSecret')).default();
     }

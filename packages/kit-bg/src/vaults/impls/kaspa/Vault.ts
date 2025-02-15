@@ -1,5 +1,5 @@
-import { Address, OpCode, Script } from '@onekeyfe/kaspa-core-lib';
 import BigNumber from 'bignumber.js';
+
 import { isEmpty } from 'lodash';
 
 import type { IKaspaUnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
@@ -11,17 +11,18 @@ import {
   MAX_BLOCK_SIZE,
   MAX_ORPHAN_TX_MASS,
   MAX_UTXO_SIZE,
+  UnspentOutput,
   isValidAddress,
   privateKeyFromWIF,
   selectUTXOs,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
+import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
-  tweakPublicKey,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -76,6 +77,7 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -126,63 +128,83 @@ export default class Vault extends VaultBase {
       address: dbAccount.address,
     });
 
+    const isKRC20 = transferInfo.tokenInfo && !transferInfo.tokenInfo.isNative;
+
     // KRC20
-    if (transferInfo.tokenInfo && !transferInfo.tokenInfo.isNative) {
+    if (isKRC20) {
       encodedTx = await this._createKRC20CommitTransaction({
-        tokenInfo: transferInfo.tokenInfo,
+        tokenInfo: transferInfo.tokenInfo as IToken,
         amount: transferInfo.amount,
         to: transferInfo.to,
         confirmUtxos,
+        specifiedFeeRate,
       });
+      const txn = toTransaction(encodedTx);
+      const { mass } = txn.getMassAndSize();
+      if (encodedTx.feeInfo) {
+        encodedTx.feeInfo.limit = mass.toString();
+      }
+      encodedTx.mass = mass;
     } else {
       encodedTx = await this.prepareAndBuildTx({
         confirmUtxos,
         transferInfo,
         specifiedFeeRate,
       });
-    }
 
-    // validate tx size
-    let txn = toTransaction(encodedTx);
-    const { mass, txSize } = txn.getMassAndSize();
-    encodedTx.feeInfo.limit = mass.toString();
-    encodedTx.mass = mass;
+      // validate tx size
+      let txn = toTransaction(encodedTx);
+      const { mass, txSize } = txn.getMassAndSize();
+      encodedTx.feeInfo.limit = mass.toString();
+      encodedTx.mass = mass;
 
-    if (mass > MAX_ORPHAN_TX_MASS || txSize > MAX_BLOCK_SIZE) {
-      encodedTx = await this.prepareAndBuildTx({
-        confirmUtxos,
-        transferInfo,
-        priority: { satoshis: true },
-        specifiedFeeRate,
-      });
-      txn = toTransaction(encodedTx);
-      if (encodedTx.inputs.length > MAX_UTXO_SIZE) {
-        const totalAmount = encodedTx.inputs
-          .sort((a, b) =>
-            new BigNumber(b.satoshis).minus(a.satoshis).toNumber(),
-          )
-          .slice(0, MAX_UTXO_SIZE)
-          .reduce((acc, input) => acc.plus(input.satoshis), new BigNumber(0));
-        const tokenInfo = transferInfo.tokenInfo ?? (await this.getNetwork());
+      if (mass > MAX_ORPHAN_TX_MASS || txSize > MAX_BLOCK_SIZE) {
+        encodedTx = isKRC20
+          ? await this._createKRC20CommitTransaction({
+              tokenInfo: transferInfo.tokenInfo as IToken,
+              amount: transferInfo.amount,
+              to: transferInfo.to,
+              confirmUtxos,
+              priority: { satoshis: true },
+              specifiedFeeRate,
+            })
+          : await this.prepareAndBuildTx({
+              confirmUtxos,
+              transferInfo,
+              priority: { satoshis: true },
+              specifiedFeeRate,
+            });
+        txn = toTransaction(encodedTx);
+        if (encodedTx.inputs.length > MAX_UTXO_SIZE) {
+          const totalAmount = encodedTx.inputs
+            .sort((a, b) =>
+              new BigNumber(b.satoshis).minus(a.satoshis).toNumber(),
+            )
+            .slice(0, MAX_UTXO_SIZE)
+            .reduce((acc, input) => acc.plus(input.satoshis), new BigNumber(0));
+          const tokenInfo = transferInfo.tokenInfo ?? (await this.getNetwork());
 
-        const totalAmountStr = totalAmount
-          .shiftedBy(-tokenInfo.decimals)
-          .toFixed(0, BigNumber.ROUND_DOWN);
-        throw new OneKeyInternalError(
-          appLocale.intl.formatMessage(
-            {
-              id: ETranslations.feedback_kaspa_utxo_limit_exceeded_text,
-            },
-            {
-              amount: totalAmountStr,
-              symbol: tokenInfo?.symbol ?? 'KAS',
-            },
-          ),
-        );
+          const totalAmountStr = totalAmount
+            .shiftedBy(-tokenInfo.decimals)
+            .toFixed(0, BigNumber.ROUND_DOWN);
+          throw new OneKeyInternalError(
+            appLocale.intl.formatMessage(
+              {
+                id: ETranslations.feedback_kaspa_utxo_limit_exceeded_text,
+              },
+              {
+                amount: totalAmountStr,
+                symbol: tokenInfo?.symbol ?? 'KAS',
+              },
+            ),
+          );
+        }
+        const massAndSize = txn.getMassAndSize();
+        if (encodedTx.feeInfo) {
+          encodedTx.feeInfo.limit = massAndSize.mass.toString();
+        }
+        encodedTx.mass = massAndSize.mass;
       }
-      const massAndSize = txn.getMassAndSize();
-      encodedTx.feeInfo.limit = massAndSize.mass.toString();
-      encodedTx.mass = massAndSize.mass;
     }
 
     return encodedTx;
@@ -664,12 +686,10 @@ export default class Vault extends VaultBase {
     return {
       'p': 'KRC-20',
       'op': 'transfer',
-      'tick': tokenInfo.symbol,
+      'tick': tokenInfo.address,
       'amt': chainValueUtils.convertTokenAmountToChainValue({
         value: amount,
         token: tokenInfo,
-        decimalPlaces: tokenInfo.decimals,
-        roundingMode: BigNumber.ROUND_DOWN,
       }),
       'to': to,
     };
@@ -680,48 +700,122 @@ export default class Vault extends VaultBase {
     amount,
     to,
     confirmUtxos,
+    specifiedFeeRate,
+    priority,
   }: {
     tokenInfo: IToken;
     amount: string;
     to: string;
     confirmUtxos: IKaspaUnspentOutputInfo[];
+    specifiedFeeRate?: string;
+    priority?: { satoshis: boolean };
   }) {
-    const account = await this.getAccount();
-    const originalPubkey = Buffer.from(
-      bufferUtils.hexToBytes(checkIsDefined(account.pub)),
-    );
+    const api = await sdk.getKaspaApi();
 
-    const tweakPublic = tweakPublicKey(originalPubkey.subarray(1));
-    if (!tweakPublic) throw new Error('Public key tweak failed');
-    const { x: xOnlyPubkey } = tweakPublic;
+    const ScriptBuilder = await api.ScriptBuilder();
+    const Opcodes = await api.Opcodes();
+    const XOnlyPublicKey = await api.XOnlyPublicKey();
+    const Address = await api.Address();
+    const NetworkType = await api.NetworkType();
+
+    const account = await this.getAccount();
+
+    const xOnlyPublicKey = XOnlyPublicKey.fromAddress(
+      new Address(account.address),
+    );
     const transferData = this._createKRC20TransferData({
       tokenInfo,
       amount,
       to,
     });
 
-    const script = new Script(xOnlyPubkey)
-      .add(OpCode.OP_CHECKSIG)
-      .add(OpCode.OP_FALSE)
-      .add(OpCode.OP_EQUALVERIFY)
-      .add(OpCode.OP_IF)
-      .add(Buffer.from('kasplex'))
-      .add(OpCode.OP_0)
-      .add(Buffer.from(JSON.stringify(transferData, null, 2)))
-      .add(OpCode.OP_ENDIF);
+    const script = new ScriptBuilder()
+      .addData(xOnlyPublicKey.toString())
+      .addOp(Opcodes.OpCheckSig)
+      .addOp(Opcodes.OpFalse)
+      .addOp(Opcodes.OpIf)
+      .addData(new Uint8Array(Buffer.from('kasplex')))
+      .addI64(0n)
+      .addData(
+        new Uint8Array(Buffer.from(JSON.stringify(transferData, null, 0))),
+      )
+      .addOp(Opcodes.OpEndIf);
 
-    const scriptPublicKey = Script.buildScriptHashOut(script);
-    const P2SHAddress = scriptPublicKey.toAddress();
+    const scriptPublicKey = script.createPayToScriptHashScript();
+    const P2SHAddress = await api.addressFromScriptPublicKey(
+      scriptPublicKey,
+      NetworkType.Mainnet,
+    );
 
-    const encodedTx = await this.prepareAndBuildTx({
+    if (!P2SHAddress) {
+      throw new OneKeyInternalError('Invalid P2SH address');
+    }
+
+    const encodedTx: IEncodedTxKaspa = await this.prepareAndBuildTx({
       confirmUtxos,
       transferInfo: {
         from: '',
         amount: BASE_KAS_TO_P2SH_ADDRESS,
         to: P2SHAddress.toString(),
       },
+      priority,
+      specifiedFeeRate,
     });
 
+    encodedTx.commitScriptPubKey = scriptPublicKey.toString();
+    encodedTx.commitAddress = P2SHAddress.toString();
+
     return encodedTx;
+  }
+
+  async _createKRC20RevealTransaction({
+    submittedTxId,
+    encodedTx,
+    specifiedFeeRate,
+  }: {
+    submittedTxId: string;
+    encodedTx: IEncodedTxKaspa;
+    specifiedFeeRate?: string;
+  }) {
+    if (!encodedTx.commitAddress || !encodedTx.commitScriptPubKey) {
+      throw new OneKeyInternalError(
+        'Commit address and scriptPubKey are required',
+      );
+    }
+
+    const revealEntry: IKaspaUnspentOutputInfo = {
+      txid: submittedTxId,
+      address: encodedTx.commitAddress,
+      vout: 0,
+      scriptPubKey: `0000${encodedTx.commitScriptPubKey}`,
+      satoshis: encodedTx.outputs[0].value,
+      blockDaaScore: MAX_UINT64_VALUE.toNumber(),
+      scriptPublicKeyVersion: 0,
+    };
+
+    const utxo = new UnspentOutput(revealEntry);
+
+    const revealTx: IEncodedTxKaspa = {
+      utxoIds: [utxo.id],
+      inputs: [revealEntry],
+      outputs: [],
+      feeInfo: {
+        price: specifiedFeeRate ?? DEFAULT_FEE_RATE.toString(),
+        limit: '0',
+      },
+      hasMaxSend: false,
+      mass: utxo.mass,
+      changeAddress: await this.getAccountAddress(),
+    };
+
+    const txn = toTransaction(revealTx);
+    const { mass } = txn.getMassAndSize();
+    if (revealTx.feeInfo) {
+      revealTx.feeInfo.limit = mass.toString();
+    }
+
+    revealTx.mass = mass;
+
+    return revealTx;
   }
 }

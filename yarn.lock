@@ -6992,6 +6992,7 @@ __metadata:
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.3"
     "@onekeyfe/coinselect": "npm:3.1.14"
     "@onekeyfe/kaspa-core-lib": "npm:^1.0.1"
+    "@real_weatherstar/kaspa-wasm": "npm:^1.0.3"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:^1.87.7"
     "@starcoin/starcoin": "npm:^2.3.7"
@@ -10946,6 +10947,13 @@ __metadata:
   peerDependencies:
     react: ^16.8.0 || ^17.0.0-rc.1 || ^18.0.0 || ^19.0.0-rc.1
   checksum: 10/359be934dda6404824479d0dfdf9e694414252da4946b4e486f3cc546a080844a7d4f20507041d3f8f6f5a316c05b28785ca3f4377a7f4ea397ed1f21c2646af
+  languageName: node
+  linkType: hard
+
+"@real_weatherstar/kaspa-wasm@npm:^1.0.3":
+  version: 1.0.3
+  resolution: "@real_weatherstar/kaspa-wasm@npm:1.0.3"
+  checksum: 10/d49be11291b84dbc3f1336b965c989ee4199bb6ada24dddd06494822ad2612178f4054355a8484c19a84e7af504aa613bcf5e46a0c8fff8750f27e471849c7df
   languageName: node
   linkType: hard
 
