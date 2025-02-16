@@ -1,41 +1,21 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import {
-  SendConfirmWithProvider,
-  SendDataInputWithProvider,
-  SendReplaceTx,
-} from '@onekeyhq/kit/src/views/Send';
+import { SendConfirmWithProvider } from '@onekeyhq/kit/src/views/Send';
 import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
-import { SendConfirmFromDApp } from '../pages/SendConfirmFromDApp/SendConfirmFromDApp';
-import { SendConfirmFromSwap } from '../pages/SendConfirmFromSwap/SendConfirmFromSwap';
 
-const LnurlPayRequestModal = LazyLoadPage(
+const SendDataInput = LazyLoadPage(
   () =>
     import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlPayRequestModal'
+      '@onekeyhq/kit/src/views/Send/pages/SendDataInput/SendDataInputContainer'
     ),
 );
 
-const LnurlWithdrawModal = LazyLoadPage(
+const SendReplaceTx = LazyLoadPage(
   () =>
     import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlWithdrawModal'
-    ),
-);
-
-const LnurlAuthModal = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Send/LnurlAuthModal'
-    ),
-);
-
-const WeblnSendPaymentModal = LazyLoadPage(
-  () =>
-    import(
-      '@onekeyhq/kit/src/views/LightningNetwork/pages/Webln/WeblnSendPaymentModal'
+      '@onekeyhq/kit/src/views/Send/pages/SendReplaceTx/SendReplaceTxContainer'
     ),
 );
 
@@ -48,13 +28,27 @@ const DeriveTypesAddress = LazyLoadPage(
     import('@onekeyhq/kit/src/views/WalletAddress/pages/DeriveTypesAddress'),
 );
 
+const SendConfirmFromDApp = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromDApp/SendConfirmFromDApp'
+    ),
+);
+
+const SendConfirmFromSwap = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Send/pages/SendConfirmFromSwap/SendConfirmFromSwap'
+    ),
+);
+
 export const ModalSendStack: IModalFlowNavigatorConfig<
   EModalSendRoutes,
   IModalSendParamList
 >[] = [
   {
     name: EModalSendRoutes.SendDataInput,
-    component: SendDataInputWithProvider,
+    component: SendDataInput,
   },
   {
     name: EModalSendRoutes.SendConfirm,
@@ -72,22 +66,7 @@ export const ModalSendStack: IModalFlowNavigatorConfig<
     name: EModalSendRoutes.SendReplaceTx,
     component: SendReplaceTx,
   },
-  {
-    name: EModalSendRoutes.LnurlPayRequest,
-    component: LnurlPayRequestModal,
-  },
-  {
-    name: EModalSendRoutes.LnurlWithdraw,
-    component: LnurlWithdrawModal,
-  },
-  {
-    name: EModalSendRoutes.LnurlAuth,
-    component: LnurlAuthModal,
-  },
-  {
-    name: EModalSendRoutes.WeblnSendPayment,
-    component: WeblnSendPaymentModal,
-  },
+  // TODO: The following two pages seem to not be referenced anywhere, consider removing them
   {
     name: EModalSendRoutes.SendSelectToken,
     component: TokenSelector,

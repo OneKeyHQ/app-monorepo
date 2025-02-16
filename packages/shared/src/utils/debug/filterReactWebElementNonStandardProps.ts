@@ -9,8 +9,10 @@ const nonStandardPropsKeys: {
     'borderCurve': true,
   },
   'div': {
+    'contentContainerStyle': true,
     'borderCurve': true,
     'delayMs': true,
+    'resizeMode': true,
     'data-on-drag-start': true,
   },
 };

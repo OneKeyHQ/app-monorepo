@@ -2,14 +2,11 @@ import { isNil, isString } from 'lodash';
 
 import { ethers } from '@onekeyhq/core/src/chains/evm/sdkEvm/ethers';
 import type { IEncodedTxEvm } from '@onekeyhq/core/src/chains/evm/types';
+import { checkIsEmptyData } from '@onekeyhq/shared/src/utils/evmUtils';
 
 export const InfiniteAmountText = 'Infinite';
 export const InfiniteAmountHex =
   '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff';
-
-export function checkIsEmptyData(data?: string) {
-  return !data || data === '0x';
-}
 
 export function checkIsEvmNativeTransfer({
   tx,

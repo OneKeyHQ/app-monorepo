@@ -43,11 +43,14 @@ export type IStakeProviderInfo = {
   nextLaunchLeft?: string;
 
   lidoStTokenRate?: string;
-  type?: 'native' | 'liquid';
+  morphoTokenRate?: string;
+  type?: 'native' | 'liquid' | 'lending';
   isStaking?: boolean;
 
   unstakingTime?: number;
   stakingTime?: number;
+
+  receiptToken?: string;
 
   // native token only
   minTransactionFee?: string;
@@ -64,6 +67,12 @@ export type IStakeProviderInfo = {
   buttonStake: boolean;
   buttonUnstake: boolean;
   alerts: string[];
+
+  // morpho
+  apys?: IRewardApys;
+  maxUnstakeAmount?: string;
+  vault?: string;
+  rewardUnit: IEarnRewardUnit;
 };
 
 export type IStakeBaseParams = {
@@ -77,6 +86,7 @@ export type IStakeBaseParams = {
   feeRate?: number;
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
+  morphoVault?: string; // morpho vault
 };
 
 export type IWithdrawBaseParams = {
@@ -89,6 +99,8 @@ export type IWithdrawBaseParams = {
   identity?: string; // sol pubkey
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
+  morphoVault?: string; // morpho vault
+  withdrawAll?: boolean;
 };
 
 export type IUnstakePushParams = {
@@ -115,6 +127,7 @@ export type IStakeClaimBaseParams = {
   provider: string;
   amount?: string;
   identity?: string;
+  claimTokenAddress?: string;
 };
 
 export type IStakeHistoryParams = {
@@ -122,6 +135,7 @@ export type IStakeHistoryParams = {
   networkId: string;
   symbol: string;
   provider: string;
+  morphoVault?: string;
 };
 
 export type IStakeHistory = {
@@ -203,6 +217,15 @@ export type IStakeTxCosmosAmino = {
   readonly memo: string;
 };
 
+export type IEarnTokenItem = {
+  balance: string;
+  balanceParsed: string;
+  fiatValue: string;
+  price: string;
+  price24h: string;
+  info: IToken;
+};
+
 export type IStakeProtocolDetails = {
   staked: string;
   stakedFiatValue: string;
@@ -216,14 +239,7 @@ export type IStakeProtocolDetails = {
   provider: IStakeProviderInfo;
   totalStaked?: string;
   stakingCap?: string;
-  token: {
-    balance: string;
-    balanceParsed: string;
-    fiatValue: string;
-    price: string;
-    price24h: string;
-    info: IToken;
-  };
+  token: IEarnTokenItem;
   network?: {
     name: string;
   };
@@ -234,6 +250,8 @@ export type IStakeProtocolDetails = {
   pendingActivatePeriod?: number;
   unstakingPeriod?: number;
   overflow?: string;
+  rewardNum?: IEarnRewardNum;
+  rewardAssets?: Record<string, IEarnTokenItem>;
 };
 
 export type IStakeProtocolListItem = {
@@ -244,6 +262,15 @@ export type IStakeProtocolListItem = {
     logoURI: string;
   };
   isEarning: boolean;
+};
+
+export type IRewardApys = {
+  rate: string;
+  rewards: Record<string, string>;
+  netApy: string;
+  dailyNetApy: string;
+  weeklyNetApy: string;
+  monthlyNetApy: string;
 };
 
 export type IBabylonPortfolioStatus =
@@ -283,6 +310,7 @@ export type IClaimableListResponse = {
 };
 
 export interface IEarnAccountToken {
+  orderIndex: number;
   networkId: string;
   name: string;
   symbol: string;
@@ -293,6 +321,7 @@ export interface IEarnAccountToken {
   balanceParsed: string;
   address: string;
   price: string;
+  rewardUnit: IEarnRewardUnit;
 }
 
 export type IEarnAccountResponse = {
@@ -300,6 +329,7 @@ export type IEarnAccountResponse = {
   totalFiatValue: string;
   earnings24h: string;
   tokens: IEarnAccountToken[];
+  canClaim: boolean;
 };
 
 export type IEarnAccount = {
@@ -310,11 +340,14 @@ export type IEarnAccount = {
 };
 
 export type IEarnAccountTokenResponse = {
+  hasClaimableAssets?: boolean;
   totalFiatValue?: string;
   earnings24h?: string;
   accounts: IEarnAccount[];
+  isOverviewLoaded?: boolean;
 };
 
+export type IEarnRewardUnit = 'APY' | 'APR';
 export type IAvailableAsset = {
   name: string;
   symbol: string;
@@ -322,6 +355,7 @@ export type IAvailableAsset = {
   apr: string;
   tags: string[];
   networkId: string;
+  rewardUnit: IEarnRewardUnit;
 };
 
 export interface IEarnAtomData {
@@ -349,6 +383,14 @@ export interface IInvestmentTokenInfo {
   networkId: string;
 }
 
+export type IEarnRewardNum = Record<
+  string,
+  {
+    claimableNow: string;
+    claimableNext: string;
+  }
+>;
+
 export interface IInvestment {
   active: string;
   claimable: string;
@@ -356,6 +398,8 @@ export interface IInvestment {
   staked: string;
   stakedFiatValue: string;
   tokenInfo: IInvestmentTokenInfo;
+  rewardNum?: IEarnRewardNum;
+  vault?: string;
 }
 export interface IEarnInvestmentItem {
   name: string;

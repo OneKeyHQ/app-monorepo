@@ -2,10 +2,17 @@ export enum EEarnProviderEnum {
   Lido = 'Lido',
   Everstake = 'Everstake',
   Babylon = 'Babylon',
+  Morpho = 'Morpho',
 }
 
 export type ISupportedSymbol =
   | 'ETH'
+  | 'USDC'
+  | 'USDT'
+  | 'DAI'
+  | 'WETH'
+  | 'cbBTC'
+  | 'WBTC'
   | 'MATIC'
   | 'SOL'
   | 'ATOM'

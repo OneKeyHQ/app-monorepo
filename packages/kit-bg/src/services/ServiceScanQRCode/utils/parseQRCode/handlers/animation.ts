@@ -1,8 +1,7 @@
 import { URDecoder, UREncoder } from '@ngraveio/bc-ur';
 
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
-
-import { EQRCodeHandlerType } from '../type';
+import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
 import type { IAnimationValue, IQRCodeHandler } from '../type';
 

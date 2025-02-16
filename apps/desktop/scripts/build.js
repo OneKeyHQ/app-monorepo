@@ -1,6 +1,7 @@
 const path = require('path');
 const childProcess = require('child_process');
 const { build } = require('esbuild');
+const glob = require('glob');
 const pkg = require('../package.json');
 
 const electronSource = path.join(__dirname, '..', 'src-electron');
@@ -13,8 +14,14 @@ const gitRevision = childProcess
 const isProduction = process.env.NODE_ENV === 'production';
 
 const hrstart = process.hrtime();
+
+// Get all .js files in service directory
+const serviceFiles = glob
+  .sync(path.join(electronSource, 'service', '*.ts'))
+  .map((name) => name.split('src-electron/').pop());
+
 build({
-  entryPoints: ['app.ts', 'preload.ts', 'service/windowsHello.ts'].map((f) =>
+  entryPoints: ['app.ts', 'preload.ts', ...serviceFiles].map((f) =>
     path.join(electronSource, f),
   ),
   platform: 'node',

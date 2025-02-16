@@ -2,15 +2,25 @@ import { Suspense, memo, useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, Toast, XStack } from '@onekeyhq/components';
+import {
+  Dialog,
+  Icon,
+  SizableText,
+  Stack,
+  Toast,
+  XStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   usePasswordBiologyAuthInfoAtom,
+  usePasswordModeAtom,
+  usePasswordPersistAtom,
   usePasswordWebAuthInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms/password';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EPasswordMode } from '@onekeyhq/shared/types/password';
 
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { UniversalContainerWithSuspense } from '../../BiologyAuthComponent/container/UniversalContainer';
@@ -69,54 +79,93 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
   const [loading, setLoading] = useState(false);
   const [{ isSupport }] = usePasswordWebAuthInfoAtom();
   const [{ isBiologyAuthSwitchOn }] = useSettingsPersistAtom();
+  const [, setPasswordPersist] = usePasswordPersistAtom();
+  const [passwordMode] = usePasswordModeAtom();
   const { setWebAuthEnable } = useWebAuthActions();
   const onSetupPassword = useCallback(
     async (data: IPasswordSetupForm) => {
-      if (data.confirmPassword !== data.password) {
+      const { confirmPassword, confirmPassCode, passwordMode: mode } = data;
+      const finalPassword =
+        mode === EPasswordMode.PASSCODE ? confirmPassCode : confirmPassword;
+      setLoading(true);
+      try {
+        if (isBiologyAuthSwitchOn && isSupport) {
+          const res = await setWebAuthEnable(true);
+          if (!res) return;
+        }
+        const encodePassword =
+          await backgroundApiProxy.servicePassword.encodeSensitiveText({
+            text: finalPassword,
+          });
+        const setUpPasswordRes =
+          await backgroundApiProxy.servicePassword.setPassword(
+            encodePassword,
+            mode,
+          );
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
+        });
+        onSetupRes(setUpPasswordRes);
+        Dialog.show({
+          title: intl.formatMessage({
+            id: ETranslations.auth_Passcode_protection,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.auth_Passcode_protection_description,
+          }),
+          renderIcon: (
+            <XStack
+              w="$14"
+              h="$14"
+              justifyContent="center"
+              alignItems="center"
+              bg="$bgCaution"
+              borderRadius="$full"
+            >
+              <Icon
+                name="QuestionmarkOutline"
+                color="$iconCaution"
+                w="$8"
+                h="$8"
+              />
+            </XStack>
+          ),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.global_enable,
+          }),
+          onConfirm: () => {
+            setPasswordPersist((v) => ({
+              ...v,
+              enablePasswordErrorProtection: true,
+            }));
+          },
+        });
+      } catch (e) {
+        console.log('e.stack', (e as Error)?.stack);
+        console.error(e);
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.auth_error_password_not_match,
+            id: ETranslations.feedback_passcode_set_failed,
           }),
         });
-      } else {
-        setLoading(true);
-        try {
-          if (isBiologyAuthSwitchOn && isSupport) {
-            const res = await setWebAuthEnable(true);
-            if (!res) return;
-          }
-          const encodePassword =
-            await backgroundApiProxy.servicePassword.encodeSensitiveText({
-              text: data.password,
-            });
-
-          const setUpPasswordRes =
-            await backgroundApiProxy.servicePassword.setPassword(
-              encodePassword,
-            );
-          onSetupRes(setUpPasswordRes);
-          Toast.success({
-            title: intl.formatMessage({ id: ETranslations.auth_password_set }),
-          });
-        } catch (e) {
-          console.log('e.stack', (e as Error)?.stack);
-          console.error(e);
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.feedback_password_set_failed,
-            }),
-          });
-        } finally {
-          setLoading(false);
-        }
+      } finally {
+        setLoading(false);
       }
     },
-    [intl, isBiologyAuthSwitchOn, isSupport, onSetupRes, setWebAuthEnable],
+    [
+      intl,
+      isBiologyAuthSwitchOn,
+      isSupport,
+      onSetupRes,
+      setPasswordPersist,
+      setWebAuthEnable,
+    ],
   );
 
   return (
     <PasswordSetup
       loading={loading}
+      passwordMode={passwordMode}
       onSetupPassword={onSetupPassword}
       biologyAuthSwitchContainer={
         <Suspense>

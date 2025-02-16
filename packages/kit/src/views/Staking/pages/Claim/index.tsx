@@ -13,6 +13,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { UniversalClaim } from '../../components/UniversalClaim';
@@ -46,9 +47,12 @@ const ClaimPage = () => {
         identity,
         symbol: tokenInfo.symbol,
         provider: provider.name,
+        morphoVault: provider.vault,
         stakingInfo: {
           label: EEarnLabels.Claim,
-          protocol: provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           receive: { token: tokenInfo, amount },
           tags: [actionTag],
@@ -77,15 +81,29 @@ const ClaimPage = () => {
   const providerLabel = useProviderLabel(provider.name);
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
       symbol: tokenInfo.symbol,
       action: 'claim',
       amount: '1',
+      morphoVault: provider.vault,
+      accountAddress: account.address,
+      identity,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol]);
+  }, [
+    accountId,
+    networkId,
+    provider.name,
+    provider.vault,
+    tokenInfo.symbol,
+    identity,
+  ]);
 
   return (
     <Page>
@@ -97,6 +115,7 @@ const ClaimPage = () => {
       />
       <Page.Body>
         <UniversalClaim
+          networkId={networkId}
           price={price}
           decimals={details.token.info.decimals}
           initialAmount={initialAmount}

@@ -1,26 +1,27 @@
-import qs from 'querystring';
-
 import BigNumber from 'bignumber.js';
-import { isNil, omit, omitBy } from 'lodash';
 
 import type { IAddressQueryResult } from '@onekeyhq/kit/src/components/AddressInput';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { parseRPCResponse } from '@onekeyhq/shared/src/request/utils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { ERequestWalletTypeEnum } from '@onekeyhq/shared/types/account';
 import type {
-  IAddressInteractionStatus,
   IFetchAccountDetailsParams,
   IFetchAccountDetailsResp,
   IQueryCheckAddressArgs,
   IServerAccountBadgeResp,
 } from '@onekeyhq/shared/types/address';
-import { EServerInteractedStatus } from '@onekeyhq/shared/types/address';
+import {
+  EAddressInteractionStatus,
+  EServerInteractedStatus,
+} from '@onekeyhq/shared/types/address';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { IResolveNameResp } from '@onekeyhq/shared/types/name';
 import type {
@@ -134,7 +135,8 @@ class ServiceAccountProfile extends ServiceBase {
     return vault.fillAccountDetails({ accountDetails });
   }
 
-  private async getAddressAccountBadge({
+  @backgroundMethod()
+  async getAddressAccountBadge({
     networkId,
     fromAddress,
     toAddress,
@@ -142,13 +144,24 @@ class ServiceAccountProfile extends ServiceBase {
     fromAddress?: string;
     networkId: string;
     toAddress: string;
-  }): Promise<{ isContract?: boolean; interacted: IAddressInteractionStatus }> {
+  }): Promise<{
+    isScam: boolean;
+    isContract: boolean;
+    isCex: boolean;
+    interacted: EAddressInteractionStatus;
+    addressLabel?: string;
+  }> {
     const isCustomNetwork =
       await this.backgroundApi.serviceNetwork.isCustomNetwork({
         networkId,
       });
     if (isCustomNetwork) {
-      return { isContract: false, interacted: 'unknown' };
+      return {
+        isScam: false,
+        isContract: false,
+        isCex: false,
+        interacted: EAddressInteractionStatus.UNKNOWN,
+      };
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
     try {
@@ -161,18 +174,36 @@ class ServiceAccountProfile extends ServiceBase {
           toAddress,
         },
       });
-      const { isContract, interacted } = resp.data.data;
+      const {
+        isContract,
+        interacted,
+        label: addressLabel,
+        isScam,
+        isCex,
+      } = resp.data.data;
       const statusMap: Record<
         EServerInteractedStatus,
-        IAddressInteractionStatus
+        EAddressInteractionStatus
       > = {
-        [EServerInteractedStatus.FALSE]: 'not-interacted',
-        [EServerInteractedStatus.TRUE]: 'interacted',
-        [EServerInteractedStatus.UNKNOWN]: 'unknown',
+        [EServerInteractedStatus.FALSE]:
+          EAddressInteractionStatus.NOT_INTERACTED,
+        [EServerInteractedStatus.TRUE]: EAddressInteractionStatus.INTERACTED,
+        [EServerInteractedStatus.UNKNOWN]: EAddressInteractionStatus.UNKNOWN,
       };
-      return { isContract, interacted: statusMap[interacted] ?? 'unknown' };
+      return {
+        isScam: isScam ?? false,
+        isContract: isContract ?? false,
+        isCex: isCex ?? false,
+        interacted: statusMap[interacted] ?? EAddressInteractionStatus.UNKNOWN,
+        addressLabel,
+      };
     } catch {
-      return { interacted: 'unknown' };
+      return {
+        isScam: false,
+        isContract: false,
+        isCex: false,
+        interacted: EAddressInteractionStatus.UNKNOWN,
+      };
     }
   }
 
@@ -199,11 +230,12 @@ class ServiceAccountProfile extends ServiceBase {
       });
       fromAddress = acc.address;
     }
-    const { isContract, interacted } = await this.getAddressAccountBadge({
-      networkId,
-      fromAddress,
-      toAddress,
-    });
+    const { isContract, interacted, addressLabel, isScam, isCex } =
+      await this.getAddressAccountBadge({
+        networkId,
+        fromAddress,
+        toAddress,
+      });
     if (
       checkInteractionStatus &&
       toAddress.toLowerCase() !== fromAddress &&
@@ -213,7 +245,10 @@ class ServiceAccountProfile extends ServiceBase {
     }
     if (checkAddressContract) {
       result.isContract = isContract;
+      result.addressLabel = addressLabel;
     }
+    result.isScam = isScam;
+    result.isCex = isCex;
   }
 
   private async verifyCannotSendToSelf({
@@ -251,11 +286,29 @@ class ServiceAccountProfile extends ServiceBase {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAllowListValidation,
     skipValidateAddress,
   }: IQueryCheckAddressArgs) {
-    const { serviceValidator } = this.backgroundApi;
-    const address = rawAddress.trim();
-    const result: IAddressQueryResult = { input: rawAddress };
+    const { serviceValidator, serviceSetting } = this.backgroundApi;
+
+    let address = rawAddress.trim();
+
+    try {
+      const { displayAddress, isValid } =
+        await this.backgroundApi.serviceValidator.localValidateAddress({
+          networkId,
+          address,
+        });
+      if (isValid) {
+        address = displayAddress;
+      }
+    } catch (e) {
+      // noop
+    }
+
+    const result: IAddressQueryResult = {
+      input: rawAddress,
+    };
     if (!networkId) {
       return result;
     }
@@ -298,15 +351,37 @@ class ServiceAccountProfile extends ServiceBase {
             : undefined,
           address: resolveAddress,
         });
-      result.addressBookName = addressBookItem?.name;
+      result.addressBookId = addressBookItem?.id;
+      result.isAllowListed = addressBookItem?.isAllowListed;
+      if (addressBookItem?.name) {
+        if (addressBookItem?.isAllowListed) {
+          result.addressBookName = `${appLocale.intl.formatMessage({
+            id: ETranslations.address_label_allowlist,
+          })} / ${addressBookItem?.name}`;
+        } else {
+          result.addressBookName = `${appLocale.intl.formatMessage({
+            id: ETranslations.global_contact,
+          })} / ${addressBookItem?.name}`;
+        }
+      }
     }
+
     if (enableWalletName && resolveAddress) {
-      // handleWalletAccountName
-      const walletAccountItems =
-        await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
-          networkId,
-          address: resolveAddress,
-        });
+      let walletAccountItems: {
+        walletName: string;
+        accountName: string;
+        accountId: string;
+      }[] = [];
+      try {
+        // handleWalletAccountName
+        walletAccountItems =
+          await this.backgroundApi.serviceAccount.getAccountNameFromAddress({
+            networkId,
+            address: resolveAddress,
+          });
+      } catch (e) {
+        console.error(e);
+      }
 
       if (walletAccountItems.length > 0) {
         let item = walletAccountItems[0];
@@ -321,16 +396,35 @@ class ServiceAccountProfile extends ServiceBase {
                 account.indexedAccountId === a.accountId ||
                 account.id === a.accountId,
             );
-
             if (accountItem) {
               item = accountItem;
+            }
+
+            // Fix the issue where an address can be both an HD/HW account and a watch-only account
+            // When an address exists in both HD/HW wallet and watch-only wallet,
+            // prioritize showing the HD/HW wallet name since it has higher security level.
+            if (
+              accountUtils.isWatchingAccount({ accountId: item.accountId }) ||
+              accountUtils.isOthersAccount({ accountId: item.accountId })
+            ) {
+              const ownAccountItem = walletAccountItems.find((a) => {
+                const accountParams = { accountId: a.accountId };
+                return (
+                  accountUtils.isHdAccount(accountParams) ||
+                  accountUtils.isHwAccount(accountParams) ||
+                  accountUtils.isQrAccount(accountParams) ||
+                  accountUtils.isImportedAccount(accountParams)
+                );
+              });
+              if (ownAccountItem) {
+                item = ownAccountItem;
+              }
             }
           }
         } catch (e) {
           console.error(e);
           // pass
         }
-
         result.walletAccountName = `${item.walletName} / ${item.accountName}`;
         result.walletAccountId = item.accountId;
       }
@@ -349,6 +443,30 @@ class ServiceAccountProfile extends ServiceBase {
         ),
         result,
       });
+    }
+
+    // Check if address is in allowlist
+    if (enableAllowListValidation) {
+      // Skip allowlist check if it's user's own account
+      if (result.walletAccountId) {
+        const accountParams = { accountId: result.walletAccountId };
+        const isOwnAccount =
+          accountUtils.isHdAccount(accountParams) ||
+          accountUtils.isHwAccount(accountParams) ||
+          accountUtils.isQrAccount(accountParams) ||
+          accountUtils.isImportedAccount(accountParams);
+        if (isOwnAccount) {
+          return result;
+        }
+      }
+
+      // Check if address is in allowlist when allowlist feature is enabled
+      const isEnableTransferAllowList =
+        await serviceSetting.getIsEnableTransferAllowList();
+      if (isEnableTransferAllowList && !result.isAllowListed) {
+        result.validStatus = 'address-not-allowlist';
+        return result;
+      }
     }
     return result;
   }

@@ -14,6 +14,7 @@ import { Tooltip } from '../Tooltip';
 import type { IButtonProps, IIconProps, IKeyOfIcons } from '../../primitives';
 import type { ITooltipProps } from '../Tooltip';
 import type { GestureResponderEvent } from 'react-native';
+import type { TooltipProps } from 'tamagui';
 
 export interface IIconButtonProps
   extends Omit<IButtonProps, 'iconAfter' | 'children' | 'icon'> {
@@ -24,6 +25,7 @@ export interface IIconButtonProps
   // Allow triggering via the Enter or Space key.
   hotKey?: boolean;
   titlePlacement?: ITooltipProps['placement'];
+  tooltipProps?: TooltipProps;
 }
 
 const sizes = {
@@ -56,6 +58,7 @@ export const IconButton = (props: IIconButtonProps) => {
     variant = 'secondary',
     hotKey = false,
     titlePlacement = 'top',
+    tooltipProps,
     ...rest
   } = props;
 
@@ -116,6 +119,7 @@ export const IconButton = (props: IIconButtonProps) => {
         renderContent={title}
         placement={titlePlacement}
         {...(variant === 'tertiary' && { offset: 12 })}
+        {...tooltipProps}
       />
     );
   }

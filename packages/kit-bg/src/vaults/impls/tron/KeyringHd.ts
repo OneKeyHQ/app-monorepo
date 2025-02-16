@@ -1,5 +1,4 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { decrypt, ed25519 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 
@@ -27,6 +26,9 @@ export class KeyringHd extends KeyringHdBase {
   override async prepareAccounts(
     params: IPrepareHdAccountsParams,
   ): Promise<IDBAccount[]> {
+    // if (params) {
+    //   throw new Error('Tron HD Account is not supported');
+    // }
     return this.basePrepareAccountsHd(params);
   }
 

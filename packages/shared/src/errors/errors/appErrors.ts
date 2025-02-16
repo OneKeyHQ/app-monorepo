@@ -24,7 +24,7 @@ export class IncorrectPassword extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'OneKeyError: IncorrectPassword',
-        defaultKey: ETranslations.auth_error_password_incorrect,
+        defaultKey: ETranslations.auth_error_passcode_incorrect,
       }),
     );
   }
@@ -106,6 +106,28 @@ export class OneKeyErrorScanQrCodeCancel extends OneKeyError {
   override className = EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel;
 }
 
+export class OneKeyErrorPrimeLoginInvalidToken extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Prime login invalid, please login again',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
+export class OneKeyErrorPrimeLoginExceedDeviceLimit extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Prime exceed device limit',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
 export class OneKeyInternalError extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -142,6 +164,19 @@ export class PasswordPromptDialogCancel extends OneKeyError {
   override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
 }
 
+export class PrimeLoginDialogCancelError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeLoginDialogCancelError',
+        defaultKey: ETranslations.global_cancel,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PrimeLoginDialogCancelError;
+}
+
 export class FailedToTransfer extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
@@ -169,8 +204,8 @@ export class WrongPassword extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'WrongPassword',
-        defaultKey: ETranslations.send_engine_incorrect_password,
-        defaultAutoToast: true,
+        defaultKey: ETranslations.send_engine_incorrect_passcode,
+        defaultAutoToast: false,
       }),
     );
   }
@@ -191,12 +226,24 @@ export class SecureQRCodeDialogCancel extends OneKeyError {
     EOneKeyErrorClassNames.SecureQRCodeDialogCancel;
 }
 
+export class PreCheckBeforeSendingCancelError extends OneKeyError {
+  constructor(props?: IOneKeyError) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PreCheckBeforeSendingCancelError',
+        defaultKey: ETranslations.global_cancel,
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
 export class PasswordNotSet extends OneKeyError {
   constructor(props?: IOneKeyError) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordNotSet',
-        defaultKey: ETranslations.send_engine_password_not_set,
+        defaultKey: ETranslations.send_engine_passcode_not_set,
         defaultAutoToast: true,
       }),
     );
@@ -208,7 +255,7 @@ export class PasswordStrengthValidationFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordStrengthValidationFailed',
-        defaultKey: ETranslations.send_password_validation,
+        defaultKey: ETranslations.send_passcode_validation,
       }),
     );
   }
@@ -219,7 +266,7 @@ export class PasswordUpdateSameFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordUpdateSameFailed',
-        defaultKey: ETranslations.auth_error_password_incorrect,
+        defaultKey: ETranslations.auth_error_passcode_incorrect,
       }),
     );
   }
@@ -241,7 +288,7 @@ export class PasswordAlreadySetFailed extends OneKeyError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'PasswordAlreadySetFaield',
-        defaultKey: ETranslations.auth_error_password_incorrect,
+        defaultKey: ETranslations.auth_error_passcode_incorrect,
       }),
     );
   }
@@ -319,6 +366,30 @@ export class InvalidAccount extends OneKeyError {
         defaultMessage: 'InvalidAccount',
         defaultKey: ETranslations.send_engine_account_not_activated,
       }),
+    );
+  }
+}
+
+export type INetworkFeeInsufficientInfo = {
+  symbol: string;
+};
+
+export class NetworkFeeInsufficient extends OneKeyError<INetworkFeeInsufficientInfo> {
+  constructor(props?: IOneKeyError<INetworkFeeInsufficientInfo>) {
+    super(
+      normalizeErrorProps(
+        {
+          ...props,
+          info: {
+            'crypto': props?.info?.symbol,
+          },
+        },
+        {
+          defaultMessage: 'NetworkFeeInsufficient',
+          defaultKey:
+            ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
+        },
+      ),
     );
   }
 }

@@ -1,44 +1,44 @@
-import {
-  type ComponentProps,
-  type FC,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import type { ComponentProps, FC } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import type { TextArea } from '@onekeyhq/components';
 import {
   Badge,
+  Form,
   Icon,
   IconButton,
-  Popover,
   Select,
-  SizableText,
   Spinner,
   Stack,
   XStack,
+  useFormContext,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import { EModalAddressBookRoutes } from '@onekeyhq/shared/src/routes/addressBook';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { EAddressInteractionStatus } from '@onekeyhq/shared/types/address';
 import type {
   EInputAddressChangeType,
-  IAddressInteractionStatus,
   IAddressValidateStatus,
   IQueryCheckAddressArgs,
 } from '@onekeyhq/shared/types/address';
 
-import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { AddressBadge } from '../AddressBadge';
 import { BaseInput } from '../BaseInput';
 
+import { AddressInputContext } from './AddressInputContext';
+import { renderAddressInputHyperlinkText } from './AddressInputHyperlinkText';
+import { useIsEnableTransferAllowList } from './hooks';
 import { ClipboardPlugin } from './plugins/clipboard';
 import { ScanPlugin } from './plugins/scan';
 import { SelectorPlugin } from './plugins/selector';
@@ -94,100 +94,6 @@ const ResolvedAddress: FC<IResolvedAddressProps> = ({
   );
 };
 
-type IAddressInteractionStatusProps = {
-  status?: IAddressInteractionStatus;
-  networkId: string;
-};
-
-const AddressInteractionStatus: FC<IAddressInteractionStatusProps> = ({
-  status,
-  networkId,
-}) => {
-  const intl = useIntl();
-  const { result } = usePromiseResult(
-    () => backgroundApiProxy.serviceNetwork.getNetworkSafe({ networkId }),
-    [networkId],
-  );
-  if (status === 'not-interacted') {
-    return (
-      <Popover
-        placement="bottom-start"
-        title={intl.formatMessage({
-          id: ETranslations.send_label_first_transfer,
-        })}
-        renderTrigger={
-          <Badge badgeType="warning" badgeSize="sm">
-            {intl.formatMessage({
-              id: ETranslations.send_label_first_transfer,
-            })}
-          </Badge>
-        }
-        renderContent={() => (
-          <Stack gap="$4" p="$4">
-            <SizableText size="$bodyMd">
-              {intl.formatMessage(
-                {
-                  id: ETranslations.address_input_first_transfer_popover,
-                },
-                { network: result?.name ?? '' },
-              )}
-            </SizableText>
-          </Stack>
-        )}
-      />
-    );
-  }
-  if (status === 'interacted') {
-    return (
-      <Popover
-        placement="bottom-start"
-        title={intl.formatMessage({
-          id: ETranslations.send_label_transferred,
-        })}
-        renderTrigger={
-          <Badge badgeType="success" badgeSize="sm">
-            {intl.formatMessage({ id: ETranslations.send_label_transferred })}
-          </Badge>
-        }
-        renderContent={() => (
-          <Stack gap="$4" p="$4">
-            <SizableText size="$bodyMd">
-              {intl.formatMessage({
-                id: ETranslations.address_input_transferred_popover,
-              })}
-            </SizableText>
-          </Stack>
-        )}
-      />
-    );
-  }
-  return null;
-};
-
-const AddressContractStatus = ({ isContract }: { isContract?: boolean }) => {
-  const intl = useIntl();
-  return isContract ? (
-    <Popover
-      title={intl.formatMessage({ id: ETranslations.global_contract })}
-      placement="bottom-start"
-      renderTrigger={
-        <Badge badgeType="critical" badgeSize="sm">
-          {intl.formatMessage({ id: ETranslations.global_contract })}
-        </Badge>
-      }
-      renderContent={() => (
-        <Stack gap="$4" p="$4">
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.address_input_contract_popover,
-            })}
-          </SizableText>
-        </Stack>
-      )}
-    />
-  ) : null;
-};
-
 export type IAddressInputValue = {
   raw?: string;
   resolved?: string;
@@ -196,6 +102,7 @@ export type IAddressInputValue = {
   validateError?: {
     type?: Exclude<IAddressValidateStatus, 'valid'>;
     message?: string;
+    translationId?: ETranslations;
   };
 };
 
@@ -230,6 +137,7 @@ type IAddressInputProps = Omit<
   enableAddressContract?: boolean;
   enableAddressInteractionStatus?: boolean; // for check address interaction
   enableVerifySendFundToSelf?: boolean; // To verify whether funds can be sent to one's own address.
+  enableAllowListValidation?: boolean; // Check address if it is on the allow list.
 
   onInputTypeChange?: (type: EInputAddressChangeType) => void;
 };
@@ -239,11 +147,17 @@ export type IAddressQueryResult = {
   validStatus?: IAddressValidateStatus;
   walletAccountName?: string;
   walletAccountId?: string; // accountId or indexedAccountId
+  addressBookId?: string;
   addressBookName?: string;
   resolveAddress?: string;
   resolveOptions?: string[];
-  addressInteractionStatus?: IAddressInteractionStatus;
+  addressInteractionStatus?: EAddressInteractionStatus;
   isContract?: boolean;
+  addressLabel?: string;
+  isAllowListed?: boolean;
+  isEnableTransferAllowList?: boolean;
+  isScam?: boolean;
+  isCex?: boolean;
 };
 
 type IAddressInputBadgeGroupProps = {
@@ -273,17 +187,17 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
     return (
       <XStack gap="$2" my="$-1" flex={1} flexWrap="wrap">
         {result.walletAccountName ? (
-          <Badge badgeType="success" badgeSize="sm" my="$0.5">
+          <Badge badgeType="success" badgeSize="sm" mx="$0.5">
             {result.walletAccountName}
           </Badge>
         ) : null}
         {result.addressBookName ? (
-          <Badge badgeType="success" badgeSize="sm" my="$0.5">
+          <Badge badgeType="success" badgeSize="sm" mx="$0.5">
             {result.addressBookName}
           </Badge>
         ) : null}
         {result.resolveAddress ? (
-          <Stack my="$0.5">
+          <Stack mx="$0.5">
             <ResolvedAddress
               value={result.resolveAddress}
               options={result.resolveOptions ?? []}
@@ -291,12 +205,17 @@ function AddressInputBadgeGroup(props: IAddressInputBadgeGroupProps) {
             />
           </Stack>
         ) : null}
-        <XStack my="$0.5" gap="$1">
-          <AddressInteractionStatus
+        <AddressBadge isScam={result.isScam} />
+        <XStack mx="$0.5" gap="$1">
+          <AddressBadge
             status={result.addressInteractionStatus}
             networkId={networkId}
           />
-          <AddressContractStatus isContract={result.isContract} />
+          <AddressBadge isCex={result.isCex} title={result.addressLabel} />
+          <AddressBadge
+            isContract={result.isContract}
+            title={result.addressLabel}
+          />
         </XStack>
       </XStack>
     );
@@ -316,6 +235,58 @@ export const createValidateAddressRule =
     return undefined;
   };
 
+function AddressInputWarnings({
+  queryResult,
+  networkId,
+}: {
+  queryResult: IAddressQueryResult;
+  networkId: string;
+}) {
+  const isEnableTransferAllowList = useIsEnableTransferAllowList();
+
+  const isShowTransferredAddressAddWarning = useMemo(
+    () =>
+      !isEnableTransferAllowList &&
+      queryResult?.input?.length &&
+      !queryResult?.addressBookId &&
+      !queryResult?.walletAccountId &&
+      queryResult?.addressInteractionStatus ===
+        EAddressInteractionStatus.INTERACTED,
+    [
+      isEnableTransferAllowList,
+      queryResult?.addressBookId,
+      queryResult?.addressInteractionStatus,
+      queryResult?.input?.length,
+      queryResult?.walletAccountId,
+    ],
+  );
+  const navigation = useAppNavigation();
+  const onAction = useCallback(
+    (actionId: string) => {
+      if (actionId === 'to_edit_address_book_page') {
+        navigation.pushModal(EModalRoutes.AddressBookModal, {
+          screen: EModalAddressBookRoutes.EditItemModal,
+          params: {
+            address: queryResult?.input ?? '',
+            networkId,
+            isAllowListed: isEnableTransferAllowList,
+          },
+        });
+      }
+    },
+    [isEnableTransferAllowList, navigation, networkId, queryResult?.input],
+  );
+  return isShowTransferredAddressAddWarning ? (
+    <HyperlinkText
+      pt="$1.5"
+      translationId={ETranslations.send_transferred_address_add}
+      onAction={onAction}
+      color="$textSubdued"
+      size="$bodyMd"
+    />
+  ) : null;
+}
+
 export function AddressInput(props: IAddressInputProps) {
   const {
     name = '',
@@ -334,6 +305,7 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAllowListValidation,
     onInputTypeChange,
     ...rest
   } = props;
@@ -390,6 +362,7 @@ export function AddressInput(props: IAddressInputProps) {
     300,
   );
 
+  // Query address validation when text changes
   useEffect(() => {
     void queryAddress({
       address: inputText,
@@ -401,6 +374,7 @@ export function AddressInput(props: IAddressInputProps) {
       enableWalletName,
       enableVerifySendFundToSelf,
       enableAddressContract,
+      enableAllowListValidation,
     });
   }, [
     inputText,
@@ -412,8 +386,48 @@ export function AddressInput(props: IAddressInputProps) {
     enableAddressInteractionStatus,
     enableAddressContract,
     enableVerifySendFundToSelf,
+    enableAllowListValidation,
     refreshNum,
     queryAddress,
+  ]);
+
+  // When focus state changes, re-query address validation
+  // Store previous focus state for comparison
+  const prevIsFocused = useRef<boolean | undefined>();
+  const isFocused = useIsFocused();
+  useEffect(() => {
+    if (
+      prevIsFocused.current !== undefined &&
+      prevIsFocused.current !== isFocused
+    ) {
+      void queryAddress({
+        address: inputText,
+        networkId,
+        accountId,
+        enableAddressBook,
+        enableAddressInteractionStatus,
+        enableNameResolve,
+        enableWalletName,
+        enableVerifySendFundToSelf,
+        enableAddressContract,
+        enableAllowListValidation,
+      });
+    }
+    prevIsFocused.current = isFocused;
+  }, [
+    inputText,
+    networkId,
+    accountId,
+    enableNameResolve,
+    enableAddressBook,
+    enableWalletName,
+    enableAddressInteractionStatus,
+    enableAddressContract,
+    enableVerifySendFundToSelf,
+    enableAllowListValidation,
+    refreshNum,
+    queryAddress,
+    isFocused,
   ]);
 
   const getValidateMessage = useCallback(
@@ -421,21 +435,16 @@ export function AddressInput(props: IAddressInputProps) {
       if (!status) return;
       const message: Record<
         Exclude<IAddressValidateStatus, 'valid'>,
-        string
+        ETranslations
       > = {
-        'unknown': intl.formatMessage({
-          id: ETranslations.send_check_request_error,
-        }),
-        'prohibit-send-to-self': intl.formatMessage({
-          id: ETranslations.send_cannot_send_to_self,
-        }),
-        'invalid': intl.formatMessage({
-          id: ETranslations.send_address_invalid,
-        }),
-      };
+        'unknown': ETranslations.send_check_request_error,
+        'prohibit-send-to-self': ETranslations.send_cannot_send_to_self,
+        'invalid': ETranslations.send_address_invalid,
+        'address-not-allowlist': ETranslations.send_address_not_allowlist_error,
+      } as const;
       return message[status];
     },
-    [intl],
+    [],
   );
 
   useEffect(() => {
@@ -449,12 +458,14 @@ export function AddressInput(props: IAddressInputProps) {
         isContract: queryResult.isContract,
       });
     } else {
+      const translationId = getValidateMessage(queryResult.validStatus);
       onChange?.({
         raw: queryResult.input,
         pending: false,
         validateError: {
           type: queryResult.validStatus,
-          message: getValidateMessage(queryResult.validStatus),
+          translationId,
+          message: intl.formatMessage({ id: translationId }),
         },
         isContract: queryResult.isContract,
       });
@@ -490,7 +501,7 @@ export function AddressInput(props: IAddressInputProps) {
             <ClipboardPlugin
               onInputTypeChange={onInputTypeChange}
               onChange={onChangeText}
-              testID={`${rest.testID ?? ''}-clip`}
+              testID={rest.testID ? `${rest.testID}-clip` : undefined}
             />
           ) : null}
           {scan ? (
@@ -498,7 +509,7 @@ export function AddressInput(props: IAddressInputProps) {
               onInputTypeChange={onInputTypeChange}
               sceneName={scan.sceneName}
               onChange={onChangeText}
-              testID={`${rest.testID ?? ''}-scan`}
+              testID={rest.testID ? `${rest.testID}-scan` : undefined}
             />
           ) : null}
           {contacts || accountSelector ? (
@@ -513,7 +524,7 @@ export function AddressInput(props: IAddressInputProps) {
               onBeforeAccountSelectorOpen={
                 accountSelector?.onBeforeAccountSelectorOpen
               }
-              testID={`${rest.testID ?? ''}-selector`}
+              testID={rest.testID ? `${rest.testID}-selector` : undefined}
             />
           ) : null}
         </XStack>
@@ -548,12 +559,67 @@ export function AddressInput(props: IAddressInputProps) {
   }, [intl, networkId]);
 
   return (
-    <BaseInput
-      value={inputText}
-      onChangeText={onChangeText}
-      placeholder={placeholder ?? getAddressInputPlaceholder}
-      extension={AddressInputExtension}
-      {...rest}
-    />
+    <>
+      <BaseInput
+        value={inputText}
+        onChangeText={onChangeText}
+        placeholder={placeholder ?? getAddressInputPlaceholder}
+        extension={AddressInputExtension}
+        {...rest}
+      />
+      <AddressInputWarnings queryResult={queryResult} networkId={networkId} />
+    </>
+  );
+}
+
+export function AddressInputField(
+  props: IAddressInputProps & { name: string },
+) {
+  const intl = useIntl();
+  const { enableAllowListValidation, networkId, accountId, name } = props;
+  const contextValue = useMemo(
+    () => ({
+      name,
+      networkId,
+      accountId,
+    }),
+    [accountId, name, networkId],
+  );
+
+  return (
+    <AddressInputContext.Provider value={contextValue}>
+      <Form.Field
+        label={intl.formatMessage({ id: ETranslations.global_recipient })}
+        name={name}
+        renderErrorMessage={
+          enableAllowListValidation
+            ? renderAddressInputHyperlinkText
+            : undefined
+        }
+        rules={{
+          required: true,
+          validate: (value: IAddressInputValue) => {
+            if (value.pending) {
+              return;
+            }
+            if (!value.resolved) {
+              return enableAllowListValidation
+                ? // Use translationId for error message formatting if available, therwise use direct message
+                  value.validateError?.translationId ||
+                    value.validateError?.message ||
+                    intl.formatMessage({
+                      id: ETranslations.send_address_invalid,
+                    })
+                : value.validateError?.message ||
+                    intl.formatMessage({
+                      id: ETranslations.send_address_invalid,
+                    });
+            }
+          },
+        }}
+      >
+        <AddressInput {...props} />
+      </Form.Field>
+    </AddressInputContext.Provider>
   );
 }

@@ -1,5 +1,4 @@
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
-import { decrypt } from '@onekeyhq/core/src/secret';
 import type { ISignedMessagePro, ISignedTxPro } from '@onekeyhq/core/src/types';
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
 

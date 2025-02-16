@@ -66,7 +66,7 @@ const SetPasswordItem = () => {
         void backgroundApiProxy.servicePassword.promptPasswordVerify();
       }}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: ETranslations.global_set_password })}
+      title={intl.formatMessage({ id: ETranslations.global_set_passcode })}
       drillIn
     />
   );
@@ -80,7 +80,7 @@ const ChangePasswordItem = () => {
         reason: EReasonForNeedPassword.Security,
       });
     const dialog = Dialog.show({
-      title: intl.formatMessage({ id: ETranslations.global_change_password }),
+      title: intl.formatMessage({ id: ETranslations.global_change_passcode }),
       renderContent: (
         <PasswordUpdateContainer
           oldEncodedPassword={oldEncodedPassword.password}
@@ -98,7 +98,7 @@ const ChangePasswordItem = () => {
     <ListItem
       onPress={onPress}
       icon="KeyOutline"
-      title={intl.formatMessage({ id: ETranslations.global_change_password })}
+      title={intl.formatMessage({ id: ETranslations.global_change_passcode })}
       drillIn
     />
   );
@@ -111,7 +111,7 @@ const PasswordItem = () => {
 
 const FaceIdItem = () => {
   const [{ isPasswordSet }] = usePasswordPersistAtom();
-  const [{ isSupport: biologyAuthIsSupport, authType }] =
+  const [{ isSupport: biologyAuthIsSupport }] =
     usePasswordBiologyAuthInfoAtom();
   const [{ isSupport: webAuthIsSupport }] = usePasswordWebAuthInfoAtom();
   const { title, icon } = useBiometricAuthInfo();
@@ -125,20 +125,19 @@ const FaceIdItem = () => {
 
 const ProtectionItem = () => {
   const intl = useIntl();
-  const [{ isPasswordSet }] = usePasswordPersistAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSettingParamList>>();
   const onPress = useCallback(() => {
     navigation.push(EModalSettingRoutes.SettingProtectModal);
   }, [navigation]);
-  return isPasswordSet ? (
+  return (
     <ListItem
       onPress={onPress}
       icon="ShieldCheckDoneOutline"
       title={intl.formatMessage({ id: ETranslations.settings_protection })}
       drillIn
     />
-  ) : null;
+  );
 };
 
 const ConnectedSitesItem = () => {

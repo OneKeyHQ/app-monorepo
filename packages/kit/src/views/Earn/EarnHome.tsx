@@ -46,6 +46,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type {
   IEarnAccount,
   IEarnAccountToken,
+  IEarnRewardUnit,
 } from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
@@ -65,7 +66,13 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
-const buildAprText = (apr: string) => (apr.endsWith('%') ? `${apr} APR` : apr);
+const BANNER_ICON_OFFSET = 34;
+const BANNER_TITLE_OFFSET = {
+  desktop: '$5',
+  mobile: '$10',
+};
+
+const buildAprText = (apr: string, unit: IEarnRewardUnit) => `${apr} ${unit}`;
 const getNumberColor = (
   value: string | number,
   defaultColor: ISizableTextProps['color'] = '$textSuccess',
@@ -206,12 +213,10 @@ function RecommendedItem({
             </Image.Fallback>
           </Image>
         </YStack>
-        <SizableText size="$bodyLgMedium">
-          {token.symbol.toUpperCase()}
-        </SizableText>
+        <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
-        {buildAprText(token.apr)}
+        {buildAprText(token.apr, token.rewardUnit)}
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
         {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
@@ -219,7 +224,7 @@ function RecommendedItem({
           size="$bodyMd"
           color="$textSubdued"
           formatter="balance"
-          formatterOptions={{ tokenSymbol: token.symbol.toUpperCase() }}
+          formatterOptions={{ tokenSymbol: token.symbol }}
         >
           {token.balanceParsed}
         </NumberSizeableText>
@@ -312,7 +317,7 @@ function Recommended({
       });
     });
     return {
-      tokens: accountTokens,
+      tokens: accountTokens.sort((a, b) => a.orderIndex - b.orderIndex),
       profit: totalProfit,
     };
   }, [earnAccount, totalFiatMapKey]);
@@ -359,7 +364,15 @@ function Recommended({
   return null;
 }
 
-function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
+function Overview({
+  isFetchingAccounts,
+  isLoading,
+  onRefresh,
+}: {
+  isFetchingAccounts: boolean;
+  isLoading: boolean;
+  onRefresh: () => void;
+}) {
   const {
     activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
@@ -378,6 +391,14 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
     () => earnAccount?.[totalFiatMapKey]?.earnings24h || '0',
     [earnAccount, totalFiatMapKey],
   );
+  const hasClaimableAssets = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.hasClaimableAssets || false,
+    [earnAccount, totalFiatMapKey],
+  );
+  const isOverviewLoaded = useMemo(
+    () => earnAccount?.[totalFiatMapKey]?.isOverviewLoaded || false,
+    [earnAccount, totalFiatMapKey],
+  );
   const navigation = useAppNavigation();
   const onPress = useCallback(() => {
     navigation.pushModal(EModalRoutes.StakingModal, {
@@ -388,6 +409,7 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
   return (
     <YStack
       gap="$1"
+      px="$5"
       $gtLg={{
         flexDirection: 'row',
         alignItems: 'center',
@@ -412,15 +434,23 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
         >
           {intl.formatMessage({ id: ETranslations.earn_total_staked_value })}
         </SizableText>
-        <NumberSizeableText
-          size="$heading5xl"
-          formatter="price"
-          color={getNumberColor(totalFiatValue, '$text')}
-          formatterOptions={{ currency: settings.currencyInfo.symbol }}
-          numberOfLines={1}
-        >
-          {totalFiatValue}
-        </NumberSizeableText>
+        <XStack gap="$3" ai="center">
+          <NumberSizeableText
+            size="$heading5xl"
+            formatter="price"
+            color={getNumberColor(totalFiatValue, '$text')}
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            numberOfLines={1}
+          >
+            {totalFiatValue}
+          </NumberSizeableText>
+          <IconButton
+            icon="RefreshCcwOutline"
+            variant="tertiary"
+            loading={isLoading}
+            onPress={onRefresh}
+          />
+        </XStack>
       </YStack>
       {/* 24h earnings */}
       <XStack
@@ -481,20 +511,30 @@ function Overview({ isFetchingAccounts }: { isFetchingAccounts: boolean }) {
       </XStack>
 
       {/* details button */}
-      {isFetchingAccounts ? null : (
+      {!isOverviewLoaded ? null : (
         <Button
+          childrenAsText={!hasClaimableAssets}
           onPress={onPress}
           variant="tertiary"
           iconAfter="ChevronRightOutline"
           position="absolute"
+          jc="center"
           top={0}
-          right={0}
+          right="$4"
           $gtLg={{
             right: '$8',
             top: '$8',
           }}
         >
-          {intl.formatMessage({ id: ETranslations.global_details })}
+          {hasClaimableAssets ? (
+            <Badge badgeType="info" badgeSize="sm" userSelect="none">
+              <Badge.Text>
+                {intl.formatMessage({ id: ETranslations.earn_claimable })}
+              </Badge.Text>
+            </Badge>
+          ) : (
+            intl.formatMessage({ id: ETranslations.global_details })
+          )}
         </Button>
       )}
     </YStack>
@@ -535,7 +575,10 @@ function AvailableAssets() {
           }}
         >
           {assets.map(
-            ({ name, logoURI, apr, networkId, symbol, tags = [] }, index) => (
+            (
+              { name, logoURI, apr, networkId, symbol, rewardUnit, tags = [] },
+              index,
+            ) => (
               <ListItem
                 userSelect="none"
                 key={name}
@@ -578,12 +621,12 @@ function AvailableAssets() {
                   flexBasis={0}
                   primary={
                     <XStack gap="$2" alignItems="center">
-                      <SizableText size="$bodyLgMedium">{name}</SizableText>
+                      <SizableText size="$bodyLgMedium">{symbol}</SizableText>
                       <XStack gap="$1">
                         {tags.map((tag) => (
                           <Badge
                             key={tag}
-                            badgeType="critical"
+                            badgeType="success"
                             badgeSize="sm"
                             userSelect="none"
                           >
@@ -599,7 +642,7 @@ function AvailableAssets() {
                     flexGrow: 1,
                     flexBasis: 0,
                   }}
-                  primary={buildAprText(apr)}
+                  primary={buildAprText(apr, rewardUnit)}
                 />
               </ListItem>
             ),
@@ -624,7 +667,11 @@ function BasicEarnHome() {
   const intl = useIntl();
   const media = useMedia();
   const actions = useEarnActions();
-  const { isLoading: isFetchingAccounts, result } = usePromiseResult(
+  const {
+    isLoading: isFetchingAccounts,
+    result,
+    run: refreshOverViewData,
+  } = usePromiseResult(
     async () => {
       const totalFiatMapKey = actions.current.buildEarnAccountsKey(
         account?.id,
@@ -645,7 +692,6 @@ function BasicEarnHome() {
       const fetchAndUpdateAction = async () => {
         const earnAccount =
           await backgroundApiProxy.serviceStaking.fetchAllNetworkAssets({
-            assets,
             accountId: account?.id ?? '',
             networkId: network?.id ?? '',
           });
@@ -671,18 +717,20 @@ function BasicEarnHome() {
           earnAccount: {
             accounts: earnAccountData?.accounts || [],
             ...overviewData,
+            isOverviewLoaded: true,
           },
         });
       };
       const earnAccountData = actions.current.getEarnAccount(totalFiatMapKey);
-      if (earnAccountData) {
-        setTimeout(() => {
-          void fetchAndUpdateOverview();
-          void fetchAndUpdateAction();
-        });
-      } else {
+      const fetchData = async () => {
         await fetchAndUpdateAction();
-        void fetchAndUpdateOverview();
+        await fetchAndUpdateOverview();
+      };
+      if (earnAccountData) {
+        await timerUtils.wait(350);
+        void fetchData();
+      } else {
+        await fetchData();
       }
       return { loaded: true };
     },
@@ -810,11 +858,11 @@ function BasicEarnHome() {
           isLoading={false}
           leftIconButtonStyle={{
             ...bannerIconStyle,
-            left: '$3.5',
+            left: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
           }}
           rightIconButtonStyle={{
             ...bannerIconStyle,
-            right: '$3.5',
+            right: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
           }}
           indicatorContainerStyle={{
             right: 0,
@@ -822,11 +870,14 @@ function BasicEarnHome() {
             jc: 'center',
             bottom: '$5',
           }}
+          itemContainerStyle={media.gtLg ? { px: 0 } : { px: '$5' }}
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
             right: '$5',
-            left: '$5',
+            left: media.gtLg
+              ? BANNER_TITLE_OFFSET.desktop
+              : BANNER_TITLE_OFFSET.mobile,
             justifyContent: 'center',
           }}
         />
@@ -841,7 +892,7 @@ function BasicEarnHome() {
         width="100%"
       />
     );
-  }, [earnBanners, onBannerPress]);
+  }, [earnBanners, media.gtLg, onBannerPress]);
 
   return (
     <Page fullPage>
@@ -855,13 +906,15 @@ function BasicEarnHome() {
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
             {/* overview and banner */}
             <YStack
-              px="$5"
               gap="$8"
               $gtLg={{
+                px: '$5',
                 flexDirection: 'row',
               }}
             >
               <Overview
+                onRefresh={refreshOverViewData}
+                isLoading={!!isFetchingAccounts}
                 isFetchingAccounts={Boolean(
                   result === undefined || !!isFetchingAccounts,
                 )}

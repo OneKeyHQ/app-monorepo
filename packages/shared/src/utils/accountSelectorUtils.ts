@@ -157,6 +157,23 @@ function isSceneUseGlobalDeriveType({
   return true;
 }
 
+function isSceneAutoSaveToGlobalDeriveType({
+  sceneName,
+}: {
+  sceneName: EAccountSelectorSceneName | undefined;
+}) {
+  if (
+    sceneName &&
+    [
+      EAccountSelectorSceneName.discover,
+      EAccountSelectorSceneName.addressInput,
+    ].includes(sceneName)
+  ) {
+    return false;
+  }
+  return true;
+}
+
 export default {
   isEqualAccountSelectorScene,
   buildAccountSelectorSaveKey,
@@ -166,4 +183,5 @@ export default {
   isSceneCanAutoSelect,
   isSceneCanPersist,
   isSceneUseGlobalDeriveType,
+  isSceneAutoSaveToGlobalDeriveType,
 };

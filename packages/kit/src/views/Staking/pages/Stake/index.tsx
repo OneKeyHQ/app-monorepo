@@ -16,6 +16,7 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import { formatMillisecondsToBlocks } from '@onekeyhq/shared/src/utils/dateUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
@@ -81,17 +82,24 @@ function BasicStakePage() {
     async (amount: string) => {
       await handleStake({
         amount,
-        symbol: tokenInfo.symbol.toUpperCase(),
+        symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Stake,
-          protocol: provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           send: { token: tokenInfo, amount },
           tags: [actionTag],
         },
         term: btcStakingTerm,
         feeRate: Number(btcFeeRate) > 0 ? Number(btcFeeRate) : undefined,
+        morphoVault: earnUtils.isMorphoProvider({
+          providerName: provider.name,
+        })
+          ? provider.vault
+          : undefined,
         onSuccess: async (txs) => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({
@@ -143,20 +151,50 @@ function BasicStakePage() {
   }, [provider]);
 
   const showEstReceive = useMemo<boolean>(
-    () => provider.name.toLowerCase() === EEarnProviderEnum.Lido.toLowerCase(),
+    () =>
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      }) ||
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      }),
     [provider],
   );
 
+  const estReceiveTokenRate = useMemo(() => {
+    if (
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.lidoStTokenRate;
+    }
+    if (
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.morphoTokenRate;
+    }
+    return '1';
+  }, [provider]);
+
   const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
       symbol: tokenInfo.symbol,
       action: 'stake',
       amount: '1',
+      morphoVault: provider.vault,
+      accountAddress: account.address,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol]);
+  }, [accountId, networkId, provider.name, provider.vault, tokenInfo.symbol]);
 
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {
@@ -193,7 +231,7 @@ function BasicStakePage() {
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
-          { id: ETranslations.earn_stake_token },
+          { id: ETranslations.earn_earn_token },
           { 'token': tokenInfo.symbol },
         )}
       />
@@ -222,7 +260,7 @@ function BasicStakePage() {
           isDisabled={isReachBabylonCap}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
-          estReceiveTokenRate={provider.lidoStTokenRate}
+          estReceiveTokenRate={estReceiveTokenRate}
           onConfirm={onConfirm}
           minTransactionFee={provider.minTransactionFee}
           estimateFeeResp={estimateFeeResp}

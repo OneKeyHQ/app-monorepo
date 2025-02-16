@@ -2,24 +2,36 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
+  IconButton,
   NumberSizeableText,
+  Popover,
   SizableText,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnRewardUnit,
+  IEarnTokenItem,
+  IRewardApys,
+  IStakeProtocolDetails,
+} from '@onekeyhq/shared/types/staking';
 
 import { formatStakingDistanceToNowStrict } from '../utils';
 
 import { GridItem } from './GridItem';
+import { MorphoApy } from './MorphoApy';
 
 type IProfitInfoProps = {
   apr?: string;
+  apys?: IRewardApys;
+  rewardUnit: IEarnRewardUnit;
+  rewardAssets?: Record<string, IEarnTokenItem>;
   earningsIn24h?: string;
   rewardToken?: string;
   rewardTokens?: string;
+  receiptToken?: string;
   updateFrequency?: string;
   unstakingPeriod?: number;
   earnPoints?: boolean;
@@ -29,14 +41,17 @@ type IProfitInfoProps = {
 
 function ProfitInfo({
   apr,
+  apys,
+  rewardAssets,
   earningsIn24h,
   rewardToken,
   rewardTokens,
+  receiptToken,
   updateFrequency,
   unstakingPeriod,
   stakingTime,
-  nextLaunchLeft,
   earnPoints,
+  rewardUnit,
 }: IProfitInfoProps) {
   const intl = useIntl();
 
@@ -65,11 +80,32 @@ function ProfitInfo({
                 id: ETranslations.earn_rewards_percentage,
               })}
             >
-              <SizableText size="$bodyLgMedium" color="$textSuccess">
-                {`${apr}% ${intl.formatMessage({
-                  id: ETranslations.global_apr,
-                })}`}
-              </SizableText>
+              <XStack gap="$1" alignItems="center">
+                <SizableText size="$bodyLgMedium" color="$textSuccess">
+                  {`${apr}% ${rewardUnit}`}
+                </SizableText>
+                {apys ? (
+                  <Popover
+                    floatingPanelProps={{
+                      w: 320,
+                    }}
+                    title={intl.formatMessage({
+                      id: ETranslations.earn_rewards,
+                    })}
+                    renderTrigger={
+                      <IconButton
+                        icon="CoinsAddOutline"
+                        size="small"
+                        variant="tertiary"
+                      />
+                    }
+                    renderContent={
+                      <MorphoApy apys={apys} rewardAssets={rewardAssets} />
+                    }
+                    placement="top"
+                  />
+                ) : null}
+              </XStack>
             </GridItem>
           ) : null}
           {earningsIn24h && Number(earningsIn24h) > 0 ? (
@@ -91,13 +127,13 @@ function ProfitInfo({
               </NumberSizeableText>
             </GridItem>
           ) : null}
-          {rewardTokens ? (
+          {receiptToken || rewardTokens ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_reward_tokens,
               })}
             >
-              {rewardTokens}
+              {receiptToken || rewardTokens}
             </GridItem>
           ) : null}
           {updateFrequency ? (
@@ -157,14 +193,18 @@ export const ProfitSection = ({
   }
   const props: IProfitInfoProps = {
     apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
+    apys: details.provider.apys,
+    rewardAssets: details.rewardAssets,
     earningsIn24h: details.earnings24h,
     rewardToken: details.rewardToken,
     rewardTokens: details.rewardToken,
+    receiptToken: details.provider.receiptToken,
     // updateFrequency: details.updateFrequency,
     earnPoints: details.provider.earnPoints,
     unstakingPeriod: details.unstakingPeriod,
     stakingTime: details.provider.stakingTime,
     nextLaunchLeft: details.provider.nextLaunchLeft,
+    rewardUnit: details.provider.rewardUnit,
   };
   return <ProfitInfo {...props} />;
 };

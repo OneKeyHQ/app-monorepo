@@ -9,8 +9,8 @@ import { isEmpty, isNil, omit, omitBy } from 'lodash';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
 import {
-  decodeSensitiveText,
-  encodeSensitiveText,
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type {
   IEncodedTx,
@@ -203,7 +203,7 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async baseValidateGeneralInput(
     params: IValidateGeneralInputParams,
   ): Promise<{ result: IGeneralInputValidation; inputDecoded: string }> {
-    const input = decodeSensitiveText({
+    const input = await decodeSensitiveTextAsync({
       encodedText: params.input,
     });
     const { validateAddress, validateXprvt, validateXpub, validatePrivateKey } =
@@ -266,9 +266,11 @@ export abstract class VaultBaseChainOnly extends VaultContext {
   async baseGetPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     let privateKey = hexUtils.stripHexPrefix(input);
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return {
       privateKey,
     };
@@ -1205,10 +1207,12 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     return Promise.resolve(accountDetails);
   }
 
-  async isEarliestLocalPendingTx({
+  async canAccelerateTx({
     encodedTx,
+    txId,
   }: {
     encodedTx: IEncodedTx;
+    txId: string;
   }): Promise<boolean> {
     return true;
   }
@@ -1418,5 +1422,28 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     params: IBuildOkxSwapEncodedTxParams,
   ): Promise<IEncodedTx> {
     throw new NotImplemented();
+  }
+
+  async verifyTxId(params: {
+    txid: string;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    return Promise.resolve(true);
+  }
+
+  async getPendingTxsToUpdate({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    return Promise.resolve([]);
+  }
+
+  async checkTxSpeedUpStateEnabled({
+    historyTx,
+  }: {
+    historyTx: IAccountHistoryTx;
+  }): Promise<boolean> {
+    return Promise.resolve(false);
   }
 }

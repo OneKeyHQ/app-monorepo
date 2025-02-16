@@ -140,6 +140,7 @@ const settings: IVaultSettings = {
       },
     },
   },
+  stakingResultPollingInterval: 5,
 };
 
 export default Object.freeze(settings);

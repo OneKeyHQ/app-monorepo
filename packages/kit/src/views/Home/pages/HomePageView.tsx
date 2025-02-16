@@ -1,7 +1,7 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing } from 'react-native';
+import { Animated, Easing, Keyboard } from 'react-native';
 
 import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -134,12 +134,42 @@ export function HomePageView({
     appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
   }, []);
 
+  const emptyAccountView = useMemo(
+    () => (
+      <EmptyAccount
+        autoCreateAddress
+        name={accountName}
+        chain={network?.name ?? ''}
+        type={
+          (deriveInfo?.labelKey
+            ? intl.formatMessage({
+                id: deriveInfo?.labelKey,
+              })
+            : deriveInfo?.label) ?? ''
+        }
+      />
+    ),
+    [accountName, deriveInfo?.label, deriveInfo?.labelKey, intl, network?.name],
+  );
+
+  const prevPageIndex = useRef<number | undefined>();
+  const handleSelectPageIndexChange = useCallback((pageIndex: number) => {
+    if (
+      prevPageIndex.current !== undefined &&
+      prevPageIndex.current !== pageIndex
+    ) {
+      Keyboard.dismiss();
+    }
+    prevPageIndex.current = pageIndex;
+  }, []);
+
   const renderTabs = useCallback(
     () => (
       <Tab
         disableRefresh={!platformEnv.isNative}
         data={tabs}
         ListHeaderComponent={<HomeHeaderContainer />}
+        onSelectedPageIndex={handleSelectPageIndexChange}
         initialScrollIndex={0}
         initialHeaderHeight={220}
         contentItemWidth={CONTENT_ITEM_WIDTH}
@@ -148,7 +178,7 @@ export function HomePageView({
         onRefresh={onRefresh}
       />
     ),
-    [tabs, screenWidth, onRefresh],
+    [tabs, handleSelectPageIndexChange, screenWidth, onRefresh],
   );
 
   useEffect(() => {
@@ -178,18 +208,7 @@ export function HomePageView({
         <YStack height="100%">
           <HomeSelector padding="$5" />
           <Stack flex={1} justifyContent="center">
-            <EmptyAccount
-              autoCreateAddress
-              name={accountName}
-              chain={network?.name ?? ''}
-              type={
-                (deriveInfo?.labelKey
-                  ? intl.formatMessage({
-                      id: deriveInfo?.labelKey,
-                    })
-                  : deriveInfo?.label) ?? ''
-              }
-            />
+            {emptyAccountView}
           </Stack>
         </YStack>
       );
@@ -215,12 +234,8 @@ export function HomePageView({
     isRequiredValidation,
     renderTabs,
     watchingAccountEnabled,
-    accountName,
-    network?.name,
+    emptyAccountView,
     network?.id,
-    deriveInfo?.labelKey,
-    deriveInfo?.label,
-    intl,
   ]);
 
   const renderHomePage = useCallback(() => {

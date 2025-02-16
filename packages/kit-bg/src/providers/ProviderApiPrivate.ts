@@ -8,6 +8,7 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IEventBusPayloadShowToast } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -15,6 +16,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { waitForDataLoaded } from '@onekeyhq/shared/src/utils/promiseUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -25,7 +27,11 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type BackgroundApiBase from '../apis/BackgroundApiBase';
 import type { IBackgroundApiWebembedCallMessage } from '../apis/IBackgroundApi';
-import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
+import type { IFloatingIconSettings } from '../dbs/simple/entity/SimpleDbEntityFloatingIconSettings';
+import type {
+  IJsBridgeMessagePayload,
+  IJsonRpcRequest,
+} from '@onekeyfe/cross-inpage-provider-types';
 
 export interface IOneKeyWalletInfo {
   enableExtContentScriptReloadButton?: boolean;
@@ -175,6 +181,16 @@ class ProviderApiPrivate extends ProviderApiBase {
     request: IJsBridgeMessagePayload,
     { time = 0 }: { time?: number } = {},
   ) {
+    setTimeout(() => {
+      if (request.origin) {
+        void this.backgroundApi.serviceDApp.notifyDAppAccountAndChainChangedWithCache(
+          {
+            targetOrigin: request.origin,
+          },
+        );
+      }
+    }, 200);
+
     // const manifest = chrome.runtime.getManifest();
     // pass debugLoggerSettings to dapp injected provider
     // TODO: (await getDebugLoggerSettings())
@@ -290,8 +306,11 @@ class ProviderApiPrivate extends ProviderApiBase {
         await this.backgroundApi.serviceSetting.shouldDisplayFloatingButtonInUrl(
           { url: request.origin },
         );
+      const settings =
+        await this.backgroundApi.simpleDb.floatingIconSettings.getSettings();
       return {
         isShow,
+        settings,
         i18n: {
           title: appLocale.intl.formatMessage({
             id: ETranslations.explore_malicious_dapp,
@@ -354,6 +373,15 @@ class ProviderApiPrivate extends ProviderApiBase {
       isShow: false,
       i18n: {},
     };
+  }
+
+  @providerApiMethod()
+  async wallet_saveFloatingIconSettings(request: IJsBridgeMessagePayload) {
+    console.log('ProviderApiPrivate.wallet_saveFloatingIconSettings', request);
+    const { params } = request.data as {
+      params?: Partial<IFloatingIconSettings>;
+    };
+    await this.backgroundApi.simpleDb.floatingIconSettings.setSettings(params);
   }
 
   /*
@@ -474,9 +502,12 @@ class ProviderApiPrivate extends ProviderApiBase {
 
     await waitForDataLoaded({
       data: () => this.isWebEmbedApiReady && Boolean(bg?.webEmbedBridge),
-      logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${
-        data?.module || ''
-      } - ${data?.method || ''}`,
+      logName: `ProviderApiPrivate.callWebEmbedApiProxy: ${JSON.stringify({
+        module: data?.module,
+        method: data?.method,
+        isWebEmbedApiReady: Boolean(this.isWebEmbedApiReady),
+        webEmbedBridge: Boolean(bg?.webEmbedBridge),
+      })}`,
       wait: 1000,
       timeout: timerUtils.getTimeDurationMs({ minute: 3 }),
     });
@@ -514,6 +545,17 @@ class ProviderApiPrivate extends ProviderApiBase {
   @providerApiMethod()
   async getLastFocusUrl() {
     return Promise.resolve(this.lastFocusUrl);
+  }
+
+  // $onekey.$private.request({method:'wallet_showToast', params: {method: 'success',title:'2333', message: 'test'}})
+  @providerApiMethod()
+  async wallet_showToast(request: IJsBridgeMessagePayload) {
+    const params = (request.data as IJsonRpcRequest)
+      ?.params as IEventBusPayloadShowToast;
+    if (params) {
+      params.toastId = generateUUID();
+      return this.backgroundApi.serviceApp.showToast(params);
+    }
   }
 }
 

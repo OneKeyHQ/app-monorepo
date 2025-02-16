@@ -6,16 +6,18 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  Dialog,
   Image,
   NumberSizeableText,
   Page,
   SizableText,
+  Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -27,14 +29,15 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
-import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import {
   EstimateNetworkFee,
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
+import { renderStakeText } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
@@ -68,7 +71,13 @@ type IApproveBaseStakeProps = {
   onConfirm?: (amount: string) => Promise<void>;
 };
 
-export const ApproveBaseStake = ({
+type ITokenAnnualReward = {
+  amount: string;
+  fiatValue?: string;
+  token: IToken;
+};
+
+export function ApproveBaseStake({
   details,
 
   price,
@@ -88,13 +97,20 @@ export const ApproveBaseStake = ({
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
-}: PropsWithChildren<IApproveBaseStakeProps>) => {
+}: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const { navigationToSendConfirm } = useSendConfirm({
+  const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
   });
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId: approveTarget.networkId,
+      }),
+    [approveTarget.networkId],
+  ).result;
   const [loading, setLoading] = useState<boolean>(false);
   const [approving, setApproving] = useState<boolean>(false);
   const {
@@ -178,11 +194,11 @@ export const ApproveBaseStake = ({
     if (isApprove) {
       return intl.formatMessage(
         { id: ETranslations.form__approve_str },
-        { amount: amountValue, symbol: token.symbol.toUpperCase() },
+        { amount: amountValue, symbol: token.symbol },
       );
     }
-    return intl.formatMessage({ id: ETranslations.earn_stake });
-  }, [isApprove, token, amountValue, intl]);
+    return intl.formatMessage({ id: renderStakeText(details.provider.name) });
+  }, [isApprove, intl, details.provider.name, amountValue, token.symbol]);
 
   const onApprove = useCallback(async () => {
     setApproving(true);
@@ -190,7 +206,7 @@ export const ApproveBaseStake = ({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
-    await navigationToSendConfirm({
+    await navigationToTxConfirm({
       approvesInfo: [
         {
           owner: account.address,
@@ -210,95 +226,120 @@ export const ApproveBaseStake = ({
         setApproving(false);
       },
     });
-  }, [amountValue, approveTarget, navigationToSendConfirm, trackAllowance]);
+  }, [amountValue, approveTarget, navigationToTxConfirm, trackAllowance]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
 
-  const estAnnualRewardsState = useMemo(() => {
-    if (Number(amountValue) > 0 && Number(apr) > 0) {
-      const amountBN = BigNumber(amountValue)
-        .multipliedBy(apr ?? 0)
-        .dividedBy(100);
-      return {
-        amount: amountBN.toFixed(),
-        fiatValue:
-          Number(price) > 0
-            ? amountBN.multipliedBy(price).toFixed()
+  const estimatedAnnualRewards = useMemo<ITokenAnnualReward[]>(() => {
+    const amountBN = new BigNumber(amountValue);
+    if (amountBN.isNaN() || amountBN.lte(0)) return [];
+
+    const rewards: ITokenAnnualReward[] = [];
+
+    if (details.provider.apys) {
+      // handle base token reward
+      const baseRateBN = new BigNumber(details.provider.apys.rate);
+      if (baseRateBN.gt(0)) {
+        const baseAmount = amountBN.multipliedBy(baseRateBN).dividedBy(100);
+
+        rewards.push({
+          amount: baseAmount.toFixed(),
+          fiatValue: new BigNumber(price).gt(0)
+            ? baseAmount.multipliedBy(price).toFixed()
             : undefined,
-      };
+          token: details.token.info,
+        });
+      }
+
+      // handle extra token reward
+      const { rewards: extraRewards } = details.provider.apys;
+      if (extraRewards && details.rewardAssets) {
+        Object.entries(extraRewards).forEach(([tokenAddress, apy]) => {
+          const rewardToken = details.rewardAssets?.[tokenAddress];
+          const apyBN = new BigNumber(apy);
+          if (rewardToken && apyBN.gt(0)) {
+            const rewardAmount = amountBN
+              .multipliedBy(price)
+              .multipliedBy(apyBN)
+              .dividedBy(100)
+              .dividedBy(rewardToken.price);
+
+            rewards.push({
+              amount: rewardAmount.toFixed(),
+              token: rewardToken.info,
+              fiatValue: new BigNumber(rewardToken.price).gt(0)
+                ? rewardAmount.multipliedBy(rewardToken.price).toFixed()
+                : undefined,
+            });
+          }
+        });
+      }
+    } else {
+      // handle single token reward
+      const aprBN = new BigNumber(apr ?? 0);
+      if (aprBN.gt(0)) {
+        const rewardAmount = amountBN.multipliedBy(aprBN).dividedBy(100);
+
+        rewards.push({
+          amount: rewardAmount.toFixed(),
+          fiatValue: new BigNumber(price).gt(0)
+            ? rewardAmount.multipliedBy(price).toFixed()
+            : undefined,
+          token,
+        });
+      }
     }
-  }, [amountValue, apr, price]);
+
+    return rewards;
+  }, [amountValue, apr, price, details, token]);
+
+  const totalAnnualRewardsFiatValue = useMemo(() => {
+    if (!estimatedAnnualRewards.length) return undefined;
+
+    return estimatedAnnualRewards
+      .reduce((total, reward) => {
+        if (reward.fiatValue) {
+          return total.plus(reward.fiatValue);
+        }
+        return total;
+      }, new BigNumber(0))
+      .toFixed();
+  }, [estimatedAnnualRewards]);
 
   const daysSpent = useMemo(() => {
-    if (estAnnualRewardsState?.fiatValue && estimateFeeResp?.feeFiatValue) {
+    if (totalAnnualRewardsFiatValue && estimateFeeResp?.feeFiatValue) {
       return calcDaysSpent(
-        estAnnualRewardsState?.fiatValue,
+        totalAnnualRewardsFiatValue,
         estimateFeeResp.feeFiatValue,
       );
     }
-  }, [estimateFeeResp?.feeFiatValue, estAnnualRewardsState?.fiatValue]);
+  }, [estimateFeeResp?.feeFiatValue, totalAnnualRewardsFiatValue]);
 
   const onSubmit = useCallback(async () => {
-    const showDialog = () => {
-      Dialog.show({
-        renderIcon: (
-          <Image width="$14" height="$14" src={details.token.info.logoURI} />
-        ),
-        title: intl.formatMessage(
-          { id: ETranslations.earn_provider_asset_staking },
-          {
-            'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol.toUpperCase(),
-          },
-        ),
-        renderContent: (
-          <StakeShouldUnderstand
-            provider={details.provider.name.toLowerCase()}
-            symbol={details.token.info.symbol.toLowerCase()}
-            apr={details.provider.apr}
-            updateFrequency={details.updateFrequency}
-            unstakingPeriod={details.unstakingPeriod}
-            receiveSymbol={details.rewardToken}
-          />
-        ),
-        onConfirm: async (inst) => {
-          try {
-            setLoading(true);
-            await inst.close();
-            await onConfirm?.(amountValue);
-          } finally {
-            setLoading(false);
-          }
-        },
-        onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
-        showCancelButton: false,
-      });
-    };
-    if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
+    const handleConfirm = () => onConfirm?.(amountValue);
+    if (totalAnnualRewardsFiatValue && estimateFeeResp) {
       const daySpent = calcDaysSpent(
-        estAnnualRewardsState.fiatValue,
+        totalAnnualRewardsFiatValue,
         estimateFeeResp.feeFiatValue,
       );
       if (daySpent && daySpent > 5) {
         showEstimateGasAlert({
           daysConsumed: daySpent,
           estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: showDialog,
+          onConfirm: handleConfirm,
         });
         return;
       }
     }
-    showDialog();
+    await handleConfirm();
   }, [
     onConfirm,
     amountValue,
-    estAnnualRewardsState,
+    totalAnnualRewardsFiatValue,
     estimateFeeResp,
     showEstimateGasAlert,
-    details,
-    intl,
   ]);
 
   return (
@@ -309,7 +350,8 @@ export const ApproveBaseStake = ({
         onChange={onChangeAmountValue}
         tokenSelectorTriggerProps={{
           selectedTokenImageUri: token.logoURI,
-          selectedTokenSymbol: token.symbol.toUpperCase(),
+          selectedTokenSymbol: token.symbol,
+          selectedNetworkImageUri: network?.logoURI,
         }}
         balanceProps={{
           value: balance,
@@ -344,21 +386,30 @@ export const ApproveBaseStake = ({
         />
       ) : null}
       <CalculationList>
-        {estAnnualRewardsState ? (
-          <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({
-                id: ETranslations.earn_est_annual_rewards,
-              })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>
-              <ValuePriceListItem
-                tokenSymbol={token.symbol}
-                fiatSymbol={symbol}
-                amount={estAnnualRewardsState.amount}
-                fiatValue={estAnnualRewardsState.fiatValue}
-              />
-            </CalculationListItem.Value>
+        {estimatedAnnualRewards.length > 0 ? (
+          <CalculationListItem
+            alignItems={
+              estimatedAnnualRewards.length > 1 ? 'flex-start' : 'center'
+            }
+          >
+            <Stack flex={1}>
+              <CalculationListItem.Label whiteSpace="nowrap">
+                {intl.formatMessage({
+                  id: ETranslations.earn_est_annual_rewards,
+                })}
+              </CalculationListItem.Label>
+            </Stack>
+            <YStack gap="$2" ai="flex-end" flex={1} $gtMd={{ flex: 4 }}>
+              {estimatedAnnualRewards.map((reward) => (
+                <ValuePriceListItem
+                  key={reward.token.address}
+                  tokenSymbol={reward.token.symbol}
+                  fiatSymbol={symbol}
+                  amount={reward.amount}
+                  fiatValue={reward.fiatValue}
+                />
+              ))}
+            </YStack>
           </CalculationListItem>
         ) : null}
         {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
@@ -384,7 +435,7 @@ export const ApproveBaseStake = ({
         {apr && Number(apr) > 0 ? (
           <CalculationListItem>
             <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.global_apr })}
+              {details.provider.rewardUnit}
             </CalculationListItem.Label>
             <CalculationListItem.Value color="$textSuccess">{`${apr}%`}</CalculationListItem.Value>
           </CalculationListItem>
@@ -413,7 +464,7 @@ export const ApproveBaseStake = ({
         {estimateFeeResp ? (
           <EstimateNetworkFee
             estimateFeeResp={estimateFeeResp}
-            isVisible={!!estAnnualRewardsState?.fiatValue}
+            isVisible={!!totalAnnualRewardsFiatValue}
             onPress={() => {
               showEstimateGasAlert({
                 daysConsumed: daysSpent,
@@ -428,14 +479,35 @@ export const ApproveBaseStake = ({
         accountId={approveTarget.accountId}
         networkId={approveTarget.networkId}
       />
-      <Page.Footer
-        onConfirmText={onConfirmText}
-        confirmButtonProps={{
-          onPress: isApprove ? onApprove : onSubmit,
-          loading: loading || loadingAllowance || approving,
-          disabled: isDisable,
-        }}
-      />
+      <Page.Footer>
+        <Stack
+          bg="$bgApp"
+          flexDirection="column"
+          $gtMd={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            jc: 'space-between',
+          }}
+        >
+          <Stack pl="$5">
+            <StakeProgress
+              currentStep={
+                isApprove
+                  ? EStakeProgressStep.supply
+                  : EStakeProgressStep.approve
+              }
+            />
+          </Stack>
+          <Page.FooterActions
+            onConfirmText={onConfirmText}
+            confirmButtonProps={{
+              onPress: isApprove ? onApprove : onSubmit,
+              loading: loading || loadingAllowance || approving,
+              disabled: isDisable,
+            }}
+          />
+        </Stack>
+      </Page.Footer>
     </StakingFormWrapper>
   );
-};
+}

@@ -8,6 +8,7 @@ import {
   DUST_AMOUNT,
   MAX_BLOCK_SIZE,
   MAX_ORPHAN_TX_MASS,
+  MAX_UTXO_SIZE,
   isValidAddress,
   privateKeyFromWIF,
   selectUTXOs,
@@ -16,8 +17,8 @@ import {
 import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import {
-  decodeSensitiveText,
-  encodeSensitiveText,
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -135,13 +136,31 @@ export default class Vault extends VaultBase {
         specifiedFeeRate,
       });
       txn = toTransaction(encodedTx);
-      const massAndSize = txn.getMassAndSize();
-      if (
-        massAndSize.mass > MAX_ORPHAN_TX_MASS ||
-        massAndSize.txSize > MAX_BLOCK_SIZE
-      ) {
-        throw new OneKeyInternalError('Transaction size is too large');
+      if (encodedTx.inputs.length > MAX_UTXO_SIZE) {
+        const totalAmount = encodedTx.inputs
+          .sort((a, b) =>
+            new BigNumber(b.satoshis).minus(a.satoshis).toNumber(),
+          )
+          .slice(0, MAX_UTXO_SIZE)
+          .reduce((acc, input) => acc.plus(input.satoshis), new BigNumber(0));
+        const tokenInfo = transferInfo.tokenInfo ?? (await this.getNetwork());
+
+        const totalAmountStr = totalAmount
+          .shiftedBy(-tokenInfo.decimals)
+          .toFixed(0, BigNumber.ROUND_DOWN);
+        throw new OneKeyInternalError(
+          appLocale.intl.formatMessage(
+            {
+              id: ETranslations.feedback_kaspa_utxo_limit_exceeded_text,
+            },
+            {
+              amount: totalAmountStr,
+              symbol: tokenInfo?.symbol ?? 'KAS',
+            },
+          ),
+        );
       }
+      const massAndSize = txn.getMassAndSize();
       encodedTx.feeInfo.limit = massAndSize.mass.toString();
       encodedTx.mass = massAndSize.mass;
     }
@@ -355,13 +374,15 @@ export default class Vault extends VaultBase {
     throw new NotImplemented();
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     if (this.isHexPrivateKey(input)) {
       let privateKey = input.startsWith('0x') ? input.slice(2) : input;
-      privateKey = encodeSensitiveText({ text: privateKey });
+      privateKey = await encodeSensitiveTextAsync({ text: privateKey });
       return Promise.resolve({
         privateKey,
       });
@@ -369,7 +390,7 @@ export default class Vault extends VaultBase {
 
     if (this.isWIFPrivateKey(input)) {
       const privateKeyBuffer = privateKeyFromWIF(input);
-      const wifPrivateKey = encodeSensitiveText({
+      const wifPrivateKey = await encodeSensitiveTextAsync({
         text: privateKeyBuffer.toString(),
       });
       return Promise.resolve({

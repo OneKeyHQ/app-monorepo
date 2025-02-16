@@ -3,10 +3,11 @@ import * as crypto from 'crypto';
 import { schnorr } from '@noble/curves/secp256k1';
 import { sha256 } from '@noble/hashes/sha256';
 import * as secp256k1 from '@noble/secp256k1';
-import { AES_CBC } from 'asmcrypto.js';
 import { bech32 } from 'bech32';
 
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+
+import { aesCbcDecrypt, aesCbcEncrypt } from '../../../secret/crypto-functions';
 
 import type { INostrEvent } from '../types';
 
@@ -63,41 +64,39 @@ export function getPrivateEncodedByNip19(privateKey: Buffer) {
   return bech32.encode('nsec', words, 1000);
 }
 
-export function encrypt(
+export async function encrypt(
   privateKey: string,
   pubkey: string,
   plaintext: string,
-): string {
+): Promise<string> {
   const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
   const normalizedKey = key.slice(1, 33);
   const iv = crypto.randomBytes(16);
 
-  const encrypted = AES_CBC.encrypt(
-    Buffer.from(plaintext),
-    normalizedKey,
-    true,
+  const encrypted = aesCbcEncrypt({
+    data: Buffer.from(plaintext),
+    key: Buffer.from(normalizedKey),
     iv,
-  );
+  });
 
   return `${Buffer.from(encrypted).toString('base64')}?iv=${Buffer.from(
     iv.buffer,
   ).toString('base64')}`;
 }
 
-export function decrypt(
+export async function decrypt(
   privateKey: string,
   pubkey: string,
   ciphertext: string,
-) {
+): Promise<string> {
   const key = secp256k1.getSharedSecret(privateKey, `02${pubkey}`);
   const [cip, iv] = ciphertext.split('?iv=');
   const normalizedKey = key.slice(1, 33);
-  const decrypted = AES_CBC.decrypt(
-    Buffer.from(cip, 'base64'),
-    normalizedKey,
-    true,
-    Buffer.from(iv, 'base64'),
-  );
+  const decrypted = aesCbcDecrypt({
+    data: Buffer.from(cip, 'base64'),
+    key: Buffer.from(normalizedKey),
+    iv: Buffer.from(iv, 'base64'),
+  });
   return Buffer.from(decrypted).toString('utf-8');
 }
 

@@ -52,8 +52,8 @@ const {
 
 // yarn jest packages/core/src/chains/sol/CoreChainSoftware.test.ts
 describe('SOL Core tests', () => {
-  it('mnemonic verify', () => {
-    coreTestsUtils.expectMnemonicValid({
+  it('mnemonic verify', async () => {
+    await coreTestsUtils.expectMnemonicValid({
       hdCredential,
     });
   });

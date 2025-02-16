@@ -30,7 +30,6 @@ import {
   calculateTotalFeeNative,
 } from '@onekeyhq/kit/src/utils/gasFee';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ALGO_TX_MIN_FEE } from '@onekeyhq/kit-bg/src/vaults/impls/algo/utils';
 import { REPLACE_TX_FEE_UP_RATIO } from '@onekeyhq/shared/src/consts/walletConsts';
 import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
@@ -38,6 +37,7 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import type {
   IEstimateFeeParams,
   IFeeInfoUnit,
@@ -231,7 +231,7 @@ function FeeEditor(props: IProps) {
       ).toFixed(),
       maxBaseFee: originalMaxBaseFee.isGreaterThan(0)
         ? originalMaxBaseFee.toFixed()
-        : customFee.gasEIP1559?.baseFeePerGas ?? '0',
+        : customFee?.gasEIP1559?.baseFeePerGas ?? '0',
       // fee utxo
       feeRate: new BigNumber(customFee?.feeUTXO?.feeRate ?? '0').toFixed(),
       // fee sol
@@ -243,7 +243,7 @@ function FeeEditor(props: IProps) {
 
       // fee algo
       flatFee: BigNumber.max(
-        customFee.feeAlgo?.baseFee ?? '0',
+        customFee?.feeAlgo?.baseFee ?? '0',
         algoMinFee,
       ).toFixed(),
 
@@ -347,7 +347,7 @@ function FeeEditor(props: IProps) {
       const minFeeInfo = feeSelectorItems[0];
       let maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 1];
 
-      if (maxFeeInfo.type === EFeeType.Custom) {
+      if (maxFeeInfo?.type === EFeeType.Custom) {
         maxFeeInfo = feeSelectorItems[feeSelectorItems.length - 2];
         maxFeeInfo = maxFeeInfo || minFeeInfo;
       }
@@ -873,13 +873,13 @@ function FeeEditor(props: IProps) {
       intRequired,
     }: {
       name: string;
-      value: string;
+      value: string | undefined;
       intRequired?: boolean;
     }) => {
       const filedName = name as keyof typeof watchAllFields;
       const valueBN = new BigNumber(value ?? 0);
       if (valueBN.isNaN()) {
-        const formattedValue = parseFloat(value);
+        const formattedValue = parseFloat(value ?? '');
         form.setValue(
           filedName,
           isNaN(formattedValue) ? '' : String(formattedValue),
@@ -889,7 +889,7 @@ function FeeEditor(props: IProps) {
 
       if (intRequired) {
         form.setValue(filedName, valueBN.toFixed(0));
-      } else if (!value.includes('.')) {
+      } else if (!value?.includes('.')) {
         form.setValue(filedName, valueBN.toFixed());
       }
     },

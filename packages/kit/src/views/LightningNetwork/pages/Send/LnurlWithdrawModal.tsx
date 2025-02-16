@@ -12,8 +12,8 @@ import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/Dapp
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  EModalSendRoutes,
-  IModalSendParamList,
+  EModalSignatureConfirmRoutes,
+  IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 
@@ -34,12 +34,19 @@ import type { RouteProp } from '@react-navigation/core';
 function LnurlWithdrawModal() {
   const intl = useIntl();
   const route =
-    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.LnurlWithdraw>>();
+    useRoute<
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.LnurlWithdraw
+      >
+    >();
 
   const routeParams = route.params;
   const { isSendFlow } = routeParams;
   const dAppQuery =
-    useDappQuery<IModalSendParamList[EModalSendRoutes.LnurlWithdraw]>();
+    useDappQuery<
+      IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.LnurlWithdraw]
+    >();
   const { $sourceInfo } = dAppQuery;
   const { accountId, networkId, lnurlDetails } = isSendFlow
     ? routeParams
@@ -93,7 +100,7 @@ function LnurlWithdrawModal() {
       const { serviceLightning } = backgroundApiProxy;
       const formValue = useFormReturn.getValues();
 
-      const amount = new BigNumber(formValue.amount).times(1000).toNumber(); // convert to millisatoshis
+      const amount = new BigNumber(formValue.amount).toNumber();
       try {
         const invoice = await serviceLightning.createInvoice({
           networkId,

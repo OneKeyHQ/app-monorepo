@@ -246,9 +246,6 @@ export async function waitForDataLoaded({
   while (true) {
     let isAllLoaded = true;
 
-    if (logName && __DEV__) {
-      console.log(`waitForDataLoaded: ${logName}`);
-    }
     await Promise.all(
       getDataArrFunc.map(async (getData) => {
         const d = await getData();
@@ -272,6 +269,9 @@ export async function waitForDataLoaded({
 
     if (isAllLoaded || timeoutReject) {
       break;
+    }
+    if (logName && __DEV__) {
+      console.log(`waitForDataLoaded: ${logName}`);
     }
     await waitAsync(wait);
   }

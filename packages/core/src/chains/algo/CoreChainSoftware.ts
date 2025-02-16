@@ -1,6 +1,6 @@
 import { isArray } from 'lodash';
 
-import { decrypt, ed25519 } from '@onekeyhq/core/src/secret';
+import { decryptAsync, ed25519 } from '@onekeyhq/core/src/secret';
 import {
   NotImplemented,
   OneKeyInternalError,
@@ -82,7 +82,9 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       throw new Error('privateKeyRaw is required');
     }
     if (keyType === ECoreApiExportedSecretKeyType.privateKey) {
-      return sdkAlgo.mnemonicFromSeed(decrypt(password, privateKeyRaw));
+      return sdkAlgo.mnemonicFromSeed(
+        await decryptAsync({ password, data: privateKeyRaw }),
+      );
     }
     throw new Error(`SecretKey type not support: ${keyType}`);
   }

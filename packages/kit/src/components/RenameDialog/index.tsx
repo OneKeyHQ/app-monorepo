@@ -1,4 +1,4 @@
-import { memo, useState } from 'react';
+import { useState } from 'react';
 
 import natsort from 'natsort';
 import { useIntl } from 'react-intl';
@@ -37,7 +37,7 @@ function V4AccountNameSelector({
   const intl = useIntl();
   const [val] = useState('');
   const { result: items = [] } = usePromiseResult(async () => {
-    const accounts =
+    const { accounts } =
       await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
         {
           indexedAccountId: indexedAccount.id,

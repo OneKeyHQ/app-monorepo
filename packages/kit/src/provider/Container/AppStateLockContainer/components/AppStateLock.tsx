@@ -117,7 +117,7 @@ const AppStateLock = ({
             v4migrationData?.isProcessing ? null : (
               <Button size="small" variant="tertiary" onPress={resetApp}>
                 {intl.formatMessage({
-                  id: ETranslations.login_forgot_password,
+                  id: ETranslations.login_forgot_passcode,
                 })}
               </Button>
             )}

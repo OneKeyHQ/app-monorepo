@@ -9,6 +9,11 @@ export function generateUUID() {
   return uuid.v4() as string;
 }
 
+export function generateLocalIndexedIdFunc() {
+  const prefix = Math.random().toString(36).substring(2, 15);
+  return (index: number | string) => `${prefix}-${index}`;
+}
+
 export const uidForWagmi = (function () {
   const size = 256;
   let index = size;

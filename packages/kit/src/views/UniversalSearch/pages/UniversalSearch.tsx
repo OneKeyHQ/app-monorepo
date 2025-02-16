@@ -258,15 +258,15 @@ export function UniversalSearch({
                   setTimeout(() => {
                     universalSearchActions.current.addIntoRecentSearchList({
                       id: coingeckoId,
-                      text: symbol.toUpperCase(),
+                      text: symbol,
                       type: item.type,
                       timestamp: Date.now(),
                     });
                   }, 10);
                 }, 80);
               }}
-              renderAvatar={<MarketTokenIcon uri={image} size="$10" />}
-              title={symbol.toUpperCase()}
+              renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
+              title={symbol}
               subtitle={name}
               subtitleProps={{
                 numberOfLines: 1,

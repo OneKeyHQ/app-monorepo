@@ -54,6 +54,7 @@ export const biologyAuthenticate: () => Promise<LocalAuthenticationResult> =
         : {
             success: false,
             error: result.error || 'biologyAuthenticate failed',
+            warning: result.error,
           };
     } catch (e: any) {
       return {

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import { Button, Dialog, Toast } from '@onekeyhq/components';
 import type { IButtonProps } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -42,6 +43,7 @@ function BasicCreateAddressDialogContent({
   onCreate,
   networkId,
   indexedAccountId,
+  deriveType,
   autoCreateAddress,
 }: {
   onCreate: (
@@ -59,6 +61,11 @@ function BasicCreateAddressDialogContent({
 }) {
   const {
     activeAccount: { wallet, deriveType },
+  deriveType: IAccountDeriveTypes;
+  autoCreateAddress: boolean;
+}) {
+  const {
+    activeAccount: { wallet },
   } = useActiveAccount({ num: 0 });
 
   return (
@@ -82,6 +89,7 @@ function CreateAddressDialogContent({
   onCreate,
   networkId,
   indexedAccountId,
+  deriveType,
   autoCreateAddress,
 }: {
   onCreate: (
@@ -95,6 +103,7 @@ function CreateAddressDialogContent({
   ) => void;
   networkId: string;
   indexedAccountId?: string;
+  deriveType: IAccountDeriveTypes;
   autoCreateAddress: boolean;
 }) {
   return (
@@ -109,6 +118,7 @@ function CreateAddressDialogContent({
         onCreate={onCreate}
         networkId={networkId}
         indexedAccountId={indexedAccountId}
+        deriveType={deriveType}
         autoCreateAddress={autoCreateAddress}
       />
     </AccountSelectorProviderMirror>
@@ -150,11 +160,13 @@ function BasicCreateAddressContainer() {
     ({
       networkId,
       indexedAccountId,
+      deriveType,
       promiseId,
       autoCreateAddress,
     }: {
       networkId: string;
       indexedAccountId: string;
+      deriveType: IAccountDeriveTypes;
       promiseId: number;
       autoCreateAddress: boolean;
     }) => {
@@ -202,6 +214,7 @@ function BasicCreateAddressContainer() {
             }}
             networkId={networkId}
             indexedAccountId={indexedAccountId}
+            deriveType={deriveType}
             autoCreateAddress={autoCreateAddress}
           />
         ),

@@ -10,7 +10,6 @@ import {
   SegmentControl,
   SizableText,
   Stack,
-  Toast,
   useClipboard,
   useForm,
   useFormWatch,
@@ -46,6 +45,8 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
 import { Tutorials } from '../../components';
+
+import importWalletUiUtils from './importWalletUiUtils';
 
 type IFormValues = {
   networkId?: string;
@@ -480,7 +481,51 @@ function ImportAddress() {
         confirmButtonProps={{
           disabled: !isEnable,
         }}
-        onConfirm={onSubmit}
+        onConfirm={async () => {
+          await form.handleSubmit(async (values) => {
+            const data: {
+              name?: string;
+              input: string;
+              networkId: string;
+              deriveType?: IAccountDeriveTypes;
+              shouldCheckDuplicateName?: boolean;
+            } = isPublicKeyImport
+              ? {
+                  name: values.accountName,
+                  input: values.publicKeyValue ?? '',
+                  networkId: values.networkId ?? '',
+                  deriveType: values.deriveType,
+                  shouldCheckDuplicateName: true,
+                }
+              : {
+                  name: values.accountName,
+                  input: values.addressValue.resolved ?? '',
+                  networkId: values.networkId ?? '',
+                  shouldCheckDuplicateName: true,
+                };
+            const r =
+              await backgroundApiProxy.serviceAccount.addWatchingAccount(data);
+
+            const accountId = r?.accounts?.[0]?.id;
+
+            importWalletUiUtils.toastSuccessWhenImportAddressOrPrivateKey({
+              isOverrideAccounts: r?.isOverrideAccounts,
+              accountId,
+            });
+
+            void actions.current.updateSelectedAccountForSingletonAccount({
+              num: 0,
+              networkId: values.networkId,
+              walletId: WALLET_TYPE_WATCHING,
+              othersWalletAccountId: accountId,
+            });
+            navigation.popStack();
+
+            defaultLogger.account.wallet.importWallet({
+              importMethod: 'address',
+            });
+          })();
+        }}
       />
     </Page>
   );

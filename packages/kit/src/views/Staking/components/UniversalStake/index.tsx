@@ -7,17 +7,16 @@ import { Keyboard } from 'react-native';
 
 import {
   Alert,
-  Dialog,
-  IconButton,
   Image,
   NumberSizeableText,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -31,7 +30,6 @@ import type {
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationList, CalculationListItem } from '../CalculationList';
-import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import {
   EstimateNetworkFee,
   calcDaysSpent,
@@ -87,7 +85,7 @@ type IUniversalStakeProps = {
   rewardToken?: string;
 };
 
-export const UniversalStake = ({
+export function UniversalStake({
   accountId,
   networkId,
   price,
@@ -117,16 +115,24 @@ export const UniversalStake = ({
   stakingTime,
   nextLaunchLeft,
   rewardToken,
-}: PropsWithChildren<IUniversalStakeProps>) => {
+}: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const [loading, setLoading] = useState<boolean>(false);
   const [amountValue, setAmountValue] = useState('');
   const [
     {
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      }),
+    [networkId],
+  ).result;
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
       const valueBN = new BigNumber(value);
@@ -253,41 +259,7 @@ export const UniversalStake = ({
 
   const onPress = useCallback(async () => {
     Keyboard.dismiss();
-    const showDialog = () => {
-      Dialog.show({
-        renderIcon: (
-          <Image width="$14" height="$14" src={details.token.info.logoURI} />
-        ),
-        title: intl.formatMessage(
-          { id: ETranslations.earn_provider_asset_staking },
-          {
-            'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol.toUpperCase(),
-          },
-        ),
-        renderContent: (
-          <StakeShouldUnderstand
-            provider={details.provider.name.toLowerCase()}
-            symbol={details.token.info.symbol.toLowerCase()}
-            apr={details.provider.apr}
-            updateFrequency={details.updateFrequency}
-            unstakingPeriod={details.unstakingPeriod}
-            receiveSymbol={details.rewardToken}
-          />
-        ),
-        onConfirm: async (inst) => {
-          try {
-            setLoading(true);
-            await inst.close();
-            await onConfirm?.(amountValue);
-          } finally {
-            setLoading(false);
-          }
-        },
-        onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
-        showCancelButton: false,
-      });
-    };
+    const handleConfirm = () => onConfirm?.(amountValue);
     if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
       const daySpent = calcDaysSpent(
         estAnnualRewardsState.fiatValue,
@@ -297,17 +269,15 @@ export const UniversalStake = ({
         showEstimateGasAlert({
           daysConsumed: daySpent,
           estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: showDialog,
+          onConfirm: handleConfirm,
         });
         return;
       }
     }
-    showDialog();
+    await handleConfirm();
   }, [
     onConfirm,
     amountValue,
-    details,
-    intl,
     estAnnualRewardsState?.fiatValue,
     estimateFeeResp,
     showEstimateGasAlert,
@@ -324,6 +294,7 @@ export const UniversalStake = ({
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol?.toUpperCase(),
+            selectedNetworkImageUri: network?.logoURI,
           }}
           balanceProps={{
             value: balance,
@@ -386,20 +357,24 @@ export const UniversalStake = ({
       ) : null}
       <CalculationList>
         {estAnnualRewardsState ? (
-          <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({
-                id: ETranslations.earn_est_annual_rewards,
-              })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>
-              <ValuePriceListItem
-                tokenSymbol={tokenSymbol ?? ''}
-                fiatSymbol={symbol}
-                amount={estAnnualRewardsState.amount}
-                fiatValue={estAnnualRewardsState.fiatValue}
-              />
-            </CalculationListItem.Value>
+          <CalculationListItem alignItems="flex-start">
+            <Stack flex={1}>
+              <CalculationListItem.Label whiteSpace="nowrap">
+                {intl.formatMessage({
+                  id: ETranslations.earn_est_annual_rewards,
+                })}
+              </CalculationListItem.Label>
+            </Stack>
+            <Stack ai="flex-end" flex={1} $gtMd={{ flex: 4 }}>
+              <CalculationListItem.Value>
+                <ValuePriceListItem
+                  tokenSymbol={tokenSymbol ?? ''}
+                  fiatSymbol={symbol}
+                  amount={estAnnualRewardsState.amount}
+                  fiatValue={estAnnualRewardsState.fiatValue}
+                />
+              </CalculationListItem.Value>
+            </Stack>
           </CalculationListItem>
         ) : null}
         {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
@@ -425,7 +400,7 @@ export const UniversalStake = ({
         {apr && Number(apr) > 0 ? (
           <CalculationListItem>
             <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.global_apr })}
+              {details.provider.rewardUnit}
             </CalculationListItem.Label>
             <CalculationListItem.Value color="$textSuccess">
               {`${apr}%`}
@@ -435,31 +410,13 @@ export const UniversalStake = ({
         {btcStakeTerm ? (
           <CalculationListItem>
             <XStack flex={1} alignItems="center" gap="$1">
-              <CalculationListItem.Label>
+              <CalculationListItem.Label
+                tooltip={intl.formatMessage({
+                  id: ETranslations.earn_term_tooltip,
+                })}
+              >
                 {intl.formatMessage({ id: ETranslations.earn_term })}
               </CalculationListItem.Label>
-
-              <Popover
-                title={intl.formatMessage({ id: ETranslations.earn_term })}
-                placement="bottom-start"
-                renderTrigger={
-                  <IconButton
-                    iconColor="$iconSubdued"
-                    size="small"
-                    icon="InfoCircleOutline"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <Stack p="$5">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.earn_term_tooltip,
-                      })}
-                    </SizableText>
-                  </Stack>
-                }
-              />
             </XStack>
             <CalculationListItem.Value>
               {btcStakeTerm}
@@ -571,10 +528,9 @@ export const UniversalStake = ({
         })}
         confirmButtonProps={{
           onPress,
-          loading,
           disabled: isDisable,
         }}
       />
     </StakingFormWrapper>
   );
-};
+}

@@ -88,8 +88,10 @@ export function WalletDetailsHeader({
       ) : null}
       {linkedNetworkId &&
       !isNil(num) &&
-      accountSelectorContextData?.sceneName ===
-        EAccountSelectorSceneName.discover ? (
+      [
+        EAccountSelectorSceneName.discover,
+        EAccountSelectorSceneName.addressInput,
+      ].includes(accountSelectorContextData?.sceneName as any) ? (
         <DeriveTypeSelectorTriggerForDapp
           num={num}
           focusedWalletId={

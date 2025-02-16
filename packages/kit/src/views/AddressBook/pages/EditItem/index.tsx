@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -6,6 +6,8 @@ import { useIntl } from 'react-intl';
 import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalAddressBookRoutes,
@@ -17,10 +19,17 @@ import { CreateOrEditContent } from '../../components/CreateOrEditContent';
 import type { IAddressItem } from '../../type';
 import type { RouteProp } from '@react-navigation/core';
 
-const EditItemPage = () => {
+const defaultValues: IAddressItem = {
+  name: '',
+  address: '',
+  networkId: getNetworkIdsMap().btc,
+  isAllowListed: false,
+};
+
+function EditItemPage() {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const route =
+  const { params: addressBookParams } =
     useRoute<
       RouteProp<
         IModalAddressBookParamList,
@@ -28,10 +37,17 @@ const EditItemPage = () => {
       >
     >();
 
+  const isCreateMode = !addressBookParams?.id;
+
   const onSubmit = useCallback(
     async (item: IAddressItem) => {
+      const { serviceAddressBook } = backgroundApiProxy;
       try {
-        await backgroundApiProxy.serviceAddressBook.updateItem(item);
+        if (item.id) {
+          await serviceAddressBook.updateItem(item);
+        } else {
+          await serviceAddressBook.addItem(item);
+        }
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.address_book_add_address_toast_save_success,
@@ -42,7 +58,7 @@ const EditItemPage = () => {
         Toast.error({ title: (e as Error).message });
       }
     },
-    [navigation, intl],
+    [intl, navigation],
   );
 
   const onRemove = useCallback(
@@ -84,16 +100,44 @@ const EditItemPage = () => {
     [navigation, intl],
   );
 
-  return (
+  const { result: item, isLoading } = usePromiseResult(
+    async () => {
+      if (isCreateMode) {
+        return { ...defaultValues, ...addressBookParams };
+      }
+      const addressBookItem =
+        await backgroundApiProxy.serviceAddressBook.findItemById(
+          addressBookParams.id,
+        );
+      return {
+        ...addressBookItem,
+        ...addressBookParams,
+      };
+    },
+    [addressBookParams, isCreateMode],
+    {
+      initResult: {
+        address: '',
+        name: '',
+        networkId: '',
+      },
+      watchLoading: true,
+    },
+  );
+
+  // isLoading is undefined initially, so we need to explicitly check if it's false
+  return isLoading === false ? (
     <CreateOrEditContent
       title={intl.formatMessage({
-        id: ETranslations.address_book_edit_address_title,
+        id: isCreateMode
+          ? ETranslations.address_book_add_address_title
+          : ETranslations.address_book_edit_address_title,
       })}
-      item={route.params}
+      item={item}
       onSubmit={onSubmit}
-      onRemove={onRemove}
+      onRemove={isCreateMode ? undefined : onRemove}
     />
-  );
-};
+  ) : null;
+}
 
 export default EditItemPage;

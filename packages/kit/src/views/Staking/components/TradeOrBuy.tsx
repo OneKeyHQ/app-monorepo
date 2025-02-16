@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -40,7 +40,6 @@ function BasicTradeOrBuy({
     const { isSupportSwap } =
       await backgroundApiProxy.serviceSwap.checkSupportSwap({
         networkId,
-        contractAddress: token.address,
       });
     const network = await backgroundApiProxy.serviceNetwork.getNetwork({
       networkId,
@@ -48,7 +47,7 @@ function BasicTradeOrBuy({
     const { importFromToken, swapTabSwitchType } = getImportFromToken({
       networkId,
       isSupportSwap,
-      tokenSymbol: token.symbol,
+      tokenAddress: token.address,
     });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
@@ -82,7 +81,7 @@ function BasicTradeOrBuy({
       <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
-          { token: token.symbol.toUpperCase() },
+          { token: token.symbol },
         )}
       </SizableText>
       <XStack gap="$2">

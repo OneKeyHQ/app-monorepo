@@ -56,6 +56,13 @@ const V4MigrationDevSettings = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/Setting/pages/V4MigrationDevSettings'),
 );
 
+const PageDevUnitTests = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Setting/pages/DevUnitTests/PageDevUnitTests'
+    ),
+);
+
 const ExportCustomNetworkConfig = LazyLoadPage(
   () =>
     import('@onekeyhq/kit/src/views/Setting/pages/ExportCustomNetworkConfig'),
@@ -90,6 +97,7 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingListModal,
     component: SettingListModal,
+    rewrite: '/',
   },
   {
     name: EModalSettingRoutes.SettingCurrencyModal,
@@ -118,6 +126,7 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingProtectModal,
     component: SettingProtectionModal,
+    rewrite: '/protection',
   },
   {
     name: EModalSettingRoutes.SettingClearAppCache,
@@ -134,6 +143,10 @@ export const ModalSettingStack: IModalFlowNavigatorConfig<
   {
     name: EModalSettingRoutes.SettingDevV4MigrationModal,
     component: V4MigrationDevSettings,
+  },
+  {
+    name: EModalSettingRoutes.SettingDevUnitTestsModal,
+    component: PageDevUnitTests,
   },
   {
     name: EModalSettingRoutes.SettingExportCustomNetworkConfig,

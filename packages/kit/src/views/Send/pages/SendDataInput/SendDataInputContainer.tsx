@@ -17,22 +17,25 @@ import {
   TextArea,
   TextAreaInput,
   XStack,
+  YStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
-  AddressInput,
+  AddressInputField,
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
+import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
@@ -40,6 +43,7 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -55,6 +59,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import {
@@ -67,8 +72,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-
-import { showContractWarningDialog } from './ContractWarningDialog';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -140,7 +143,7 @@ function SendDataInputContainer() {
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
-  const sendConfirm = useSendConfirm({
+  const signatureConfirm = useSignatureConfirm({
     accountId: currentAccount.accountId,
     networkId: currentAccount.networkId,
   });
@@ -272,6 +275,8 @@ function SendDataInputContainer() {
 
   const form = useForm({
     defaultValues: {
+      accountId,
+      networkId,
       to: { raw: address } as IAddressInputValue,
       amount: sendAmount,
       nftAmount: sendAmount || '1',
@@ -425,6 +430,9 @@ function SendDataInputContainer() {
                 accountId: data.accountId,
                 networkId: data.networkId,
               });
+              // TODO: need remove
+              form.setValue('accountId', data.accountId);
+              form.setValue('networkId', data.networkId);
             }
             setTokenInfo(data);
             navigation.popStack();
@@ -439,6 +447,7 @@ function SendDataInputContainer() {
     allTokens.keys,
     allTokens.tokens,
     currentAccount.accountId,
+    form,
     isAllNetworks,
     isSelectTokenDisabled,
     map,
@@ -453,10 +462,6 @@ function SendDataInputContainer() {
           const toAddress = form.getValues('to').resolved;
           const isToContract = form.getValues('to').isContract;
           if (!toAddress) return;
-
-          if (isToContract && !(await showContractWarningDialog())) {
-            return;
-          }
 
           let realAmount = amount;
 
@@ -522,7 +527,7 @@ function SendDataInputContainer() {
               : tokenInfo?.address,
           });
 
-          await sendConfirm.navigationToSendConfirm({
+          await signatureConfirm.navigationToTxConfirm({
             transfersInfo,
             sameModal: true,
             onSuccess,
@@ -534,7 +539,11 @@ function SendDataInputContainer() {
               isNFT,
               originalRecipient: toAddress,
               isToContract,
+              memo: memoValue,
+              paymentId: paymentIdValue,
+              note: noteValue,
             },
+            isInternalTransfer: true,
           });
           setIsSubmitting(false);
         } catch (e: any) {
@@ -573,7 +582,7 @@ function SendDataInputContainer() {
       onCancel,
       onFail,
       onSuccess,
-      sendConfirm,
+      signatureConfirm,
       tokenDetails,
       tokenInfo?.address,
       txMessageLinkedString,
@@ -709,15 +718,15 @@ function SendDataInputContainer() {
     displayAmountFormItem,
   ]);
 
-  const maxBalance = useMemo(
-    () => tokenDetails?.balanceParsed ?? '0',
-    [tokenDetails?.balanceParsed],
-  );
+  const maxBalance = useMemo(() => {
+    const balance = new BigNumber(tokenDetails?.balanceParsed ?? '0');
+    return balance.isNaN() ? '0' : balance.toFixed();
+  }, [tokenDetails?.balanceParsed]);
 
-  const maxBalanceFiat = useMemo(
-    () => tokenDetails?.fiatValue ?? '0',
-    [tokenDetails?.fiatValue],
-  );
+  const maxBalanceFiat = useMemo(() => {
+    const balanceFiat = new BigNumber(tokenDetails?.fiatValue ?? '0');
+    return balanceFiat.isNaN() ? '0' : balanceFiat.toFixed();
+  }, [tokenDetails?.fiatValue]);
 
   const renderTokenDataInputForm = useCallback(
     () => (
@@ -743,7 +752,10 @@ function SendDataInputContainer() {
             if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
               form.setValue(
                 'amount',
-                valueBN.toFixed(tokenDetails?.info.decimals ?? 0),
+                valueBN.toFixed(
+                  tokenDetails?.info.decimals ?? 0,
+                  BigNumber.ROUND_FLOOR,
+                ),
               );
             }
           },
@@ -837,7 +849,7 @@ function SendDataInputContainer() {
       return (
         <Form.Field
           name="nftAmount"
-          label={intl.formatMessage({ id: ETranslations.send_amount })}
+          label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
           rules={{ required: true, max: nftDetails?.amount ?? 1, min: 1 }}
         >
           {isLoadingAssets ? null : (
@@ -1186,10 +1198,16 @@ function SendDataInputContainer() {
     [],
   );
 
+  const enableAllowListValidation = useMemo(
+    () => !networkUtils.isLightningNetworkByNetworkId(networkId),
+    [networkId],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.send_title })}
+        headerRight={renderAddressSecurityHeaderRightButton}
       />
       <Page.Body px="$5" testID="send-recipient-amount-form">
         <AccountSelectorProviderMirror
@@ -1250,41 +1268,22 @@ function SendDataInputContainer() {
                 </ListItem>
               </Form.Field>
             ) : null}
-            <Form.Field
-              label={intl.formatMessage({ id: ETranslations.global_recipient })}
+            <AddressInputField
               name="to"
-              rules={{
-                required: true,
-                validate: (value: IAddressInputValue) => {
-                  if (value.pending) {
-                    return;
-                  }
-                  if (!value.resolved) {
-                    return (
-                      value.validateError?.message ??
-                      intl.formatMessage({
-                        id: ETranslations.send_address_invalid,
-                      })
-                    );
-                  }
-                },
-              }}
-            >
-              <AddressInput
-                accountId={currentAccount.accountId}
-                networkId={currentAccount.networkId}
-                enableAddressBook
-                enableWalletName
-                enableVerifySendFundToSelf
-                enableAddressInteractionStatus
-                enableAddressContract
-                contacts={addressBookEnabledNetworkIds.includes(
-                  currentAccount.networkId,
-                )}
-                accountSelector={addressInputAccountSelectorArgs}
-                onInputTypeChange={handleAddressInputChangeType}
-              />
-            </Form.Field>
+              accountId={currentAccount.accountId}
+              networkId={currentAccount.networkId}
+              enableAddressBook
+              enableWalletName
+              enableVerifySendFundToSelf
+              enableAddressInteractionStatus
+              enableAddressContract
+              enableAllowListValidation={enableAllowListValidation}
+              contacts={addressBookEnabledNetworkIds.includes(
+                currentAccount.networkId,
+              )}
+              accountSelector={addressInputAccountSelectorArgs}
+              onInputTypeChange={handleAddressInputChangeType}
+            />
             {renderDataInput()}
           </Form>
         </AccountSelectorProviderMirror>
@@ -1311,4 +1310,6 @@ const SendDataInputContainerWithProvider = memo(() => (
 SendDataInputContainerWithProvider.displayName =
   'SendDataInputContainerWithProvider';
 
-export { SendDataInputContainer, SendDataInputContainerWithProvider };
+export { SendDataInputContainer };
+
+export default SendDataInputContainerWithProvider;

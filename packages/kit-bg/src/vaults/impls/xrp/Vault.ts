@@ -7,8 +7,8 @@ import type {
   IEncodedTxXrp,
 } from '@onekeyhq/core/src/chains/xrp/types';
 import {
-  decodeSensitiveText,
-  encodeSensitiveText,
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -165,7 +165,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxXrp;
     const network = await this.getNetwork();
 
@@ -228,7 +228,11 @@ export default class Vault extends VaultBase {
       status: EDecodedTxStatus.Pending,
       networkId: this.networkId,
       accountId: this.accountId,
-      extraInfo: null,
+      extraInfo: {
+        destinationTag: transferPayload?.memo
+          ? Number(transferPayload.memo)
+          : undefined,
+      },
       encodedTx,
     };
 
@@ -294,12 +298,12 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({ encodedText: params.input });
     let privateKey = bufferUtils.bytesToHex(input);
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return Promise.resolve({ privateKey });
   }
 

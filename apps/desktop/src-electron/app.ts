@@ -14,7 +14,6 @@ import {
   ipcMain,
   nativeTheme,
   powerMonitor,
-  screen,
   session,
   shell,
   systemPreferences,
@@ -47,6 +46,7 @@ import { resourcesPath, staticPath } from './resoucePath';
 import { initSentry } from './sentry';
 import {
   checkAvailabilityAsync,
+  checkBiometricAuthChanged,
   requestVerificationAsync,
   startServices,
 } from './service';
@@ -77,7 +77,7 @@ if (!isMac) {
   setupTitlebar();
 }
 
-let systemIdleInterval: NodeJS.Timeout;
+let systemIdleInterval: ReturnType<typeof setInterval>;
 
 export type IDesktopOpenUrlEventData = {
   url?: string;
@@ -388,6 +388,8 @@ const getBackgroundColor = (key: string) =>
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
 function createMainWindow() {
+  // https://github.com/electron/electron/issues/16168
+  const { screen } = require('electron');
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   const ratio = 16 / 9;
@@ -541,8 +543,7 @@ function createMainWindow() {
     (
       event,
       params: {
-        disableNumberShortcuts: boolean;
-        disableSearchAndAccountSelectorShortcuts: boolean;
+        disableAllShortcuts: boolean;
       },
     ) => {
       store.setDisableKeyboardShortcuts(params);
@@ -578,6 +579,20 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;
+  });
+
+  ipcMain.on(ipcMessageKeys.CHECK_BIOMETRIC_AUTH_CHANGED, async (event) => {
+    if (!isMac) {
+      event.returnValue = false;
+      return;
+    }
+    try {
+      const result = await checkBiometricAuthChanged();
+      event.returnValue = result;
+    } catch (error) {
+      logger.error('[CHECK_BIOMETRIC_AUTH_CHANGED] Error:', error);
+      event.returnValue = false;
+    }
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {
@@ -973,7 +988,11 @@ if (!singleInstance && !process.mas) {
   });
 }
 
-app.on('activate', () => {
+// The activate and ready events are mapped from OS X's applicationShouldHandleReopen and applicationDidFinishLaunching events
+//  couldn't find documentation on whether applicationShouldHandleReopen would be emitted before applicationDidFinishLaunching.
+//  So we need to handle both cases to be safe.
+app.on('activate', async () => {
+  await app.whenReady();
   if (!mainWindow) {
     mainWindow = createMainWindow();
   }
@@ -981,10 +1000,11 @@ app.on('activate', () => {
 });
 
 app.on('before-quit', () => {
-  if (mainWindow) {
-    mainWindow?.removeAllListeners();
-    mainWindow?.removeAllListeners('close');
-    mainWindow?.close();
+  const safelyMainWindow = getSafelyMainWindow();
+  if (safelyMainWindow) {
+    safelyMainWindow.removeAllListeners();
+    safelyMainWindow.removeAllListeners('close');
+    safelyMainWindow.close();
   }
   disposeContextMenu?.();
 });

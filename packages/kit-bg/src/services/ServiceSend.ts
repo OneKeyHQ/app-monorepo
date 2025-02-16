@@ -13,19 +13,22 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { HISTORY_CONSTS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { PendingQueueTooLong } from '@onekeyhq/shared/src/errors';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFeeInfoUnit,
   ISendSelectedFeeInfo,
 } from '@onekeyhq/shared/types/fee';
-import type {
-  ESendPreCheckTimingEnum,
-  IParseTransactionResp,
-} from '@onekeyhq/shared/types/send';
+import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
+import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IFetchTokenDetailItem } from '@onekeyhq/shared/types/token';
 import type {
   EReplaceTxType,
@@ -158,6 +161,19 @@ class ServiceSend extends ServiceBase {
         ...params,
         customRpcInfo,
       });
+
+      try {
+        const verified = await vault.verifyTxId({
+          txid: result.txid,
+          signedTx: result,
+        });
+        if (!verified) {
+          throw new Error('Invalid txid');
+        }
+      } catch (error) {
+        throw new Error('Invalid txid');
+      }
+
       txid = result.txid;
     }
 
@@ -196,6 +212,12 @@ class ServiceSend extends ServiceBase {
         });
       // custom network will skip pre-check
       if (isCustomNetwork) {
+        return false;
+      }
+      const isLightningNetwork = networkUtils.isLightningNetworkByNetworkId(
+        params.networkId,
+      );
+      if (isLightningNetwork) {
         return false;
       }
       const client = await this.getClient(EServiceEndpointEnum.Wallet);
@@ -520,6 +542,7 @@ class ServiceSend extends ServiceBase {
       prevNonce,
       feeInfo,
       isInternalSwap,
+      isInternalTransfer,
     } = params;
 
     let newUnsignedTx = unsignedTx;
@@ -545,6 +568,7 @@ class ServiceSend extends ServiceBase {
     }
 
     newUnsignedTx.isInternalSwap = isInternalSwap;
+    newUnsignedTx.isInternalTransfer = isInternalTransfer;
 
     if (swapInfo) {
       newUnsignedTx.swapInfo = swapInfo;
@@ -672,6 +696,36 @@ class ServiceSend extends ServiceBase {
       return tokenDetails.info.isNative;
     }
     return vaultSettings.hasFrozenBalance;
+  }
+
+  @backgroundMethod()
+  async checkAddressBeforeSending({
+    networkId,
+    fromAddress,
+    toAddress,
+  }: {
+    fromAddress?: string;
+    networkId: string;
+    toAddress: string;
+  }) {
+    const { isContract, isScam } =
+      await this.backgroundApi.serviceAccountProfile.getAddressAccountBadge({
+        networkId,
+        fromAddress,
+        toAddress,
+      });
+    if (isContract || isScam) {
+      await new Promise<boolean>((resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        appEventBus.emit(EAppEventBusNames.CheckAddressBeforeSending, {
+          promiseId,
+          type: isScam ? 'scam' : 'contract',
+        });
+      });
+    }
   }
 
   @backgroundMethod()

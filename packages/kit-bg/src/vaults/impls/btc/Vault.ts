@@ -24,8 +24,8 @@ import {
 } from '@onekeyhq/core/src/chains/btc/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
-  decodeSensitiveText,
-  encodeSensitiveText,
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type {
   ICoreApiSignAccount,
@@ -65,11 +65,15 @@ import type {
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
+import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IStakeTxBtcBabylon } from '@onekeyhq/shared/types/staking';
 import type { IDecodedTx, IDecodedTxAction } from '@onekeyhq/shared/types/tx';
 import {
+  EBtcF2poolReplaceState,
   EDecodedTxActionType,
   EDecodedTxStatus,
+  EReplaceTxMethod,
+  EReplaceTxType,
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
@@ -422,22 +426,27 @@ export default class VaultBtc extends VaultBase {
     const utxoTo =
       outputs.length > 1
         ? (() => {
-            // filter non-change outputs first
-            const nonChangeOutputs = outputs.filter(
-              (output) => !output.payload?.isChange && output.address,
+            // filter non-change and non-inscription structure outputs first
+            const nonChangeAndInscriptionStructureOutputs = outputs.filter(
+              (output) =>
+                !output.payload?.isChange &&
+                output.address &&
+                !output.payload?.isInscriptionStructure,
             );
             // if filtered outputs is empty, return original outputs
-            return (nonChangeOutputs.length ? nonChangeOutputs : outputs).map(
-              (output) => ({
-                address: output.address,
-                balance: new BigNumber(output.value)
-                  .shiftedBy(-network.decimals)
-                  .toFixed(),
-                balanceValue: output.value,
-                symbol: network.symbol,
-                isMine: output.address === account.address,
-              }),
-            );
+            return (
+              nonChangeAndInscriptionStructureOutputs.length
+                ? nonChangeAndInscriptionStructureOutputs
+                : outputs
+            ).map((output) => ({
+              address: output.address,
+              balance: new BigNumber(output.value)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              balanceValue: output.value,
+              symbol: network.symbol,
+              isMine: output.address === account.address,
+            }));
           })()
         : outputs.map((output) => ({
             address: output.address,
@@ -1070,23 +1079,18 @@ export default class VaultBtc extends VaultBase {
   async collectTxsByApi(txids: string[]): Promise<{
     [txid: string]: string; // rawTx string
   }> {
-    try {
-      const lookup: {
-        [txid: string]: string; // rawTx string
-      } = {};
+    const lookup: {
+      [txid: string]: string; // rawTx string
+    } = {};
 
-      const txs = await this.backgroundApi.serviceSend.getRawTransactions({
-        networkId: this.networkId,
-        txids,
-      });
+    const txs = await this.backgroundApi.serviceSend.getRawTransactions({
+      networkId: this.networkId,
+      txids,
+    });
 
-      Object.keys(txs).forEach((txid) => (lookup[txid] = txs[txid].rawTx));
+    Object.keys(txs).forEach((txid) => (lookup[txid] = txs[txid].rawTx));
 
-      return lookup;
-    } catch (e) {
-      console.error(e);
-      throw new OneKeyInternalError('Failed to get raw transactions.');
-    }
+    return lookup;
   }
 
   _collectUTXOsInfoByApi = memoizee(
@@ -1282,16 +1286,16 @@ export default class VaultBtc extends VaultBase {
     return { btcExtraInfo, account: signerAccount, relPaths };
   }
 
-  override getPrivateKeyFromImported(params: {
+  override async getPrivateKeyFromImported(params: {
     input: string;
   }): Promise<{ privateKey: string }> {
     // params.input is xprvt format:
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({ encodedText: params.input });
 
     // result is hex format:
     let privateKey = convertBtcXprvtToHex({ xprvt: input });
 
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return Promise.resolve({
       privateKey,
     });
@@ -1452,5 +1456,63 @@ export default class VaultBtc extends VaultBase {
     };
 
     return encodedTx;
+  }
+
+  override async canAccelerateTx({ txId }: { txId: string }): Promise<boolean> {
+    console.log('BTC: canAccelerateTx: ===>>>: txId : ', txId);
+    const replaceState =
+      await this.backgroundApi.serviceHistory.getReplaceInfoForBtc({
+        networkId: this.networkId,
+        accountId: this.accountId,
+        txid: txId,
+      });
+    return replaceState === EBtcF2poolReplaceState.NOT_ACCELERATED;
+  }
+
+  override async getPendingTxsToUpdate({
+    pendingTxs,
+  }: {
+    pendingTxs: IAccountHistoryTx[];
+  }): Promise<IAccountHistoryTx[]> {
+    console.log(
+      'BTC: getPendingTxsToUpdate: ===>>>: pendingTxs : ',
+      pendingTxs,
+    );
+    try {
+      const updatedTxs: IAccountHistoryTx[] = [];
+
+      for (const tx of pendingTxs) {
+        const txId = tx.decodedTx.txid;
+        const replaceState =
+          await this.backgroundApi.serviceHistory.getReplaceInfoForBtc({
+            networkId: this.networkId,
+            accountId: this.accountId,
+            txid: txId,
+          });
+        if (replaceState === EBtcF2poolReplaceState.ACCELERATED_PENDING) {
+          updatedTxs.push({
+            ...tx,
+            replacedType: EReplaceTxType.SpeedUp,
+            replacedMethod: EReplaceTxMethod.BTC_F2POOL,
+          });
+        }
+      }
+
+      return updatedTxs;
+    } catch (error) {
+      console.error(error);
+      return [];
+    }
+  }
+
+  override checkTxSpeedUpStateEnabled({
+    historyTx,
+  }: {
+    historyTx: IAccountHistoryTx;
+  }): Promise<boolean> {
+    return Promise.resolve(
+      historyTx.replacedType === EReplaceTxType.SpeedUp &&
+        historyTx.replacedMethod === EReplaceTxMethod.BTC_F2POOL,
+    );
   }
 }

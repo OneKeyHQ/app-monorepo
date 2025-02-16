@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
+import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import type {
   IEncodedTxSol,
   INativeTxSol,
@@ -14,14 +14,17 @@ import type {
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
 import {
-  NotImplemented,
-  UnsupportedAddressTypeError,
-} from '@onekeyhq/shared/src/errors';
-import { convertDeviceResponse } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
+  convertDeviceError,
+  convertDeviceResponse,
+} from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import {
+  EMessageTypesCommon,
+  EMessageTypesSolana,
+} from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -205,11 +208,58 @@ export class KeyringHardware extends KeyringHardwareBase {
     );
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new NotImplemented(
-      appLocale.intl.formatMessage({
-        id: ETranslations.feedback_sol_sign_unupported_message,
-      }),
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const HardwareSDK = await this.getHardwareSDKInstance();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const dbAccount = await this.vault.getAccount();
+
+    const result = await Promise.all(
+      params.messages.map(
+        async (payload: { type: string; message: string }) => {
+          if (payload.type === EMessageTypesCommon.SIGN_MESSAGE) {
+            const response = await HardwareSDK.solSignMessage(
+              connectId,
+              deviceId,
+              {
+                ...params.deviceParams?.deviceCommonParams,
+                path: dbAccount.path,
+                messageHex: Buffer.from(payload.message).toString('hex'),
+              },
+            );
+
+            if (!response.success) {
+              throw convertDeviceError(response.payload);
+            }
+            return response.payload?.signature;
+          }
+          if (payload.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+            const response = await HardwareSDK.solSignOffchainMessage(
+              connectId,
+              deviceId,
+              {
+                ...params.deviceParams?.deviceCommonParams,
+                path: dbAccount.path,
+                messageHex: Buffer.from(payload.message).toString('hex'),
+                // @ts-expect-error
+                messageFormat: OffchainMessage.guessMessageFormat(
+                  Buffer.from(payload.message),
+                ),
+              },
+            );
+
+            if (!response.success) {
+              throw convertDeviceError(response.payload);
+            }
+            return response.payload?.signature;
+          }
+
+          throw new Error('signMessage not supported on hardware');
+        },
+      ),
     );
+    return result.map((ret) => bs58.encode(Buffer.from(ret, 'hex')));
   }
 }

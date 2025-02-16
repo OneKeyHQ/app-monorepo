@@ -26,12 +26,14 @@ const ICON_CONFIG_LIST = {
   },
 };
 
-export function useUrlRiskConfig(url: string) {
+export function useUrlRiskConfig(url?: string) {
   const [hostSecurity, setHostSecurity] = useState<IHostSecurity | undefined>();
   useEffect(() => {
-    void backgroundApiProxy.serviceDiscovery
-      .checkUrlSecurity({ url, from: 'app' })
-      .then(setHostSecurity);
+    if (url) {
+      void backgroundApiProxy.serviceDiscovery
+        .checkUrlSecurity({ url, from: 'app' })
+        .then(setHostSecurity);
+    }
   }, [url]);
   const iconConfig = useMemo(() => {
     if (!hostSecurity?.level) {

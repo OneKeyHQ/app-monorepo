@@ -177,10 +177,11 @@ export function formatDistanceToNow(
   return distance ?? '';
 }
 
-export function formatDuration(duration: Duration) {
+export function formatDuration(duration: Duration, zero?: boolean) {
   const locale = appLocale.getLocale();
   const distance = fnsFormatDuration(duration, {
     locale: parseToDateFnsLocale(locale),
+    zero,
   });
 
   return distance ?? '';

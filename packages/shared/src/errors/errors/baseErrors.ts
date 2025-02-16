@@ -9,6 +9,7 @@ import type {
 } from '@onekeyhq/shared/src/locale';
 
 import { EOneKeyErrorClassNames } from '../types/errorTypes';
+import { normalizeErrorProps } from '../utils/errorUtils';
 
 import type { IOneKeyAPIBaseResponse } from '../../../types/request';
 import type {
@@ -44,6 +45,8 @@ export class OneKeyError<
   autoToast?: boolean | undefined;
 
   requestId?: string | undefined;
+
+  override name = 'OneKeyError';
 
   constructor(
     errorProps?: IOneKeyError<I18nInfoT, DataT> | string,
@@ -148,6 +151,15 @@ export class OneKeyServerApiError extends OneKeyError<
   any,
   IOneKeyAPIBaseResponse
 > {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyServerApiError',
+        // defaultKey: ETranslations.auth_error_passcode_incorrect,
+      }),
+    );
+  }
+
   override className?: EOneKeyErrorClassNames | undefined =
     EOneKeyErrorClassNames.OneKeyServerApiError;
 }

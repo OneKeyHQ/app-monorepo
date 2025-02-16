@@ -75,3 +75,4 @@ export const buildServiceEndpoint = ({
 
 export const CHAIN_SELECTOR_LOGO =
   'https://uni.onekey-asset.com/static/logo/chain_selector_logo.png';
+export const defaultColorScheme = 'dark';

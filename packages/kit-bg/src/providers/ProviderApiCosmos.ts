@@ -18,6 +18,7 @@ import {
   permissionRequired,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { COINTYPE_COSMOS } from '@onekeyhq/shared/src/engine/engineConsts';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -167,6 +168,16 @@ class ProviderApiCosmos extends ProviderApiBase {
   }
 
   @providerApiMethod()
+  public async babylonConnectWallet(request: IJsBridgeMessagePayload) {
+    const chainId = 'bbn-test-5';
+    const result = await this.enable(request, [chainId]);
+    if (!result) {
+      throw new Error('Failed to connect Babylon wallet');
+    }
+    return chainId;
+  }
+
+  @providerApiMethod()
   public enable(request: IJsBridgeMessagePayload, params: string[]) {
     const { origin } = request;
     if (!origin) {
@@ -191,6 +202,9 @@ class ProviderApiCosmos extends ProviderApiBase {
       } catch (error) {
         if ((error as Error).message !== 'Invalid chainId') {
           this._enableFailureCache[origin] = now;
+        } else {
+          const chainId = params?.[0] ?? '';
+          throw new Error(`OneKey does not support ${chainId}.`);
         }
         return false;
       }
@@ -226,6 +240,12 @@ class ProviderApiCosmos extends ProviderApiBase {
         accountId: account.id,
       }),
     };
+  }
+
+  @providerApiMethod()
+  public async babylonGetKey(request: IJsBridgeMessagePayload) {
+    const chainId = 'bbn-test-5';
+    return this.getKey(request, chainId);
   }
 
   @providerApiMethod()
@@ -581,6 +601,48 @@ class ProviderApiCosmos extends ProviderApiBase {
       return true;
     }
     return false;
+  }
+
+  @providerApiMethod()
+  public async getChainInfosWithoutEndpoints(request: IJsBridgeMessagePayload) {
+    const { networks } =
+      await this.backgroundApi.serviceNetwork.getNetworksByImpls({
+        impls: ['cosmos'],
+      });
+
+    return networks.map((n) => {
+      const chainId = networkUtils.getNetworkChainId({ networkId: n.id });
+      if (!chainId) return null;
+      return {
+        chainId,
+        chainName: n.name,
+        bip44: { coinType: parseInt(COINTYPE_COSMOS, 10) },
+        currencies: [],
+        feeCurrencies: [],
+      };
+    });
+  }
+
+  @providerApiMethod()
+  public async getChainInfoWithoutEndpoints(
+    request: IJsBridgeMessagePayload,
+    params: string,
+  ) {
+    const { networks } =
+      await this.backgroundApi.serviceNetwork.getNetworksByImpls({
+        impls: ['cosmos'],
+      });
+
+    const network = networks.find((n) => n.chainId === params);
+    if (!network) throw new Error(`OneKey does not support ${params}`);
+
+    return {
+      chainId: network.chainId,
+      chainName: network.name,
+      bip44: { coinType: parseInt(COINTYPE_COSMOS, 10) },
+      currencies: [],
+      feeCurrencies: [],
+    };
   }
 }
 

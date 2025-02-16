@@ -38,6 +38,7 @@ import type { ENFTType } from '@onekeyhq/shared/types/nft';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type {
   ESwapTabSwitchType,
+  EWrappedType,
   IFetchBuildTxResult,
   IOKXTransactionObject,
   ISwapTokenBase,
@@ -164,6 +165,8 @@ export type IVaultSettings = {
   defaultFeePresetIndex: number;
   checkFeeDetailEnabled?: boolean;
   replaceTxEnabled: boolean;
+  cancelTxEnabled?: boolean;
+  speedUpCancelEnabled?: boolean;
   // Get the interval time for polling the fee API, in seconds
   estimatedFeePollingInterval: number;
 
@@ -240,6 +243,8 @@ export type IVaultSettings = {
   sendZeroWithZeroTokenBalanceDisabled?: boolean;
 
   stakingConfig?: IStakingConfig;
+  stakingResultPollingInterval?: number;
+
   editApproveAmountEnabled?: boolean;
   useRemoteTxId?: boolean;
   isNativeTokenContractAddressEmpty?: boolean;
@@ -475,12 +480,10 @@ export type ITransferPayload = {
   isNFT: boolean;
   originalRecipient: string;
   isToContract?: boolean;
+  memo?: string;
+  paymentId?: string;
+  note?: string;
 };
-
-export enum EWrappedType {
-  DEPOSIT = 'deposit',
-  WITHDRAW = 'withdraw',
-}
 
 export type IWrappedInfo = {
   from: string;
@@ -529,6 +532,7 @@ export interface IBuildDecodedTxParams {
   feeInfo?: ISendSelectedFeeInfo;
   transferPayload?: ITransferPayload;
   saveToLocalHistory?: boolean;
+  isToContract?: boolean;
 }
 export interface IBuildUnsignedTxParams {
   unsignedTx?: IUnsignedTxPro;
@@ -543,6 +547,7 @@ export interface IBuildUnsignedTxParams {
   feeInfo?: IFeeInfoUnit;
   transferPayload?: ITransferPayload;
   isInternalSwap?: boolean;
+  isInternalTransfer?: boolean;
 }
 
 export type ITokenApproveInfo = { allowance: string; isUnlimited: boolean };

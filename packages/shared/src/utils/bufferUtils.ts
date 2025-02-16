@@ -23,7 +23,11 @@ function toBuffer(
       data = hexUtils.stripHexPrefix(data);
     }
     // buffer from hex string in default
-    return Buffer.from(data, encoding);
+    const buff = Buffer.from(data, encoding);
+    if (buff.length === 0 && data.length > 0) {
+      throw new Error(`data not matched to encoding: ${encoding}`);
+    }
+    return buff;
   }
   if (data instanceof Uint8Array) {
     return Buffer.from(data);

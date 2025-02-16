@@ -1,9 +1,12 @@
 import { useEffect } from 'react';
 
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import {
   useAccountSelectorActions,
+  useAccountSelectorSceneInfo,
   useAccountSelectorStorageReadyAtom,
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
@@ -11,16 +14,30 @@ import {
 import { useAccountSelectorAvailableNetworks } from './useAccountSelectorAvailableNetworks';
 
 export function useAutoSelectNetwork({ num }: { num: number }) {
-  const {
-    selectedAccount: { networkId },
-  } = useSelectedAccount({ num });
+  const { selectedAccount } = useSelectedAccount({ num });
+  const { networkId } = selectedAccount;
 
   const [isReady] = useAccountSelectorStorageReadyAtom();
   const { networkIds, defaultNetworkId } = useAccountSelectorAvailableNetworks({
     num,
   });
 
+  const { sceneName, sceneUrl } = useAccountSelectorSceneInfo();
+
   const actions = useAccountSelectorActions();
+
+  if (sceneName === EAccountSelectorSceneName.discover) {
+    // console.log('useAutoSelectNetwork::: sceneName', {
+    //   selectedAccount,
+    //   sceneName,
+    //   sceneUrl,
+    //   networkId,
+    //   networkIds,
+    //   defaultNetworkId,
+    //   isReady,
+    //   num,
+    // });
+  }
 
   // ** auto select first network if no network selected yet
   useEffect(() => {
@@ -40,14 +57,38 @@ export function useAutoSelectNetwork({ num }: { num: number }) {
           usedNetworkId = defaultNetworkId;
         }
       }
+
+      if (
+        usedNetworkId &&
+        sceneName === EAccountSelectorSceneName.discover &&
+        networkUtils.isAllNetwork({ networkId: usedNetworkId })
+      ) {
+        usedNetworkId = '';
+      }
+
       if (usedNetworkId) {
+        if (sceneName === EAccountSelectorSceneName.discover) {
+          // console.log(
+          //   'useAutoSelectNetwork::: updateSelectedAccountNetwork',
+          //   usedNetworkId,
+          // );
+        }
+
         void actions.current.updateSelectedAccountNetwork({
           num,
           networkId: usedNetworkId,
         });
       }
     }
-  }, [actions, defaultNetworkId, isReady, networkId, networkIds, num]);
+  }, [
+    actions,
+    defaultNetworkId,
+    isReady,
+    networkId,
+    networkIds,
+    num,
+    sceneName,
+  ]);
 
   // TODO UI unmount & mount unexpectedly, cause hooks rerun
   // TODO useUpdateEffect()

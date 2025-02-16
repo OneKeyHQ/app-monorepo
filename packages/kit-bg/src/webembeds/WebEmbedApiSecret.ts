@@ -1,5 +1,7 @@
 import type {
   IBatchGetPublicKeysAsyncParams,
+  IDecryptAsyncParams,
+  IEncryptAsyncParams,
   IGenerateRootFingerprintHexAsyncParams,
   IMnemonicFromEntropyAsyncParams,
   IMnemonicToSeedAsyncParams,
@@ -7,6 +9,8 @@ import type {
 } from '@onekeyhq/core/src/secret';
 import {
   batchGetPublicKeysAsync,
+  decryptAsync,
+  encryptAsync,
   generateRootFingerprintHexAsync,
   mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
@@ -15,6 +19,22 @@ import {
 } from '@onekeyhq/core/src/secret';
 
 class WebEmbedApiSecret {
+  async encryptAsync(
+    params: Omit<IEncryptAsyncParams, 'data'> & {
+      data: string;
+    },
+  ): Promise<string> {
+    return (await encryptAsync(params)).toString('hex');
+  }
+
+  async decryptAsync(
+    params: Omit<IDecryptAsyncParams, 'data'> & {
+      data: string;
+    },
+  ): Promise<string> {
+    return (await decryptAsync(params)).toString('hex');
+  }
+
   async batchGetPublicKeys(
     params: IBatchGetPublicKeysAsyncParams,
   ): Promise<ISecretPublicKeyInfoSerialized[]> {

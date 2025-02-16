@@ -8,8 +8,8 @@ import type {
 } from '@onekeyhq/core/src/chains/algo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import {
-  decodeSensitiveText,
-  encodeSensitiveText,
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -29,6 +29,7 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import { ALGO_TX_MIN_FEE } from '@onekeyhq/shared/types/algo';
 import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
@@ -54,7 +55,7 @@ import { KeyringImported } from './KeyringImported';
 import { KeyringWatching } from './KeyringWatching';
 import sdkAlgo from './sdkAlgo';
 import ClientAlgo from './sdkAlgo/ClientAlog';
-import { ALGO_TX_MIN_FEE, encodeTransaction } from './utils';
+import { encodeTransaction } from './utils';
 
 import type {
   ISdkAlgoAccountInformation,
@@ -522,14 +523,16 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     let privateKey = Buffer.from(sdkAlgo.seedFromMnemonic(input)).toString(
       'hex',
     );
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return Promise.resolve({
       privateKey,
     });

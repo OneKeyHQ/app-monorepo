@@ -1647,6 +1647,93 @@ const azero: IServerNetwork = {
   'backendIndex': false,
 };
 
+const dtc: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '9798',
+  'id': 'evm--9798',
+  'name': 'DataTradeChain',
+  'symbol': 'DTT',
+  'code': 'dtc',
+  'shortcode': 'dtc',
+  'shortname': 'DTC',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'dtt',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/dtc.png',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const sonic: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '146',
+  'id': 'evm--146',
+  'name': 'Sonic',
+  'symbol': 'S',
+  'code': 'sonic',
+  'shortcode': 'sonic',
+  'shortname': 'sonic',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 's',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': true,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/sonic.png',
+  'defaultEnabled': true,
+  'backendIndex': false,
+};
+
+const hsk: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '177',
+  'id': 'evm--177',
+  'name': 'HashKey Chain',
+  'symbol': 'HSK',
+  'code': 'hsk',
+  'shortcode': 'hsk',
+  'shortname': 'hsk',
+  'decimals': 18,
+  'feeMeta': {
+    'code': 'hsk',
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': true,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/hsk.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -1987,6 +2074,27 @@ const celestia: IServerNetwork = {
     'symbol': 'TIA',
   },
   'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
+const bbnTestnet: IServerNetwork = {
+  'chainId': 'bbn-test-5',
+  'code': 'ubbn',
+  'decimals': 6,
+  'id': 'cosmos--bbn-test-5',
+  'impl': 'cosmos',
+  'isTestnet': true,
+  'logoURI': 'https://uni.onekey-asset.com/static/logo/babylon.png',
+  'name': 'Babylon Testnet',
+  'shortcode': 'bbn',
+  'shortname': 'BBN',
+  'symbol': 'BBN',
+  'feeMeta': {
+    'code': 'ubbn',
+    'decimals': 6,
+    'symbol': 'UBBN',
+  },
+  'defaultEnabled': false,
   'status': ENetworkStatus.LISTED,
 };
 
@@ -2623,6 +2731,9 @@ export const presetNetworksMap = {
   zircuit,
   neox,
   azero,
+  dtc,
+  sonic,
+  hsk,
 
   // cosmos
   celestia,
@@ -2662,27 +2773,6 @@ export const presetNetworksMap = {
   ton,
   scdo,
   benfen,
-};
-
-const bbnTestnet: IServerNetwork = {
-  'chainId': 'bbn-test-5',
-  'code': 'ubbn',
-  'decimals': 6,
-  'id': 'cosmos--bbn-test-5',
-  'impl': 'cosmos',
-  'isTestnet': true,
-  'logoURI': 'https://uni.onekey-asset.com/static/logo/babylon.png',
-  'name': 'Babylon Testnet',
-  'shortcode': 'bbn',
-  'shortname': 'BBN',
-  'symbol': 'BBN',
-  'feeMeta': {
-    'code': 'ubbn',
-    'decimals': 6,
-    'symbol': 'UBBN',
-  },
-  'defaultEnabled': false,
-  'status': ENetworkStatus.LISTED,
 };
 
 // top 20 tvl evm networks
@@ -2781,6 +2871,10 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   zircuit,
   neox,
   azero,
+  dtc,
+  sonic,
+  hsk,
+
   // cosmos
   celestia,
   secret,

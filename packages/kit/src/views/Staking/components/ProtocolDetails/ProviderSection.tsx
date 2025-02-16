@@ -3,6 +3,7 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString } from '../../utils/utils';
@@ -33,6 +34,9 @@ type IProviderInfoProps = {
   babylonConfirmedCap?: {
     value: string;
   };
+  poolFee?: {
+    value: string;
+  };
 };
 
 function ProviderInfo({
@@ -42,6 +46,7 @@ function ProviderInfo({
   network,
   babylonConfirmedCap,
   babylonStakingCap,
+  poolFee,
 }: IProviderInfoProps) {
   const intl = useIntl();
   let minOrMaxStakingItem: { label: string; value: string } | undefined;
@@ -129,6 +134,19 @@ function ProviderInfo({
             {babylonConfirmedCap.value} BTC
           </GridItem>
         ) : null}
+        {poolFee?.value &&
+        earnUtils.isMorphoProvider({ providerName: validator?.name ?? '' }) ? (
+          <GridItem
+            title={intl.formatMessage({
+              id: ETranslations.earn_performance_fee,
+            })}
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_performance_fee_desc,
+            })}
+          >
+            {poolFee.value}%
+          </GridItem>
+        ) : null}
       </XStack>
     </YStack>
   );
@@ -179,6 +197,11 @@ export const ProviderSection = ({
             .toFixed(),
         };
       }
+    }
+    if (details.provider.poolFee) {
+      providerProps.poolFee = {
+        value: details.provider.poolFee,
+      };
     }
   }
   if (details.network) {

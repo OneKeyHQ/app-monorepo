@@ -49,6 +49,7 @@ import type {
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
+import { EWrappedType } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 import type {
   IDecodedTx,
@@ -62,24 +63,6 @@ import {
 } from '@onekeyhq/shared/types/tx';
 
 import { VaultBase } from '../../base/VaultBase';
-import {
-  EWrappedType,
-  type IApproveInfo,
-  type IBroadcastTransactionByCustomRpcParams,
-  type IBuildAccountAddressDetailParams,
-  type IBuildDecodedTxParams,
-  type IBuildEncodedTxParams,
-  type IBuildUnsignedTxParams,
-  type IGetPrivateKeyFromImportedParams,
-  type IGetPrivateKeyFromImportedResult,
-  type INativeAmountInfo,
-  type ITokenApproveInfo,
-  type ITransferInfo,
-  type ITransferPayload,
-  type IUpdateUnsignedTxParams,
-  type IValidateGeneralInputParams,
-  type IWrappedInfo,
-} from '../../types';
 
 import { EVMContractDecoder } from './decoder';
 import {
@@ -108,6 +91,23 @@ import { EvmApiProvider } from './sdkEvm/EvmApiProvider';
 
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
+import type {
+  IApproveInfo,
+  IBroadcastTransactionByCustomRpcParams,
+  IBuildAccountAddressDetailParams,
+  IBuildDecodedTxParams,
+  IBuildEncodedTxParams,
+  IBuildUnsignedTxParams,
+  IGetPrivateKeyFromImportedParams,
+  IGetPrivateKeyFromImportedResult,
+  INativeAmountInfo,
+  ITokenApproveInfo,
+  ITransferInfo,
+  ITransferPayload,
+  IUpdateUnsignedTxParams,
+  IValidateGeneralInputParams,
+  IWrappedInfo,
+} from '../../types';
 import type { IJsonRpcRequest } from '@onekeyfe/cross-inpage-provider-types';
 
 const enabledNFTNetworkIds = getEnabledNFTNetworkIds();
@@ -243,7 +243,7 @@ export default class Vault extends VaultBase {
         icon: network.logoURI ?? '',
       },
     };
-    let isToContract: boolean | undefined;
+    let isToContract: boolean | undefined = params.isToContract;
     let extraNativeTransferAction: IDecodedTxAction | undefined;
 
     if (swapInfo) {
@@ -270,19 +270,6 @@ export default class Vault extends VaultBase {
               encodedTx,
             });
         }
-      }
-
-      try {
-        const parseResult =
-          await this.backgroundApi.serviceSend.parseTransaction({
-            accountId: this.accountId,
-            networkId: this.networkId,
-            encodedTx,
-            accountAddress,
-          });
-        isToContract = parseResult.parsedTx.to.isContract;
-      } catch (e) {
-        // ignore
       }
 
       if (
@@ -471,9 +458,19 @@ export default class Vault extends VaultBase {
       params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxEvm;
     const accountAddress = await this.getAccountAddress();
-    const finalActions = mergeAssetTransferActions(
-      [action, extraNativeTransferAction].filter(Boolean),
-    );
+
+    let finalActions: IDecodedTxAction[] = [];
+
+    if (
+      action?.type === EDecodedTxActionType.UNKNOWN &&
+      extraNativeTransferAction
+    ) {
+      finalActions = [extraNativeTransferAction];
+    } else {
+      finalActions = mergeAssetTransferActions(
+        [action, extraNativeTransferAction].filter(Boolean),
+      );
+    }
 
     const decodedTx: IDecodedTx = {
       txid: '',
@@ -1038,6 +1035,7 @@ export default class Vault extends VaultBase {
       icon: nft.metadata?.image ?? '',
       symbol: nft.metadata?.name ?? '',
       isNFT: true,
+      NFTType: nft.collectionType,
     };
 
     return this.buildTxTransferAssetAction({
@@ -1111,7 +1109,14 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override async isEarliestLocalPendingTx({
+  override async canAccelerateTx(params: {
+    encodedTx: IEncodedTxEvm;
+    txId: string;
+  }): Promise<boolean> {
+    return this.isEarliestLocalPendingTx(params);
+  }
+
+  private async isEarliestLocalPendingTx({
     encodedTx,
   }: {
     encodedTx: IEncodedTxEvm;
@@ -1232,11 +1237,27 @@ export default class Vault extends VaultBase {
     }
     const client = new ClientEvm(rpcUrl);
     const txid = await client.broadcastTransaction(signedTx.rawTx);
+
     return {
       ...signedTx,
       txid,
       encodedTx: signedTx.encodedTx,
     };
+  }
+
+  override async verifyTxId(params: {
+    txid: string;
+    signedTx: ISignedTxPro;
+  }): Promise<boolean> {
+    const { signedTx, txid } = params;
+
+    if (typeof txid !== 'string') {
+      return false;
+    }
+
+    const recoveredTxid = ethers.utils.keccak256(signedTx.rawTx);
+
+    return recoveredTxid.toLowerCase() === txid.toLowerCase();
   }
 
   // RPC Client

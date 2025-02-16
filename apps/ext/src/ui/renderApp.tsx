@@ -5,6 +5,7 @@ import 'setimmediate';
 // eslint-disable-next-line import/order
 import { createRoot } from 'react-dom/client';
 
+import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 import {
   initSentry,
   withSentryHOC,
@@ -14,7 +15,7 @@ import App from '../App';
 
 initSentry();
 
-const WithSentryHOC = withSentryHOC(App);
+const WithSentryHOC = withSentryHOC(App, SentryErrorBoundaryFallback);
 
 function renderApp() {
   const root = globalThis.document.querySelector('#root');

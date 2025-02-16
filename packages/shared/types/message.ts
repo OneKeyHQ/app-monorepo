@@ -6,6 +6,11 @@ export enum EMessageTypesEth {
   TYPED_DATA_V4 = 'TYPED_DATA_V4', // 4
 }
 
+export enum ESigningScheme {
+  EIP712 = 'eip712',
+  ETHSIGN = 'ethsign',
+}
+
 export enum EMessageTypesAptos {
   SIGN_MESSAGE = 'aptosSignMessage',
 }
@@ -14,6 +19,10 @@ export enum EMessageTypesCommon {
   SIGN_MESSAGE = 'commonSignMessage',
   SIMPLE_SIGN = 'commonSimpleSign',
   HEX_MESSAGE = 'commonHexMessage',
+}
+
+export enum EMessageTypesSolana {
+  SIGN_OFFCHAIN_MESSAGE = 'solanaSignOffchainMessage',
 }
 
 export enum EMessageTypesAda {

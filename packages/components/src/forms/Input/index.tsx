@@ -53,9 +53,9 @@ type ITMInputProps = GetProps<typeof TMInput>;
 export { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
 
 export type {
-  IPasteEventPayloadItem,
-  IPasteEventPayload,
   IPasteEventParams,
+  IPasteEventPayload,
+  IPasteEventPayloadItem,
 } from '@onekeyfe/react-native-text-input';
 
 export type IInputProps = {
@@ -70,6 +70,8 @@ export type IInputProps = {
   leftAddOnProps?: IInputAddOnProps;
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
+  autoFocusDelayMs?: number;
+  allowSecureTextEye?: boolean;
   containerProps?: IGroupProps;
   onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
@@ -82,6 +84,7 @@ export type IInputProps = {
 
 export type IInputRef = {
   focus: () => void;
+  blur: () => void;
 };
 
 const SIZE_MAPPINGS = {
@@ -114,7 +117,11 @@ const useReadOnlyStyle = (readOnly = false) =>
     [readOnly],
   );
 
-const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
+const useAutoFocus = (
+  inputRef: RefObject<TextInput>,
+  autoFocus?: boolean,
+  autoFocusDelayMs?: number,
+) => {
   const shouldReloadAutoFocus = useMemo(
     () => platformEnv.isRuntimeBrowser && autoFocus,
     [autoFocus],
@@ -131,9 +138,9 @@ const useAutoFocus = (inputRef: RefObject<TextInput>, autoFocus?: boolean) => {
     } else {
       setTimeout(() => {
         inputRef.current?.focus();
-      }, 150);
+      }, autoFocusDelayMs || 150);
     }
-  }, [inputRef, shouldReloadAutoFocus]);
+  }, [autoFocusDelayMs, inputRef, shouldReloadAutoFocus]);
   return shouldReloadAutoFocus ? false : autoFocus;
 };
 
@@ -163,6 +170,9 @@ function BaseInput(
     onChangeText,
     keyboardType,
     InputComponentStyle,
+    autoFocusDelayMs,
+    secureTextEntry,
+    allowSecureTextEye,
     ...props
   } = useProps(inputProps);
   const { paddingLeftWithIcon, height, iconLeftPosition } = SIZE_MAPPINGS[size];
@@ -175,24 +185,46 @@ function BaseInput(
   });
   const themeName = useThemeName();
   const inputRef: RefObject<TextInput> | null = useRef(null);
-  const reloadAutoFocus = useAutoFocus(inputRef, autoFocus);
+  const reloadAutoFocus = useAutoFocus(inputRef, autoFocus, autoFocusDelayMs);
   const readOnlyStyle = useReadOnlyStyle(readonly);
 
-  const addOns = useMemo<IInputAddOnProps[] | undefined>(() => {
-    if (allowClear && inputProps?.value) {
-      return [
-        ...(addOnsInProps ?? []),
-        {
-          iconName: 'XCircleOutline',
-          onPress: () => {
-            inputRef?.current?.clear();
-            onChangeText?.('');
-          },
-        },
-      ];
+  const [secureEntryState, setSecureEntryState] = useState(true);
+
+  const usedSecureTextEntry = useMemo(() => {
+    if (allowSecureTextEye) {
+      return secureEntryState;
     }
-    return addOnsInProps;
-  }, [allowClear, inputProps?.value, addOnsInProps, onChangeText]);
+    return secureTextEntry;
+  }, [allowSecureTextEye, secureEntryState, secureTextEntry]);
+
+  const addOns = useMemo<IInputAddOnProps[] | undefined>(() => {
+    const allAddOns = [...(addOnsInProps ?? [])];
+    if (allowClear && inputProps?.value) {
+      allAddOns.push({
+        iconName: 'XCircleOutline',
+        onPress: () => {
+          inputRef?.current?.clear();
+          onChangeText?.('');
+        },
+      });
+    }
+    if (allowSecureTextEye) {
+      allAddOns.push({
+        iconName: secureEntryState ? 'EyeOutline' : 'EyeOffOutline',
+        onPress: () => {
+          setSecureEntryState(!secureEntryState);
+        },
+      });
+    }
+    return allAddOns;
+  }, [
+    addOnsInProps,
+    allowClear,
+    inputProps?.value,
+    allowSecureTextEye,
+    onChangeText,
+    secureEntryState,
+  ]);
 
   useEffect(() => {
     if (!platformEnv.isNative && inputRef.current && onPaste) {
@@ -243,6 +275,9 @@ function BaseInput(
     ...inputRef.current,
     focus: () => {
       inputRef.current?.focus();
+    },
+    blur: () => {
+      inputRef.current?.blur();
     },
     measureLayout: (
       relativeToNativeComponentRef:
@@ -351,6 +386,7 @@ function BaseInput(
           onFocus={handleFocus}
           selectTextOnFocus={selectTextOnFocus}
           editable={editable}
+          secureTextEntry={usedSecureTextEntry}
           {...readOnlyStyle}
           {...InputComponentStyle}
           {...props}
@@ -464,6 +500,7 @@ function BaseInputUnControlled(
     () =>
       inputRef.current || {
         focus: () => {},
+        blur: () => {},
       },
   );
   return (

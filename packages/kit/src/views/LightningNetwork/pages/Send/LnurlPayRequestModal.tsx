@@ -8,15 +8,17 @@ import { Page, Toast, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useDappApproveAction from '@onekeyhq/kit/src/hooks/useDappApproveAction';
 import useDappQuery from '@onekeyhq/kit/src/hooks/useDappQuery';
-import { useSendConfirm } from '@onekeyhq/kit/src/hooks/useSendConfirm';
+import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import DappOpenModalPage from '@onekeyhq/kit/src/views/DAppConnection/pages/DappOpenModalPage';
+// TODO: Move lightning utils to shared module
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { isLightningAddress } from '@onekeyhq/kit-bg/src/vaults/impls/lightning/sdkLightning/lnurl';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { OneKeyError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
-  EModalSendRoutes,
-  IModalSendParamList,
+  EModalSignatureConfirmRoutes,
+  IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import { EDAppModalPageStatus } from '@onekeyhq/shared/types/dappConnection';
 import type { ILNURLPaymentInfo } from '@onekeyhq/shared/types/lightning';
@@ -39,11 +41,16 @@ function LnurlPayRequestModal() {
   const intl = useIntl();
   const route =
     useRoute<
-      RouteProp<IModalSendParamList, EModalSendRoutes.LnurlPayRequest>
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.LnurlPayRequest
+      >
     >();
   const routeParams = route.params;
   const dAppQuery =
-    useDappQuery<IModalSendParamList[EModalSendRoutes.LnurlPayRequest]>();
+    useDappQuery<
+      IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.LnurlPayRequest]
+    >();
   const { $sourceInfo } = dAppQuery;
   const { accountId, networkId, lnurlDetails, transfersInfo } =
     routeParams.isSendFlow ? routeParams : dAppQuery;
@@ -61,7 +68,7 @@ function LnurlPayRequestModal() {
   }, [lnurlDetails?.url]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const sendConfirm = useSendConfirm({ accountId, networkId });
+  const signatureConfirm = useSignatureConfirm({ accountId, networkId });
 
   const {
     showContinueOperate,
@@ -157,7 +164,7 @@ function LnurlPayRequestModal() {
               : undefined,
           },
         ];
-        await sendConfirm.normalizeSendConfirm({
+        await signatureConfirm.normalizeTxConfirm({
           transfersInfo: newTransfersInfo,
           sameModal: true,
           onSuccess: () => {
@@ -200,7 +207,7 @@ function LnurlPayRequestModal() {
       transfersInfo,
       dappApprove,
       intl,
-      sendConfirm,
+      signatureConfirm,
       routeParams.isSendFlow,
     ],
   );

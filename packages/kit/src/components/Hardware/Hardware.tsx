@@ -315,13 +315,13 @@ export function EnterPin({
       </Button>
       <Button
         m="$0"
-        mt="$2"
+        mt="$2.5"
         $md={
           {
             size: 'large',
           } as any
         }
-        variant="tertiary"
+        variant="secondary"
         onPress={() => {
           switchOnDevice();
         }}
@@ -486,13 +486,13 @@ export function EnterPhase({
       </Button>
       <Button
         m="$0"
-        mt="$2"
+        mt="$2.5"
         $md={
           {
             size: 'large',
           } as any
         }
-        variant="tertiary"
+        variant="secondary"
         onPress={switchOnDevice}
       >
         {intl.formatMessage({ id: ETranslations.global_enter_on_device })}

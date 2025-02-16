@@ -220,7 +220,7 @@ function BasicFind({ id }: { id: string }) {
 
 const Find = memo(BasicFind);
 
-function DesktopBrowserContent({
+function BasicDesktopBrowserContent({
   id,
   activeTabId,
 }: {
@@ -229,18 +229,27 @@ function DesktopBrowserContent({
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
-  const { addBrowserHistory } = useBrowserHistoryAction().current;
+  const browserHistoryAction = useBrowserHistoryAction();
+  const handleAddBrowserHistory = useCallback(
+    (siteInfo: { url: string; title: string }) => {
+      void browserHistoryAction.current.addBrowserHistory(siteInfo);
+    },
+    [browserHistoryAction],
+  );
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
-      <WebContent
-        id={id}
-        url={tab.url}
-        isCurrent={isActive}
-        addBrowserHistory={(siteInfo) => addBrowserHistory(siteInfo)}
-      />
+      {tab?.url ? (
+        <WebContent
+          id={id}
+          url={tab.url}
+          isCurrent={isActive}
+          addBrowserHistory={handleAddBrowserHistory}
+        />
+      ) : null}
     </Freeze>
   );
 }
 
+const DesktopBrowserContent = memo(BasicDesktopBrowserContent);
 export default DesktopBrowserContent;

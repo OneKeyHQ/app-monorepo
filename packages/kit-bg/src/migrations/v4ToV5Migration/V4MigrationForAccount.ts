@@ -7,8 +7,8 @@ import {
 } from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import { verifyNexaAddressPrefix } from '@onekeyhq/core/src/chains/nexa/sdkNexa';
 import {
-  decrypt,
-  encodeSensitiveText,
+  decryptAsync,
+  encodeSensitiveTextAsync,
   encryptImportedCredential,
   fixV4VerifyStringToV5,
   revealEntropyToMnemonic,
@@ -98,7 +98,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     if (v4dbCredential.id.startsWith('imported-')) {
       const credentialImported = credential as IV4DBImportedCredentialRaw;
       const privateKey = bufferUtils.bytesToHex(
-        decrypt(encodedPassword, credentialImported.privateKey),
+        await decryptAsync({
+          password: encodedPassword,
+          data: credentialImported.privateKey,
+        }),
       );
       const v4account = await v4dbHubs.v4localDb.getRecordById({
         name: EV4LocalDBStoreNames.Account,
@@ -111,7 +114,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
         );
       }
       const credentials: ICoreCredentialsInfo = {
-        imported: encryptImportedCredential({
+        imported: await encryptImportedCredential({
           credential: {
             privateKey,
           },
@@ -182,7 +185,10 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     if (v4dbCredential.id.startsWith('hd-')) {
       const credentialHD = credential as IV4DBHdCredentialRaw;
       // TODO fallback to v4 password prompt
-      const entropy = decrypt(encodedPassword, credentialHD.entropy);
+      const entropy = await decryptAsync({
+        password: encodedPassword,
+        data: credentialHD.entropy,
+      });
       const wallet = await v4dbHubs.v4localDb.getRecordById({
         name: EV4LocalDBStoreNames.Wallet,
         id: v4dbCredential.id,
@@ -752,7 +758,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
     return this.decryptV4ImportedCredential({
       v4dbCredential,
       encodedPassword: password
-        ? encodeSensitiveText({ text: password })
+        ? await encodeSensitiveTextAsync({ text: password })
         : await this.backgroundApi.serviceV4Migration.getMigrationPasswordV4(),
     });
   }
@@ -1619,13 +1625,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 name: v4wallet.name,
                 mnemonic: await servicePassword.encodeSensitiveText({
                   text: mnemonic,
-                }),
-                walletHashBuilder: () => {
-                  const text = `${mnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375--${v4wallet.id}`;
-                  const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
-                  const walletHash = bufferUtils.bytesToHex(buff);
-                  return walletHash;
-                },
+                })
               });
             v5dbWallet = v5walletSaved;
           }

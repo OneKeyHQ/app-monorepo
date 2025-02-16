@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 
+import type { IDecodedTxExtraSol } from '@onekeyhq/core/src/chains/sol/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EFeeType } from '@onekeyhq/shared/types/fee';
 import type {
@@ -8,6 +9,7 @@ import type {
   IGasEIP1559,
   IGasLegacy,
 } from '@onekeyhq/shared/types/fee';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
 const PRESET_FEE_ICON = ['🐢', '🚗', '🚀'];
 const PRESET_FEE_LABEL = [
@@ -304,11 +306,18 @@ export function calculateFeeForSend({
     estimateFeeParams,
   });
   const total = new BigNumber(feeRange.max).toFixed();
+  const totalMin = new BigNumber(feeRange.min).toFixed();
 
   const totalForDisplay = new BigNumber(feeRange.maxForDisplay).toFixed();
+  const totalMinForDisplay = new BigNumber(feeRange.minForDisplay).toFixed();
 
   const totalNative = calculateTotalFeeNative({
     amount: total,
+    feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
+  });
+  const totalNativeMin = calculateTotalFeeNative({
+    amount: totalMin,
     feeInfo,
     withoutBaseFee: feeRange.withoutBaseFee,
   });
@@ -317,8 +326,17 @@ export function calculateFeeForSend({
     feeInfo,
     withoutBaseFee: feeRange.withoutBaseFee,
   });
+  const totalNativeMinForDisplay = calculateTotalFeeNative({
+    amount: totalMinForDisplay,
+    feeInfo,
+    withoutBaseFee: feeRange.withoutBaseFee,
+  });
 
   const totalFiat = new BigNumber(totalNative)
+    .multipliedBy(nativeTokenPrice)
+    .toFixed();
+
+  const totalFiatMin = new BigNumber(totalNativeMin)
     .multipliedBy(nativeTokenPrice)
     .toFixed();
 
@@ -326,12 +344,21 @@ export function calculateFeeForSend({
     .multipliedBy(nativeTokenPrice)
     .toFixed();
 
+  const totalFiatMinForDisplay = new BigNumber(totalNativeMinForDisplay)
+    .multipliedBy(nativeTokenPrice)
+    .toFixed();
+
   return {
     total,
+    totalMin,
     totalNative,
+    totalNativeMin,
     totalFiat,
+    totalFiatMin,
     totalNativeForDisplay,
+    totalNativeMinForDisplay,
     totalFiatForDisplay,
+    totalFiatMinForDisplay,
     feeRange,
   };
 }
@@ -407,4 +434,24 @@ export function getFeePriceNumber({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
   if (feeInfo.feeSol) {
     return feeInfo.common.baseFee;
   }
+}
+
+export function calculateTxExtraFee({ decodedTx }: { decodedTx: IDecodedTx }) {
+  let extraFeeNative = new BigNumber(0);
+
+  if (
+    decodedTx.extraInfo &&
+    (decodedTx.extraInfo as IDecodedTxExtraSol).createTokenAccountFee
+  ) {
+    extraFeeNative = extraFeeNative.plus(
+      new BigNumber(
+        (decodedTx.extraInfo as IDecodedTxExtraSol).createTokenAccountFee
+          ?.amount ?? '0',
+      ),
+    );
+
+    return extraFeeNative.toFixed();
+  }
+
+  return extraFeeNative;
 }

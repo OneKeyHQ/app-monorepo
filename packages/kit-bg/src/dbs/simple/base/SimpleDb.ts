@@ -3,6 +3,7 @@ import { SimpleDbEntityAccountValue } from '../entity/SimpleDbEntityAccountValue
 import { SimpleDbEntityAddressBook } from '../entity/SimpleDbEntityAddressBook';
 import { SimpleDbEntityAllNetworks } from '../entity/SimpleDbEntityAllNetworks';
 import { SimpleDbEntityAppCleanup } from '../entity/SimpleDbEntityAppCleanup';
+import { SimpleDbEntityAppStatus } from '../entity/SimpleDbEntityAppStatus';
 import { SimpleDbEntityBabylonSync } from '../entity/SimpleDbEntityBabylonSync';
 import { SimpleDbEntityBrowserBookmarks } from '../entity/SimpleDbEntityBrowserBookmarks';
 import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowserClosedTabs';
@@ -18,6 +19,7 @@ import { SimpleDbEntityEarn } from '../entity/SimpleDbEntityEarn';
 import { SimpleDbEntityEarnOrders } from '../entity/SimpleDbEntityEarnOrders';
 import { SimpleDbEntityFeeInfo } from '../entity/SimpleDbEntityFeeInfo';
 import { SimpleDbEntityFloatingIconDomainBlockList } from '../entity/SimpleDbEntityFloatingIconDomainBlockList';
+import { SimpleDbEntityFloatingIconSettings } from '../entity/SimpleDbEntityFloatingIconSettings';
 import { SimpleDbEntityLegacyWalletNames } from '../entity/SimpleDbEntityLegacyWalletNames';
 import { SimpleDbEntityLightning } from '../entity/SimpleDbEntityLightning';
 import { SimpleDbEntityLocalHistory } from '../entity/SimpleDbEntityLocalHistory';
@@ -26,6 +28,7 @@ import { SimpleDbEntityLocalTokens } from '../entity/SimpleDbEntityLocalTokens';
 import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWatchList';
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
+import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -35,6 +38,8 @@ import { SimpleDbEntityUniversalSearch } from '../entity/SimpleDbEntityUniversal
 import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4MigrationResult';
 
 export class SimpleDb {
+  prime = new SimpleDbEntityPrime();
+
   browserTabs = new SimpleDbEntityBrowserTabs();
 
   browserBookmarks = new SimpleDbEntityBrowserBookmarks();
@@ -79,6 +84,8 @@ export class SimpleDb {
 
   floatingIconDomainBlockList = new SimpleDbEntityFloatingIconDomainBlockList();
 
+  floatingIconSettings = new SimpleDbEntityFloatingIconSettings();
+
   earn = new SimpleDbEntityEarn();
 
   earnOrders = new SimpleDbEntityEarnOrders();
@@ -102,6 +109,8 @@ export class SimpleDb {
   localNFTs = new SimpleDbEntityLocalNFTs();
 
   babylonSync = new SimpleDbEntityBabylonSync();
+
+  appStatus = new SimpleDbEntityAppStatus();
 
   allNetworks = new SimpleDbEntityAllNetworks();
 }

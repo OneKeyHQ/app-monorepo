@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -19,8 +19,10 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
@@ -28,6 +30,7 @@ import { CalculationList, CalculationListItem } from '../CalculationList';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
+import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalWithdrawProps = {
   balance: string;
@@ -59,7 +62,15 @@ type IUniversalWithdrawProps = {
 
   estimateFeeResp?: IEarnEstimateFeeResp;
 
-  onConfirm?: (amount: string) => Promise<void>;
+  morphoVault?: string;
+
+  onConfirm?: ({
+    amount,
+    withdrawAll,
+  }: {
+    amount: string;
+    withdrawAll: boolean;
+  }) => Promise<void>;
 };
 
 const isNaN = (num: string) =>
@@ -80,6 +91,7 @@ export const UniversalWithdraw = ({
   unstakingPeriod,
   providerLabel,
   decimals,
+  morphoVault,
   // pay with
   showPayWith,
   payWithToken,
@@ -92,6 +104,7 @@ export const UniversalWithdraw = ({
 }: PropsWithChildren<IUniversalWithdrawProps>) => {
   const price = Number(inputPrice) > 0 ? inputPrice : '0';
   const [loading, setLoading] = useState<boolean>(false);
+  const withdrawAllRef = useRef(false);
   const [amountValue, setAmountValue] = useState(initialAmount ?? '');
   const [
     {
@@ -101,40 +114,29 @@ export const UniversalWithdraw = ({
 
   const intl = useIntl();
 
+  const isMorphoProvider = earnUtils.isMorphoProvider({
+    providerName: providerName ?? '',
+  });
+
+  const network = usePromiseResult(
+    () =>
+      backgroundApiProxy.serviceNetwork.getNetwork({
+        networkId,
+      }),
+    [networkId],
+  ).result;
+
   const onPress = useCallback(async () => {
-    Dialog.show({
-      renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
-      title: intl.formatMessage(
-        { id: ETranslations.earn_provider_asset_withdrawal },
-        {
-          'provider': capitalizeString(providerName ?? ''),
-          'asset': tokenSymbol?.toUpperCase() ?? '',
-        },
-      ),
-      renderContent: (
-        <WithdrawShouldUnderstand withdrawalPeriod={unstakingPeriod ?? 3} />
-      ),
-      onConfirm: async (inst) => {
-        try {
-          setLoading(true);
-          await inst.close();
-          await onConfirm?.(amountValue);
-        } finally {
-          setLoading(false);
-        }
-      },
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_withdraw }),
-      showCancelButton: false,
-    });
-  }, [
-    amountValue,
-    onConfirm,
-    intl,
-    tokenImageUri,
-    tokenSymbol,
-    providerName,
-    unstakingPeriod,
-  ]);
+    try {
+      setLoading(true);
+      await onConfirm?.({
+        amount: amountValue,
+        withdrawAll: withdrawAllRef.current,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [amountValue, onConfirm]);
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const checkAmount = useDebouncedCallback(async (amount: string) => {
@@ -148,12 +150,14 @@ export const UniversalWithdraw = ({
       provider: providerName,
       action: 'unstake',
       amount,
+      morphoVault,
+      withdrawAll: withdrawAllRef.current,
     });
     setCheckoutAmountMessage(message);
   }, 300);
 
   const onChangeAmountValue = useCallback(
-    (value: string) => {
+    (value: string, isMax = false) => {
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
@@ -171,6 +175,7 @@ export const UniversalWithdraw = ({
       } else {
         setAmountValue(value);
       }
+      withdrawAllRef.current = !!isMax;
       void checkAmount(value);
     },
     [checkAmount, decimals],
@@ -201,7 +206,7 @@ export const UniversalWithdraw = ({
   }, [minAmount, amountValue, balance]);
 
   const onMax = useCallback(() => {
-    onChangeAmountValue(balance);
+    onChangeAmountValue(balance, true);
   }, [onChangeAmountValue, balance]);
 
   const isCheckAmountMessageError =
@@ -217,6 +222,11 @@ export const UniversalWithdraw = ({
 
   const editable = initialAmount === undefined;
 
+  const fiatValue = useMemo(
+    () => BigNumber(amountValue).multipliedBy(price).toFixed(),
+    [amountValue, price],
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
@@ -228,6 +238,7 @@ export const UniversalWithdraw = ({
           tokenSelectorTriggerProps={{
             selectedTokenImageUri: tokenImageUri,
             selectedTokenSymbol: tokenSymbol,
+            selectedNetworkImageUri: network?.logoURI,
           }}
           inputProps={{
             placeholder: '0',
@@ -268,18 +279,17 @@ export const UniversalWithdraw = ({
       ) : null}
       <CalculationList>
         {amountValue && !hideReceived ? (
-          <CalculationListItem>
+          <CalculationListItem ai="flex-start">
             <CalculationListItem.Label>
               {intl.formatMessage({ id: ETranslations.earn_receive })}
             </CalculationListItem.Label>
             <CalculationListItem.Value>
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyLgMedium"
-                formatterOptions={{ tokenSymbol }}
-              >
-                {amountValue}
-              </NumberSizeableText>
+              <ValuePriceListItem
+                tokenSymbol={tokenSymbol ?? ''}
+                fiatSymbol={symbol}
+                amount={amountValue}
+                fiatValue={fiatValue}
+              />
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
@@ -327,34 +337,15 @@ export const UniversalWithdraw = ({
         {unstakingPeriod ? (
           <CalculationListItem>
             <XStack flex={1} alignItems="center" gap="$1">
-              <CalculationListItem.Label>
+              <CalculationListItem.Label
+                tooltip={intl.formatMessage({
+                  id: ETranslations.earn_unstaking_period_tooltip,
+                })}
+              >
                 {intl.formatMessage({
                   id: ETranslations.earn_unstaking_period,
                 })}
               </CalculationListItem.Label>
-              <Popover
-                title={intl.formatMessage({
-                  id: ETranslations.earn_unstaking_period,
-                })}
-                placement="top"
-                renderTrigger={
-                  <IconButton
-                    iconColor="$iconSubdued"
-                    size="small"
-                    icon="InfoCircleOutline"
-                    variant="tertiary"
-                  />
-                }
-                renderContent={
-                  <Stack p="$5">
-                    <SizableText>
-                      {intl.formatMessage({
-                        id: ETranslations.earn_unstaking_period_tooltip,
-                      })}
-                    </SizableText>
-                  </Stack>
-                }
-              />
             </XStack>
 
             <CalculationListItem.Value>
@@ -379,7 +370,7 @@ export const UniversalWithdraw = ({
 
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
+          id: ETranslations.global_withdraw,
         })}
         confirmButtonProps={{
           onPress,

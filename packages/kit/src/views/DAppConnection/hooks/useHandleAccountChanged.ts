@@ -1,13 +1,13 @@
 import { useEffect, useRef } from 'react';
 
+import { useThrottledCallback } from 'use-debounce';
+
 import type { IAccountSelectorActiveAccountInfo } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-
-import { useDebounce } from '../../../hooks/useDebounce';
 
 export type IHandleAccountChangedParams = {
   activeAccount: IAccountSelectorActiveAccountInfo;
@@ -29,26 +29,30 @@ export function useHandleDiscoveryAccountChanged({
   const { activeAccount } = useActiveAccount({ num });
   const { selectedAccount } = useSelectedAccount({ num });
 
-  // Due to the high number of renderings of `activeAccount`, we are using debounce handling.
-  const debouncedActiveAccount = useDebounce(activeAccount, 200);
-  const debouncedSelectedAccount = useDebounce(selectedAccount, 200);
+  const accountAddress = activeAccount?.account?.address;
+
+  const activeAccountDepsId = [
+    accountAddress || '',
+    activeAccount?.wallet?.id ?? '',
+    activeAccount?.account?.id ?? '',
+    activeAccount?.indexedAccount?.id ?? '',
+    activeAccount?.dbAccount?.id ?? '',
+    activeAccount?.network?.id ?? '',
+  ].join('-');
 
   const activeAccountRef = useRef(activeAccount);
   const selectedAccountRef = useRef(selectedAccount);
-  useEffect(() => {
-    activeAccountRef.current = activeAccount;
-    selectedAccountRef.current = selectedAccount;
-  }, [activeAccount, selectedAccount]);
+  const accountAddressRef = useRef(accountAddress);
+  activeAccountRef.current = activeAccount;
+  selectedAccountRef.current = selectedAccount;
+  accountAddressRef.current = accountAddress;
 
-  useEffect(() => {
-    if (handleAccountChanged) {
-      // ensure the selected account is the same as the active account
+  const handleAccountChangedThrottle = useThrottledCallback(
+    () => {
       if (
-        (debouncedActiveAccount.isOthersWallet &&
-          debouncedActiveAccount.account?.id ===
-            debouncedSelectedAccount.othersWalletAccountId) ||
-        debouncedActiveAccount.indexedAccount?.id ===
-          debouncedSelectedAccount.indexedAccountId
+        handleAccountChanged &&
+        activeAccountDepsId &&
+        activeAccountRef.current
       ) {
         handleAccountChanged(
           {
@@ -58,11 +62,17 @@ export function useHandleDiscoveryAccountChanged({
           num,
         );
       }
+    },
+    200,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  useEffect(() => {
+    if (activeAccountDepsId && activeAccountRef.current) {
+      handleAccountChangedThrottle();
     }
-  }, [
-    debouncedActiveAccount,
-    debouncedSelectedAccount,
-    handleAccountChanged,
-    num,
-  ]);
+  }, [activeAccountDepsId, handleAccountChangedThrottle]);
 }

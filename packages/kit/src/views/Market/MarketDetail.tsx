@@ -160,7 +160,7 @@ function MarketDetail({
   const renderHeaderTitle = useCallback(
     () => (
       <XStack gap="$2">
-        <MarketTokenIcon uri={tokenDetail?.image || ''} size="$6" />
+        <MarketTokenIcon uri={tokenDetail?.image || ''} size="sm" />
         <SizableText>{tokenDetail?.symbol?.toUpperCase()}</SizableText>
       </XStack>
     ),
@@ -286,6 +286,8 @@ function MarketDetail({
       <TokenPriceChart
         isFetching={!tokenDetail}
         tickers={tokenDetail?.tickers}
+        fallbackToChart={!!tokenDetail?.fallbackToChart}
+        tvPlatform={tokenDetail?.tvPlatform}
         coinGeckoId={coinGeckoId}
         defer={defer}
         symbol={tokenDetail?.symbol}

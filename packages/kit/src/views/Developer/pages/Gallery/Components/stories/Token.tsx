@@ -3,14 +3,14 @@ import { Token } from '@onekeyhq/kit/src/components/Token';
 
 import { Layout } from './utils/Layout';
 
+const blackTokenImageUri =
+  'https://coin-images.coingecko.com/coins/images/26580/large/ONDO.png';
 const tokenImageUri = 'https://uni.onekey-asset.com/static/chain/btc.png';
 const evmTokenImageUri =
   'https://common.onekey-asset.com/token/evm-1/0x7D1AfA7B718fb893dB30A3aBc0Cfc608AaCfeBB0.jpg';
 const TokenGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="Token"
     elements={[
       {
         title: 'size',
@@ -44,6 +44,16 @@ const TokenGallery = () => (
               tokenImageUri={tokenImageUri}
             />
           </YStack>
+        ),
+      },
+      {
+        title: 'black icon',
+        element: (
+          <Token
+            size="md"
+            networkImageUri={blackTokenImageUri}
+            tokenImageUri={blackTokenImageUri}
+          />
         ),
       },
     ]}

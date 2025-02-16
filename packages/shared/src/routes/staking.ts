@@ -26,6 +26,7 @@ export type IModalStakingParamList = {
     symbol: string;
     provider: string;
     details?: IStakeProtocolDetails;
+    vault?: string;
   };
   [EModalStakingRoutes.Stake]: IBaseRouteParams & {
     symbol: string;
@@ -79,5 +80,6 @@ export type IModalStakingParamList = {
     symbol: string;
     provider: string;
     stakeTag?: string;
+    morphoVault?: string;
   };
 };

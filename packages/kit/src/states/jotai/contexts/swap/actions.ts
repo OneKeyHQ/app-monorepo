@@ -170,10 +170,18 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapTypeSwitchValue === ESwapTabSwitchType.SWAP
     ) {
       const defaultTokenSet = swapDefaultSetTokens[token.networkId];
-      if (token.isNative && !defaultTokenSet.toToken?.isNative) {
+      if (
+        token.isNative &&
+        defaultTokenSet?.toToken &&
+        !defaultTokenSet?.toToken?.isNative
+      ) {
         return defaultTokenSet.toToken;
       }
-      if (!token.isNative && defaultTokenSet.fromToken?.isNative) {
+      if (
+        !token.isNative &&
+        defaultTokenSet.fromToken &&
+        defaultTokenSet.fromToken?.isNative
+      ) {
         return defaultTokenSet.fromToken;
       }
     }
@@ -658,6 +666,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   txId: undefined,
                   status: ESwapApproveTransactionStatus.FAILED,
                 };
+              } else {
+                // update quote list
+                const quoteList = get(swapQuoteListAtom());
+                const updateQuoteList = quoteList.filter(
+                  (quote) =>
+                    quote.info.provider !== preApproveTx.provider ||
+                    quote.quoteId !== preApproveTx.quoteId,
+                );
+                set(swapQuoteListAtom(), [...updateQuoteList]);
               }
               await backgroundApiProxy.serviceSwap.setApprovingTransaction(
                 newApproveTx,
@@ -979,57 +996,57 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               }
             }
             rateDifferenceRes = {
-              value: `(${difference.isPositive() ? '+' : ''}${
+              value: `${difference.isPositive() ? '+' : ''}${
                 numberFormat(difference.toFixed(), {
                   formatter: 'priceChange',
                 }) as string
-              })`,
+              }`,
               unit,
             };
           }
-          if (quoteRateBN.isZero()) {
-            alertsRes = [
-              ...alertsRes,
-              {
-                title: appLocale.intl.formatMessage(
-                  { id: ETranslations.swap_page_alert_value_drop_title },
-                  { number: '100%' },
-                ),
-                message: appLocale.intl.formatMessage({
-                  id: ETranslations.swap_page_alert_value_drop,
-                }),
-                alertLevel: ESwapAlertLevel.WARNING,
-                icon: 'ActivityOutline',
-                action: {
-                  actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-                },
-              },
-            ];
-          } else if (difference.lt(swapRateDifferenceMax)) {
-            alertsRes = [
-              ...alertsRes,
-              {
-                title: appLocale.intl.formatMessage(
-                  {
-                    id: ETranslations.swap_page_alert_value_drop_title,
-                  },
-                  {
-                    number: numberFormat(difference.absoluteValue().toFixed(), {
-                      formatter: 'priceChange',
-                    }) as string,
-                  },
-                ),
-                message: appLocale.intl.formatMessage({
-                  id: ETranslations.swap_page_alert_value_drop,
-                }),
-                alertLevel: ESwapAlertLevel.WARNING,
-                icon: 'ActivityOutline',
-                action: {
-                  actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-                },
-              },
-            ];
-          }
+          // if (quoteRateBN.isZero()) {
+          //   alertsRes = [
+          //     ...alertsRes,
+          //     {
+          //       title: appLocale.intl.formatMessage(
+          //         { id: ETranslations.swap_page_alert_value_drop_title },
+          //         { number: '100%' },
+          //       ),
+          //       message: appLocale.intl.formatMessage({
+          //         id: ETranslations.swap_page_alert_value_drop,
+          //       }),
+          //       alertLevel: ESwapAlertLevel.WARNING,
+          //       icon: 'ActivityOutline',
+          //       action: {
+          //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
+          //       },
+          //     },
+          //   ];
+          // } else if (difference.lt(swapRateDifferenceMax)) {
+          //   alertsRes = [
+          //     ...alertsRes,
+          //     {
+          //       title: appLocale.intl.formatMessage(
+          //         {
+          //           id: ETranslations.swap_page_alert_value_drop_title,
+          //         },
+          //         {
+          //           number: numberFormat(difference.absoluteValue().toFixed(), {
+          //             formatter: 'priceChange',
+          //           }) as string,
+          //         },
+          //       ),
+          //       message: appLocale.intl.formatMessage({
+          //         id: ETranslations.swap_page_alert_value_drop,
+          //       }),
+          //       alertLevel: ESwapAlertLevel.WARNING,
+          //       icon: 'ActivityOutline',
+          //       action: {
+          //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
+          //       },
+          //     },
+          //   ];
+          // }
         }
       }
 
@@ -1078,34 +1095,34 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
 
-      const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
-      const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
+      // const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
+      // const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
 
       // check network fee
-      const gasFeeBN = new BigNumber(
-        quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
-      );
-      if (
-        !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
-        gasFeeBN.gt(tokenFiatValueBN)
-      ) {
-        alertsRes = [
-          ...alertsRes,
-          {
-            icon: 'GasOutline',
-            title: appLocale.intl.formatMessage({
-              id: ETranslations.swap_page_alert_fee_exceeds_amount_title,
-            }),
-            message: appLocale.intl.formatMessage({
-              id: ETranslations.swap_page_alert_fee_exceeds_amount,
-            }),
-            alertLevel: ESwapAlertLevel.WARNING,
-            action: {
-              actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-            },
-          },
-        ];
-      }
+      // const gasFeeBN = new BigNumber(
+      //   quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
+      // );
+      // if (
+      //   !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
+      //   gasFeeBN.gt(tokenFiatValueBN)
+      // ) {
+      //   alertsRes = [
+      //     ...alertsRes,
+      //     {
+      //       icon: 'GasOutline',
+      //       title: appLocale.intl.formatMessage({
+      //         id: ETranslations.swap_page_alert_fee_exceeds_amount_title,
+      //       }),
+      //       message: appLocale.intl.formatMessage({
+      //         id: ETranslations.swap_page_alert_fee_exceeds_amount,
+      //       }),
+      //       alertLevel: ESwapAlertLevel.WARNING,
+      //       action: {
+      //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
+      //       },
+      //     },
+      //   ];
+      // }
 
       // check other fee
       const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
@@ -1265,10 +1282,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       let balanceDisplay;
       if (
-        token &&
-        accountAddress &&
-        accountNetworkId &&
-        accountNetworkId === token?.networkId
+        (token &&
+          accountAddress &&
+          accountNetworkId &&
+          accountNetworkId === token?.networkId) ||
+        (!token?.price && token)
       ) {
         if (
           token.accountAddress === accountAddress &&
@@ -1307,40 +1325,49 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               balanceDisplay = balanceParsedBN.isNaN()
                 ? '0.0'
                 : balanceParsedBN.toFixed();
-              if (
-                detailInfo[0].price &&
-                detailInfo[0].fiatValue &&
-                detailInfo[0].balanceParsed
-              ) {
-                if (type === ESwapDirectionType.FROM) {
-                  set(swapSelectFromTokenAtom(), (pre) => {
-                    if (pre) {
-                      return {
-                        ...pre,
-                        price: detailInfo[0].price,
-                        fiatValue: detailInfo[0].fiatValue,
-                        balanceParsed: detailInfo[0].balanceParsed,
-                        reservationValue: detailInfo[0].reservationValue,
-                        logoURI: detailInfo[0].logoURI ?? pre.logoURI,
-                        accountAddress,
-                      };
-                    }
-                  });
-                } else {
-                  set(swapSelectToTokenAtom(), (pre) => {
-                    if (pre) {
-                      return {
-                        ...pre,
-                        price: detailInfo[0].price,
-                        fiatValue: detailInfo[0].fiatValue,
-                        balanceParsed: detailInfo[0].balanceParsed,
-                        reservationValue: detailInfo[0].reservationValue,
-                        logoURI: detailInfo[0].logoURI ?? pre.logoURI,
-                        accountAddress,
-                      };
-                    }
-                  });
-                }
+              const condition: {
+                price?: string;
+                fiatValue?: string;
+                balanceParsed?: string;
+                reservationValue?: string;
+                logoURI?: string;
+              } = {};
+              if (detailInfo[0].price) {
+                condition.price = detailInfo[0].price;
+              }
+              if (detailInfo[0].fiatValue) {
+                condition.fiatValue = detailInfo[0].fiatValue;
+              }
+              if (detailInfo[0].balanceParsed) {
+                condition.balanceParsed = detailInfo[0].balanceParsed;
+              }
+              if (detailInfo[0].reservationValue) {
+                condition.reservationValue = detailInfo[0].reservationValue;
+              }
+              if (detailInfo[0].logoURI) {
+                condition.logoURI = detailInfo[0].logoURI;
+              }
+
+              if (type === ESwapDirectionType.FROM) {
+                set(swapSelectFromTokenAtom(), (pre) => {
+                  if (pre) {
+                    return {
+                      ...pre,
+                      ...condition,
+                      accountAddress,
+                    };
+                  }
+                });
+              } else {
+                set(swapSelectToTokenAtom(), (pre) => {
+                  if (pre) {
+                    return {
+                      ...pre,
+                      ...condition,
+                      accountAddress,
+                    };
+                  }
+                });
               }
             }
           } catch (e: any) {
@@ -1360,7 +1387,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         type === ESwapDirectionType.FROM
           ? get(swapSelectFromTokenAtom())
           : get(swapSelectToTokenAtom());
-      if (equalTokenNoCaseSensitive({ token1: newToken, token2: token })) {
+      if (
+        equalTokenNoCaseSensitive({ token1: newToken, token2: token }) ||
+        (!token && !newToken)
+      ) {
         if (type === ESwapDirectionType.FROM) {
           set(swapSelectedFromTokenBalanceAtom(), balanceDisplay ?? '');
         } else {

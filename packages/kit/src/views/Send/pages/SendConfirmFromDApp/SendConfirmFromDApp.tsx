@@ -14,8 +14,8 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalSendRoutes } from '@onekeyhq/shared/src/routes';
-import type { IModalSendParamList } from '@onekeyhq/shared/src/routes';
+import { EModalSignatureConfirmRoutes } from '@onekeyhq/shared/src/routes';
+import type { IModalSignatureConfirmParamList } from '@onekeyhq/shared/src/routes';
 
 import type {
   NavigationAction,
@@ -55,15 +55,20 @@ function SendConfirmFromDApp() {
 
   const isNavigateNewPageRef = useRef(false);
 
+  const signatureConfirmRoute = EModalSignatureConfirmRoutes.TxConfirm;
+
   const dispatchAction = useCallback(
     (action: NavigationAction | ((state: any) => NavigationAction)) => {
       isNavigateNewPageRef.current = true;
       const timerId = setTimeout(() => {
         dappApprove.reject();
       }, 1200);
-      appEventBus.once(EAppEventBusNames.SendConfirmContainerMounted, () => {
-        clearTimeout(timerId);
-      });
+      appEventBus.once(
+        EAppEventBusNames.SignatureConfirmContainerMounted,
+        () => {
+          clearTimeout(timerId);
+        },
+      );
       navigation.dispatch(action);
     },
     [dappApprove, navigation],
@@ -136,22 +141,23 @@ function SendConfirmFromDApp() {
             encodedTx: newEncodedTx,
             transfersInfo,
           });
-        const params: IModalSendParamList[EModalSendRoutes.SendConfirm] = {
-          networkId,
-          accountId,
-          unsignedTxs: [unsignedTx],
-          sourceInfo: $sourceInfo,
-          signOnly,
-          useFeeInTx,
-          feeInfoEditable,
-          onSuccess: (result) => sendConfirmCallback(result, undefined),
-          onFail: (error) => sendConfirmCallback(null, error),
-          // @ts-ignore
-          _disabledAnimationOfNavigate: true,
-          _$t,
-        };
+        const params: IModalSignatureConfirmParamList[EModalSignatureConfirmRoutes.TxConfirm] =
+          {
+            networkId,
+            accountId,
+            unsignedTxs: [unsignedTx],
+            sourceInfo: $sourceInfo,
+            signOnly,
+            useFeeInTx,
+            feeInfoEditable,
+            onSuccess: (result) => sendConfirmCallback(result, undefined),
+            onFail: (error) => sendConfirmCallback(null, error),
+            // @ts-ignore
+            _disabledAnimationOfNavigate: true,
+            _$t,
+          };
         // replace router to SendConfirm
-        action = StackActions.replace(EModalSendRoutes.SendConfirm, params);
+        action = StackActions.replace(signatureConfirmRoute, params);
       }
 
       if (action) {
@@ -180,6 +186,7 @@ function SendConfirmFromDApp() {
     useFeeInTx,
     dispatchAction,
     sendConfirmCallback,
+    signatureConfirmRoute,
   ]);
 
   return (
@@ -193,4 +200,4 @@ function SendConfirmFromDApp() {
   );
 }
 
-export { SendConfirmFromDApp };
+export default SendConfirmFromDApp;

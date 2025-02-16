@@ -8,6 +8,7 @@ import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import type {
+  ESiteMode,
   IBrowserBookmark,
   IBrowserHistory,
   IGotoSiteFnParams,
@@ -132,6 +133,41 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       loggerForEmptyData(result.data, 'buildWebTabs->saveToSimpleDB');
       void backgroundApiProxy.simpleDb.browserTabs.setRawData({
         tabs: result.data,
+      });
+    },
+  );
+
+  setTabsByIds = contextAtomMethod(
+    (
+      get,
+      set,
+      {
+        pinnedTabs,
+        unpinnedTabs,
+      }: {
+        pinnedTabs: { id: string; timestamp?: number }[];
+        unpinnedTabs: { id: string; timestamp?: number }[];
+      },
+    ) => {
+      const tabMap = get(webTabsMapAtom());
+      const tabs: IWebTab[] = [];
+      const now = Date.now();
+      for (const { id, timestamp } of pinnedTabs) {
+        tabs.push({
+          ...tabMap[id],
+          timestamp: timestamp ?? now,
+          isPinned: true,
+        });
+      }
+      for (const { id, timestamp } of unpinnedTabs) {
+        tabs.push({
+          ...tabMap[id],
+          timestamp: timestamp ?? now,
+          isPinned: false,
+        });
+      }
+      this.buildWebTabs.call(set, {
+        data: tabs,
       });
     },
   );
@@ -282,13 +318,17 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           if (newActiveTabIndex >= 0) {
             const newActiveTab = tabs[newActiveTabIndex];
             newActiveTab.isActive = true;
+            const saveSetCurrentWebTab = () => {
+              this.setCurrentWebTab.call(set, newActiveTab.id);
+            };
             // Refresh the list after closing WebView in Electron to improve list fluidity
-            setTimeout(
-              () => {
-                this.setCurrentWebTab.call(set, newActiveTab.id);
-              },
-              platformEnv.isDesktop ? 200 : 0,
-            );
+            if (platformEnv.isNative) {
+              saveSetCurrentWebTab();
+            } else {
+              setTimeout(() => {
+                saveSetCurrentWebTab();
+              }, 200);
+            }
           }
         }
 
@@ -353,6 +393,16 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       } else {
         defaultLogger.discovery.browser.unpinTab(trackParams);
       }
+    },
+  );
+
+  setSiteMode = contextAtomMethod(
+    (get, set, payload: { id: string; siteMode: ESiteMode }) => {
+      this.setWebTabData.call(set, {
+        id: payload.id,
+        siteMode: payload.siteMode,
+      });
+      this.setTabs.call(set);
     },
   );
 
@@ -542,6 +592,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         url,
         title,
         favicon,
+        siteMode,
         isNewWindow,
         isInPlace,
         userTriggered,
@@ -585,6 +636,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             url: validatedUrl,
             favicon,
             isBookmark,
+            siteMode,
           });
         } else {
           this.setWebTabData.call(set, {
@@ -674,28 +726,34 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
-      const isNewWindow = !useCurrentWindow;
-
-      if (!useCurrentWindow) {
-        const disabledAddedNewTab = get(disabledAddedNewTabAtom());
-        if (disabledAddedNewTab) {
-          Toast.message({
-            title: appLocale.intl.formatMessage(
-              { id: ETranslations.explore_toast_tab_limit_reached },
-              { number: '20' },
-            ),
-          });
-          return;
-        }
+      let delayTime = 0;
+      if (shouldPopNavigation) {
+        delayTime = 300;
       }
-      this.setDisplayHomePage.call(set, false);
-      void this.openMatchDApp.call(set, {
-        webSite,
-        dApp,
-        isNewWindow,
-        tabId,
-      });
-      if (platformEnv.isDesktop || switchToMultiTabBrowser) {
+      setTimeout(() => {
+        const isNewWindow = !useCurrentWindow;
+
+        if (!useCurrentWindow) {
+          const disabledAddedNewTab = get(disabledAddedNewTabAtom());
+          if (disabledAddedNewTab) {
+            Toast.message({
+              title: appLocale.intl.formatMessage(
+                { id: ETranslations.explore_toast_tab_limit_reached },
+                { number: '20' },
+              ),
+            });
+            return;
+          }
+        }
+        this.setDisplayHomePage.call(set, false);
+        void this.openMatchDApp.call(set, {
+          webSite,
+          dApp,
+          isNewWindow,
+          tabId,
+        });
+      }, delayTime);
+      if (switchToMultiTabBrowser || platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
         navigation.switchTab(ETabRoutes.Discovery);
@@ -885,6 +943,7 @@ export function useBrowserTabActions() {
   const addBlankWebTab = actions.addBlankWebTab.use();
   const buildWebTabs = actions.buildWebTabs.use();
   const setTabs = actions.setTabs.use();
+  const setTabsByIds = actions.setTabsByIds.use();
   const setWebTabData = actions.setWebTabData.use();
   const getWebTabById = actions.getWebTabById.use();
   const closeWebTab = actions.closeWebTab.use();
@@ -894,12 +953,13 @@ export function useBrowserTabActions() {
   const setDisplayHomePage = actions.setDisplayHomePage.use();
   const setBrowserDataReady = actions.setBrowserDataReady.use();
   const reOpenLastClosedTab = actions.reOpenLastClosedTab.use();
-
+  const setSiteMode = actions.setSiteMode.use();
   return useRef({
     addWebTab,
     addBlankWebTab,
     buildWebTabs,
     setTabs,
+    setTabsByIds,
     setWebTabData,
     getWebTabById,
     closeWebTab,
@@ -909,6 +969,7 @@ export function useBrowserTabActions() {
     setDisplayHomePage,
     setBrowserDataReady,
     reOpenLastClosedTab,
+    setSiteMode,
   });
 }
 

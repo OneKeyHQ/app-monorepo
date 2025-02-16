@@ -16,8 +16,8 @@ import type {
   IEncodedTxAda,
 } from '@onekeyhq/core/src/chains/ada/types';
 import {
-  decodeSensitiveText,
-  encodeSensitiveText,
+  decodeSensitiveTextAsync,
+  encodeSensitiveTextAsync,
 } from '@onekeyhq/core/src/secret';
 import type { ISignedTxPro, IUnsignedTxPro } from '@onekeyhq/core/src/types';
 import {
@@ -263,9 +263,10 @@ export default class Vault extends VaultBase {
               tokenIdOnNetwork: asset.unit,
               name: token.name,
               icon: token.logoURI ?? '',
-              amount: new BigNumber(asset.quantity)
-                .shiftedBy(-network.decimals)
-                .toFixed(),
+              amount: chainValueUtils.convertTokenChainValueToAmount({
+                value: asset.quantity,
+                token,
+              }),
               amountValue: asset.quantity,
               symbol: token.symbol,
             });
@@ -278,9 +279,10 @@ export default class Vault extends VaultBase {
           tokenIdOnNetwork: '',
           name: nativeToken.name,
           icon: nativeToken.logoURI ?? '',
-          amount: new BigNumber(output.amount)
-            .shiftedBy(-network.decimals)
-            .toFixed(),
+          amount: chainValueUtils.convertChainValueToAmount({
+            value: output.amount,
+            network,
+          }),
           amountValue: output.amount,
           symbol: network.symbol,
         });
@@ -380,12 +382,14 @@ export default class Vault extends VaultBase {
     });
   }
 
-  override getPrivateKeyFromImported(
+  override async getPrivateKeyFromImported(
     params: IGetPrivateKeyFromImportedParams,
   ): Promise<IGetPrivateKeyFromImportedResult> {
-    const input = decodeSensitiveText({ encodedText: params.input });
+    const input = await decodeSensitiveTextAsync({
+      encodedText: params.input,
+    });
     let privateKey = bufferUtils.bytesToHex(decodePrivateKeyByXprv(input));
-    privateKey = encodeSensitiveText({ text: privateKey });
+    privateKey = await encodeSensitiveTextAsync({ text: privateKey });
     return Promise.resolve({ privateKey });
   }
 
@@ -595,15 +599,25 @@ export default class Vault extends VaultBase {
 
   async getAccountAddressForDapp() {
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
-    const CardanoApi = await sdk.getCardanoApi();
-    return CardanoApi.dAppGetAddresses([dbAccount.address]);
+    try {
+      const CardanoApi = await sdk.getCardanoApi();
+      return await CardanoApi.dAppGetAddresses([dbAccount.address]);
+    } catch (e) {
+      console.error('getAccountAddressForDapp ERROR:', e);
+      return [];
+    }
   }
 
   async getStakeAddressForDapp() {
     const dbAccount = (await this.getAccount()) as IDBUtxoAccount;
-    const stakeAddress = await this._getStakeAddress(dbAccount.address);
-    const CardanoApi = await sdk.getCardanoApi();
-    return CardanoApi.dAppGetAddresses([stakeAddress]);
+    try {
+      const stakeAddress = await this._getStakeAddress(dbAccount.address);
+      const CardanoApi = await sdk.getCardanoApi();
+      return await CardanoApi.dAppGetAddresses([stakeAddress]);
+    } catch (e) {
+      console.error('getStakeAddressForDapp ERROR:', e);
+      return [];
+    }
   }
 
   async buildTxCborToEncodeTx(txHex: string): Promise<IEncodedTxAda> {

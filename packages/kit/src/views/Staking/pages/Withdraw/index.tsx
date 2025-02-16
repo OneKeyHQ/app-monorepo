@@ -14,6 +14,7 @@ import type {
   EModalStakingRoutes,
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EEarnProviderEnum } from '@onekeyhq/shared/types/earn';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -43,18 +44,32 @@ const WithdrawPage = () => {
   const appNavigation = useAppNavigation();
   const handleWithdraw = useUniversalWithdraw({ accountId, networkId });
   const onConfirm = useCallback(
-    async (amount: string) => {
+    async ({
+      amount,
+      withdrawAll,
+    }: {
+      amount: string;
+      withdrawAll: boolean;
+    }) => {
       await handleWithdraw({
         amount,
         identity,
+        morphoVault: earnUtils.isMorphoProvider({
+          providerName: provider.name,
+        })
+          ? provider.vault
+          : undefined,
         symbol: tokenInfo.symbol,
         provider: provider.name,
         stakingInfo: {
           label: EEarnLabels.Withdraw,
-          protocol: provider.name,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider.name,
+          }),
           protocolLogoURI: provider.logoURI,
           tags: [actionTag],
         },
+        withdrawAll,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.unstaking({
@@ -79,9 +94,30 @@ const WithdrawPage = () => {
   const providerLabel = useProviderLabel(provider.name);
 
   const showPayWith = useMemo<boolean>(
-    () => provider.name.toLowerCase() === 'lido',
+    () =>
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      }),
     [provider],
   );
+
+  const payWithTokenRate = useMemo(() => {
+    if (
+      earnUtils.isLidoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.lidoStTokenRate;
+    }
+    if (
+      earnUtils.isMorphoProvider({
+        providerName: provider.name,
+      })
+    ) {
+      return provider.morphoTokenRate;
+    }
+    return '1';
+  }, [provider]);
 
   const hideReceived = useMemo<boolean>(
     () =>
@@ -91,6 +127,10 @@ const WithdrawPage = () => {
   );
 
   const { result: estimateFeeResp } = usePromiseResult(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
     const resp = await backgroundApiProxy.serviceStaking.estimateFee({
       networkId,
       provider: provider.name,
@@ -101,9 +141,19 @@ const WithdrawPage = () => {
         provider.name.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase()
           ? identity
           : undefined,
+      morphoVault: provider.vault,
+      identity,
+      accountAddress: account.address,
     });
     return resp;
-  }, [networkId, provider.name, tokenInfo.symbol, identity]);
+  }, [
+    accountId,
+    networkId,
+    provider.name,
+    provider.vault,
+    tokenInfo.symbol,
+    identity,
+  ]);
 
   const { unstakingPeriod, showDetailWithdrawalRequested } = useMemo(() => {
     const showDetail = !!details?.provider?.unstakingTime;
@@ -128,9 +178,13 @@ const WithdrawPage = () => {
           price={price}
           hideReceived={hideReceived}
           decimals={details.token.info.decimals}
-          balance={BigNumber(active ?? 0)
-            .plus(overflow ?? 0)
-            .toFixed()}
+          balance={
+            earnUtils.isMorphoProvider({ providerName: provider.name })
+              ? BigNumber(provider.maxUnstakeAmount ?? active ?? 0).toFixed()
+              : BigNumber(active ?? 0)
+                  .plus(overflow ?? 0)
+                  .toFixed()
+          }
           accountId={accountId}
           networkId={networkId}
           initialAmount={initialAmount}
@@ -149,8 +203,9 @@ const WithdrawPage = () => {
           providerLabel={providerLabel}
           showPayWith={showPayWith}
           payWithToken={details.rewardToken}
-          payWithTokenRate={provider.lidoStTokenRate}
+          payWithTokenRate={payWithTokenRate}
           estimateFeeResp={estimateFeeResp}
+          morphoVault={provider.vault}
         />
       </Page.Body>
     </Page>

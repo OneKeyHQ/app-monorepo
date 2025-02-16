@@ -10,10 +10,10 @@ import {
   isUndefined,
 } from 'lodash';
 
+import appGlobals from '../appGlobals';
 import errorUtils from '../errors/utils/errorUtils';
 import platformEnv from '../platformEnv';
-import appStorage from '../storage/appStorage';
-import { EAppSyncStorageKeys } from '../storage/syncStorage';
+import { EAppSyncStorageKeys } from '../storage/syncStorageKeys';
 
 import { isPromiseObject } from './promiseUtils';
 import timerUtils from './timerUtils';
@@ -108,7 +108,7 @@ export function toggleBgApiSerializableChecking(enabled: boolean) {
     disabled: !enabled,
     updateAt: Date.now(),
   };
-  appStorage.syncStorage.setObject(
+  appGlobals.$appStorage?.syncStorage.setObject(
     EAppSyncStorageKeys.onekey_disable_bg_api_serializable_checking,
     data,
   );
@@ -116,7 +116,7 @@ export function toggleBgApiSerializableChecking(enabled: boolean) {
 export function isBgApiSerializableCheckingDisabled() {
   try {
     const data =
-      appStorage.syncStorage.getObject<ISerializableCheckingDisabledConfig>(
+      appGlobals.$appStorage?.syncStorage.getObject<ISerializableCheckingDisabledConfig>(
         EAppSyncStorageKeys.onekey_disable_bg_api_serializable_checking,
       );
     if (!data) {

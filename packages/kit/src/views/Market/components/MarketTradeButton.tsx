@@ -11,6 +11,7 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IMarketTokenDetail } from '@onekeyhq/shared/types/market';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -24,6 +25,7 @@ import {
 } from './tradeHook';
 
 export function MarketTradeButton({
+  coinGeckoId,
   token,
 }: {
   coinGeckoId: string;
@@ -45,12 +47,19 @@ export function MarketTradeButton({
           {
             icon: 'MinusLargeSolid',
             label: intl.formatMessage({ id: ETranslations.global_sell }),
-            onPress: onSell,
+            onPress: () => {
+              defaultLogger.market.token.marketTokenAction({
+                tokenName: coinGeckoId,
+                action: 'sell',
+                from: 'detailsPage',
+              });
+              onSell();
+            },
           },
         ] as IActionListItemProps[],
       },
     ],
-    [intl, onSell],
+    [coinGeckoId, intl, onSell],
   );
 
   const { result: show, isLoading } = usePromiseResult(
@@ -90,8 +99,31 @@ export function MarketTradeButton({
   );
 
   const handleSwap = useCallback(() => {
+    defaultLogger.market.token.marketTokenAction({
+      tokenName: coinGeckoId,
+      action: 'trade',
+      from: 'detailsPage',
+    });
     void onSwap();
-  }, [onSwap]);
+  }, [coinGeckoId, onSwap]);
+
+  const handleStaking = useCallback(() => {
+    defaultLogger.market.token.marketTokenAction({
+      tokenName: coinGeckoId,
+      action: 'stake',
+      from: 'detailsPage',
+    });
+    void onStaking();
+  }, [coinGeckoId, onStaking]);
+
+  const handleBuy = useCallback(() => {
+    defaultLogger.market.token.marketTokenAction({
+      tokenName: coinGeckoId,
+      action: 'buy',
+      from: 'detailsPage',
+    });
+    onBuy();
+  }, [coinGeckoId, onBuy]);
 
   return (
     <XStack $gtMd={{ mt: '$6' }} ai="center" gap="$4">
@@ -104,13 +136,13 @@ export function MarketTradeButton({
               {intl.formatMessage({ id: ETranslations.global_trade })}
             </Button>
             {canStaking ? (
-              <Button flex={1} variant="secondary" onPress={onStaking}>
+              <Button flex={1} variant="secondary" onPress={handleStaking}>
                 {intl.formatMessage({ id: ETranslations.earn_stake })}
               </Button>
             ) : null}
             {show.buy ? (
               <ReviewControl>
-                <Button flex={1} variant="secondary" onPress={onBuy}>
+                <Button flex={1} variant="secondary" onPress={handleBuy}>
                   {intl.formatMessage({ id: ETranslations.global_buy })}
                 </Button>
               </ReviewControl>

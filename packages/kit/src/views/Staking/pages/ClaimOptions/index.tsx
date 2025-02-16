@@ -14,6 +14,7 @@ import type {
   IModalStakingParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
@@ -56,9 +57,12 @@ const ClaimOptions = () => {
         amount: item.amount,
         symbol: details.token.info.symbol,
         provider,
+        morphoVault: details.provider.vault,
         stakingInfo: {
           label: EEarnLabels.Claim,
-          protocol: provider,
+          protocol: earnUtils.getEarnProviderName({
+            providerName: provider,
+          }),
           protocolLogoURI: details.provider.logoURI,
           receive: { token: details.token.info, amount: item.amount },
           tags: [buildLocalTxStatusSyncId(details)],

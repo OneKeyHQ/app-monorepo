@@ -3,7 +3,7 @@ import { isEmpty, isNil } from 'lodash';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   EMnemonicType,
-  decodeSensitiveText,
+  decodeSensitiveTextAsync,
   decryptRevealableSeed,
   encryptImportedCredential,
   ensureSensitiveTextEncoded,
@@ -11,6 +11,7 @@ import {
   revealEntropyToMnemonic,
   revealableSeedFromMnemonic,
   revealableSeedFromTonMnemonic,
+  sha256,
   tonMnemonicFromEntropy,
   tonValidateMnemonic,
   validateMnemonic,
@@ -55,6 +56,7 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -68,6 +70,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IBatchCreateAccount,
+  IHwQrWalletWithDevice,
   INetworkAccount,
 } from '@onekeyhq/shared/types/account';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
@@ -78,6 +81,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
+import simpleDb from '../../dbs/simple/simpleDb';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -91,7 +95,6 @@ import type {
   IDBDevice,
   IDBEnsureAccountNameNotDuplicateParams,
   IDBExternalAccount,
-  IDBGetAllWalletsParams,
   IDBGetWalletsParams,
   IDBIndexedAccount,
   IDBRemoveWalletParams,
@@ -169,6 +172,7 @@ class ServiceAccount extends ServiceBase {
 
   clearAccountCache() {
     this.getIndexedAccountWithMemo.clear();
+    localDb.clearStoreCachedData();
   }
 
   @backgroundMethod()
@@ -177,7 +181,7 @@ class ServiceAccount extends ServiceBase {
     mnemonicType: EMnemonicType;
   }> {
     ensureSensitiveTextEncoded(mnemonic);
-    const realMnemonic = decodeSensitiveText({
+    const realMnemonic = await decodeSensitiveTextAsync({
       encodedText: mnemonic,
     });
     const realMnemonicFixed = realMnemonic.trim().replace(/\s+/g, ' ');
@@ -269,6 +273,36 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getAllHwQrWalletWithDevice() {
+    const { wallets, allDevices } = await this.getAllWallets({
+      refillWalletInfo: true,
+    });
+    // const { devices } = await this.getAllDevices();
+
+    const result: {
+      [walletId: string]: IHwQrWalletWithDevice;
+    } = {};
+
+    for (const wallet of wallets) {
+      if (
+        !accountUtils.isHwHiddenWallet({ wallet }) &&
+        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
+          accountUtils.isQrWallet({ walletId: wallet.id }))
+      ) {
+        const device = (allDevices ?? []).find(
+          (d) => d.id === wallet.associatedDevice,
+        );
+        result[wallet.id] = {
+          wallet,
+          device,
+        };
+      }
+    }
+
+    return result;
+  }
+
+  @backgroundMethod()
   async isWalletHasIndexedAccounts({ walletId }: { walletId: string }) {
     const { accounts: indexedAccounts } = await this.getIndexedAccountsOfWallet(
       {
@@ -334,7 +368,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
   }) {
     ensureSensitiveTextEncoded(password);
-    const rs = decryptRevealableSeed({
+    const rs = await decryptRevealableSeed({
       rs: credential,
       password,
     });
@@ -1047,6 +1081,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     walletId: string;
     accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
   }> {
     if (platformEnv.isWebDappMode) {
       throw new Error(
@@ -1069,13 +1104,15 @@ class ServiceAccount extends ServiceBase {
     // TODO privateKey should be HEX format
     ensureSensitiveTextEncoded(credential);
 
-    const privateKeyDecoded = decodeSensitiveText({ encodedText: credential });
+    const privateKeyDecoded = await decodeSensitiveTextAsync({
+      encodedText: credential,
+    });
 
     const { password } =
       await this.backgroundApi.servicePassword.promptPasswordVerifyByWallet({
         walletId,
       });
-    const credentialEncrypt = encryptImportedCredential({
+    const credentialEncrypt = await encryptImportedCredential({
       credential: {
         privateKey: privateKeyDecoded,
       },
@@ -1110,10 +1147,11 @@ class ServiceAccount extends ServiceBase {
         networkId,
         walletId,
         accounts: [],
+        isOverrideAccounts: false,
       };
     }
 
-    await localDb.addAccountsToWallet({
+    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
@@ -1126,6 +1164,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
       accounts,
+      isOverrideAccounts,
     };
   }
 
@@ -1250,6 +1289,7 @@ class ServiceAccount extends ServiceBase {
     networkId: string;
     walletId: string;
     accounts: IDBAccount[];
+    isOverrideAccounts: boolean;
   }> {
     if (networkUtils.isAllNetwork({ networkId })) {
       throw new Error(
@@ -1351,10 +1391,11 @@ class ServiceAccount extends ServiceBase {
         networkId,
         walletId,
         accounts: [],
+        isOverrideAccounts: false,
       };
     }
 
-    await localDb.addAccountsToWallet({
+    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
@@ -1368,6 +1409,7 @@ class ServiceAccount extends ServiceBase {
       networkId,
       walletId,
       accounts,
+      isOverrideAccounts,
     };
   }
 
@@ -1695,8 +1737,10 @@ class ServiceAccount extends ServiceBase {
     ids?: string[];
     filterRemoved?: boolean;
   } = {}) {
+    let accounts: IDBAccount[] = [];
+
     // filter accounts match to available wallets, some account wallet or indexedAccount may be deleted
-    const { accounts } = await localDb.getAllAccounts({ ids });
+    ({ accounts } = await localDb.getAllAccounts({ ids }));
 
     const removedHiddenWallet: {
       [walletId: string]: true;
@@ -1711,12 +1755,22 @@ class ServiceAccount extends ServiceBase {
     let accountsFiltered: IDBAccount[] = accounts;
     let accountsRemoved: IDBAccount[] | undefined;
 
+    let allWallets: IDBWallet[] | undefined;
+    let indexedAccounts: IDBIndexedAccount[] = [];
+    let indexedAccountsRemoved: IDBIndexedAccount[] = [];
+    let allDevices: IDBDevice[] | undefined;
+
     if (filterRemoved) {
-      const { wallets } = await this.getAllWallets({ refillWalletInfo: true });
-      const { indexedAccounts } = await this.getAllIndexedAccounts({
-        allWallets: wallets,
-        filterRemoved,
+      const allWalletsResult = await this.getAllWallets({
+        refillWalletInfo: true,
       });
+      allWallets = allWalletsResult.wallets;
+      allDevices = allWalletsResult.allDevices;
+      ({ indexedAccounts, indexedAccountsRemoved } =
+        await this.getAllIndexedAccounts({
+          allWallets,
+          filterRemoved: true,
+        }));
 
       accountsRemoved = [];
       accountsFiltered = (
@@ -1744,33 +1798,36 @@ class ServiceAccount extends ServiceBase {
                 pushRemovedAccount();
                 return null;
               }
-              const wallet: IDBWallet | undefined = wallets.find(
+              const wallet: IDBWallet | undefined = allWallets?.find(
                 (o) => o.id === walletId,
               );
-              if (!wallet) {
+              if (!wallet && allWallets) {
                 removedWallet[walletId] = true;
                 pushRemovedAccount();
                 return null;
               }
-              if (localDb.isTempWalletRemoved({ wallet })) {
+              if (wallet && localDb.isTempWalletRemoved({ wallet })) {
                 removedHiddenWallet[walletId] = true;
                 pushRemovedAccount();
                 return null;
               }
             }
+            let indexedAccount: IDBIndexedAccount | undefined;
             if (indexedAccountId) {
               if (removedIndexedAccount[indexedAccountId]) {
                 pushRemovedAccount();
                 return null;
               }
-              const indexedAccount: IDBIndexedAccount | undefined =
-                indexedAccounts.find((o) => o.id === indexedAccountId);
+              indexedAccount = indexedAccounts.find(
+                (o) => o.id === indexedAccountId,
+              );
               if (!indexedAccount) {
                 removedIndexedAccount[indexedAccountId] = true;
                 pushRemovedAccount();
                 return null;
               }
             }
+            localDb.refillAccountInfo({ account, indexedAccount });
             return account;
           }),
         )
@@ -1780,11 +1837,32 @@ class ServiceAccount extends ServiceBase {
     return {
       accounts: accountsFiltered,
       accountsRemoved,
+      allWallets,
+      allDevices,
+      allIndexedAccounts: indexedAccounts,
+      indexedAccountsRemoved,
     };
   }
 
-  async getAllWallets(params: IDBGetAllWalletsParams = {}) {
-    return localDb.getAllWallets(params);
+  async getAllWallets(params: { refillWalletInfo?: boolean } = {}) {
+    let { wallets } = await localDb.getAllWallets();
+    let allDevices: IDBDevice[] | undefined;
+    if (params.refillWalletInfo) {
+      allDevices = (await this.getAllDevices()).devices;
+      const refilledWalletsCache: {
+        [walletId: string]: IDBWallet;
+      } = {};
+      wallets = await Promise.all(
+        wallets.map((wallet) =>
+          localDb.refillWalletInfo({
+            wallet,
+            refilledWalletsCache,
+            allDevices,
+          }),
+        ),
+      );
+    }
+    return { wallets, allDevices };
   }
 
   async getAllDevices() {
@@ -1797,8 +1875,15 @@ class ServiceAccount extends ServiceBase {
     indexedAccountId,
   }: {
     indexedAccountId: string;
-  }): Promise<IDBAccount[]> {
-    return localDb.getAccountsInSameIndexedAccountId({ indexedAccountId });
+  }): Promise<{
+    accounts: IDBAccount[];
+    allDbAccounts: IDBAccount[];
+  }> {
+    const result = await localDb.getAccountsInSameIndexedAccountId({
+      indexedAccountId,
+    });
+
+    return result;
   }
 
   @backgroundMethod()
@@ -2047,15 +2132,20 @@ class ServiceAccount extends ServiceBase {
     return result;
   }
 
+  walletHashBuilder = (options: { realMnemonic: string }) => {
+    const text = `${options.realMnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375`;
+    const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
+    const walletHash0 = bufferUtils.bytesToHex(buff);
+    return walletHash0;
+  };
+
   @backgroundMethod()
   async createHDWallet({
     name,
     mnemonic,
-    walletHashBuilder,
   }: {
     mnemonic: string;
     name?: string;
-    walletHashBuilder?: (options: { realMnemonic: string }) => string;
   }) {
     const { servicePassword } = this.backgroundApi;
     const { password } = await servicePassword.promptPasswordVerify({
@@ -2071,18 +2161,20 @@ class ServiceAccount extends ServiceBase {
       throw new Error('TON mnemonic is not supported');
     }
 
-    let walletHash: string | undefined;
-    if (walletHashBuilder) {
-      walletHash = walletHashBuilder({ realMnemonic });
-    }
+    await this.generateHDWalletsMissingHash({ password });
+
+    const walletHash: string | undefined = this.walletHashBuilder({
+      realMnemonic,
+    });
 
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = revealableSeedFromMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromMnemonic(realMnemonic, password);
     } catch {
       throw new InvalidMnemonic();
     }
-    if (realMnemonic !== mnemonicFromEntropy(rs, password)) {
+    const mnemonicFromRs = await mnemonicFromEntropy(rs, password);
+    if (realMnemonic !== mnemonicFromRs) {
       throw new InvalidMnemonic();
     }
 
@@ -2110,12 +2202,13 @@ class ServiceAccount extends ServiceBase {
     }
     let rs: IBip39RevealableSeedEncryptHex | undefined;
     try {
-      rs = revealableSeedFromTonMnemonic(realMnemonic, password);
+      rs = await revealableSeedFromTonMnemonic(realMnemonic, password);
     } catch {
       throw new InvalidMnemonic();
     }
 
-    if (realMnemonic !== tonMnemonicFromEntropy(rs, password)) {
+    const tonMnemonicFromRs = await tonMnemonicFromEntropy(rs, password);
+    if (realMnemonic !== tonMnemonicFromRs) {
       throw new InvalidMnemonic();
     }
     await localDb.saveTonImportedAccountMnemonic({ accountId, rs });
@@ -2134,7 +2227,11 @@ class ServiceAccount extends ServiceBase {
     avatarInfo?: IAvatarInfo;
     name?: string;
     walletHash?: string;
-  }): Promise<{ wallet: IDBWallet; indexedAccount?: IDBIndexedAccount }> {
+  }): Promise<{
+    wallet: IDBWallet;
+    indexedAccount?: IDBIndexedAccount;
+    isOverrideWallet?: boolean;
+  }> {
     if (platformEnv.isWebDappMode) {
       throw new Error('createHDWallet ERROR: Not supported in Dapp mode');
     }
@@ -2147,13 +2244,22 @@ class ServiceAccount extends ServiceBase {
         (item) => walletHash && item.hash && item.hash === walletHash,
       );
       if (existsSameHashWallet) {
+        const indexedAccounts = await this.addIndexedAccount({
+          walletId: existsSameHashWallet.id,
+          indexes: [0],
+          skipIfExists: true,
+        });
         // localDb.buildCreateHDAndHWWalletResult({
         //   walletId: existsSameHashWallet.id,
         //   addedHdAccountIndex:
         // })
         // DO NOT throw error, just return the exists wallet, so v4 migration can continue
         // throw new Error('Wallet with the same mnemonic hash already exists');
-        return { wallet: existsSameHashWallet };
+        return {
+          wallet: existsSameHashWallet,
+          isOverrideWallet: true,
+          indexedAccount: indexedAccounts[0],
+        };
       }
     }
 
@@ -2346,10 +2452,14 @@ class ServiceAccount extends ServiceBase {
         reason,
       });
     const credential = await localDb.getCredential(walletId);
-    let mnemonic = mnemonicFromEntropy(credential.credential, password);
-    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
+    const mnemonicRaw = await mnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
@@ -2370,10 +2480,14 @@ class ServiceAccount extends ServiceBase {
         accountId,
       }),
     );
-    let mnemonic = tonMnemonicFromEntropy(credential.credential, password);
-    mnemonic = await this.backgroundApi.servicePassword.encodeSensitiveText({
-      text: mnemonic,
-    });
+    const mnemonicRaw = await tonMnemonicFromEntropy(
+      credential.credential,
+      password,
+    );
+    const mnemonic =
+      await this.backgroundApi.servicePassword.encodeSensitiveText({
+        text: mnemonicRaw,
+      });
     return { mnemonic };
   }
 
@@ -2636,9 +2750,10 @@ class ServiceAccount extends ServiceBase {
 
     perf.markStart('getAccountsInSameIndexedAccountId');
     const { serviceNetwork } = this.backgroundApi;
-    const dbAccounts = await this.getAccountsInSameIndexedAccountId({
-      indexedAccountId,
-    });
+    const { accounts: dbAccounts } =
+      await this.getAccountsInSameIndexedAccountId({
+        indexedAccountId,
+      });
     perf.markEnd('getAccountsInSameIndexedAccountId');
 
     perf.markStart('processAllNetworksAccounts');
@@ -2810,6 +2925,7 @@ class ServiceAccount extends ServiceBase {
           appEventBus.emit(EAppEventBusNames.CreateAddressByDialog, {
             networkId,
             indexedAccountId,
+            deriveType,
             promiseId,
             autoCreateAddress: accountUtils.isHdWallet({ walletId }),
           });
@@ -2841,6 +2957,49 @@ class ServiceAccount extends ServiceBase {
       }
     }
     return undefined;
+  }
+
+  async generateHDWalletsMissingHash({ password }: { password: string }) {
+    const { wallets } = await this.getAllWallets({ refillWalletInfo: false });
+    const hdWallets = wallets.filter((wallet) =>
+      accountUtils.isHdWallet({ walletId: wallet.id }),
+    );
+    if (!hdWallets?.length) {
+      return;
+    }
+    let hdWalletsToProcess = [];
+    const appStatus = await simpleDb.appStatus.getRawData();
+    if (!appStatus?.hdWalletHashGenerated) {
+      hdWalletsToProcess = hdWallets;
+    } else {
+      hdWalletsToProcess = hdWallets.filter((wallet) => !wallet.hash);
+    }
+    if (!hdWalletsToProcess?.length) {
+      return;
+    }
+    const walletsHashMap: { [walletId: string]: string } = {};
+    for (const wallet of hdWalletsToProcess) {
+      try {
+        const credentialInfo = await localDb.getCredential(wallet.id);
+        if (!credentialInfo) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        const realMnemonic = await mnemonicFromEntropy(
+          credentialInfo.credential,
+          password,
+        );
+        const walletHash = this.walletHashBuilder({ realMnemonic });
+        walletsHashMap[wallet.id] = walletHash;
+      } catch (error) {
+        console.error(error);
+      }
+    }
+    await localDb.updateWalletsHash(walletsHashMap);
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      hdWalletHashGenerated: true,
+    }));
   }
 }
 

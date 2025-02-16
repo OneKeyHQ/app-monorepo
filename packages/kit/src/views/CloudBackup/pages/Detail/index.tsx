@@ -27,6 +27,8 @@ import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IPublicBackupData } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
+// TODO: Move lightning utils to shared module
+// eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { ERestoreResult } from '@onekeyhq/kit-bg/src/services/ServiceCloudBackup/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -280,7 +282,7 @@ export default function Detail() {
       if (result === ERestoreResult.WRONG_PASSWORD) {
         Toast.error({
           title: intl.formatMessage({
-            id: ETranslations.auth_error_password_incorrect,
+            id: ETranslations.auth_error_passcode_incorrect,
           }),
         });
       } else if (result === ERestoreResult.UNKNOWN_ERROR) {

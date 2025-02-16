@@ -15,6 +15,8 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
 
+import { renderStakeText } from '../utils';
+
 import { AlertSection } from './AlertSection';
 
 type IStakedValueInfoProps = {
@@ -22,6 +24,7 @@ type IStakedValueInfoProps = {
   stakedNumber: number;
   availableNumber: number;
   tokenSymbol: string;
+  provider: string;
   stakeButtonProps?: ComponentProps<typeof Button>;
   withdrawButtonProps?: ComponentProps<typeof Button>;
 };
@@ -33,6 +36,7 @@ function StakedValueInfo({
   tokenSymbol,
   stakeButtonProps,
   withdrawButtonProps,
+  provider,
 }: IStakedValueInfoProps) {
   const totalNumber = stakedNumber + availableNumber;
   const intl = useIntl();
@@ -64,7 +68,9 @@ function StakedValueInfo({
                 {intl.formatMessage({ id: ETranslations.global_withdraw })}
               </Button>
               <Button {...stakeButtonProps}>
-                {intl.formatMessage({ id: ETranslations.earn_stake })}
+                {intl.formatMessage({
+                  id: renderStakeText(provider),
+                })}
               </Button>
             </XStack>
           ) : null}
@@ -100,6 +106,7 @@ export const StakedValueSection = ({
     value: Number(details.stakedFiatValue),
     stakedNumber: Number(details.staked),
     availableNumber: Number(details.available),
+    provider: details.provider.name,
     tokenSymbol: details.token.info.symbol,
   };
   return (

@@ -6,6 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { JOTAI_RESET } from '../types';
 
+import jotaiVerify from './jotaiVerify';
+
 import type { EAtomNames } from '../atomNames';
 import type {
   IJotaiAtomSetWithoutProxy,
@@ -48,14 +50,28 @@ export function wrapAtomPro(
   const proAtom = atom(
     (get) => get(baseAtom),
     async (get, set, update) => {
-      let nextValue =
-        typeof update === 'function'
-          ? (
-              update as (
-                prev: any | Promise<any>,
-              ) => any | Promise<any> | typeof JOTAI_RESET
-            )(get(baseAtom))
-          : update;
+      jotaiVerify.ensureNotPromise(update);
+
+      let nextValue = update;
+      if (typeof update === 'function') {
+        let prevValue = get(baseAtom);
+
+        if (prevValue instanceof Promise) {
+          prevValue = await prevValue;
+        }
+        jotaiVerify.ensureNotPromise(prevValue);
+
+        nextValue = (
+          update as (
+            prev: any | Promise<any>,
+          ) => any | Promise<any> | typeof JOTAI_RESET
+        )(prevValue);
+      }
+
+      if (nextValue instanceof Promise) {
+        nextValue = await nextValue;
+      }
+      jotaiVerify.ensureNotPromise(nextValue);
 
       let proxyToBg = false;
       if (platformEnv.isExtensionUi && name) {

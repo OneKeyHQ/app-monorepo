@@ -59,7 +59,7 @@ module.exports = async () => {
       [
         './node_modules/jest-html-reporter',
         {
-          'pageTitle': 'Test Report',
+          'pageTitle': 'Jest UnitTest Report',
         },
       ],
     ],

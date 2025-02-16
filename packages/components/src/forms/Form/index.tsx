@@ -121,26 +121,45 @@ export function FieldDescription(props: ISizableTextProps) {
   );
 }
 
-type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
+export interface IFieldErrorProps {
+  error?: { message: string };
+  errorMessageAlign?: IFieldProps['errorMessageAlign'];
+  testID?: IFieldProps['testID'];
+}
+
+export type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
   PropsWithChildren<{
     testID?: string;
     label?: string;
+    display?:
+      | 'inherit'
+      | 'none'
+      | 'inline'
+      | 'block'
+      | 'contents'
+      | 'flex'
+      | 'inline-flex';
     description?: string | ReactNode;
     horizontal?: boolean;
     optional?: boolean;
-    labelAddon?: string | ReactElement;
+    labelAddon?: string | ReactElement | ReactNode;
+    errorMessageAlign?: 'left' | 'center' | 'right';
+    renderErrorMessage?: (props: IFieldErrorProps) => ReactElement;
   }>;
 
 function Field({
   name,
   label,
   optional,
+  display,
+  errorMessageAlign,
   description,
   rules,
   children,
   horizontal = false,
   testID = '',
   labelAddon,
+  renderErrorMessage,
 }: IFieldProps) {
   const intl = useIntl();
   const {
@@ -157,7 +176,9 @@ function Field({
     }
     return null;
   }, [labelAddon]);
-  const error = errors[name] as unknown as Error;
+  const error = errors[name] as unknown as Error & {
+    translationId: ETranslations;
+  };
   // if (error) {
   //   debugger;
   // }
@@ -167,7 +188,12 @@ function Field({
       control={control}
       rules={rules}
       render={({ field }) => (
-        <Fieldset p="$0" m="$0" borderWidth={0}>
+        <Fieldset
+          p="$0"
+          m="$0"
+          borderWidth={0}
+          {...(display ? { display } : {})}
+        >
           <Stack
             flexDirection={horizontal ? 'row' : 'column'}
             jc={horizontal ? 'space-between' : undefined}
@@ -211,15 +237,21 @@ function Field({
                   opacity: 0,
                   y: -6,
                 }}
+                textAlign={errorMessageAlign}
               >
-                <SizableText
-                  color="$textCritical"
-                  size="$bodyMd"
-                  key={error?.message}
-                  testID={`${testID}-message`}
-                >
-                  {error.message}
-                </SizableText>
+                {renderErrorMessage ? (
+                  renderErrorMessage({ error })
+                ) : (
+                  <SizableText
+                    color="$textCritical"
+                    size="$bodyMd"
+                    textAlign={errorMessageAlign}
+                    key={error?.message}
+                    testID={`${testID}-message`}
+                  >
+                    {error?.message}
+                  </SizableText>
+                )}
               </SizableText>
             ) : null}
           </HeightTransition>

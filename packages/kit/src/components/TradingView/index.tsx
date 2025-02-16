@@ -1,11 +1,4 @@
-import { useCallback, useState } from 'react';
-
-import {
-  AnimatePresence,
-  Spinner,
-  Stack,
-  usePropsAndStyle,
-} from '@onekeyhq/components';
+import { Stack, usePropsAndStyle } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 
 import { useTradingViewProps } from './useTradingViewProps';
