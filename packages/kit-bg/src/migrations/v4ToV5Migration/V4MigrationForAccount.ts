@@ -1625,7 +1625,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 name: v4wallet.name,
                 mnemonic: await servicePassword.encodeSensitiveText({
                   text: mnemonic,
-                })
+                }),
               });
             v5dbWallet = v5walletSaved;
           }
