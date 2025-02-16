@@ -109,7 +109,7 @@ export default function PageWebEmbedPrimePurchase() {
 
     isRunning.current = false;
     await closeNativeWebViewModal();
-  }, [primeUserId, primeUserEmail, packageId, locale]);
+  }, [primeUserId, primeUserEmail, packageId, apiKey, locale]);
 
   useEffect(() => {
     void run();
