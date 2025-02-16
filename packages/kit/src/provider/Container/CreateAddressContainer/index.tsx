@@ -11,7 +11,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -57,10 +56,6 @@ function BasicCreateAddressDialogContent({
   ) => void;
   networkId: string;
   indexedAccountId?: string;
-  autoCreateAddress: boolean;
-}) {
-  const {
-    activeAccount: { wallet, deriveType },
   deriveType: IAccountDeriveTypes;
   autoCreateAddress: boolean;
 }) {
