@@ -212,7 +212,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
     const { outputs, feeInfo } = encodedTx;
     const { swapInfo } = unsignedTx;
@@ -245,8 +245,31 @@ export default class Vault extends VaultBase {
         to: utxoTo[0].address,
       },
     };
-
-    if (swapInfo) {
+    if (
+      transferPayload &&
+      transferPayload.tokenInfo &&
+      transferPayload.amountToSend &&
+      transferPayload.originalRecipient
+    ) {
+      const { tokenInfo } = transferPayload;
+      if (tokenInfo) {
+        action = await this.buildTxTransferAssetAction({
+          from: account.address,
+          to: transferPayload.originalRecipient,
+          transfers: [
+            {
+              from: account.address,
+              to: transferPayload.originalRecipient,
+              amount: transferPayload.amountToSend,
+              tokenIdOnNetwork: tokenInfo.address,
+              icon: tokenInfo.logoURI ?? '',
+              name: tokenInfo.name ?? '',
+              symbol: tokenInfo.symbol,
+            },
+          ],
+        });
+      }
+    } else if (swapInfo) {
       const swapSendToken = swapInfo.sender.token;
       const swapReceiveToken = swapInfo.receiver.token;
       const providerInfo = swapInfo.swapBuildResData.result.info;

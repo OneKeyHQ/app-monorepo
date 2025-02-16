@@ -483,6 +483,7 @@ export type ITransferPayload = {
   memo?: string;
   paymentId?: string;
   note?: string;
+  tokenInfo?: IToken;
 };
 
 export type IWrappedInfo = {
