@@ -230,6 +230,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         changeAddress,
       );
     } else {
+      const hasSetTag = await CardanoApi.hasSetTagWithBody(tx.body);
       cardanoParams = {
         signingMode: PROTO.CardanoTxSigningMode.ORDINARY_TRANSACTION,
         outputs: transformToOneKeyOutputs(
@@ -239,7 +240,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         fee,
         protocolMagic,
         networkId,
-        tagCborSets: true,
+        tagCborSets: hasSetTag,
       };
     }
 
