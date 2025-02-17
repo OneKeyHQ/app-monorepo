@@ -5,6 +5,7 @@ import {
   decryptImportedCredential,
   encryptImportedCredential,
   encryptRevealableSeed,
+  mnemonicFromEntropy,
 } from '@onekeyhq/core/src/secret';
 import {
   decryptAsync,
@@ -593,20 +594,37 @@ class ServiceCloudBackup extends ServiceBase {
             password: remotePassword,
             credential: privateData.credentials[id],
           });
+
+        // IBip39RevealableSeedEncryptHex
         const rsEncoded = await encryptRevealableSeed({
           rs: rsDecoded,
           password: localPassword,
         });
 
-        const { wallet } = await serviceAccount.createHDWalletWithRs({
-          rs: rsEncoded,
-          password: localPassword,
-          avatarInfo: avatar,
-        });
-        await serviceAccount.restoreAccountsToWallet({
-          walletId: wallet.id,
-          accounts,
-        });
+        // IBip39RevealableSeedEncryptHex
+        const mnemonicFromRs = await mnemonicFromEntropy(
+          rsEncoded,
+          localPassword,
+        );
+
+        const walletHash: string | undefined =
+          this.backgroundApi.serviceAccount.walletHashBuilder({
+            realMnemonic: mnemonicFromRs,
+          });
+
+        const { wallet, isOverrideWallet } =
+          await serviceAccount.createHDWalletWithRs({
+            rs: rsEncoded,
+            password: localPassword,
+            avatarInfo: avatar,
+            walletHash,
+          });
+        if (!isOverrideWallet) {
+          await serviceAccount.restoreAccountsToWallet({
+            walletId: wallet.id,
+            accounts,
+          });
+        }
         await serviceAccount.setWalletNameAndAvatar({
           walletId: wallet?.id,
           name,
