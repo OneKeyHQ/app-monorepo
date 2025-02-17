@@ -225,6 +225,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   slippagePercentage: number;
   autoSlippage?: boolean;
   blockNumber?: number;
+  expirationTime?: number;
 }
 interface ISocketAsset {
   address: string;
@@ -306,6 +307,10 @@ export interface IFetchQuoteResult {
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
+  limitPriceOrderMarketPrice?: {
+    fromTokenPrice?: number;
+    toTokenPrice?: number;
+  };
   swapShouldSignedData?: {
     unSignedData?: {
       normalizeData: NormalizedOrder;
@@ -638,6 +643,9 @@ export interface ISwapTxHistory {
 }
 
 // limit order
+
+export const LIMIT_PRICE_DEFAULT_DECIMALS = 6;
+
 export interface IFetchLimitOrderRes {
   orderId: string;
   status: ESwapLimitOrderStatus;
@@ -668,7 +676,7 @@ export enum ESwapLimitOrderStatus {
   EXPIRED = 'expired',
 }
 
-export enum ESwapExpiryStep {
+export enum ESwapLimitOrderExpiryStep {
   FIVE_MINUTES = 5 * 60 * 1000,
   THIRTY_MINUTES = 30 * 60 * 1000,
   ONE_HOUR = 60 * 60 * 1000,
@@ -678,6 +686,31 @@ export enum ESwapExpiryStep {
   ONE_MONTH = 30 * 24 * 60 * 60 * 1000,
 }
 
+export const ESwapLimitOrderExpiryStepMap = [
+  {
+    label: '5 minutes',
+    value: ESwapLimitOrderExpiryStep.FIVE_MINUTES.toString(),
+  },
+  {
+    label: '30 minutes',
+    value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+  },
+  { label: '1 hour', value: ESwapLimitOrderExpiryStep.ONE_HOUR.toString() },
+  { label: '1 day', value: ESwapLimitOrderExpiryStep.ONE_DAY.toString() },
+  { label: '3 days', value: ESwapLimitOrderExpiryStep.THREE_DAYS.toString() },
+  { label: '1 week', value: ESwapLimitOrderExpiryStep.ONE_WEEK.toString() },
+  { label: '1 month', value: ESwapLimitOrderExpiryStep.ONE_MONTH.toString() },
+];
+
+export interface ISwapLimitPriceInfo {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  fromTokenMarketPrice?: number;
+  toTokenMarketPrice?: number;
+  rate?: string;
+  reverseRate?: string;
+  provider?: string;
+}
 // component -----------------
 
 export interface IExplorersInfo {

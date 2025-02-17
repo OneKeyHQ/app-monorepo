@@ -454,6 +454,7 @@ export default class ServiceSwap extends ServiceBase {
     blockNumber,
     accountId,
     protocol,
+    expirationTime,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -463,6 +464,7 @@ export default class ServiceSwap extends ServiceBase {
     autoSlippage?: boolean;
     blockNumber?: number;
     accountId?: string;
+    expirationTime?: number;
     protocol: ESwapTabSwitchType;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
@@ -480,6 +482,7 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
       autoSlippage,
       blockNumber,
+      expirationTime,
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -531,6 +534,7 @@ export default class ServiceSwap extends ServiceBase {
     blockNumber,
     accountId,
     protocol,
+    expirationTime,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -541,6 +545,7 @@ export default class ServiceSwap extends ServiceBase {
     blockNumber?: number;
     accountId?: string;
     protocol: ESwapTabSwitchType;
+    expirationTime?: number;
   }) {
     await this.removeQuoteEventSourceListeners();
     const params: IFetchQuotesParams = {
@@ -557,6 +562,7 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
       autoSlippage,
       blockNumber,
+      expirationTime,
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)

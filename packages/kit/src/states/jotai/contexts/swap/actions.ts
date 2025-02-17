@@ -39,6 +39,7 @@ import type {
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapAlertActionType,
   ESwapAlertLevel,
   ESwapApproveTransactionStatus,
@@ -61,6 +62,8 @@ import {
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
+  swapLimitExpirationTimeAtom,
+  swapLimitPriceUseRateAtom,
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
   swapNetworksIncludeAllNetworkAtom,
@@ -333,6 +336,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteFetchingAtom(), true);
         }
         const protocol = get(swapTypeSwitchAtom());
+        const expirationTime = get(swapLimitExpirationTimeAtom());
         const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
           fromToken,
           toToken,
@@ -343,6 +347,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           blockNumber,
           accountId,
           protocol,
+          expirationTime:
+            protocol === ESwapTabSwitchType.LIMIT ? expirationTime : undefined,
         });
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), false);
@@ -564,6 +570,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = get(swapTypeSwitchAtom());
+      const expirationTime = get(swapLimitExpirationTimeAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
@@ -581,6 +588,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         blockNumber,
         accountId,
         protocol,
+        expirationTime:
+          protocol === ESwapTabSwitchType.LIMIT ? expirationTime : undefined,
       });
     },
   );
@@ -985,13 +994,26 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
 
+      const limitPriceUseRate = get(swapLimitPriceUseRateAtom());
       // market rate check
-      if (fromToken?.price && toToken?.price && quoteResult?.instantRate) {
+      if (
+        fromToken?.price &&
+        toToken?.price &&
+        (quoteResult?.instantRate || limitPriceUseRate?.rate)
+      ) {
         const fromTokenPrice = new BigNumber(fromToken.price);
         const toTokenPrice = new BigNumber(toToken.price);
         if (!fromTokenPrice.isZero() && !toTokenPrice.isZero()) {
           const marketingRate = fromTokenPrice.dividedBy(toTokenPrice);
-          const quoteRateBN = new BigNumber(quoteResult.instantRate);
+          let instantRate = quoteResult?.instantRate;
+          if (
+            quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
+            limitPriceUseRate.provider === quoteResult.info.provider &&
+            limitPriceUseRate.rate
+          ) {
+            instantRate = limitPriceUseRate.rate;
+          }
+          const quoteRateBN = new BigNumber(instantRate ?? 0);
           const difference = quoteRateBN
             .dividedBy(marketingRate)
             .minus(1)
