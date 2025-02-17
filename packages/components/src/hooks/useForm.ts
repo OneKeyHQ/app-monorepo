@@ -33,23 +33,26 @@ export const useForm = <
   });
   const handleSubmit = useMemo(() => {
     if (props?.onSubmit) {
-      const callback = () => props.onSubmit?.(form as any);
-      const handler = form.handleSubmit(callback);
+      const callback = () => {
+        props.onSubmit?.(form as any);
+      };
+      const handler = async () => {
+        const submit = form.handleSubmit(callback);
+        if (form.formState.isValid) {
+          await submit();
+        }
+      };
       return handler;
     }
     return undefined;
   }, [props, form]);
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return useMemo(
-    () =>
-      props?.onSubmit
-        ? {
-            ...form,
-            submit: handleSubmit,
-          }
-        : form,
-    [form, handleSubmit, props?.onSubmit],
-  ) as any;
+  return props?.onSubmit
+    ? {
+        ...form,
+        submit: handleSubmit,
+      }
+    : (form as any);
 };
 export {
   useFormContext,
