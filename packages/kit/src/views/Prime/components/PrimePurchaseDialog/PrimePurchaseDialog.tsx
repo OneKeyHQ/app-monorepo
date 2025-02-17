@@ -53,6 +53,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
 
       if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
         void handleNativePurchase();
+        return;
       }
 
       if (platformEnv.isNativeAndroid) {
