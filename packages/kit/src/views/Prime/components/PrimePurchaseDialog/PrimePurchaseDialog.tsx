@@ -43,17 +43,15 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   // TODO move to jotai context method
   const purchase = useCallback(async () => {
     try {
-      setTimeout(() => {
-        onPurchase?.();
-      }, 1000);
+      onPurchase?.();
 
-      // if (platformEnv.isNativeIOS) {
-      //   void purchasePackageNative?.({
-      //     packageId: selectedPackageId,
-      //   });
-      // }
+      if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
+        void purchasePackageNative?.({
+          packageId: selectedPackageId,
+        });
+      }
 
-      if (platformEnv.isNative) {
+      if (platformEnv.isNativeAndroid) {
         ActionList.show({
           title: 'Purchase',
           onClose: () => {},
