@@ -71,4 +71,12 @@ export {
   useWatch as useFormWatch,
 } from 'react-hook-form';
 
-export type * from 'react-hook-form';
+export type {
+  FieldValues,
+  UseFormProps,
+  UseFormReturn,
+  FieldErrors,
+  FieldError,
+  FieldPath,
+  FieldPathValue,
+} from 'react-hook-form';
