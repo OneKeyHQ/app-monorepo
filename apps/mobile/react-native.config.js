@@ -5,6 +5,16 @@ module.exports = {
       platforms: {
         ios: null,
       },
-    }
+    },
+    '@privy-io/expo-native-extensions': {
+      platforms: {
+        android: null,
+      },
+    },
+    'react-native-check-biometric-auth-changed': {
+      platforms: {
+        android: null,
+      },
+    },
   },
 };

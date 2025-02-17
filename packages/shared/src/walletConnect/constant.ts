@@ -24,7 +24,6 @@ import type {
 export const DAPP_SIDE_SINGLE_WALLET_MODE = true;
 
 export const WALLET_CONNECT_V2_PROJECT_ID = '5e21f5018bfdeb78af03187a432a301d';
-// checkIsDefined(process.env.WALLETCONNECT_PROJECT_ID); // not working
 
 export const WALLET_CONNECT_RELAY_URL = 'wss://relay.walletconnect.com';
 export const WALLET_CONNECT_LOGGER_LEVEL: IWalletConnectLoggerLevel = 'error';
@@ -41,23 +40,7 @@ if (!platformName) {
   throw new Error('platformName is empty');
 }
 
-function getPlatformShortName() {
-  if (platformEnv.isNativeAndroid) {
-    return 'Android';
-  }
-  if (platformEnv.isNativeIOS) {
-    return 'iOS';
-  }
-  if (platformEnv.isDesktop) {
-    return 'Desktop';
-  }
-  if (platformEnv.isExtension) {
-    return 'Extension';
-  }
-  return 'Wallet';
-}
-
-export const WALLET_CONNECT_CLIENT_NAME = `OneKey ${getPlatformShortName()}`;
+export const WALLET_CONNECT_CLIENT_NAME = platformEnv.appFullName;
 export const WALLET_CONNECT_CLIENT_DESC = 'Connect with OneKey';
 export const WALLET_CONNECT_CLIENT_META = {
   name: WALLET_CONNECT_CLIENT_NAME,

@@ -308,14 +308,18 @@ export default class Vault extends VaultBase {
       encodedTx.sequenceNo = params.nonceInfo.nonce;
     }
 
-    const validUntil = Math.floor(Date.now() / 1000) + 60 * 3;
+    const maxValidUntil = Math.floor(Date.now() / 1000) + 60 * 5;
+    const nowUnix = Math.floor(Date.now() / 1000);
     if (!encodedTx.validUntil) {
-      encodedTx.validUntil = validUntil;
+      encodedTx.validUntil = maxValidUntil;
     } else if (encodedTx.validUntil.toString().length > 10) {
       encodedTx.validUntil = Math.floor(encodedTx.validUntil / 1000);
     }
-    if (encodedTx.validUntil < validUntil) {
-      encodedTx.validUntil = validUntil;
+    if (
+      encodedTx.validUntil > maxValidUntil ||
+      encodedTx.validUntil < nowUnix
+    ) {
+      encodedTx.validUntil = maxValidUntil;
     }
 
     if (params.nativeAmountInfo && params.nativeAmountInfo.maxSendAmount) {

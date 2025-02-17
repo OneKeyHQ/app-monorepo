@@ -116,8 +116,9 @@ class ServiceAddressBook extends ServiceBase {
   @toastIfError()
   async getSafeItems(params?: {
     networkId?: string;
+    exact?: boolean;
   }): Promise<{ isSafe: boolean; items: IAddressNetworkItem[] }> {
-    const { networkId } = params ?? {};
+    const { networkId, exact } = params ?? {};
     // throw new Error('address book failed to verify hash');
     const isSafe: boolean = await this.verifyHash(true);
     if (!isSafe) {
@@ -125,10 +126,14 @@ class ServiceAddressBook extends ServiceBase {
     }
     let rawItems = await this.getItems();
     if (networkId) {
-      const [impl] = networkId.split('--');
-      rawItems = rawItems.filter((item) =>
-        item.networkId.startsWith(`${impl}--`),
-      );
+      if (exact) {
+        rawItems = rawItems.filter((item) => item.networkId === networkId);
+      } else {
+        const [impl] = networkId.split('--');
+        rawItems = rawItems.filter((item) =>
+          item.networkId.startsWith(`${impl}--`),
+        );
+      }
     }
     const promises = rawItems.map(async (item) => {
       const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({

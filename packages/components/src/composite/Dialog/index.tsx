@@ -13,18 +13,27 @@ import {
   useState,
 } from 'react';
 
+import { setStringAsync } from 'expo-clipboard';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
-import { AnimatePresence, Sheet, Dialog as TMDialog, useMedia } from 'tamagui';
+import {
+  AnimatePresence,
+  Sheet,
+  SizableText,
+  Dialog as TMDialog,
+  useMedia,
+} from 'tamagui';
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { Toast } from '../../actions/Toast';
 import { SheetGrabber } from '../../content';
 import { Form } from '../../forms/Form';
 import { Portal } from '../../hocs';
 import { useBackHandler, useOverlayZIndex } from '../../hooks';
+import { ScrollView } from '../../layouts/ScrollView';
 import { Spinner, Stack } from '../../primitives';
 
 import { Content } from './Content';
@@ -506,6 +515,34 @@ const dialogCancel = (props: IDialogCancelProps) =>
     showCancelButton: true,
   });
 
+const dialogDebugMessage = (
+  props: IDialogShowProps & { debugMessage: any },
+) => {
+  const dataContent = JSON.stringify(props.debugMessage, null, 2);
+  console.log('dialogDebugMessage:', dataContent);
+  return dialogShow({
+    title: 'DebugMessage',
+    showFooter: false,
+    showConfirmButton: false,
+    showCancelButton: false,
+    renderContent: (
+      <ScrollView maxHeight="$48" nestedScrollEnabled>
+        <SizableText
+          onPress={async () => {
+            await setStringAsync(dataContent);
+            Toast.success({
+              title: 'Copied',
+            });
+          }}
+        >
+          {dataContent}
+        </SizableText>
+      </ScrollView>
+    ),
+    ...props,
+  });
+};
+
 export function DialogLoadingView({
   children,
   bg,
@@ -526,7 +563,11 @@ export function DialogLoadingView({
   );
 }
 
-function dialogLoading(props: { title: string; showExitButton?: boolean }) {
+export type IDialogLoadingProps = {
+  title: string;
+  showExitButton?: boolean;
+};
+function dialogLoading(props: IDialogLoadingProps) {
   return dialogShow({
     showExitButton: false,
     ...props,
@@ -554,4 +595,5 @@ export const Dialog = {
   confirm: dialogConfirm,
   cancel: dialogCancel,
   loading: dialogLoading,
+  debugMessage: dialogDebugMessage,
 };

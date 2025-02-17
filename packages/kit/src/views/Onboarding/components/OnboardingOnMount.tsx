@@ -4,6 +4,10 @@ import { useIntl } from 'react-intl';
 
 import type { ICheckedState } from '@onekeyhq/components';
 import { Checkbox, Dialog, YStack } from '@onekeyhq/components';
+import {
+  isOnboardingFromExtensionUrl,
+  useToOnBoardingPage,
+} from '@onekeyhq/kit/src/views/Onboarding/hooks/useToOnBoardingPage';
 import { useV4migrationPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppEventBusNames,
@@ -15,7 +19,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
-import { openOnBoardingFromExt, useToOnBoardingPage } from '../pages';
 import { useV4MigrationActions } from '../pages/V4Migration/hooks/useV4MigrationActions';
 
 let lastAutoStartV4MigrationTime = 0;
@@ -133,7 +136,7 @@ function OnboardingOnMountCmp() {
         //
       }
 
-      if (openOnBoardingFromExt()) {
+      if (isOnboardingFromExtensionUrl()) {
         return;
       }
       const { isOnboardingDone } =

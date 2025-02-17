@@ -1,0 +1,22 @@
+diff --git a/node_modules/@privy-io/expo-native-extensions/ios/ExpoNativeExtensionsModule.swift b/node_modules/@privy-io/expo-native-extensions/ios/ExpoNativeExtensionsModule.swift
+index f74584a..7d6cd89 100644
+--- a/node_modules/@privy-io/expo-native-extensions/ios/ExpoNativeExtensionsModule.swift
++++ b/node_modules/@privy-io/expo-native-extensions/ios/ExpoNativeExtensionsModule.swift
+@@ -20,7 +20,7 @@ public class ExpoNativeExtensionsModule: Module {
+       return "Hello from privy native extensions! 👋"
+     }
+     
+-    AsyncFunction("writeRecoverySecretToICloud") { (options: WriteICloudRecoverySecretOptions) in
++    AsyncFunction("writeRecoverySecretToICloud") { (options: WriteICloudRecoverySecretOptions) -> WriteICloudRecoverySecretResponse in
+       // Ensure user is logged into iCloud, or throw an error
+       let isUserLoggedIntoICloud = await isUserLoggedIntoICloud(containerIdentifier: options.containerId)
+       if !isUserLoggedIntoICloud {
+@@ -49,7 +49,7 @@ public class ExpoNativeExtensionsModule: Module {
+     }
+     
+     // TODO: after finalizing how we want to handle async functions, update this function to match
+-    AsyncFunction("readRecoverySecretFromICloud") { (options: ReadICloudRecoverySecretOptions) in
++    AsyncFunction("readRecoverySecretFromICloud") { (options: ReadICloudRecoverySecretOptions) -> ReadICloudRecoverySecretResponse in
+       // Ensure user is logged into iCloud, or throw an error
+       let isUserLoggedIntoICloud = await isUserLoggedIntoICloud(containerIdentifier: options.containerId)
+       if !isUserLoggedIntoICloud {

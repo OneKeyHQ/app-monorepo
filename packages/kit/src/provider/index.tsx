@@ -1,4 +1,12 @@
+/* eslint-disable camelcase */
+import {
+  Inter_400Regular,
+  Inter_500Medium,
+  Inter_600SemiBold,
+} from '@expo-google-fonts/inter';
+import { useFonts } from 'expo-font';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { Toast } from '@onekeyhq/components';
 import { SyncHomeAccountToDappAccountProvider } from '@onekeyhq/kit/src/views/Discovery/components/SyncDappAccountToHomeProvider';
@@ -10,6 +18,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
+import { PrivyProvider } from '../views/Prime/components/PrivyProvider';
 
 import { ColdStartByNotification, Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
@@ -42,23 +51,36 @@ export function KitProvider(props: any = {}) {
   ColdStartByNotification.launchNotification = launchNotification;
 
   useDebugComponentRemountLog({ name: 'KitProvider' });
-  return (
-    <GlobalJotaiReady>
-      <GestureHandlerRootView style={flexStyle}>
-        <ThemeProvider>
-          <NetworkReachabilityTracker />
-          <SplashProvider>
-            <Container />
-          </SplashProvider>
-          <PasswordVerifyPromptMount />
-          <WebViewWebEmbedProvider />
-          <LastActivityTracker />
-          <SystemLocaleTracker />
-          <StateActiveContainer />
-          <InAppNotification />
-          <SyncHomeAccountToDappAccountProvider />
-        </ThemeProvider>
-      </GestureHandlerRootView>
-    </GlobalJotaiReady>
+
+  useFonts({
+    Inter_400Regular,
+    Inter_500Medium,
+    Inter_600SemiBold,
+  });
+
+  const content = (
+    <SafeAreaProvider>
+      <PrivyProvider>
+        <GlobalJotaiReady>
+          <GestureHandlerRootView style={flexStyle}>
+            <ThemeProvider>
+              <NetworkReachabilityTracker />
+              <SplashProvider>
+                <Container />
+              </SplashProvider>
+              <PasswordVerifyPromptMount />
+              <WebViewWebEmbedProvider />
+              <LastActivityTracker />
+              <SystemLocaleTracker />
+              <StateActiveContainer />
+              <InAppNotification />
+              <SyncHomeAccountToDappAccountProvider />
+            </ThemeProvider>
+          </GestureHandlerRootView>
+        </GlobalJotaiReady>
+      </PrivyProvider>
+    </SafeAreaProvider>
   );
+
+  return content;
 }

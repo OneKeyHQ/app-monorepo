@@ -1,4 +1,8 @@
-import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBAccount,
+  IDBDevice,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAirGapAccount } from '@onekeyhq/qr-wallet-sdk';
 
 import type { INetworkAccountAddressDetail } from './address';
@@ -42,3 +46,8 @@ export enum ERequestWalletTypeEnum {
   THIRD_PARTY = 'third-party',
   UNKNOWN = 'unknown',
 }
+
+export type IHwQrWalletWithDevice = {
+  device: IDBDevice | undefined;
+  wallet: IDBWallet;
+};

@@ -4,6 +4,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 function DataViewer({ data }: { data: string }) {
   return (
     <TextAreaInput
+      caretHidden={platformEnv.isNativeAndroid}
       className="break-all"
       containerProps={{
         borderWidth: 0,

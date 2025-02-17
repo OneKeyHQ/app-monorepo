@@ -3,5 +3,6 @@ import '@onekeyhq/shared/src/polyfills';
 
 import { KitProvider } from '@onekeyhq/kit';
 import { withSentryHOC } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import { SentryErrorBoundaryFallback } from '@onekeyhq/kit/src/components/ErrorBoundary';
 
-export default withSentryHOC(KitProvider);
+export default withSentryHOC(KitProvider, SentryErrorBoundaryFallback);

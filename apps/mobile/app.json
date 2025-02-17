@@ -41,7 +41,15 @@
           "project": "react-native",
           "organization": "onekey-bb"
         }
-      ]
+      ],
+      [
+        "expo-screen-orientation",
+        {
+          "initialOrientation": "DEFAULT"
+        }
+      ],
+      "expo-font",
+      "expo-secure-store"
     ]
   }
 }

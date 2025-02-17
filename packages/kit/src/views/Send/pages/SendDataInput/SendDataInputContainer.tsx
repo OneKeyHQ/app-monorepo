@@ -11,10 +11,8 @@ import {
   Button,
   Dialog,
   Form,
-  HeaderIconButton,
   Input,
   Page,
-  Popover,
   SizableText,
   TextArea,
   TextAreaInput,
@@ -74,8 +72,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-
-import { showContractWarningDialog } from './ContractWarningDialog';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -467,10 +463,6 @@ function SendDataInputContainer() {
           const isToContract = form.getValues('to').isContract;
           if (!toAddress) return;
 
-          if (isToContract && !(await showContractWarningDialog())) {
-            return;
-          }
-
           let realAmount = amount;
 
           setIsSubmitting(true);
@@ -535,7 +527,7 @@ function SendDataInputContainer() {
               : tokenInfo?.address,
           });
 
-          await signatureConfirm.navigationToSignatureConfirm({
+          await signatureConfirm.navigationToTxConfirm({
             transfersInfo,
             sameModal: true,
             onSuccess,
@@ -760,7 +752,10 @@ function SendDataInputContainer() {
             if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
               form.setValue(
                 'amount',
-                valueBN.toFixed(tokenDetails?.info.decimals ?? 0),
+                valueBN.toFixed(
+                  tokenDetails?.info.decimals ?? 0,
+                  BigNumber.ROUND_FLOOR,
+                ),
               );
             }
           },
@@ -1204,7 +1199,7 @@ function SendDataInputContainer() {
   );
 
   const enableAllowListValidation = useMemo(
-    () => networkUtils.isLightningNetworkByNetworkId(networkId),
+    () => !networkUtils.isLightningNetworkByNetworkId(networkId),
     [networkId],
   );
 

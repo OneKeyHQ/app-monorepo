@@ -32,7 +32,7 @@ It is requested that all submissions follow the format defined in the [issue tem
 
 In the case of private bug disclosure, all relevant materials should be sent in email to `dev@onekey.so` -- and should follow the same template as a public issue.
 
-Once submitted, the issue will be responded to, verified, accepted, and rewarded accordindly.
+Once submitted, the issue will be responded to, verified, accepted, and rewarded accordingly.
 
 ### Submission Branches
 Participants in the program are free to submit bugs on branches in the OneKey codebase:

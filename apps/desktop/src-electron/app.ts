@@ -46,6 +46,7 @@ import { resourcesPath, staticPath } from './resoucePath';
 import { initSentry } from './sentry';
 import {
   checkAvailabilityAsync,
+  checkBiometricAuthChanged,
   requestVerificationAsync,
   startServices,
 } from './service';
@@ -76,7 +77,7 @@ if (!isMac) {
   setupTitlebar();
 }
 
-let systemIdleInterval: NodeJS.Timeout;
+let systemIdleInterval: ReturnType<typeof setInterval>;
 
 export type IDesktopOpenUrlEventData = {
   url?: string;
@@ -542,8 +543,7 @@ function createMainWindow() {
     (
       event,
       params: {
-        disableNumberShortcuts: boolean;
-        disableSearchAndAccountSelectorShortcuts: boolean;
+        disableAllShortcuts: boolean;
       },
     ) => {
       store.setDisableKeyboardShortcuts(params);
@@ -579,6 +579,20 @@ function createMainWindow() {
 
   ipcMain.on(ipcMessageKeys.IS_DEV, (event) => {
     event.returnValue = isDev;
+  });
+
+  ipcMain.on(ipcMessageKeys.CHECK_BIOMETRIC_AUTH_CHANGED, async (event) => {
+    if (!isMac) {
+      event.returnValue = false;
+      return;
+    }
+    try {
+      const result = await checkBiometricAuthChanged();
+      event.returnValue = result;
+    } catch (error) {
+      logger.error('[CHECK_BIOMETRIC_AUTH_CHANGED] Error:', error);
+      event.returnValue = false;
+    }
   });
 
   ipcMain.on(ipcMessageKeys.TOUCH_ID_CAN_PROMPT, async (event) => {

@@ -15,7 +15,7 @@ export default class NotificationProviderWeb extends NotificationProviderBase {
   constructor(options: INotificationProviderBaseOptions) {
     super(options);
     console.log('NotificationProviderWeb constructor');
-    // this.initWebSocketProvider();
+    this.initWebSocketProvider();
   }
 
   override showAndFocusApp(): Promise<void> {

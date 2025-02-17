@@ -35,7 +35,7 @@ const FinalizeWalletSetup = LazyLoadPage(
   () => import('../pages/FinalizeWalletSetup'),
 );
 
-const GetStarted = LazyLoadPage(() => import('../pages/GetStarted'));
+const GetStarted = LazyLoadPage(() => import('../pages/GetStarted/GetStarted'));
 
 const V4MigrationGetStarted = LazyLoadPage(
   () => import('../pages/V4Migration/V4MigrationGetStarted'),
@@ -74,6 +74,10 @@ const ImportWalletOptions = LazyLoadPage(
 
 const ImportKeyTag = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportKeyTag'),
+);
+
+const DeviceManagementGuideModal = LazyLoadPage(
+  () => import('../../DeviceManagement/pages/DeviceGuideModal'),
 );
 
 export const OnboardingRouter: IModalFlowNavigatorConfig<
@@ -177,5 +181,11 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     name: EOnboardingPages.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
     allowDisableClose: true,
+  },
+
+  // device management guide page
+  {
+    name: EOnboardingPages.DeviceManagementGuide,
+    component: DeviceManagementGuideModal,
   },
 ];

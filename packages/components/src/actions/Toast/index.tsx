@@ -168,7 +168,7 @@ function toastMessage({
   actions,
 }: IToastBaseProps) {
   if (platformEnv.isDev) {
-    if (title.length === 0) {
+    if (title?.length === 0) {
       throw new Error(`The parameter 'title' cannot be an empty string`);
     }
   }

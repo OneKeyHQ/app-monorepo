@@ -26,9 +26,7 @@ const wallet: IDBWallet = {
 
 const ToastGallery = () => (
   <Layout
-    description=""
-    suggestions={['']}
-    boundaryConditions={['']}
+    componentName="WalletAvatar"
     elements={[
       {
         title: 'Default',

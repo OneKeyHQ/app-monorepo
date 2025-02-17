@@ -195,9 +195,7 @@ const HardwareActionTest = () => {
 
 const HardwareGallery = () => (
   <Layout
-    description=""
-    suggestions={[]}
-    boundaryConditions={[]}
+    componentName="Hardware"
     elements={[
       {
         title: 'Interactive with hardware wallet',

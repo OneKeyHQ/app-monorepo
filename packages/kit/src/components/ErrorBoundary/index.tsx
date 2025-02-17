@@ -2,6 +2,8 @@
 // eslint-disable-next-line max-classes-per-file
 import { PureComponent } from 'react';
 
+import { SafeAreaView, Text } from 'react-native';
+
 type IErrorBoundaryProps = {
   children: React.ReactNode;
   onError?: (error: Error, componentStack: string | null) => void;
@@ -32,4 +34,38 @@ class ErrorBoundaryBase extends PureComponent<
   }
 }
 
-export { ErrorBoundaryBase };
+class ErrorBoundarySimple extends ErrorBoundaryBase {
+  override render() {
+    if (this.state.error) {
+      return (
+        <SafeAreaView>
+          <Text>{this.state.error.message}</Text>
+        </SafeAreaView>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+function SentryErrorBoundaryFallback({
+  error,
+  componentStack,
+  eventId,
+  resetError,
+}: {
+  error: unknown;
+  componentStack: string;
+  eventId: string;
+  resetError(): void;
+}) {
+  return (
+    <SafeAreaView>
+      <Text>
+        {(error as Error | undefined)?.message ||
+          'unknown error by error boundary'}
+      </Text>
+    </SafeAreaView>
+  );
+}
+
+export { ErrorBoundaryBase, ErrorBoundarySimple, SentryErrorBoundaryFallback };

@@ -35,5 +35,3 @@ export function useSystemColorScheme(delay = 500) {
 
   return colorScheme;
 }
-
-export const defaultColorScheme = 'dark';

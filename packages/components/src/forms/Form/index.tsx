@@ -112,7 +112,7 @@ export type IFieldProps = Omit<GetProps<typeof Controller>, 'render'> &
     description?: string | ReactNode;
     horizontal?: boolean;
     optional?: boolean;
-    labelAddon?: string | ReactElement;
+    labelAddon?: string | ReactElement | ReactNode;
     errorMessageAlign?: 'left' | 'center' | 'right';
     renderErrorMessage?: (props: IFieldErrorProps) => ReactElement;
   }>;

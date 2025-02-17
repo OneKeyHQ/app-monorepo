@@ -1,3 +1,4 @@
+import { AxiosResponse } from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
@@ -607,13 +608,24 @@ class ServiceStaking extends ServiceBase {
   }) {
     const accounts = await this.getEarnAvailableAccountsParams(params);
     const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const overviewData = await Promise.all(
-      accounts.map((account) =>
-        client.get<{
-          data: IEarnAccountResponse;
-        }>(`/earn/v1/overview`, { params: account }),
-      ),
-    );
+    const overviewData = (
+      await Promise.allSettled(
+        accounts.map((account) =>
+          client.get<{
+            data: IEarnAccountResponse;
+          }>(`/earn/v1/overview`, { params: account }),
+        ),
+      )
+    )
+      .filter((result) => result.status === 'fulfilled')
+      .map(
+        (result) =>
+          (
+            result as PromiseFulfilledResult<{
+              data: { data: IEarnAccountResponse };
+            }>
+          ).value,
+      );
 
     const { totalFiatValue, earnings24h, hasClaimableAssets } =
       overviewData.reduce(

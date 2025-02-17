@@ -257,7 +257,10 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       ) : null}
       {childrenAsText ? (
         <SizableText
-          textAlign={textAlign}
+          // Fix text truncation issues and Chinese punctuation display by allowing text to wrap onto multiple lines
+          // https://www.cnblogs.com/fresh-bright/p/13685644.html
+          //
+          textBreakStrategy="simple"
           size={textVariant as FontSizeTokens}
           color={outerColor || color}
         >

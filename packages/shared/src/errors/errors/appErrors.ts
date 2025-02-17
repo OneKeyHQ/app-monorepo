@@ -106,6 +106,28 @@ export class OneKeyErrorScanQrCodeCancel extends OneKeyError {
   override className = EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel;
 }
 
+export class OneKeyErrorPrimeLoginInvalidToken extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Prime login invalid, please login again',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
+export class OneKeyErrorPrimeLoginExceedDeviceLimit extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Prime exceed device limit',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
 export class OneKeyInternalError extends OneKeyError {
   constructor(props?: IOneKeyError | string) {
     super(
@@ -140,6 +162,19 @@ export class PasswordPromptDialogCancel extends OneKeyError {
   }
 
   override className = EOneKeyErrorClassNames.PasswordPromptDialogCancel;
+}
+
+export class PrimeLoginDialogCancelError extends OneKeyError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'PrimeLoginDialogCancelError',
+        defaultKey: ETranslations.global_cancel,
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.PrimeLoginDialogCancelError;
 }
 
 export class FailedToTransfer extends OneKeyError {

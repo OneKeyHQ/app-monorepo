@@ -29,6 +29,7 @@ import {
 } from '@onekeyhq/shared/src/utils/assertUtils';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 
+import { updateInterceptorRequestHelper } from '../init/updateInterceptorRequestHelper';
 import { createBackgroundProviders } from '../providers/backgroundProviders';
 import { settingsPersistAtom } from '../states/jotai/atoms';
 import { jotaiBgSync } from '../states/jotai/jotaiBgSync';
@@ -59,6 +60,8 @@ import type {
   IJsonRpcResponse,
 } from '@onekeyfe/cross-inpage-provider-types';
 import type { JsBridgeExtBackground } from '@onekeyfe/extension-bridge-hosted';
+
+updateInterceptorRequestHelper();
 
 @backgroundClass()
 class BackgroundApiBase implements IBackgroundApiBridge {
@@ -312,7 +315,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
       this.bridgeExtBg?.requestToAllCS(scope, data, targetOrigin);
     } else {
       if (this.bridge) {
-        if (isFunction(data)) {
+        if (isFunction(data) && this.bridge.remoteInfo.origin) {
           // eslint-disable-next-line no-param-reassign
           data = await data({ origin: this.bridge.remoteInfo.origin });
         }
@@ -324,7 +327,7 @@ class BackgroundApiBase implements IBackgroundApiBridge {
         }
       }
       if (this.webEmbedBridge) {
-        if (isFunction(data)) {
+        if (isFunction(data) && this.webEmbedBridge.remoteInfo.origin) {
           // eslint-disable-next-line no-param-reassign
           data = await data({ origin: this.webEmbedBridge.remoteInfo.origin });
         }

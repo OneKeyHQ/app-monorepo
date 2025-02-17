@@ -6,11 +6,11 @@ import { useIntl } from 'react-intl';
 
 import {
   Alert,
-  Dialog,
   Image,
   NumberSizeableText,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -29,14 +29,15 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
-import { StakeShouldUnderstand } from '../EarnShouldUnderstand';
 import {
   EstimateNetworkFee,
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
+import { renderStakeText } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
@@ -99,7 +100,7 @@ export function ApproveBaseStake({
 }: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const { navigationToSignatureConfirm } = useSignatureConfirm({
+  const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
   });
@@ -196,8 +197,8 @@ export function ApproveBaseStake({
         { amount: amountValue, symbol: token.symbol },
       );
     }
-    return intl.formatMessage({ id: ETranslations.earn_stake });
-  }, [isApprove, token, amountValue, intl]);
+    return intl.formatMessage({ id: renderStakeText(details.provider.name) });
+  }, [isApprove, intl, details.provider.name, amountValue, token.symbol]);
 
   const onApprove = useCallback(async () => {
     setApproving(true);
@@ -205,7 +206,7 @@ export function ApproveBaseStake({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
-    await navigationToSignatureConfirm({
+    await navigationToTxConfirm({
       approvesInfo: [
         {
           owner: account.address,
@@ -225,12 +226,7 @@ export function ApproveBaseStake({
         setApproving(false);
       },
     });
-  }, [
-    amountValue,
-    approveTarget,
-    navigationToSignatureConfirm,
-    trackAllowance,
-  ]);
+  }, [amountValue, approveTarget, navigationToTxConfirm, trackAllowance]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -322,41 +318,7 @@ export function ApproveBaseStake({
   }, [estimateFeeResp?.feeFiatValue, totalAnnualRewardsFiatValue]);
 
   const onSubmit = useCallback(async () => {
-    const showDialog = () => {
-      Dialog.show({
-        renderIcon: (
-          <Image width="$14" height="$14" src={details.token.info.logoURI} />
-        ),
-        title: intl.formatMessage(
-          { id: ETranslations.earn_provider_asset_staking },
-          {
-            'provider': capitalizeString(details.provider.name.toLowerCase()),
-            'asset': details.token.info.symbol,
-          },
-        ),
-        renderContent: (
-          <StakeShouldUnderstand
-            provider={details.provider.name.toLowerCase()}
-            symbol={details.token.info.symbol.toLowerCase()}
-            apr={details.provider.apr}
-            updateFrequency={details.updateFrequency}
-            unstakingPeriod={details.unstakingPeriod}
-            receiveSymbol={details.rewardToken}
-          />
-        ),
-        onConfirm: async (inst) => {
-          try {
-            setLoading(true);
-            await inst.close();
-            await onConfirm?.(amountValue);
-          } finally {
-            setLoading(false);
-          }
-        },
-        onConfirmText: intl.formatMessage({ id: ETranslations.earn_stake }),
-        showCancelButton: false,
-      });
-    };
+    const handleConfirm = () => onConfirm?.(amountValue);
     if (totalAnnualRewardsFiatValue && estimateFeeResp) {
       const daySpent = calcDaysSpent(
         totalAnnualRewardsFiatValue,
@@ -366,20 +328,18 @@ export function ApproveBaseStake({
         showEstimateGasAlert({
           daysConsumed: daySpent,
           estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: showDialog,
+          onConfirm: handleConfirm,
         });
         return;
       }
     }
-    showDialog();
+    await handleConfirm();
   }, [
     onConfirm,
     amountValue,
     totalAnnualRewardsFiatValue,
     estimateFeeResp,
     showEstimateGasAlert,
-    details,
-    intl,
   ]);
 
   return (
@@ -432,12 +392,14 @@ export function ApproveBaseStake({
               estimatedAnnualRewards.length > 1 ? 'flex-start' : 'center'
             }
           >
-            <CalculationListItem.Label>
-              {intl.formatMessage({
-                id: ETranslations.earn_est_annual_rewards,
-              })}
-            </CalculationListItem.Label>
-            <YStack>
+            <Stack flex={1}>
+              <CalculationListItem.Label whiteSpace="nowrap">
+                {intl.formatMessage({
+                  id: ETranslations.earn_est_annual_rewards,
+                })}
+              </CalculationListItem.Label>
+            </Stack>
+            <YStack gap="$2" ai="flex-end" flex={1} $gtMd={{ flex: 4 }}>
               {estimatedAnnualRewards.map((reward) => (
                 <ValuePriceListItem
                   key={reward.token.address}
@@ -517,14 +479,35 @@ export function ApproveBaseStake({
         accountId={approveTarget.accountId}
         networkId={approveTarget.networkId}
       />
-      <Page.Footer
-        onConfirmText={onConfirmText}
-        confirmButtonProps={{
-          onPress: isApprove ? onApprove : onSubmit,
-          loading: loading || loadingAllowance || approving,
-          disabled: isDisable,
-        }}
-      />
+      <Page.Footer>
+        <Stack
+          bg="$bgApp"
+          flexDirection="column"
+          $gtMd={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            jc: 'space-between',
+          }}
+        >
+          <Stack pl="$5">
+            <StakeProgress
+              currentStep={
+                isApprove
+                  ? EStakeProgressStep.supply
+                  : EStakeProgressStep.approve
+              }
+            />
+          </Stack>
+          <Page.FooterActions
+            onConfirmText={onConfirmText}
+            confirmButtonProps={{
+              onPress: isApprove ? onApprove : onSubmit,
+              loading: loading || loadingAllowance || approving,
+              disabled: isDisable,
+            }}
+          />
+        </Stack>
+      </Page.Footer>
     </StakingFormWrapper>
   );
 }

@@ -6,7 +6,6 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
-  Icon,
   InputUnControlled,
   SectionList,
   Stack,
@@ -14,7 +13,6 @@ import {
   useSafelyScrollToLocation,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -29,25 +27,15 @@ import type {
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorAccountsListSectionData } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
-import {
-  accountSelectorAccountsListIsLoadingAtom,
-  indexedAccountAddressCreationStateAtom,
-} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { accountSelectorAccountsListIsLoadingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { emptyArray } from '@onekeyhq/shared/src/consts';
-import {
-  WALLET_TYPE_EXTERNAL,
-  WALLET_TYPE_IMPORTED,
-  WALLET_TYPE_WATCHING,
-} from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { useAccountSelectorRoute } from '../../../router/useAccountSelectorRoute';
 
@@ -111,12 +99,15 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
         return Promise.resolve(undefined);
       }
       // await timerUtils.wait(1000);
-      return serviceAccountSelector.buildAccountSelectorAccountsListData({
-        focusedWallet: selectedAccount?.focusedWallet,
-        linkedNetworkId,
-        deriveType: selectedAccount.deriveType,
-        othersNetworkId: selectedAccount?.networkId,
-      });
+      const accountSelectorAccountsListData =
+        await serviceAccountSelector.buildAccountSelectorAccountsListData({
+          focusedWallet: selectedAccount?.focusedWallet,
+          linkedNetworkId,
+          deriveType: selectedAccount.deriveType,
+          othersNetworkId: selectedAccount?.networkId,
+        });
+
+      return accountSelectorAccountsListData;
     },
     [
       linkedNetworkId,
