@@ -680,19 +680,27 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
                 networkId: failedAccount.networkId,
                 deriveType: failedAccount.deriveType,
               });
-            Toast.error({
-              title: appLocale.intl.formatMessage(
-                {
-                  id: ETranslations.feedback_hw_create_unsupported_address_title,
-                },
-                {
-                  network: network?.name || failedAccount.networkId,
-                  addressType:
-                    deriveTypeInfo?.label || failedAccount.deriveType,
-                },
-              ),
-              message: failedAccount.error.message || 'Unknown error',
-            });
+            if (
+              accountUtils.isQrWallet({
+                walletId: wallet.id,
+              })
+            ) {
+              // mute error toast for qr wallet
+            } else {
+              Toast.error({
+                title: appLocale.intl.formatMessage(
+                  {
+                    id: ETranslations.feedback_hw_create_unsupported_address_title,
+                  },
+                  {
+                    network: network?.name || failedAccount.networkId,
+                    addressType:
+                      deriveTypeInfo?.label || failedAccount.deriveType,
+                  },
+                ),
+                message: failedAccount.error.message || 'Unknown error',
+              });
+            }
           }
         })();
       }
