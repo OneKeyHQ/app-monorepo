@@ -40,15 +40,19 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     selectedPackageId,
   });
 
+  const handleNativePurchase = useCallback(async () => {
+    void purchasePackageNative?.({
+      packageId: selectedPackageId,
+    });
+  }, [purchasePackageNative, selectedPackageId]);
+
   // TODO move to jotai context method
   const purchase = useCallback(async () => {
     try {
       onPurchase?.();
 
       if (platformEnv.isNativeIOS || platformEnv.isNativeAndroidGooglePlay) {
-        void purchasePackageNative?.({
-          packageId: selectedPackageId,
-        });
+        void handleNativePurchase();
       }
 
       if (platformEnv.isNativeAndroid) {
@@ -62,11 +66,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
               items: [
                 {
                   label: 'Purchase by AppStore/GooglePlay',
-                  onPress: () => {
-                    void purchasePackageNative?.({
-                      packageId: selectedPackageId,
-                    });
-                  },
+                  onPress: handleNativePurchase,
                 },
                 {
                   label: 'Purchase by Webview',
@@ -100,9 +100,9 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     }
   }, [
     fetchPrimeUserInfo,
+    handleNativePurchase,
     intl,
     onPurchase,
-    purchasePackageNative,
     purchasePackageWeb,
     purchasePackageWebview,
     selectedPackageId,
