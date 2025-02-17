@@ -284,6 +284,7 @@ export interface IFetchQuoteResult {
   eventId?: string;
   protocol?: string;
   info: IFetchQuoteInfo;
+  expirationTime?: number;
   errorMessage?: string;
   shouldWrappedToken?: ISwapTokenBase;
   fromAmount?: string;
@@ -677,14 +678,17 @@ export enum ESwapLimitOrderStatus {
 }
 
 export enum ESwapLimitOrderExpiryStep {
-  FIVE_MINUTES = 5 * 60 * 1000,
-  THIRTY_MINUTES = 30 * 60 * 1000,
-  ONE_HOUR = 60 * 60 * 1000,
-  ONE_DAY = 24 * 60 * 60 * 1000,
-  THREE_DAYS = 3 * 24 * 60 * 60 * 1000,
-  ONE_WEEK = 7 * 24 * 60 * 60 * 1000,
-  ONE_MONTH = 30 * 24 * 60 * 60 * 1000,
+  FIVE_MINUTES = 5 * 60,
+  THIRTY_MINUTES = 30 * 60,
+  ONE_HOUR = 60 * 60,
+  ONE_DAY = 24 * 60 * 60,
+  THREE_DAYS = 3 * 24 * 60 * 60,
+  ONE_WEEK = 7 * 24 * 60 * 60,
+  ONE_MONTH = 30 * 24 * 60 * 60,
 }
+
+export const defaultLimitExpirationTime =
+  ESwapLimitOrderExpiryStep.THIRTY_MINUTES;
 
 export const ESwapLimitOrderExpiryStepMap = [
   {

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 
 import {
-  useSwapLimitExpirationTimeAtom,
   useSwapLimitPriceMarketPriceAtom,
   useSwapLimitPriceRateReverseAtom,
   useSwapLimitPriceUseRateAtom,
@@ -19,7 +18,6 @@ export const useSwapLimitRate = () => {
   const [limitPriceSetReverse, setLimitPriceSetReverse] =
     useSwapLimitPriceRateReverseAtom();
   const [limitPriceMarketPrice] = useSwapLimitPriceMarketPriceAtom();
-  const [expirationTime, setExpirationTime] = useSwapLimitExpirationTimeAtom();
 
   const onLimitRateChange = useCallback(
     (text: string) => {
@@ -35,13 +33,6 @@ export const useSwapLimitRate = () => {
       }
     },
     [limitPriceUseRate, setLimitPriceUseRate],
-  );
-
-  const onLimitExpirationTimeChange = useCallback(
-    (value: string) => {
-      setExpirationTime(Number(value));
-    },
-    [setExpirationTime],
   );
 
   const limitPriceMarketRate = useMemo(
@@ -131,7 +122,5 @@ export const useSwapLimitRate = () => {
     limitPriceSetReverse,
     limitPriceUseRate,
     limitPriceMarketPrice,
-    onLimitExpirationTimeChange,
-    expirationTime,
   };
 };

@@ -10,11 +10,14 @@ import {
   NumberSizeableText,
   SizableText,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapLimitExpirationTimeAtom,
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenMetadataAtom,
@@ -24,12 +27,15 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IFetchQuoteResult,
-  ISwapToken,
-  ISwapTokenMetadata,
+import {
+  EProtocolOfExchange,
+  ESwapLimitOrderExpiryStepMap,
+  type IFetchQuoteResult,
+  type ISwapToken,
+  type ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 
+import LimitExpirySelect from '../../components/LimitExpirySelect';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
@@ -59,6 +65,9 @@ const SwapQuoteResult = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
+  const [swapQuoteList] = useSwapQuoteListAtom();
+  const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
+    useSwapLimitExpirationTimeAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
@@ -152,6 +161,36 @@ const SwapQuoteResult = ({
     new BigNumber(fromTokenAmount).isZero()
   ) {
     return null;
+  }
+  if (quoteResult?.protocol === EProtocolOfExchange.LIMIT) {
+    return (
+      <YStack gap="$2">
+        <LimitExpirySelect
+          currentSelectExpiryValue={swapLimitExpirySelect}
+          onSelectExpiryValue={setSwapLimitExpirySelect}
+          selectItems={ESwapLimitOrderExpiryStepMap}
+        />
+        {quoteResult?.info.provider ? (
+          <SwapProviderInfoItem
+            providerIcon={quoteResult?.info.providerLogo ?? ''}
+            providerName={quoteResult?.info.providerName ?? ''}
+            isLoading={swapQuoteLoading}
+            isBest={quoteResult.isBest}
+            fromToken={fromToken}
+            onekeyFee={quoteResult?.fee?.percentageFee}
+            toToken={toToken}
+            showLock={!!quoteResult?.allowanceResult}
+            onPress={
+              quoteResult?.info.provider && swapQuoteList?.length > 1
+                ? () => {
+                    onOpenProviderList?.();
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+      </YStack>
+    );
   }
   if (
     fromToken &&

@@ -27,54 +27,41 @@ const LimitInfoContainer = ({ quoteResult }: ILimitInfoContainerProps) => {
     onChangeReverse,
     limitPriceEqualMarketPrice,
     limitPriceMarketRate,
-    onLimitExpirationTimeChange,
-    expirationTime,
   } = useSwapLimitRate();
 
   return (
-    <XStack gap="$2">
-      <YStack gap="$2">
-        <XStack justifyContent="space-between">
-          <SizableText> Limit price</SizableText>
-          <XStack>
-            <SizableText>Market:</SizableText>
-            <NumberSizeableText
-              formatter="balance"
-              {...(!limitPriceEqualMarketPrice
-                ? {
-                    textDecorationLine: 'underline',
-                    cursor: 'pointer',
-                    onPress: onSetMarketPrice,
-                  }
-                : {})}
-            >
-              {limitPriceMarketRate}
-            </NumberSizeableText>
-          </XStack>
+    <YStack gap="$2" p="$2" bg="$bgSubdued" borderRadius="$3">
+      <XStack justifyContent="space-between">
+        <SizableText> Limit price</SizableText>
+        <XStack>
+          <SizableText>Market:</SizableText>
+          <NumberSizeableText
+            formatter="balance"
+            {...(!limitPriceEqualMarketPrice
+              ? {
+                  textDecorationLine: 'underline',
+                  cursor: 'pointer',
+                  onPress: onSetMarketPrice,
+                }
+              : {})}
+          >
+            {limitPriceMarketRate}
+          </NumberSizeableText>
         </XStack>
-        <LimitRateInput
-          limitPriceRateValue={
-            limitPriceSetReverse
-              ? limitPriceUseRate.reverseRate
-              : limitPriceUseRate.rate
-          }
-          onReverseChange={onChangeReverse}
-          reverse={limitPriceSetReverse}
-          onChangeText={onLimitRateChange}
-          fromTokenInfo={fromTokenInfo}
-          toTokenInfo={toTokenInfo}
-        />
-      </YStack>
-      <YStack gap="$2" flex={1}>
-        <SizableText> Expiry</SizableText>
-        <Select
-          title="Expiry"
-          items={ESwapLimitOrderExpiryStepMap}
-          onChange={onLimitExpirationTimeChange}
-          value={expirationTime.toString()}
-        />
-      </YStack>
-    </XStack>
+      </XStack>
+      <LimitRateInput
+        limitPriceRateValue={
+          limitPriceSetReverse
+            ? limitPriceUseRate.reverseRate
+            : limitPriceUseRate.rate
+        }
+        onReverseChange={onChangeReverse}
+        reverse={limitPriceSetReverse}
+        onChangeText={onLimitRateChange}
+        fromTokenInfo={fromTokenInfo}
+        toTokenInfo={toTokenInfo}
+      />
+    </YStack>
   );
 };
 

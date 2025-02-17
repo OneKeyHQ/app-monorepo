@@ -47,6 +47,7 @@ import { validateAmountInput } from '../../utils/utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import LimitInfoContainer from './LimitInfoContainer';
+import LimitOrderOpenItem from './LimitOrderOpenItem';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
@@ -227,6 +228,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
           />
+          <LimitOrderOpenItem />
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}

@@ -21,6 +21,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapLimitOrderExpiryStep,
+  ESwapLimitOrderExpiryStepMap,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
@@ -440,7 +441,14 @@ export const {
 export const {
   atom: swapLimitExpirationTimeAtom,
   use: useSwapLimitExpirationTimeAtom,
-} = contextAtom<number>(ESwapLimitOrderExpiryStep.THIRTY_MINUTES);
+} = contextAtom<{ label: string; value: string }>({
+  label:
+    ESwapLimitOrderExpiryStepMap.find(
+      (item) =>
+        item.value === ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+    )?.label ?? '',
+  value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+});
 
 export const {
   atom: swapLimitPriceRateReverseAtom,

@@ -53,6 +53,8 @@ import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapLimitExpirationTimeAtom,
+  useSwapLimitPriceToAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -89,6 +91,8 @@ export function useSwapBuildTx() {
   const [, setSwapManualSelectQuoteProviders] =
     useSwapManualSelectQuoteProvidersAtom();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
+  const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
+  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const [, setSettings] = useSettingsAtom();
   const { navigationToTxConfirm, navigationToMessageConfirm } =
@@ -149,7 +153,11 @@ export function useSwapBuildTx() {
         const { swapInfo } = transactionSignedInfo;
         const { totalFeeInNative, totalFeeFiatValue, networkId } =
           transactionDecodedInfo;
-        if (swapInfo) {
+        if (
+          swapInfo &&
+          swapInfo.swapBuildResData?.result?.protocol ===
+            EProtocolOfExchange.SWAP
+        ) {
           await generateSwapHistoryItem({
             txId,
             gasFeeFiatValue: totalFeeFiatValue,
@@ -417,6 +425,7 @@ export function useSwapBuildTx() {
             validTo: number;
             appData: string;
             receiver: string;
+            buyAmount: string;
           } =
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
@@ -424,6 +433,33 @@ export function useSwapBuildTx() {
             unSignedOrder.receiver = swapToAddressInfo.address;
             let dataMessage = unSignedMessage;
             if (!dataMessage && unSignedData) {
+              let validTo = unSignedOrder.validTo;
+              const quoteResultEstimatedTimeBN = new BigNumber(
+                selectQuote?.estimatedTime ?? 0,
+              );
+              const swapLimitExpirationTimeValueBN = new BigNumber(
+                swapLimitExpirationTime.value,
+              );
+              if (
+                selectQuote?.estimatedTime &&
+                !quoteResultEstimatedTimeBN.eq(swapLimitExpirationTimeValueBN)
+              ) {
+                validTo = new BigNumber(unSignedOrder.validTo)
+                  .minus(quoteResultEstimatedTimeBN)
+                  .plus(swapLimitExpirationTimeValueBN)
+                  .toNumber();
+              }
+              let finalBuyAmount = unSignedOrder.buyAmount;
+              if (
+                selectQuote?.limitPriceOrderMarketPrice &&
+                swapLimitPriceToAmount
+              ) {
+                const decimals = toToken.decimals;
+                const finalBuyAmountBN = new BigNumber(
+                  swapLimitPriceToAmount,
+                ).shiftedBy(decimals);
+                finalBuyAmount = finalBuyAmountBN.toFixed();
+              }
               const normalizeData = {
                 ...unSignedOrder,
                 sellTokenBalance:
@@ -432,7 +468,8 @@ export function useSwapBuildTx() {
                 buyTokenBalance: normalizeBuyTokenBalance(
                   unSignedOrder.buyTokenBalance as OrderBalance,
                 ),
-                validTo: timestamp(unSignedOrder.validTo),
+                buyAmount: finalBuyAmount,
+                validTo: timestamp(validTo),
                 appData: hashify(unSignedOrder.appData),
               };
               const populated =
@@ -668,6 +705,8 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
+    swapLimitExpirationTime,
+    swapLimitPriceToAmount,
     navigationToMessageConfirm,
     swapTypeSwitch,
   ]);
