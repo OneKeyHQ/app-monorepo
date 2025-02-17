@@ -539,8 +539,6 @@ function ConnectByUSBOrBLE({
       try {
         console.log('ConnectYourDevice -> createHwWallet', device);
 
-        stopScan();
-
         defaultLogger.account.wallet.connectHWWallet({
           connectType: platformEnv.isNative ? 'ble' : 'usb',
           deviceType: device.deviceType,
@@ -570,7 +568,6 @@ function ConnectByUSBOrBLE({
       } catch (error) {
         errorToastUtils.toastIfError(error);
         navigation.pop();
-        scanDevice();
         throw error;
       } finally {
         const connectId = device.connectId || '';
@@ -580,7 +577,7 @@ function ConnectByUSBOrBLE({
         });
       }
     },
-    [stopScan, navigation, actions, intl, scanDevice],
+    [navigation, actions, intl],
   );
 
   const handleHwWalletCreateFlow = useCallback(
@@ -594,88 +591,97 @@ function ConnectByUSBOrBLE({
         return;
       }
 
-      const handleBootloaderMode = (existsFirmware: boolean) => {
-        fwUpdateActions.showBootloaderMode({
-          connectId: device.connectId ?? undefined,
-          existsFirmware,
-        });
-        console.log('Device is in bootloader mode', device);
-        throw new Error('Device is in bootloader mode');
-      };
-      if (
-        await deviceUtils.isBootloaderModeFromSearchDevice({
-          device: device as any,
-        })
-      ) {
-        const existsFirmware = await deviceUtils.existsFirmwareFromSearchDevice(
-          { device: device as any },
-        );
-        handleBootloaderMode(existsFirmware);
-        return;
-      }
+      try {
+        stopScan();
 
-      const features = await connectDevice(device);
-
-      if (!features) {
-        throw new Error('connect device failed, no features returned');
-      }
-
-      if (await deviceUtils.isBootloaderModeByFeatures({ features })) {
-        const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
-          features,
-        });
-        handleBootloaderMode(existsFirmware);
-        return;
-      }
-
-      let deviceType = await deviceUtils.getDeviceTypeFromFeatures({
-        features,
-      });
-      if (deviceType === 'unknown') {
-        deviceType = device.deviceType || deviceType;
-      }
-
-      const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
-        features,
-      });
-      // const deviceMode = EOneKeyDeviceMode.notInitialized;
-      if (deviceMode === EOneKeyDeviceMode.backupMode) {
-        Toast.error({
-          title: 'Device is in backup mode',
-        });
-        return;
-      }
-
-      if (
-        await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
-          device,
-        })
-      ) {
-        await showFirmwareVerifyDialog({
-          device,
-          features,
-          onContinue: async ({ checked }) => {
-            if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-              handleNotActivatedDevicePress({ deviceType });
-              return;
-            }
-
-            await createHwWallet({
-              device,
-              isFirmwareVerified: checked,
-              features,
+        const handleBootloaderMode = (existsFirmware: boolean) => {
+          fwUpdateActions.showBootloaderMode({
+            connectId: device.connectId ?? undefined,
+            existsFirmware,
+          });
+          console.log('Device is in bootloader mode', device);
+          throw new Error('Device is in bootloader mode');
+        };
+        if (
+          await deviceUtils.isBootloaderModeFromSearchDevice({
+            device: device as any,
+          })
+        ) {
+          const existsFirmware =
+            await deviceUtils.existsFirmwareFromSearchDevice({
+              device: device as any,
             });
-          },
+          handleBootloaderMode(existsFirmware);
+          return;
+        }
+
+        const features = await connectDevice(device);
+
+        if (!features) {
+          throw new Error('connect device failed, no features returned');
+        }
+
+        if (await deviceUtils.isBootloaderModeByFeatures({ features })) {
+          const existsFirmware = await deviceUtils.existsFirmwareByFeatures({
+            features,
+          });
+          handleBootloaderMode(existsFirmware);
+          return;
+        }
+
+        let deviceType = await deviceUtils.getDeviceTypeFromFeatures({
+          features,
         });
-        return;
-      }
+        if (deviceType === 'unknown') {
+          deviceType = device.deviceType || deviceType;
+        }
 
-      if (deviceMode === EOneKeyDeviceMode.notInitialized) {
-        handleNotActivatedDevicePress({ deviceType });
-        return;
-      }
+        const deviceMode = await deviceUtils.getDeviceModeFromFeatures({
+          features,
+        });
+        // const deviceMode = EOneKeyDeviceMode.notInitialized;
+        if (deviceMode === EOneKeyDeviceMode.backupMode) {
+          Toast.error({
+            title: 'Device is in backup mode',
+          });
+          return;
+        }
 
-      await createHwWallet({ device, features });
+        if (
+          await backgroundApiProxy.serviceHardware.shouldAuthenticateFirmware({
+            device,
+          })
+        ) {
+          await showFirmwareVerifyDialog({
+            device,
+            features,
+            onContinue: async ({ checked }) => {
+              if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+                handleNotActivatedDevicePress({ deviceType });
+                return;
+              }
+
+              await createHwWallet({
+                device,
+                isFirmwareVerified: checked,
+                features,
+              });
+            },
+          });
+          return;
+        }
+
+        if (deviceMode === EOneKeyDeviceMode.notInitialized) {
+          handleNotActivatedDevicePress({ deviceType });
+          return;
+        }
+
+        await createHwWallet({ device, features });
+      } catch (error) {
+        console.error('handleHwWalletCreateFlow error:', error);
+        scanDevice();
+        throw error;
+      }
     },
     [
       connectDevice,
@@ -683,7 +689,9 @@ function ConnectByUSBOrBLE({
       fwUpdateActions,
       handleNotActivatedDevicePress,
       intl,
+      scanDevice,
       showFirmwareVerifyDialog,
+      stopScan,
     ],
   );
 
