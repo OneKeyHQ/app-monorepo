@@ -8,10 +8,9 @@ const requestHelper: {
   getSettingsPersistAtom(): Promise<ISettingsPersistAtom>;
   getSettingsValuePersistAtom(): Promise<ISettingsValuePersistAtom>;
 } = {
-  // @ts-expect-error
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   checkIsOneKeyDomain(url: string) {
-    // TODO: implement
-    // throw new Error('Not implemented');
+    throw new Error('Not implemented');
   },
   getSettingsPersistAtom(): Promise<ISettingsPersistAtom> {
     throw new Error('Not implemented');
