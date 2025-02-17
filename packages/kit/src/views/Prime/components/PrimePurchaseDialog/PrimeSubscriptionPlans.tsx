@@ -6,7 +6,10 @@ import type { IXStackProps } from '@onekeyhq/components';
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-import type { IPackage, IPackageId } from '../../hooks/usePrimePaymentTypes';
+import type {
+  IPackage,
+  ISubscriptionPeriod,
+} from '../../hooks/usePrimePaymentTypes';
 
 function PrimeSubscriptionPlanItem({
   selected,
@@ -75,32 +78,35 @@ function PrimeSubscriptionPlanItem({
 
 export function PrimeSubscriptionPlans({
   packages,
-  onPackageSelected,
+  onSubscriptionPeriodSelected,
 }: {
   packages?: IPackage[];
-  onPackageSelected: (packageId: IPackageId) => void;
+  onSubscriptionPeriodSelected: (
+    subscriptionPeriod: ISubscriptionPeriod,
+  ) => void;
 }) {
-  const [selectedPackageId, setSelectedPackageId] = useState<IPackageId>('P1Y');
+  const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
+    useState<ISubscriptionPeriod>('P1Y');
 
   useEffect(() => {
-    if (selectedPackageId) {
-      onPackageSelected(selectedPackageId);
+    if (selectedSubscriptionPeriod) {
+      onSubscriptionPeriodSelected(selectedSubscriptionPeriod);
     }
-  }, [onPackageSelected, selectedPackageId]);
+  }, [onSubscriptionPeriodSelected, selectedSubscriptionPeriod]);
 
   return (
     <YStack gap="$2.5">
       {packages?.map((p) => {
-        const selected = selectedPackageId === p.packageId;
+        const selected = selectedSubscriptionPeriod === p.subscriptionPeriod;
         return (
           <PrimeSubscriptionPlanItem
-            key={p.packageId}
+            key={p.subscriptionPeriod}
             selected={selected}
-            periodDuration={p.packageId}
+            periodDuration={p.subscriptionPeriod}
             pricePerMonthString={p.pricePerMonthString}
             pricePerYearString={p.pricePerYearString}
             onPress={() => {
-              setSelectedPackageId(p.packageId);
+              setSelectedSubscriptionPeriod(p.subscriptionPeriod);
             }}
           />
         );

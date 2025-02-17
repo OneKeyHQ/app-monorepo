@@ -7,10 +7,10 @@ import type {
   MakePurchaseResult,
 } from '@revenuecat/purchases-typescript-internal';
 
-export type IPackageId = 'P1Y' | 'P1M';
+export type ISubscriptionPeriod = 'P1Y' | 'P1M';
 
 export type IPackage = {
-  packageId: IPackageId;
+  subscriptionPeriod: ISubscriptionPeriod;
   pricePerMonthString: string;
   pricePerYearString: string;
 };
@@ -22,18 +22,18 @@ export type IUsePrimePayment = {
   getPackagesWeb: (() => Promise<IPackage[]>) | undefined;
   purchasePackageNative:
     | (({
-        packageId,
+        subscriptionPeriod,
       }: {
-        packageId: IPackageId;
+        subscriptionPeriod: ISubscriptionPeriod;
       }) => Promise<MakePurchaseResult>)
     | undefined;
   purchasePackageWeb:
     | (({
-        packageId,
+        subscriptionPeriod,
         email,
         locale,
       }: {
-        packageId: string;
+        subscriptionPeriod: string;
         email: string;
         locale?: string;
       }) => Promise<PurchaseResult>)

@@ -16,7 +16,11 @@ import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 import { usePrimePaymentWebApiKey } from './usePrimePaymentWebApiKey';
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
-import type { IPackage, IUsePrimePayment } from './usePrimePaymentTypes';
+import type {
+  IPackage,
+  ISubscriptionPeriod,
+  IUsePrimePayment,
+} from './usePrimePaymentTypes';
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
 export function usePrimePayment(): IUsePrimePayment {
@@ -119,7 +123,7 @@ export function usePrimePayment(): IUsePrimePayment {
                 .toFixed(2)}`;
 
         return {
-          packageId: normalPeriodDuration as IPackage['packageId'],
+          subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
           pricePerMonthString: pricePerMonth,
           pricePerYearString: currentPrice.formattedPrice,
         };
@@ -130,11 +134,11 @@ export function usePrimePayment(): IUsePrimePayment {
 
   const purchasePackageWeb = useCallback(
     async ({
-      packageId,
+      subscriptionPeriod,
       email,
       locale,
     }: {
-      packageId: string;
+      subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
@@ -148,15 +152,15 @@ export function usePrimePayment(): IUsePrimePayment {
         });
 
         if (!offerings.current) {
-          throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
+          throw new Error('purchasePaywallPackage ERROR: No offerings');
         }
 
         const paywallPackage = offerings.current.availablePackages.find(
-          (p) => p.rcBillingProduct.normalPeriodDuration === packageId,
+          (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
         );
 
         if (!paywallPackage) {
-          throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
+          throw new Error('purchasePaywallPackage ERROR: No paywall package');
         }
 
         const purchaseParams: PurchaseParams = {

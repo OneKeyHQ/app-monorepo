@@ -60,13 +60,13 @@ export default function PageWebEmbedPrimePurchase() {
   const apiKey = searchParams.get('apiKey') || '';
   const primeUserId = searchParams.get('primeUserId') || '';
   const primeUserEmail = searchParams.get('primeUserEmail') || '';
-  const packageId = searchParams.get('packageId') || '';
+  const subscriptionPeriod = searchParams.get('subscriptionPeriod') || '';
   const locale = searchParams.get('locale') || 'en';
   const [debugText, setDebugText] = useState('');
   const mode = (searchParams.get('mode') || 'prod') as 'dev' | 'prod';
 
   const run = useCallback(async () => {
-    if (!primeUserId || !primeUserEmail || !packageId) {
+    if (!primeUserId || !primeUserEmail || !subscriptionPeriod) {
       await closeNativeWebViewModal();
       return;
     }
@@ -85,7 +85,7 @@ export default function PageWebEmbedPrimePurchase() {
       });
 
       const paywallPackage = offerings?.current?.availablePackages.find(
-        (p) => p.rcBillingProduct.normalPeriodDuration === packageId,
+        (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
       );
 
       if (!paywallPackage) {
@@ -117,7 +117,7 @@ export default function PageWebEmbedPrimePurchase() {
     }
 
     isRunning.current = false;
-  }, [primeUserId, primeUserEmail, packageId, apiKey, locale, mode]);
+  }, [primeUserId, primeUserEmail, subscriptionPeriod, apiKey, locale, mode]);
 
   useEffect(() => {
     void run();
@@ -140,7 +140,7 @@ export default function PageWebEmbedPrimePurchase() {
           ) : null}
           {JSON.stringify(
             {
-              packageId,
+              subscriptionPeriod,
               primeUserId,
               primeUserEmail,
             },

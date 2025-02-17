@@ -10,12 +10,12 @@ import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePaymentWebApiKey } from '../../hooks/usePrimePaymentWebApiKey';
 
-import type { IPackageId } from '../../hooks/usePrimePaymentTypes';
+import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
 export function usePurchasePackageWebview({
-  selectedPackageId,
+  selectedSubscriptionPeriod,
 }: {
-  selectedPackageId: IPackageId;
+  selectedSubscriptionPeriod: ISubscriptionPeriod;
 }) {
   const navigation = useAppNavigation();
   const { user } = usePrimeAuthV2();
@@ -33,7 +33,7 @@ export function usePurchasePackageWebview({
       hashRouteQueryParams: {
         primeUserId: user?.privyUserId || '',
         primeUserEmail: user?.email || '',
-        packageId: selectedPackageId,
+        subscriptionPeriod: selectedSubscriptionPeriod,
         locale: intl.locale,
         mode: platformEnv.isDev ? 'dev' : 'prod',
         apiKey: apiKey || '',
@@ -43,7 +43,7 @@ export function usePurchasePackageWebview({
     navigation,
     user?.privyUserId,
     user?.email,
-    selectedPackageId,
+    selectedSubscriptionPeriod,
     intl.locale,
     apiKey,
   ]);

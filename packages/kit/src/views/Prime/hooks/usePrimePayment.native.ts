@@ -15,7 +15,7 @@ import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 import type {
   IPackage,
-  IPackageId,
+  ISubscriptionPeriod,
   IUsePrimePayment,
 } from './usePrimePaymentTypes';
 import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
@@ -118,7 +118,7 @@ export function usePrimePayment(): IUsePrimePayment {
         p.product;
 
       packages.push({
-        packageId: subscriptionPeriod as IPackageId,
+        subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
         pricePerMonthString,
         pricePerYearString,
       });
@@ -129,7 +129,11 @@ export function usePrimePayment(): IUsePrimePayment {
 
   // https://www.revenuecat.com/docs/tools/paywalls/displaying-paywalls#react-native
   const purchasePackageNative = useCallback(
-    async ({ packageId }: { packageId: IPackageId }) => {
+    async ({
+      subscriptionPeriod,
+    }: {
+      subscriptionPeriod: ISubscriptionPeriod;
+    }) => {
       try {
         if (!isReady) {
           throw new Error('PrimeAuth native not ready!');
@@ -138,7 +142,7 @@ export function usePrimePayment(): IUsePrimePayment {
         const offerings = await Purchases.getOfferings();
 
         const offering = offerings.current?.availablePackages.find(
-          (p) => p.product.subscriptionPeriod === packageId,
+          (p) => p.product.subscriptionPeriod === subscriptionPeriod,
         );
 
         if (!offering) {

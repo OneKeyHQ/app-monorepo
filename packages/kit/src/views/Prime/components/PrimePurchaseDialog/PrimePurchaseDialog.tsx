@@ -20,14 +20,15 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 import { PrimeSubscriptionPlans } from './PrimeSubscriptionPlans';
 import { usePurchasePackageWebview } from './usePurchasePackageWebview';
 
-import type { IPackageId } from '../../hooks/usePrimePaymentTypes';
+import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
 export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   const { onPurchase } = props;
   const intl = useIntl();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { user } = usePrimeAuthV2();
-  const [selectedPackageId, setSelectedPackageId] = useState<IPackageId>('P1Y');
+  const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
+    useState<ISubscriptionPeriod>('P1Y');
 
   const {
     purchasePackageNative,
@@ -37,14 +38,14 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   } = usePrimePayment();
 
   const purchasePackageWebview = usePurchasePackageWebview({
-    selectedPackageId,
+    selectedSubscriptionPeriod,
   });
 
   const handleNativePurchase = useCallback(async () => {
     void purchasePackageNative?.({
-      packageId: selectedPackageId,
+      subscriptionPeriod: selectedSubscriptionPeriod,
     });
-  }, [purchasePackageNative, selectedPackageId]);
+  }, [purchasePackageNative, selectedSubscriptionPeriod]);
 
   // TODO move to jotai context method
   const purchase = useCallback(async () => {
@@ -82,9 +83,9 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
         return;
       }
 
-      if (selectedPackageId) {
+      if (selectedSubscriptionPeriod) {
         await purchasePackageWeb?.({
-          packageId: selectedPackageId,
+          subscriptionPeriod: selectedSubscriptionPeriod,
           email: user?.email || '',
           locale: intl.locale,
         });
@@ -106,7 +107,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     onPurchase,
     purchasePackageWeb,
     purchasePackageWebview,
-    selectedPackageId,
+    selectedSubscriptionPeriod,
     user?.email,
   ]);
 
@@ -121,7 +122,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
       {packages ? (
         <PrimeSubscriptionPlans
           packages={packages}
-          onPackageSelected={setSelectedPackageId}
+          onSubscriptionPeriodSelected={setSelectedSubscriptionPeriod}
         />
       ) : (
         <YStack gap="$2.5">
