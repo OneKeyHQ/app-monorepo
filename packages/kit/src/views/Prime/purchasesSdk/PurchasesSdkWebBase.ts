@@ -80,7 +80,6 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
         (p) => p.rcBillingProduct.normalPeriodDuration === packageId,
       );
 
-      console.log('paywallPackage >>>>>> ', paywallPackage);
       if (!paywallPackage) {
         throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
       }
@@ -98,7 +97,6 @@ export abstract class PurchasesSdkWebBase extends PurchasesSdkBase {
       // https://docs.stripe.com/testing#testing-interactively
       // Mastercard: 5555555555554444
       // visa: 4242424242424242
-      console.log('purchase >>>>>> ', purchase);
       return purchase;
     } catch (error) {
       console.error('purchasePackageBase ERROR >>>>>> ', error);

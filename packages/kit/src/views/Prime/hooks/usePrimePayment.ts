@@ -47,7 +47,6 @@ export function usePrimePayment(): IUsePrimePayment {
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
-    console.log('customerInfo >>>>>> ', user?.id, customerInfo);
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
     if (appUserId !== user?.id) {

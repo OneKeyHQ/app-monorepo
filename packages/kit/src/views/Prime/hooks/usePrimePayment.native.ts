@@ -35,12 +35,7 @@ export function usePrimePayment(): IUsePrimePayment {
     if (!user?.id) {
       throw new Error('User not logged in');
     }
-    // Do not logout which will create anonymous user
-    // try {
-    //   await Purchases.logOut();
-    // } catch (e) {
-    //   console.error(e);
-    // }
+
     if (user?.id) {
       try {
         await Purchases.logIn(user.id);
@@ -58,11 +53,7 @@ export function usePrimePayment(): IUsePrimePayment {
       throw new Error('AppUserId not match');
     }
     const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
-    console.log(
-      'customerInfo >>>>> ',
-      appUserId,
-      JSON.stringify(customerInfo, null, 2),
-    );
+
     setPrimePersistAtom((prev) =>
       perfUtils.buildNewValueIfChanged(prev, {
         ...prev,
