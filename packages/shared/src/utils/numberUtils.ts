@@ -9,6 +9,22 @@ import hexUtils from './hexUtils';
 
 import type { FormatNumberOptions } from '@formatjs/intl';
 
+export enum ENumberUnit {
+  Q = 'Q',
+  T = 'T',
+  B = 'B',
+  M = 'M',
+  K = 'K',
+}
+
+export enum ENumberUnitValue {
+  Q = 10e14,
+  T = 10e11,
+  B = 10e8,
+  M = 10e5,
+  K = 10e2,
+}
+
 const toBigIntHex = (value: BigNumber): string => {
   let hexStr = value.integerValue().toString(16);
 
@@ -149,12 +165,12 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
   }
 
   if (absValue.gte(1)) {
-    if (absValue.gte(10e14)) {
+    if (absValue.gte(ENumberUnitValue.Q)) {
       const {
         value: formattedValue,
         decimalSymbol,
         roundValue,
-      } = formatLocalNumber(val.div(10e14), {
+      } = formatLocalNumber(val.div(ENumberUnitValue.Q), {
         digits: 4,
         removeTrailingZeros: true,
         disableThousandSeparator: options?.disableThousandSeparator,
@@ -163,7 +179,7 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
         formattedValue,
         meta: {
           value,
-          unit: 'Q',
+          unit: ENumberUnit.Q,
           roundValue,
           decimalSymbol,
           ...options,
@@ -171,12 +187,12 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
       };
     }
 
-    if (absValue.gte(10e11)) {
+    if (absValue.gte(ENumberUnitValue.T)) {
       const {
         value: formattedValue,
         decimalSymbol,
         roundValue,
-      } = formatLocalNumber(val.div(10e11), {
+      } = formatLocalNumber(val.div(ENumberUnitValue.T), {
         digits: 4,
         removeTrailingZeros: true,
         disableThousandSeparator: options?.disableThousandSeparator,
@@ -185,7 +201,7 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
         formattedValue,
         meta: {
           value,
-          unit: 'T',
+          unit: ENumberUnit.T,
           roundValue,
           decimalSymbol,
           ...options,
@@ -193,12 +209,12 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
       };
     }
 
-    if (absValue.gte(10e8)) {
+    if (absValue.gte(ENumberUnitValue.B)) {
       const {
         value: formattedValue,
         decimalSymbol,
         roundValue,
-      } = formatLocalNumber(val.div(10e8), {
+      } = formatLocalNumber(val.div(ENumberUnitValue.B), {
         digits: 4,
         removeTrailingZeros: true,
         disableThousandSeparator: options?.disableThousandSeparator,
@@ -207,7 +223,7 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
         formattedValue,
         meta: {
           value,
-          unit: 'B',
+          unit: ENumberUnit.B,
           roundValue,
           decimalSymbol,
           ...options,
@@ -390,9 +406,9 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
     };
   }
 
-  if (val.gte(10e11)) {
+  if (val.gte(ENumberUnitValue.T)) {
     const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(10e11),
+      val.div(ENumberUnitValue.T),
       {
         digits: 2,
         removeTrailingZeros: true,
@@ -401,12 +417,12 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
     );
     return {
       formattedValue,
-      meta: { value, unit: 'T', decimalSymbol, ...options },
+      meta: { value, unit: ENumberUnit.T, decimalSymbol, ...options },
     };
   }
-  if (val.gte(10e8)) {
+  if (val.gte(ENumberUnitValue.B)) {
     const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(10e8),
+      val.div(ENumberUnitValue.B),
       {
         digits: 2,
         removeTrailingZeros: true,
@@ -415,12 +431,12 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
     );
     return {
       formattedValue,
-      meta: { value, unit: 'B', decimalSymbol, ...options },
+      meta: { value, unit: ENumberUnit.B, decimalSymbol, ...options },
     };
   }
-  if (val.gte(10e5)) {
+  if (val.gte(ENumberUnitValue.M)) {
     const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(10e5),
+      val.div(ENumberUnitValue.M),
       {
         digits: 2,
         removeTrailingZeros: true,
@@ -429,12 +445,12 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
     );
     return {
       formattedValue,
-      meta: { value, unit: 'M', decimalSymbol, ...options },
+      meta: { value, unit: ENumberUnit.M, decimalSymbol, ...options },
     };
   }
-  if (val.gte(10e2)) {
+  if (val.gte(ENumberUnitValue.K)) {
     const { value: formattedValue, decimalSymbol } = formatLocalNumber(
-      val.div(10e2),
+      val.div(ENumberUnitValue.K),
       {
         digits: 2,
         removeTrailingZeros: true,
@@ -443,7 +459,7 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
     );
     return {
       formattedValue,
-      meta: { value, unit: 'K', decimalSymbol, ...options },
+      meta: { value, unit: ENumberUnit.K, decimalSymbol, ...options },
     };
   }
   const { value: formattedValue, decimalSymbol } = formatLocalNumber(val, {
