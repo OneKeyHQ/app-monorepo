@@ -75,41 +75,49 @@ export default function PageWebEmbedPrimePurchase() {
       return;
     }
 
-    isRunning.current = true;
-
-    Purchases.configure(apiKey, primeUserId);
-
-    const offerings = await Purchases.getSharedInstance().getOfferings({
-      currency: 'USD',
-    });
-
-    const paywallPackage = offerings?.current?.availablePackages.find(
-      (p) => p.rcBillingProduct.normalPeriodDuration === packageId,
-    );
-
-    if (!paywallPackage) {
-      throw new Error('No paywall package found');
-    }
-
-    const purchaseParams: PurchaseParams = {
-      rcPackage: paywallPackage,
-      customerEmail: primeUserEmail,
-      selectedLocale: locale,
-    };
-
     try {
+      isRunning.current = true;
+
+      Purchases.configure(apiKey, primeUserId);
+
+      const offerings = await Purchases.getSharedInstance().getOfferings({
+        currency: 'USD',
+      });
+
+      const paywallPackage = offerings?.current?.availablePackages.find(
+        (p) => p.rcBillingProduct.normalPeriodDuration === packageId,
+      );
+
+      if (!paywallPackage) {
+        throw new Error('No paywall package found');
+      }
+
+      const purchaseParams: PurchaseParams = {
+        rcPackage: paywallPackage,
+        customerEmail: primeUserEmail,
+        selectedLocale: locale,
+      };
+
       const purchaseResult = await Purchases.getSharedInstance().purchase(
         purchaseParams,
       );
 
       setDebugText(JSON.stringify(purchaseResult));
     } catch (error) {
-      setDebugText(JSON.stringify(error));
+      const trace = (error instanceof Error ? error.stack : '') || '';
+      setDebugText(
+        error instanceof Error
+          ? `${error.message}\n${trace}`
+          : `Unknown error: ${trace}`,
+      );
+
+      if (mode !== 'dev') {
+        await closeNativeWebViewModal();
+      }
     }
 
     isRunning.current = false;
-    await closeNativeWebViewModal();
-  }, [primeUserId, primeUserEmail, packageId, apiKey, locale]);
+  }, [primeUserId, primeUserEmail, packageId, apiKey, locale, mode]);
 
   useEffect(() => {
     void run();
@@ -121,7 +129,15 @@ export default function PageWebEmbedPrimePurchase() {
 
       {mode === 'dev' ? (
         <div>
-          {debugText}
+          {debugText ? (
+            <pre
+              style={{
+                color: 'red',
+              }}
+            >
+              {debugText}
+            </pre>
+          ) : null}
           {JSON.stringify(
             {
               packageId,
