@@ -436,6 +436,7 @@ test('formatPrice', () => {
     formattedValue: '123456790.00',
     meta: {
       currency: '$',
+      decimalSymbol: '.',
       disableThousandSeparator: true,
       value: '123456789.999999999',
     },
