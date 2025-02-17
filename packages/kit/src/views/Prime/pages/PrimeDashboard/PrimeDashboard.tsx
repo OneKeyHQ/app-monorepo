@@ -28,7 +28,7 @@ import { PrimeUserInfo } from './PrimeUserInfo';
 
 const PrimePurchaseDialog = LazyLoadPage(
   () => import('../../components/PrimePurchaseDialog/PrimePurchaseDialog'),
-  0,
+  100,
   true,
 );
 
