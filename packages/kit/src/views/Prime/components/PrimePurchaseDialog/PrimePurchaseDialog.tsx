@@ -100,7 +100,7 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
     }
   }, [
     fetchPrimeUserInfo,
-    intl.locale,
+    intl,
     onPurchase,
     purchasePackageNative,
     purchasePackageWeb,

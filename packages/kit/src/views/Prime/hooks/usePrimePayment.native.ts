@@ -132,20 +132,7 @@ export function usePrimePayment(): IUsePrimePayment {
     async ({ packageId }: { packageId: IPackageId }) => {
       try {
         if (!isReady) {
-          throw new Error('PrimeAuth native not ready!!!');
-        }
-
-        if (platformEnv.isNativeAndroid) {
-          // if (platformEnv.isNativeAndroidGooglePlay) {
-          //   // TODO VPN required or device not support google play service
-          //   if (!(await googlePlayService.isAvailable())) {
-          //     throw new Error(
-          //       'Google Play Service is not available on this device',
-          //     );
-          //   }
-          // } else {
-          //   throw new Error('Android web purchase not supported yet');
-          // }
+          throw new Error('PrimeAuth native not ready!');
         }
 
         const offerings = await Purchases.getOfferings();
