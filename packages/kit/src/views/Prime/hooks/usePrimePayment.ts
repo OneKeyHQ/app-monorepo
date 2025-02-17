@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 
 import { Purchases } from '@revenuecat/purchases-js';
+import { BigNumber } from 'bignumber.js';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
@@ -107,12 +108,23 @@ export function usePrimePayment(): IUsePrimePayment {
     });
 
     const packages: IPackage[] =
-      offerings?.current?.availablePackages?.map((p) => ({
-        packageId: p.rcBillingProduct
-          .normalPeriodDuration as IPackage['packageId'],
-        pricePerMonthString: p.rcBillingProduct.currentPrice.formattedPrice,
-        pricePerYearString: p.rcBillingProduct.currentPrice.formattedPrice,
-      })) || [];
+      offerings?.current?.availablePackages?.map((p) => {
+        const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
+
+        const pricePerMonth =
+          normalPeriodDuration === 'P1M'
+            ? currentPrice.formattedPrice
+            : `$${new BigNumber(currentPrice.amountMicros)
+                .div(12)
+                .div(1_000_000)
+                .toFixed(2)}`;
+
+        return {
+          packageId: normalPeriodDuration as IPackage['packageId'],
+          pricePerMonthString: pricePerMonth,
+          pricePerYearString: currentPrice.formattedPrice,
+        };
+      }) || [];
 
     return packages;
   }, [isReady]);

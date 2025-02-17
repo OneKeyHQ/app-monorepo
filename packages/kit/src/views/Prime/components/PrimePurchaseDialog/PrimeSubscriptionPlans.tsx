@@ -1,36 +1,31 @@
 import { useEffect, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IXStackProps } from '@onekeyhq/components';
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import type { IPackage, IPackageId } from '../../hooks/usePrimePaymentTypes';
 
 function PrimeSubscriptionPlanItem({
   selected,
-  title,
   periodDuration,
   pricePerMonthString,
   pricePerYearString,
   ...rest
 }: {
   selected?: boolean;
-  title: string;
   periodDuration: 'P1Y' | 'P1M';
   pricePerMonthString: string;
   pricePerYearString: string;
 } & IXStackProps) {
-  let promoText = '';
-  // let pricePerMonth = price;
-  if (periodDuration === 'P1Y') {
-    // const pricePerMonthBN = new BigNumber(price).div(12);
-    // pricePerMonth = pricePerMonthBN.toNumber();
-    // const savePercent = new BigNumber(1)
-    //   .minus(pricePerMonthBN.div(price))
-    //   .multipliedBy(100)
-    //   .toFixed(1);
-    // promoText = `Save ${savePercent}%`;
-    promoText = `Save 33%`;
-  }
+  const isYearly = periodDuration === 'P1Y';
+  const intl = useIntl();
+  const title =
+    periodDuration === 'P1Y'
+      ? intl.formatMessage({ id: ETranslations.prime_yearly })
+      : intl.formatMessage({ id: ETranslations.prime_monthly });
 
   return (
     <YStack
@@ -45,20 +40,33 @@ function PrimeSubscriptionPlanItem({
       userSelect="none"
       {...rest}
     >
-      {promoText ? (
+      {isYearly ? (
         <Badge position="absolute" top={-11} right="$4" bg="$bgInverse">
-          <Badge.Text color="$textInverse">{promoText}</Badge.Text>
+          <Badge.Text color="$textInverse">
+            {intl.formatMessage(
+              {
+                id: ETranslations.prime_save_discount,
+              },
+              {
+                'discount': '33%',
+              },
+            )}
+          </Badge.Text>
         </Badge>
       ) : null}
       <SizableText size="$headingXl" mr="$2">
-        {title}
+        Prime {title}
       </SizableText>
 
       <XStack flex={1} justifyContent="space-between" alignItems="center">
-        <SizableText size="$headingXl">{pricePerYearString}</SizableText>
+        <SizableText size="$headingXl">
+          {isYearly ? pricePerYearString : pricePerMonthString}
+        </SizableText>
 
         <SizableText ml="$2" size="$bodyMd" color="$textSubdued">
-          {`${pricePerMonthString}/month`}
+          {`${pricePerMonthString}/${intl.formatMessage({
+            id: ETranslations.prime_per_month,
+          })}`}
         </SizableText>
       </XStack>
     </YStack>
@@ -88,7 +96,6 @@ export function PrimeSubscriptionPlans({
           <PrimeSubscriptionPlanItem
             key={p.packageId}
             selected={selected}
-            title={p.packageId === 'P1Y' ? 'Prime Yearly' : 'Prime Monthly'}
             periodDuration={p.packageId}
             pricePerMonthString={p.pricePerMonthString}
             pricePerYearString={p.pricePerYearString}

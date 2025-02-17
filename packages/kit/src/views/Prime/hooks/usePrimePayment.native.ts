@@ -123,14 +123,15 @@ export function usePrimePayment(): IUsePrimePayment {
     const packages: IPackage[] = [];
 
     offerings.current?.availablePackages.forEach((p) => {
+      const { subscriptionPeriod, pricePerMonthString, pricePerYearString } =
+        p.product;
+
       packages.push({
-        packageId: p.product.subscriptionPeriod as IPackageId,
-        pricePerMonthString: p.product.pricePerMonthString,
-        pricePerYearString: p.product.pricePerYearString,
+        packageId: subscriptionPeriod as IPackageId,
+        pricePerMonthString,
+        pricePerYearString,
       });
     });
-
-    console.log('offerings >>>>> ', JSON.stringify(offerings, null, 2));
 
     return packages;
   }, [isReady]);
