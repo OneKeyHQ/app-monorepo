@@ -32,6 +32,12 @@ export default class OffscreenApiAdaSdk implements IAdaSdkApi {
     return api.txToOneKey(...args);
   }
 
+  async hasSetTagWithBody(...args: any[]) {
+    const api = await adaWebSdk.getCardanoApi();
+    // @ts-ignore
+    return api.hasSetTagWithBody(...args);
+  }
+
   async dAppGetBalance(...args: any[]) {
     const api = await adaWebSdk.getCardanoApi();
     // @ts-ignore
