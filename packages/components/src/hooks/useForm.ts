@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
 
 import { useForm as useFromFunc } from 'react-hook-form';
 
@@ -31,28 +31,39 @@ export const useForm = <
     ...props,
     mode: props?.mode || 'onBlur',
   });
+  const formRef = useRef(form);
+  formRef.current = form;
+  const onSubmitRef = useRef<
+    | ((
+        formContext: UseFormReturn<TFieldValues, TContext, TTransformedValues>,
+      ) => void)
+    | null
+  >(null);
+  onSubmitRef.current = props?.onSubmit ?? null;
   const handleSubmit = useMemo(() => {
-    if (props?.onSubmit) {
+    if (onSubmitRef.current) {
       const callback = () => {
-        props.onSubmit?.(form as any);
+        onSubmitRef.current?.(formRef.current as any);
       };
       const handler = async () => {
-        const submit = form.handleSubmit(callback);
-        if (form.formState.isValid) {
+        const submit = formRef.current.handleSubmit(callback);
+        if (formRef.current.formState.isValid) {
           await submit();
         }
       };
       return handler;
     }
     return undefined;
-  }, [props, form]);
+  }, []);
+
+  // To avoid reassigning the submit method on every re-render, only update when handleSubmit changes
+  // Since handleSubmit is cached via useMemo, this won't cause extra re-renders
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  (form as any).submit = handleSubmit;
+
+  // 返回带有 submit 方法的表单实例
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-  return props?.onSubmit
-    ? {
-        ...form,
-        submit: handleSubmit,
-      }
-    : (form as any);
+  return form as any;
 };
 export {
   useFormContext,
