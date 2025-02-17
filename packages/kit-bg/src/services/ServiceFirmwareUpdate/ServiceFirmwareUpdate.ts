@@ -217,6 +217,21 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  async delayShouldDetectTimeCheckWithDelay({
+    connectId,
+    delay,
+  }: {
+    connectId: string;
+    delay: number;
+  }) {
+    this.detectMap.updateLastDetectAtWithDelay({
+      connectId,
+      delay,
+    });
+    void this.showAutoUpdateCheckDebugToast('暂停硬件自动更新检测');
+  }
+
+  @backgroundMethod()
   async getFirmwareUpdateDetectInfo({ connectId }: { connectId: string }) {
     const info = this.detectMap.detectMapCache[connectId];
     return info;

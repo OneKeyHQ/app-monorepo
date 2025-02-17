@@ -133,6 +133,29 @@ export function Banner<T extends IBannerData>({
       gotToPrevIndex,
     }: IRenderPaginationParams) => (
       <>
+        {data.length > 1 ? (
+          <XStack
+            gap="$1"
+            position="absolute"
+            right="$10"
+            bottom="$10"
+            {...indicatorContainerStyle}
+          >
+            {data.map((_, index) => (
+              <Stack
+                key={index}
+                w="$3"
+                $gtMd={{
+                  w: '$4',
+                }}
+                h="$1"
+                borderRadius="$full"
+                bg="$whiteA12"
+                opacity={currentIndex === index ? 1 : 0.5}
+              />
+            ))}
+          </XStack>
+        ) : null}
         {showPaginationButton || media.gtMd ? (
           <>
             {currentIndex !== 0 ? (
@@ -174,29 +197,6 @@ export function Banner<T extends IBannerData>({
               />
             ) : null}
           </>
-        ) : null}
-        {data.length > 1 ? (
-          <XStack
-            gap="$1"
-            position="absolute"
-            right="$10"
-            bottom="$10"
-            {...indicatorContainerStyle}
-          >
-            {data.map((_, index) => (
-              <Stack
-                key={index}
-                w="$3"
-                $gtMd={{
-                  w: '$4',
-                }}
-                h="$1"
-                borderRadius="$full"
-                bg="$whiteA12"
-                opacity={currentIndex === index ? 1 : 0.5}
-              />
-            ))}
-          </XStack>
         ) : null}
       </>
     ),
