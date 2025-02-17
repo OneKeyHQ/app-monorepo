@@ -43,9 +43,11 @@ import type {
 class ServiceQrWallet extends ServiceBase {
   async startTwoWayAirGapScanUr({
     requestUr,
+    appQrCodeModalTitle,
     allowPlainTextResponse,
   }: {
     requestUr: AirGapUR;
+    appQrCodeModalTitle?: string;
     allowPlainTextResponse?: boolean;
   }): Promise<{
     raw?: string;
@@ -64,6 +66,7 @@ class ServiceQrWallet extends ServiceBase {
         drawType: 'animated',
         valueUr: airGapUrUtils.urToJson({ ur: requestUr }),
         promiseId,
+        title: appQrCodeModalTitle,
       });
     });
 
@@ -166,11 +169,13 @@ class ServiceQrWallet extends ServiceBase {
     walletId,
     networkId,
     indexedAccountId,
+    appQrCodeModalTitle,
   }: // deriveType,
   {
     walletId: IDBWalletId;
     networkId: string;
     indexedAccountId: string;
+    appQrCodeModalTitle?: string;
     // deriveType: IAccountDeriveTypes;
   }): Promise<IAirGapUrJson> {
     const { serviceAccount } = this.backgroundApi;
@@ -227,6 +232,7 @@ class ServiceQrWallet extends ServiceBase {
 
     const { responseUr } = await this.startTwoWayAirGapScanUr({
       requestUr: request.toUR(),
+      appQrCodeModalTitle,
     });
 
     return airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });

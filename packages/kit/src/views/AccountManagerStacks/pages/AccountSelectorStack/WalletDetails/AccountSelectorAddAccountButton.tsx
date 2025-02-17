@@ -4,6 +4,14 @@ import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
 import { Icon, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useCreateQrWallet } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useCreateQrWallet';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type {
   IDBDevice,
   IDBWallet,
@@ -13,10 +21,7 @@ import {
   indexedAccountAddressCreationStateAtom,
   useIndexedAccountAddressCreationStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   WALLET_TYPE_EXTERNAL,
   WALLET_TYPE_IMPORTED,
@@ -50,6 +55,9 @@ export function AccountSelectorAddAccountButton({
   const loading = Boolean(
     addressCreationState?.indexedAccountId && addressCreationState?.walletId,
   );
+  const { createQrWalletByAccount } = useCreateQrWallet();
+  const { activeAccount } = useActiveAccount({ num });
+  const activeNetworkId = activeAccount?.network?.id;
 
   const { serviceAccount } = backgroundApiProxy;
 
@@ -127,13 +135,27 @@ export function AccountSelectorAddAccountButton({
             });
             await timerUtils.wait(1500);
             popNavigation();
-            await actions.current.addDefaultNetworkAccounts({
-              wallet: focusedWallet,
-              indexedAccount,
-              // autoHandleExitError: false, // always throw error if any network account creation failed
+            const addDefaultNetworkAccounts = async () =>
+              actions.current.addDefaultNetworkAccounts({
+                wallet: focusedWallet,
+                indexedAccount,
+                // autoHandleExitError: false, // always throw error if any network account creation failed
 
-              autoHandleExitError: true, // skip create error and continue next network account creation
-            });
+                autoHandleExitError: true, // skip create error and continue next network account creation
+              });
+            const result = await addDefaultNetworkAccounts();
+            if (
+              accountUtils.isQrWallet({ walletId: focusedWallet.id }) &&
+              result?.failedAccounts?.length
+            ) {
+              await createQrWalletByAccount({
+                walletId: focusedWallet.id,
+                networkId: activeNetworkId || getNetworkIdsMap().onekeyall,
+                indexedAccountId: indexedAccount.id,
+              });
+              // QR wallet should add default network accounts after create
+              await addDefaultNetworkAccounts();
+            }
           }
         }
       } finally {

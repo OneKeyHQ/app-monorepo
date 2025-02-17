@@ -388,32 +388,29 @@ class ServiceBatchCreateAccount extends ServiceBase {
     hideCheckingDeviceLoading,
     skipCloseHardwareUiStateDialog,
     customNetworks,
-    autoHandleExitError,
+    autoHandleExitError = true,
   }: {
     autoHandleExitError?: boolean;
     walletId: string | undefined;
     indexedAccountId: string | undefined;
     customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
-  } & IWithHardwareProcessingControlParams): Promise<
-    | {
-        addedAccounts: {
-          networkId: string;
-          deriveType: IAccountDeriveTypes;
-        }[];
-        failedAccounts: Array<{
-          networkId: string;
-          deriveType: IAccountDeriveTypes;
-          error: IOneKeyError;
-        }>;
-      }
-    | undefined
-  > {
+  } & IWithHardwareProcessingControlParams): Promise<{
+    addedAccounts: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[];
+    failedAccounts: Array<{
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+      error: IOneKeyError;
+    }>;
+  }> {
     defaultLogger.account.batchCreatePerf.addDefaultNetworkAccountsInService({
       walletId,
       indexedAccountId,
     });
     if (!walletId) {
-      return;
+      throw new Error('walletId is required');
     }
     if (
       accountUtils.isHdWallet({
@@ -446,6 +443,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         skipCloseHardwareUiStateDialog,
       });
     }
+    throw new Error('addDefaultNetworkAccounts unknown error');
   }
 
   async buildBatchCreateAccountsNetworksParams(params: {
