@@ -393,6 +393,20 @@ test('formatPrice', () => {
     formatDisplayNumber(formatPrice('123456789.999999999', { currency: '$' })),
   ).toEqual('$123,456,790.00');
 
+  expect(
+    formatPrice('123456789.999999999', {
+      currency: '$',
+      disableThousandSeparator: true,
+    }),
+  ).toEqual({
+    formattedValue: '123456790.00',
+    meta: {
+      currency: '$',
+      disableThousandSeparator: true,
+      value: '123456789.999999999',
+    },
+  });
+
   // eq 0
   expect(formatDisplayNumber(formatPrice('0', { currency: '$' }))).toEqual(
     '$0.00',
