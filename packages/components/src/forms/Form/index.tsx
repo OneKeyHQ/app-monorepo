@@ -23,16 +23,13 @@ import { TextArea, TextAreaInput } from '../TextArea';
 
 import type { ISizableTextProps } from '../../primitives';
 import type { IPropsWithTestId } from '../../types';
-import type {
-  ControllerRenderProps,
-  SubmitHandler,
-  UseFormReturn,
-} from 'react-hook-form';
+import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 export type IFormProps = IPropsWithTestId<{
-  form: UseFormReturn<any>;
-  onSubmit?: SubmitHandler<any>;
+  form: UseFormReturn<any> & {
+    submit?: () => void;
+  };
   header?: ReactNode;
 }>;
 
@@ -40,6 +37,7 @@ function HiddenSubmit() {
   return platformEnv.isNative ? null : (
     <TMForm.Trigger asChild>
       <Button
+        testID="form-submit-button"
         type="submit"
         opacity={0}
         position="absolute"
@@ -49,20 +47,12 @@ function HiddenSubmit() {
   );
 }
 
-export function FormWrapper({
-  form: formContext,
-  children,
-  onSubmit,
-}: IFormProps) {
-  const { handleSubmit } = formContext;
+export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
-      <TMForm
-        onSubmit={onSubmit ? handleSubmit(onSubmit) : noop}
-        position="relative"
-      >
+      <TMForm onSubmit={formContext.submit} position="relative">
         <YStack gap="$5">{children}</YStack>
-        {onSubmit ? <HiddenSubmit /> : null}
+        {formContext.submit ? <HiddenSubmit /> : null}
       </TMForm>
     </FormProvider>
   );

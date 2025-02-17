@@ -4,6 +4,15 @@ import { useForm as useFromFunc } from 'react-hook-form';
 
 import type { FieldValues, UseFormProps, UseFormReturn } from 'react-hook-form';
 
+export type IFormMode =
+  | 'onBlur'
+  | 'onChange'
+  | 'onSubmit'
+  | 'onTouched'
+  | 'all';
+
+export type IReValidateMode = 'onSubmit' | 'onBlur' | 'onChange' | undefined;
+
 export const useForm = <
   TFieldValues extends FieldValues = FieldValues,
   TContext = any,
@@ -13,7 +22,7 @@ export const useForm = <
     onSubmit?: (
       data: UseFormReturn<TFieldValues, TContext, TTransformedValues>,
     ) => void;
-    mode?: 'onBlur' | 'onChange' | 'onSubmit' | 'onTouched' | 'all';
+    mode?: IFormMode;
   },
 ): UseFormReturn<TFieldValues, TContext, TTransformedValues> & {
   submit?: () => Promise<void>;
