@@ -48,7 +48,7 @@ function PrimeSubscriptionPlanItem({
                 id: ETranslations.prime_save_discount,
               },
               {
-                'discount': '33%',
+                'discount': '33',
               },
             )}
           </Badge.Text>
