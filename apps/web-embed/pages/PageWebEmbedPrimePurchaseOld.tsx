@@ -264,11 +264,9 @@ export default function PageWebEmbedPrimePurchase() {
   );
 
   const [searchParams] = useSearchParams();
-  const primeUserId =
-    searchParams.get('primeUserId') || 'did:privy:cm6cunn8e00a710mbujncg4t8';
-  const primeUserEmail =
-    searchParams.get('primeUserEmail') || 'yao.hou@onekey.so';
-  const packageId = searchParams.get('packageId') || 'P1Y';
+  const primeUserId = searchParams.get('primeUserId') || '';
+  const primeUserEmail = searchParams.get('primeUserEmail') || '';
+  const packageId = searchParams.get('packageId') || '';
 
   useEffect(() => {
     if (packageId) {
