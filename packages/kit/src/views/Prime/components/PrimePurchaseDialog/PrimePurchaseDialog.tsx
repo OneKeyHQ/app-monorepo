@@ -53,7 +53,9 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
 
       if (platformEnv.isNativeAndroid) {
         ActionList.show({
-          title: 'Purchase',
+          title: intl.formatMessage({
+            id: ETranslations.prime_subscribe,
+          }),
           onClose: () => {},
           sections: [
             {
