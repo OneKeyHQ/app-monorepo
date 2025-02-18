@@ -12,6 +12,7 @@ type IAdaDappSignData = typeof IAdaLib.dAppUtils.signData;
 type IAdaDappConvertCborTxToEncodeTx =
   typeof IAdaLib.dAppUtils.convertCborTxToEncodeTx;
 type IAdaTxToOneKey = typeof IAdaLib.onekeyUtils.txToOneKey;
+type IAdaHasSetTagWithBody = typeof IAdaLib.onekeyUtils.hasSetTagWithBody;
 type IAdaComposeTxPlan = typeof IAdaLib.onekeyUtils.composeTxPlan;
 type IAdaSignTransaction = typeof IAdaLib.onekeyUtils.signTransaction;
 type IAdaHwSignTransaction = typeof IAdaLib.trezorUtils.signTransaction;
@@ -24,6 +25,7 @@ const getCardanoApi = memoizee(
       signTransaction: AdaLib.onekeyUtils.signTransaction,
       hwSignTransaction: AdaLib.trezorUtils.signTransaction,
       txToOneKey: AdaLib.onekeyUtils.txToOneKey,
+      hasSetTagWithBody: AdaLib.onekeyUtils.hasSetTagWithBody,
       dAppUtils: AdaLib.dAppUtils,
     };
   },
@@ -51,6 +53,11 @@ class WebEmbedApiChainAdaLegacy implements IAdaSdkApi {
   async txToOneKey(...args: Parameters<IAdaTxToOneKey>) {
     const cardanoApi = await getCardanoApi();
     return cardanoApi.txToOneKey(...args);
+  }
+
+  async hasSetTagWithBody(...args: Parameters<IAdaHasSetTagWithBody>) {
+    const cardanoApi = await getCardanoApi();
+    return cardanoApi.hasSetTagWithBody(...args);
   }
 
   async dAppGetBalance(...args: Parameters<IAdaDappGetBalance>) {

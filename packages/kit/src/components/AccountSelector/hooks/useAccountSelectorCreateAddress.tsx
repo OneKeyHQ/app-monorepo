@@ -13,12 +13,12 @@ import {
 } from '@onekeyhq/components';
 import type {
   IDBAccount,
-  IDBDevice,
   IDBWalletId,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IWithHardwareProcessingControlParams } from '@onekeyhq/kit-bg/src/services/ServiceHardwareUI/ServiceHardwareUI';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { FIRMWARE_UPDATE_WEB_TOOLS_URL } from '@onekeyhq/shared/src/config/appConfig';
+import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors/errors/appErrors';
 import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -42,7 +42,7 @@ export function useAccountSelectorCreateAddress() {
   } = backgroundApiProxy;
   const intl = useIntl();
   const actions = useAccountSelectorActions();
-  const { createQrWallet, createQrWalletByUr } = useCreateQrWallet();
+  const { createQrWalletByAccount } = useCreateQrWallet();
   const requestsUrl = useHelpLink({ path: 'requests/new' });
 
   const createAddress = useCallback(
@@ -127,11 +127,19 @@ export function useAccountSelectorCreateAddress() {
         }
 
         // TODO: cancel creating workflow by close checking device UI dialog
-        await serviceBatchCreateAccount.addDefaultNetworkAccounts({
-          walletId: account?.walletId,
-          indexedAccountId: account?.indexedAccountId,
-          ...hwUiControlParams,
-        });
+        const result =
+          await serviceBatchCreateAccount.addDefaultNetworkAccounts({
+            walletId: account?.walletId,
+            indexedAccountId: account?.indexedAccountId,
+            ...hwUiControlParams,
+          });
+        if (
+          result &&
+          result?.failedAccounts?.length &&
+          accountUtils.isQrWallet({ walletId: account.walletId })
+        ) {
+          throw new OneKeyErrorAirGapAccountNotFound();
+        }
         return handleAddAccounts({
           walletId: account?.walletId,
           indexedAccountId: account?.indexedAccountId,
@@ -172,32 +180,10 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
-          let byDevice: IDBDevice | undefined;
-          const byWallet = await serviceAccount.getWallet({
+          const { wallet: walletCreated } = await createQrWalletByAccount({
             walletId: account.walletId,
-          });
-          if (byWallet.associatedDevice) {
-            byDevice = await serviceAccount.getDevice({
-              dbDeviceId: byWallet.associatedDevice,
-            });
-          }
-          // eslint-disable-next-line @typescript-eslint/no-unused-vars
-          // const { wallet: walletCreated } = await createQrWallet({
-          //   isOnboarding: false,
-          //   byDevice,
-          //   byWallet,
-          // });
-          const urJson = await serviceQrWallet.prepareQrcodeWalletAddressCreate(
-            {
-              walletId: account.walletId,
-              networkId: account.networkId,
-              indexedAccountId: account.indexedAccountId,
-            },
-          );
-          const { wallet: walletCreated } = await createQrWalletByUr({
-            urJson,
-            byDevice,
-            byWallet,
+            networkId: account.networkId,
+            indexedAccountId: account.indexedAccountId,
           });
 
           try {
@@ -275,13 +261,12 @@ export function useAccountSelectorCreateAddress() {
     },
     [
       actions,
-      createQrWalletByUr,
+      createQrWalletByAccount,
       intl,
       requestsUrl,
       serviceAccount,
       serviceBatchCreateAccount,
       serviceHardwareUI,
-      serviceQrWallet,
     ],
   );
 

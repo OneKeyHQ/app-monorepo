@@ -7,9 +7,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export const LazyLoadPage = (
   factory: () => Promise<{ default: any }>,
   delayMs?: number,
+  unStyle?: boolean,
 ) => {
   const LazyLoadComponent = LazyLoad(factory, delayMs);
   function LazyLoadPageContainer(props: any) {
+    if (unStyle) {
+      return <LazyLoadComponent {...props} />;
+    }
+
     return (
       <Stack flex={1} bg="$bgApp">
         <LazyLoadComponent {...props} />

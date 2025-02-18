@@ -13,11 +13,12 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type {
-  CustomerInfo,
-  PurchasesPackage,
-} from '@revenuecat/purchases-typescript-internal';
+  IPackage,
+  ISubscriptionPeriod,
+  IUsePrimePayment,
+} from './usePrimePaymentTypes';
+import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
 
 export function usePrimePayment(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
@@ -34,12 +35,7 @@ export function usePrimePayment(): IUsePrimePayment {
     if (!user?.id) {
       throw new Error('User not logged in');
     }
-    // Do not logout which will create anonymous user
-    // try {
-    //   await Purchases.logOut();
-    // } catch (e) {
-    //   console.error(e);
-    // }
+
     if (user?.id) {
       try {
         await Purchases.logIn(user.id);
@@ -57,11 +53,7 @@ export function usePrimePayment(): IUsePrimePayment {
       throw new Error('AppUserId not match');
     }
     const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
-    console.log(
-      'customerInfo >>>>> ',
-      appUserId,
-      JSON.stringify(customerInfo, null, 2),
-    );
+
     setPrimePersistAtom((prev) =>
       perfUtils.buildNewValueIfChanged(prev, {
         ...prev,
@@ -72,32 +64,39 @@ export function usePrimePayment(): IUsePrimePayment {
     return customerInfo;
   }, [isReady, setPrimePersistAtom, user?.id]);
 
+  const getApiKey = useCallback(async () => {
+    if (process.env.NODE_ENV !== 'production') {
+      await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
+      // TODO VPN required
+      await Purchases.setProxyURL('https://api.rc-backup.com/');
+    }
+
+    let apiKey = '';
+    if (platformEnv.isNativeIOS) {
+      apiKey = REVENUECAT_API_KEY_APPLE || '';
+    }
+    if (platformEnv.isNativeAndroid) {
+      apiKey = REVENUECAT_API_KEY_GOOGLE || '';
+    }
+    if (!apiKey) {
+      throw new Error('No REVENUECAT api key found');
+    }
+
+    return apiKey;
+  }, []);
+
   // TODO move to jotai context
   useEffect(() => {
     void (async () => {
-      if (process.env.NODE_ENV !== 'production') {
-        await Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
-        // TODO VPN required
-        await Purchases.setProxyURL('https://api.rc-backup.com/');
-      }
+      const apiKey = await getApiKey();
 
-      let apiKey = '';
-      if (platformEnv.isNativeIOS) {
-        apiKey = REVENUECAT_API_KEY_APPLE || '';
-      }
-      if (platformEnv.isNativeAndroid) {
-        apiKey = REVENUECAT_API_KEY_GOOGLE || '';
-      }
-      if (!apiKey) {
-        throw new Error('No REVENUECAT api key found');
-      }
       Purchases.configure({
         apiKey,
         // useAmazon: true
       });
       setIsPaymentReady(true);
     })();
-  }, []);
+  }, [getApiKey]);
 
   useEffect(() => {
     void (async () => {
@@ -107,76 +106,66 @@ export function usePrimePayment(): IUsePrimePayment {
     })();
   }, [getCustomerInfo, isReady, user?.id]);
 
-  const getPaywallPackagesNative = useCallback(async () => {
+  const getPackagesNative = useCallback(async () => {
     if (!isReady) {
       throw new Error('PrimeAuth native not ready, please try again later');
     }
     const offerings = await Purchases.getOfferings();
-    const packages: PurchasesPackage[] = [];
-    Object.values(offerings.all).forEach((offering) => {
-      packages.push(...offering.availablePackages);
+    const packages: IPackage[] = [];
+
+    offerings.current?.availablePackages.forEach((p) => {
+      const { subscriptionPeriod, pricePerMonthString, pricePerYearString } =
+        p.product;
+
+      packages.push({
+        subscriptionPeriod: subscriptionPeriod as ISubscriptionPeriod,
+        pricePerMonthString,
+        pricePerYearString,
+      });
     });
-    packages.sort((a) => {
-      // Yearly is the first
-      if (a.presentedOfferingContext.offeringIdentifier === 'Yearly') {
-        return -1;
-      }
-      return 1;
-    });
-    return {
-      packages,
-    };
+
+    return packages;
   }, [isReady]);
 
   // https://www.revenuecat.com/docs/tools/paywalls/displaying-paywalls#react-native
-  const presentPaywallNative = useCallback(async () => {
-    try {
-      console.log('presentPaywallNative >>>>> ');
-      if (!isReady) {
-        throw new Error('PrimeAuth native not ready!!!');
+  const purchasePackageNative = useCallback(
+    async ({
+      subscriptionPeriod,
+    }: {
+      subscriptionPeriod: ISubscriptionPeriod;
+    }) => {
+      try {
+        if (!isReady) {
+          throw new Error('PrimeAuth native not ready!');
+        }
+
+        const offerings = await Purchases.getOfferings();
+
+        const offering = offerings.current?.availablePackages.find(
+          (p) => p.product.subscriptionPeriod === subscriptionPeriod,
+        );
+
+        if (!offering) {
+          throw new Error('Offering not found');
+        }
+
+        const makePurchaseResult = await Purchases.purchasePackage(offering);
+
+        return makePurchaseResult;
+      } catch (error) {
+        errorToastUtils.toastIfError(error);
+        throw error;
       }
-
-      if (platformEnv.isNativeAndroid) {
-        // if (platformEnv.isNativeAndroidGooglePlay) {
-        //   // TODO VPN required or device not support google play service
-        //   if (!(await googlePlayService.isAvailable())) {
-        //     throw new Error(
-        //       'Google Play Service is not available on this device',
-        //     );
-        //   }
-        // } else {
-        //   throw new Error('Android web purchase not supported yet');
-        // }
-      }
-
-      // const { packages } = await getPaywallPackagesNative();
-      // console.log(
-      //   'getPaywallPackagesNative: packages >>>>> ',
-      //   JSON.stringify(packages, null, 2),
-      // );
-
-      const offerings = await Purchases.getOfferings();
-      console.log('offerings >>>>> ', JSON.stringify(offerings, null, 2));
-
-      const { customerInfo } = await Purchases.purchasePackage(
-        offerings.all.Yearly.availablePackages[0],
-      );
-
-      console.log('customerInfo >>>>> ', JSON.stringify(customerInfo, null, 2));
-
-      return true;
-    } catch (error) {
-      errorToastUtils.toastIfError(error);
-      throw error;
-    }
-  }, [isReady]);
+    },
+    [isReady],
+  );
 
   return {
     isReady,
-    presentPaywallNative,
-    getPaywallPackagesNative,
-    getPaywallPackagesWeb: undefined,
-    purchasePaywallPackageWeb: undefined,
+    getPackagesNative,
+    purchasePackageNative,
+    getPackagesWeb: undefined,
+    purchasePackageWeb: undefined,
     getCustomerInfo,
   };
 }

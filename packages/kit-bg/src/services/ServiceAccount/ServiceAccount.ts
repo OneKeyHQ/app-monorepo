@@ -2226,7 +2226,7 @@ class ServiceAccount extends ServiceBase {
     password: string;
     avatarInfo?: IAvatarInfo;
     name?: string;
-    walletHash?: string;
+    walletHash: string;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
