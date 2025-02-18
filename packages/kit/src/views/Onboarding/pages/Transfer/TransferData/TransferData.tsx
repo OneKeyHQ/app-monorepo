@@ -4,6 +4,7 @@ import { Icon, Page, SizableText, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DeviceItem } from './components/DeviceItem';
+import { WaitingTransferCompleteAlert } from './components/WaitingAlert';
 
 const deviceData = {
   source: {
@@ -27,13 +28,15 @@ export function TransferData() {
       <Page.Header title="Transfer Data" />
       <Page.Body>
         <Stack p="$5" gap="$3.5">
-          <SizableText color="$textSubdued" size="$bodyLgMedium">
-            {intl.formatMessage({
-              id: ETranslations.global_from,
-            })}
-          </SizableText>
+          <Stack gap="$1">
+            <SizableText color="$textSubdued" size="$bodyLgMedium">
+              {intl.formatMessage({
+                id: ETranslations.global_from,
+              })}
+            </SizableText>
 
-          <DeviceItem {...deviceData.source} />
+            <DeviceItem {...deviceData.source} />
+          </Stack>
 
           <Icon
             name="SwitchVerOutline"
@@ -42,16 +45,25 @@ export function TransferData() {
             color="$iconSubdued"
           />
 
-          <SizableText color="$textSubdued" size="$bodyLgMedium">
-            {intl.formatMessage({
-              id: ETranslations.global_to,
-            })}
-          </SizableText>
+          <Stack gap="$1">
+            <SizableText color="$textSubdued" size="$bodyLgMedium">
+              {intl.formatMessage({
+                id: ETranslations.global_to,
+              })}
+            </SizableText>
 
-          <DeviceItem {...deviceData.target} />
+            <DeviceItem {...deviceData.target} />
+          </Stack>
+
+          <WaitingTransferCompleteAlert />
         </Stack>
       </Page.Body>
-      <Page.Footer onConfirm={() => {}} onConfirmText="Transfer" />
+      <Page.Footer
+        onConfirm={() => {}}
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_transfer,
+        })}
+      />
     </Page>
   );
 }
