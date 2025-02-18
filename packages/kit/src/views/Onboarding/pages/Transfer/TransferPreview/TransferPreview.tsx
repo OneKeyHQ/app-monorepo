@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Page, SizableText, Stack } from '@onekeyhq/components';
@@ -7,14 +9,14 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 
 import WalletList from '../components/WalletList';
 
-import type { IWalletItem } from '../components/WalletList';
+import type { IWalletItem } from '../components/WalletItem';
 
 export function TransferPreview() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
 
   // Mock data - replace with actual data in your implementation
-  const wallets: IWalletItem[] = [
+  const initialWallets: IWalletItem[] = [
     {
       id: '1',
       name: 'Wallet 1',
@@ -31,8 +33,16 @@ export function TransferPreview() {
     },
   ];
 
+  const [wallets, setWallets] = useState<IWalletItem[]>(initialWallets);
+
   const handleWalletListSelectChange = (selectedWallets: IWalletItem[]) => {
     console.log('Selected wallets:', selectedWallets);
+    const updatedWallets = wallets.map((wallet) => ({
+      ...wallet,
+      selected: selectedWallets.some((selected) => selected.id === wallet.id),
+    }));
+    setWallets(updatedWallets);
+
     if (selectedWallets.length === 1) {
       // TODO: navigate to TransferConfirm page
     }
@@ -55,6 +65,7 @@ export function TransferPreview() {
           <WalletList
             wallets={wallets}
             onWalletListSelectChange={handleWalletListSelectChange}
+            multiSelect
           />
         </Stack>
       </Page.Body>

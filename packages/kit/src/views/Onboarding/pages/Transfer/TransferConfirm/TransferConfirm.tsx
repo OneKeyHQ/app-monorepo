@@ -5,7 +5,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import WalletList from '../components/WalletList';
 
-import type { IWalletItem } from '../components/WalletList';
+import type { IWalletItem } from '../components/WalletItem';
 
 export function TransferConfirm() {
   const intl = useIntl();
