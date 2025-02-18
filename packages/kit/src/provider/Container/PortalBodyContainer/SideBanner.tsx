@@ -156,7 +156,7 @@ function BottomMenu() {
       p="$3"
       borderTopWidth={StyleSheet.hairlineWidth}
       borderTopColor="$borderSubdued"
-      bg="$bg"
+      bg="$bgSidebar"
     >
       <DesktopTabItem
         onPress={openDeviceManagementPage}
