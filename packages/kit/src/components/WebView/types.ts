@@ -32,7 +32,7 @@ export interface IInpageProviderWebViewProps
     InpageWebViewProps {
   id?: string;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
-  onShouldStartLoadWithRequest?: (event: any) => boolean;
+  onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
   allowpopups?: boolean;
   nativeWebviewSource?: WebViewSource;
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
