@@ -1,7 +1,12 @@
-import { type FC, useCallback } from 'react';
+import { type FC, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type {
+  IFormMode,
+  IReValidateMode,
+  UseFormReturn,
+} from '@onekeyhq/components';
 import {
   Checkbox,
   Form,
@@ -60,17 +65,6 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   onRemove,
 }) => {
   const intl = useIntl();
-  const form = useForm<IFormValues>({
-    defaultValues: {
-      id: item.id,
-      networkId: item.networkId,
-      name: item.name,
-      address: { raw: item.address, resolved: '' } as IAddressInputValue,
-      isAllowListed: item.isAllowListed,
-    },
-    mode: 'onChange',
-    reValidateMode: 'onChange',
-  });
 
   const headerRight = useCallback(
     () =>
@@ -85,21 +79,40 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
     [onRemove, item],
   );
 
+  const formOption = useMemo(
+    () => ({
+      defaultValues: {
+        id: item.id,
+        networkId: item.networkId,
+        name: item.name,
+        address: { raw: item.address, resolved: '' } as IAddressInputValue,
+        isAllowListed: item.isAllowListed,
+      },
+      mode: 'onChange' as IFormMode,
+      reValidateMode: 'onChange' as IReValidateMode,
+      onSubmit: async (form: UseFormReturn<IFormValues>) => {
+        const values = form.getValues();
+        await onSubmit?.({
+          id: values.id,
+          name: values.name,
+          networkId: values.networkId,
+          address: values.address.resolved ?? '',
+          isAllowListed: values.isAllowListed ?? false,
+        });
+      },
+    }),
+    [
+      item.address,
+      item.id,
+      item.isAllowListed,
+      item.name,
+      item.networkId,
+      onSubmit,
+    ],
+  );
+  const form = useForm<IFormValues>(formOption);
   const networkId = form.watch('networkId');
   const pending = form.watch('address.pending');
-
-  const onSave = useCallback(
-    async (values: IFormValues) => {
-      await onSubmit?.({
-        id: values.id,
-        name: values.name,
-        networkId: values.networkId,
-        address: values.address.resolved ?? '',
-        isAllowListed: values.isAllowListed ?? false,
-      });
-    },
-    [onSubmit],
-  );
 
   const { result: addressBookEnabledNetworkIds } = usePromiseResult(
     async () => {
@@ -272,7 +285,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
               variant: 'primary',
               loading: form.formState.isSubmitting,
               disabled: !form.formState.isValid || pending,
-              onPress: form.handleSubmit(onSave),
+              onPress: form.submit,
               testID: 'address-form-save',
             }}
           />
