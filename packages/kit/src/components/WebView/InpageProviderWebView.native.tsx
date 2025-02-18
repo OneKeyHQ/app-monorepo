@@ -140,13 +140,12 @@ const InpageProviderWebView: FC<IInpageProviderWebViewProps> = forwardRef(
       }
       return null;
     }, [isSpinnerLoading, progress, displayProgressBar]);
-    const isDesktopMode = useMemo(() => {
-      // Enable desktop mode by default on iPad
-      if (platformEnv.isNativeIOSPad && siteMode === undefined) {
-        return true;
-      }
-      return siteMode === ESiteMode.desktop;
-    }, [siteMode]);
+    const isDesktopMode = useMemo(
+      () =>
+        // Enable desktop mode by default on iPad
+        platformEnv.isNativeIOSPad ? true : siteMode === ESiteMode.desktop,
+      [siteMode],
+    );
     return (
       <Stack flex={1}>
         {progressLoading}
