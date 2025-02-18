@@ -55,6 +55,7 @@ import type {
 import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
+  ESwapCrossChainStatus,
   ESwapDirectionType,
   ESwapFetchCancelCause,
   ESwapTxHistoryStatus,
@@ -1111,12 +1112,23 @@ export default class ServiceSwap extends ServiceBase {
           },
         };
         await this.updateSwapHistoryItem(currentSwapTxHistory);
-        appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
-          fromToken: currentSwapTxHistory.baseInfo.fromToken,
-          toToken: currentSwapTxHistory.baseInfo.toToken,
-          status: txStatusRes.state,
-          crossChainStatus: txStatusRes.crossChainStatus,
-        });
+        if (
+          currentSwapTxHistory.crossChainStatus ===
+            ESwapCrossChainStatus.FROM_SUCCESS ||
+          currentSwapTxHistory.crossChainStatus ===
+            ESwapCrossChainStatus.TO_SUCCESS ||
+          currentSwapTxHistory.crossChainStatus ===
+            ESwapCrossChainStatus.REFUNDED ||
+          (!currentSwapTxHistory.crossChainStatus &&
+            txStatusRes?.state === ESwapTxHistoryStatus.SUCCESS)
+        ) {
+          appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+            fromToken: currentSwapTxHistory.baseInfo.fromToken,
+            toToken: currentSwapTxHistory.baseInfo.toToken,
+            status: txStatusRes.state,
+            crossChainStatus: txStatusRes.crossChainStatus,
+          });
+        }
         if (txStatusRes?.state !== ESwapTxHistoryStatus.PENDING) {
           enableInterval = false;
           const deleteHistoryId = currentSwapTxHistory.txInfo.useOrderId
