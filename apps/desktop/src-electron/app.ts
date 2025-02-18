@@ -431,6 +431,7 @@ function createMainWindow() {
       spellcheck: false,
       webviewTag: true,
       webSecurity: !isDev,
+      // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
