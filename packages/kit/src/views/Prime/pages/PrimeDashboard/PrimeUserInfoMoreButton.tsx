@@ -13,6 +13,7 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -34,6 +35,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { getCustomerInfo } = usePrimePayment();
+  const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
 
   const userInfo = (
@@ -81,7 +83,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               }
             }}
           />
-          {platformEnv.isDev ? (
+          {devSettings?.enabled ? (
             <ActionList.Item
               label="Change Subscription"
               icon="CreditCardOutline"
