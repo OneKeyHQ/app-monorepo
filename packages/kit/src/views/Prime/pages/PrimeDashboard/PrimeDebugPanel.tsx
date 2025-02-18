@@ -19,8 +19,7 @@ export function PrimeDebugPanel({
   shouldShowConfirmButton: boolean;
 }) {
   const { getAccessToken, logout, isReady, authenticated } = usePrimeAuthV2();
-  const { getPaywallPackagesWeb, getPaywallPackagesNative, getCustomerInfo } =
-    usePrimePayment();
+  const { getCustomerInfo } = usePrimePayment();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const navigation = useAppNavigation();
 
@@ -66,14 +65,6 @@ export function PrimeDebugPanel({
         }}
       >
         ServerPrimeUserInfo
-      </Button>
-      <Button
-        onPress={() => {
-          void getPaywallPackagesNative?.().then(showDebugMessageByDialog);
-          void getPaywallPackagesWeb?.().then(showDebugMessageByDialog);
-        }}
-      >
-        PaywallPackages
       </Button>
       <Button
         onPress={() => {
