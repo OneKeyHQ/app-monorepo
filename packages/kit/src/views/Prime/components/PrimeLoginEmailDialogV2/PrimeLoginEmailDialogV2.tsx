@@ -140,3 +140,5 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
     </Stack>
   );
 }
+
+export default PrimeLoginEmailDialogV2;

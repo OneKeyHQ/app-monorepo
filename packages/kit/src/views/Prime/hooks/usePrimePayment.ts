@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { LogLevel, Purchases } from '@revenuecat/purchases-js';
+import { Purchases } from '@revenuecat/purchases-js';
+import { BigNumber } from 'bignumber.js';
 
 import { usePrimePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  REVENUECAT_API_KEY_WEB,
-  REVENUECAT_API_KEY_WEB_SANDBOX,
-} from '@onekeyhq/shared/src/consts/primeConsts';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 // load stripe js before revenuecat, otherwise revenuecat will create script tag load https://js.stripe.com/v3
 // eslint-disable-next-line import/order
@@ -16,21 +13,20 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-
+import { usePrimePaymentWebApiKey } from './usePrimePaymentWebApiKey';
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
-import type { IUsePrimePayment } from './usePrimePaymentTypes';
 import type {
-  CustomerInfo,
-  Package,
-  PurchaseParams,
-} from '@revenuecat/purchases-js';
+  IPackage,
+  ISubscriptionPeriod,
+  IUsePrimePayment,
+} from './usePrimePaymentTypes';
+import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
 export function usePrimePayment(): IUsePrimePayment {
-  const { user, isReady: isAuthReady, authenticated } = usePrivyUniversalV2();
+  const { user, isReady: isAuthReady } = usePrivyUniversalV2();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
-
+  const apiKey = usePrimePaymentWebApiKey();
   const isReady = isAuthReady;
   const configureDonePromise = useRef(createPromiseTarget<boolean>());
 
@@ -38,20 +34,11 @@ export function usePrimePayment(): IUsePrimePayment {
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
-    if (!user?.id) {
-      throw new Error('User not logged in');
-    }
-    if (process.env.NODE_ENV !== 'production') {
-      Purchases.setLogLevel(LogLevel.Verbose);
-    }
-    const devSettings =
-      await backgroundApiProxy.serviceDevSetting.getDevSetting();
-    let apiKey = REVENUECAT_API_KEY_WEB;
-    if (devSettings?.settings?.usePrimeSandboxPayment) {
-      apiKey = REVENUECAT_API_KEY_WEB_SANDBOX;
-    }
     if (!apiKey) {
       throw new Error('No REVENUECAT api key found');
+    }
+    if (!user?.id) {
+      throw new Error('User not logged in');
     }
 
     // TODO VPN required
@@ -64,7 +51,6 @@ export function usePrimePayment(): IUsePrimePayment {
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
-    console.log('customerInfo >>>>>> ', user?.id, customerInfo);
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
     if (appUserId !== user?.id) {
@@ -103,7 +89,7 @@ export function usePrimePayment(): IUsePrimePayment {
 
     configureDonePromise.current.resolveTarget(true);
     return customerInfo;
-  }, [isReady, setPrimePersistAtom, user?.id]);
+  }, [apiKey, isReady, setPrimePersistAtom, user?.id]);
 
   useEffect(() => {
     void (async () => {
@@ -113,54 +99,46 @@ export function usePrimePayment(): IUsePrimePayment {
     })();
   }, [getCustomerInfo, isReady, user?.id]);
 
-  const getOfferings = useCallback(async () => {
+  const getPackagesWeb = useCallback(async () => {
+    await configureDonePromise.current.ready;
+
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
-    if (!authenticated) {
-      return undefined;
-    }
+
     const offerings = await Purchases.getSharedInstance().getOfferings({
       currency: 'USD',
     });
-    return offerings;
-  }, [isReady, authenticated]);
 
-  const getPaywallPackagesWeb = useCallback(async () => {
-    await configureDonePromise.current.ready;
-    if (!isReady) {
-      throw new Error('PrimeAuth Not ready');
-    }
-    const offerings = await getOfferings();
-    const packages: Package[] = [];
+    const packages: IPackage[] =
+      offerings?.current?.availablePackages?.map((p) => {
+        const { normalPeriodDuration, currentPrice } = p.rcBillingProduct;
 
-    // Object.values(offerings.all).forEach((offering) => {
-    //   packages.push(...offering.availablePackages);
-    // });
-    packages.push(...(offerings?.current?.availablePackages || []));
+        const pricePerMonth =
+          normalPeriodDuration === 'P1M'
+            ? currentPrice.formattedPrice
+            : `$${new BigNumber(currentPrice.amountMicros)
+                .div(12)
+                .div(1_000_000)
+                .toFixed(2)}`;
 
-    packages.sort((a) => {
-      // Yearly is the first
-      if (
-        a.rcBillingProduct.presentedOfferingContext.offeringIdentifier ===
-        'Yearly'
-      ) {
-        return -1;
-      }
-      return 1;
-    });
-    return {
-      packages,
-    };
-  }, [getOfferings, isReady]);
+        return {
+          subscriptionPeriod: normalPeriodDuration as ISubscriptionPeriod,
+          pricePerMonthString: pricePerMonth,
+          pricePerYearString: currentPrice.formattedPrice,
+        };
+      }) || [];
 
-  const purchasePaywallPackageWeb = useCallback(
+    return packages;
+  }, [isReady]);
+
+  const purchasePackageWeb = useCallback(
     async ({
-      packageId,
+      subscriptionPeriod,
       email,
       locale,
     }: {
-      packageId: string;
+      subscriptionPeriod: string;
       email: string;
       locale?: string; // https://www.revenuecat.com/docs/tools/paywalls/creating-paywalls#supported-locales
     }) => {
@@ -168,15 +146,23 @@ export function usePrimePayment(): IUsePrimePayment {
         if (!isReady) {
           throw new Error('PrimeAuth Not ready');
         }
-        // const offerings = await this.getPaywallOfferings();
-        // const paywallPackage = offerings?.all?.monthly?.packagesById?.[packageId];
-        const packages = await getPaywallPackagesWeb();
-        const paywallPackage = packages.packages.find(
-          (p) => p.identifier === packageId,
-        );
-        if (!paywallPackage) {
-          throw new Error('purchasePaywallPackage ERROR: Invalid packageId');
+
+        const offerings = await Purchases.getSharedInstance().getOfferings({
+          currency: 'USD',
+        });
+
+        if (!offerings.current) {
+          throw new Error('purchasePaywallPackage ERROR: No offerings');
         }
+
+        const paywallPackage = offerings.current.availablePackages.find(
+          (p) => p.rcBillingProduct.normalPeriodDuration === subscriptionPeriod,
+        );
+
+        if (!paywallPackage) {
+          throw new Error('purchasePaywallPackage ERROR: No paywall package');
+        }
+
         const purchaseParams: PurchaseParams = {
           rcPackage: paywallPackage,
           customerEmail: email,
@@ -191,22 +177,21 @@ export function usePrimePayment(): IUsePrimePayment {
         // https://docs.stripe.com/testing#testing-interactively
         // Mastercard: 5555555555554444
         // visa: 4242424242424242
-        console.log('purchase >>>>>> ', purchase);
         return purchase;
       } catch (error) {
         errorToastUtils.toastIfError(error);
         throw error;
       }
     },
-    [getPaywallPackagesWeb, isReady],
+    [isReady],
   );
 
   return {
     isReady,
-    presentPaywallNative: undefined,
-    getPaywallPackagesNative: undefined,
-    getPaywallPackagesWeb,
-    purchasePaywallPackageWeb,
+    purchasePackageNative: undefined,
+    getPackagesNative: undefined,
+    getPackagesWeb,
+    purchasePackageWeb,
     getCustomerInfo,
   };
 }
