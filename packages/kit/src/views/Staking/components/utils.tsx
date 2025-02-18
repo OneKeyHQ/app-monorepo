@@ -1,3 +1,5 @@
+import BigNumber from 'bignumber.js';
+
 import { formatDistanceToNowStrict } from '@onekeyhq/shared/src/utils/dateUtils';
 
 const TIME_23H = 23 * 3600;
@@ -16,3 +18,8 @@ export function formatStakingDistanceToNowStrict(
     addSuffix: false,
   });
 }
+
+export const formatApy = (apy: string | number | undefined): string => {
+  if (!apy) return '0';
+  return new BigNumber(apy).decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2);
+};

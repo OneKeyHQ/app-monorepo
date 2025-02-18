@@ -4,16 +4,12 @@ import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnTokenItem,
   IRewardApys,
 } from '@onekeyhq/shared/types/staking';
-
-const formatApy = (apy: string | number | undefined): string => {
-  if (!apy) return '0';
-  return new BigNumber(apy).decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2);
-};
 
 const isPositiveNumber = (value: string | number | undefined): boolean => {
   if (!value) return false;
