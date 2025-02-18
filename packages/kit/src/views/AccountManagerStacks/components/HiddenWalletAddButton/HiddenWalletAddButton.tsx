@@ -10,7 +10,6 @@ import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { WalletOptionItem } from '../../pages/AccountSelectorStack/WalletDetails/WalletOptions/WalletOptionItem';
 
