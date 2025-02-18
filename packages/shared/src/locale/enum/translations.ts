@@ -405,6 +405,8 @@
   earn_confirmed_cap = 'earn.confirmed_cap',
   earn_currently_staking = 'earn.currently_staking',
   earn_daily = 'earn.daily',
+  earn_deposit = 'earn.deposit',
+  earn_deposited = 'earn.deposited',
   earn_disclaimer = 'earn.disclaimer',
   earn_early_withdraw_stake_unstaking_period = 'earn.early_withdraw_stake_unstaking_period',
   earn_earn_during_unstaking_tooltip = 'earn.earn_during_unstaking_tooltip',

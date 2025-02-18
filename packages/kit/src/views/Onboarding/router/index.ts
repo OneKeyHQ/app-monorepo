@@ -7,6 +7,14 @@ const TransferData = LazyLoadPage(
   () => import('../pages/Transfer/TransferData/TransferData'),
 );
 
+const TransferPreview = LazyLoadPage(
+  () => import('../pages/Transfer/TransferPreview/TransferPreview'),
+);
+
+const TransferConfirm = LazyLoadPage(
+  () => import('../pages/Transfer/TransferConfirm/TransferConfirm'),
+);
+
 const ActivateDevice = LazyLoadPage(
   () => import('../pages/ConnectHardwareWallet/ActivateDevice'),
 );
@@ -180,6 +188,14 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.TransferData,
     component: TransferData,
+  },
+  {
+    name: EOnboardingPages.TransferPreview,
+    component: TransferPreview,
+  },
+  {
+    name: EOnboardingPages.TransferConfirm,
+    component: TransferConfirm,
   },
 
   // connect 3rd-party wallet

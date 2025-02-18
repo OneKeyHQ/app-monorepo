@@ -31,6 +31,8 @@ export enum EOnboardingPages {
   ImportCloudBackup = 'ImportCloudBackup',
   TransferHome = 'TransferHome',
   TransferData = 'TransferData',
+  TransferPreview = 'TransferPreview',
+  TransferConfirm = 'TransferConfirm',
 
   // connect 3rd-party wallet
   ConnectWallet = 'ConnectWallet',

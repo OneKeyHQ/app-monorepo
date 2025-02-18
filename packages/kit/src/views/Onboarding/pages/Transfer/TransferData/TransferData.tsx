@@ -1,7 +1,9 @@
 import { useIntl } from 'react-intl';
 
 import { Icon, Page, SizableText, Stack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes/onboarding';
 
 import { DeviceItem } from './components/DeviceItem';
 import { WaitingTransferCompleteAlert } from './components/WaitingAlert';
@@ -22,6 +24,7 @@ const deviceData = {
 
 export function TransferData() {
   const intl = useIntl();
+  const appNavigation = useAppNavigation();
 
   return (
     <Page>
@@ -59,7 +62,9 @@ export function TransferData() {
         </Stack>
       </Page.Body>
       <Page.Footer
-        onConfirm={() => {}}
+        onConfirm={() => {
+          appNavigation.navigate(EOnboardingPages.TransferPreview);
+        }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_transfer,
         })}
