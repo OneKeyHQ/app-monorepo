@@ -7,6 +7,7 @@ import {
   MAX_ORPHAN_TX_MASS,
   SignatureType,
   SigningMethodType,
+  createKRC20RevealTx,
   publicKeyFromX,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
@@ -40,6 +41,7 @@ import type {
   AllNetworkAddressParams,
   KaspaSignTransactionParams,
 } from '@onekeyfe/hd-core';
+import type { IScriptPublicKey, ITransactionInput } from '@onekeyfe/kaspa-wasm';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.kaspa.hd;
@@ -127,12 +129,67 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    const { unsignedTx } = params;
     const sdk = await this.getHardwareSDKInstance();
-    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxKaspa;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();
     const chainId = await this.getNetworkChainId();
+
+    if (unsignedTx.isKRC20RevealTx) {
+      const network = await this.getNetwork();
+      const revealTx = await createKRC20RevealTx({
+        unsignedTx,
+        isTestnet: !!network.isTestnet,
+        accountAddress: dbAccount.address,
+      });
+
+      const unSignTx: KaspaSignTransactionParams = {
+        version: revealTx.transaction.version,
+        inputs: revealTx.transaction.inputs.map((input: ITransactionInput) => ({
+          path: dbAccount.path,
+          prevTxId: input.previousOutpoint?.transactionId,
+          outputIndex: input.previousOutpoint?.index,
+          sequenceNumber: input.sequence.toString(),
+          output: {
+            satoshis: input.utxo?.amount.toString() ?? '',
+            script: input.utxo?.scriptPublicKey.script ?? '',
+          },
+          sigOpCount: input.sigOpCount,
+        })),
+        outputs: revealTx.transaction.outputs.map((output) => ({
+          satoshis: output.value.toString(),
+          script:
+            typeof output.scriptPublicKey === 'string'
+              ? output.scriptPublicKey
+              : (output.scriptPublicKey as IScriptPublicKey).script,
+          scriptVersion: 0,
+        })),
+        lockTime: revealTx.transaction.lockTime.toString(),
+        sigHashType: SignatureType.SIGHASH_ALL,
+        sigOpCount: 1,
+        scheme: EKaspaSignType.Schnorr,
+        prefix: chainId,
+      };
+
+      const response = await sdk.kaspaSignTransaction(connectId, deviceId, {
+        ...params.deviceParams?.deviceCommonParams,
+        ...unSignTx,
+      });
+
+      if (response.success) {
+        const signatures = response.payload;
+
+        return {
+          txid: '',
+          rawTx: '',
+          encodedTx,
+          signature: `41${signatures[0].signature}01`,
+          outputIndex: signatures[0].index,
+        };
+      }
+    }
 
     const txn = toTransaction(encodedTx);
 
