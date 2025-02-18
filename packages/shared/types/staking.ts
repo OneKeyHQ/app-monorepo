@@ -265,12 +265,19 @@ export type IStakeProtocolListItem = {
 };
 
 export type IRewardApys = {
+  // Base rates
   rate: string;
-  rewards: Record<string, string>;
   netApy: string;
+  performanceFee: string;
+
+  // Time-based APYs
+  dailyApy: string;
   dailyNetApy: string;
   weeklyNetApy: string;
   monthlyNetApy: string;
+
+  // Token rewards
+  rewards: Record<string, string>;
 };
 
 export type IBabylonPortfolioStatus =
