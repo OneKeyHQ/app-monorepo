@@ -73,7 +73,7 @@ export function MorphoApy({
         {showTotalApy ? (
           <XStack gap="$2" alignItems="center" justifyContent="space-between">
             <XStack gap="$2" alignItems="center">
-              <Icon name="CoinsAddOutline" size="$5" />
+              <Icon name="HandCoinsOutline" size="$5" />
               <SizableText color="$textSubdued" size="$bodyMd">
                 {intl.formatMessage({
                   id: ETranslations.earn_performance_fee,
