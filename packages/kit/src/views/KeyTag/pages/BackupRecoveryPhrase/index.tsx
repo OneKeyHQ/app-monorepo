@@ -38,7 +38,7 @@ export function ImportRecoveryPhrase() {
                   id: ETranslations.faq_recovery_phrase,
                 }),
                 description: intl.formatMessage({
-                  id: ETranslations.faq_recovery_phrase_explanation,
+                  id: ETranslations.faq_recovery_phrase_explaination,
                 }),
               },
               {

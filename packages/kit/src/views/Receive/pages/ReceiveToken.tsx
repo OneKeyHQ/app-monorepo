@@ -405,7 +405,7 @@ function ReceiveToken() {
             <Icon name="InfoCircleOutline" size="$4" color="$iconCritical" />
             <SizableText size="$bodyMd" color="$textCritical" pl="$1.5">
               {intl.formatMessage({
-                id: ETranslations.receive_address_unconfirmed_alert_message,
+                id: ETranslations.receive_address_unconfimed_alert_message,
               })}
             </SizableText>
           </XStack>
