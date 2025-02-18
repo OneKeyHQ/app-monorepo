@@ -407,7 +407,7 @@ function createMainWindow() {
   if (
     savedWinBounds &&
     ((savedWinBounds?.width || 0) < minWidth ||
-      (savedWinBounds?.height || 0) < minHeight)
+      (savedWinBounds?.height || 0) < minHeight / ratio)
   ) {
     savedWinBounds = {};
   }
