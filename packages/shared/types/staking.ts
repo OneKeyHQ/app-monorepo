@@ -72,6 +72,7 @@ export type IStakeProviderInfo = {
   apys?: IRewardApys;
   maxUnstakeAmount?: string;
   vault?: string;
+  url?: string;
   rewardUnit: IEarnRewardUnit;
 };
 
