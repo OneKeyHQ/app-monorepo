@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Transaction } from '@onekeyfe/kaspa-core-lib';
+import { Script, Transaction } from '@onekeyfe/kaspa-core-lib';
 
 import {
   EKaspaSignType,
@@ -185,7 +185,12 @@ export class KeyringHardware extends KeyringHardwareBase {
           txid: '',
           rawTx: '',
           encodedTx,
-          signature: `41${signatures[0].signature}01`,
+          signature: Script.buildPublicKeyIn(
+            Buffer.from(signatures[0].signature, 'hex'),
+            SignatureType.SIGHASH_ALL,
+          )
+            .toBuffer()
+            .toString('hex'),
           outputIndex: signatures[0].index,
         };
       }
