@@ -332,7 +332,7 @@ function AddCustomTokenModal() {
                 validate: () => {
                   if (isEmptyContract) {
                     return intl.formatMessage({
-                      id: ETranslations.Token_manage_custom_token_address_faild,
+                      id: ETranslations.Token_manage_custom_token_address_failed,
                     });
                   }
                 },

@@ -1485,7 +1485,7 @@ function FeeEditor(props: IProps) {
       } else {
         gasPrice = new BigNumber(fee.feeBudget.gasPrice);
       }
-      const currFeeInfo = {
+      const currentFeeInfo = {
         ...fee,
         feeBudget: {
           ...fee.feeBudget,
@@ -1494,19 +1494,19 @@ function FeeEditor(props: IProps) {
       };
 
       const gasUsed = calculateSuiTotalFee({
-        feeInfo: currFeeInfo,
+        feeInfo: currentFeeInfo,
       });
 
       const maxFeeInNative = calculateTotalFeeNative({
         amount: new BigNumber(watchAllFields.gasSuiBudget).shiftedBy(
           -feeDecimals,
         ),
-        feeInfo: currFeeInfo,
+        feeInfo: currentFeeInfo,
       });
 
       const expectedFeeInNative = calculateTotalFeeNative({
         amount: gasUsed.shiftedBy(-feeDecimals),
-        feeInfo: currFeeInfo,
+        feeInfo: currentFeeInfo,
       });
 
       feeInfoItems = [

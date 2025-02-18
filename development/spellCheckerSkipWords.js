@@ -701,6 +701,32 @@ module.exports = [
   'ufixedM',
   'ufixed',
   'sym', // WalletConnect uri params
+  'unconfimed', // Keep misspelled version from translation key
+  'sigature', // Keep misspelled version from translation key
+  'boomark', // Keep misspelled version from translation key
+  'erro', // Keep misspelled version from translation key
+  'adress', // Keep misspelled version from translation key
+  'faild', // Keep misspelled version from translation key
+  'explaination', // Keep misspelled version from translation key
+  'doesnt', // Keep misspelled version from translation key
+  'acocunt', // Keep misspelled version from translation key
+  'bassed',
+  'ptc',
+  'ree',
+  'versionnum',
+  'cta',
+  'cancelling',
+  'crosshair',
+  'keytag',
+  'logomark',
+  'vert',
+  'horz',
+  'curr',
+  'mins',
+  'mev',
+  'ath',
+  'atl',
+  'fdv',
   'upsert',
   'nostr',
   'swiper',

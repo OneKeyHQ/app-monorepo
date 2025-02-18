@@ -202,7 +202,7 @@ export function BookmarksAndHistoriesSection({
               {intl.formatMessage({
                 id: isHistoriesView
                   ? ETranslations.explore_no_history
-                  : ETranslations.explore_no_boomark,
+                  : ETranslations.explore_no_bookmark,
               })}
             </SizableText>
           )}

@@ -151,7 +151,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                 value: 24,
                 message: intl.formatMessage(
                   {
-                    id: ETranslations.address_book_add_address_name_length_erro,
+                    id: ETranslations.address_book_add_address_name_length_error,
                   },
                   { 'num': 24 },
                 ),
@@ -251,7 +251,7 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                     flex: platformEnv.isNative ? undefined : 1,
                   }}
                   label={intl.formatMessage({
-                    id: ETranslations.adress_book_add_address_add_to_allowlist,
+                    id: ETranslations.address_book_add_address_add_to_allowlist,
                   })}
                   labelProps={
                     {
