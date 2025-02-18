@@ -11,6 +11,7 @@ import type {
   WebViewErrorEvent,
   WebViewNavigation,
   WebViewNavigationEvent,
+  ShouldStartLoadRequest,
   WebViewSharedProps,
   WebViewSource,
 } from 'react-native-webview/lib/WebViewTypes';
@@ -32,7 +33,7 @@ export interface IInpageProviderWebViewProps
     InpageWebViewProps {
   id?: string;
   onNavigationStateChange?: (event: WebViewNavigation) => void;
-  onShouldStartLoadWithRequest?: (event: WebViewNavigation) => boolean;
+  onShouldStartLoadWithRequest?: (event: ShouldStartLoadRequest) => boolean;
   allowpopups?: boolean;
   nativeWebviewSource?: WebViewSource;
   nativeInjectedJavaScriptBeforeContentLoaded?: string;
