@@ -24,7 +24,7 @@ const useSendRejectId = platformEnv.isExtensionUiSidePanel
     }
   : () => {};
 
-function useDappApproveAction({
+function useDappApproveAction<T = unknown>({
   id,
   getResolveData,
   closeOnError,
@@ -32,10 +32,10 @@ function useDappApproveAction({
 }: {
   id: number | string;
   // Case of rejection only
-  getResolveData?: () => Promise<any> | any;
+  getResolveData?: () => Promise<T> | T;
   closeOnError?: boolean;
   closeWindowAfterResolved?: boolean;
-}) {
+}){
   const isExtStandaloneWindow = platformEnv.isExtensionUiStandaloneWindow;
   const [rejectError, setRejectError] = useState<Error | null>(null);
   // TODO ignore multiple times reject/resolve
@@ -64,7 +64,7 @@ function useDappApproveAction({
   );
 
   const resolve = useCallback(
-    async ({ close, result }: { close?: () => void; result?: any } = {}) => {
+    async ({ close, result }: { close?: () => void; result?: T } = {}) => {
       if (!id) return;
       try {
         setRejectError(null);
