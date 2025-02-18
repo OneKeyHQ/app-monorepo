@@ -10,7 +10,7 @@ interface IStakeProgressProps {
 
 export enum EStakeProgressStep {
   approve = 1,
-  supply = 2,
+  deposit = 2,
 }
 
 export function StakeProgress({ currentStep }: IStakeProgressProps) {
