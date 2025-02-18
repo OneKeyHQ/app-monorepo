@@ -9,6 +9,7 @@ import type { ESiteMode } from '../../views/Discovery/types';
 import type { InpageProviderWebViewProps as InpageWebViewProps } from '@onekeyfe/cross-inpage-provider-types';
 import type {
   WebViewErrorEvent,
+  WebViewNavigation,
   WebViewNavigationEvent,
   WebViewSharedProps,
   WebViewSource,
@@ -30,7 +31,7 @@ export interface IInpageProviderWebViewProps
   extends IElectronWebViewEvents,
     InpageWebViewProps {
   id?: string;
-  onNavigationStateChange?: (event: any) => void;
+  onNavigationStateChange?: (event: WebViewNavigation) => void;
   onShouldStartLoadWithRequest?: (event: any) => boolean;
   allowpopups?: boolean;
   nativeWebviewSource?: WebViewSource;
