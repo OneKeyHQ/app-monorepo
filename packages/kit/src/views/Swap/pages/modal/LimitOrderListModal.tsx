@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import { Page, SegmentControl } from '@onekeyhq/components';
+import { SegmentControl, YStack } from '@onekeyhq/components';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ESwapLimitOrderStatus } from '@onekeyhq/shared/types/swap/types';
 
@@ -23,9 +23,10 @@ const LimitOrderListModal = () => {
   }, [limitOrderSelectedTab, swapLimitOrders]);
 
   return (
-    <Page>
-      <Page.Header title="Limit Order" />
+    <YStack px="$4" pt="$2" gap="$4">
       <SegmentControl
+        w="100%"
+        fullWidth
         options={[
           { label: 'Open orders', value: 'open' },
           { label: 'Order history', value: 'history' },
@@ -36,7 +37,7 @@ const LimitOrderListModal = () => {
         value={limitOrderSelectedTab}
       />
       <LimitOrderList data={orderData} />
-    </Page>
+    </YStack>
   );
 };
 

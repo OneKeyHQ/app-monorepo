@@ -171,6 +171,16 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   }) => {
     if (
       token.networkId !== toToken?.networkId &&
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT
+    ) {
+      const defaultTokenSet = swapDefaultSetTokens[token.networkId];
+      if (defaultTokenSet?.toToken) {
+        return defaultTokenSet.toToken;
+      }
+      return undefined;
+    }
+    if (
+      token.networkId !== toToken?.networkId &&
       swapTypeSwitchValue === ESwapTabSwitchType.SWAP
     ) {
       const defaultTokenSet = swapDefaultSetTokens[token.networkId];
@@ -250,7 +260,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         swapTypeSwitchValue,
         toToken,
       });
-      if (needChangeToToken && !disableCheckToToken) {
+      if (needChangeToToken !== null && !disableCheckToToken) {
         set(swapSelectToTokenAtom(), undefined);
         set(swapSelectFromTokenAtom(), token);
         set(swapSelectToTokenAtom(), needChangeToToken);
@@ -348,7 +358,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           accountId,
           protocol,
           expirationTime:
-            protocol === ESwapTabSwitchType.LIMIT ? expirationTime : undefined,
+            protocol === ESwapTabSwitchType.LIMIT
+              ? Number(expirationTime.value)
+              : undefined,
         });
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), false);
@@ -589,7 +601,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         accountId,
         protocol,
         expirationTime:
-          protocol === ESwapTabSwitchType.LIMIT ? expirationTime : undefined,
+          protocol === ESwapTabSwitchType.LIMIT
+            ? Number(expirationTime.value)
+            : undefined,
       });
     },
   );

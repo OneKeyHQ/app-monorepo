@@ -73,6 +73,7 @@ export interface IDisplayNumber {
     leadingZeros?: number;
     leading?: string;
     symbol?: string;
+    roundValue?: string;
     isZero?: boolean;
   } & IFormatterOptions;
 }

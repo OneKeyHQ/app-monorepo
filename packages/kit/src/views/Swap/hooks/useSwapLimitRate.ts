@@ -21,15 +21,29 @@ export const useSwapLimitRate = () => {
 
   const onLimitRateChange = useCallback(
     (text: string) => {
-      if (validateAmountInputNoDecimal(text)) {
-        const newRate = new BigNumber(text);
-        const newReverseRate = new BigNumber(1).div(newRate);
-        const newReverseRateFormat = formatBalance(newReverseRate.toFixed());
-        setLimitPriceUseRate({
-          ...limitPriceUseRate,
-          rate: newRate.toFixed(),
-          reverseRate: newReverseRateFormat.formattedValue,
-        });
+      if (text === '' || validateAmountInputNoDecimal(text)) {
+        if (text === '') {
+          setLimitPriceUseRate({
+            ...limitPriceUseRate,
+            rate: '0',
+            reverseRate: '0',
+          });
+        } else {
+          const newRate = new BigNumber(text);
+          const newReverseRate = new BigNumber(1).div(newRate);
+          const newReverseRateFormat = formatBalance(newReverseRate.toFixed());
+          let newReverseRateValue =
+            newReverseRateFormat.meta.roundValue ??
+            newReverseRateFormat.meta.value;
+          if (newReverseRateFormat.meta.unit) {
+            newReverseRateValue = newReverseRateFormat.meta.value;
+          }
+          setLimitPriceUseRate({
+            ...limitPriceUseRate,
+            rate: newRate.toFixed(),
+            reverseRate: newReverseRateValue,
+          });
+        }
       }
     },
     [limitPriceUseRate, setLimitPriceUseRate],
@@ -55,13 +69,32 @@ export const useSwapLimitRate = () => {
     [limitPriceMarketPrice.rate, limitPriceUseRate.rate],
   );
 
-  const onSetMarketPrice = useCallback(() => {
-    if (!limitPriceEqualMarketPrice) {
+  const onSetMarketPrice = useCallback(
+    (percentage: number) => {
+      const percentageBN = new BigNumber(1 + percentage / 100);
+      const rateBN = new BigNumber(
+        limitPriceMarketPrice.rate ?? '0',
+      ).multipliedBy(percentageBN);
+      const reverseRateBN = new BigNumber(1).div(rateBN);
+      const formatRate = formatBalance(rateBN.toFixed());
+      const formatReverseRate = formatBalance(reverseRateBN.toFixed());
+      let rateValue = formatRate.meta.roundValue ?? formatRate.meta.value;
+      let reverseRateValue =
+        formatReverseRate.meta.roundValue ?? formatReverseRate.meta.value;
+      if (formatRate.meta.unit) {
+        rateValue = formatRate.meta.value;
+      }
+      if (formatReverseRate.meta.unit) {
+        reverseRateValue = formatReverseRate.meta.value;
+      }
       setLimitPriceUseRate({
         ...limitPriceMarketPrice,
+        rate: rateValue,
+        reverseRate: reverseRateValue,
       });
-    }
-  }, [limitPriceEqualMarketPrice, setLimitPriceUseRate, limitPriceMarketPrice]);
+    },
+    [setLimitPriceUseRate, limitPriceMarketPrice],
+  );
 
   const onChangeReverse = useCallback(
     (reverse: boolean) => {

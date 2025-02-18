@@ -153,11 +153,7 @@ export function useSwapBuildTx() {
         const { swapInfo } = transactionSignedInfo;
         const { totalFeeInNative, totalFeeFiatValue, networkId } =
           transactionDecodedInfo;
-        if (
-          swapInfo &&
-          swapInfo.swapBuildResData?.result?.protocol ===
-            EProtocolOfExchange.SWAP
-        ) {
+        if (swapInfo) {
           await generateSwapHistoryItem({
             txId,
             gasFeeFiatValue: totalFeeFiatValue,
@@ -352,6 +348,7 @@ export function useSwapBuildTx() {
         amount: selectQuote?.fromAmount,
       };
       const swapInfo = {
+        protocol: selectQuote?.protocol ?? EProtocolOfExchange.SWAP,
         sender: {
           amount: selectQuote?.fromAmount,
           token: fromToken,
@@ -460,6 +457,8 @@ export function useSwapBuildTx() {
                 ).shiftedBy(decimals);
                 finalBuyAmount = finalBuyAmountBN.toFixed();
               }
+              unSignedOrder.buyAmount = finalBuyAmount;
+              unSignedOrder.validTo = validTo;
               const normalizeData = {
                 ...unSignedOrder,
                 sellTokenBalance:
@@ -468,7 +467,6 @@ export function useSwapBuildTx() {
                 buyTokenBalance: normalizeBuyTokenBalance(
                   unSignedOrder.buyTokenBalance as OrderBalance,
                 ),
-                buyAmount: finalBuyAmount,
                 validTo: timestamp(validTo),
                 appData: hashify(unSignedOrder.appData),
               };
@@ -662,6 +660,7 @@ export function useSwapBuildTx() {
           }
 
           const swapInfo: ISwapTxInfo = {
+            protocol: selectQuoteRes.protocol ?? EProtocolOfExchange.SWAP,
             sender: {
               amount: res.result.fromAmount ?? selectQuoteRes.fromAmount,
               token: fromToken,

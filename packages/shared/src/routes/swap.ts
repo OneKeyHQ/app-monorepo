@@ -1,6 +1,7 @@
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
+  EProtocolOfExchange,
   ESwapDirectionType,
   ESwapTabSwitchType,
   IFetchLimitOrderRes,
@@ -19,7 +20,6 @@ export enum EModalSwapRoutes {
   SwapToAnotherAddress = 'SwapToAnotherAddress',
   TokenRiskReminder = 'TokenRiskReminder',
   SwapLazyMarketModal = 'SwapLazyMarketModal',
-  LimitOrderList = 'LimitOrderList',
   LimitOrderDetail = 'LimitOrderDetail',
 }
 
@@ -40,13 +40,12 @@ export type IModalSwapParamList = {
     storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.SwapProviderSelect]: { storeName: EJotaiContextStoreNames };
-  [EModalSwapRoutes.SwapHistoryList]: undefined;
+  [EModalSwapRoutes.SwapHistoryList]: { type?: EProtocolOfExchange };
   [EModalSwapRoutes.SwapHistoryDetail]: {
     txHistoryOrderId?: string;
     txHistoryList?: ISwapTxHistory[];
     // storeName: EJotaiContextStoreNames;
   };
-  [EModalSwapRoutes.LimitOrderList]: undefined;
   [EModalSwapRoutes.LimitOrderDetail]: {
     orderId?: string;
     orderItem?: IFetchLimitOrderRes;

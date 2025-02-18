@@ -8,6 +8,7 @@ import {
   Progress,
   SizableText,
   Stack,
+  XStack,
   YStack,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -117,10 +118,16 @@ const LimitOrderListItem = ({
   }, [item.status, onCancel]);
 
   const progressStatus = useMemo(() => {
-    if (item.status === ESwapLimitOrderStatus.FULFILLED) {
-      return <Progress value={100} />;
-    }
-    return <Progress value={0} />;
+    const percentage =
+      item.status === ESwapLimitOrderStatus.FULFILLED ? 100 : 0;
+    return (
+      <XStack>
+        <Progress size="small" value={percentage} />
+        <SizableText size="$bodySm" color="$textSubdued">
+          {percentage}%
+        </SizableText>
+      </XStack>
+    );
   }, [item.status]);
 
   return (
@@ -129,8 +136,8 @@ const LimitOrderListItem = ({
       userSelect="none"
       renderAvatar={
         <LimitOrderListItemAvatar
-          fromUri={item.fromTokenInfo.logoURI ?? ''}
-          toUri={item.toTokenInfo.logoURI ?? ''}
+          fromUri={item.fromTokenInfo?.logoURI ?? ''}
+          toUri={item.toTokenInfo?.logoURI ?? ''}
         />
       }
     >
@@ -143,10 +150,10 @@ const LimitOrderListItem = ({
         justifyContent="center"
       >
         <SizableText size="$bodyMd" color="$textSubdued">
-          {`+ ${item.toAmount} ${item.toTokenInfo.symbol}`}
+          {`+ ${item.toAmount} ${item.toTokenInfo?.symbol ?? ''}`}
         </SizableText>
         <SizableText size="$bodyMd" color="$textSubdued">
-          {`- ${item.fromAmount} ${item.fromTokenInfo.symbol}`}
+          {`- ${item.fromAmount} ${item.fromTokenInfo?.symbol ?? ''}`}
         </SizableText>
       </YStack>
       <SizableText size="$bodyMd" color="$textSubdued">

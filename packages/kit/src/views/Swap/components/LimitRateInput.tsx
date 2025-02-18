@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
 
-import { Input, SizableText, useMedia } from '@onekeyhq/components';
+import {
+  Icon,
+  Input,
+  SizableText,
+  XStack,
+  getFontSize,
+} from '@onekeyhq/components';
 import type { ISwapTokenBase } from '@onekeyhq/shared/types/swap/types';
 
 interface ILimitRateInputProps {
@@ -20,32 +26,48 @@ const LimitRateInput = ({
   onReverseChange,
   reverse,
 }: ILimitRateInputProps) => {
-  const media = useMedia();
   const currency = useMemo(
-    () =>
-      !reverse
-        ? `${fromTokenInfo?.symbol ?? '-'}/${toTokenInfo?.symbol ?? '-'}`
-        : `${toTokenInfo?.symbol ?? '-'}/${fromTokenInfo?.symbol ?? '-'}`,
+    () => ({
+      from: !reverse
+        ? fromTokenInfo?.symbol ?? '-'
+        : toTokenInfo?.symbol ?? '-',
+      to: !reverse ? toTokenInfo?.symbol ?? '-' : fromTokenInfo?.symbol ?? '-',
+    }),
     [fromTokenInfo, toTokenInfo, reverse],
   );
   return (
-    <>
+    <XStack gap="$1" alignItems="center">
+      <SizableText size="$bodyMd" numberOfLines={1} flexShrink={0}>
+        {fromTokenInfo ? `1 ${currency.from} = ` : '-'}
+      </SizableText>
       <Input
-        w="310px"
+        keyboardType="decimal-pad"
+        fontSize={getFontSize('$heading3xl')}
+        fontWeight="600"
+        size="large"
+        focusVisibleStyle={undefined}
+        containerProps={{
+          flex: 1,
+          borderWidth: 0,
+        }}
         onChangeText={onChangeText}
+        textAlign="right"
         value={limitPriceRateValue ?? ''}
         placeholder="0.0"
       />
-      <SizableText
-        position="absolute"
-        right="$3"
-        bottom={media.gtMd ? '$2' : '$3'}
-        cursor="pointer"
-        onPress={() => onReverseChange(!reverse)}
-      >
-        {currency}
-      </SizableText>
-    </>
+      {toTokenInfo ? (
+        <XStack
+          cursor="pointer"
+          gap="$1"
+          onPress={() => onReverseChange(!reverse)}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <SizableText size="$bodyMd">{currency.to}</SizableText>
+          <Icon name="RepeatOutline" size="$2.5" />
+        </XStack>
+      ) : null}
+    </XStack>
   );
 };
 

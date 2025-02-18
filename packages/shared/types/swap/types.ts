@@ -282,7 +282,7 @@ export interface IQuoteTip {
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
-  protocol?: string;
+  protocol?: EProtocolOfExchange;
   info: IFetchQuoteInfo;
   expirationTime?: number;
   errorMessage?: string;
@@ -522,6 +522,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
   receiver: ISwapInfoSide;
   accountAddress: string;
@@ -686,6 +687,8 @@ export enum ESwapLimitOrderExpiryStep {
   ONE_WEEK = 7 * 24 * 60 * 60,
   ONE_MONTH = 30 * 24 * 60 * 60,
 }
+
+export const LimitMarketUpPercentages = [0, 20, 50, 100];
 
 export const defaultLimitExpirationTime =
   ESwapLimitOrderExpiryStep.THIRTY_MINUTES;

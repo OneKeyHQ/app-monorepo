@@ -235,7 +235,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             onSelectPercentageStage={onSelectPercentageStage}
           />
           {swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
-            <LimitInfoContainer quoteResult={quoteResult} />
+            <LimitInfoContainer />
           ) : null}
           <SwapActionsState
             onBuildTx={onBuildTx}

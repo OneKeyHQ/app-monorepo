@@ -38,10 +38,10 @@ const LimitOrderList = ({ data, isLoading }: ILimitOrderListProps) => {
           <SizableText size="$bodySm" flex={1}>
             Pair
           </SizableText>
-          <SizableText size="$bodySm" w="$40">
+          <SizableText size="$bodySm" w="$30">
             Limit price
           </SizableText>
-          <SizableText size="$bodySm" w="$30">
+          <SizableText size="$bodySm" w="$20">
             Status
           </SizableText>
           <SizableText size="$bodySm" flex={1} textAlign="right">
@@ -55,7 +55,7 @@ const LimitOrderList = ({ data, isLoading }: ILimitOrderListProps) => {
         <SizableText size="$bodySm" flex={1}>
           Pair
         </SizableText>
-        <SizableText size="$bodySm" w="$25">
+        <SizableText size="$bodySm" w="$15">
           Status
         </SizableText>
         <SizableText size="$bodySm" flex={1} textAlign="right">
@@ -78,6 +78,8 @@ const LimitOrderList = ({ data, isLoading }: ILimitOrderListProps) => {
     loadingSkeleton
   ) : (
     <ListView
+      bg="$bgSubdued"
+      borderRadius="$3"
       estimatedItemSize="$20"
       data={data}
       renderItem={renderItem}

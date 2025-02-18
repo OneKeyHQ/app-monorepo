@@ -422,13 +422,20 @@ export const {
     const reverseRate = toPriceBN.div(fromPriceBN).toFixed();
     const rateFormat = formatBalance(rate);
     const reverseRateFormat = formatBalance(reverseRate);
-    console.log('swap__rateFormat', rateFormat);
-    console.log('swap__reverseRateFormat', reverseRateFormat);
+    let rateValue = rateFormat.meta.roundValue ?? rateFormat.meta.value;
+    let reverseRateValue =
+      reverseRateFormat.meta.roundValue ?? reverseRateFormat.meta.value;
+    if (rateFormat.meta.unit) {
+      rateValue = rateFormat.meta.value;
+    }
+    if (reverseRateFormat.meta.unit) {
+      reverseRateValue = reverseRateFormat.meta.value;
+    }
     const limitPriceMarketInfo = {
       fromToken: fromTokenInfo,
       toToken: toTokenInfo,
-      rate: rateFormat.formattedValue,
-      reverseRate: reverseRateFormat.formattedValue,
+      rate: rateValue,
+      reverseRate: reverseRateValue,
       provider,
       fromTokenMarketPrice: fromTokenPrice,
       toTokenMarketPrice: toTokenPrice,
@@ -461,18 +468,15 @@ export const {
 } = contextAtomComputed((get) => {
   const quoteResult = get(swapQuoteCurrentSelectAtom());
   const limitPriceUseRate = get(swapLimitPriceUseRateAtom());
-  const reverse = get(swapLimitPriceRateReverseAtom());
   if (
     quoteResult?.limitPriceOrderMarketPrice &&
     quoteResult?.fromAmount &&
     limitPriceUseRate.rate &&
     limitPriceUseRate.reverseRate
   ) {
-    const { toToken, rate, reverseRate } = limitPriceUseRate;
+    const { toToken, rate } = limitPriceUseRate;
     const fromAmount = new BigNumber(quoteResult.fromAmount);
-    const toAmountBN = reverse
-      ? new BigNumber(fromAmount).dividedBy(reverseRate)
-      : new BigNumber(fromAmount).multipliedBy(rate);
+    const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
     const toAmount = toAmountBN
       .decimalPlaces(
         toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,

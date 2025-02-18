@@ -1,52 +1,47 @@
+import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
-  NumberSizeableText,
-  Select,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
-import {
-  ESwapLimitOrderExpiryStepMap,
-  type IFetchQuoteResult,
-} from '@onekeyhq/shared/types/swap/types';
+  useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { LimitMarketUpPercentages } from '@onekeyhq/shared/types/swap/types';
 
 import LimitRateInput from '../../components/LimitRateInput';
 import { useSwapLimitRate } from '../../hooks/useSwapLimitRate';
 
-interface ILimitInfoContainerProps {
-  quoteResult?: IFetchQuoteResult;
-}
-
-const LimitInfoContainer = ({ quoteResult }: ILimitInfoContainerProps) => {
-  const { fromTokenInfo, toTokenInfo } = quoteResult ?? {};
+const LimitInfoContainer = () => {
+  const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const {
     onLimitRateChange,
     limitPriceUseRate,
     onSetMarketPrice,
     limitPriceSetReverse,
     onChangeReverse,
-    limitPriceEqualMarketPrice,
-    limitPriceMarketRate,
   } = useSwapLimitRate();
 
   return (
-    <YStack gap="$2" p="$2" bg="$bgSubdued" borderRadius="$3">
+    <YStack gap="$2" p="$4" bg="$bgSubdued" borderRadius="$3">
       <XStack justifyContent="space-between">
         <SizableText> Limit price</SizableText>
-        <XStack>
-          <SizableText>Market:</SizableText>
-          <NumberSizeableText
-            formatter="balance"
-            {...(!limitPriceEqualMarketPrice
-              ? {
-                  textDecorationLine: 'underline',
-                  cursor: 'pointer',
-                  onPress: onSetMarketPrice,
-                }
-              : {})}
-          >
-            {limitPriceMarketRate}
-          </NumberSizeableText>
+        <XStack alignItems="center" gap="$1">
+          {LimitMarketUpPercentages.map((percentage) => (
+            <Badge
+              key={percentage}
+              bg="$bgApp"
+              borderRadius="$2.5"
+              borderWidth={1}
+              borderColor="$borderSubdued"
+              onPress={() => onSetMarketPrice(percentage)}
+              hoverStyle={{
+                bg: '$bgStrongHover',
+              }}
+              pressStyle={{
+                bg: '$bgStrongActive',
+              }}
+            >
+              {percentage === 0 ? 'Market' : `+${percentage}%`}
+            </Badge>
+          ))}
         </XStack>
       </XStack>
       <LimitRateInput
@@ -58,8 +53,8 @@ const LimitInfoContainer = ({ quoteResult }: ILimitInfoContainerProps) => {
         onReverseChange={onChangeReverse}
         reverse={limitPriceSetReverse}
         onChangeText={onLimitRateChange}
-        fromTokenInfo={fromTokenInfo}
-        toTokenInfo={toTokenInfo}
+        fromTokenInfo={fromToken}
+        toTokenInfo={toToken}
       />
     </YStack>
   );

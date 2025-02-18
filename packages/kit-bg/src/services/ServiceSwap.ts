@@ -1425,7 +1425,6 @@ export default class ServiceSwap extends ServiceBase {
         }));
         return;
       }
-
       const openLimitOrders = swapLimitOrders.filter(
         (item) => item.status === ESwapLimitOrderStatus.OPEN,
       );
@@ -1436,8 +1435,15 @@ export default class ServiceSwap extends ServiceBase {
           networkId: account.networkId,
         }));
         if (openLimitOrders.length > 0) {
+          const needUpdateAccounts = accounts.filter((account) =>
+            openLimitOrders.find(
+              (item) =>
+                equalsIgnoreCase(item.userAddress, account.userAddress) &&
+                item.networkId === account.networkId,
+            ),
+          );
           res = await this.fetchLimitOrders(
-            accounts.map((account) => ({
+            needUpdateAccounts.map((account) => ({
               userAddress: account.userAddress,
               networkId: account.networkId,
               orderIds: openLimitOrders
@@ -1477,7 +1483,7 @@ export default class ServiceSwap extends ServiceBase {
                 indexedAccountId,
                 otherWalletTypeAccountId,
               );
-            }, 5000);
+            }, 10_000);
           }
         }
       }
@@ -1495,12 +1501,12 @@ export default class ServiceSwap extends ServiceBase {
     }[],
   ) {
     const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const resp = await client.post<{
+    const res = await client.post<{
       data: IFetchLimitOrderRes[];
     }>(`/swap/v1/limit-orders`, {
       accounts,
     });
-    return resp.data.data;
+    return res.data.data;
   }
 
   @backgroundMethod()
