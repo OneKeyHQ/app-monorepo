@@ -111,7 +111,7 @@ export function ImportWalletOptions() {
     navigation.push(EOnboardingPages.ImportCloudBackup);
   };
 
-  const handleTransferPress = async () => {
+  const handleTransferPress = () => {
     navigation.push(EOnboardingPages.TransferHome);
   };
 
