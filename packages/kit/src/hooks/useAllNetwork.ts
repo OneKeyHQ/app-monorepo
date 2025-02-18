@@ -258,7 +258,7 @@ function useAllNetworkRequests<T>(params: {
                 },
               ),
             )
-          ).filter(Boolean) as T[];
+          ).filter((item): item is T => item !== undefined && item !== null);
           perf.markEnd('allNetworkCacheRequests');
 
           if (cachedData && !isEmpty(cachedData)) {
