@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import { isEmpty } from 'lodash';
 
 import type { ITabPageProps } from '@onekeyhq/components';
+import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import perfUtils, {
@@ -26,12 +27,14 @@ export function TokenListContainerPerfTest(props: ITabPageProps) {
 
   const handleAllNetworkCacheRequests = useCallback(
     async ({
+      dbAccount,
       accountId,
       networkId,
       xpub,
       accountAddress,
       simpleDbLocalTokensRawData,
     }: {
+      dbAccount?: IDBAccount;
       accountId: string;
       networkId: string;
       xpub?: string;
@@ -76,17 +79,30 @@ export function TokenListContainerPerfTest(props: ITabPageProps) {
         isEmpty(riskyTokenList) &&
         isEmpty(smallBalanceTokenList)
       ) {
-        return null;
+        return undefined;
       }
 
-      return {
-        ...localTokens,
-        tokenList,
-        smallBalanceTokenList,
-        riskyTokenList,
-        accountId,
-        networkId,
+      const response: IFetchAccountTokensResp = {
+        tokens: {
+          data: tokenList,
+          keys: `${accountId}_${networkId}`,
+          map: localTokens.tokenListMap,
+          fiatValue: localTokens.tokenListValue,
+        },
+        riskTokens: {
+          data: riskyTokenList,
+          keys: `${accountId}_${networkId}`,
+          map: localTokens.tokenListMap,
+          fiatValue: '0',
+        },
+        smallBalanceTokens: {
+          data: smallBalanceTokenList,
+          keys: `${accountId}_${networkId}`,
+          map: localTokens.tokenListMap,
+          fiatValue: '0',
+        },
       };
+      return response;
     },
     [],
   );

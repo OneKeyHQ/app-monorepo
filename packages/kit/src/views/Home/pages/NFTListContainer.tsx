@@ -6,6 +6,7 @@ import { useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
@@ -171,10 +172,16 @@ function NFTListContainer(props: ITabPageProps) {
       dbAccount,
       accountId,
       networkId,
+      accountAddress,
+      xpub,
+      simpleDbLocalTokensRawData,
     }: {
       dbAccount?: IDBAccount;
       accountId: string;
       networkId: string;
+      accountAddress: string;
+      xpub?: string;
+      simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
     }) => {
       const localNFTs = await backgroundApiProxy.serviceNFT.getAccountLocalNFTs(
         {
@@ -184,16 +191,21 @@ function NFTListContainer(props: ITabPageProps) {
         },
       );
       if (isEmpty(localNFTs)) {
-        return null;
+        return undefined;
       }
-      return localNFTs;
+      const response: IFetchAccountNFTsResp = {
+        data: localNFTs,
+        next: '',
+        networkId,
+      };
+      return response;
     },
     [],
   );
 
   const handleAllNetworkCacheData = useCallback(
-    ({ data }: { data: IAccountNFT[] }) => {
-      const allNFTs = data.flat();
+    ({ data, accountId, networkId }: { data: IFetchAccountNFTsResp[]; accountId: string; networkId: string; }) => {
+      const allNFTs = data.map(r => r.data).flat();
       if (!isEmpty(allNFTs)) {
         setNftList(allNFTs);
         setNftListState({

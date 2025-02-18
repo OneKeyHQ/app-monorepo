@@ -600,12 +600,14 @@ function TokenListContainer(props: ITabPageProps) {
 
   const handleAllNetworkCacheRequests = useCallback(
     async ({
+      dbAccount,
       accountId,
       networkId,
       xpub,
       accountAddress,
       simpleDbLocalTokensRawData,
     }: {
+      dbAccount?: IDBAccount;
       accountId: string;
       networkId: string;
       xpub?: string;
@@ -639,17 +641,29 @@ function TokenListContainer(props: ITabPageProps) {
         isEmpty(riskyTokenList) &&
         isEmpty(smallBalanceTokenList)
       ) {
-        return null;
+        return undefined;
       }
 
-      return {
-        ...localTokens,
-        tokenList,
-        smallBalanceTokenList,
-        riskyTokenList,
+      const response: IFetchAccountTokensResp = {
+        tokens: {
+          data: tokenList,
+          keys: `${accountId}_${networkId}`,
+          map: localTokens.tokenListMap,
+        },
+        smallBalanceTokens: {
+          data: smallBalanceTokenList,
+          keys: `${accountId}_${networkId}`,
+          map: localTokens.tokenListMap,
+        },
+        riskTokens: {
+          data: riskyTokenList,
+          keys: `${accountId}_${networkId}`,
+          map: localTokens.tokenListMap,
+        },
         accountId,
         networkId,
       };
+      return response;
     },
     [],
   );
@@ -660,17 +674,7 @@ function TokenListContainer(props: ITabPageProps) {
       accountId,
       networkId,
     }: {
-      data: {
-        tokenList: IAccountToken[];
-        smallBalanceTokenList: IAccountToken[];
-        riskyTokenList: IAccountToken[];
-        tokenListMap: {
-          [key: string]: ITokenFiat;
-        };
-        tokenListValue: string;
-        networkId: string;
-        accountId: string;
-      }[];
+      data: IFetchAccountTokensResp[];
       accountId: string;
       networkId: string;
     }) => {
@@ -683,19 +687,28 @@ function TokenListContainer(props: ITabPageProps) {
       } = {};
       let tokenListValue: Record<string, string> = {};
       data.forEach((item) => {
-        tokenList.push(...item.tokenList, ...item.smallBalanceTokenList);
-        riskyTokenList.push(...item.riskyTokenList);
+        if (!item) return;
+        tokenList.push(...(item.tokens?.data || []), ...(item.smallBalanceTokens?.data || []));
+        riskyTokenList.push(...(item.riskTokens?.data || []));
         tokenListMap = {
           ...tokenListMap,
-          ...item.tokenListMap,
+          ...(item.tokens?.map || {}),
+          ...(item.smallBalanceTokens?.map || {}),
+          ...(item.riskTokens?.map || {}),
         };
-        tokenListValue = {
-          ...tokenListValue,
-          [accountUtils.buildAccountValueKey({
-            accountId: item.accountId,
-            networkId: item.networkId,
-          })]: item.tokenListValue,
-        };
+        const fiatValue = new BigNumber(item.tokens?.fiatValue ?? '0')
+          .plus(item.riskTokens?.fiatValue ?? '0')
+          .plus(item.smallBalanceTokens?.fiatValue ?? '0')
+          .toFixed();
+        if (item.accountId && item.networkId) {
+          tokenListValue = {
+            ...tokenListValue,
+            [accountUtils.buildAccountValueKey({
+              accountId: item.accountId,
+              networkId: item.networkId,
+            })]: fiatValue,
+          };
+        }
       });
 
       refreshTokenListMap({

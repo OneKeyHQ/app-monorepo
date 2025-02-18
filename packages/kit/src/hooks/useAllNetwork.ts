@@ -82,13 +82,13 @@ function useAllNetworkRequests<T>(params: {
     accountAddress: string;
     xpub?: string;
     simpleDbLocalTokensRawData?: ISimpleDBLocalTokens;
-  }) => Promise<any>;
+  }) => Promise<T | undefined>;
   allNetworkCacheData?: ({
     data,
     accountId,
     networkId,
   }: {
-    data: any;
+    data: T[];
     accountId: string;
     networkId: string;
   }) => void;
@@ -254,11 +254,11 @@ function useAllNetworkRequests<T>(params: {
                     accountAddress: apiAddress,
                     simpleDbLocalTokensRawData,
                   });
-                  return cachedDataResult as unknown;
+                  return cachedDataResult;
                 },
               ),
             )
-          ).filter(Boolean);
+          ).filter(Boolean) as T[];
           perf.markEnd('allNetworkCacheRequests');
 
           if (cachedData && !isEmpty(cachedData)) {
