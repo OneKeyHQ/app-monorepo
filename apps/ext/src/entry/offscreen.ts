@@ -10,13 +10,16 @@ startKeepAlivePolling();
 
 const offscreenBridge = offscreenSetup();
 
-let timer: any = null;
+// eslint-disable-next-line prefer-const -- timer is reassigned by setInterval
+let timer: NodeJS.Timeout | undefined;
 // background may be down or reloaded (like hot reloading)
 // so we need reconnect to background by reload offscreen page
 function checkPortEstablished() {
   // @ts-ignore
   if (!offscreenBridge?.portToBg) {
-    clearInterval(timer);
+    if (timer !== undefined) {
+      clearInterval(timer);
+    }
     globalThis.location.reload();
   }
 }
