@@ -3,7 +3,9 @@ import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
-import { TransferData } from '../pages/TransferData/TransferData';
+const TransferData = LazyLoadPage(
+  () => import('../pages/Transfer/TransferData/TransferData'),
+);
 
 const ActivateDevice = LazyLoadPage(
   () => import('../pages/ConnectHardwareWallet/ActivateDevice'),
@@ -78,7 +80,9 @@ const ImportKeyTag = LazyLoadPage(
   () => import('../pages/ImportWallet/ImportKeyTag'),
 );
 
-const Transfer = LazyLoadPage(() => import('../pages/Transfer/Transfer'));
+const TransferHome = LazyLoadPage(
+  () => import('../pages/Transfer/TransferHome/TransferHome'),
+);
 
 const DeviceManagementGuideModal = LazyLoadPage(
   () => import('../../DeviceManagement/pages/DeviceGuideModal'),
@@ -170,8 +174,8 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     component: ImportCloudBackup,
   },
   {
-    name: EOnboardingPages.Transfer,
-    component: Transfer,
+    name: EOnboardingPages.TransferHome,
+    component: TransferHome,
   },
   {
     name: EOnboardingPages.TransferData,

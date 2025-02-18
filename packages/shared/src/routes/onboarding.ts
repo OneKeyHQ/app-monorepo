@@ -29,7 +29,7 @@ export enum EOnboardingPages {
   ImportPrivateKey = 'ImportPrivateKey',
   ImportAddress = 'ImportAddress',
   ImportCloudBackup = 'ImportCloudBackup',
-  Transfer = 'Transfer',
+  TransferHome = 'TransferHome',
   TransferData = 'TransferData',
 
   // connect 3rd-party wallet

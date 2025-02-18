@@ -112,7 +112,7 @@ export function ImportWalletOptions() {
   };
 
   const handleTransferPress = async () => {
-    navigation.push(EOnboardingPages.Transfer);
+    navigation.push(EOnboardingPages.TransferHome);
   };
 
   const options: IOptionSection[] = [

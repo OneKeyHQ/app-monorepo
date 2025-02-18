@@ -2,24 +2,24 @@ import { useState } from 'react';
 
 import {
   Button,
-  Divider,
   Input,
   SizableText,
-  Stack,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useScanQrCode from '@onekeyhq/kit/src/views/ScanQrCode/hooks/useScanQrCode';
-
-import { TransferSteps } from './TransferSteps';
+import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 
 export function TransferEnterLink() {
+  const navigation = useAppNavigation();
+
   const { start } = useScanQrCode();
   const [address, setAddress] = useState('');
   const { onPasteClearText } = useClipboard();
 
   return (
-    <Stack gap="$5">
+    <>
       <YStack gap="$1">
         <SizableText size="$bodyMdMedium">Link</SizableText>
 
@@ -55,16 +55,14 @@ export function TransferEnterLink() {
         </SizableText>
       </YStack>
 
-      <Button variant="primary">Connect</Button>
-
-      <TransferSteps />
-
-      <Divider />
-
-      <SizableText size="$bodySm" color="$textSubdued">
-        OneKey doesn't back up hardware wallets, please record and safeguard
-        your recovery phrase.
-      </SizableText>
-    </Stack>
+      <Button
+        onPress={() => {
+          navigation.push(EOnboardingPages.TransferData);
+        }}
+        variant="primary"
+      >
+        Connect
+      </Button>
+    </>
   );
 }
