@@ -1,34 +1,39 @@
 import type {
   CustomerInfo as CustomerInfoWeb,
-  Package,
   PurchaseResult,
 } from '@revenuecat/purchases-js';
 import type {
   CustomerInfo as CustomerInfoNative,
-  PurchasesPackage,
+  MakePurchaseResult,
 } from '@revenuecat/purchases-typescript-internal';
+
+export type ISubscriptionPeriod = 'P1Y' | 'P1M';
+
+export type IPackage = {
+  subscriptionPeriod: ISubscriptionPeriod;
+  pricePerMonthString: string;
+  pricePerYearString: string;
+};
 
 export type IUsePrimePayment = {
   isReady: boolean;
   getCustomerInfo: () => Promise<CustomerInfoWeb | CustomerInfoNative>;
-  getPaywallPackagesNative:
-    | (() => Promise<{
-        packages: PurchasesPackage[];
-      }>)
-    | undefined;
-  getPaywallPackagesWeb:
-    | (() => Promise<{
-        packages: Package[];
-      }>)
-    | undefined;
-  presentPaywallNative: (() => Promise<boolean>) | undefined;
-  purchasePaywallPackageWeb:
+  getPackagesNative: (() => Promise<IPackage[]>) | undefined;
+  getPackagesWeb: (() => Promise<IPackage[]>) | undefined;
+  purchasePackageNative:
     | (({
-        packageId,
+        subscriptionPeriod,
+      }: {
+        subscriptionPeriod: ISubscriptionPeriod;
+      }) => Promise<MakePurchaseResult>)
+    | undefined;
+  purchasePackageWeb:
+    | (({
+        subscriptionPeriod,
         email,
         locale,
       }: {
-        packageId: string;
+        subscriptionPeriod: string;
         email: string;
         locale?: string;
       }) => Promise<PurchaseResult>)
