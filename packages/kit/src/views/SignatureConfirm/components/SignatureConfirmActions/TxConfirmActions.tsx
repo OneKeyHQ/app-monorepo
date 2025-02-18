@@ -250,6 +250,14 @@ function TxConfirmActions(props: IProps) {
           successfullySentTxs: successfullySentTxs.current,
         });
 
+      if (vaultSettings?.afterSendTxActionEnabled) {
+        await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
+          networkId,
+          accountId,
+          result,
+        });
+      }
+
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
@@ -311,6 +319,7 @@ function TxConfirmActions(props: IProps) {
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     vaultSettings?.replaceTxEnabled,
+    vaultSettings?.afterSendTxActionEnabled,
     signOnly,
     sourceInfo,
     transferPayload,
@@ -348,16 +357,16 @@ function TxConfirmActions(props: IProps) {
   }, [decodedTxs]);
 
   const isSubmitDisabled = useMemo(() => {
-    if (showTakeRiskAlert && !continueOperate) return true;
+    // if (showTakeRiskAlert && !continueOperate) return true;
 
-    if (sendTxStatus.isSubmitting) return true;
-    if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
-      return true;
-    if (isBuildingDecodedTxs) return true;
+    // if (sendTxStatus.isSubmitting) return true;
+    // if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
+    //   return true;
+    // if (isBuildingDecodedTxs) return true;
 
-    if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
-    if (preCheckTxStatus.errorMessage) return true;
-    if (txAdvancedSettings.dataChanged) return true;
+    // if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
+    // if (preCheckTxStatus.errorMessage) return true;
+    // if (txAdvancedSettings.dataChanged) return true;
     return false;
   }, [
     showTakeRiskAlert,

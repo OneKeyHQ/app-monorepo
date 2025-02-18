@@ -10,7 +10,12 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import ecc from '../../../secret/nobleSecp256k1Wrapper';
 
-import { DEFAULT_FEE_RATE, DEFAULT_SEQNUMBER } from './constant';
+import {
+  BASE_KAS_TO_P2SH_ADDRESS,
+  DEFAULT_FEE_RATE,
+  DEFAULT_SEQNUMBER,
+} from './constant';
+import sdk from './sdk';
 import { UnspentOutput } from './types';
 
 import type {
@@ -18,6 +23,7 @@ import type {
   IKaspaTransactionInput,
   IKaspaTransactionOutput,
 } from './types';
+import type { IUnsignedTxPro } from '../../../types';
 import type { IEncodedTxKaspa, IKaspaSigner } from '../types';
 import type { Script } from '@onekeyfe/kaspa-core-lib';
 
@@ -326,4 +332,52 @@ export function submitTransactionFromString(
       // gas: 0
     },
   };
+}
+
+export async function createKRC20RevealTx({
+  unsignedTx,
+  isTestnet,
+  accountAddress,
+}: {
+  unsignedTx: IUnsignedTxPro;
+  isTestnet: boolean;
+  accountAddress: string;
+}) {
+  const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
+
+  const api = await sdk.getKaspaApi();
+  const input = encodedTx.inputs[0];
+  const kaspaNetworkId = isTestnet ? 'testnet-10' : 'mainnet';
+
+  const revealEntries: any = [
+    {
+      address: input.address,
+      amount: (await api.kaspaToSompi(BASE_KAS_TO_P2SH_ADDRESS)) as bigint,
+      outpoint: {
+        transactionId: input.txid,
+        index: 0,
+      },
+      scriptPublicKey: `0000${input.scriptPubKey}`,
+      blockDaaScore: input.blockDaaScore,
+      isCoinbase: false,
+    },
+  ];
+
+  const tx = await api.createTransaction(revealEntries, [], BigInt(0));
+
+  const fee = await api.calculateTransactionFee(kaspaNetworkId, tx);
+
+  const settings = {
+    priorityEntries: revealEntries,
+    entries: revealEntries,
+    outputs: [],
+    changeAddress: encodedTx.changeAddress ?? accountAddress,
+    priorityFee: fee?.valueOf(),
+    networkId: kaspaNetworkId,
+  };
+  const { transactions } = await api.createTransactions(settings);
+
+  const transaction = transactions[0];
+
+  return transaction;
 }

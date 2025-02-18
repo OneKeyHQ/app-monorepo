@@ -78,6 +78,7 @@ import type {
   IFetchServerTokenListParams,
   IFetchServerTokenListResponse,
 } from '@onekeyhq/shared/types/serverToken';
+import type { IAfterSendTxActionParams } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IStakeTx, IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';
 import type {
@@ -1445,5 +1446,9 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     historyTx: IAccountHistoryTx;
   }): Promise<boolean> {
     return Promise.resolve(false);
+  }
+
+  async afterSendTxAction(params: IAfterSendTxActionParams) {
+    throw new NotImplemented();
   }
 }

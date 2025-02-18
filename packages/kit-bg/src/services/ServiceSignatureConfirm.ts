@@ -13,6 +13,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EParseTxComponentType,
   EParseTxType,
+  IAfterSendTxActionParams,
   type IParseMessageParams,
   type IParseMessageResp,
   type IParseTransactionParams,
@@ -304,6 +305,15 @@ class ServiceSignatureConfirm extends ServiceBase {
       console.log('parse message failed', e);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  async afterSendTxAction(params: IAfterSendTxActionParams) {
+    const { networkId, accountId, result } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    await vault.afterSendTxAction({
+      result,
+    });
   }
 }
 

@@ -21,12 +21,15 @@ import {
 
 import {
   addressFromPublicKey,
+  createKRC20RevealTx,
+  getTweakedPrivateKey,
   privateKeyFromBuffer,
   privateKeyFromOriginPrivateKey,
   publicKeyFromOriginPubkey,
   signTransaction,
   toTransaction,
 } from './sdkKaspa';
+import sdk from './sdkKaspa/sdk';
 
 import type { IEncodedTxKaspa } from './types';
 import type { PrivateKey } from '@onekeyfe/kaspa-core-lib';
@@ -81,16 +84,52 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const {
       unsignedTx,
       account,
-      networkInfo: { chainId },
+      networkInfo: { chainId, isTestnet },
     } = payload;
     const signer = await this.baseGetSingleSigner({
       payload,
       curve,
     });
+
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
+    if (unsignedTx.isKRC20RevealTx) {
+      const api = await sdk.getKaspaApi();
+      const PrivateKeyWasm = await api.PrivateKey();
+
+      const revealTx = await createKRC20RevealTx({
+        unsignedTx,
+        isTestnet: !!isTestnet,
+        accountAddress: account.address,
+      });
+      const tweakedPrivateKey = getTweakedPrivateKey(
+        await signer.getPrvkey(),
+        await signer.getPubkey(true),
+      );
+
+      const privateKey = new PrivateKeyWasm(tweakedPrivateKey);
+
+      revealTx.sign([privateKey], false);
+
+      const ourOutput = revealTx.transaction.inputs.findIndex(
+        (i) => i.signatureScript === '',
+      );
+
+      let signature: string | undefined;
+
+      if (ourOutput !== -1) {
+        signature = revealTx.createInputSignature(ourOutput, privateKey);
+      }
+
+      return {
+        encodedTx: unsignedTx.encodedTx,
+        txid: '',
+        rawTx: '',
+        signature,
+        outputIndex: ourOutput,
+      };
+    }
 
     const txn = toTransaction(encodedTx);
-
     const signedTx = await signTransaction(txn, {
       getPublicKey() {
         return publicKeyFromOriginPubkey(

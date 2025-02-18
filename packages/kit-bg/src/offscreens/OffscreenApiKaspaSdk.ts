@@ -14,6 +14,36 @@ export default class OffscreenApiKaspaSdk implements IKaspaSdkApi {
     return api.addressFromScriptPublicKey(...args);
   }
 
+  async createTransaction(...args: any[]) {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.createTransaction(...args);
+  }
+
+  async createTransactions(...args: any[]) {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.createTransactions(...args);
+  }
+
+  async calculateTransactionFee(...args: any[]) {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.calculateTransactionFee(...args);
+  }
+
+  async calculateTransactionMass(...args: any[]) {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.calculateTransactionMass(...args);
+  }
+
+  async kaspaToSompi(...args: any[]) {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.kaspaToSompi(...args);
+  }
+
   async ScriptBuilder() {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
@@ -42,5 +72,29 @@ export default class OffscreenApiKaspaSdk implements IKaspaSdkApi {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
     return api.Address();
+  }
+
+  async PrivateKey() {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.PrivateKey();
+  }
+
+  async RpcClient() {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.RpcClient();
+  }
+
+  async Encoding() {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.Encoding();
+  }
+
+  async Resolver() {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.Resolver();
   }
 }

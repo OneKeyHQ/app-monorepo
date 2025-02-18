@@ -114,16 +114,27 @@ class ServiceAccountProfile extends ServiceBase {
     params: IFetchAccountDetailsParams,
   ): Promise<IFetchAccountDetailsResp> {
     const { accountId, networkId } = params;
-    const [accountAddress, xpub] = await Promise.all([
-      this.backgroundApi.serviceAccount.getAccountAddressForApi({
+    let accountAddress = params.accountAddress;
+    let xpub: string | undefined;
+    if (!accountAddress) {
+      const [x, a] = await Promise.all([
+        this.backgroundApi.serviceAccount.getAccountXpub({
+          accountId,
+          networkId,
+        }),
+        this.backgroundApi.serviceAccount.getAccountAddressForApi({
+          accountId,
+          networkId,
+        }),
+      ]);
+      xpub = x;
+      accountAddress = a;
+    } else {
+      xpub = await this.backgroundApi.serviceAccount.getAccountXpub({
         accountId,
         networkId,
-      }),
-      this.backgroundApi.serviceAccount.getAccountXpub({
-        accountId,
-        networkId,
-      }),
-    ]);
+      });
+    }
 
     const accountDetails = await this.fetchAccountInfo({
       ...params,

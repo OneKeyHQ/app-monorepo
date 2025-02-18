@@ -1,10 +1,19 @@
 import type {
   Address,
+  Encoding,
   NetworkType,
   Opcodes,
+  PrivateKey,
+  Resolver,
+  RpcClient,
   ScriptBuilder,
   XOnlyPublicKey,
   addressFromScriptPublicKey,
+  calculateTransactionFee,
+  calculateTransactionMass,
+  createTransaction,
+  createTransactions,
+  kaspaToSompi,
 } from '@real_weatherstar/kaspa-wasm';
 
 export type IKaspaSdkApi = {
@@ -13,10 +22,34 @@ export type IKaspaSdkApi = {
   NetworkType: () => Promise<typeof NetworkType>;
   XOnlyPublicKey: () => Promise<typeof XOnlyPublicKey>;
   Address: () => Promise<typeof Address>;
+  PrivateKey: () => Promise<typeof PrivateKey>;
+  RpcClient: () => Promise<typeof RpcClient>;
+  Encoding: () => Promise<typeof Encoding>;
+  Resolver: () => Promise<typeof Resolver>;
 
   addressFromScriptPublicKey: (
     ...args: Parameters<typeof addressFromScriptPublicKey>
   ) => Promise<ReturnType<typeof addressFromScriptPublicKey>>;
+
+  createTransaction: (
+    ...args: Parameters<typeof createTransaction>
+  ) => Promise<ReturnType<typeof createTransaction>>;
+
+  createTransactions: (
+    ...args: Parameters<typeof createTransactions>
+  ) => ReturnType<typeof createTransactions>;
+
+  calculateTransactionFee: (
+    ...args: Parameters<typeof calculateTransactionFee>
+  ) => Promise<ReturnType<typeof calculateTransactionFee>>;
+
+  calculateTransactionMass: (
+    ...args: Parameters<typeof calculateTransactionMass>
+  ) => Promise<ReturnType<typeof calculateTransactionMass>>;
+
+  kaspaToSompi: (
+    ...args: Parameters<typeof kaspaToSompi>
+  ) => Promise<ReturnType<typeof kaspaToSompi>>;
 };
 
 export type IGetKaspaApi = () => Promise<IKaspaSdkApi>;

@@ -17,11 +17,7 @@ export function privateKeyFromBuffer(pri: Buffer, chainId: string): PrivateKey {
   return PrivateKey.fromBuffer(pri, chainId);
 }
 
-export function privateKeyFromOriginPrivateKey(
-  pri: Buffer,
-  pub: Buffer,
-  chainId: string,
-): PrivateKey {
+export function getTweakedPrivateKey(pri: Buffer, pub: Buffer): string {
   let privateKey: Uint8Array | null = new Uint8Array(pri);
   const publicKey = pub;
 
@@ -39,5 +35,16 @@ export function privateKeyFromOriginPrivateKey(
   );
 
   // @ts-expect-error
-  return new PrivateKey(bytesToHex(tweakedPrivateKey), chainId);
+  return bytesToHex(tweakedPrivateKey);
+}
+
+export function privateKeyFromOriginPrivateKey(
+  pri: Buffer,
+  pub: Buffer,
+  chainId: string,
+): PrivateKey {
+  const tweakedPrivateKey = getTweakedPrivateKey(pri, pub);
+
+  // @ts-expect-error
+  return new PrivateKey(tweakedPrivateKey, chainId);
 }
