@@ -48,6 +48,7 @@ const FormattedText = ({ text }: { text: string | string[] }) => {
 };
 
 export function Layout({
+  componentName = '',
   description = '',
   suggestions = [],
   boundaryConditions = [],
@@ -57,6 +58,7 @@ export function Layout({
   skipLoading = false,
   children,
 }: React.PropsWithChildren<{
+  componentName?: string;
   description?: string;
   suggestions?: string[];
   boundaryConditions?: string[];
@@ -128,6 +130,13 @@ export function Layout({
               Dark Theme
             </Button>
           </XStack>
+          {componentName ? (
+            <Stack gap="$2">
+              <Stack>
+                <SizableText size="$headingXl">{componentName}</SizableText>
+              </Stack>
+            </Stack>
+          ) : null}
           {description ? (
             <Stack gap="$2">
               <Stack>

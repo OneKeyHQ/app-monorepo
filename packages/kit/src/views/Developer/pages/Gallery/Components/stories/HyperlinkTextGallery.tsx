@@ -6,6 +6,7 @@ import { Layout } from './utils/Layout';
 
 const HyperlinkTextGallery = () => (
   <Layout
+    componentName="HyperlinkText"
     description="FormattedMessage component for i18n text display"
     suggestions={['Use for displaying translated text']}
     boundaryConditions={['Must provide valid translation key']}

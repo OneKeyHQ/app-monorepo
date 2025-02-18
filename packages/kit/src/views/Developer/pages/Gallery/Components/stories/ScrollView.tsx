@@ -47,9 +47,7 @@ const ScrollViewDemo = () => {
 
 const ScrollViewGallery = () => (
   <Layout
-    description=".."
-    suggestions={['...']}
-    boundaryConditions={['...']}
+    componentName="ScrollView"
     elements={[
       {
         title: 'Basic',

@@ -136,9 +136,7 @@ const LoggerDemo = () => {
 
 const LoggerGallery = () => (
   <Layout
-    description=""
-    suggestions={[]}
-    boundaryConditions={[]}
+    componentName="Logger"
     elements={[
       {
         title: 'Logger',

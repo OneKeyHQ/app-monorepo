@@ -12,23 +12,31 @@ import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons, IPropsWithTestId } from '@onekeyhq/components';
 import {
+  Dialog,
   Form,
   IconButton,
   Input,
+  Portal,
   SizableText,
   XStack,
   YStack,
+  onVisibilityStateChange,
   useForm,
 } from '@onekeyhq/components';
 import { usePasswordAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import biologyAuth from '@onekeyhq/shared/src/biologyAuth';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { checkBiometricAuthChanged } from '@onekeyhq/shared/src/modules3rdParty/check-biometric-auth-changed';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EPasswordMode,
   EPasswordVerifyStatus,
 } from '@onekeyhq/shared/types/password';
 
+import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useBiometricAuthInfo } from '../../../hooks/useBiometricAuthInfo';
 import { useHandleAppStateActive } from '../../../hooks/useHandleAppStateActive';
+import { inAppStateLockStyle } from '../../../views/Setting/hooks';
 import { getPasswordKeyboardType } from '../utils';
 
 import PassCodeInput from './PassCodeInput';
@@ -104,7 +112,8 @@ const PasswordVerify = ({
     passwordMode === EPasswordMode.PASSWORD ? 'password' : 'passCode',
   );
   const [{ manualLocking }] = usePasswordAtom();
-  const { icon: biologyAuthIconName } = useBiometricAuthInfo();
+  const { icon: biologyAuthIconName, title: authTitle } =
+    useBiometricAuthInfo();
 
   const rightActions = useMemo(() => {
     const actions: IPropsWithTestId<{
@@ -166,14 +175,79 @@ const PasswordVerify = ({
     }
   }, [form, passwordMode, status]);
 
+  const checkAuthChanged = useCallback(async () => {
+    const isSupport = await biologyAuth.isSupportBiologyAuth();
+    if (!isSupport) {
+      return false;
+    }
+    try {
+      const changed = await checkBiometricAuthChanged();
+      if (changed) {
+        await backgroundApiProxy.servicePassword.setBiologyAuthEnable(false);
+        setTimeout(() => {
+          Dialog.confirm({
+            icon: 'ErrorOutline',
+            tone: 'warning',
+            ...inAppStateLockStyle,
+            portalContainer: Portal.Constant.APP_STATE_LOCK_CONTAINER_OVERLAY,
+            title: intl.formatMessage(
+              {
+                id: ETranslations.global_biometric_disabled,
+              },
+              {
+                authentication: authTitle,
+              },
+            ),
+            description: intl.formatMessage(
+              {
+                id: ETranslations.global_biometric_disabled_desc,
+              },
+              {
+                authentication: authTitle,
+              },
+            ),
+            onConfirmText: intl.formatMessage({
+              id: ETranslations.global_i_got_it,
+            }),
+          });
+        }, 50);
+      }
+      return changed;
+    } catch (error) {
+      console.error(error);
+    }
+    return false;
+  }, [authTitle, intl]);
+
   useLayoutEffect(() => {
-    if (
-      isEnable &&
-      !passwordInput &&
-      status.value === EPasswordVerifyStatus.DEFAULT &&
-      !manualLocking
-    ) {
-      void onBiologyAuth();
+    void (async () => {
+      const changed =
+        platformEnv.isNativeIOS || platformEnv.isDesktopMac
+          ? await checkAuthChanged()
+          : false;
+      if (changed) {
+        return;
+      }
+      if (
+        isEnable &&
+        !passwordInput &&
+        status.value === EPasswordVerifyStatus.DEFAULT &&
+        !manualLocking
+      ) {
+        void onBiologyAuth();
+      }
+    })();
+
+    if (platformEnv.isNativeIOS || platformEnv.isDesktopMac) {
+      const handleVisibilityStateChange = (visible: boolean) => {
+        if (visible) {
+          void checkAuthChanged();
+        }
+      };
+      const removeSubscription = onVisibilityStateChange(
+        handleVisibilityStateChange,
+      );
+      return removeSubscription;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEnable, manualLocking]);

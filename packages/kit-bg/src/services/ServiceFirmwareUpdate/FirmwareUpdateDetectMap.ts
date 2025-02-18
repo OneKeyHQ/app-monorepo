@@ -66,6 +66,19 @@ export class FirmwareUpdateDetectMap {
     };
   }
 
+  updateLastDetectAtWithDelay({
+    connectId,
+    delay,
+  }: {
+    connectId: string;
+    delay: number;
+  }) {
+    this.detectMapCache[connectId] = {
+      ...this.detectMapCache[connectId],
+      lastDetectAt: Date.now() + delay,
+    };
+  }
+
   resetLastDetectAt({ connectId }: { connectId: string }) {
     this.detectMapCache[connectId] = {
       ...this.detectMapCache[connectId],

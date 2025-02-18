@@ -79,6 +79,10 @@ const ImportKeyTag = LazyLoadPage(
 
 const Transfer = LazyLoadPage(() => import('../pages/Transfer/Transfer'));
 
+const DeviceManagementGuideModal = LazyLoadPage(
+  () => import('../../DeviceManagement/pages/DeviceGuideModal'),
+);
+
 export const OnboardingRouter: IModalFlowNavigatorConfig<
   EOnboardingPages,
   IOnboardingParamList
@@ -188,5 +192,11 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
     name: EOnboardingPages.FinalizeWalletSetup,
     component: FinalizeWalletSetup,
     allowDisableClose: true,
+  },
+
+  // device management guide page
+  {
+    name: EOnboardingPages.DeviceManagementGuide,
+    component: DeviceManagementGuideModal,
   },
 ];

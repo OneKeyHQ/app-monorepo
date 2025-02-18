@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { IMPL_EVM } from '@onekeyhq/shared/src/engine/engineConsts';
+import type { IOneKeyError } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import { EOneKeyErrorClassNames } from '@onekeyhq/shared/src/errors/types/errorTypes';
 import {
   convertDeviceResponse,
@@ -319,7 +320,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
   }: {
     walletId: string;
   }): Promise<IBatchBuildAccountsBaseParams[]> {
-    return buildDefaultAddAccountNetworks().map((item) => ({
+    const networks = await buildDefaultAddAccountNetworks({
+      backgroundApi: this.backgroundApi,
+      includingNetworkWithGlobalDeriveType: true,
+    });
+    return networks.map((item) => ({
       ...item,
       walletId,
     }));
@@ -383,27 +388,29 @@ class ServiceBatchCreateAccount extends ServiceBase {
     hideCheckingDeviceLoading,
     skipCloseHardwareUiStateDialog,
     customNetworks,
-    autoHandleExitError,
+    autoHandleExitError = true,
   }: {
     autoHandleExitError?: boolean;
     walletId: string | undefined;
     indexedAccountId: string | undefined;
     customNetworks?: { networkId: string; deriveType: IAccountDeriveTypes }[];
-  } & IWithHardwareProcessingControlParams): Promise<
-    | {
-        addedAccounts: {
-          networkId: string;
-          deriveType: IAccountDeriveTypes;
-        }[];
-      }
-    | undefined
-  > {
+  } & IWithHardwareProcessingControlParams): Promise<{
+    addedAccounts: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[];
+    failedAccounts: Array<{
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+      error: IOneKeyError;
+    }>;
+  }> {
     defaultLogger.account.batchCreatePerf.addDefaultNetworkAccountsInService({
       walletId,
       indexedAccountId,
     });
     if (!walletId) {
-      return;
+      throw new Error('walletId is required');
     }
     if (
       accountUtils.isHdWallet({
@@ -436,6 +443,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
         skipCloseHardwareUiStateDialog,
       });
     }
+    throw new Error('addDefaultNetworkAccounts unknown error');
   }
 
   async buildBatchCreateAccountsNetworksParams(params: {
@@ -646,6 +654,12 @@ class ServiceBatchCreateAccount extends ServiceBase {
           deriveType: IAccountDeriveTypes;
         }> = [];
 
+        const failedAccounts: Array<{
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+          error: IOneKeyError;
+        }> = [];
+
         const hwAllNetworkPrepareAccountsResponse =
           await this.getHwAllNetworkPrepareAccountsResponse({
             walletId: params.walletId,
@@ -678,6 +692,11 @@ class ServiceBatchCreateAccount extends ServiceBase {
               saveToDb,
               autoHandleExitError: params.autoHandleExitError,
             });
+            failedAccounts.push({
+              networkId: networkParams.networkId,
+              deriveType: networkParams.deriveType,
+              error: errorUtils.toPlainErrorObject(error),
+            });
           }
         }
 
@@ -693,7 +712,7 @@ class ServiceBatchCreateAccount extends ServiceBase {
           walletId: params.walletId,
           addedAccountsCount: addedAccounts.length,
         });
-        return { addedAccounts };
+        return { addedAccounts, failedAccounts };
       },
       {
         deviceParams,

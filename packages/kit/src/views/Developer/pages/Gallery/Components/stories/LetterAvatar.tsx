@@ -9,9 +9,7 @@ import { Layout } from './utils/Layout';
 
 const LetterAvatarGallery = () => (
   <Layout
-    description=""
-    suggestions={['']}
-    boundaryConditions={['']}
+    componentName="LetterAvatar"
     elements={[
       {
         title: 'Default',

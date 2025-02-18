@@ -43,9 +43,11 @@ import type {
 class ServiceQrWallet extends ServiceBase {
   async startTwoWayAirGapScanUr({
     requestUr,
+    appQrCodeModalTitle,
     allowPlainTextResponse,
   }: {
     requestUr: AirGapUR;
+    appQrCodeModalTitle?: string;
     allowPlainTextResponse?: boolean;
   }): Promise<{
     raw?: string;
@@ -64,6 +66,7 @@ class ServiceQrWallet extends ServiceBase {
         drawType: 'animated',
         valueUr: airGapUrUtils.urToJson({ ur: requestUr }),
         promiseId,
+        title: appQrCodeModalTitle,
       });
     });
 
@@ -166,11 +169,13 @@ class ServiceQrWallet extends ServiceBase {
     walletId,
     networkId,
     indexedAccountId,
+    appQrCodeModalTitle,
   }: // deriveType,
   {
     walletId: IDBWalletId;
     networkId: string;
     indexedAccountId: string;
+    appQrCodeModalTitle?: string;
     // deriveType: IAccountDeriveTypes;
   }): Promise<IAirGapUrJson> {
     const { serviceAccount } = this.backgroundApi;
@@ -188,15 +193,20 @@ class ServiceQrWallet extends ServiceBase {
     }
 
     let networkIds: string[] = [];
-    const allDefaultAddAccountNetworks = uniq(
-      buildDefaultAddAccountNetworksForQrWallet().map((item) => item.networkId),
+    const allDefaultAddAccountNetworks =
+      await buildDefaultAddAccountNetworksForQrWallet({
+        backgroundApi: this.backgroundApi,
+        includingNetworkWithGlobalDeriveType: true,
+      });
+    const allDefaultAddAccountNetworksIds = allDefaultAddAccountNetworks.map(
+      (item) => item.networkId,
     );
     if (networkUtils.isAllNetwork({ networkId })) {
-      networkIds = allDefaultAddAccountNetworks;
+      networkIds = allDefaultAddAccountNetworksIds;
     } else {
       // networkIds = [networkId];
       // TODO always create all default networks?
-      networkIds = [...allDefaultAddAccountNetworks, networkId];
+      networkIds = uniq([...allDefaultAddAccountNetworksIds, networkId]);
     }
 
     const params: {
@@ -222,6 +232,7 @@ class ServiceQrWallet extends ServiceBase {
 
     const { responseUr } = await this.startTwoWayAirGapScanUr({
       requestUr: request.toUR(),
+      appQrCodeModalTitle,
     });
 
     return airGapUrUtils.urToJson({ ur: checkIsDefined(responseUr) });

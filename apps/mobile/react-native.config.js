@@ -11,5 +11,10 @@ module.exports = {
         android: null,
       },
     },
+    'react-native-check-biometric-auth-changed': {
+      platforms: {
+        android: null,
+      },
+    },
   },
 };
