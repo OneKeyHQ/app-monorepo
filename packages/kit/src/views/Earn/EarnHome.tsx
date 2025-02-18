@@ -21,6 +21,7 @@ import {
   NumberSizeableText,
   Page,
   Popover,
+  RefreshControl,
   ScrollView,
   SizableText,
   Skeleton,
@@ -444,12 +445,17 @@ function Overview({
           >
             {totalFiatValue}
           </NumberSizeableText>
-          <IconButton
-            icon="RefreshCcwOutline"
-            variant="tertiary"
-            loading={isLoading}
-            onPress={onRefresh}
-          />
+          {platformEnv.isNative && isLoading ? (
+            <IconButton loading icon="RefreshCcwOutline" variant="tertiary" />
+          ) : null}
+          {platformEnv.isNative ? null : (
+            <IconButton
+              icon="RefreshCcwOutline"
+              variant="tertiary"
+              loading={isLoading}
+              onPress={onRefresh}
+            />
+          )}
         </XStack>
       </YStack>
       {/* 24h earnings */}
@@ -902,6 +908,7 @@ function BasicEarnHome() {
     );
   }, [earnBanners, media.gtLg, onBannerPress]);
 
+  const isLoading = !!isFetchingAccounts;
   return (
     <Page fullPage>
       <TabPageHeader
@@ -909,7 +916,15 @@ function BasicEarnHome() {
         showHeaderRight={false}
       />
       <Page.Body>
-        <ScrollView contentContainerStyle={{ py: '$5' }}>
+        <ScrollView
+          contentContainerStyle={{ py: '$5' }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={refreshOverViewData}
+            />
+          }
+        >
           {/* container */}
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
             {/* overview and banner */}
@@ -922,10 +937,8 @@ function BasicEarnHome() {
             >
               <Overview
                 onRefresh={refreshOverViewData}
-                isLoading={!!isFetchingAccounts}
-                isFetchingAccounts={Boolean(
-                  result === undefined || !!isFetchingAccounts,
-                )}
+                isLoading={isLoading}
+                isFetchingAccounts={Boolean(result === undefined || isLoading)}
               />
               <YStack
                 minHeight="$36"
@@ -958,7 +971,7 @@ function BasicEarnHome() {
                   flex: 1,
                 }}
               >
-                <Recommended isFetchingAccounts={!!isFetchingAccounts} />
+                <Recommended isFetchingAccounts={isLoading} />
                 <AvailableAssets />
               </YStack>
               {media.gtLg ? (
