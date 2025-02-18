@@ -18,14 +18,14 @@ export function TransferPreview() {
     {
       id: '1',
       name: 'Wallet 1',
-      balance: '1.23 ETH',
+      accountCount: 3,
       image: 'https://example.com/wallet1.png',
       selected: false,
     },
     {
       id: '2',
       name: 'Wallet 2',
-      balance: '0.5 BTC',
+      accountCount: 5,
       image: 'https://example.com/wallet2.png',
       selected: false,
     },
@@ -34,7 +34,7 @@ export function TransferPreview() {
   const handleWalletListSelectChange = (selectedWallets: IWalletItem[]) => {
     console.log('Selected wallets:', selectedWallets);
     if (selectedWallets.length === 1) {
-      appNavigation.navigate(EOnboardingPages.TransferConfirm);
+      // TODO: navigate to TransferConfirm page
     }
   };
 

@@ -10,8 +10,55 @@ export interface IWalletItem {
   id: string;
   name: string;
   image?: string;
-  balance?: string;
+  accountCount: number;
   selected?: boolean;
+}
+
+interface IWalletItemProps {
+  wallet: IWalletItem;
+  onSelect: (wallet: IWalletItem) => void;
+}
+
+export function WalletItem({ wallet, onSelect }: IWalletItemProps) {
+  return (
+    <XStack
+      onPress={() => onSelect(wallet)}
+      p="$4"
+      borderRadius="$3"
+      backgroundColor="$bgSubdued"
+      alignItems="center"
+      justifyContent="space-between"
+    >
+      <XStack gap="$3" alignItems="center" flex={1}>
+        <Checkbox value={wallet.selected} onChange={() => onSelect(wallet)} />
+        {wallet.image ? (
+          <Stack
+            width={32}
+            height={32}
+            borderRadius="$full"
+            backgroundColor="$bgStrong"
+            alignItems="center"
+            justifyContent="center"
+          >
+            <Image
+              width={24}
+              height={24}
+              borderRadius="$full"
+              source={{ uri: wallet.image }}
+            />
+          </Stack>
+        ) : null}
+        <Stack gap="$1">
+          <SizableText size="$bodyLg" color="$text">
+            {wallet.name}
+          </SizableText>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {`${wallet.accountCount} accounts`}
+          </SizableText>
+        </Stack>
+      </XStack>
+    </XStack>
+  );
 }
 
 interface IWalletListProps {
@@ -39,11 +86,10 @@ export function WalletList({
   };
 
   const handleWalletSelect = (wallet: IWalletItem) => {
-    if (onSelectWallet) {
-      onSelectWallet(wallet);
-    }
+    onSelectWallet?.(wallet);
 
     if (onWalletListSelectChange) {
+      console.log('onWalletListSelectChange', wallet);
       const updatedWallets = wallets.map((w) => ({
         ...w,
         selected: getUpdatedSelection(w, wallet, multiSelect),
@@ -55,37 +101,11 @@ export function WalletList({
   return (
     <Stack gap="$4">
       {wallets.map((wallet) => (
-        <XStack
+        <WalletItem
           key={wallet.id}
-          p="$4"
-          borderRadius="$3"
-          borderWidth={1}
-          borderColor="$borderSubdued"
-          alignItems="center"
-          justifyContent="space-between"
-          onPress={() => handleWalletSelect(wallet)}
-        >
-          <XStack gap="$3" alignItems="center" flex={1}>
-            <Checkbox
-              value={wallet.selected}
-              onChange={() => handleWalletSelect(wallet)}
-            />
-            {wallet.image ? (
-              <Image
-                width={40}
-                height={40}
-                borderRadius="$2"
-                source={{ uri: wallet.image }}
-              />
-            ) : null}
-            <SizableText size="$bodyLg">{wallet.name}</SizableText>
-          </XStack>
-          {wallet.balance ? (
-            <SizableText size="$bodyLg" color="$textSubdued">
-              {wallet.balance}
-            </SizableText>
-          ) : null}
-        </XStack>
+          wallet={wallet}
+          onSelect={handleWalletSelect}
+        />
       ))}
     </Stack>
   );

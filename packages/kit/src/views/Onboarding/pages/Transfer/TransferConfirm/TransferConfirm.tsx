@@ -13,7 +13,7 @@ export function TransferConfirm() {
   const selectedWallet: IWalletItem = {
     id: '1',
     name: 'Wallet 1',
-    balance: '1.23 ETH',
+    accountCount: 3,
     image: 'https://example.com/wallet1.png',
     selected: true,
   };
