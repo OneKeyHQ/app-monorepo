@@ -128,6 +128,13 @@ export const useHandleClaim = ({
         stakingInfo,
       });
     },
-    [appNavigation, accountId, networkId, handleUniversalClaim, intl],
+    [
+      accountId,
+      networkId,
+      handleUniversalClaim,
+      intl,
+      updateFrequency,
+      appNavigation,
+    ],
   );
 };
