@@ -174,11 +174,6 @@ export function ImportWalletOptions() {
           onPress: handleImportPrivateKeyPress,
           testID: 'import-private-key',
         },
-        {
-          icon: 'MultipleDevicesOutline',
-          title: 'Transfer',
-          onPress: handleTransferPress,
-        },
       ],
     },
     {
@@ -205,7 +200,7 @@ export function ImportWalletOptions() {
                 id: ETranslations.onboarding_transfer_desc,
               }),
               badge: <Badge badgeType="success">Prime</Badge>,
-              onPress: handleImportFromCloud,
+              onPress: handleTransferPress,
             } as IOptionItem)
           : null,
         ...(platformEnv.isNative

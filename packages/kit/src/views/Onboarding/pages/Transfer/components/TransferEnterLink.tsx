@@ -19,7 +19,7 @@ export function TransferEnterLink() {
   const { onPasteClearText } = useClipboard();
 
   return (
-    <Stack gap="$4">
+    <Stack gap="$5">
       <YStack gap="$1">
         <SizableText size="$bodyMdMedium">Link</SizableText>
 
@@ -55,9 +55,7 @@ export function TransferEnterLink() {
         </SizableText>
       </YStack>
 
-      <Stack>
-        <Button variant="primary">Connect</Button>
-      </Stack>
+      <Button variant="primary">Connect</Button>
 
       <TransferSteps />
 
