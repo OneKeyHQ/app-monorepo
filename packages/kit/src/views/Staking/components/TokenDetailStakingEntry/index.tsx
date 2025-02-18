@@ -128,7 +128,7 @@ export const TokenDetailStakingEntry = ({
         filter: true,
       });
     const aprItems = protocolList
-      .map((o) => Number(o.provider.apr))
+      .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);
     const maxApr = Math.max(0, ...aprItems);
     return { symbolInfo, maxApr };

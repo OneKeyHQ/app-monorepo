@@ -192,7 +192,10 @@ export const ProfitSection = ({
     return null;
   }
   const props: IProfitInfoProps = {
-    apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
+    apr:
+      Number(details.provider?.aprWithoutFee) > 0
+        ? details.provider.aprWithoutFee
+        : undefined,
     apys: details.provider.apys,
     rewardAssets: details.rewardAssets,
     earningsIn24h: details.earnings24h,

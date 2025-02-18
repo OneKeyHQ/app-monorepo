@@ -216,7 +216,7 @@ function RecommendedItem({
         <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
-        {buildAprText(token.apr, token.rewardUnit)}
+        {buildAprText(token.aprWithoutFee, token.rewardUnit)}
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
         {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
@@ -576,7 +576,15 @@ function AvailableAssets() {
         >
           {assets.map(
             (
-              { name, logoURI, apr, networkId, symbol, rewardUnit, tags = [] },
+              {
+                name,
+                logoURI,
+                aprWithoutFee,
+                networkId,
+                symbol,
+                rewardUnit,
+                tags = [],
+              },
               index,
             ) => (
               <ListItem
@@ -642,7 +650,7 @@ function AvailableAssets() {
                     flexGrow: 1,
                     flexBasis: 0,
                   }}
-                  primary={buildAprText(apr, rewardUnit)}
+                  primary={buildAprText(aprWithoutFee, rewardUnit)}
                 />
               </ListItem>
             ),

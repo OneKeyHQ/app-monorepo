@@ -10,6 +10,7 @@ import {
   NumberSizeableText,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';

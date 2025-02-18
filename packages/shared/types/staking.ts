@@ -31,7 +31,7 @@ export type IStakeProviderInfo = {
   logoURI: string;
   website: string;
   // btc don't have apr
-  apr?: string;
+  aprWithoutFee?: string;
   poolFee: string;
   totalStaked: string;
   totalFiatValue: string;
@@ -315,7 +315,7 @@ export interface IEarnAccountToken {
   name: string;
   symbol: string;
   logoURI: string;
-  apr: string;
+  aprWithoutFee: string;
   profit: string;
   balance: string;
   balanceParsed: string;
@@ -352,7 +352,7 @@ export type IAvailableAsset = {
   name: string;
   symbol: string;
   logoURI: string;
-  apr: string;
+  aprWithoutFee: string;
   tags: string[];
   networkId: string;
   rewardUnit: IEarnRewardUnit;
