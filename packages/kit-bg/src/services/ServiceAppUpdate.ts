@@ -63,6 +63,12 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getUpdateStatus() {
+    const appInfo = await appUpdatePersistAtom.get();
+    return appInfo.status;
+  }
+
+  @backgroundMethod()
   async refreshUpdateStatus() {
     const appInfo = await appUpdatePersistAtom.get();
     if (isFirstLaunchAfterUpdated(appInfo)) {
@@ -148,6 +154,7 @@ class ServiceAppUpdate extends ServiceBase {
       updateAt: 0,
       status: EAppUpdateStatus.done,
     });
+    await this.backgroundApi.serviceApp.resetLaunchTimesAfterUpdate();
   }
 
   @backgroundMethod()
