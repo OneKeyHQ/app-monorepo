@@ -76,11 +76,14 @@ export const useHandleClaim = ({
           title: intl.formatMessage({
             id: ETranslations.earn_claim_rewards,
           }),
-          description: intl.formatMessage({
-            id: ETranslations.earn_claim_rewards_morpho_desc,
-          }, {
-            time: updateFrequency || '',
-          }),
+          description: intl.formatMessage(
+            {
+              id: ETranslations.earn_claim_rewards_morpho_desc,
+            },
+            {
+              time: updateFrequency || '',
+            },
+          ),
           onConfirm: async () => {
             await handleUniversalClaim({
               amount: claimAmount,
