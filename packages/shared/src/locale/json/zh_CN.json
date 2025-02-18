@@ -1577,7 +1577,7 @@
   "p2sh_p2wpkh_desc": "以“bc1q”开头。P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "以“bc1p”开头。P2TR (m/86'/0'/0')",
   "p2wpkh_desc": "以“3”开头。P2WPKH (m/49'/0'/0')",
-  "prime.agree_to_terms": "继续表示您同意 OneKey Prime 条款。",
+  "prime.agree_to_terms": "继续表示您同意 <link>OneKey Prime Terms</link>。",
   "prime.change_email": "更改登录邮箱",
   "prime.change_password": "修改密码",
   "prime.code_resend": "重新发送",

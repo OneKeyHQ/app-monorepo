@@ -1577,7 +1577,7 @@
   "p2sh_p2wpkh_desc": "\"bc1q\" দিয়ে শুরু হয়। P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "\"bc1p\" দিয়ে শুরু হয়। P2TR (m/86'/0'/0')",
   "p2wpkh_desc": "\"3\" দিয়ে শুরু হয়। P2WPKH (m/49'/0'/0')",
-  "prime.agree_to_terms": "অবিরত থাকলে আপনি OneKey Prime Terms-এর সাথে সম্মত হচ্ছেন।",
+  "prime.agree_to_terms": "চালিয়ে যাওয়া মানে আপনি <link>OneKey Prime Terms</link> এর সাথে সম্মত হচ্ছেন।",
   "prime.change_email": "ইমেইল পরিবর্তন করুন",
   "prime.change_password": "পাসওয়ার্ড পরিবর্তন করুন",
   "prime.code_resend": "পুনরায় পাঠান",
