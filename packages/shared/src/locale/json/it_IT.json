@@ -1577,7 +1577,7 @@
   "p2sh_p2wpkh_desc": "Inizia con \"bc1q\". P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "Inizia con \"bc1p\". P2TR (m/86'/0'/0')",
   "p2wpkh_desc": "Inizia con \"3\". P2WPKH (m/49'/0'/0')",
-  "prime.agree_to_terms": "Continuando, accetti i Termini di OneKey Prime.",
+  "prime.agree_to_terms": "Continuando, accetti i <link>OneKey Prime Terms</link>.",
   "prime.change_email": "Cambia email",
   "prime.change_password": "Cambia password",
   "prime.code_resend": "Reinvia",
