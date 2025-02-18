@@ -13,11 +13,13 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
   EParseTxComponentType,
   EParseTxType,
+} from '@onekeyhq/shared/types/signatureConfirm';
+import type {
   IAfterSendTxActionParams,
-  type IParseMessageParams,
-  type IParseMessageResp,
-  type IParseTransactionParams,
-  type IParseTransactionResp,
+  IParseMessageParams,
+  IParseMessageResp,
+  IParseTransactionParams,
+  IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
@@ -308,7 +310,12 @@ class ServiceSignatureConfirm extends ServiceBase {
   }
 
   @backgroundMethod()
-  async afterSendTxAction(params: IAfterSendTxActionParams) {
+  async afterSendTxAction(
+    params: IAfterSendTxActionParams & {
+      networkId: string;
+      accountId: string;
+    },
+  ) {
     const { networkId, accountId, result } = params;
     const vault = await vaultFactory.getVault({ networkId, accountId });
     await vault.afterSendTxAction({

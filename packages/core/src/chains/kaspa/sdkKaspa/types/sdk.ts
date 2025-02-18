@@ -14,7 +14,7 @@ import type {
   createTransaction,
   createTransactions,
   kaspaToSompi,
-} from '@real_weatherstar/kaspa-wasm';
+} from '@onekeyfe/kaspa-wasm';
 
 export type IKaspaSdkApi = {
   ScriptBuilder: () => Promise<typeof ScriptBuilder>;

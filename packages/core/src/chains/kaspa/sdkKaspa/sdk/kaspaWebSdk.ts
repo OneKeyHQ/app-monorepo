@@ -5,10 +5,10 @@ import type {
   createTransaction,
   createTransactions,
   kaspaToSompi,
-} from '@real_weatherstar/kaspa-wasm';
+} from '@onekeyfe/kaspa-wasm';
 
 const getKaspaApi = async () => {
-  const Loader = await import('@real_weatherstar/kaspa-wasm');
+  const Loader = await import('@onekeyfe/kaspa-wasm');
 
   await Loader.default();
   return {

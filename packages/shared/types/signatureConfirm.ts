@@ -3,7 +3,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
 import type { ENFTType, IAccountNFT } from './nft';
 import type { IToken, ITokenFiat } from './token';
-import { ISendTxOnSuccessData } from './tx';
+import type { ISendTxOnSuccessData } from './tx';
 
 export enum EParseTxComponentType {
   Default = 'default',
@@ -205,7 +205,5 @@ export interface IParseMessageResp {
 }
 
 export interface IAfterSendTxActionParams {
-  networkId: string;
-  accountId: string;
   result: ISendTxOnSuccessData[];
 }

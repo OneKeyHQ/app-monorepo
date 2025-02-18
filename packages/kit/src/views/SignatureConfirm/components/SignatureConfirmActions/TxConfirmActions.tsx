@@ -357,16 +357,16 @@ function TxConfirmActions(props: IProps) {
   }, [decodedTxs]);
 
   const isSubmitDisabled = useMemo(() => {
-    // if (showTakeRiskAlert && !continueOperate) return true;
+    if (showTakeRiskAlert && !continueOperate) return true;
 
-    // if (sendTxStatus.isSubmitting) return true;
-    // if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
-    //   return true;
-    // if (isBuildingDecodedTxs) return true;
+    if (sendTxStatus.isSubmitting) return true;
+    if (nativeTokenInfo.isLoading || sendTxStatus.isInsufficientNativeBalance)
+      return true;
+    if (isBuildingDecodedTxs) return true;
 
-    // if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
-    // if (preCheckTxStatus.errorMessage) return true;
-    // if (txAdvancedSettings.dataChanged) return true;
+    if (!sendSelectedFeeInfo || sendFeeStatus.errMessage) return true;
+    if (preCheckTxStatus.errorMessage) return true;
+    if (txAdvancedSettings.dataChanged) return true;
     return false;
   }, [
     showTakeRiskAlert,

@@ -7,9 +7,10 @@ import type {
   calculateTransactionMass,
   createTransaction,
   createTransactions,
-} from '@real_weatherstar/kaspa-wasm';
+  kaspaToSompi,
+} from '@onekeyfe/kaspa-wasm';
 
-const LibLoader = async () => import('@real_weatherstar/kaspa-wasm');
+const LibLoader = async () => import('@onekeyfe/kaspa-wasm');
 
 const getKaspaApi = memoizee(
   async () => {

@@ -1,6 +1,6 @@
 import type { IKaspaUnspentOutputInfo } from './sdkKaspa';
 import type { PrivateKey, PublicKey } from '@onekeyfe/kaspa-core-lib';
-import type { ScriptBuilder } from '@real_weatherstar/kaspa-wasm';
+import type { ScriptBuilder } from '@onekeyfe/kaspa-wasm';
 
 export type IEncodedTxKaspa = {
   utxoIds: string[];
