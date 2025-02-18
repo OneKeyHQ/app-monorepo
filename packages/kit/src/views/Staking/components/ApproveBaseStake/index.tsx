@@ -491,7 +491,7 @@ export function ApproveBaseStake({
           <Stack pl="$5">
             <StakeProgress
               currentStep={
-                isApprove
+                isDisable || isApprove
                   ? EStakeProgressStep.approve
                   : EStakeProgressStep.deposit
               }
