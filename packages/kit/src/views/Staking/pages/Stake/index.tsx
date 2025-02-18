@@ -258,6 +258,7 @@ function BasicStakePage() {
           isReachBabylonCap={isReachBabylonCap}
           rewardToken={rewardToken}
           isDisabled={isReachBabylonCap}
+          updateFrequency={tokenResult?.updateFrequency}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
           estReceiveTokenRate={estReceiveTokenRate}

@@ -83,6 +83,7 @@ type IUniversalStakeProps = {
   stakingTime?: number;
   nextLaunchLeft?: string;
   rewardToken?: string;
+  updateFrequency?: string;
 };
 
 export function UniversalStake({
@@ -115,6 +116,7 @@ export function UniversalStake({
   stakingTime,
   nextLaunchLeft,
   rewardToken,
+  updateFrequency,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
