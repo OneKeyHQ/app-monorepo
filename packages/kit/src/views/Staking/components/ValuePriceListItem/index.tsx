@@ -27,19 +27,27 @@ export const ValuePriceListItem = ({
     >
       <NumberSizeableText
         size="$bodyLgMedium"
+        textAlign="right"
         formatter="balance"
         formatterOptions={{ tokenSymbol }}
       >
         {amount}
       </NumberSizeableText>
-    </XStack>
-    <XStack maxWidth="$56">
+    </SizableText>
+    <SizableText
+      textAlign="right"
+      style={{
+        wordBreak: 'break-all',
+      }}
+    >
       {fiatValue ? (
-        <SizableText>
+        <SizableText color="$textSubdued" textAlign="right">
           (
           <NumberSizeableText
+            textAlign="right"
             size="$bodyLgMedium"
             formatter="value"
+            color="$textSubdued"
             formatterOptions={{ currency: fiatSymbol }}
           >
             {fiatValue}
