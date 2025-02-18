@@ -196,7 +196,7 @@ export function ApproveBaseStake({
         { amount: amountValue, symbol: token.symbol },
       );
     }
-    return intl.formatMessage({ id: ETranslations.earn_stake });
+    return intl.formatMessage({ id: ETranslations.earn_deposit });
   }, [isApprove, token, amountValue, intl]);
 
   const onApprove = useCallback(async () => {
@@ -485,6 +485,7 @@ export function ApproveBaseStake({
         <Stack
           bg="$bgApp"
           flexDirection="column"
+          jc="space-between"
           $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
         >
           <Stack pl="$5">

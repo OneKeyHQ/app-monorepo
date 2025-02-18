@@ -64,7 +64,7 @@ function StakedValueInfo({
                 {intl.formatMessage({ id: ETranslations.global_withdraw })}
               </Button>
               <Button {...stakeButtonProps}>
-                {intl.formatMessage({ id: ETranslations.earn_stake })}
+                {intl.formatMessage({ id: ETranslations.earn_deposit })}
               </Button>
             </XStack>
           ) : null}

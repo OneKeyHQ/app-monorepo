@@ -348,7 +348,7 @@ const ProtocolDetailsPage = () => {
           {!media.gtMd ? (
             <Page.Footer
               onConfirmText={intl.formatMessage({
-                id: ETranslations.earn_stake,
+                id: ETranslations.earn_deposit,
               })}
               confirmButtonProps={stakeButtonProps}
               onCancelText={intl.formatMessage({

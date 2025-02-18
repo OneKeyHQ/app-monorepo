@@ -33,7 +33,7 @@ export function StakeProgress({ currentStep }: IStakeProgressProps) {
           currentStep > EStakeProgressStep.approve ? undefined : '$textDisabled'
         }
       >
-        2. {intl.formatMessage({ id: ETranslations.earn_supply })}
+        2. {intl.formatMessage({ id: ETranslations.earn_deposit })}
       </SizableText>
     </XStack>
   );
