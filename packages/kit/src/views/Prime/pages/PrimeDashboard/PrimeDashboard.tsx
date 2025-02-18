@@ -8,6 +8,7 @@ import {
   Icon,
   IconButton,
   Page,
+  RichSizeableText,
   SizableText,
   Stack,
   Theme,
@@ -59,6 +60,25 @@ function PrimeBanner() {
         })}
       </SizableText>
     </YStack>
+  );
+}
+
+function PrimeTerms() {
+  const intl = useIntl();
+  return (
+    <RichSizeableText
+      linkList={{
+        link: {
+          url: 'https://help.onekey.so/hc/articles/11967482818831',
+          color: '$textLink',
+          size: '$bodyLg',
+        },
+      }}
+    >
+      {intl.formatMessage({
+        id: ETranslations.prime_agree_to_terms,
+      })}
+    </RichSizeableText>
   );
 }
 
@@ -145,7 +165,32 @@ export default function PrimeDashboard() {
             onConfirmText={intl.formatMessage({
               id: ETranslations.prime_subscribe,
             })}
-          />
+          >
+            <Stack
+              flexDirection="row"
+              justifyContent="space-between"
+              alignItems="center"
+              gap="$2.5"
+              p="$5"
+              $md={{
+                alignItems: 'flex-start',
+                flexDirection: 'column',
+              }}
+            >
+              <PrimeTerms />
+
+              <Page.FooterActions
+                p="$0"
+                $md={{
+                  width: '100%',
+                }}
+                onConfirm={shouldShowConfirmButton ? subscribe : undefined}
+                onConfirmText={intl.formatMessage({
+                  id: ETranslations.prime_subscribe,
+                })}
+              />
+            </Stack>
+          </Page.Footer>
         </Page>
       </Theme>
     </>

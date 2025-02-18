@@ -1577,7 +1577,7 @@
   "p2sh_p2wpkh_desc": "Bắt đầu bằng \"bc1q\". P2SH-P2WPKH (m/84'/0'/0')",
   "p2tr_desc": "Bắt đầu với \"bc1p\". P2TR (m/86'/0'/0')",
   "p2wpkh_desc": "Bắt đầu bằng \"3\". P2WPKH (m/49'/0'/0')",
-  "prime.agree_to_terms": "Tiếp tục có nghĩa là bạn đồng ý với Điều khoản OneKey Prime.",
+  "prime.agree_to_terms": "Tiếp tục có nghĩa là bạn đồng ý với <link>Điều khoản OneKey Prime</link>.",
   "prime.change_email": "Thay đổi email",
   "prime.change_password": "Thay đổi mật khẩu",
   "prime.code_resend": "Gửi lại",
