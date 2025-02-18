@@ -1,8 +1,7 @@
-/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { hexToBytes } from '@noble/hashes/utils';
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
-import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
+import { PubKey } from 'cosmjs-types/cosmos/crypto/secp256k1/keys';
 import { MsgWithdrawDelegatorReward } from 'cosmjs-types/cosmos/distribution/v1beta1/tx';
 import { MsgVote } from 'cosmjs-types/cosmos/gov/v1beta1/tx';
 import {
@@ -225,11 +224,7 @@ function convertAminoMsgToDirect(msg: ICosmosStdMsg) {
 export const serializeSignedTx = ({
   txWrapper: signDoc,
   signature: { signatures, signMode = SignMode.SIGN_MODE_LEGACY_AMINO_JSON },
-  publicKey: {
-    pubKey,
-    // tendermint/PubKeySecp256k1 is the pubkey type for amino signing
-    pubKeyType = 'tendermint/PubKeySecp256k1',
-  },
+  publicKey: { pubKey, pubKeyType = '/cosmos.crypto.secp256k1.PubKey' },
 }: {
   txWrapper: TransactionWrapper;
   signature: {
