@@ -258,7 +258,7 @@ function useAllNetworkRequests<T>(params: {
                 },
               ),
             )
-          ).filter((item): item is NonNullable<Awaited<T>> => item !== undefined && item !== null) as T[];
+          ).filter((item): item is Awaited<T> => Boolean(item)) as Array<NonNullable<Awaited<T>>>;
           perf.markEnd('allNetworkCacheRequests');
 
           if (cachedData && !isEmpty(cachedData)) {
