@@ -28,8 +28,8 @@ export function MorphoApy({
   rewardAssets?: Record<string, IEarnTokenItem>;
 }) {
   const intl = useIntl();
-  const showNativeApy = isPositiveNumber(apys.rate);
-  const showTotalApy = isPositiveNumber(apys.netApy);
+  const showNativeApy = isPositiveNumber(apys.dailyApy);
+  const showTotalApy = isPositiveNumber(apys.performanceFee);
   const rewardTokenEntries = Object.entries(apys.rewards ?? {}).filter(
     ([address, apy]) => isPositiveNumber(apy) && rewardAssets?.[address],
   );
@@ -48,7 +48,7 @@ export function MorphoApy({
               </SizableText>
             </XStack>
             <SizableText size="$bodyMdMedium" color="$textSubdued">
-              +{formatApy(apys.rate)}%
+              +{formatApy(apys.dailyApy)}%
             </SizableText>
           </XStack>
         ) : null}
@@ -80,12 +80,12 @@ export function MorphoApy({
               <Icon name="CoinsAddOutline" size="$5" />
               <SizableText color="$textSubdued" size="$bodyMd">
                 {intl.formatMessage({
-                  id: ETranslations.earn_total_apy,
+                  id: ETranslations.earn_performance_fee,
                 })}
               </SizableText>
             </XStack>
             <SizableText size="$bodyMdMedium" color="$textSuccess">
-              = {formatApy(apys.netApy)}%
+              {formatApy(apys.performanceFee)}%
             </SizableText>
           </XStack>
         ) : null}
