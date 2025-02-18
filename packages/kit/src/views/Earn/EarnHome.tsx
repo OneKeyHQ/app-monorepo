@@ -78,7 +78,7 @@ const getNumberColor = (
   defaultColor: ISizableTextProps['color'] = '$textSuccess',
 ): ISizableTextProps['color'] =>
   (typeof value === 'string' ? Number(value) : value) === 0
-    ? '$textDisabled'
+    ? '$text'
     : defaultColor;
 
 const toTokenProviderListPage = async (
