@@ -387,13 +387,30 @@ const getBackgroundColor = (key: string) =>
   themeColors[key as keyof typeof themeColors] ||
   themeColors[nativeTheme.shouldUseDarkColors ? 'dark' : 'light'];
 
+const ratio = 16 / 9;
+const defaultSize = 1200;
+const minWidth = 1024;
+const minHeight = 800;
 function createMainWindow() {
   // https://github.com/electron/electron/issues/16168
   const { screen } = require('electron');
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
-  const ratio = 16 / 9;
-  const savedWinBounds: any = store.getWinBounds();
+  // eslint-disable-next-line @typescript-eslint/ban-types
+  let savedWinBounds: {
+    x?: number;
+    y?: number;
+    width?: number;
+    height?: number;
+  } = store.getWinBounds();
+
+  if (
+    savedWinBounds &&
+    ((savedWinBounds?.width || 0) < minWidth ||
+      (savedWinBounds?.height || 0) < minHeight / ratio)
+  ) {
+    savedWinBounds = {};
+  }
   const browserWindow = new BrowserWindow({
     show: false,
     title: APP_NAME,
@@ -405,15 +422,16 @@ function createMainWindow() {
     resizable: true,
     x: isDev ? 0 : undefined,
     y: isDev ? 0 : undefined,
-    width: Math.min(1200, dimensions.width),
-    height: Math.min(1200 / ratio, dimensions.height),
-    minWidth: isDev ? undefined : 1024, // OK-8215
-    minHeight: isDev ? undefined : 800 / ratio,
+    width: Math.min(defaultSize, dimensions.width),
+    height: Math.min(defaultSize / ratio, dimensions.height),
+    minWidth: isDev ? undefined : minWidth, // OK-8215
+    minHeight: isDev ? undefined : minHeight / ratio,
     backgroundColor: getBackgroundColor(theme),
     webPreferences: {
       spellcheck: false,
       webviewTag: true,
       webSecurity: !isDev,
+      // @ts-expect-error
       nativeWindowOpen: true,
       allowRunningInsecureContent: false,
       experimentalFeatures: false,
