@@ -16,6 +16,7 @@ import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import type { IProps } from '.';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function TokenDetailsHistory(props: IProps) {
   const navigation = useAppNavigation();
@@ -25,6 +26,7 @@ function TokenDetailsHistory(props: IProps) {
 
   const [historyInit, setHistoryInit] = useState(false);
   const { isFocused } = useTabIsRefreshingFocused();
+  const [settings] = useSettingsPersistAtom();
 
   /**
    * since some tokens are slow to load history,
@@ -41,11 +43,17 @@ function TokenDetailsHistory(props: IProps) {
         accountId,
         networkId,
         tokenIdOnNetwork: tokenInfo.address,
+        filterScam: settings.isFilterScamHistoryEnabled,
       });
       setHistoryInit(true);
       return r.txs;
     },
-    [accountId, networkId, tokenInfo.address],
+    [
+      accountId,
+      networkId,
+      settings.isFilterScamHistoryEnabled,
+      tokenInfo.address,
+    ],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,

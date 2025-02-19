@@ -10,10 +10,15 @@ import {
   Stack,
   Switch,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
 } from '@onekeyhq/shared/src/consts/walletConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 
@@ -32,11 +37,19 @@ type IProps = {
 function TxHistoryListHeader({ filteredHistory }: IProps) {
   const intl = useIntl();
   const [searchKey] = useSearchKeyAtom();
+  const [settings, setSettings] = useSettingsPersistAtom();
   const { updateSearchKey } = useHistoryListActions().current;
 
-  const handleFilterScamHistoryOnChange = useCallback(() => {
-    console.log('handleFilterScamHistoryOnChange');
-  }, []);
+  const handleFilterScamHistoryOnChange = useCallback(
+    (value: boolean) => {
+      setSettings((v) => ({
+        ...v,
+        isFilterScamHistoryEnabled: !!value,
+      }));
+      appEventBus.emit(EAppEventBusNames.RefreshHistoryList, undefined);
+    },
+    [setSettings],
+  );
 
   const {
     activeAccount: { network },
@@ -89,8 +102,13 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
                 >
                   <Switch
                     disabled={!filterScamHistorySupported}
-                    size={ESwitchSize.large}
+                    size={ESwitchSize.small}
                     onChange={handleFilterScamHistoryOnChange}
+                    value={
+                      filterScamHistorySupported
+                        ? settings.isFilterScamHistoryEnabled
+                        : false
+                    }
                   />
                 </ListItem>
               </Stack>

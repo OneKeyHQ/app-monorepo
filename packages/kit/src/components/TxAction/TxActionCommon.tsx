@@ -30,6 +30,7 @@ import type {
   ITxActionCommonDetailViewProps,
   ITxActionCommonListViewProps,
 } from './types';
+import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 
 function TxActionCommonAvatar({
   avatar,
@@ -107,9 +108,10 @@ function TxActionCommonTitle({
   tableLayout,
   replaceType,
   status,
+  riskyLevel,
 }: Pick<
   ITxActionCommonListViewProps,
-  'title' | 'tableLayout' | 'replaceType' | 'status'
+  'title' | 'tableLayout' | 'replaceType' | 'status' | 'riskyLevel'
 >) {
   const intl = useIntl();
 
@@ -138,6 +140,11 @@ function TxActionCommonTitle({
       {status === EDecodedTxStatus.Failed ? (
         <Badge badgeSize="sm" badgeType="critical" ml="$2">
           {intl.formatMessage({ id: ETranslations.global_failed })}
+        </Badge>
+      ) : null}
+      {riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? (
+        <Badge badgeSize="sm" badgeType="critical" ml="$2">
+          {intl.formatMessage({ id: ETranslations.global_risk })}
         </Badge>
       ) : null}
     </XStack>
@@ -259,6 +266,7 @@ function TxActionCommonListView(
     replaceType,
     networkId,
     networkLogoURI,
+    riskyLevel,
     ...rest
   } = props;
   const [settings] = useSettingsPersistAtom();
@@ -297,6 +305,7 @@ function TxActionCommonListView(
               status={status}
               tableLayout={tableLayout}
               replaceType={replaceType}
+              riskyLevel={riskyLevel}
             />
             <XStack alignSelf="stretch">
               {timestamp &&
