@@ -39,6 +39,7 @@ import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';
+import { validateAmountInput } from '../../../Swap/utils/utils';
 
 type IApproveBaseStakeProps = {
   details: IStakeProtocolDetails;
@@ -133,6 +134,9 @@ export function ApproveBaseStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
+      if (!validateAmountInput(value, decimals)) {
+        return;
+      }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {

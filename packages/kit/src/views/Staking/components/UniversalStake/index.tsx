@@ -39,6 +39,7 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
+import { validateAmountInput } from '../../../Swap/utils/utils';
 
 type IUniversalStakeProps = {
   accountId: string;
@@ -137,6 +138,9 @@ export function UniversalStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
+      if (!validateAmountInput(value, decimals)) {
+        return;
+      }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
