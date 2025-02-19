@@ -18,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -434,7 +435,9 @@ export function ApproveBaseStake({
             <CalculationListItem.Label>
               {details.provider.rewardUnit}
             </CalculationListItem.Label>
-            <CalculationListItem.Value color="$textSuccess">{`${apr}%`}</CalculationListItem.Value>
+            <CalculationListItem.Value color="$textSuccess">{`${formatApy(
+              apr,
+            )}%`}</CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
         {providerName && providerLogo ? (
