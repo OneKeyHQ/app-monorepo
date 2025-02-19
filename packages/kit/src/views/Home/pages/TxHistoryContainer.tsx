@@ -5,6 +5,7 @@ import { isEmpty, uniqBy } from 'lodash';
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -30,7 +31,6 @@ import {
   useHistoryListActions,
   withHistoryListProvider,
 } from '../../../states/jotai/contexts/historyList';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
 function TxHistoryListContainer(props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =

@@ -15,6 +15,7 @@ import type { IListItemProps } from '@onekeyhq/kit/src/components/ListItem';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatTime } from '@onekeyhq/shared/src/utils/dateUtils';
+import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 import { EDecodedTxStatus, EReplaceTxType } from '@onekeyhq/shared/types/tx';
 
 import { useAccountData } from '../../hooks/useAccountData';
@@ -30,7 +31,6 @@ import type {
   ITxActionCommonDetailViewProps,
   ITxActionCommonListViewProps,
 } from './types';
-import { TX_RISKY_LEVEL_SPAM } from '@onekeyhq/shared/src/walletConnect/constant';
 
 function TxActionCommonAvatar({
   avatar,
