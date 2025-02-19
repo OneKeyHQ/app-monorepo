@@ -145,19 +145,6 @@ function ProviderInfo({
             {babylonConfirmedCap.value} BTC
           </GridItem>
         ) : null}
-        {poolFee?.value &&
-        earnUtils.isMorphoProvider({ providerName: validator?.name ?? '' }) ? (
-          <GridItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_performance_fee,
-            })}
-            tooltip={intl.formatMessage({
-              id: ETranslations.earn_performance_fee_desc,
-            })}
-          >
-            {poolFee.value}%
-          </GridItem>
-        ) : null}
       </XStack>
     </YStack>
   );

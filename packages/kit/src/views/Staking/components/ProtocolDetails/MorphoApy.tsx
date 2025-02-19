@@ -19,9 +19,11 @@ const isPositiveNumber = (value: string | number | undefined): boolean => {
 export function MorphoApy({
   apys,
   rewardAssets,
+  poolFee,
 }: {
   apys: IRewardApys;
   rewardAssets?: Record<string, IEarnTokenItem>;
+  poolFee?: string;
 }) {
   const intl = useIntl();
   const showNativeApy = isPositiveNumber(apys.dailyApy);
@@ -75,13 +77,13 @@ export function MorphoApy({
             <XStack gap="$2" alignItems="center">
               <Icon name="HandCoinsOutline" size="$5" />
               <SizableText color="$textSubdued" size="$bodyMd">
-                {intl.formatMessage({
+                {`${intl.formatMessage({
                   id: ETranslations.earn_performance_fee,
-                })}
+                })}${poolFee ? ` (${poolFee}%)` : ''}`}
               </SizableText>
             </XStack>
-            <SizableText size="$bodyMdMedium" color="$textSuccess">
-              {formatApy(apys.performanceFee)}%
+            <SizableText size="$bodyMdMedium">
+              {`-${formatApy(apys.performanceFee)}%`}
             </SizableText>
           </XStack>
         ) : null}

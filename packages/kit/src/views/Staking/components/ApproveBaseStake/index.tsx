@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -39,6 +39,7 @@ import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';
+import { validateAmountInput } from '../../../Swap/utils/utils';
 
 type IApproveBaseStakeProps = {
   details: IStakeProtocolDetails;
@@ -133,6 +134,9 @@ export function ApproveBaseStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
+      if (!validateAmountInput(value, decimals)) {
+        return;
+      }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
@@ -200,12 +204,15 @@ export function ApproveBaseStake({
     return intl.formatMessage({ id: ETranslations.earn_deposit });
   }, [isApprove, token, amountValue, intl]);
 
+  const showStakeProgressRef = useRef<Record<string, boolean>>({});
+
   const onApprove = useCallback(async () => {
     setApproving(true);
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
+    showStakeProgressRef.current[amountValue] = true;
     await navigationToTxConfirm({
       approvesInfo: [
         {
@@ -342,6 +349,8 @@ export function ApproveBaseStake({
     showEstimateGasAlert,
   ]);
 
+  const isShowStakeProgress =
+    !!amountValue && (isApprove || showStakeProgressRef.current[amountValue]);
   return (
     <StakingFormWrapper>
       <AmountInput
@@ -483,18 +492,24 @@ export function ApproveBaseStake({
         <Stack
           bg="$bgApp"
           flexDirection="column"
-          jc="space-between"
-          $gtMd={{ flexDirection: 'row', alignItems: 'center' }}
+          $gtMd={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            jc: 'space-between',
+          }}
         >
           <Stack pl="$5">
-            <StakeProgress
-              currentStep={
-                isDisable || isApprove
-                  ? EStakeProgressStep.approve
-                  : EStakeProgressStep.deposit
-              }
-            />
+            {isShowStakeProgress ? (
+              <StakeProgress
+                currentStep={
+                  isDisable || isApprove
+                    ? EStakeProgressStep.approve
+                    : EStakeProgressStep.deposit
+                }
+              />
+            ) : null}
           </Stack>
+
           <Page.FooterActions
             onConfirmText={onConfirmText}
             confirmButtonProps={{

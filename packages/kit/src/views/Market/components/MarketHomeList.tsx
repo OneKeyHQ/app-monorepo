@@ -245,7 +245,7 @@ function MarketMdColumn({
             },
             canStaking && {
               icon: 'CoinsOutline' as const,
-              label: intl.formatMessage({ id: ETranslations.earn_stake }),
+              label: intl.formatMessage({ id: ETranslations.global_earn }),
               onPress: () => {
                 defaultLogger.market.token.marketTokenAction({
                   tokenName: coingeckoId,
