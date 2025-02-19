@@ -162,7 +162,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
     if (
       parsedTx &&
-      unsignedTx.swapInfo &&
+      (unsignedTx.stakingInfo || unsignedTx.swapInfo) &&
       parsedTx?.type === EParseTxType.Unknown
     ) {
       parsedTx.display = null;
