@@ -5,6 +5,7 @@ import { isEmpty, uniqBy } from 'lodash';
 import { useMedia, useTabIsRefreshingFocused } from '@onekeyhq/components';
 import type { ITabPageProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
@@ -52,6 +53,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
+
+  const [settings] = useSettingsPersistAtom();
 
   const handleHistoryItemPress = useCallback(
     async (history: IAccountHistoryTx) => {
@@ -101,6 +104,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         accountId: account.id,
         networkId: network.id,
         isManualRefresh: isManualRefresh.current,
+        filterScam: settings.isFilterScamHistoryEnabled,
       });
 
       updateAllNetworksState({
@@ -126,7 +130,13 @@ function TxHistoryListContainer(props: ITabPageProps) {
       }
       isManualRefresh.current = false;
     },
-    [account, network, setIsHeaderRefreshing, updateAllNetworksState],
+    [
+      account,
+      network,
+      setIsHeaderRefreshing,
+      settings.isFilterScamHistoryEnabled,
+      updateAllNetworksState,
+    ],
     {
       overrideIsFocused: (isPageFocused) => isPageFocused && isFocused,
       debounced: POLLING_DEBOUNCE_INTERVAL,
@@ -140,6 +150,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
         await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({
           accountId,
           networkId,
+          filterScam: settings.isFilterScamHistoryEnabled,
         });
 
       if (!isEmpty(accountHistoryTxs)) {
@@ -161,7 +172,13 @@ function TxHistoryListContainer(props: ITabPageProps) {
     if (account?.id && network?.id && wallet?.id) {
       void initHistoryState(account.id, network.id);
     }
-  }, [account?.id, network?.id, updateSearchKey, wallet?.id]);
+  }, [
+    account?.id,
+    network?.id,
+    settings.isFilterScamHistoryEnabled,
+    updateSearchKey,
+    wallet?.id,
+  ]);
 
   useEffect(() => {
     if (isHeaderRefreshing) {
@@ -186,6 +203,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
     );
     appEventBus.on(EAppEventBusNames.AccountDataUpdate, refresh);
     appEventBus.on(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+    appEventBus.on(EAppEventBusNames.RefreshHistoryList, refresh);
 
     return () => {
       appEventBus.off(
@@ -194,6 +212,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
       );
       appEventBus.off(EAppEventBusNames.AccountDataUpdate, refresh);
       appEventBus.off(EAppEventBusNames.NetworkDeriveTypeChanged, refresh);
+      appEventBus.off(EAppEventBusNames.RefreshHistoryList, refresh);
     };
   }, [isFocused, run]);
 
