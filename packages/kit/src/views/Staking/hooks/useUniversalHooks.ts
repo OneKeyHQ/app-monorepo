@@ -72,6 +72,8 @@ export function useUniversalStake({
       term,
       feeRate,
       morphoVault,
+      usePermit2Approve,
+      permitSignature,
       provider,
       stakingInfo,
       onSuccess,
@@ -82,6 +84,8 @@ export function useUniversalStake({
       term?: number;
       feeRate?: number;
       morphoVault?: string;
+      usePermit2Approve?: boolean;
+      permitSignature?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -97,6 +101,8 @@ export function useUniversalStake({
           provider,
           feeRate,
           morphoVault,
+          usePermit2Approve,
+          permitSignature,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({

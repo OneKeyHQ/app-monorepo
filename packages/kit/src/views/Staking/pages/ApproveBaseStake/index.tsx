@@ -16,6 +16,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
 import { EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { ApproveBaseStake } from '../../components/ApproveBaseStake';
@@ -37,16 +38,16 @@ const BasicApproveBaseStakePage = () => {
 
   const handleStake = useUniversalStake({ accountId, networkId });
   const onConfirm = useCallback(
-    async (amount: string) => {
+    async (params: IApproveConfirmFnParams) => {
       await handleStake({
-        amount,
+        amount: params.amount,
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
             providerName: provider.name,
           }),
           protocolLogoURI: provider.logoURI,
-          send: { token: token.info, amount },
+          send: { token: token.info, amount: params.amount },
           tags: [actionTag],
         },
         symbol: token.info.symbol,
@@ -56,6 +57,8 @@ const BasicApproveBaseStakePage = () => {
         })
           ? provider.vault
           : undefined,
+        usePermit2Approve: params.usePermit2Approve,
+        permitSignature: params.permitSignature,
         onSuccess: () => {
           appNavigation.pop();
           defaultLogger.staking.page.staking({

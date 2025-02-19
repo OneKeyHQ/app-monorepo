@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -20,7 +20,10 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type {
+  IApproveConfirmFnParams,
   IEarnEstimateFeeResp,
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
@@ -68,7 +71,7 @@ type IApproveBaseStakeProps = {
 
   providerName?: string;
   providerLogo?: string;
-  onConfirm?: (amount: string) => Promise<void>;
+  onConfirm?: (params: IApproveConfirmFnParams) => Promise<void>;
 };
 
 type ITokenAnnualReward = {
@@ -184,49 +187,29 @@ export function ApproveBaseStake({
     );
   }, [amountValue, isInsufficientBalance, isLessThanMinAmount]);
 
-  const isApprove = useMemo(() => {
+  const usePermit2Approve =
+    details.provider?.approveType === EApproveType.Permit;
+  const [isFinishPermit2Approve, setIsFinishPermit2Approve] = useState(false);
+  const permitSignatureRef = useRef<string | undefined>(undefined);
+
+  const shouldApprove = useMemo(() => {
+    if (usePermit2Approve && !isFinishPermit2Approve) {
+      return true;
+    }
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
-  }, [amountValue, allowance]);
+  }, [amountValue, allowance, usePermit2Approve, isFinishPermit2Approve]);
 
   const onConfirmText = useMemo(() => {
-    if (isApprove) {
+    if (shouldApprove) {
       return intl.formatMessage(
         { id: ETranslations.form__approve_str },
         { amount: amountValue, symbol: token.symbol },
       );
     }
     return intl.formatMessage({ id: renderStakeText(details.provider.name) });
-  }, [isApprove, intl, details.provider.name, amountValue, token.symbol]);
-
-  const onApprove = useCallback(async () => {
-    setApproving(true);
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-    await navigationToTxConfirm({
-      approvesInfo: [
-        {
-          owner: account.address,
-          spender: approveTarget.spenderAddress,
-          amount: amountValue,
-          tokenInfo: approveTarget.token,
-        },
-      ],
-      onSuccess(data) {
-        trackAllowance(data[0].decodedTx.txid);
-        setApproving(false);
-      },
-      onFail() {
-        setApproving(false);
-      },
-      onCancel() {
-        setApproving(false);
-      },
-    });
-  }, [amountValue, approveTarget, navigationToTxConfirm, trackAllowance]);
+  }, [shouldApprove, intl, details.provider.name, amountValue, token.symbol]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -318,7 +301,12 @@ export function ApproveBaseStake({
   }, [estimateFeeResp?.feeFiatValue, totalAnnualRewardsFiatValue]);
 
   const onSubmit = useCallback(async () => {
-    const handleConfirm = () => onConfirm?.(amountValue);
+    const handleConfirm = () =>
+      onConfirm?.({
+        amount: amountValue,
+        usePermit2Approve,
+        permitSignature: permitSignatureRef.current,
+      });
     if (totalAnnualRewardsFiatValue && estimateFeeResp) {
       const daySpent = calcDaysSpent(
         totalAnnualRewardsFiatValue,
@@ -340,6 +328,86 @@ export function ApproveBaseStake({
     totalAnnualRewardsFiatValue,
     estimateFeeResp,
     showEstimateGasAlert,
+    usePermit2Approve,
+    permitSignatureRef,
+  ]);
+
+  const onApprove = useCallback(async () => {
+    setApproving(true);
+    permitSignatureRef.current = undefined;
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+
+    if (usePermit2Approve) {
+      if (isFinishPermit2Approve) {
+        console.log('isFinishPermit2Approve 1!###+++');
+        return;
+      }
+
+      console.log('not isFinishPermit2Approve 333 ===>>>');
+      const permit2Data =
+        await backgroundApiProxy.serviceStaking.buildPermit2ApproveSignData({
+          networkId: approveTarget.networkId,
+          provider: details.provider.name,
+          symbol: token.symbol,
+          accountAddress: account.address,
+          vault: details.provider.vault ?? '',
+          amount: new BigNumber(amountValue).toFixed(),
+        });
+      console.log('permit2Data: ', permit2Data);
+
+      const signHash =
+        (await backgroundApiProxy.serviceDApp.openSignMessageModal({
+          accountId: approveTarget.accountId,
+          networkId: approveTarget.networkId,
+          request: { origin: 'https://app.morpho.org/', scope: 'ethereum' },
+          unsignedMessage: {
+            type: EMessageTypesEth.TYPED_DATA_V4,
+            message: JSON.stringify(permit2Data),
+            payload: [account.address, JSON.stringify(permit2Data)],
+          },
+          walletInternalSign: true,
+        })) as string;
+
+      console.log('signHash: ', signHash);
+      permitSignatureRef.current = signHash;
+      void onSubmit();
+      return;
+    }
+
+    await navigationToTxConfirm({
+      approvesInfo: [
+        {
+          owner: account.address,
+          spender: approveTarget.spenderAddress,
+          amount: amountValue,
+          tokenInfo: approveTarget.token,
+        },
+      ],
+      onSuccess(data) {
+        trackAllowance(data[0].decodedTx.txid);
+        setApproving(false);
+      },
+      onFail() {
+        setApproving(false);
+      },
+      onCancel() {
+        setApproving(false);
+      },
+    });
+  }, [
+    amountValue,
+    approveTarget,
+    navigationToTxConfirm,
+    trackAllowance,
+    details.provider.name,
+    details.provider.vault,
+    token.symbol,
+    usePermit2Approve,
+    isFinishPermit2Approve,
+    onSubmit,
   ]);
 
   return (
@@ -492,7 +560,7 @@ export function ApproveBaseStake({
           <Stack pl="$5">
             <StakeProgress
               currentStep={
-                isApprove
+                shouldApprove
                   ? EStakeProgressStep.supply
                   : EStakeProgressStep.approve
               }
@@ -501,7 +569,7 @@ export function ApproveBaseStake({
           <Page.FooterActions
             onConfirmText={onConfirmText}
             confirmButtonProps={{
-              onPress: isApprove ? onApprove : onSubmit,
+              onPress: shouldApprove ? onApprove : onSubmit,
               loading: loading || loadingAllowance || approving,
               disabled: isDisable,
             }}

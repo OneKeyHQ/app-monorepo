@@ -28,6 +28,7 @@ import type {
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
+  IBuildPermit2ApproveSignDataParams,
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
@@ -38,6 +39,7 @@ import type {
   IEarnEstimateFeeResp,
   IEarnFAQList,
   IEarnInvestmentItem,
+  IEarnPermit2ApproveSignData,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
@@ -183,8 +185,16 @@ class ServiceStaking extends ServiceBase {
   async buildStakeTransaction(
     params: IStakeBaseParams,
   ): Promise<IStakeTxResponse> {
-    const { networkId, accountId, provider, symbol, morphoVault, ...rest } =
-      params;
+    const {
+      networkId,
+      accountId,
+      provider,
+      symbol,
+      morphoVault,
+      usePermit2Approve,
+      permitSignature,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -210,6 +220,7 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
+      permitSignature: usePermit2Approve ? permitSignature : undefined,
       ...rest,
     });
     return resp.data.data;
@@ -309,6 +320,35 @@ class ServiceStaking extends ServiceBase {
       rewardTokenAddress,
       ...rest,
     });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async buildPermit2ApproveSignData(
+    params: IBuildPermit2ApproveSignDataParams,
+  ) {
+    if (!params?.networkId) {
+      throw new Error('networkId is required');
+    }
+    if (!params?.provider) {
+      throw new Error('provider is required');
+    }
+    if (!params?.symbol) {
+      throw new Error('symbol is required');
+    }
+    if (!params?.accountAddress) {
+      throw new Error('accountAddress is required');
+    }
+    if (!params?.vault) {
+      throw new Error('vault is required');
+    }
+    if (!params?.amount) {
+      throw new Error('amount is required');
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{
+      data: IEarnPermit2ApproveSignData;
+    }>(`/earn/v1/permit-signature`, params);
     return resp.data.data;
   }
 
