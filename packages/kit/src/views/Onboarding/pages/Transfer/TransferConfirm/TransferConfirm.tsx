@@ -1,6 +1,7 @@
 import { useIntl } from 'react-intl';
 
-import { Page, SizableText, Stack } from '@onekeyhq/components';
+import { Page, SizableText, Stack, Toast } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import WalletList from '../components/WalletList';
@@ -9,6 +10,7 @@ import type { IWalletItem } from '../components/WalletItem';
 
 export function TransferConfirm() {
   const intl = useIntl();
+  const appNavigation = useAppNavigation();
 
   const selectedWallet: IWalletItem = {
     id: '1',
@@ -47,7 +49,17 @@ export function TransferConfirm() {
 
       <Page.Footer
         onConfirm={() => {
-          // Handle transfer confirmation
+          // Handle transfer confirmation logic here
+          console.log('Transfer confirmed for wallet:', selectedWallet);
+
+          // Show success toast
+          Toast.success({
+            title: 'Success',
+            message: 'Transfer successful!',
+          });
+
+          // Navigate away or close the page
+          appNavigation.pop();
         }}
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_transfer,

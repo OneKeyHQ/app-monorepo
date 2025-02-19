@@ -21,7 +21,7 @@ export function WalletList({
     isMultiSelect: boolean,
   ) => {
     if (currentWallet.id !== selectedWallet.id) {
-      return isMultiSelect ? currentWallet.selected : false;
+      return currentWallet.selected;
     }
     return isMultiSelect ? !currentWallet.selected : true;
   };
