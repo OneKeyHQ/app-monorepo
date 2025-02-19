@@ -30,6 +30,7 @@ import { CalculationList, CalculationListItem } from '../CalculationList';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import StakingFormWrapper from '../StakingFormWrapper';
+import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalWithdrawProps = {
   balance: string;
@@ -126,48 +127,16 @@ export const UniversalWithdraw = ({
   ).result;
 
   const onPress = useCallback(async () => {
-    Dialog.show({
-      renderIcon: <Image width="$14" height="$14" src={tokenImageUri ?? ''} />,
-      title: intl.formatMessage(
-        { id: ETranslations.earn_provider_asset_withdrawal },
-        {
-          'provider': capitalizeString(providerName ?? ''),
-          'asset': tokenSymbol?.toUpperCase() ?? '',
-        },
-      ),
-      description: isMorphoProvider
-        ? intl.formatMessage({
-            id: ETranslations.earn_withdrawal_processed_immediately,
-          })
-        : undefined,
-      renderContent: isMorphoProvider ? null : (
-        <WithdrawShouldUnderstand withdrawalPeriod={unstakingPeriod ?? 3} />
-      ),
-      onConfirm: async (inst) => {
-        try {
-          setLoading(true);
-          await inst.close();
-          await onConfirm?.({
-            amount: amountValue,
-            withdrawAll: withdrawAllRef.current,
-          });
-        } finally {
-          setLoading(false);
-        }
-      },
-      onConfirmText: intl.formatMessage({ id: ETranslations.global_withdraw }),
-      showCancelButton: false,
-    });
-  }, [
-    amountValue,
-    onConfirm,
-    intl,
-    tokenImageUri,
-    tokenSymbol,
-    providerName,
-    unstakingPeriod,
-    isMorphoProvider,
-  ]);
+    try {
+      setLoading(true);
+      await onConfirm?.({
+        amount: amountValue,
+        withdrawAll: withdrawAllRef.current,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [amountValue, onConfirm]);
 
   const [checkAmountMessage, setCheckoutAmountMessage] = useState('');
   const checkAmount = useDebouncedCallback(async (amount: string) => {
@@ -253,6 +222,11 @@ export const UniversalWithdraw = ({
 
   const editable = initialAmount === undefined;
 
+  const fiatValue = useMemo(
+    () => BigNumber(amountValue).multipliedBy(price).toFixed(),
+    [amountValue, price],
+  );
+
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
@@ -272,7 +246,7 @@ export const UniversalWithdraw = ({
           }}
           balanceProps={{
             value: balance,
-            iconText: intl.formatMessage({ id: ETranslations.earn_staked }),
+            iconText: intl.formatMessage({ id: ETranslations.earn_deposited }),
             onPress: onMax,
           }}
           valueProps={{
@@ -305,18 +279,17 @@ export const UniversalWithdraw = ({
       ) : null}
       <CalculationList>
         {amountValue && !hideReceived ? (
-          <CalculationListItem>
+          <CalculationListItem ai="flex-start">
             <CalculationListItem.Label>
               {intl.formatMessage({ id: ETranslations.earn_receive })}
             </CalculationListItem.Label>
             <CalculationListItem.Value>
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyLgMedium"
-                formatterOptions={{ tokenSymbol }}
-              >
-                {amountValue}
-              </NumberSizeableText>
+              <ValuePriceListItem
+                tokenSymbol={tokenSymbol ?? ''}
+                fiatSymbol={symbol}
+                amount={amountValue}
+                fiatValue={fiatValue}
+              />
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
@@ -397,7 +370,7 @@ export const UniversalWithdraw = ({
 
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
+          id: ETranslations.global_withdraw,
         })}
         confirmButtonProps={{
           onPress,

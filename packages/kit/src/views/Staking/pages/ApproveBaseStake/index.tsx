@@ -121,7 +121,7 @@ const BasicApproveBaseStakePage = () => {
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
-          { id: ETranslations.earn_stake_token },
+          { id: ETranslations.earn_earn_token },
           { 'token': token.info.symbol },
         )}
       />
@@ -134,7 +134,11 @@ const BasicApproveBaseStakePage = () => {
           minAmount={provider.minStakeAmount}
           decimals={token.info.decimals}
           onConfirm={onConfirm}
-          apr={Number(provider.apr) > 0 ? provider.apr : undefined}
+          apr={
+            Number(provider.aprWithoutFee) > 0
+              ? provider.aprWithoutFee
+              : undefined
+          }
           currentAllowance={currentAllowance}
           providerLogo={details.provider.logoURI}
           providerName={details.provider.name}

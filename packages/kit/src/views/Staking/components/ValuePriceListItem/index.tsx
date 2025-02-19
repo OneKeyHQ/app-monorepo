@@ -1,4 +1,4 @@
-import { NumberSizeableText, SizableText, XStack } from '@onekeyhq/components';
+import { NumberSizeableText, SizableText, Stack } from '@onekeyhq/components';
 
 export const ValuePriceListItem = ({
   amount,
@@ -11,23 +11,43 @@ export const ValuePriceListItem = ({
   fiatSymbol: string;
   fiatValue?: string;
 }) => (
-  <XStack gap="$1" maxWidth="$56" justifyContent="flex-end" flexWrap="wrap">
-    <XStack>
+  <Stack
+    gap="$1"
+    width="100%"
+    jc="flex-end"
+    ai="flex-end"
+    flexDirection="column"
+    $gtMd={{ flexDirection: 'row', ai: 'flex-start' }}
+  >
+    <SizableText
+      textAlign="right"
+      style={{
+        wordBreak: 'break-all',
+      }}
+    >
       <NumberSizeableText
         size="$bodyLgMedium"
+        textAlign="right"
         formatter="balance"
         formatterOptions={{ tokenSymbol }}
       >
         {amount}
       </NumberSizeableText>
-    </XStack>
-    <XStack maxWidth="$56">
+    </SizableText>
+    <SizableText
+      textAlign="right"
+      style={{
+        wordBreak: 'break-all',
+      }}
+    >
       {fiatValue ? (
-        <SizableText>
+        <SizableText color="$textSubdued" textAlign="right">
           (
           <NumberSizeableText
+            textAlign="right"
             size="$bodyLgMedium"
             formatter="value"
+            color="$textSubdued"
             formatterOptions={{ currency: fiatSymbol }}
           >
             {fiatValue}
@@ -35,6 +55,6 @@ export const ValuePriceListItem = ({
           )
         </SizableText>
       ) : null}
-    </XStack>
-  </XStack>
+    </SizableText>
+  </Stack>
 );

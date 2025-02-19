@@ -9,6 +9,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -74,7 +75,7 @@ function ProfitInfo({
         />
       ) : (
         <XStack flexWrap="wrap" m="$-5" p="$2">
-          {apr && Number(apr) > 0 ? (
+          {apys?.dailyNetApy && Number(apys.dailyNetApy) > 0 ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_rewards_percentage,
@@ -82,7 +83,7 @@ function ProfitInfo({
             >
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {`${apr}% ${rewardUnit}`}
+                  {`${formatApy(apys?.dailyNetApy)}% ${rewardUnit}`}
                 </SizableText>
                 {apys ? (
                   <Popover
@@ -192,7 +193,10 @@ export const ProfitSection = ({
     return null;
   }
   const props: IProfitInfoProps = {
-    apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
+    apr:
+      Number(details.provider?.aprWithoutFee) > 0
+        ? details.provider.aprWithoutFee
+        : undefined,
     apys: details.provider.apys,
     rewardAssets: details.rewardAssets,
     earningsIn24h: details.earnings24h,
