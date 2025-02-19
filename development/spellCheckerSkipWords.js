@@ -823,4 +823,6 @@ module.exports = [
   'Blockflow',
   'fet',
   'cex',
+  'hardfork',
+  'nist',
 ];
