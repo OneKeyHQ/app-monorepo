@@ -1,10 +1,13 @@
 import { ipcMain, shell } from 'electron';
 
-import type { IDesktopMainProcessDevOnlyApiParams } from '@onekeyhq/shared/types/desktop';
+import type {
+  IDesktopMainProcessDevOnlyApiParams,
+  IDesktopSubModuleInitParams,
+} from '@onekeyhq/shared/types/desktop';
 
 import { ipcMessageKeys } from './config';
 
-function init() {
+function init(initParams: IDesktopSubModuleInitParams) {
   ipcMain.on(
     ipcMessageKeys.APP_DEV_ONLY_API,
     (event, apiParams: IDesktopMainProcessDevOnlyApiParams) => {

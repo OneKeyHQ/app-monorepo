@@ -1,3 +1,4 @@
+import type { IListViewProps } from '../ListView/list';
 import type { StackStyle } from '@tamagui/web/types/types';
 import type {
   DragEndParams,
