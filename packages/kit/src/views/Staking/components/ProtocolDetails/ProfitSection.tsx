@@ -12,6 +12,7 @@ import {
 import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnRewardUnit,
   IEarnTokenItem,
@@ -38,6 +39,8 @@ type IProfitInfoProps = {
   earnPoints?: boolean;
   stakingTime?: number;
   nextLaunchLeft?: string;
+  providerName?: string;
+  poolFee?: string;
 };
 
 function ProfitInfo({
@@ -53,6 +56,8 @@ function ProfitInfo({
   stakingTime,
   earnPoints,
   rewardUnit,
+  providerName,
+  poolFee,
 }: IProfitInfoProps) {
   const intl = useIntl();
 
@@ -101,7 +106,17 @@ function ProfitInfo({
                       />
                     }
                     renderContent={
-                      <MorphoApy apys={apys} rewardAssets={rewardAssets} />
+                      <MorphoApy
+                        apys={apys}
+                        rewardAssets={rewardAssets}
+                        poolFee={
+                          earnUtils.isMorphoProvider({
+                            providerName,
+                          })
+                            ? poolFee
+                            : undefined
+                        }
+                      />
                     }
                     placement="top"
                   />
@@ -209,6 +224,8 @@ export const ProfitSection = ({
     stakingTime: details.provider.stakingTime,
     nextLaunchLeft: details.provider.nextLaunchLeft,
     rewardUnit: details.provider.rewardUnit,
+    providerName: details.provider.name,
+    poolFee: details.provider.poolFee,
   };
   return <ProfitInfo {...props} />;
 };
