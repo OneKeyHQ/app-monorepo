@@ -535,7 +535,7 @@ function SendDataInputContainer() {
               : tokenInfo?.address,
           });
 
-          await signatureConfirm.navigationToSignatureConfirm({
+          await signatureConfirm.navigationToTxConfirm({
             transfersInfo,
             sameModal: true,
             onSuccess,
@@ -760,7 +760,10 @@ function SendDataInputContainer() {
             if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
               form.setValue(
                 'amount',
-                valueBN.toFixed(tokenDetails?.info.decimals ?? 0),
+                valueBN.toFixed(
+                  tokenDetails?.info.decimals ?? 0,
+                  BigNumber.ROUND_FLOOR,
+                ),
               );
             }
           },

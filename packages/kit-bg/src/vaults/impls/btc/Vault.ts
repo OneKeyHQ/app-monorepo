@@ -426,22 +426,27 @@ export default class VaultBtc extends VaultBase {
     const utxoTo =
       outputs.length > 1
         ? (() => {
-            // filter non-change outputs first
-            const nonChangeOutputs = outputs.filter(
-              (output) => !output.payload?.isChange && output.address,
+            // filter non-change and non-inscription structure outputs first
+            const nonChangeAndInscriptionStructureOutputs = outputs.filter(
+              (output) =>
+                !output.payload?.isChange &&
+                output.address &&
+                !output.payload?.isInscriptionStructure,
             );
             // if filtered outputs is empty, return original outputs
-            return (nonChangeOutputs.length ? nonChangeOutputs : outputs).map(
-              (output) => ({
-                address: output.address,
-                balance: new BigNumber(output.value)
-                  .shiftedBy(-network.decimals)
-                  .toFixed(),
-                balanceValue: output.value,
-                symbol: network.symbol,
-                isMine: output.address === account.address,
-              }),
-            );
+            return (
+              nonChangeAndInscriptionStructureOutputs.length
+                ? nonChangeAndInscriptionStructureOutputs
+                : outputs
+            ).map((output) => ({
+              address: output.address,
+              balance: new BigNumber(output.value)
+                .shiftedBy(-network.decimals)
+                .toFixed(),
+              balanceValue: output.value,
+              symbol: network.symbol,
+              isMine: output.address === account.address,
+            }));
           })()
         : outputs.map((output) => ({
             address: output.address,
@@ -1074,23 +1079,18 @@ export default class VaultBtc extends VaultBase {
   async collectTxsByApi(txids: string[]): Promise<{
     [txid: string]: string; // rawTx string
   }> {
-    try {
-      const lookup: {
-        [txid: string]: string; // rawTx string
-      } = {};
+    const lookup: {
+      [txid: string]: string; // rawTx string
+    } = {};
 
-      const txs = await this.backgroundApi.serviceSend.getRawTransactions({
-        networkId: this.networkId,
-        txids,
-      });
+    const txs = await this.backgroundApi.serviceSend.getRawTransactions({
+      networkId: this.networkId,
+      txids,
+    });
 
-      Object.keys(txs).forEach((txid) => (lookup[txid] = txs[txid].rawTx));
+    Object.keys(txs).forEach((txid) => (lookup[txid] = txs[txid].rawTx));
 
-      return lookup;
-    } catch (e) {
-      console.error(e);
-      throw new OneKeyInternalError('Failed to get raw transactions.');
-    }
+    return lookup;
   }
 
   _collectUTXOsInfoByApi = memoizee(

@@ -99,7 +99,7 @@ export function ApproveBaseStake({
 }: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
-  const { navigationToSignatureConfirm } = useSignatureConfirm({
+  const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
   });
@@ -205,7 +205,7 @@ export function ApproveBaseStake({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
-    await navigationToSignatureConfirm({
+    await navigationToTxConfirm({
       approvesInfo: [
         {
           owner: account.address,
@@ -225,12 +225,7 @@ export function ApproveBaseStake({
         setApproving(false);
       },
     });
-  }, [
-    amountValue,
-    approveTarget,
-    navigationToSignatureConfirm,
-    trackAllowance,
-  ]);
+  }, [amountValue, approveTarget, navigationToTxConfirm, trackAllowance]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
