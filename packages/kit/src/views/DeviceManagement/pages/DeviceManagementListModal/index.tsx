@@ -35,13 +35,19 @@ function DeviceManagementListModal() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
   const { result: hwQrWalletList = [], run: refreshHwQrWalletList } =
-    usePromiseResult<Array<IHwQrWalletWithDevice>>(async () => {
-      const r =
-        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
-      return Object.values(r).filter((item): item is IHwQrWalletWithDevice =>
-        Boolean(item.device),
-      );
-    }, []);
+    usePromiseResult<Array<IHwQrWalletWithDevice>>(
+      async () => {
+        const r =
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+        return Object.values(r).filter((item): item is IHwQrWalletWithDevice =>
+          Boolean(item.device),
+        );
+      },
+      [],
+      {
+        checkIsFocused: false,
+      },
+    );
 
   useEffect(() => {
     const fn = () => {
@@ -147,7 +153,6 @@ function DeviceManagementListModal() {
           px="$5"
           justifyContent="center"
           alignItems="center"
-          bg="$bg"
         >
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({

@@ -12,6 +12,8 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -23,11 +25,14 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 import { useAppUpdateInfo } from '../components/UpdateReminder/hooks';
 import useAppNavigation from '../hooks/useAppNavigation';
 import { useOnLock } from '../views/Setting/pages/List/DefaultSection';
+
+import type { IntlShape } from 'react-intl';
 
 const useOnLockCallback = platformEnv.isDesktop
   ? useOnLock
@@ -220,9 +225,97 @@ export const useFetchCurrencyList = () => {
   }, []);
 };
 
+const launchFloatingIconEvent = async (intl: IntlShape) => {
+  const visited = await backgroundApiProxy.serviceSpotlight.isFirstVisitTour(
+    ESpotlightTour.showFloatingIconDialog,
+  );
+  if (!visited) {
+    const isShowFloatingButton =
+      await backgroundApiProxy.serviceSetting.isShowFloatingButton();
+    const launchTimesLastReset =
+      await backgroundApiProxy.serviceApp.getLaunchTimesLastReset();
+    if (!isShowFloatingButton && launchTimesLastReset === 5) {
+      Dialog.show({
+        title: '',
+        showExitButton: false,
+        renderContent: (
+          <YStack gap="$4">
+            <Image
+              borderRadius="$3"
+              $md={{
+                h: '$40',
+              }}
+              $gtMd={{
+                w: 360,
+                h: 163,
+              }}
+              source={require('@onekeyhq/kit/assets/floating_icon_placeholder.png')}
+            />
+            <YStack gap="$1">
+              <SizableText size="$headingLg">
+                {intl.formatMessage({
+                  id: ETranslations.setting_introducing_floating_icon,
+                })}
+              </SizableText>
+              <SizableText size="$bodyLg" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.setting_floating_icon_always_display_description,
+                })}
+              </SizableText>
+            </YStack>
+          </YStack>
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_enable,
+        }),
+        onConfirm: async () => {
+          await backgroundApiProxy.serviceSpotlight.firstVisitTour(
+            ESpotlightTour.showFloatingIconDialog,
+          );
+        },
+        onCancelText: intl.formatMessage({
+          id: ETranslations.global_close,
+        }),
+        onCancel: async () => {
+          await backgroundApiProxy.serviceSpotlight.firstVisitTour(
+            ESpotlightTour.showFloatingIconDialog,
+          );
+        },
+      });
+    }
+  }
+};
+
+export const useLaunchEvents = (): void => {
+  const intl = useIntl();
+  const [isLocked] = useAppIsLockedAtom();
+  const hasLaunchEventsExecutedRef = useRef(false);
+  useEffect(() => {
+    if (isLocked || hasLaunchEventsExecutedRef.current) {
+      return;
+    }
+    void backgroundApiProxy.serviceAppUpdate
+      .getUpdateStatus()
+      .then((updateStatus: EAppUpdateStatus) => {
+        if (updateStatus === EAppUpdateStatus.ready) {
+          return;
+        }
+        hasLaunchEventsExecutedRef.current = true;
+        setTimeout(async () => {
+          await backgroundApiProxy.serviceApp.updateLaunchTimes();
+          if (platformEnv.isExtension) {
+            await launchFloatingIconEvent(intl);
+          }
+        }, 250);
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLocked]);
+};
+
 export function Bootstrap() {
   useFetchCurrencyList();
   useAboutVersion();
   useDesktopEvents();
+  useLaunchEvents();
   return null;
 }

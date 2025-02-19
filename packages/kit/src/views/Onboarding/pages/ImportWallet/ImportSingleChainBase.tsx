@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { trim } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type { IFormMode, IReValidateMode } from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -73,19 +74,25 @@ export function ImportSingleChainBase({
     activeAccount: { network },
   } = useAccountSelectorTrigger({ num: 0 });
   const { onPasteClearText } = useClipboard();
-  const form = useForm<IFormValues>({
-    values: {
-      networkId:
-        network?.id && network.id !== getNetworkIdsMap().onekeyall
-          ? network?.id
-          : getNetworkIdsMap().btc,
-      input: '',
-      deriveType: undefined,
-      accountName: '',
-    },
-    mode: 'onChange',
-    reValidateMode: 'onBlur',
-  });
+
+  const formOptions = useMemo(
+    () => ({
+      values: {
+        networkId:
+          network?.id && network.id !== getNetworkIdsMap().onekeyall
+            ? network?.id
+            : getNetworkIdsMap().btc,
+        input: '',
+        deriveType: undefined,
+        accountName: '',
+      },
+      mode: 'onChange' as IFormMode,
+      reValidateMode: 'onBlur' as IReValidateMode,
+      onSubmit: onConfirm,
+    }),
+    [network?.id, onConfirm],
+  );
+  const form = useForm<IFormValues>(formOptions);
 
   const { setValue, control } = form;
   const [validateResult, setValidateResult] = useState<
@@ -276,7 +283,7 @@ export function ImportSingleChainBase({
             !validateResult?.isValid ||
             !!Object.values(form.formState.errors).length,
         }}
-        onConfirm={async () => onConfirm(form)}
+        onConfirm={form.submit}
       />
     </Page>
   );

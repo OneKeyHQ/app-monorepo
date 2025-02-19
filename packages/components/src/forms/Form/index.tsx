@@ -1,20 +1,22 @@
-import type {
-  ComponentType,
-  PropsWithChildren,
-  ReactElement,
-  ReactNode,
-} from 'react';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
 import { Children, cloneElement, isValidElement, useCallback } from 'react';
 
-import { noop } from 'lodash';
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { Fieldset, Form as TMForm, withStaticProperties } from 'tamagui';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HeightTransition } from '../../content';
-import { Label, SizableText, Stack, XStack, YStack } from '../../primitives';
+import {
+  Button,
+  Label,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '../../primitives';
 import { Input } from '../Input';
 import { TextArea, TextAreaInput } from '../TextArea';
 
@@ -24,15 +26,32 @@ import type { ControllerRenderProps, UseFormReturn } from 'react-hook-form';
 import type { GetProps } from 'tamagui';
 
 export type IFormProps = IPropsWithTestId<{
-  form: UseFormReturn<any>;
-  header?: React.ReactNode;
+  form: UseFormReturn<any> & {
+    submit?: () => void;
+  };
+  header?: ReactNode;
 }>;
+
+function HiddenSubmit() {
+  return platformEnv.isNative ? null : (
+    <TMForm.Trigger asChild>
+      <Button
+        testID="form-submit-button"
+        type="submit"
+        opacity={0}
+        position="absolute"
+        pointerEvents="none"
+      />
+    </TMForm.Trigger>
+  );
+}
 
 export function FormWrapper({ form: formContext, children }: IFormProps) {
   return (
     <FormProvider {...formContext}>
-      <TMForm onSubmit={noop}>
+      <TMForm onSubmit={formContext.submit} position="relative">
         <YStack gap="$5">{children}</YStack>
+        {formContext.submit ? <HiddenSubmit /> : null}
       </TMForm>
     </FormProvider>
   );

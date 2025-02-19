@@ -2,6 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type {
+  IFormMode,
+  IReValidateMode,
+  UseFormReturn,
+} from '@onekeyhq/components';
 import {
   Form,
   Icon,
@@ -10,6 +15,7 @@ import {
   SegmentControl,
   SizableText,
   Stack,
+  Toast,
   useClipboard,
   useForm,
   useFormWatch,
@@ -45,8 +51,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IGeneralInputValidation } from '@onekeyhq/shared/types/address';
 
 import { Tutorials } from '../../components';
-
-import importWalletUiUtils from './importWalletUiUtils';
 
 type IFormValues = {
   networkId?: string;
@@ -159,20 +163,30 @@ function ImportAddress() {
     activeAccount: { network },
   } = useAccountSelectorTrigger({ num: 0 });
   const { onPasteClearText } = useClipboard();
-  const form = useForm<IFormValues>({
-    values: {
-      networkId:
-        network?.id && network.id !== getNetworkIdsMap().onekeyall
-          ? network?.id
-          : getNetworkIdsMap().btc,
-      deriveType: undefined,
-      publicKeyValue: '',
-      addressValue: { raw: '', resolved: undefined },
-      accountName: '',
-    },
-    mode: 'onChange',
-    reValidateMode: 'onBlur',
-  });
+  const onSubmitRef = useRef<
+    ((formContext: UseFormReturn<IFormValues>) => Promise<void>) | null
+  >(null);
+  const formOptions = useMemo(
+    () => ({
+      values: {
+        networkId:
+          network?.id && network.id !== getNetworkIdsMap().onekeyall
+            ? network?.id
+            : getNetworkIdsMap().btc,
+        deriveType: undefined,
+        publicKeyValue: '',
+        addressValue: { raw: '', resolved: undefined },
+        accountName: '',
+      },
+      mode: 'onChange' as IFormMode,
+      reValidateMode: 'onBlur' as IReValidateMode,
+      onSubmit: async (formContext: UseFormReturn<IFormValues>) => {
+        await onSubmitRef.current?.(formContext);
+      },
+    }),
+    [network?.id],
+  );
+  const form = useForm<IFormValues>(formOptions);
 
   const { setValue, control } = form;
   const [validateResult, setValidateResult] = useState<
@@ -281,6 +295,55 @@ function ImportAddress() {
   const isPublicKeyImport = useMemo(
     () => method === EImportMethod.PublicKey && isKeyExportEnabled,
     [method, isKeyExportEnabled],
+  );
+
+  onSubmitRef.current = useCallback(
+    async (formContext: UseFormReturn<IFormValues>) => {
+      const values = formContext.getValues();
+      const data: {
+        name?: string;
+        input: string;
+        networkId: string;
+        deriveType?: IAccountDeriveTypes;
+        shouldCheckDuplicateName?: boolean;
+      } = isPublicKeyImport
+        ? {
+            name: values.accountName,
+            input: values.publicKeyValue ?? '',
+            networkId: values.networkId ?? '',
+            deriveType: values.deriveType,
+            shouldCheckDuplicateName: true,
+          }
+        : {
+            name: values.accountName,
+            input: values.addressValue.resolved ?? '',
+            networkId: values.networkId ?? '',
+            shouldCheckDuplicateName: true,
+          };
+      const r = await backgroundApiProxy.serviceAccount.addWatchingAccount(
+        data,
+      );
+
+      const accountId = r?.accounts?.[0]?.id;
+      if (accountId) {
+        Toast.success({
+          title: intl.formatMessage({ id: ETranslations.global_success }),
+        });
+      }
+
+      void actions.current.updateSelectedAccountForSingletonAccount({
+        num: 0,
+        networkId: values.networkId,
+        walletId: WALLET_TYPE_WATCHING,
+        othersWalletAccountId: accountId,
+      });
+      navigation.popStack();
+
+      defaultLogger.account.wallet.importWallet({
+        importMethod: 'address',
+      });
+    },
+    [actions, intl, isPublicKeyImport, navigation],
   );
 
   return (
@@ -434,51 +497,7 @@ function ImportAddress() {
         confirmButtonProps={{
           disabled: !isEnable,
         }}
-        onConfirm={async () => {
-          await form.handleSubmit(async (values) => {
-            const data: {
-              name?: string;
-              input: string;
-              networkId: string;
-              deriveType?: IAccountDeriveTypes;
-              shouldCheckDuplicateName?: boolean;
-            } = isPublicKeyImport
-              ? {
-                  name: values.accountName,
-                  input: values.publicKeyValue ?? '',
-                  networkId: values.networkId ?? '',
-                  deriveType: values.deriveType,
-                  shouldCheckDuplicateName: true,
-                }
-              : {
-                  name: values.accountName,
-                  input: values.addressValue.resolved ?? '',
-                  networkId: values.networkId ?? '',
-                  shouldCheckDuplicateName: true,
-                };
-            const r =
-              await backgroundApiProxy.serviceAccount.addWatchingAccount(data);
-
-            const accountId = r?.accounts?.[0]?.id;
-
-            importWalletUiUtils.toastSuccessWhenImportAddressOrPrivateKey({
-              isOverrideAccounts: r?.isOverrideAccounts,
-              accountId,
-            });
-
-            void actions.current.updateSelectedAccountForSingletonAccount({
-              num: 0,
-              networkId: values.networkId,
-              walletId: WALLET_TYPE_WATCHING,
-              othersWalletAccountId: accountId,
-            });
-            navigation.popStack();
-
-            defaultLogger.account.wallet.importWallet({
-              importMethod: 'address',
-            });
-          })();
-        }}
+        onConfirm={form.submit}
       />
     </Page>
   );

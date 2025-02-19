@@ -16,6 +16,9 @@ const hwSignTransaction = async (...args: any[]) =>
 const txToOneKey = async (...args: any[]) =>
   appGlobals.$offscreenApiProxy.adaSdk.txToOneKey(...args);
 
+const hasSetTagWithBody = async (...args: any[]) =>
+  appGlobals.$offscreenApiProxy.adaSdk.hasSetTagWithBody(...args);
+
 const dAppGetBalance = async (...args: any[]) =>
   appGlobals.$offscreenApiProxy.adaSdk.dAppGetBalance(...args);
 
@@ -37,6 +40,7 @@ const getCardanoApi: IGetCardanoApi = async () =>
     signTransaction,
     hwSignTransaction,
     txToOneKey,
+    hasSetTagWithBody,
     dAppGetBalance,
     dAppGetAddresses,
     dAppGetUtxos,
