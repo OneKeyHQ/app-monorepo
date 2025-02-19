@@ -174,7 +174,7 @@ export const ProviderSection = ({
     providerProps.validator = {
       name: details.provider.name,
       link: details.provider.website,
-      vaultName: details.provider.vault,
+      vaultName: details.provider.vaultName,
       vaultLink: details.provider.url,
       isProtocol: details.provider.name.toLowerCase() !== 'everstake',
     };
