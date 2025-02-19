@@ -554,6 +554,7 @@
   earn_update_frequency = 'earn.update_frequency',
   earn_updated_daily = 'earn.updated_daily',
   earn_validator = 'earn.validator',
+  earn_vault = 'earn.vault',
   earn_wallet_not_support_stake = 'earn.wallet_not_support_stake',
   earn_weekly = 'earn.weekly',
   earn_what_is_lending = 'earn.what_is_lending',
