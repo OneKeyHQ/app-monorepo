@@ -1,7 +1,9 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+import { BundlerAction } from '@morpho-org/bundler-sdk-ethers';
 import BigNumber from 'bignumber.js';
+import { ethers } from 'ethersV6';
 import { useIntl } from 'react-intl';
 
 import {
@@ -372,7 +374,15 @@ export function ApproveBaseStake({
         })) as string;
 
       console.log('signHash: ', signHash);
-      permitSignatureRef.current = signHash;
+      const permitBundlerAction = BundlerAction.permit(
+        permit2Data.domain.verifyingContract,
+        permit2Data.message.value,
+        permit2Data.message.deadline,
+        // @ts-expect-error
+        ethers.Signature.from(signHash),
+        true,
+      );
+      permitSignatureRef.current = permitBundlerAction;
       void onSubmit();
       return;
     }
