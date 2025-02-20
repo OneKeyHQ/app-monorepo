@@ -11,7 +11,7 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useBackupEntryStatus } from './useBackupEntryStatus';
 
-function useBackupToggleAction() {
+export function useBackupToggleAction() {
   const backupEntryStatus = useBackupEntryStatus();
   const toggle = useCallback(
     async (willIsEnabled: boolean, callback?: (isEnabled: boolean) => void) => {
