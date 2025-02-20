@@ -68,6 +68,7 @@ export const useHandleClaim = ({
           provider,
           stakingInfo,
           claimTokenAddress,
+          vault: details.provider.vault || '',
         });
         return;
       }
