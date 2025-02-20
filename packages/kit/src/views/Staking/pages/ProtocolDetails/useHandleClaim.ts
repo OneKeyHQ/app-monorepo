@@ -92,6 +92,7 @@ export const useHandleClaim = ({
               provider,
               stakingInfo,
               claimTokenAddress,
+              morphoVault: details.provider.vault,
               vault: details.provider.vault || '',
             });
           },
