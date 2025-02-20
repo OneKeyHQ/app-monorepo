@@ -7,10 +7,10 @@ import {
   MAX_ORPHAN_TX_MASS,
   SignatureType,
   SigningMethodType,
-  createKRC20RevealTx,
   publicKeyFromX,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import sdkWasm from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -41,8 +41,6 @@ import type {
   AllNetworkAddressParams,
   KaspaSignTransactionParams,
 } from '@onekeyfe/hd-core';
-import type { IScriptPublicKey, ITransactionInput } from '@onekeyfe/kaspa-wasm';
-import sdkWasm from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.kaspa.hd;
@@ -143,41 +141,14 @@ export class KeyringHardware extends KeyringHardwareBase {
         throw new Error('commitScriptHex is required');
       }
       const api = await sdkWasm.getKaspaApi();
-      const ScriptBuilder = await api.ScriptBuilder();
       const network = await this.getNetwork();
-      const revealTx = await createKRC20RevealTx({
-        unsignedTx,
+      const unSignTx = await api.buildUnsignedTxForHardware({
+        encodedTx,
         isTestnet: !!network.isTestnet,
         accountAddress: dbAccount.address,
+        path: dbAccount.path,
+        chainId,
       });
-
-      const unSignTx: KaspaSignTransactionParams = {
-        version: revealTx.transaction.version,
-        inputs: revealTx.transaction.inputs.map((input: ITransactionInput) => ({
-          path: dbAccount.path,
-          prevTxId: input.previousOutpoint?.transactionId,
-          outputIndex: input.previousOutpoint?.index,
-          sequenceNumber: input.sequence.toString(),
-          output: {
-            satoshis: input.utxo?.amount.toString() ?? '',
-            script: input.utxo?.scriptPublicKey.script ?? '',
-          },
-          sigOpCount: input.sigOpCount,
-        })),
-        outputs: revealTx.transaction.outputs.map((output) => ({
-          satoshis: output.value.toString(),
-          script:
-            typeof output.scriptPublicKey === 'string'
-              ? output.scriptPublicKey
-              : (output.scriptPublicKey as IScriptPublicKey).script,
-          scriptVersion: 0,
-        })),
-        lockTime: revealTx.transaction.lockTime.toString(),
-        sigHashType: SignatureType.SIGHASH_ALL,
-        sigOpCount: 1,
-        scheme: EKaspaSignType.Schnorr,
-        prefix: chainId,
-      };
 
       const response = await sdk.kaspaSignTransaction(connectId, deviceId, {
         ...params.deviceParams?.deviceCommonParams,
@@ -186,27 +157,17 @@ export class KeyringHardware extends KeyringHardwareBase {
 
       if (response.success) {
         const signatures = response.payload;
-        const ourOutput = revealTx.transaction.inputs.findIndex(
-          (i) => i.signatureScript === '',
-        );
 
-        if (ourOutput !== -1) {
-          const script = ScriptBuilder.fromScript(encodedTx.commitScriptHex);
-          const signature = Script.buildPublicKeyIn(
-            Buffer.from(signatures[0].signature, 'hex'),
-            SignatureType.SIGHASH_ALL,
-          )
-            .toBuffer()
-            .toString('hex');
-          revealTx.fillInput(
-            ourOutput,
-            script.encodePayToScriptHashSignatureScript(signature),
-          );
-        }
+        const rawTx = await api.signRevealTransactionHardware({
+          accountAddress: dbAccount.address,
+          encodedTx,
+          isTestnet: !!network.isTestnet,
+          signatures,
+        });
 
         return {
           txid: '',
-          rawTx: revealTx.transaction.serializeToSafeJSON(),
+          rawTx,
           encodedTx,
         };
       }

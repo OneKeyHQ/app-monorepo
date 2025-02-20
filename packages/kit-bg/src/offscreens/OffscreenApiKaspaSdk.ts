@@ -1,106 +1,34 @@
 import kaspaWebSdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk/kaspaWebSdk';
 import type { IKaspaSdkApi } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/types/sdk';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 export default class OffscreenApiKaspaSdk implements IKaspaSdkApi {
-  async sayHello() {
-    await timerUtils.wait(3000);
-    return 'Hello World: OffscreenApiKaspaSdk';
-  }
-
-  async addressFromScriptPublicKey(...args: any[]) {
+  async createKRC20RevealTxJSON(...args: any[]) {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
-    return api.addressFromScriptPublicKey(...args);
+    return api.createKRC20RevealTxJSON(...args);
   }
 
-  async createTransaction(...args: any[]) {
+  async buildCommitTxInfo(...args: any[]) {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
-    return api.createTransaction(...args);
+    return api.buildCommitTxInfo(...args);
   }
 
-  async createTransactions(...args: any[]) {
+  async signRevealTransactionSoftware(...args: any[]) {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
-    return api.createTransactions(...args);
+    return api.signRevealTransactionSoftware(...args);
   }
 
-  async calculateTransactionFee(...args: any[]) {
+  async signRevealTransactionHardware(...args: any[]) {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
-    return api.calculateTransactionFee(...args);
+    return api.signRevealTransactionHardware(...args);
   }
 
-  async calculateTransactionMass(...args: any[]) {
+  async buildUnsignedTxForHardware(...args: any[]) {
     const api = await kaspaWebSdk.getKaspaApi();
     // @ts-ignore
-    return api.calculateTransactionMass(...args);
-  }
-
-  async kaspaToSompi(...args: any[]) {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.kaspaToSompi(...args);
-  }
-
-  async ScriptBuilder() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.ScriptBuilder();
-  }
-
-  async Opcodes() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.Opcodes();
-  }
-
-  async NetworkType() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.NetworkType();
-  }
-
-  async XOnlyPublicKey() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.XOnlyPublicKey();
-  }
-
-  async Address() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.Address();
-  }
-
-  async PrivateKey() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.PrivateKey();
-  }
-
-  async RpcClient() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.RpcClient();
-  }
-
-  async Encoding() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.Encoding();
-  }
-
-  async Resolver() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.Resolver();
-  }
-
-  async Transaction() {
-    const api = await kaspaWebSdk.getKaspaApi();
-    // @ts-ignore
-    return api.Transaction();
+    return api.buildUnsignedTxForHardware(...args);
   }
 }

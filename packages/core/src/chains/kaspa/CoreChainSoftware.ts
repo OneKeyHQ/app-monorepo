@@ -94,50 +94,27 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
     if (unsignedTx.isKRC20RevealTx) {
       const api = await sdk.getKaspaApi();
-      const PrivateKeyWasm = await api.PrivateKey();
-      const ScriptBuilder = await api.ScriptBuilder();
 
       if (!encodedTx.commitScriptHex) {
         throw new Error('commitScriptHex is required');
       }
 
-      const script = ScriptBuilder.fromScript(encodedTx.commitScriptHex);
-
-      const revealTx = await createKRC20RevealTx({
-        unsignedTx,
-        isTestnet: !!isTestnet,
-        accountAddress: account.address,
-      });
       const tweakedPrivateKey = getTweakedPrivateKey(
         await signer.getPrvkey(),
         await signer.getPubkey(true),
       );
 
-      const privateKey = new PrivateKeyWasm(tweakedPrivateKey);
-
-      revealTx.sign([privateKey], false);
-
-      const ourOutput = revealTx.transaction.inputs.findIndex(
-        (i) => i.signatureScript === '',
-      );
-
-      let signature: string | undefined;
-
-      if (ourOutput !== -1) {
-        signature = revealTx.createInputSignature(ourOutput, privateKey);
-        revealTx.fillInput(
-          ourOutput,
-          script.encodePayToScriptHashSignatureScript(signature),
-        );
-      }
-
-      console.log('revealTx', revealTx.transaction.serializeToSafeJSON());
-      debugger;
+      const rawTx = await api.signRevealTransactionSoftware({
+        accountAddress: account.address,
+        encodedTx,
+        isTestnet: !!isTestnet,
+        tweakedPrivateKey,
+      });
 
       return {
         encodedTx: unsignedTx.encodedTx,
         txid: '',
-        rawTx: revealTx.transaction.serializeToSafeJSON(),
+        rawTx,
       };
     }
 

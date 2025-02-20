@@ -11,7 +11,6 @@ import {
   MAX_ORPHAN_TX_MASS,
   MAX_UTXO_SIZE,
   UnspentOutput,
-  createKRC20RevealTx,
   isValidAddress,
   privateKeyFromWIF,
   selectUTXOs,
@@ -787,43 +786,24 @@ export default class Vault extends VaultBase {
   }) {
     const api = await sdk.getKaspaApi();
 
-    const ScriptBuilder = await api.ScriptBuilder();
-    const Opcodes = await api.Opcodes();
-    const XOnlyPublicKey = await api.XOnlyPublicKey();
-    const Address = await api.Address();
-    const NetworkType = await api.NetworkType();
-
+    const network = await this.getNetwork();
     const account = await this.getAccount();
 
-    const xOnlyPublicKey = XOnlyPublicKey.fromAddress(
-      new Address(account.address),
-    );
     const transferData = this._createKRC20TransferData({
       tokenInfo,
       amount,
       to,
     });
 
-    const script = new ScriptBuilder()
-      .addData(xOnlyPublicKey.toString())
-      .addOp(Opcodes.OpCheckSig)
-      .addOp(Opcodes.OpFalse)
-      .addOp(Opcodes.OpIf)
-      .addData(new Uint8Array(Buffer.from('kasplex')))
-      .addI64(0n)
-      .addData(
-        new Uint8Array(Buffer.from(JSON.stringify(transferData, null, 0))),
-      )
-      .addOp(Opcodes.OpEndIf);
+    const { commitScriptPubKey, commitAddress, commitScriptHex } =
+      await api.buildCommitTxInfo({
+        accountAddress: account.address,
+        transferDataString: JSON.stringify(transferData, null, 0),
+        isTestnet: network.isTestnet,
+      });
 
-    const scriptPublicKey = script.createPayToScriptHashScript();
-    const P2SHAddress = await api.addressFromScriptPublicKey(
-      scriptPublicKey,
-      NetworkType.Mainnet,
-    );
-
-    if (!P2SHAddress) {
-      throw new Error('Invalid P2SH address');
+    if (!commitAddress) {
+      throw new Error('Invalid P2SH commitAddress address');
     }
 
     const encodedTx: IEncodedTxKaspa = await this.prepareAndBuildTx({
@@ -831,15 +811,15 @@ export default class Vault extends VaultBase {
       transferInfo: {
         from: '',
         amount: BASE_KAS_TO_P2SH_ADDRESS,
-        to: P2SHAddress.toString(),
+        to: commitAddress,
       },
       priority,
       specifiedFeeRate,
     });
 
-    encodedTx.commitScriptPubKey = scriptPublicKey.script;
-    encodedTx.commitAddress = P2SHAddress.toString();
-    encodedTx.commitScriptHex = script.toString();
+    encodedTx.commitScriptPubKey = commitScriptPubKey;
+    encodedTx.commitAddress = commitAddress;
+    encodedTx.commitScriptHex = commitScriptHex;
     encodedTx.changeAddress = account.address;
 
     return encodedTx;
