@@ -84,6 +84,7 @@ export enum EAppEventBusNames {
   TokenListUpdate = 'TokenListUpdate',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
+  RefreshHistoryList = 'RefreshHistoryList',
   AccountDataUpdate = 'AccountDataUpdate',
   onDragBeginInListView = 'onDragBeginInListView',
   onDragEndInListView = 'onDragEndInListView',
@@ -239,6 +240,7 @@ export interface IAppEventBusPayload {
           networkId: string;
         }[];
       };
+  [EAppEventBusNames.RefreshHistoryList]: undefined;
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;

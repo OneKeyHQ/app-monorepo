@@ -467,6 +467,7 @@ function TxActionTransferListView(props: ITxActionProps) {
       status={decodedTx.status}
       networkId={networkId}
       networkLogoURI={networkLogoURI}
+      riskyLevel={decodedTx.riskyLevel}
       {...componentProps}
     />
   );
