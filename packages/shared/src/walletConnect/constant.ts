@@ -195,3 +195,10 @@ export const supportEventsMap: Record<INamespaceUnion, string[]> = {
 };
 
 export const WalletConnectAccountSelectorNumStartAt = 1000;
+
+export const TX_RISKY_LEVEL_UNKNOWN = 0;
+export const TX_RISKY_LEVEL_BENIGN = 1;
+export const TX_RISKY_LEVEL_WARNING = 2;
+export const TX_RISKY_LEVEL_SPAM = 1000;
+export const TX_RISKY_LEVEL_MALICIOUS = 1001;
+export const TX_RISKY_LEVEL_SCAM = 1002;

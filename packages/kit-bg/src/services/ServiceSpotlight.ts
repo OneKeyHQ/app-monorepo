@@ -15,6 +15,20 @@ class ServiceSpotlight extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async isFirstVisitTour(tourName: ESpotlightTour) {
+    const { data } = await spotlightPersistAtom.get();
+    return data[tourName] > 0;
+  }
+
+  @backgroundMethod()
+  public async firstVisitTour(tourName: ESpotlightTour) {
+    await this.updateTourTimes({
+      tourName,
+      manualTimes: 1,
+    });
+  }
+
+  @backgroundMethod()
   public async updateTourTimes(params: {
     tourName: ESpotlightTour;
     manualTimes?: number;
@@ -41,6 +55,7 @@ class ServiceSpotlight extends ServiceBase {
         [ESpotlightTour.oneKeyProBanner]: 0,
         [ESpotlightTour.switchDappAccount]: 0,
         [ESpotlightTour.allNetworkAccountValue]: 0,
+        [ESpotlightTour.showFloatingIconDialog]: 0,
       },
     });
   }

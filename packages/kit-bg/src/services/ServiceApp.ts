@@ -28,6 +28,7 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import localDb from '../dbs/local/localDb';
+import simpleDb from '../dbs/simple/simpleDb';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
 import { v4appStorage } from '../migrations/v4ToV5Migration/v4appStorage';
 // eslint-disable-next-line @typescript-eslint/no-restricted-imports
@@ -170,6 +171,29 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
     await extUtils.openExpandTab(routeInfo);
+  }
+
+  @backgroundMethod()
+  async updateLaunchTimes() {
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      launchTimes: (v?.launchTimes ?? 0) + 1,
+      launchTimesLastReset: (v?.launchTimesLastReset ?? 0) + 1,
+    }));
+  }
+
+  @backgroundMethod()
+  async resetLaunchTimesAfterUpdate() {
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      launchTimesLastReset: 0,
+    }));
+  }
+
+  @backgroundMethod()
+  async getLaunchTimesLastReset() {
+    const v = await simpleDb.appStatus.getRawData();
+    return v?.launchTimesLastReset ?? 0;
   }
 }
 
