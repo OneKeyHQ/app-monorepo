@@ -76,18 +76,6 @@ function ProviderInfo({
         {intl.formatMessage({ id: ETranslations.swap_history_detail_provider })}
       </SizableText>
       <XStack flexWrap="wrap" m="$-5" p="$2">
-        {validator ? (
-          <GridItem
-            title={
-              validator.isProtocol
-                ? intl.formatMessage({ id: ETranslations.global_protocol })
-                : intl.formatMessage({ id: ETranslations.earn_validator })
-            }
-            link={validator.link}
-          >
-            {capitalizeString(validator.name)}
-          </GridItem>
-        ) : null}
         {minOrMaxStakingItem ? (
           <GridItem title={minOrMaxStakingItem.label}>
             <SizableText size="$bodyLgMedium">
