@@ -654,6 +654,8 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         nonce: onChainHistoryTx.nonce,
         actions: [action],
 
+        riskyLevel: onChainHistoryTx.riskLevel,
+
         status: getOnChainHistoryTxStatus(onChainHistoryTx.status),
 
         networkId,
