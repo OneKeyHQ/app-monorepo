@@ -195,7 +195,6 @@ export function ImportWalletOptions() {
               description: intl.formatMessage({
                 id: ETranslations.onboarding_transfer_desc,
               }),
-              badge: <Badge badgeType="success">Prime</Badge>,
               onPress: handleImportFromCloud,
             } as IOptionItem)
           : null,
