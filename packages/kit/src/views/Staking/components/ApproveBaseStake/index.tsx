@@ -344,11 +344,9 @@ export function ApproveBaseStake({
 
     if (usePermit2Approve) {
       if (isFinishPermit2Approve) {
-        console.log('isFinishPermit2Approve 1!###+++');
         return;
       }
 
-      console.log('not isFinishPermit2Approve 333 ===>>>');
       const permit2Data =
         await backgroundApiProxy.serviceStaking.buildPermit2ApproveSignData({
           networkId: approveTarget.networkId,
@@ -358,7 +356,12 @@ export function ApproveBaseStake({
           vault: details.provider.vault ?? '',
           amount: new BigNumber(amountValue).toFixed(),
         });
+
       console.log('permit2Data: ', permit2Data);
+
+      const unsignedMessage = JSON.stringify(permit2Data);
+
+      console.log('unsignedMessage: ', unsignedMessage);
 
       const signHash =
         (await backgroundApiProxy.serviceDApp.openSignMessageModal({
@@ -367,21 +370,38 @@ export function ApproveBaseStake({
           request: { origin: 'https://app.morpho.org/', scope: 'ethereum' },
           unsignedMessage: {
             type: EMessageTypesEth.TYPED_DATA_V4,
-            message: JSON.stringify(permit2Data),
-            payload: [account.address, JSON.stringify(permit2Data)],
+            message: unsignedMessage,
+            payload: [account.address, unsignedMessage],
           },
           walletInternalSign: true,
         })) as string;
 
       console.log('signHash: ', signHash);
-      const permitBundlerAction = BundlerAction.permit(
-        permit2Data.domain.verifyingContract,
-        permit2Data.message.value,
-        permit2Data.message.deadline,
-        // @ts-expect-error
-        ethers.Signature.from(signHash),
-        true,
-      );
+      let permitBundlerAction;
+      if (token.symbol === 'USDC') {
+        permitBundlerAction = BundlerAction.permit(
+          permit2Data.domain.verifyingContract,
+          permit2Data.message.value,
+          permit2Data.message.deadline,
+          // @ts-expect-error
+          ethers.Signature.from(signHash),
+          true,
+        );
+      } else if (token.symbol === 'DAI') {
+        if (!permit2Data.message.expiry) {
+          throw new Error('Expiry is required for DAI');
+        }
+        permitBundlerAction = BundlerAction.permitDai(
+          permit2Data.message.nonce,
+          permit2Data.message.expiry,
+          true,
+          // @ts-expect-error
+          ethers.Signature.from(signHash),
+          false,
+        );
+      } else {
+        throw new Error('Unsupported token');
+      }
       permitSignatureRef.current = permitBundlerAction;
       void onSubmit();
       return;
