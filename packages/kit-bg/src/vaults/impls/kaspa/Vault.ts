@@ -700,12 +700,8 @@ export default class Vault extends VaultBase {
 
     const commitTx = signedTx.encodedTx as IEncodedTxKaspa;
 
-    if (!commitTx) {
-      throw new Error('commitTx is missing');
-    }
-
-    if (!commitTx.commitScriptHex) {
-      throw new Error('commitScriptHex is missing');
+    if (!commitTx || !commitTx.commitScriptHex) {
+      return;
     }
 
     // wait unit commit tx is confirmed
@@ -724,6 +720,7 @@ export default class Vault extends VaultBase {
       networkId: this.networkId,
       accountId: this.accountId,
       signOnly: false,
+      rawTxType: 'json',
     });
   }
 

@@ -49,6 +49,9 @@ const Encoding = async (...args: any[]) =>
 const Resolver = async (...args: any[]) =>
   appGlobals.$offscreenApiProxy.kaspaSdk.Resolver();
 
+const Transaction = async (...args: any[]) =>
+  appGlobals.$offscreenApiProxy.kaspaSdk.Transaction();
+
 const getKaspaApi: IGetKaspaApi = async () =>
   Promise.resolve({
     addressFromScriptPublicKey,
@@ -66,6 +69,7 @@ const getKaspaApi: IGetKaspaApi = async () =>
     RpcClient,
     Encoding,
     Resolver,
+    Transaction,
   });
 
 const sdk: IKaspaSdk = { getKaspaApi, ensureSDKReady };
