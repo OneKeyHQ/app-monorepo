@@ -126,6 +126,7 @@ export type IStakeClaimBaseParams = {
   accountId: string;
   networkId: string;
   symbol: string;
+  vault: string;
   provider: string;
   amount?: string;
   identity?: string;

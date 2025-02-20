@@ -68,6 +68,7 @@ export const useHandleClaim = ({
           provider,
           stakingInfo,
           claimTokenAddress,
+          vault: details.provider.vault || '',
         });
         return;
       }
@@ -92,6 +93,7 @@ export const useHandleClaim = ({
               stakingInfo,
               claimTokenAddress,
               morphoVault: details.provider.vault,
+              vault: details.provider.vault || '',
             });
           },
         });
@@ -126,6 +128,7 @@ export const useHandleClaim = ({
         provider,
         claimTokenAddress,
         stakingInfo,
+        vault: details.provider.vault || '',
       });
     },
     [

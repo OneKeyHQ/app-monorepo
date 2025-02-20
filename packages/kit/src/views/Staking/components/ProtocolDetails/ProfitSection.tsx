@@ -111,7 +111,7 @@ function ProfitInfo({
                         rewardAssets={rewardAssets}
                         poolFee={
                           earnUtils.isMorphoProvider({
-                            providerName,
+                            providerName: providerName || '',
                           })
                             ? poolFee
                             : undefined
