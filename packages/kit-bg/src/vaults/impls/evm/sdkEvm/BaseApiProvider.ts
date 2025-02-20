@@ -207,10 +207,8 @@ class BaseApiProvider {
 
     return {
       netWorth: safeNumberString(netWorth.toFixed()),
-      balance: new BigNumber(nativeToken?.balance ?? '0').toString(),
-      balanceParsed: new BigNumber(
-        nativeToken?.balanceParsed ?? '0',
-      ).toString(),
+      balance: new BigNumber(nativeToken?.balance ?? '0').toFixed(),
+      balanceParsed: new BigNumber(nativeToken?.balanceParsed ?? '0').toFixed(),
     };
   }
 

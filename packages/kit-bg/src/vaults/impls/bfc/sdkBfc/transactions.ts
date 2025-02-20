@@ -214,9 +214,9 @@ function parseTransferDetails({
         transfers.push({
           from: (change.owner as { AddressOwner: string }).AddressOwner,
           to: (change.owner as { AddressOwner: string }).AddressOwner,
-          amount: new BigNumber(0).toString(), // Actual transfer amount is 0
+          amount: new BigNumber(0).toFixed(), // Actual transfer amount is 0
           tokenAddress: tokenType,
-          gasFee: new BigNumber(change.amount).abs().toString(), // Gas fee is the absolute value of the negative change
+          gasFee: new BigNumber(change.amount).abs().toFixed(), // Gas fee is the absolute value of the negative change
         });
       }
       // Regular transfer
@@ -234,9 +234,9 @@ function parseTransferDetails({
             transfers.push({
               from: (sender.owner as { AddressOwner: string }).AddressOwner,
               to: (posChange.owner as { AddressOwner: string }).AddressOwner,
-              amount: transferAmount.toString(),
+              amount: transferAmount.toFixed(),
               tokenAddress: tokenType,
-              gasFee: gasFee.toString(),
+              gasFee: gasFee.toFixed(),
             });
           }
         });
@@ -252,7 +252,7 @@ function parseTransferDetails({
           transfers.push({
             from: (sender.owner as { AddressOwner: string }).AddressOwner,
             to: (posChange.owner as { AddressOwner: string }).AddressOwner,
-            amount: new BigNumber(posChange.amount).toString(),
+            amount: new BigNumber(posChange.amount).toFixed(),
             tokenAddress: tokenType,
           });
         }

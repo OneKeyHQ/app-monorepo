@@ -67,7 +67,7 @@ function RewardItem({
   const formattedFiatClaimableNextValue = fiatClaimableNextValue.lt(0.01)
     ? `<${symbol}0.01`
     : `${symbol}${
-        formatBalance(fiatClaimableNextValue.toString()).formattedValue
+        formatBalance(fiatClaimableNextValue.toFixed()).formattedValue
       }`;
 
   return (
@@ -91,7 +91,7 @@ function RewardItem({
                 formatter="balance"
                 formatterOptions={{ tokenSymbol: rewardToken.info?.symbol }}
               >
-                {validClaimableNow.toString()}
+                {validClaimableNow.toFixed()}
               </NumberSizeableText>
               {fiatClaimableNowValue.gt(0) ? (
                 <SizableText size="$bodyLgMedium">
@@ -103,7 +103,7 @@ function RewardItem({
                   >
                     {fiatClaimableNowValue.lt(0.01)
                       ? `<${symbol}0.01`
-                      : fiatClaimableNowValue.toString()}
+                      : fiatClaimableNowValue.toFixed()}
                   </NumberSizeableText>
                   )
                 </SizableText>
@@ -116,7 +116,7 @@ function RewardItem({
             disabled={validClaimableNow.isZero()}
             onPress={() => {
               onClaim?.({
-                amount: validClaimableNow.toString(),
+                amount: validClaimableNow.toFixed(),
                 isMorphoClaim: true,
                 claimTokenAddress: rewardTokenAddress,
               });
@@ -138,7 +138,7 @@ function RewardItem({
                     color="$textSubdued"
                     formatter="balance"
                   >
-                    {validClaimableNext.toString()}
+                    {validClaimableNext.toFixed()}
                   </NumberSizeableText>
                 ),
                 symbol: rewardToken.info?.symbol,
