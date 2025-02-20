@@ -5,6 +5,8 @@ import BigNumber from 'bignumber.js';
 import { ethers } from 'ethersV6';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
@@ -44,6 +46,20 @@ export function useEarnPermitApprove() {
           vault: details.provider.vault ?? '',
           amount: new BigNumber(amountValue).toFixed(),
         });
+
+      // check spender address
+      if (
+        permit2Data.message.spender.toLowerCase() !==
+        MorphoBundlerContract.toLowerCase()
+      ) {
+        const error = new Error(
+          `Invalid spender address. Expected: ${MorphoBundlerContract}, Got: ${permit2Data.message.spender}`,
+        );
+        defaultLogger.staking.page.permitSignError({
+          error: error.message,
+        });
+        throw error;
+      }
 
       const unsignedMessage = JSON.stringify(permit2Data);
 
