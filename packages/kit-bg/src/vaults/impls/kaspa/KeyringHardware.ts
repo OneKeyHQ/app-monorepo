@@ -42,6 +42,7 @@ import type {
   KaspaSignTransactionParams,
 } from '@onekeyfe/hd-core';
 import type { IScriptPublicKey, ITransactionInput } from '@onekeyfe/kaspa-wasm';
+import sdkWasm from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.kaspa.hd;
@@ -138,6 +139,11 @@ export class KeyringHardware extends KeyringHardwareBase {
     const chainId = await this.getNetworkChainId();
 
     if (unsignedTx.isKRC20RevealTx) {
+      if (!encodedTx.commitScriptHex) {
+        throw new Error('commitScriptHex is required');
+      }
+      const api = await sdkWasm.getKaspaApi();
+      const ScriptBuilder = await api.ScriptBuilder();
       const network = await this.getNetwork();
       const revealTx = await createKRC20RevealTx({
         unsignedTx,
@@ -180,18 +186,28 @@ export class KeyringHardware extends KeyringHardwareBase {
 
       if (response.success) {
         const signatures = response.payload;
+        const ourOutput = revealTx.transaction.inputs.findIndex(
+          (i) => i.signatureScript === '',
+        );
 
-        return {
-          txid: '',
-          rawTx: '',
-          encodedTx,
-          signature: Script.buildPublicKeyIn(
+        if (ourOutput !== -1) {
+          const script = ScriptBuilder.fromScript(encodedTx.commitScriptHex);
+          const signature = Script.buildPublicKeyIn(
             Buffer.from(signatures[0].signature, 'hex'),
             SignatureType.SIGHASH_ALL,
           )
             .toBuffer()
-            .toString('hex'),
-          outputIndex: signatures[0].index,
+            .toString('hex');
+          revealTx.fillInput(
+            ourOutput,
+            script.encodePayToScriptHashSignatureScript(signature),
+          );
+        }
+
+        return {
+          txid: '',
+          rawTx: revealTx.transaction.serializeToSafeJSON(),
+          encodedTx,
         };
       }
     }

@@ -49,6 +49,11 @@ class WebEmbedApiChainKaspa implements IKaspaSdkApi {
     return kaspaApi.Address;
   }
 
+  async Transaction() {
+    const kaspaApi = await getKaspaApi();
+    return kaspaApi.Transaction;
+  }
+
   async PrivateKey() {
     const kaspaApi = await getKaspaApi();
     return kaspaApi.PrivateKey;

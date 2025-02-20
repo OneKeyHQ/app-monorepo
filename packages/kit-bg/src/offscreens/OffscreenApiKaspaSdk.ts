@@ -97,4 +97,10 @@ export default class OffscreenApiKaspaSdk implements IKaspaSdkApi {
     // @ts-ignore
     return api.Resolver();
   }
+
+  async Transaction() {
+    const api = await kaspaWebSdk.getKaspaApi();
+    // @ts-ignore
+    return api.Transaction();
+  }
 }

@@ -7,6 +7,7 @@ import type {
   Resolver,
   RpcClient,
   ScriptBuilder,
+  Transaction,
   XOnlyPublicKey,
   addressFromScriptPublicKey,
   calculateTransactionFee,
@@ -26,6 +27,7 @@ export type IKaspaSdkApi = {
   RpcClient: () => Promise<typeof RpcClient>;
   Encoding: () => Promise<typeof Encoding>;
   Resolver: () => Promise<typeof Resolver>;
+  Transaction: () => Promise<typeof Transaction>;
 
   addressFromScriptPublicKey: (
     ...args: Parameters<typeof addressFromScriptPublicKey>

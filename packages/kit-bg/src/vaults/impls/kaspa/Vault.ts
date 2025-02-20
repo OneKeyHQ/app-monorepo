@@ -700,9 +700,6 @@ export default class Vault extends VaultBase {
 
     const commitTx = signedTx.encodedTx as IEncodedTxKaspa;
 
-    const network = await this.getNetwork();
-    const kaspaNetworkId = network.isTestnet ? 'testnet-10' : 'mainnet';
-
     if (!commitTx) {
       throw new Error('commitTx is missing');
     }
@@ -714,58 +711,20 @@ export default class Vault extends VaultBase {
     // wait unit commit tx is confirmed
     await this._waitForCommitTxConfirmation(txid);
 
-    const api = await sdk.getKaspaApi();
-    const ScriptBuilder = await api.ScriptBuilder();
-    const RpcClient = await api.RpcClient();
-    const Encoding = await api.Encoding();
-    const Resolver = await api.Resolver();
-
     const revealTx = await this._createKRC20RevealTransaction({
       submittedTxId: txid,
       commitTx,
     });
 
-    const { signature, outputIndex } =
-      await this.backgroundApi.serviceSend.signAndSendTransaction({
-        unsignedTx: {
-          encodedTx: revealTx,
-          isKRC20RevealTx: true,
-        },
-        networkId: this.networkId,
-        accountId: this.accountId,
-        signOnly: true,
-      });
-
-    const transaction = await createKRC20RevealTx({
+    await this.backgroundApi.serviceSend.signAndSendTransaction({
       unsignedTx: {
         encodedTx: revealTx,
         isKRC20RevealTx: true,
       },
-      isTestnet: network.isTestnet,
-      accountAddress: await this.getAccountAddress(),
+      networkId: this.networkId,
+      accountId: this.accountId,
+      signOnly: false,
     });
-
-    const script = ScriptBuilder.fromScript(commitTx.commitScriptHex);
-
-    if (!isNil(outputIndex) && outputIndex !== -1 && signature) {
-      transaction.fillInput(
-        outputIndex,
-        script.encodePayToScriptHashSignatureScript(signature),
-      );
-
-      const RPC = new RpcClient({
-        resolver: new Resolver(),
-        encoding: Encoding.Borsh,
-        networkId: kaspaNetworkId,
-      });
-
-      await RPC.disconnect();
-      await RPC.connect();
-
-      await transaction.submit(RPC);
-
-      await RPC.disconnect();
-    }
   }
 
   async _waitForCommitTxConfirmation(txid: string) {
@@ -923,6 +882,7 @@ export default class Vault extends VaultBase {
 
     revealTx.feeInfo = commitTx.feeInfo;
     revealTx.mass = commitTx.mass;
+    revealTx.commitScriptHex = commitTx.commitScriptHex;
 
     return revealTx;
   }

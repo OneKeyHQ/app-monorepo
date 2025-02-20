@@ -18,6 +18,7 @@ const getKaspaApi = async () => {
     XOnlyPublicKey: () => Promise.resolve(Loader.XOnlyPublicKey),
     Address: () => Promise.resolve(Loader.Address),
     PrivateKey: () => Promise.resolve(Loader.PrivateKey),
+    Transaction: () => Promise.resolve(Loader.Transaction),
 
     RpcClient: () => Promise.resolve(Loader.RpcClient),
     Encoding: () => Promise.resolve(Loader.Encoding),

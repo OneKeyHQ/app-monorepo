@@ -95,6 +95,13 @@ export default class CoreChainSoftware extends CoreChainApiBase {
     if (unsignedTx.isKRC20RevealTx) {
       const api = await sdk.getKaspaApi();
       const PrivateKeyWasm = await api.PrivateKey();
+      const ScriptBuilder = await api.ScriptBuilder();
+
+      if (!encodedTx.commitScriptHex) {
+        throw new Error('commitScriptHex is required');
+      }
+
+      const script = ScriptBuilder.fromScript(encodedTx.commitScriptHex);
 
       const revealTx = await createKRC20RevealTx({
         unsignedTx,
@@ -118,14 +125,19 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
       if (ourOutput !== -1) {
         signature = revealTx.createInputSignature(ourOutput, privateKey);
+        revealTx.fillInput(
+          ourOutput,
+          script.encodePayToScriptHashSignatureScript(signature),
+        );
       }
+
+      console.log('revealTx', revealTx.transaction.serializeToSafeJSON());
+      debugger;
 
       return {
         encodedTx: unsignedTx.encodedTx,
         txid: '',
-        rawTx: '',
-        signature,
-        outputIndex: ourOutput,
+        rawTx: revealTx.transaction.serializeToSafeJSON(),
       };
     }
 
