@@ -54,6 +54,7 @@ import type {
   IUnstakePushParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -191,7 +192,7 @@ class ServiceStaking extends ServiceBase {
       provider,
       symbol,
       morphoVault,
-      usePermit2Approve,
+      approveType,
       permitSignature,
       ...rest
     } = params;
@@ -220,7 +221,9 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
-      permitSignature: usePermit2Approve ? permitSignature : undefined,
+      approveType,
+      permitSignature:
+        approveType === EApproveType.Permit ? permitSignature : undefined,
       ...rest,
     });
     return resp.data.data;

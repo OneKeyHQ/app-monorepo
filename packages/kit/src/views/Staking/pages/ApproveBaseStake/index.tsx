@@ -57,7 +57,7 @@ const BasicApproveBaseStakePage = () => {
         })
           ? provider.vault
           : undefined,
-        usePermit2Approve: params.usePermit2Approve,
+        approveType: params.approveType,
         permitSignature: params.permitSignature,
         onSuccess: () => {
           appNavigation.pop();

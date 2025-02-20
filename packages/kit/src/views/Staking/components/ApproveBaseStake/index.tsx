@@ -1,9 +1,7 @@
 import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
-import { BundlerAction } from '@morpho-org/bundler-sdk-ethers';
 import BigNumber from 'bignumber.js';
-import { ethers } from 'ethersV6';
 import { useIntl } from 'react-intl';
 
 import {
@@ -22,7 +20,8 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
@@ -31,6 +30,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
@@ -128,6 +128,7 @@ export function ApproveBaseStake({
     tokenAddress: approveTarget.token.address,
     spenderAddress: approveTarget.spenderAddress,
     initialValue: currentAllowance,
+    approveType: details.provider.approveType ?? EApproveType.Legacy,
   });
   const [amountValue, setAmountValue] = useState('');
   const [
@@ -135,6 +136,8 @@ export function ApproveBaseStake({
       currencyInfo: { symbol },
     },
   ] = useSettingsPersistAtom();
+
+  const { getPermitSignature } = useEarnPermitApprove();
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -195,13 +198,10 @@ export function ApproveBaseStake({
   const permitSignatureRef = useRef<string | undefined>(undefined);
 
   const shouldApprove = useMemo(() => {
-    if (usePermit2Approve && !isFinishPermit2Approve) {
-      return true;
-    }
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
-  }, [amountValue, allowance, usePermit2Approve, isFinishPermit2Approve]);
+  }, [amountValue, allowance]);
 
   const onConfirmText = useMemo(() => {
     if (shouldApprove) {
@@ -306,7 +306,7 @@ export function ApproveBaseStake({
     const handleConfirm = () =>
       onConfirm?.({
         amount: amountValue,
-        usePermit2Approve,
+        approveType: details.provider.approveType,
         permitSignature: permitSignatureRef.current,
       });
     if (totalAnnualRewardsFiatValue && estimateFeeResp) {
@@ -330,82 +330,43 @@ export function ApproveBaseStake({
     totalAnnualRewardsFiatValue,
     estimateFeeResp,
     showEstimateGasAlert,
-    usePermit2Approve,
     permitSignatureRef,
+    details.provider.approveType,
   ]);
 
   const onApprove = useCallback(async () => {
     setApproving(true);
     permitSignatureRef.current = undefined;
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
 
     if (usePermit2Approve) {
       if (isFinishPermit2Approve) {
         return;
       }
 
-      const permit2Data =
-        await backgroundApiProxy.serviceStaking.buildPermit2ApproveSignData({
+      try {
+        const permitBundlerAction = await getPermitSignature({
           networkId: approveTarget.networkId,
-          provider: details.provider.name,
-          symbol: token.symbol,
-          accountAddress: account.address,
-          vault: details.provider.vault ?? '',
-          amount: new BigNumber(amountValue).toFixed(),
-        });
-
-      console.log('permit2Data: ', permit2Data);
-
-      const unsignedMessage = JSON.stringify(permit2Data);
-
-      console.log('unsignedMessage: ', unsignedMessage);
-
-      const signHash =
-        (await backgroundApiProxy.serviceDApp.openSignMessageModal({
           accountId: approveTarget.accountId,
-          networkId: approveTarget.networkId,
-          request: { origin: 'https://app.morpho.org/', scope: 'ethereum' },
-          unsignedMessage: {
-            type: EMessageTypesEth.TYPED_DATA_V4,
-            message: unsignedMessage,
-            payload: [account.address, unsignedMessage],
-          },
-          walletInternalSign: true,
-        })) as string;
-
-      console.log('signHash: ', signHash);
-      let permitBundlerAction;
-      if (token.symbol === 'USDC') {
-        permitBundlerAction = BundlerAction.permit(
-          permit2Data.domain.verifyingContract,
-          permit2Data.message.value,
-          permit2Data.message.deadline,
-          // @ts-expect-error
-          ethers.Signature.from(signHash),
-          true,
-        );
-      } else if (token.symbol === 'DAI') {
-        if (!permit2Data.message.expiry) {
-          throw new Error('Expiry is required for DAI');
-        }
-        permitBundlerAction = BundlerAction.permitDai(
-          permit2Data.message.nonce,
-          permit2Data.message.expiry,
-          true,
-          // @ts-expect-error
-          ethers.Signature.from(signHash),
-          false,
-        );
-      } else {
-        throw new Error('Unsupported token');
+          token,
+          amountValue,
+          details,
+        });
+        permitSignatureRef.current = permitBundlerAction;
+        void onSubmit();
+      } catch (error: unknown) {
+        console.error('Permit sign error:', error);
+        defaultLogger.staking.page.permitSignError({
+          error: error instanceof Error ? error.message : String(error),
+        });
+        setApproving(false);
       }
-      permitSignatureRef.current = permitBundlerAction;
-      void onSubmit();
       return;
     }
+
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
 
     await navigationToTxConfirm({
       approvesInfo: [
@@ -432,11 +393,11 @@ export function ApproveBaseStake({
     approveTarget,
     navigationToTxConfirm,
     trackAllowance,
-    details.provider.name,
-    details.provider.vault,
-    token.symbol,
+    token,
+    details,
     usePermit2Approve,
     isFinishPermit2Approve,
+    getPermitSignature,
     onSubmit,
   ]);
 
@@ -464,6 +425,11 @@ export function ApproveBaseStake({
         }}
         enableMaxAmount
       />
+      {platformEnv.isDev ? (
+        <SizableText>{`allowance: ${allowance}, shouldApprove: ${
+          shouldApprove ? 'true' : 'false'
+        }`}</SizableText>
+      ) : null}
       {isLessThanMinAmount ? (
         <Alert
           icon="InfoCircleOutline"

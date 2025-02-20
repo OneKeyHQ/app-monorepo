@@ -9,6 +9,7 @@ import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
+  EApproveType,
   IStakeTxResponse,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -72,7 +73,7 @@ export function useUniversalStake({
       term,
       feeRate,
       morphoVault,
-      usePermit2Approve,
+      approveType,
       permitSignature,
       provider,
       stakingInfo,
@@ -84,7 +85,7 @@ export function useUniversalStake({
       term?: number;
       feeRate?: number;
       morphoVault?: string;
-      usePermit2Approve?: boolean;
+      approveType?: EApproveType;
       permitSignature?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
@@ -101,7 +102,7 @@ export function useUniversalStake({
           provider,
           feeRate,
           morphoVault,
-          usePermit2Approve,
+          approveType,
           permitSignature,
         });
 

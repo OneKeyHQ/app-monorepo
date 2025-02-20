@@ -94,7 +94,7 @@ export type IStakeBaseParams = {
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
   morphoVault?: string; // morpho vault
-  usePermit2Approve?: boolean;
+  approveType?: EApproveType;
   permitSignature?: string;
 };
 
@@ -493,6 +493,6 @@ export interface IEarnPermit2ApproveSignData {
 
 export type IApproveConfirmFnParams = {
   amount: string;
-  usePermit2Approve?: boolean;
+  approveType?: EApproveType;
   permitSignature?: string;
 };

@@ -824,4 +824,5 @@ module.exports = [
   'fet',
   'cex',
   'bundler',
+  'dai',
 ];
