@@ -1,0 +1,13 @@
+diff --git a/node_modules/bignumber.js/bignumber.d.ts b/node_modules/bignumber.js/bignumber.d.ts
+index f75f8bf..3533a57 100644
+--- a/node_modules/bignumber.js/bignumber.d.ts
++++ b/node_modules/bignumber.js/bignumber.d.ts
+@@ -1494,7 +1494,7 @@ export declare class BigNumber implements BigNumber.Instance {
+    *
+    * @param [base] The base, integer, 2 to 36 (or `ALPHABET.length`, see `ALPHABET`).
+    */
+-  toString(base?: number): string;
++  toString(base: number): string;
+ 
+   /**
+    * As `toString`, but does not accept a base argument and includes the minus sign for negative
