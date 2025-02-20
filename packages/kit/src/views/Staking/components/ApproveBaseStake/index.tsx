@@ -27,6 +27,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { validateAmountInput } from '../../../Swap/utils/utils';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
@@ -39,7 +40,6 @@ import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';
-import { validateAmountInput } from '../../../Swap/utils/utils';
 
 type IApproveBaseStakeProps = {
   details: IStakeProtocolDetails;
@@ -498,7 +498,7 @@ export function ApproveBaseStake({
             jc: 'space-between',
           }}
         >
-          <Stack pl="$5">
+          <Stack pl="$5" $md={{ pt: '$5' }}>
             {isShowStakeProgress ? (
               <StakeProgress
                 currentStep={
