@@ -516,7 +516,7 @@ export default class Vault extends VaultBase {
       priority,
     );
 
-    const limit = new BigNumber(mass).toString();
+    const limit = new BigNumber(mass).toFixed();
 
     let hasMaxSend = false;
     if (utxos.length === confirmUtxos.length) {

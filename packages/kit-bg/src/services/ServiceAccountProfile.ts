@@ -572,7 +572,7 @@ class ServiceAccountProfile extends ServiceBase {
       usdValue = Object.entries(value).reduce((acc, [n, v]) => {
         acc[n] = new BigNumber(v)
           .div(new BigNumber(currencyInfo.value))
-          .toString();
+          .toFixed();
         return acc;
       }, {} as Record<string, string>);
     }

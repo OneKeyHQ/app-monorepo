@@ -105,7 +105,7 @@ function LnurlWithdrawModal() {
         const invoice = await serviceLightning.createInvoice({
           networkId,
           accountId,
-          amount: new BigNumber(amount).toString(),
+          amount: new BigNumber(amount).toFixed(),
           description: lnurlDetails.defaultDescription,
         });
         const { callback, k1 } = lnurlDetails;

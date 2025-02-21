@@ -96,7 +96,7 @@ export function decodeTransferPayload(payload: string):
       address: (address as string)
         .toLowerCase()
         .replace(/^0x/, `${addressBytes[0]}S`),
-      amount: new BigNumber((amount as BigNumber).toString()).toFixed(),
+      amount: new BigNumber((amount as BigNumber).toFixed()).toFixed(),
     };
   } catch (error) {
     return undefined;
