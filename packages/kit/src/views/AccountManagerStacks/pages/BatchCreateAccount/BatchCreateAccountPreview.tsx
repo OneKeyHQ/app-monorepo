@@ -694,8 +694,8 @@ function BatchCreateAccountPreviewPage({
   );
 
   const extraData = useMemo(
-    () => [selectedIndexesCount, balanceMap],
-    [selectedIndexesCount, balanceMap],
+    () => [totalCount, balanceMap],
+    [totalCount, balanceMap],
   );
 
   return (
