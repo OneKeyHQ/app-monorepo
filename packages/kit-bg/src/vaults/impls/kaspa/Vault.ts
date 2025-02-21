@@ -1,21 +1,25 @@
 import BigNumber from 'bignumber.js';
-import { isEmpty } from 'lodash';
+import { isEmpty, isNil } from 'lodash';
 
 import type { IKaspaUnspentOutputInfo } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import {
+  BASE_KAS_TO_P2SH_ADDRESS,
   CONFIRMATION_COUNT,
   DEFAULT_FEE_RATE,
   DUST_AMOUNT,
   MAX_BLOCK_SIZE,
   MAX_ORPHAN_TX_MASS,
   MAX_UTXO_SIZE,
+  UnspentOutput,
   isValidAddress,
   privateKeyFromWIF,
   selectUTXOs,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
 import { RestAPIClient as ClientKaspa } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/clientRestApi';
+import sdk from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
+import { MAX_UINT64_VALUE } from '@onekeyhq/core/src/consts';
 import {
   decodeSensitiveTextAsync,
   encodeSensitiveTextAsync,
@@ -28,6 +32,7 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import chainValueUtils from '@onekeyhq/shared/src/utils/chainValueUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type {
   IAddressValidation,
@@ -41,6 +46,9 @@ import type {
   IMeasureRpcStatusParams,
   IMeasureRpcStatusResult,
 } from '@onekeyhq/shared/types/customRpc';
+import { EOnChainHistoryTxStatus } from '@onekeyhq/shared/types/history';
+import type { IAfterSendTxActionParams } from '@onekeyhq/shared/types/signatureConfirm';
+import type { IToken } from '@onekeyhq/shared/types/token';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -111,30 +119,57 @@ export default class Vault extends VaultBase {
     if (!transferInfo.to) {
       throw new Error('buildEncodedTx ERROR: transferInfo.to is missing');
     }
+
+    let encodedTx;
+
     const dbAccount = await this.getAccount();
     const confirmUtxos = await this._collectUTXOsInfoByApi({
       address: dbAccount.address,
     });
 
-    let encodedTx = await this.prepareAndBuildTx({
-      confirmUtxos,
-      transferInfo,
-      specifiedFeeRate,
-    });
+    const isKRC20 = transferInfo.tokenInfo && !transferInfo.tokenInfo.isNative;
+
+    // KRC20
+    if (isKRC20) {
+      encodedTx = await this._createKRC20CommitTransaction({
+        tokenInfo: transferInfo.tokenInfo as IToken,
+        amount: transferInfo.amount,
+        to: transferInfo.to,
+        confirmUtxos,
+        specifiedFeeRate,
+      });
+    } else {
+      encodedTx = await this.prepareAndBuildTx({
+        confirmUtxos,
+        transferInfo,
+        specifiedFeeRate,
+      });
+    }
 
     // validate tx size
     let txn = toTransaction(encodedTx);
     const { mass, txSize } = txn.getMassAndSize();
-    encodedTx.feeInfo.limit = mass.toString();
+    if (encodedTx.feeInfo) {
+      encodedTx.feeInfo.limit = mass.toString();
+    }
     encodedTx.mass = mass;
 
     if (mass > MAX_ORPHAN_TX_MASS || txSize > MAX_BLOCK_SIZE) {
-      encodedTx = await this.prepareAndBuildTx({
-        confirmUtxos,
-        transferInfo,
-        priority: { satoshis: true },
-        specifiedFeeRate,
-      });
+      encodedTx = isKRC20
+        ? await this._createKRC20CommitTransaction({
+            tokenInfo: transferInfo.tokenInfo as IToken,
+            amount: transferInfo.amount,
+            to: transferInfo.to,
+            confirmUtxos,
+            priority: { satoshis: true },
+            specifiedFeeRate,
+          })
+        : await this.prepareAndBuildTx({
+            confirmUtxos,
+            transferInfo,
+            priority: { satoshis: true },
+            specifiedFeeRate,
+          });
       txn = toTransaction(encodedTx);
       if (encodedTx.inputs.length > MAX_UTXO_SIZE) {
         const totalAmount = encodedTx.inputs
@@ -161,7 +196,9 @@ export default class Vault extends VaultBase {
         );
       }
       const massAndSize = txn.getMassAndSize();
-      encodedTx.feeInfo.limit = massAndSize.mass.toString();
+      if (encodedTx.feeInfo) {
+        encodedTx.feeInfo.limit = massAndSize.mass.toString();
+      }
       encodedTx.mass = massAndSize.mass;
     }
 
@@ -171,7 +208,7 @@ export default class Vault extends VaultBase {
   override async buildDecodedTx(
     params: IBuildDecodedTxParams,
   ): Promise<IDecodedTx> {
-    const { unsignedTx } = params;
+    const { unsignedTx, transferPayload } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
     const { outputs, feeInfo } = encodedTx;
     const { swapInfo } = unsignedTx;
@@ -204,8 +241,31 @@ export default class Vault extends VaultBase {
         to: utxoTo[0].address,
       },
     };
-
-    if (swapInfo) {
+    if (
+      transferPayload &&
+      transferPayload.tokenInfo &&
+      transferPayload.amountToSend &&
+      transferPayload.originalRecipient
+    ) {
+      const { tokenInfo } = transferPayload;
+      if (tokenInfo) {
+        action = await this.buildTxTransferAssetAction({
+          from: account.address,
+          to: transferPayload.originalRecipient,
+          transfers: [
+            {
+              from: account.address,
+              to: transferPayload.originalRecipient,
+              amount: transferPayload.amountToSend,
+              tokenIdOnNetwork: tokenInfo.address,
+              icon: tokenInfo.logoURI ?? '',
+              name: tokenInfo.name ?? '',
+              symbol: tokenInfo.symbol,
+            },
+          ],
+        });
+      }
+    } else if (swapInfo) {
       const swapSendToken = swapInfo.sender.token;
       const swapReceiveToken = swapInfo.receiver.token;
       const providerInfo = swapInfo.swapBuildResData.result.info;
@@ -628,5 +688,179 @@ export default class Vault extends VaultBase {
       ...params.signedTx,
       txid: txId,
     };
+  }
+
+  // -------------------KRC20-----------------------------------------
+
+  override async afterSendTxAction(params: IAfterSendTxActionParams) {
+    const { result } = params;
+    const signedTx = result[0].signedTx;
+    const { txid } = signedTx;
+
+    const commitTx = signedTx.encodedTx as IEncodedTxKaspa;
+
+    if (!commitTx || !commitTx.commitScriptHex) {
+      return;
+    }
+
+    // wait unit commit tx is confirmed
+    await this._waitForCommitTxConfirmation(txid);
+
+    const revealTx = await this._createKRC20RevealTransaction({
+      submittedTxId: txid,
+      commitTx,
+    });
+
+    await this.backgroundApi.serviceSend.signAndSendTransaction({
+      unsignedTx: {
+        encodedTx: revealTx,
+        isKRC20RevealTx: true,
+      },
+      networkId: this.networkId,
+      accountId: this.accountId,
+      signOnly: false,
+      rawTxType: 'json',
+    });
+  }
+
+  async _waitForCommitTxConfirmation(txid: string) {
+    let confirmed = false;
+
+    // throw error after 2 minutes
+    const timeout = setTimeout(() => {
+      confirmed = true;
+      throw new Error('Commit transaction timeout');
+    }, 2 * 60 * 1000);
+    while (!confirmed) {
+      const tx = await this.backgroundApi.serviceHistory.fetchTxDetails({
+        networkId: this.networkId,
+        accountId: this.accountId,
+        txid,
+      });
+
+      if (tx?.data.status === EOnChainHistoryTxStatus.Success) {
+        confirmed = true;
+      }
+
+      // wait and check every 500ms
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    clearTimeout(timeout);
+  }
+
+  _createKRC20TransferData({
+    tokenInfo,
+    amount,
+    to,
+  }: {
+    tokenInfo: IToken;
+    amount: string;
+    to: string;
+  }) {
+    return {
+      'p': 'krc-20',
+      'op': 'transfer',
+      'tick': tokenInfo.address,
+      'amt': chainValueUtils.convertTokenAmountToChainValue({
+        value: amount,
+        token: tokenInfo,
+      }),
+      'to': to,
+    };
+  }
+
+  async _createKRC20CommitTransaction({
+    tokenInfo,
+    amount,
+    to,
+    confirmUtxos,
+    specifiedFeeRate,
+    priority,
+  }: {
+    tokenInfo: IToken;
+    amount: string;
+    to: string;
+    confirmUtxos: IKaspaUnspentOutputInfo[];
+    specifiedFeeRate?: string;
+    priority?: { satoshis: boolean };
+  }) {
+    const api = await sdk.getKaspaApi();
+
+    const network = await this.getNetwork();
+    const account = await this.getAccount();
+
+    const transferData = this._createKRC20TransferData({
+      tokenInfo,
+      amount,
+      to,
+    });
+
+    const { commitScriptPubKey, commitAddress, commitScriptHex } =
+      await api.buildCommitTxInfo({
+        accountAddress: account.address,
+        transferDataString: JSON.stringify(transferData, null, 0),
+        isTestnet: network.isTestnet,
+      });
+
+    if (!commitAddress) {
+      throw new Error('Invalid P2SH commitAddress address');
+    }
+
+    const encodedTx: IEncodedTxKaspa = await this.prepareAndBuildTx({
+      confirmUtxos,
+      transferInfo: {
+        from: '',
+        amount: BASE_KAS_TO_P2SH_ADDRESS,
+        to: commitAddress,
+      },
+      priority,
+      specifiedFeeRate,
+    });
+
+    encodedTx.commitScriptPubKey = commitScriptPubKey;
+    encodedTx.commitAddress = commitAddress;
+    encodedTx.commitScriptHex = commitScriptHex;
+    encodedTx.changeAddress = account.address;
+
+    return encodedTx;
+  }
+
+  async _createKRC20RevealTransaction({
+    submittedTxId,
+    commitTx,
+  }: {
+    submittedTxId: string;
+    commitTx: IEncodedTxKaspa;
+  }) {
+    if (!commitTx.commitAddress || !commitTx.commitScriptPubKey) {
+      throw new Error('Commit address and scriptPubKey are required');
+    }
+
+    const revealEntry: IKaspaUnspentOutputInfo = {
+      txid: submittedTxId,
+      address: commitTx.commitAddress,
+      vout: 0,
+      scriptPubKey: commitTx.commitScriptPubKey,
+      satoshis: commitTx.outputs[0].value,
+      blockDaaScore: MAX_UINT64_VALUE.toNumber(),
+      scriptPublicKeyVersion: 0,
+    };
+
+    const utxo = new UnspentOutput(revealEntry);
+
+    const revealTx: IEncodedTxKaspa = {
+      utxoIds: [utxo.id],
+      inputs: [revealEntry],
+      outputs: [],
+      hasMaxSend: false,
+      mass: utxo.mass,
+      changeAddress: await this.getAccountAddress(),
+    };
+
+    revealTx.feeInfo = commitTx.feeInfo;
+    revealTx.mass = commitTx.mass;
+    revealTx.commitScriptHex = commitTx.commitScriptHex;
+
+    return revealTx;
   }
 }
