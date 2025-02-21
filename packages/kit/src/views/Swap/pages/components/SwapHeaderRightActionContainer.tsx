@@ -25,6 +25,7 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSwapTypeSwitchAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -44,8 +45,10 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -360,11 +363,22 @@ const SwapHeaderRightActionContainer = ({
     }
     return null;
   }, [slippageItem.key, slippageItem.value]);
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const onOpenHistoryListModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
+      params: {
+        type:
+          swapTypeSwitch === ESwapTabSwitchType.LIMIT
+            ? EProtocolOfExchange.LIMIT
+            : EProtocolOfExchange.SWAP,
+        storeName:
+          pageType === EPageType.modal
+            ? EJotaiContextStoreNames.swapModal
+            : EJotaiContextStoreNames.swap,
+      },
     });
-  }, [navigation]);
+  }, [navigation, pageType, swapTypeSwitch]);
 
   const onOpenSwapSettings = useCallback(() => {
     Dialog.show({

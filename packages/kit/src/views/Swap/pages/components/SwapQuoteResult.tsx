@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -10,11 +10,15 @@ import {
   NumberSizeableText,
   SizableText,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
   useSwapFromTokenAmountAtom,
+  useSwapLimitExpirationTimeAtom,
+  useSwapLimitPartiallyFillAtom,
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenMetadataAtom,
@@ -24,12 +28,17 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IFetchQuoteResult,
-  ISwapToken,
-  ISwapTokenMetadata,
+import {
+  EProtocolOfExchange,
+  ESwapLimitOrderExpiryStep,
+  ESwapLimitPartiallyFillStepMap,
+  type IFetchQuoteResult,
+  type ISwapToken,
+  type ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 
+import LimitExpirySelect from '../../components/LimitExpirySelect';
+import LimitPartialFillSelect from '../../components/LimitPartialFillSelect';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
@@ -59,8 +68,13 @@ const SwapQuoteResult = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
+  const [swapQuoteList] = useSwapQuoteListAtom();
+  const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
+    useSwapLimitExpirationTimeAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
+  const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
+    useSwapLimitPartiallyFillAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const intl = useIntl();
@@ -142,6 +156,54 @@ const SwapQuoteResult = ({
     [calculateTaxItem],
   );
 
+  const limitOrderExpiryStepMap = useMemo(
+    () => [
+      {
+        label: `5 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_minutes,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.FIVE_MINUTES.toString(),
+      },
+      {
+        label: `30 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_minutes,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_hour,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_HOUR.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_day,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_DAY.toString(),
+      },
+      {
+        label: `3 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_days,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.THREE_DAYS.toString(),
+      },
+      {
+        label: `7 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_days,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_WEEK.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_month,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_MONTH.toString(),
+      },
+    ],
+    [intl],
+  );
+
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
   });
@@ -152,6 +214,39 @@ const SwapQuoteResult = ({
     new BigNumber(fromTokenAmount).isZero()
   ) {
     return null;
+  }
+  if (quoteResult?.protocol === EProtocolOfExchange.LIMIT) {
+    return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
+      <YStack gap="$2">
+        <SwapProviderInfoItem
+          providerIcon={quoteResult?.info.providerLogo ?? ''}
+          providerName={quoteResult?.info.providerName ?? ''}
+          isLoading={swapQuoteLoading}
+          isBest={quoteResult.isBest}
+          fromToken={fromToken}
+          onekeyFee={quoteResult?.fee?.percentageFee}
+          toToken={toToken}
+          showLock={!!quoteResult?.allowanceResult}
+          onPress={
+            quoteResult?.info.provider && swapQuoteList?.length > 1
+              ? () => {
+                  onOpenProviderList?.();
+                }
+              : undefined
+          }
+        />
+        <LimitExpirySelect
+          currentSelectExpiryValue={swapLimitExpirySelect}
+          onSelectExpiryValue={setSwapLimitExpirySelect}
+          selectItems={limitOrderExpiryStepMap}
+        />
+        <LimitPartialFillSelect
+          currentSelectPartiallyFillValue={swapLimitPartiallyFill}
+          onSelectPartiallyFillValue={setSwapLimitPartiallyFill}
+          selectItems={ESwapLimitPartiallyFillStepMap}
+        />
+      </YStack>
+    ) : null;
   }
   if (
     fromToken &&

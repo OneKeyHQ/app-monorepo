@@ -98,7 +98,9 @@ const SelectCustomItem = () => {
       placeholder="please select one"
       renderTrigger={({ value, label, placeholder }) => (
         <SizableText>
-          {value ? `label: ${label || ''}, value: ${value}` : placeholder}
+          {value
+            ? `label: ${label || ''}, value: ${String(value)}`
+            : placeholder}
         </SizableText>
       )}
       items={items}

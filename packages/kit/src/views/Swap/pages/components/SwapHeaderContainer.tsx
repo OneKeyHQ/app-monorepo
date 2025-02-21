@@ -129,6 +129,16 @@ const SwapHeaderContainer = ({
         >
           {intl.formatMessage({ id: ETranslations.swap_page_bridge })}
         </CustomTabItem>
+        <CustomTabItem
+          isSelected={swapTypeSwitch === ESwapTabSwitchType.LIMIT}
+          onPress={() => {
+            if (swapTypeSwitch !== ESwapTabSwitchType.LIMIT) {
+              void swapTypeSwitchAction(ESwapTabSwitchType.LIMIT, networkId);
+            }
+          }}
+        >
+          {intl.formatMessage({ id: ETranslations.swap_page_limit })}
+        </CustomTabItem>
       </XStack>
       <SwapHeaderRightActionContainer pageType={pageType} />
     </XStack>

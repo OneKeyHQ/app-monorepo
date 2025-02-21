@@ -24,6 +24,7 @@ export enum EWrappedType {
 export enum EProtocolOfExchange {
   SWAP = 'Swap', // swap and bridge
   LIMIT = 'Limit', // TODO
+  ALL = 'All',
 }
 
 export enum ESwapTabSwitchType {
@@ -72,6 +73,7 @@ export interface ISwapNetworkBase {
   defaultSelectToken?: { from?: string; to?: string };
   supportCrossChainSwap?: boolean;
   supportSingleSwap?: boolean;
+  supportLimit?: boolean;
 }
 
 export interface ISwapNetwork extends ISwapNetworkBase {
@@ -121,6 +123,7 @@ interface IFetchSwapQuoteBaseParams {
 }
 
 export interface IFetchTokensParams {
+  protocol?: string;
   networkId?: string;
   keywords?: string;
   limit?: number;
@@ -222,6 +225,8 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   slippagePercentage: number;
   autoSlippage?: boolean;
   blockNumber?: number;
+  expirationTime?: number;
+  limitPartiallyFillable?: boolean;
 }
 interface ISocketAsset {
   address: string;
@@ -278,8 +283,11 @@ export interface IQuoteTip {
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
+  protocol?: EProtocolOfExchange;
   info: IFetchQuoteInfo;
+  expirationTime?: number;
   errorMessage?: string;
+  shouldWrappedToken?: ISwapTokenBase;
   fromAmount?: string;
   toAmount?: string; // quote is after protocolFees, build_tx is after protocolFees + oneKeyFee
   fee?: IFetchQuoteFee;
@@ -301,6 +309,10 @@ export interface IFetchQuoteResult {
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
+  limitPriceOrderMarketPrice?: {
+    fromTokenPrice?: number;
+    toTokenPrice?: number;
+  };
   swapShouldSignedData?: {
     unSignedData?: {
       normalizeData: NormalizedOrder;
@@ -403,11 +415,13 @@ export enum ESwapAlertLevel {
 export enum ESwapAlertActionType {
   CREATE_ADDRESS = 'create_address',
   TOKEN_DETAIL_FETCHING = 'token_detail_fetching',
+  LIMIT_NATIVE_WRAPPED = 'limit_native_wrapped',
 }
 
 export interface ISwapAlertActionData {
   num?: number;
   key?: string;
+  wrappedToken?: ISwapTokenBase;
   account?: {
     walletId: IDBWalletId | undefined;
     networkId: string | undefined;
@@ -511,6 +525,7 @@ export interface ISwapInfoSide {
   };
 }
 export interface ISwapTxInfo {
+  protocol: EProtocolOfExchange;
   sender: ISwapInfoSide;
   receiver: ISwapInfoSide;
   accountAddress: string;
@@ -631,6 +646,80 @@ export interface ISwapTxHistory {
     updated: number;
   };
 }
+
+// limit order
+
+export const LIMIT_PRICE_DEFAULT_DECIMALS = 6;
+
+export interface IFetchLimitOrderRes {
+  orderId: string;
+  provider: string;
+  status: ESwapLimitOrderStatus;
+  fromTokenInfo: ISwapToken;
+  toTokenInfo: ISwapToken;
+  payAddress: string;
+  receiveAddress: string;
+  fromAmount: string;
+  toAmount: string;
+  executedBuyAmount: string;
+  executedSellAmount: string;
+  createdAt: number;
+  expiredAt: number;
+  txHash?: string;
+  providerInfo: IFetchQuoteInfo;
+  partiallyFillable: boolean;
+  networkId: string;
+  userAddress: string;
+  orderSupportUrl?: string;
+  cancelInfo?: {
+    domain: TypedDataDomain;
+    types: { OrderCancellations: { name: string; type: string }[] };
+    data: { orderUids: string[] };
+    origin: string;
+    scope: string;
+    signedType: EMessageTypesEth;
+  };
+}
+
+export enum ESwapLimitOrderStatus {
+  PRESIGNATURE_PENDING = 'presignaturePending',
+  OPEN = 'open',
+  FULFILLED = 'fulfilled',
+  CANCELLED = 'cancelled',
+  EXPIRED = 'expired',
+}
+
+export enum ESwapLimitOrderExpiryStep {
+  FIVE_MINUTES = 5 * 60,
+  THIRTY_MINUTES = 30 * 60,
+  ONE_HOUR = 60 * 60,
+  ONE_DAY = 24 * 60 * 60,
+  THREE_DAYS = 3 * 24 * 60 * 60,
+  ONE_WEEK = 7 * 24 * 60 * 60,
+  ONE_MONTH = 30 * 24 * 60 * 60,
+}
+
+export const LimitMarketUpPercentages = [0, 20, 50, 100];
+
+export const defaultLimitExpirationTime =
+  ESwapLimitOrderExpiryStep.THIRTY_MINUTES;
+
+export const ESwapLimitPartiallyFillStepMap = [
+  { label: 'Enabled', value: true },
+  { label: 'Disabled', value: false },
+];
+
+export interface ISwapLimitPriceInfo {
+  fromToken?: ISwapToken;
+  toToken?: ISwapToken;
+  fromTokenMarketPrice?: number;
+  toTokenMarketPrice?: number;
+  rate?: string;
+  reverseRate?: string;
+  provider?: string;
+}
+
+export const ESwapLimitOrderUpdateInterval = 10_000;
 
 // component -----------------
 
