@@ -414,11 +414,13 @@ export enum ESwapAlertLevel {
 export enum ESwapAlertActionType {
   CREATE_ADDRESS = 'create_address',
   TOKEN_DETAIL_FETCHING = 'token_detail_fetching',
+  LIMIT_NATIVE_WRAPPED = 'limit_native_wrapped',
 }
 
 export interface ISwapAlertActionData {
   num?: number;
   key?: string;
+  wrappedToken?: ISwapTokenBase;
   account?: {
     walletId: IDBWalletId | undefined;
     networkId: string | undefined;
@@ -668,6 +670,14 @@ export interface IFetchLimitOrderRes {
   networkId: string;
   userAddress: string;
   orderSupportUrl?: string;
+  cancelInfo?: {
+    domain: TypedDataDomain;
+    types: { OrderCancellations: { name: string; type: string }[] };
+    data: { orderUids: string[] };
+    origin: string;
+    scope: string;
+    signedType: EMessageTypesEth;
+  };
 }
 
 export enum ESwapLimitOrderStatus {

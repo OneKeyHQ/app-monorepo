@@ -2,16 +2,22 @@ import { useCallback, useState } from 'react';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { SegmentControl, YStack } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
 import LimitOrderList from '../components/LimitOrderList';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
-const LimitOrderListModal = () => {
-  const [{ swapLimitOrders }] = useInAppNotificationAtom();
+const LimitOrderListModal = ({
+  storeName,
+}: {
+  storeName: EJotaiContextStoreNames;
+}) => {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [limitOrderSelectedTab, setLimitOrderSelectedTab] = useState<
@@ -22,9 +28,10 @@ const LimitOrderListModal = () => {
       navigation.push(EModalSwapRoutes.LimitOrderDetail, {
         orderId: item.orderId,
         orderItem: item,
+        storeName,
       });
     },
-    [navigation],
+    [navigation, storeName],
   );
 
   return (
@@ -42,13 +49,34 @@ const LimitOrderListModal = () => {
         value={limitOrderSelectedTab}
       />
 
-      <LimitOrderList
-        onClickCell={onClickCell}
-        data={swapLimitOrders}
-        type={limitOrderSelectedTab}
-      />
+      <LimitOrderList onClickCell={onClickCell} type={limitOrderSelectedTab} />
     </YStack>
   );
 };
 
-export default LimitOrderListModal;
+const LimitOrderListModalWithSwapProvider = ({
+  storeName,
+}: {
+  storeName: EJotaiContextStoreNames;
+}) => (
+  <SwapProviderMirror storeName={storeName}>
+    <LimitOrderListModal storeName={storeName} />
+  </SwapProviderMirror>
+);
+
+export default function LimitOrderListModalWithAllProvider({
+  storeName,
+}: {
+  storeName: EJotaiContextStoreNames;
+}) {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.swap,
+      }}
+      enabledNum={[0, 1]}
+    >
+      <LimitOrderListModalWithSwapProvider storeName={storeName} />
+    </AccountSelectorProviderMirror>
+  );
+}

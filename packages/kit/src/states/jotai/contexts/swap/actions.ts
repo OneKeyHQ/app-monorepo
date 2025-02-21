@@ -1141,35 +1141,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
 
-      // const fromTokenPriceBN = new BigNumber(fromToken?.price ?? 0);
-      // const tokenFiatValueBN = fromTokenAmountBN.multipliedBy(fromTokenPriceBN);
-
-      // check network fee
-      // const gasFeeBN = new BigNumber(
-      //   quoteResult?.fee?.estimatedFeeFiatValue ?? 0,
-      // );
-      // if (
-      //   !(tokenFiatValueBN.isNaN() || tokenFiatValueBN.isZero()) &&
-      //   gasFeeBN.gt(tokenFiatValueBN)
-      // ) {
-      //   alertsRes = [
-      //     ...alertsRes,
-      //     {
-      //       icon: 'GasOutline',
-      //       title: appLocale.intl.formatMessage({
-      //         id: ETranslations.swap_page_alert_fee_exceeds_amount_title,
-      //       }),
-      //       message: appLocale.intl.formatMessage({
-      //         id: ETranslations.swap_page_alert_fee_exceeds_amount,
-      //       }),
-      //       alertLevel: ESwapAlertLevel.WARNING,
-      //       action: {
-      //         actionType: ESwapAlertActionType.TOKEN_DETAIL_FETCHING,
-      //       },
-      //     },
-      //   ];
-      // }
-
       // check other fee
       const otherFeeInfo = quoteResult?.fee?.otherFeeInfos;
       if (otherFeeInfo?.length) {
@@ -1278,6 +1249,24 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             },
           ];
         }
+      }
+
+      // check limit native should wrapped
+      if (quoteResult?.shouldWrappedToken) {
+        alertsRes = [
+          ...alertsRes,
+          {
+            icon: 'ErrorSolid',
+            title: `Con not sell ${quoteResult.fromTokenInfo.symbol}`,
+            alertLevel: ESwapAlertLevel.INFO,
+            action: {
+              actionType: ESwapAlertActionType.LIMIT_NATIVE_WRAPPED,
+              actionData: {
+                wrappedToken: quoteResult?.shouldWrappedToken,
+              },
+            },
+          },
+        ];
       }
 
       set(swapAlertsAtom(), {

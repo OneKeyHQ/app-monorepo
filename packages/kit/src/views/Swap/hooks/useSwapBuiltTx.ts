@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/types/message';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchLimitOrderRes,
   IFetchQuoteResult,
   ISwapToken,
   ISwapTxInfo,
@@ -908,10 +909,24 @@ export function useSwapBuildTx() {
               swapInfo: createBuildTxRes.swapInfo,
             });
           }
-          void syncRecentTokenPairs({
-            swapFromToken: fromToken,
-            swapToToken: toToken,
-          });
+          if (
+            createBuildTxRes?.swapInfo?.protocol === EProtocolOfExchange.SWAP
+          ) {
+            void syncRecentTokenPairs({
+              swapFromToken: fromToken,
+              swapToToken: toToken,
+            });
+          } else if (
+            createBuildTxRes?.swapInfo?.protocol === EProtocolOfExchange.LIMIT
+          ) {
+            void backgroundApiProxy.serviceSwap.swapLimitOrderFetchNewOrder(
+              swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+              !swapFromAddressInfo.accountInfo?.indexedAccount?.id
+                ? swapFromAddressInfo.accountInfo?.account?.id ??
+                    swapFromAddressInfo.accountInfo?.dbAccount?.id
+                : undefined,
+            );
+          }
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
             swapProvider: selectQuote?.info.provider,
             swapProviderName: selectQuote?.info.providerName,
@@ -951,19 +966,101 @@ export function useSwapBuildTx() {
     slippageItem,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+    swapFromAddressInfo.accountInfo?.account?.id,
+    swapFromAddressInfo.accountInfo?.dbAccount?.id,
     swapToAddressInfo.address,
     setSwapBuildTxFetching,
     createBuildTx,
-    navigationToTxConfirm,
-    handleBuildTxSuccess,
-    cancelBuildTx,
-    syncRecentTokenPairs,
     isFirstTimeSwap,
     pageType,
     setPersistSettings,
-    setSwapShouldRefreshQuote,
+    navigationToTxConfirm,
+    handleBuildTxSuccess,
+    cancelBuildTx,
     handleBuildTxSuccessWithSignedNoSend,
+    syncRecentTokenPairs,
+    setSwapShouldRefreshQuote,
   ]);
 
-  return { buildTx, wrappedTx, approveTx };
+  const cancelLimitOrder = useCallback(
+    async (item: IFetchLimitOrderRes) => {
+      if (item.cancelInfo) {
+        const { domain, types, data, signedType } = item.cancelInfo;
+        const populated = await ethers.utils._TypedDataEncoder.resolveNames(
+          domain,
+          types,
+          data,
+          async (value: string) => value,
+        );
+        const dataMessage = JSON.stringify(
+          ethers.utils._TypedDataEncoder.getPayload(
+            populated.domain,
+            types,
+            populated.value,
+          ),
+        );
+        if (dataMessage) {
+          const signHash = await new Promise<string>((resolve, reject) => {
+            if (
+              dataMessage &&
+              swapFromAddressInfo.address &&
+              swapFromAddressInfo.networkId
+            ) {
+              navigationToMessageConfirm({
+                accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                networkId: item.networkId,
+                unsignedMessage: {
+                  type: signedType ?? EMessageTypesEth.TYPED_DATA_V4,
+                  message: dataMessage,
+                  payload: [
+                    swapFromAddressInfo.address.toLowerCase(),
+                    dataMessage,
+                  ],
+                },
+                walletInternalSign: true,
+                onSuccess: (result: string) => {
+                  resolve(result);
+                },
+                onFail: (error: Error) => {
+                  reject(error);
+                },
+                onCancel: () => {
+                  reject(new Error('user cancel'));
+                },
+              });
+            } else {
+              reject(
+                new Error(
+                  `missing data: dataMessage: ${dataMessage ?? ''}, address: ${
+                    swapFromAddressInfo.address ?? ''
+                  }, networkId: ${swapFromAddressInfo.networkId ?? ''}`,
+                ),
+              );
+            }
+          });
+          if (signHash) {
+            await backgroundApiProxy.serviceSwap.cancelLimitOrder({
+              orderIds: [item.orderId],
+              signature: signHash,
+              signingScheme: ESigningScheme.EIP712,
+              networkId: item.networkId,
+              provider: item.provider,
+              userAddress: item.userAddress,
+            });
+            await backgroundApiProxy.serviceSwap.swapLimitOrderFetchNewOrder(
+              swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+              !swapFromAddressInfo.accountInfo?.indexedAccount?.id
+                ? swapFromAddressInfo.accountInfo?.account?.id ??
+                    swapFromAddressInfo.accountInfo?.dbAccount?.id
+                : undefined,
+            );
+          }
+        }
+      }
+    },
+    [swapFromAddressInfo, navigationToMessageConfirm],
+  );
+
+  return { buildTx, wrappedTx, approveTx, cancelLimitOrder };
 }

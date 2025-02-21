@@ -40,7 +40,10 @@ export type IModalSwapParamList = {
     storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.SwapProviderSelect]: { storeName: EJotaiContextStoreNames };
-  [EModalSwapRoutes.SwapHistoryList]: { type?: EProtocolOfExchange };
+  [EModalSwapRoutes.SwapHistoryList]: {
+    type?: EProtocolOfExchange;
+    storeName: EJotaiContextStoreNames;
+  };
   [EModalSwapRoutes.SwapHistoryDetail]: {
     txHistoryOrderId?: string;
     txHistoryList?: ISwapTxHistory[];
@@ -49,6 +52,7 @@ export type IModalSwapParamList = {
   [EModalSwapRoutes.LimitOrderDetail]: {
     orderId?: string;
     orderItem?: IFetchLimitOrderRes;
+    storeName: EJotaiContextStoreNames;
   };
   [EModalSwapRoutes.SwapToAnotherAddress]: {
     address?: string;

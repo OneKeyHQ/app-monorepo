@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 
 import {
   Button,
+  Dialog,
   Divider,
   Page,
   Progress,
@@ -16,7 +17,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -30,6 +31,7 @@ import type {
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 import { ESwapLimitOrderStatus } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
@@ -39,6 +41,9 @@ import {
   InfoItem,
   InfoItemGroup,
 } from '../../../AssetDetails/pages/HistoryDetails/components/TxDetailsInfoItem';
+import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import LimitOrderCancelDialog from '../components/LimitOrderCancelDialog';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -159,20 +164,12 @@ const LimitOrderDetailModal = () => {
     orderItemState?.toTokenInfo.symbol,
     settingsPersistAtom.currencyInfo.symbol,
   ]);
-
-  const onCancel = useCallback(
-    async (item?: IFetchLimitOrderRes) => {
-      if (!item) {
-        return;
-      }
+  const { cancelLimitOrder } = useSwapBuildTx();
+  const runCancel = useCallback(
+    async (item: IFetchLimitOrderRes) => {
       try {
         setCancelLoading(true);
-        await backgroundApiProxy.serviceSwap.cancelLimitOrder({
-          provider: item.provider,
-          networkId: item.networkId,
-          orderId: item.orderId,
-          userAddress: item.userAddress,
-        });
+        await cancelLimitOrder(item);
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.global_success,
@@ -189,7 +186,22 @@ const LimitOrderDetailModal = () => {
         setCancelLoading(false);
       }
     },
-    [intl],
+    [cancelLimitOrder, intl],
+  );
+  const onCancel = useCallback(
+    async (item?: IFetchLimitOrderRes) => {
+      if (!item) {
+        return;
+      }
+      Dialog.show({
+        title: 'Limit Order',
+        renderContent: <LimitOrderCancelDialog item={item} />,
+        onConfirm: () => runCancel(item),
+        showCancelButton: true,
+        showConfirmButton: true,
+      });
+    },
+    [runCancel],
   );
 
   const renderLimitOrderStatus = useCallback(() => {
@@ -226,7 +238,11 @@ const LimitOrderDetailModal = () => {
           break;
       }
       return (
-        <Stack flexDirection={gtMd ? 'row' : 'column'}>
+        <Stack
+          flexDirection={gtMd ? 'row' : 'column'}
+          gap="$2"
+          alignItems={gtMd ? 'center' : 'flex-start'}
+        >
           <SizableText size="$bodyMdMedium" color={color}>
             {label}
           </SizableText>
@@ -407,4 +423,28 @@ const LimitOrderDetailModal = () => {
   );
 };
 
-export default LimitOrderDetailModal;
+const LimitOrderDetailModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.LimitOrderDetail>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <LimitOrderDetailModal />
+    </SwapProviderMirror>
+  );
+};
+
+export default function LimitOrderDetailModalWithAllProvider() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.swap,
+      }}
+      enabledNum={[0, 1]}
+    >
+      <LimitOrderDetailModalWithProvider />
+    </AccountSelectorProviderMirror>
+  );
+}

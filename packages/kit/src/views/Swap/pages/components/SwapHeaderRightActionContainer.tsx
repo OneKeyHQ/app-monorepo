@@ -372,9 +372,13 @@ const SwapHeaderRightActionContainer = ({
           swapTypeSwitch === ESwapTabSwitchType.LIMIT
             ? EProtocolOfExchange.LIMIT
             : EProtocolOfExchange.SWAP,
+        storeName:
+          pageType === EPageType.modal
+            ? EJotaiContextStoreNames.swapModal
+            : EJotaiContextStoreNames.swap,
       },
     });
-  }, [navigation, swapTypeSwitch]);
+  }, [navigation, pageType, swapTypeSwitch]);
 
   const onOpenSwapSettings = useCallback(() => {
     Dialog.show({

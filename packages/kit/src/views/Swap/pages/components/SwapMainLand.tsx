@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -84,20 +84,26 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
+
+  const storeName = useMemo(
+    () =>
+      pageType === EPageType.modal
+        ? EJotaiContextStoreNames.swapModal
+        : EJotaiContextStoreNames.swap,
+    [pageType],
+  );
+
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapTokenSelect,
         params: {
           type,
-          storeName:
-            pageType === EPageType.modal
-              ? EJotaiContextStoreNames.swapModal
-              : EJotaiContextStoreNames.swap,
+          storeName,
         },
       });
     },
-    [navigation, pageType],
+    [navigation, storeName],
   );
   const onSelectRecentTokenPairs = useCallback(
     ({
@@ -116,26 +122,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapProviderSelect,
       params: {
-        storeName:
-          pageType === EPageType.modal
-            ? EJotaiContextStoreNames.swapModal
-            : EJotaiContextStoreNames.swap,
+        storeName,
       },
     });
-  }, [navigation, pageType]);
+  }, [navigation, storeName]);
 
   const onToAnotherAddressModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapToAnotherAddress,
       params: {
         address: toAddressInfo.address,
-        storeName:
-          pageType === EPageType.modal
-            ? EJotaiContextStoreNames.swapModal
-            : EJotaiContextStoreNames.swap,
+        storeName,
       },
     });
-  }, [navigation, pageType, toAddressInfo.address]);
+  }, [navigation, storeName, toAddressInfo.address]);
 
   const onBuildTx = useCallback(async () => {
     await buildTx();
@@ -228,7 +228,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
           />
-          <LimitOrderOpenItem />
+          <LimitOrderOpenItem storeName={storeName} />
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}

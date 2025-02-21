@@ -8,8 +8,7 @@ import { AccountSelectorProviderMirror } from '../../../components/AccountSelect
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
 const InAppNotification = () => {
-  const [{ swapHistoryPendingList, swapLimitOrders }] =
-    useInAppNotificationAtom();
+  const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
 
   useEffect(() => {
     void backgroundApiProxy.serviceSwap.swapHistoryStatusFetchLoop();
@@ -24,12 +23,7 @@ const InAppNotification = () => {
         ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
         : undefined,
     );
-  }, [
-    activeAccount?.account?.id,
-    activeAccount?.dbAccount?.id,
-    activeAccount?.indexedAccount?.id,
-    swapLimitOrders,
-  ]);
+  }, [activeAccount]);
 
   return null;
 };

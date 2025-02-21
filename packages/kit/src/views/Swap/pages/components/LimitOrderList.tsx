@@ -4,15 +4,15 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Dialog,
   Empty,
   ListView,
-  SizableText,
   Skeleton,
   Toast,
   useMedia,
 } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   ESwapLimitOrderStatus,
@@ -20,16 +20,17 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import LimitOrderListItem from '../../components/LimitOrderListItem';
+import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+
+import LimitOrderCancelDialog from './LimitOrderCancelDialog';
 
 interface ILimitOrderListProps {
-  data: IFetchLimitOrderRes[];
   onClickCell: (item: IFetchLimitOrderRes) => void;
   isLoading?: boolean;
   type: 'open' | 'history';
 }
 
 const LimitOrderList = ({
-  data,
   isLoading,
   type,
   onClickCell,
@@ -37,16 +38,13 @@ const LimitOrderList = ({
   const { gtMd } = useMedia();
   const intl = useIntl();
   const [cancelLoading, setCancelLoading] = useState(false);
-  const onCancel = useCallback(
+  const { cancelLimitOrder } = useSwapBuildTx();
+  const [{ swapLimitOrders }] = useInAppNotificationAtom();
+  const runCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
       try {
         setCancelLoading(true);
-        await backgroundApiProxy.serviceSwap.cancelLimitOrder({
-          provider: item.provider,
-          networkId: item.networkId,
-          orderId: item.orderId,
-          userAddress: item.userAddress,
-        });
+        await cancelLimitOrder(item);
         Toast.success({
           title: intl.formatMessage({
             id: ETranslations.global_success,
@@ -63,7 +61,19 @@ const LimitOrderList = ({
         setCancelLoading(false);
       }
     },
-    [intl],
+    [cancelLimitOrder, intl],
+  );
+  const onCancel = useCallback(
+    async (item: IFetchLimitOrderRes) => {
+      Dialog.show({
+        title: 'Limit Order',
+        renderContent: <LimitOrderCancelDialog item={item} />,
+        onConfirm: () => runCancel(item),
+        showCancelButton: true,
+        showConfirmButton: true,
+      });
+    },
+    [runCancel],
   );
   const renderItem = useCallback(
     ({ item }: { item: IFetchLimitOrderRes }) => (
@@ -78,9 +88,9 @@ const LimitOrderList = ({
   );
 
   const orderData = useMemo(() => {
-    let filteredData = data;
+    let filteredData = swapLimitOrders;
     if (type === 'open') {
-      filteredData = data.filter(
+      filteredData = swapLimitOrders.filter(
         (order) => order.status === ESwapLimitOrderStatus.OPEN,
       );
     }
@@ -91,30 +101,7 @@ const LimitOrderList = ({
         return bDate - aDate;
       }) ?? []
     );
-  }, [data, type]);
-
-  const listHeaderComponent = useMemo(
-    () =>
-      orderData.length > 0 ? (
-        <ListItem mx="-$4">
-          <SizableText minWidth={gtMd ? 184 : 145} size="$bodySm">
-            Pair
-          </SizableText>
-          {gtMd ? (
-            <SizableText minWidth={184} size="$bodySm">
-              Limit price
-            </SizableText>
-          ) : null}
-          <SizableText minWidth={80} size="$bodySm">
-            Status
-          </SizableText>
-          <SizableText flex={1} textAlign="right" size="$bodySm">
-            Expiration
-          </SizableText>
-        </ListItem>
-      ) : null,
-    [gtMd, orderData.length],
-  );
+  }, [swapLimitOrders, type]);
 
   const loadingSkeleton = useMemo(
     () =>
@@ -125,16 +112,14 @@ const LimitOrderList = ({
       )),
     [gtMd],
   );
-  return !data.length && isLoading ? (
+  return !swapLimitOrders.length && isLoading ? (
     loadingSkeleton
   ) : (
     <ListView
-      bg={orderData.length > 0 ? '$bgSubdued' : 'transparent'}
       borderRadius="$3"
       estimatedItemSize="$20"
       data={orderData}
       renderItem={renderItem}
-      ListHeaderComponent={listHeaderComponent}
       ListEmptyComponent={
         <Empty
           icon="InboxOutline"

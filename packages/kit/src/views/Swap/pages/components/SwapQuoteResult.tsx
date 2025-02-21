@@ -163,7 +163,7 @@ const SwapQuoteResult = ({
     return null;
   }
   if (quoteResult?.protocol === EProtocolOfExchange.LIMIT) {
-    return (
+    return !quoteResult?.shouldWrappedToken ? (
       <YStack gap="$2">
         <LimitExpirySelect
           currentSelectExpiryValue={swapLimitExpirySelect}
@@ -190,7 +190,7 @@ const SwapQuoteResult = ({
           />
         ) : null}
       </YStack>
-    );
+    ) : null;
   }
   if (
     fromToken &&

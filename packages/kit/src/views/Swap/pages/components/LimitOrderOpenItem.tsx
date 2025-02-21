@@ -4,6 +4,7 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapTypeSwitchAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
@@ -13,7 +14,11 @@ import {
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
-const LimitOrderOpenItem = () => {
+const LimitOrderOpenItem = ({
+  storeName,
+}: {
+  storeName: EJotaiContextStoreNames;
+}) => {
   const [{ swapLimitOrders }] = useInAppNotificationAtom();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
@@ -43,6 +48,7 @@ const LimitOrderOpenItem = () => {
           screen: EModalSwapRoutes.SwapHistoryList,
           params: {
             type: EProtocolOfExchange.LIMIT,
+            storeName,
           },
         });
       }}

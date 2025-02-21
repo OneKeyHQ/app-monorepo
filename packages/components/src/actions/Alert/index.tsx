@@ -48,6 +48,7 @@ export type IAlertProps = {
   fullBleed?: boolean;
   title?: string;
   description?: string;
+  descriptionComponent?: React.ReactNode;
   closable?: boolean;
   onClose?: () => void;
   icon?: IKeyOfIcons;
@@ -119,6 +120,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
     icon,
     title,
     description,
+    descriptionComponent,
     closable,
     type,
     fullBleed,
@@ -153,6 +155,7 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
             {description}
           </SizableText>
         ) : null}
+        {descriptionComponent || null}
       </YStack>
       {action ? (
         <XStack gap="$4" alignItems="center">

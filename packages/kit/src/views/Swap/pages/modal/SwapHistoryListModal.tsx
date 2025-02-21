@@ -26,6 +26,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -39,8 +40,9 @@ import {
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { SwapProviderMirror } from '../SwapProviderMirror';
 
-import LimitOrderListModal from './LimitOrderListModal';
+import LimitOrderListModalWithAllProvider from './LimitOrderListModal';
 
 import type { RouteProp } from '@react-navigation/core';
 
@@ -50,7 +52,11 @@ interface ISectionData {
   data: ISwapTxHistory[];
 }
 
-const SwapHistoryListModal = () => {
+const SwapHistoryListModal = ({
+  storeName,
+}: {
+  storeName: EJotaiContextStoreNames;
+}) => {
   const intl = useIntl();
   const route =
     useRoute<
@@ -322,10 +328,23 @@ const SwapHistoryListModal = () => {
           )}
         </>
       ) : (
-        <LimitOrderListModal />
+        <LimitOrderListModalWithAllProvider storeName={storeName} />
       )}
     </Page>
   );
 };
 
-export default SwapHistoryListModal;
+const SwapHistoryListModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapHistoryListModal storeName={storeName} />
+    </SwapProviderMirror>
+  );
+};
+
+export default SwapHistoryListModalWithProvider;
