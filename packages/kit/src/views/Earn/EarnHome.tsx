@@ -864,12 +864,6 @@ function BasicEarnHome() {
             ...bannerIconStyle,
             right: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
           }}
-          indicatorContainerStyle={{
-            right: 0,
-            width: '100%',
-            jc: 'center',
-            bottom: '$5',
-          }}
           itemContainerStyle={media.gtLg ? { px: 0 } : { px: '$5' }}
           itemTitleContainerStyle={{
             top: 0,

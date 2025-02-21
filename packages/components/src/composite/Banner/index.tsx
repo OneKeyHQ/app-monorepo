@@ -4,11 +4,10 @@ import { useCallback } from 'react';
 import { isNil } from 'lodash';
 import { useMedia, useProps } from 'tamagui';
 
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import { IconButton } from '../../actions';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
-import { Image, SizableText, Stack, XStack } from '../../primitives';
+import { Image, Stack, XStack } from '../../primitives';
+
+import { PaginationButton } from './PaginationButton';
 
 import type { IIconButtonProps } from '../../actions';
 import type {
@@ -31,7 +30,6 @@ export interface IBannerData {
 
 function BannerItem<T extends IBannerData>({
   itemContainerStyle,
-  itemTitleContainerStyle,
   onPress,
   item: rawItem,
 }: {
@@ -55,34 +53,16 @@ function BannerItem<T extends IBannerData>({
       onPress={onItemPress}
       {...itemContainerStyle}
     >
-      {item.imgUrl ? (
-        <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
-      ) : null}
+      {item.imgUrl ? <Image flex={1} bg="$bgStrong" src={item.imgUrl} /> : null}
 
       {item.imgSource ? (
         <Image
           flex={1}
-          borderRadius="$3"
           bg="$bgStrong"
           source={item.imgSource}
           resizeMode={item.imgResizeMode}
         />
       ) : null}
-      <Stack position="absolute" {...itemTitleContainerStyle}>
-        {
-          // TODO：Lokalise processes \n as \\n when handling translations
-          item.title?.split(/\n|\\n/).map((text, index) => (
-            <SizableText
-              key={index}
-              color={item.theme === 'dark' ? '$textDark' : '$textLight'}
-              size="$headingLg"
-              {...item.titleTextProps}
-            >
-              {text}
-            </SizableText>
-          ))
-        }
-      </Stack>
     </Stack>
   );
 }
@@ -137,8 +117,10 @@ export function Banner<T extends IBannerData>({
           <XStack
             gap="$1"
             position="absolute"
-            right="$10"
-            bottom="$10"
+            right={0}
+            width="100%"
+            jc="center"
+            bottom="$2"
             {...indicatorContainerStyle}
           >
             {data.map((_, index) => (
@@ -156,58 +138,25 @@ export function Banner<T extends IBannerData>({
             ))}
           </XStack>
         ) : null}
+
         {showPaginationButton || media.gtMd ? (
           <>
-            {currentIndex !== 0 ? (
-              <IconButton
-                position="absolute"
-                left="$10"
-                bottom="50%"
-                transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
-                icon="ChevronLeftOutline"
-                variant="tertiary"
-                iconProps={{
-                  color:
-                    data[currentIndex]?.theme === 'light'
-                      ? '$iconSubduedLight'
-                      : '$iconSubduedDark',
-                }}
-                onPress={gotToPrevIndex}
-                {...leftIconButtonStyle}
-              />
-            ) : null}
+            <PaginationButton
+              isVisible={currentIndex !== 0}
+              direction="previous"
+              onPress={gotToPrevIndex}
+            />
 
-            {currentIndex !== data.length - 1 ? (
-              <IconButton
-                icon="ChevronRightOutline"
-                variant="tertiary"
-                position="absolute"
-                right="$10"
-                bottom="50%"
-                transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
-                iconProps={{
-                  color:
-                    data[currentIndex]?.theme === 'light'
-                      ? '$iconSubduedLight'
-                      : '$iconSubduedDark',
-                }}
-                onPress={goToNextIndex}
-                disabled={currentIndex === data.length - 1}
-                {...rightIconButtonStyle}
-              />
-            ) : null}
+            <PaginationButton
+              isVisible={currentIndex !== data.length - 1}
+              direction="next"
+              onPress={goToNextIndex}
+            />
           </>
         ) : null}
       </>
     ),
-    [
-      showPaginationButton,
-      media.gtMd,
-      data,
-      leftIconButtonStyle,
-      rightIconButtonStyle,
-      indicatorContainerStyle,
-    ],
+    [data, indicatorContainerStyle, showPaginationButton, media.gtMd],
   );
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
@@ -221,11 +170,13 @@ export function Banner<T extends IBannerData>({
       autoplay
       autoplayLoop
       autoplayLoopKeepAnimation
-      autoplayDelayMs={3000}
+      autoplayDelayMs={30_000}
       keyExtractor={keyExtractor}
       data={data}
       renderItem={renderItem}
       renderPagination={renderPagination}
+      overflow="hidden"
+      borderRadius="$3"
       {...(props as any)}
     />
   );
