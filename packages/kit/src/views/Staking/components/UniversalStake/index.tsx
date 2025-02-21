@@ -27,6 +27,7 @@ import type {
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
+import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationList, CalculationListItem } from '../CalculationList';
@@ -39,7 +40,6 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
-import { validateAmountInput } from '../../../Swap/utils/utils';
 
 type IUniversalStakeProps = {
   accountId: string;
