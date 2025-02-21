@@ -21,9 +21,7 @@ import type {
   ESwapTxHistoryStatus,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import {
-  ESwapDirectionType,
-} from '@onekeyhq/shared/types/swap/types';
+import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
