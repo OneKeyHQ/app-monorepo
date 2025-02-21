@@ -17,11 +17,11 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type {
+  ESwapCrossChainStatus,
   ESwapTxHistoryStatus,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  ESwapCrossChainStatus,
   ESwapDirectionType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -356,7 +356,6 @@ export function useSwapSelectedTokenInfo({
     ({
       fromToken,
       toToken,
-      crossChainStatus,
     }: {
       status: ESwapTxHistoryStatus;
       crossChainStatus?: ESwapCrossChainStatus;
@@ -387,21 +386,11 @@ export function useSwapSelectedTokenInfo({
             },
           }))
       ) {
-        if (
-          crossChainStatus !== ESwapCrossChainStatus.FROM_PENDING &&
-          crossChainStatus !== ESwapCrossChainStatus.EXPIRED &&
-          crossChainStatus !== ESwapCrossChainStatus.FROM_FAILED &&
-          crossChainStatus !== ESwapCrossChainStatus.TO_FAILED &&
-          crossChainStatus !== ESwapCrossChainStatus.BRIDGE_FAILED &&
-          crossChainStatus !== ESwapCrossChainStatus.REFUND_FAILED &&
-          crossChainStatus !== ESwapCrossChainStatus.PROVIDER_ERROR
-        ) {
-          void loadSwapSelectTokenDetailDeb(
-            type,
-            swapAddressInfoRef.current,
-            true,
-          );
-        }
+        void loadSwapSelectTokenDetailDeb(
+          type,
+          swapAddressInfoRef.current,
+          true,
+        );
       }
     },
     [type, loadSwapSelectTokenDetailDeb],
@@ -421,11 +410,7 @@ export function useSwapSelectedTokenInfo({
   }, [isFocused, pageType, reloadSwapSelectTokenDetail]);
 
   useEffect(() => {
-    void loadSwapSelectTokenDetailDeb(
-      type,
-      swapAddressInfoRef.current,
-      !token?.reservationValue && token?.isNative,
-    );
+    void loadSwapSelectTokenDetailDeb(type, swapAddressInfoRef.current, false);
   }, [
     type,
     swapAddressInfo,
