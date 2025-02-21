@@ -134,7 +134,11 @@ const BasicApproveBaseStakePage = () => {
           minAmount={provider.minStakeAmount}
           decimals={token.info.decimals}
           onConfirm={onConfirm}
-          apr={Number(provider.apr) > 0 ? provider.apr : undefined}
+          apr={
+            Number(provider.aprWithoutFee) > 0
+              ? provider.aprWithoutFee
+              : undefined
+          }
           currentAllowance={currentAllowance}
           providerLogo={details.provider.logoURI}
           providerName={details.provider.name}

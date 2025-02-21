@@ -241,7 +241,11 @@ function BasicStakePage() {
           networkId={networkId}
           decimals={details.token.info.decimals}
           details={details}
-          apr={Number(provider.apr) > 0 ? provider.apr : undefined}
+          apr={
+            Number(provider.aprWithoutFee) > 0
+              ? provider.aprWithoutFee
+              : undefined
+          }
           price={price}
           balance={balanceParsed}
           minAmount={provider.minStakeAmount}
@@ -258,6 +262,7 @@ function BasicStakePage() {
           isReachBabylonCap={isReachBabylonCap}
           rewardToken={rewardToken}
           isDisabled={isReachBabylonCap}
+          updateFrequency={tokenResult?.updateFrequency}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
           estReceiveTokenRate={estReceiveTokenRate}

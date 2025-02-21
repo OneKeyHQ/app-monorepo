@@ -219,8 +219,8 @@ function AssetProtocolListContent({
           <ListItem.Text
             align="right"
             primary={
-              Number(item.provider.apr) > 0
-                ? `${BigNumber(item.provider.apr ?? 0).toFixed(2)}% ${
+              Number(item.provider.aprWithoutFee) > 0
+                ? `${BigNumber(item.provider.aprWithoutFee ?? 0).toFixed(2)}% ${
                     item.provider.rewardUnit
                   }`
                 : null

@@ -240,7 +240,7 @@ export default class Vault extends VaultBase {
                     to: transfer.to,
                     amount: new BigNumber(transfer.amount)
                       .shiftedBy(-token.decimals)
-                      .toString(),
+                      .toFixed(),
                     icon: token?.logoURI ?? '',
                     symbol: token?.symbol ?? '',
                     name: token?.name ?? '',
