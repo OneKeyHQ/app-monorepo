@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Alert,
   Image,
@@ -302,35 +303,47 @@ export function ApproveBaseStake({
     }
   }, [estimateFeeResp?.feeFiatValue, totalAnnualRewardsFiatValue]);
 
-  const onSubmit = useCallback(async () => {
-    const handleConfirm = () =>
-      onConfirm?.({
-        amount: amountValue,
-        approveType: details.provider.approveType,
-        permitSignature: permitSignatureRef.current,
-      });
-    if (totalAnnualRewardsFiatValue && estimateFeeResp) {
+  const checkEstimateGasAlert = useCallback(
+    async (onNext: () => Promise<void>) => {
+      if (!totalAnnualRewardsFiatValue || !estimateFeeResp) {
+        return onNext();
+      }
+
       const daySpent = calcDaysSpent(
         totalAnnualRewardsFiatValue,
         estimateFeeResp.feeFiatValue,
       );
-      if (daySpent && daySpent > 5) {
-        showEstimateGasAlert({
-          daysConsumed: daySpent,
-          estFiatValue: estimateFeeResp.feeFiatValue,
-          onConfirm: handleConfirm,
-        });
-        return;
+
+      if (!daySpent || daySpent <= 5) {
+        return onNext();
       }
-    }
-    await handleConfirm();
+
+      showEstimateGasAlert({
+        daysConsumed: daySpent,
+        estFiatValue: estimateFeeResp.feeFiatValue,
+        onConfirm: async (dialogInstance: IDialogInstance) => {
+          await dialogInstance.close();
+          await onNext();
+        },
+      });
+    },
+    [totalAnnualRewardsFiatValue, estimateFeeResp, showEstimateGasAlert],
+  );
+
+  const onSubmit = useCallback(async () => {
+    const handleConfirm = async () => {
+      await onConfirm?.({
+        amount: amountValue,
+        approveType: details.provider.approveType,
+        permitSignature: permitSignatureRef.current,
+      });
+    };
+
+    await checkEstimateGasAlert(handleConfirm);
   }, [
     onConfirm,
     amountValue,
-    totalAnnualRewardsFiatValue,
-    estimateFeeResp,
-    showEstimateGasAlert,
-    permitSignatureRef,
+    checkEstimateGasAlert,
     details.provider.approveType,
   ]);
 
@@ -343,23 +356,27 @@ export function ApproveBaseStake({
         return;
       }
 
-      try {
-        const permitBundlerAction = await getPermitSignature({
-          networkId: approveTarget.networkId,
-          accountId: approveTarget.accountId,
-          token,
-          amountValue,
-          details,
-        });
-        permitSignatureRef.current = permitBundlerAction;
-        void onSubmit();
-      } catch (error: unknown) {
-        console.error('Permit sign error:', error);
-        defaultLogger.staking.page.permitSignError({
-          error: error instanceof Error ? error.message : String(error),
-        });
-        setApproving(false);
-      }
+      const handlePermit2Approve = async () => {
+        try {
+          const permitBundlerAction = await getPermitSignature({
+            networkId: approveTarget.networkId,
+            accountId: approveTarget.accountId,
+            token,
+            amountValue,
+            details,
+          });
+          permitSignatureRef.current = permitBundlerAction;
+          void onSubmit();
+        } catch (error: unknown) {
+          console.error('Permit sign error:', error);
+          defaultLogger.staking.page.permitSignError({
+            error: error instanceof Error ? error.message : String(error),
+          });
+          setApproving(false);
+        }
+      };
+
+      void checkEstimateGasAlert(handlePermit2Approve);
       return;
     }
 
@@ -399,6 +416,7 @@ export function ApproveBaseStake({
     isFinishPermit2Approve,
     getPermitSignature,
     onSubmit,
+    checkEstimateGasAlert,
   ]);
 
   return (
