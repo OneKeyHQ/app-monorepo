@@ -92,7 +92,7 @@ const LimitOrderDetailModal = () => {
   const limitPrice = useMemo(() => {
     const fromAmountNum = decimalsAmount.fromAmount;
     const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toString();
+    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toFixed();
     const formatLimitPrice = formatBalance(calculateLimitPrice);
     return formatLimitPrice.formattedValue;
   }, [decimalsAmount]);
@@ -315,8 +315,8 @@ const LimitOrderDetailModal = () => {
     const executedSellAmountBN = new BigNumber(
       executedSellAmount ?? '0',
     ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
-    const executeBuyFormat = formatBalance(executedBuyAmountBN.toString());
-    const executeSellFormat = formatBalance(executedSellAmountBN.toString());
+    const executeBuyFormat = formatBalance(executedBuyAmountBN.toFixed());
+    const executeSellFormat = formatBalance(executedSellAmountBN.toFixed());
     const sellPercentage = executedSellAmountBN
       .div(fromAmountBN)
       .multipliedBy(100)

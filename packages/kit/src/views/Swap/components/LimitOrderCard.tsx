@@ -152,7 +152,7 @@ const LimitOrderCard = ({
   const limitPrice = useMemo(() => {
     const fromAmountNum = decimalsAmount.fromAmount;
     const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toString();
+    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toFixed();
     const formatLimitPrice = formatBalance(calculateLimitPrice);
     return formatLimitPrice.formattedValue;
   }, [decimalsAmount]);
