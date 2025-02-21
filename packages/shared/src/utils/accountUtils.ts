@@ -495,7 +495,9 @@ function buildLocalHistoryId(params: {
   $key?: string;
 }) {
   const { networkId, txid, accountAddress, xpub, $key } = params;
-  const historyId = `${networkId}_${txid}_${xpub || accountAddress}_${$key}`;
+  const historyId = `${networkId}_${txid}_${xpub || accountAddress}_${
+    $key || ''
+  }`;
   return historyId;
 }
 
