@@ -15,6 +15,8 @@ type IProviderInfoProps = {
     isProtocol?: boolean;
     name: string;
     link: string;
+    vaultName?: string;
+    vaultLink?: string;
   };
   minOrMaxStaking?: {
     minValue?: number;
@@ -113,6 +115,15 @@ function ProviderInfo({
             </SizableText>
           </GridItem>
         ) : null}
+        {earnUtils.isMorphoProvider({ providerName: validator?.name ?? '' }) &&
+        validator?.vaultName ? (
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.earn_vault })}
+            link={validator?.vaultLink}
+          >
+            {validator?.vaultName}
+          </GridItem>
+        ) : null}
         {network?.name ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.global_network })}
@@ -134,19 +145,6 @@ function ProviderInfo({
             {babylonConfirmedCap.value} BTC
           </GridItem>
         ) : null}
-        {poolFee?.value &&
-        earnUtils.isMorphoProvider({ providerName: validator?.name ?? '' }) ? (
-          <GridItem
-            title={intl.formatMessage({
-              id: ETranslations.earn_performance_fee,
-            })}
-            tooltip={intl.formatMessage({
-              id: ETranslations.earn_performance_fee_desc,
-            })}
-          >
-            {poolFee.value}%
-          </GridItem>
-        ) : null}
       </XStack>
     </YStack>
   );
@@ -163,6 +161,8 @@ export const ProviderSection = ({
     providerProps.validator = {
       name: details.provider.name,
       link: details.provider.website,
+      vaultName: details.provider.vaultName,
+      vaultLink: details.provider.url,
       isProtocol: details.provider.name.toLowerCase() !== 'everstake',
     };
     if (details.provider.minStakeAmount) {

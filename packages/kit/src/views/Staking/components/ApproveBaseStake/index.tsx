@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -18,6 +18,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
@@ -26,6 +27,7 @@ import type {
 } from '@onekeyhq/shared/types/staking';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { validateAmountInput } from '../../../Swap/utils/utils';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
@@ -133,6 +135,9 @@ export function ApproveBaseStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
+      if (!validateAmountInput(value, decimals)) {
+        return;
+      }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
@@ -197,8 +202,10 @@ export function ApproveBaseStake({
         { amount: amountValue, symbol: token.symbol },
       );
     }
-    return intl.formatMessage({ id: renderStakeText(details.provider.name) });
-  }, [isApprove, intl, details.provider.name, amountValue, token.symbol]);
+    return intl.formatMessage({ id: ETranslations.earn_deposit });
+  }, [isApprove, token, amountValue, intl]);
+
+  const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
   const onApprove = useCallback(async () => {
     setApproving(true);
@@ -206,6 +213,7 @@ export function ApproveBaseStake({
       accountId: approveTarget.accountId,
       networkId: approveTarget.networkId,
     });
+    showStakeProgressRef.current[amountValue] = true;
     await navigationToTxConfirm({
       approvesInfo: [
         {
@@ -342,6 +350,8 @@ export function ApproveBaseStake({
     showEstimateGasAlert,
   ]);
 
+  const isShowStakeProgress =
+    !!amountValue && (isApprove || showStakeProgressRef.current[amountValue]);
   return (
     <StakingFormWrapper>
       <AmountInput
@@ -437,7 +447,9 @@ export function ApproveBaseStake({
             <CalculationListItem.Label>
               {details.provider.rewardUnit}
             </CalculationListItem.Label>
-            <CalculationListItem.Value color="$textSuccess">{`${apr}%`}</CalculationListItem.Value>
+            <CalculationListItem.Value color="$textSuccess">{`${formatApy(
+              apr,
+            )}%`}</CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
         {providerName && providerLogo ? (
@@ -489,15 +501,18 @@ export function ApproveBaseStake({
             jc: 'space-between',
           }}
         >
-          <Stack pl="$5">
-            <StakeProgress
-              currentStep={
-                isApprove
-                  ? EStakeProgressStep.supply
-                  : EStakeProgressStep.approve
-              }
-            />
+          <Stack pl="$5" $md={{ pt: '$5' }}>
+            {isShowStakeProgress ? (
+              <StakeProgress
+                currentStep={
+                  isDisable || isApprove
+                    ? EStakeProgressStep.approve
+                    : EStakeProgressStep.deposit
+                }
+              />
+            ) : null}
           </Stack>
+
           <Page.FooterActions
             onConfirmText={onConfirmText}
             confirmButtonProps={{

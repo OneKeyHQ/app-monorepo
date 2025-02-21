@@ -875,7 +875,19 @@ function SendDataInputContainer() {
         <Form.Field
           name="nftAmount"
           label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
-          rules={{ required: true, max: nftDetails?.amount ?? 1, min: 1 }}
+          rules={{
+            required: true,
+            max: nftDetails?.amount ?? 1,
+            min: 1,
+            onChange: (e: { target: { name: string; value: string } }) => {
+              const valueString = BigNumber(e.target?.value).toFixed();
+              if (/^[1-9]\d*$/.test(valueString)) {
+                form.setValue('nftAmount', valueString);
+              } else {
+                form.setValue('nftAmount', '');
+              }
+            },
+          }}
         >
           {isLoadingAssets ? null : (
             <SizableText

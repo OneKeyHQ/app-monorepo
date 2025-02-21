@@ -148,6 +148,7 @@ type IPortfolioInfoProps = {
 
   showDetailWithdrawalRequested: boolean;
   unbondingDelegationList?: IUnbondingDelegationListItem[];
+  updateFrequency: string;
 
   onClaim?: (params?: {
     amount: string;
@@ -200,6 +201,7 @@ function PortfolioInfo({
   rewards,
   rewardNum,
   rewardAssets,
+  updateFrequency,
 
   tooltipForClaimable,
   labelForClaimable,
@@ -430,6 +432,7 @@ function PortfolioInfo({
               rewardNum={rewardNum}
               rewardAssets={rewardAssets}
               onClaim={onClaim}
+              updateFrequency={updateFrequency}
             />
           ) : null}
 
@@ -547,6 +550,7 @@ export const PortfolioSection = ({
     labelForClaimable,
     tooltipForClaimable,
     showDetailWithdrawalRequested: false,
+    updateFrequency: details.updateFrequency,
   };
 
   let unbondingDelegationListResult: IUnbondingDelegationListItem[] = [];

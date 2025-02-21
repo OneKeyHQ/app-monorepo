@@ -58,6 +58,7 @@ const ClaimOptions = () => {
         symbol: details.token.info.symbol,
         provider,
         morphoVault: details.provider.vault,
+        vault: details.provider.vault || '',
         stakingInfo: {
           label: EEarnLabels.Claim,
           protocol: earnUtils.getEarnProviderName({
