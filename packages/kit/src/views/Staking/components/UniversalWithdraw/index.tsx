@@ -25,6 +25,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
+import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
@@ -158,6 +159,9 @@ export const UniversalWithdraw = ({
 
   const onChangeAmountValue = useCallback(
     (value: string, isMax = false) => {
+      if (!validateAmountInput(value, decimals)) {
+        return;
+      }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
@@ -246,7 +250,7 @@ export const UniversalWithdraw = ({
           }}
           balanceProps={{
             value: balance,
-            iconText: intl.formatMessage({ id: ETranslations.earn_staked }),
+            iconText: intl.formatMessage({ id: ETranslations.earn_deposited }),
             onPress: onMax,
           }}
           valueProps={{

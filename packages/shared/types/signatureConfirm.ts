@@ -3,6 +3,7 @@ import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
 import type { ENFTType, IAccountNFT } from './nft';
 import type { IToken, ITokenFiat } from './token';
+import type { ISendTxOnSuccessData } from './tx';
 
 export enum EParseTxComponentType {
   Default = 'default',
@@ -201,4 +202,8 @@ export interface IParseMessageResp {
   display: ISignatureConfirmDisplay;
   type: EParseTxType;
   isConfirmationRequired?: boolean;
+}
+
+export interface IAfterSendTxActionParams {
+  result: ISendTxOnSuccessData[];
 }

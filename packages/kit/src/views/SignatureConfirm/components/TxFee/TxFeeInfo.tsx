@@ -961,12 +961,12 @@ function TxFeeInfo(props: IProps) {
         : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0),
       fillUpNativeBalance: fillUpNativeBalance
         .sd(4, BigNumber.ROUND_UP)
-        .toString(),
+        .toFixed(),
       isBaseOnEstimateMaxFee:
         selectedFee?.totalNativeMinForDisplay !== selectedFee?.totalNative,
       maxFeeNative: new BigNumber(selectedFee?.totalNative ?? 0)
         .sd(4, BigNumber.ROUND_UP)
-        .toString(),
+        .toFixed(),
     });
   }, [
     extraFeeInfo.feeNative,
@@ -1092,13 +1092,13 @@ function TxFeeInfo(props: IProps) {
         color="$text"
         formatter="balance"
         formatterOptions={{
-          tokenSymbol: txFee?.common.nativeSymbol,
+          tokenSymbol: txFeeCommon?.nativeSymbol,
         }}
       >
         {selectedFee?.totalNativeMinForDisplay ?? '-'}
       </NumberSizeableText>
     ),
-    [selectedFee?.totalNativeMinForDisplay, txFee?.common.nativeSymbol],
+    [selectedFee?.totalNativeMinForDisplay, txFeeCommon?.nativeSymbol],
   );
 
   const renderTotalFiat = useCallback(

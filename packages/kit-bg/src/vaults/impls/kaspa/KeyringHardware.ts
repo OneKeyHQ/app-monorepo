@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { Transaction } from '@onekeyfe/kaspa-core-lib';
+import { Script, Transaction } from '@onekeyfe/kaspa-core-lib';
 
 import {
   EKaspaSignType,
@@ -10,6 +10,7 @@ import {
   publicKeyFromX,
   toTransaction,
 } from '@onekeyhq/core/src/chains/kaspa/sdkKaspa';
+import sdkWasm from '@onekeyhq/core/src/chains/kaspa/sdkKaspa/sdk';
 import type { IEncodedTxKaspa } from '@onekeyhq/core/src/chains/kaspa/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -127,12 +128,50 @@ export class KeyringHardware extends KeyringHardwareBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
+    const { unsignedTx } = params;
     const sdk = await this.getHardwareSDKInstance();
-    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxKaspa;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxKaspa;
     const deviceParams = checkIsDefined(params.deviceParams);
     const { connectId, deviceId } = deviceParams.dbDevice;
     const dbAccount = await this.vault.getAccount();
     const chainId = await this.getNetworkChainId();
+
+    if (unsignedTx.isKRC20RevealTx) {
+      if (!encodedTx.commitScriptHex) {
+        throw new Error('commitScriptHex is required');
+      }
+      const api = await sdkWasm.getKaspaApi();
+      const network = await this.getNetwork();
+      const unSignTx = await api.buildUnsignedTxForHardware({
+        encodedTx,
+        isTestnet: !!network.isTestnet,
+        accountAddress: dbAccount.address,
+        path: dbAccount.path,
+        chainId,
+      });
+
+      const response = await sdk.kaspaSignTransaction(connectId, deviceId, {
+        ...params.deviceParams?.deviceCommonParams,
+        ...unSignTx,
+      });
+
+      if (response.success) {
+        const signatures = response.payload;
+
+        const rawTx = await api.signRevealTransactionHardware({
+          accountAddress: dbAccount.address,
+          encodedTx,
+          isTestnet: !!network.isTestnet,
+          signatures,
+        });
+
+        return {
+          txid: '',
+          rawTx,
+          encodedTx,
+        };
+      }
+    }
 
     const txn = toTransaction(encodedTx);
 
