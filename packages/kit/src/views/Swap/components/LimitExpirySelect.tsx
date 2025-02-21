@@ -26,7 +26,10 @@ const SwapLimitExpirySelect = ({
         }}
       >
         <SizableText size="$bodyMdMedium">
-          {currentSelectExpiryValue?.label}
+          {currentSelectExpiryValue?.label ??
+            `5 ${intl.formatMessage({
+              id: ETranslations.Limit_expire_minutes,
+            })}`}
         </SizableText>
         <Icon
           size="$5"
@@ -36,7 +39,7 @@ const SwapLimitExpirySelect = ({
         />
       </XStack>
     ),
-    [currentSelectExpiryValue?.label],
+    [currentSelectExpiryValue?.label, intl],
   );
   return (
     <XStack justifyContent="space-between">
