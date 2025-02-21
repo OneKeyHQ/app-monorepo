@@ -779,6 +779,11 @@ class ServiceCloudBackup extends ServiceBase {
   }
 
   @backgroundMethod()
+  async getCurrentUserEmail() {
+    return CloudFs.getCurrentUserEmail();
+  }
+
+  @backgroundMethod()
   async logoutFromGoogleDrive(revokeAccess: boolean) {
     return CloudFs.logoutFromGoogleDrive(revokeAccess);
   }

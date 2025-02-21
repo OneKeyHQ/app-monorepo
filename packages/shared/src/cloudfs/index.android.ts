@@ -107,3 +107,17 @@ export async function uploadToCloud(
     targetPath: target,
   });
 }
+
+export async function getCurrentUserEmail(): Promise<string | undefined> {
+  try {
+    const user = await GoogleSignin.getCurrentUser();
+
+    if (user) {
+      return user.user.email;
+    }
+  } catch (error) {
+    return Promise.resolve(undefined);
+  }
+
+  return Promise.resolve(undefined);
+}

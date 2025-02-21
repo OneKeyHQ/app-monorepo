@@ -40,3 +40,7 @@ export async function downloadFromCloud(_filename: string): Promise<string> {
 export function uploadToCloud(_source: string, _target: string): Promise<void> {
   return Promise.resolve();
 }
+
+export function getCurrentUserEmail(): Promise<string | undefined> {
+  return Promise.resolve(undefined);
+}

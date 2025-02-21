@@ -75,3 +75,7 @@ export function logoutFromGoogleDrive(
 ): Promise<boolean> {
   return Promise.resolve(true);
 }
+
+export async function getCurrentUserEmail(): Promise<string | undefined> {
+  return Promise.resolve(undefined);
+}

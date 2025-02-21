@@ -8,12 +8,14 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import BackupDeviceList from '../../components/BackupDeviceList';
 import GoogleDriveBackupSunsettingAlert from '../../components/GoogleDriveBackupSunsettingAlert';
+import { useBackupCurrentUserEmail } from '../../components/useBackupCurrentUserEmail';
 import { useBackupToggleAction } from '../../components/useBackupToggleDialog';
 
 export default function Home() {
   const intl = useIntl();
   const [{ isEnabled }] = useCloudBackupPersistAtom();
   const backupToggleAction = useBackupToggleAction();
+  const currentUserEmail = useBackupCurrentUserEmail();
 
   return (
     <Page>
@@ -36,6 +38,7 @@ export default function Home() {
                     ? ETranslations.backup_enable_google_drive
                     : ETranslations.backup_enable_icloud,
                 })}
+                subtitle={currentUserEmail}
               >
                 <Stack
                   pointerEvents="box-only"
