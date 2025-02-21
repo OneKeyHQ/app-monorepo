@@ -650,6 +650,7 @@ export const LIMIT_PRICE_DEFAULT_DECIMALS = 6;
 
 export interface IFetchLimitOrderRes {
   orderId: string;
+  provider: string;
   status: ESwapLimitOrderStatus;
   fromTokenInfo: ISwapToken;
   toTokenInfo: ISwapToken;
@@ -663,11 +664,10 @@ export interface IFetchLimitOrderRes {
   expiredAt: number;
   txHash?: string;
   providerInfo: IFetchQuoteInfo;
-  enableCancel: boolean;
   partiallyFillable: boolean;
   networkId: string;
   userAddress: string;
-  currency?: string;
+  orderSupportUrl?: string;
 }
 
 export enum ESwapLimitOrderStatus {
@@ -718,6 +718,9 @@ export interface ISwapLimitPriceInfo {
   reverseRate?: string;
   provider?: string;
 }
+
+export const ESwapLimitOrderUpdateInterval = 10_000;
+
 // component -----------------
 
 export interface IExplorersInfo {

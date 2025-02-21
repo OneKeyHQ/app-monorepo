@@ -1,17 +1,20 @@
 import { useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
   Button,
   Divider,
+  NumberSizeableText,
   Progress,
   SizableText,
-  Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { ESwapLimitOrderStatus } from '@onekeyhq/shared/types/swap/types';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 
@@ -21,31 +24,75 @@ import useFormatDate from '../../../hooks/useFormatDate';
 
 interface ILimitOrderListItemProps {
   item: IFetchLimitOrderRes;
-  onClickCell: () => void;
-  onCancel: () => void;
+  cancelLoading?: boolean;
+  onClickCell: (item: IFetchLimitOrderRes) => void;
+  onCancel: (item: IFetchLimitOrderRes) => void;
 }
 
 const LimitOrderListItemAvatar = ({
   fromUri,
   toUri,
+  toAmount,
+  fromAmount,
+  toSymbol,
+  fromSymbol,
 }: {
   fromUri: string;
   toUri: string;
-}) => (
-  <YStack w="$5" h="$10" gap="$2" alignItems="center" justifyContent="center">
-    <Stack>
-      <Token size="sm" tokenImageUri={fromUri} />
-    </Stack>
-    <Stack>
-      <Token size="sm" tokenImageUri={toUri} />
-    </Stack>
-  </YStack>
-);
+  toAmount: string;
+  fromAmount: string;
+  toSymbol?: string;
+  fromSymbol?: string;
+}) => {
+  const { gtMd } = useMedia();
+  return (
+    <YStack
+      minWidth={gtMd ? 184 : 145}
+      gap="$1"
+      alignItems="flex-start"
+      justifyContent="center"
+    >
+      <XStack gap="$1">
+        <Token size="xs" tokenImageUri={toUri} />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          +
+        </SizableText>
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="balance"
+        >
+          {toAmount}
+        </NumberSizeableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {toSymbol ?? ''}
+        </SizableText>
+      </XStack>
+      <XStack gap="$1">
+        <Token size="xs" tokenImageUri={fromUri} />
+        <SizableText size="$bodyMd" color="$textSubdued">
+          -
+        </SizableText>
+        <NumberSizeableText
+          size="$bodyMd"
+          color="$textSubdued"
+          formatter="balance"
+        >
+          {fromAmount}
+        </NumberSizeableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {fromSymbol ?? ''}
+        </SizableText>
+      </XStack>
+    </YStack>
+  );
+};
 
 const LimitOrderListItem = ({
   item,
   onClickCell,
   onCancel,
+  cancelLoading,
 }: ILimitOrderListItemProps) => {
   const intl = useIntl();
   const { formatDate } = useFormatDate();
@@ -99,9 +146,9 @@ const LimitOrderListItem = ({
   }, [intl, item.status]);
 
   const expirationTitle = useMemo(() => {
-    const dateStr = formatDate(new Date(item.expiredAt), {
-      hideYear: true,
-      onlyTime: true,
+    const date = new BigNumber(item.expiredAt).shiftedBy(3).toNumber();
+    const dateStr = formatDate(new Date(date), {
+      hideYear: false,
     });
     return (
       <SizableText size="$bodyMd" color="$textSubdued">
@@ -112,62 +159,95 @@ const LimitOrderListItem = ({
 
   const actionButton = useMemo(() => {
     if (item.status === ESwapLimitOrderStatus.OPEN) {
-      return <Button onPress={onCancel}>Cancel</Button>;
+      return (
+        <Button loading={cancelLoading} onPress={() => onCancel(item)}>
+          {cancelLoading ? 'Cancelling...' : 'Cancel'}
+        </Button>
+      );
     }
     return null;
-  }, [item.status, onCancel]);
+  }, [item, cancelLoading, onCancel]);
+
+  const expirationComponent = useMemo(
+    () => (
+      <YStack flex={1} alignItems="flex-end" gap="$1" minWidth={80}>
+        {expirationTitle}
+        {actionButton}
+      </YStack>
+    ),
+    [expirationTitle, actionButton],
+  );
 
   const progressStatus = useMemo(() => {
     const percentage =
       item.status === ESwapLimitOrderStatus.FULFILLED ? 100 : 0;
     return (
-      <XStack>
-        <Progress size="small" value={percentage} />
-        <SizableText size="$bodySm" color="$textSubdued">
-          {percentage}%
-        </SizableText>
-      </XStack>
+      <YStack gap="$1" minWidth={80}>
+        {statusText}
+        <XStack>
+          <XStack w="$12" h="$0.5" bg="$backgroundSubdued" />
+          {/* <Progress value={percentage} /> */}
+          <SizableText size="$bodySm" color="$textSubdued">
+            {percentage}%
+          </SizableText>
+        </XStack>
+      </YStack>
     );
-  }, [item.status]);
+  }, [item.status, statusText]);
 
+  const decimalsAmount = useMemo(
+    () => ({
+      fromAmount: new BigNumber(item.fromAmount ?? '0').shiftedBy(
+        -(item.fromTokenInfo?.decimals ?? 0),
+      ),
+      toAmount: new BigNumber(item.toAmount ?? '0').shiftedBy(
+        -(item.toTokenInfo?.decimals ?? 0),
+      ),
+    }),
+    [
+      item.fromAmount,
+      item.fromTokenInfo?.decimals,
+      item.toAmount,
+      item.toTokenInfo?.decimals,
+    ],
+  );
+
+  const limitPrice = useMemo(() => {
+    const fromAmountNum = decimalsAmount.fromAmount;
+    const toAmountNum = decimalsAmount.toAmount;
+    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toString();
+    const formatLimitPrice = formatBalance(calculateLimitPrice);
+    return formatLimitPrice.formattedValue;
+  }, [decimalsAmount]);
+  const { gtMd } = useMedia();
   return (
-    <ListItem
-      onPress={onClickCell}
-      userSelect="none"
-      renderAvatar={
+    <>
+      <Divider />
+      <ListItem
+        mx="-$4"
+        borderRadius={0}
+        onPress={() => onClickCell(item)}
+        userSelect="none"
+      >
         <LimitOrderListItemAvatar
           fromUri={item.fromTokenInfo?.logoURI ?? ''}
           toUri={item.toTokenInfo?.logoURI ?? ''}
+          toAmount={decimalsAmount.toAmount.toFixed()}
+          fromAmount={decimalsAmount.fromAmount.toFixed()}
+          toSymbol={item.toTokenInfo?.symbol}
+          fromSymbol={item.fromTokenInfo?.symbol}
         />
-      }
-    >
-      <Divider />
-      <YStack
-        w="$5"
-        h="$10"
-        gap="$2"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {`+ ${item.toAmount} ${item.toTokenInfo?.symbol ?? ''}`}
-        </SizableText>
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {`- ${item.fromAmount} ${item.fromTokenInfo?.symbol ?? ''}`}
-        </SizableText>
-      </YStack>
-      <SizableText size="$bodyMd" color="$textSubdued">
-        1 btc = 10000 usdt
-      </SizableText>
-      <YStack>
-        {statusText}
+        {gtMd ? (
+          <SizableText minWidth={184} size="$bodySm">
+            {`1 ${item.fromTokenInfo?.symbol ?? '-'} = ${limitPrice ?? '-'} ${
+              item.toTokenInfo?.symbol ?? '-'
+            }`}
+          </SizableText>
+        ) : null}
         {progressStatus}
-      </YStack>
-      <YStack>
-        {expirationTitle}
-        {actionButton}
-      </YStack>
-    </ListItem>
+        {expirationComponent}
+      </ListItem>
+    </>
   );
 };
 

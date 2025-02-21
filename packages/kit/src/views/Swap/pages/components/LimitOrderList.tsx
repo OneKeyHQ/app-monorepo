@@ -1,69 +1,120 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
 
 import {
+  Empty,
   ListView,
   SizableText,
   Skeleton,
-  XStack,
+  Toast,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  ESwapLimitOrderStatus,
+  type IFetchLimitOrderRes,
+} from '@onekeyhq/shared/types/swap/types';
 
 import LimitOrderListItem from '../../components/LimitOrderListItem';
 
 interface ILimitOrderListProps {
   data: IFetchLimitOrderRes[];
+  onClickCell: (item: IFetchLimitOrderRes) => void;
   isLoading?: boolean;
+  type: 'open' | 'history';
 }
 
-const LimitOrderList = ({ data, isLoading }: ILimitOrderListProps) => {
+const LimitOrderList = ({
+  data,
+  isLoading,
+  type,
+  onClickCell,
+}: ILimitOrderListProps) => {
   const { gtMd } = useMedia();
-
+  const intl = useIntl();
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const onCancel = useCallback(
+    async (item: IFetchLimitOrderRes) => {
+      try {
+        setCancelLoading(true);
+        await backgroundApiProxy.serviceSwap.cancelLimitOrder({
+          provider: item.provider,
+          networkId: item.networkId,
+          orderId: item.orderId,
+          userAddress: item.userAddress,
+        });
+        Toast.success({
+          title: intl.formatMessage({
+            id: ETranslations.global_success,
+          }),
+        });
+      } catch (error) {
+        console.error(error);
+        Toast.error({
+          title: intl.formatMessage({
+            id: ETranslations.global_failed,
+          }),
+        });
+      } finally {
+        setCancelLoading(false);
+      }
+    },
+    [intl],
+  );
   const renderItem = useCallback(
     ({ item }: { item: IFetchLimitOrderRes }) => (
       <LimitOrderListItem
         item={item}
-        onClickCell={() => {}}
-        onCancel={() => {}}
+        cancelLoading={cancelLoading}
+        onClickCell={onClickCell}
+        onCancel={onCancel}
       />
     ),
-    [],
+    [cancelLoading, onCancel, onClickCell],
   );
 
-  const listHeaderComponent = useMemo(() => {
-    if (gtMd) {
-      return (
-        <XStack alignItems="center">
-          <SizableText size="$bodySm" flex={1}>
-            Pair
-          </SizableText>
-          <SizableText size="$bodySm" w="$30">
-            Limit price
-          </SizableText>
-          <SizableText size="$bodySm" w="$20">
-            Status
-          </SizableText>
-          <SizableText size="$bodySm" flex={1} textAlign="right">
-            Expiration | Action
-          </SizableText>
-        </XStack>
+  const orderData = useMemo(() => {
+    let filteredData = data;
+    if (type === 'open') {
+      filteredData = data.filter(
+        (order) => order.status === ESwapLimitOrderStatus.OPEN,
       );
     }
     return (
-      <XStack alignItems="center">
-        <SizableText size="$bodySm" flex={1}>
-          Pair
-        </SizableText>
-        <SizableText size="$bodySm" w="$15">
-          Status
-        </SizableText>
-        <SizableText size="$bodySm" flex={1} textAlign="right">
-          Expiration | Action
-        </SizableText>
-      </XStack>
+      filteredData?.sort((a, b) => {
+        const aDate = new BigNumber(a.expiredAt).shiftedBy(3).toNumber();
+        const bDate = new BigNumber(b.expiredAt).shiftedBy(3).toNumber();
+        return bDate - aDate;
+      }) ?? []
     );
-  }, [gtMd]);
+  }, [data, type]);
+
+  const listHeaderComponent = useMemo(
+    () =>
+      orderData.length > 0 ? (
+        <ListItem mx="-$4">
+          <SizableText minWidth={gtMd ? 184 : 145} size="$bodySm">
+            Pair
+          </SizableText>
+          {gtMd ? (
+            <SizableText minWidth={184} size="$bodySm">
+              Limit price
+            </SizableText>
+          ) : null}
+          <SizableText minWidth={80} size="$bodySm">
+            Status
+          </SizableText>
+          <SizableText flex={1} textAlign="right" size="$bodySm">
+            Expiration
+          </SizableText>
+        </ListItem>
+      ) : null,
+    [gtMd, orderData.length],
+  );
 
   const loadingSkeleton = useMemo(
     () =>
@@ -78,12 +129,20 @@ const LimitOrderList = ({ data, isLoading }: ILimitOrderListProps) => {
     loadingSkeleton
   ) : (
     <ListView
-      bg="$bgSubdued"
+      bg={orderData.length > 0 ? '$bgSubdued' : 'transparent'}
       borderRadius="$3"
       estimatedItemSize="$20"
-      data={data}
+      data={orderData}
       renderItem={renderItem}
       ListHeaderComponent={listHeaderComponent}
+      ListEmptyComponent={
+        <Empty
+          icon="InboxOutline"
+          title={intl.formatMessage({
+            id: ETranslations.global_no_results,
+          })}
+        />
+      }
     />
   );
 };

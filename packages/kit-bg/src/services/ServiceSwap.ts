@@ -59,6 +59,7 @@ import {
   ESwapDirectionType,
   ESwapFetchCancelCause,
   ESwapLimitOrderStatus,
+  ESwapLimitOrderUpdateInterval,
   ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
@@ -1393,6 +1394,11 @@ export default class ServiceSwap extends ServiceBase {
     indexedAccountId?: string,
     otherWalletTypeAccountId?: string,
   ) {
+    console.log(
+      'swap__swapLimitOrdersFetchLoop',
+      indexedAccountId,
+      otherWalletTypeAccountId,
+    );
     if (this.limitOrderStateInterval) {
       clearTimeout(this.limitOrderStateInterval);
       this.limitOrderStateInterval = null;
@@ -1401,13 +1407,16 @@ export default class ServiceSwap extends ServiceBase {
     const swapLimitSupportNetworks = swapSupportNetworks.filter(
       (item) => item.supportLimit,
     );
+    console.log('swap__swapLimitSupportNetworks', swapLimitSupportNetworks);
     const { swapSupportAccounts } = await this.getSupportSwapAllAccounts({
       indexedAccountId,
       otherWalletTypeAccountId,
       swapSupportNetworks: swapLimitSupportNetworks,
     });
+    console.log('swap__SupportAccounts', swapSupportAccounts);
     if (swapSupportAccounts.length > 0) {
       const { swapLimitOrders } = await inAppNotificationAtom.get();
+      console.log('swap__swapLimitOrders', swapLimitOrders);
       if (
         swapLimitOrders.length &&
         swapLimitOrders.find(
@@ -1428,6 +1437,7 @@ export default class ServiceSwap extends ServiceBase {
       const openLimitOrders = swapLimitOrders.filter(
         (item) => item.status === ESwapLimitOrderStatus.OPEN,
       );
+      console.log('swap__openLimitOrders', openLimitOrders);
       if (!swapLimitOrders.length || openLimitOrders.length > 0) {
         let res: IFetchLimitOrderRes[] = [];
         const accounts = swapSupportAccounts.map((account) => ({
@@ -1457,9 +1467,12 @@ export default class ServiceSwap extends ServiceBase {
             })),
           );
         } else {
+          console.log('swap__fetchLimitOrders');
           res = await this.fetchLimitOrders(accounts);
         }
+        console.log('swap__res', res);
         if (res.length) {
+          console.log('swap__setSwapLimitOrders');
           await inAppNotificationAtom.set((pre) => {
             let newList = pre.swapLimitOrders;
             res.forEach((item) => {
@@ -1483,7 +1496,7 @@ export default class ServiceSwap extends ServiceBase {
                 indexedAccountId,
                 otherWalletTypeAccountId,
               );
-            }, 10_000);
+            }, ESwapLimitOrderUpdateInterval);
           }
         }
       }
