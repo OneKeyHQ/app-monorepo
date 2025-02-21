@@ -11,6 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
@@ -24,14 +25,14 @@ import { Token } from '../../../components/Token';
 
 const LimitOrderCard = ({
   item,
-  progressWidth = '255px',
+  progressWidth = 255,
   onPress,
   hiddenCancelIcon = false,
   onCancel,
   cancelLoading,
 }: {
   item: IFetchLimitOrderRes;
-  progressWidth?: string;
+  progressWidth?: number;
   onPress?: () => void;
   hiddenCancelIcon?: boolean;
   onCancel?: () => void;
@@ -39,6 +40,7 @@ const LimitOrderCard = ({
 }) => {
   const { fromTokenInfo, toTokenInfo, fromAmount, toAmount } = item;
   const intl = useIntl();
+  const { gtMd } = useMedia();
   const createdAtFormat = useMemo(() => {
     const date = new BigNumber(item.createdAt).toNumber();
     const dateStr = formatDate(new Date(date), {
@@ -69,16 +71,18 @@ const LimitOrderCard = ({
       hideYear: false,
     });
     return (
-      <YStack gap="$1" justifyContent="flex-start">
+      <YStack
+        gap="$1.5"
+        justifyContent="flex-start"
+        minWidth={gtMd ? 175 : 155}
+      >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status_expired })}
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
-          {dateStr}
-        </SizableText>
+        <SizableText size="$bodySm">{dateStr}</SizableText>
       </YStack>
     );
-  }, [intl, item.expiredAt]);
+  }, [intl, item.expiredAt, gtMd]);
 
   const tokenInfo = useCallback(() => {
     const fromAmountFormatted = new BigNumber(fromAmount).shiftedBy(
@@ -154,18 +158,22 @@ const LimitOrderCard = ({
   }, [decimalsAmount]);
   const renderLimitOrderPrice = useCallback(
     () => (
-      <YStack gap="$1" justifyContent="flex-start">
+      <YStack
+        gap="$1.5"
+        justifyContent="flex-start"
+        minWidth={gtMd ? 175 : 155}
+      >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
         </SizableText>
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText size="$bodySm">
           {`1 ${item?.fromTokenInfo?.symbol ?? '-'} = ${limitPrice ?? '-'} ${
             item?.toTokenInfo?.symbol ?? '-'
           }`}
         </SizableText>
       </YStack>
     ),
-    [item, limitPrice, intl],
+    [item, limitPrice, intl, gtMd],
   );
   const renderLimitOrderStatus = useCallback(() => {
     const { status, executedSellAmount } = item ?? {};
@@ -213,7 +221,7 @@ const LimitOrderCard = ({
       .multipliedBy(100)
       .toFixed(2);
     return (
-      <YStack gap="$2">
+      <YStack gap="$1.5">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status })}
         </SizableText>
@@ -221,15 +229,12 @@ const LimitOrderCard = ({
           <SizableText size="$bodySm" color={color}>
             {label}
           </SizableText>
-          <XStack width={progressWidth}>
-            <Progress
-              colors={['$neutral5', '$textSuccess']}
-              value={Number(sellPercentage)}
-            />
-          </XStack>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`${sellPercentage}%`}
-          </SizableText>
+          <Progress
+            w={progressWidth}
+            colors={['$neutral5', '$textSuccess']}
+            value={Number(sellPercentage)}
+          />
+          <SizableText size="$bodySm">{`${sellPercentage}%`}</SizableText>
         </XStack>
       </YStack>
     );
@@ -251,12 +256,16 @@ const LimitOrderCard = ({
       borderRadius="$3"
       gap="$3"
     >
-      <YStack gap="$1">
+      <YStack gap="$2">
         {createdAtFormat}
         {tokenInfo()}
       </YStack>
       <Divider />
-      <XStack flexWrap="wrap" justifyContent="flex-start" gap="$5">
+      <XStack
+        flexWrap="wrap"
+        justifyContent="flex-start"
+        gap={gtMd ? '$1' : '$3'}
+      >
         {renderLimitOrderPrice()}
         {expirationTitle}
         {renderLimitOrderStatus()}

@@ -60,6 +60,7 @@ export type ITxActionCommonListViewProps = {
   replaceType?: EReplaceTxType;
   networkId: string;
   networkLogoURI?: string;
+  riskyLevel?: number;
 };
 
 export type ITxActionCommonDetailViewProps = {

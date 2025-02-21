@@ -240,14 +240,28 @@ const SwapHistoryListModal = ({
   const headerSelectType = useMemo(() => {
     const title =
       historyType === EProtocolOfExchange.LIMIT
-        ? 'Limit Order'
-        : 'Swap History';
+        ? intl.formatMessage({
+            id: ETranslations.swap_page_limit_dialog_title,
+          })
+        : intl.formatMessage({
+            id: ETranslations.swap_history_title,
+          });
     return (
       <Select
         title={title}
         items={[
-          { label: 'Swap History', value: EProtocolOfExchange.SWAP },
-          { label: 'Limit Order', value: EProtocolOfExchange.LIMIT },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.swap_history_title,
+            }),
+            value: EProtocolOfExchange.SWAP,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.swap_page_limit_dialog_title,
+            }),
+            value: EProtocolOfExchange.LIMIT,
+          },
         ]}
         onChange={(value) => {
           setHistoryType(value as EProtocolOfExchange);
@@ -261,7 +275,7 @@ const SwapHistoryListModal = ({
         )}
       />
     );
-  }, [historyType, setHistoryType]);
+  }, [historyType, intl]);
   const { gtMd } = useMedia();
   return (
     <Page>

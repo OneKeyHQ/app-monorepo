@@ -148,6 +148,7 @@ export type IDecodedTx = {
   tokenIdOnNetwork?: string; // indicates this tx belongs to which token
   nativeAmount?: string;
   nativeAmountValue?: string;
+  riskyLevel?: number;
 
   originalTxId?: string; // for ton
 

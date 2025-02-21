@@ -368,7 +368,9 @@ const LimitOrderDetailModal = () => {
               compactAll
             />
             <InfoItem
-              label="Limit price"
+              label={intl.formatMessage({
+                id: ETranslations.Limit_limit_price,
+              })}
               renderContent={renderLimitOrderPrice()}
               compactAll
             />

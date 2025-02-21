@@ -26,10 +26,11 @@ const SwapLimitExpirySelect = ({
         }}
       >
         <SizableText size="$bodyMdMedium">
-          {currentSelectExpiryValue?.label ??
-            `5 ${intl.formatMessage({
-              id: ETranslations.Limit_expire_minutes,
-            })}`}
+          {currentSelectExpiryValue?.label
+            ? currentSelectExpiryValue.label
+            : `30 ${intl.formatMessage({
+                id: ETranslations.Limit_expire_minutes,
+              })}`}
         </SizableText>
         <Icon
           size="$5"

@@ -1,8 +1,11 @@
+import { useIntl } from 'react-intl';
+
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { LimitMarketUpPercentages } from '@onekeyhq/shared/types/swap/types';
 
 import LimitRateInput from '../../components/LimitRateInput';
@@ -18,11 +21,14 @@ const LimitInfoContainer = () => {
     limitPriceSetReverse,
     onChangeReverse,
   } = useSwapLimitRate();
+  const intl = useIntl();
 
   return (
     <YStack gap="$2" p="$4" bg="$bgSubdued" borderRadius="$3">
       <XStack justifyContent="space-between">
-        <SizableText> Limit price</SizableText>
+        <SizableText>
+          {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
+        </SizableText>
         <XStack alignItems="center" gap="$1">
           {LimitMarketUpPercentages.map((percentage) => (
             <Badge
@@ -39,7 +45,9 @@ const LimitInfoContainer = () => {
                 bg: '$bgStrongActive',
               }}
             >
-              {percentage === 0 ? 'Market' : `+${percentage}%`}
+              {percentage === 0
+                ? intl.formatMessage({ id: ETranslations.Limit_market })
+                : `+${percentage}%`}
             </Badge>
           ))}
         </XStack>
