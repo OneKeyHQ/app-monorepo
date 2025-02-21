@@ -475,6 +475,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
     isLocalCreated?: boolean;
     accountAddress?: string;
     xpub?: string;
+    $key?: string;
   }): Promise<IAccountHistoryTx> {
     const {
       historyTxToMerge,
@@ -483,6 +484,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       isSigner,
       isLocalCreated,
       dbAccount,
+      $key,
     } = params;
 
     let accountAddress = params.accountAddress || '';
@@ -527,6 +529,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
       txid,
       accountAddress,
       xpub,
+      $key,
     });
     const historyTx: IAccountHistoryTx = {
       id: historyId,
@@ -690,6 +693,7 @@ export abstract class VaultBase extends VaultBaseChainOnly {
         decodedTx,
         accountAddress,
         xpub,
+        $key: onChainHistoryTx.$key,
       });
     } catch (e) {
       console.log(e);

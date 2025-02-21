@@ -21,7 +21,6 @@ import {
 
 import {
   addressFromPublicKey,
-  createKRC20RevealTx,
   getTweakedPrivateKey,
   privateKeyFromBuffer,
   privateKeyFromOriginPrivateKey,

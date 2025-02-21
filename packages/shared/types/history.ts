@@ -76,6 +76,7 @@ export type IOnChainHistoryTxUTXOOutput = {
 };
 
 export type IOnChainHistoryTx = {
+  $key?: string;
   key: string;
   networkId: string;
   tx: string;
@@ -143,6 +144,8 @@ export type IOnChainHistoryTx = {
 
 export type IAccountHistoryTx = {
   id: string; // historyId
+
+  key?: string;
 
   isLocalCreated?: boolean;
 
