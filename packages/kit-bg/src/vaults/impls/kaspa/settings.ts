@@ -60,6 +60,8 @@ const settings: IVaultSettings = {
 
   minTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toFixed(),
   isNativeTokenContractAddressEmpty: true,
+
+  afterSendTxActionEnabled: true,
 };
 
 export default Object.freeze(settings);

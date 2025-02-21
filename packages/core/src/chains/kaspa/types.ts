@@ -1,5 +1,6 @@
 import type { IKaspaUnspentOutputInfo } from './sdkKaspa';
 import type { PrivateKey, PublicKey } from '@onekeyfe/kaspa-core-lib';
+import type { ScriptBuilder } from '@onekeyfe/kaspa-wasm';
 
 export type IEncodedTxKaspa = {
   utxoIds: string[];
@@ -15,6 +16,11 @@ export type IEncodedTxKaspa = {
     price: string; // feerate
     limit: string;
   };
+
+  commitAddress?: string;
+  commitScriptPubKey?: string;
+  commitScriptHex?: string;
+  changeAddress?: string;
 };
 
 export type IKaspaSigner = {

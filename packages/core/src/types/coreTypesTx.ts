@@ -117,6 +117,9 @@ export type IUnsignedTxPro = IUnsignedTx & {
   uuid?: string;
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
+
+  isKRC20RevealTx?: boolean;
+  commitTxScriptHex?: string;
 };
 export type ISignedTx = {
   txid: string;
@@ -137,6 +140,9 @@ export type ISignedTxResult = ISignedTx & {
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
   uuid?: string;
+
+  // for kaspa
+  outputIndex?: number;
 };
 export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;
