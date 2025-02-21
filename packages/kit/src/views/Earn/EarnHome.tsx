@@ -21,6 +21,7 @@ import {
   NumberSizeableText,
   Page,
   Popover,
+  RefreshControl,
   ScrollView,
   SizableText,
   Skeleton,
@@ -78,7 +79,7 @@ const getNumberColor = (
   defaultColor: ISizableTextProps['color'] = '$textSuccess',
 ): ISizableTextProps['color'] =>
   (typeof value === 'string' ? Number(value) : value) === 0
-    ? '$textDisabled'
+    ? '$text'
     : defaultColor;
 
 const toTokenProviderListPage = async (
@@ -216,7 +217,7 @@ function RecommendedItem({
         <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
-        {buildAprText(token.apr, token.rewardUnit)}
+        {buildAprText(token.aprWithoutFee, token.rewardUnit)}
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
         {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
@@ -444,12 +445,17 @@ function Overview({
           >
             {totalFiatValue}
           </NumberSizeableText>
-          <IconButton
-            icon="RefreshCcwOutline"
-            variant="tertiary"
-            loading={isLoading}
-            onPress={onRefresh}
-          />
+          {platformEnv.isNative && isLoading ? (
+            <IconButton loading icon="RefreshCcwOutline" variant="tertiary" />
+          ) : null}
+          {platformEnv.isNative ? null : (
+            <IconButton
+              icon="RefreshCcwOutline"
+              variant="tertiary"
+              loading={isLoading}
+              onPress={onRefresh}
+            />
+          )}
         </XStack>
       </YStack>
       {/* 24h earnings */}
@@ -576,7 +582,15 @@ function AvailableAssets() {
         >
           {assets.map(
             (
-              { name, logoURI, apr, networkId, symbol, rewardUnit, tags = [] },
+              {
+                name,
+                logoURI,
+                aprWithoutFee,
+                networkId,
+                symbol,
+                rewardUnit,
+                tags = [],
+              },
               index,
             ) => (
               <ListItem
@@ -642,7 +656,7 @@ function AvailableAssets() {
                     flexGrow: 1,
                     flexBasis: 0,
                   }}
-                  primary={buildAprText(apr, rewardUnit)}
+                  primary={buildAprText(aprWithoutFee, rewardUnit)}
                 />
               </ListItem>
             ),
@@ -894,6 +908,7 @@ function BasicEarnHome() {
     );
   }, [earnBanners, media.gtLg, onBannerPress]);
 
+  const isLoading = !!isFetchingAccounts;
   return (
     <Page fullPage>
       <TabPageHeader
@@ -901,7 +916,15 @@ function BasicEarnHome() {
         showHeaderRight={false}
       />
       <Page.Body>
-        <ScrollView contentContainerStyle={{ py: '$5' }}>
+        <ScrollView
+          contentContainerStyle={{ py: '$5' }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={refreshOverViewData}
+            />
+          }
+        >
           {/* container */}
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
             {/* overview and banner */}
@@ -914,10 +937,8 @@ function BasicEarnHome() {
             >
               <Overview
                 onRefresh={refreshOverViewData}
-                isLoading={!!isFetchingAccounts}
-                isFetchingAccounts={Boolean(
-                  result === undefined || !!isFetchingAccounts,
-                )}
+                isLoading={isLoading}
+                isFetchingAccounts={Boolean(result === undefined || isLoading)}
               />
               <YStack
                 minHeight="$36"
@@ -950,7 +971,7 @@ function BasicEarnHome() {
                   flex: 1,
                 }}
               >
-                <Recommended isFetchingAccounts={!!isFetchingAccounts} />
+                <Recommended isFetchingAccounts={isLoading} />
                 <AvailableAssets />
               </YStack>
               {media.gtLg ? (

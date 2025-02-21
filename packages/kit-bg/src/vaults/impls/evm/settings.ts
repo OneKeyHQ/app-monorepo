@@ -133,21 +133,21 @@ const stakingConfig: IStakingConfig = {
       },
     },
   },
-  [getNetworkIdsMap().base]: {
-    providers: {
-      [EEarnProviderEnum.Morpho]: {
-        supportedSymbols: ['USDC'],
-        configs: {
-          USDC: {
-            enabled: true,
-            tokenAddress: BaseUSDC,
-            displayProfit: true,
-            stakingWithApprove: true,
-          },
-        },
-      },
-    },
-  },
+  // [getNetworkIdsMap().base]: {
+  //   providers: {
+  //     [EEarnProviderEnum.Morpho]: {
+  //       supportedSymbols: ['USDC'],
+  //       configs: {
+  //         USDC: {
+  //           enabled: true,
+  //           tokenAddress: BaseUSDC,
+  //           displayProfit: true,
+  //           stakingWithApprove: true,
+  //         },
+  //       },
+  //     },
+  //   },
+  // },
   [getNetworkIdsMap().sepolia]: {
     providers: {
       [EEarnProviderEnum.Lido]: {

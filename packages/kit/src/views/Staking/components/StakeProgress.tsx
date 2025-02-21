@@ -10,30 +10,35 @@ interface IStakeProgressProps {
 
 export enum EStakeProgressStep {
   approve = 1,
-  supply = 2,
+  deposit = 2,
 }
 
 export function StakeProgress({ currentStep }: IStakeProgressProps) {
   const intl = useIntl();
+  const isDepositStep = currentStep === EStakeProgressStep.deposit;
   return (
     <XStack gap="$1" ai="center">
-      <SizableText size="$bodyMdMedium">
-        1. {intl.formatMessage({ id: ETranslations.global_approve })}
-      </SizableText>
+      <XStack ai="center" gap="$1.5">
+        <SizableText
+          size="$bodyMdMedium"
+          color={isDepositStep ? '$textSuccess' : undefined}
+        >
+          1. {intl.formatMessage({ id: ETranslations.global_approve })}
+        </SizableText>
+        {isDepositStep ? (
+          <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
+        ) : null}
+      </XStack>
       <Icon
         name="ArrowRightOutline"
         size="$4"
-        color={
-          currentStep > EStakeProgressStep.approve ? '$icon' : '$iconSubdued'
-        }
+        color={isDepositStep ? '$icon' : '$iconSubdued'}
       />
       <SizableText
         size="$bodyMdMedium"
-        color={
-          currentStep > EStakeProgressStep.approve ? undefined : '$textDisabled'
-        }
+        color={isDepositStep ? undefined : '$textDisabled'}
       >
-        2. {intl.formatMessage({ id: ETranslations.earn_supply })}
+        2. {intl.formatMessage({ id: ETranslations.earn_deposit })}
       </SizableText>
     </XStack>
   );

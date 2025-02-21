@@ -307,7 +307,7 @@ export default class Vault extends VaultBase {
         new BigNumber(0),
       );
 
-    let limit = allInputAmount.minus(allOutputAmount).toString();
+    let limit = allInputAmount.minus(allOutputAmount).toFixed();
     const size = getTransactionSizeByTxSkeleton(txSkeleton);
 
     if (allInputAmount.isLessThanOrEqualTo(allOutputAmount)) {
