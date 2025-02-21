@@ -39,7 +39,6 @@ import {
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { renderStakeText } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
