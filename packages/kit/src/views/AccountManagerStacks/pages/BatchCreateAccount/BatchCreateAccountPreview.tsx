@@ -590,15 +590,10 @@ function BatchCreateAccountPreviewPage({
               }`}
               containerProps={{
                 flex: 1,
+                pointerEvents: 'none',
               }}
               disabled={account.existsInDb}
               value={checkedState}
-              onChange={(val) => {
-                selectCheckBox({
-                  val,
-                  accountsToSelect: [account],
-                });
-              }}
               label={String((account.pathIndex ?? 0) + 1)}
               labelProps={
                 {
