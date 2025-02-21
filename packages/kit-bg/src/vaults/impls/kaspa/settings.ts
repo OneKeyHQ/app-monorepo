@@ -58,7 +58,7 @@ const settings: IVaultSettings = {
     },
   },
 
-  minTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toString(),
+  minTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toFixed(),
   isNativeTokenContractAddressEmpty: true,
 };
 

@@ -6,6 +6,7 @@ import { TxHistoryListView } from '@onekeyhq/kit/src/components/TxHistoryListVie
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ProviderJotaiContextHistoryList } from '@onekeyhq/kit/src/states/jotai/contexts/historyList';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { POLLING_INTERVAL_FOR_HISTORY } from '@onekeyhq/shared/src/consts/walletConsts';
 import {
   EAppEventBusNames,
@@ -25,6 +26,7 @@ function TokenDetailsHistory(props: IProps) {
 
   const [historyInit, setHistoryInit] = useState(false);
   const { isFocused } = useTabIsRefreshingFocused();
+  const [settings] = useSettingsPersistAtom();
 
   /**
    * since some tokens are slow to load history,
@@ -41,11 +43,17 @@ function TokenDetailsHistory(props: IProps) {
         accountId,
         networkId,
         tokenIdOnNetwork: tokenInfo.address,
+        filterScam: settings.isFilterScamHistoryEnabled,
       });
       setHistoryInit(true);
       return r.txs;
     },
-    [accountId, networkId, tokenInfo.address],
+    [
+      accountId,
+      networkId,
+      settings.isFilterScamHistoryEnabled,
+      tokenInfo.address,
+    ],
     {
       watchLoading: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,

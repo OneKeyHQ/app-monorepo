@@ -1,6 +1,6 @@
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import BigNumber from 'bignumber.js';
+
 import { formatDistanceToNowStrict } from '@onekeyhq/shared/src/utils/dateUtils';
-import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 
 const TIME_23H = 23 * 3600;
 const TIME_24H = 24 * 3600;
@@ -19,9 +19,7 @@ export function formatStakingDistanceToNowStrict(
   });
 }
 
-export const renderStakeText = (provider?: string): ETranslations => {
-  if (provider && earnUtils.isMorphoProvider({ providerName: provider })) {
-    return ETranslations.earn_supply;
-  }
-  return ETranslations.earn_stake;
+export const formatApy = (apy: string | number | undefined): string => {
+  if (!apy) return '0';
+  return new BigNumber(apy).decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2);
 };

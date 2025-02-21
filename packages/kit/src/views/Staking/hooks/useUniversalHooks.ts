@@ -316,6 +316,7 @@ export function useUniversalClaim({
       provider,
       claimTokenAddress,
       morphoVault,
+      vault,
       symbol,
       stakingInfo,
       onSuccess,
@@ -328,6 +329,7 @@ export function useUniversalClaim({
       claimTokenAddress?: string;
       morphoVault?: string;
       stakingInfo?: IStakingInfo;
+      vault: string;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
       onFail?: IModalSendParamList['SendConfirm']['onFail'];
     }) => {
@@ -341,6 +343,7 @@ export function useUniversalClaim({
             amount,
             identity,
             claimTokenAddress,
+            vault,
           });
         const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({
           networkId,

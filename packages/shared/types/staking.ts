@@ -36,7 +36,7 @@ export type IStakeProviderInfo = {
   logoURI: string;
   website: string;
   // btc don't have apr
-  apr?: string;
+  aprWithoutFee?: string;
   poolFee: string;
   totalStaked: string;
   totalFiatValue: string;
@@ -77,6 +77,8 @@ export type IStakeProviderInfo = {
   apys?: IRewardApys;
   maxUnstakeAmount?: string;
   vault?: string;
+  vaultName?: string;
+  url?: string;
   rewardUnit: IEarnRewardUnit;
 
   approveType?: EApproveType;
@@ -133,6 +135,7 @@ export type IStakeClaimBaseParams = {
   accountId: string;
   networkId: string;
   symbol: string;
+  vault: string;
   provider: string;
   amount?: string;
   identity?: string;
@@ -274,12 +277,19 @@ export type IStakeProtocolListItem = {
 };
 
 export type IRewardApys = {
+  // Base rates
   rate: string;
-  rewards: Record<string, string>;
   netApy: string;
+  performanceFee: string;
+
+  // Time-based APYs
+  dailyApy: string;
   dailyNetApy: string;
   weeklyNetApy: string;
   monthlyNetApy: string;
+
+  // Token rewards
+  rewards: Record<string, string>;
 };
 
 export type IBabylonPortfolioStatus =
@@ -324,7 +334,7 @@ export interface IEarnAccountToken {
   name: string;
   symbol: string;
   logoURI: string;
-  apr: string;
+  aprWithoutFee: string;
   profit: string;
   balance: string;
   balanceParsed: string;
@@ -361,7 +371,7 @@ export type IAvailableAsset = {
   name: string;
   symbol: string;
   logoURI: string;
-  apr: string;
+  aprWithoutFee: string;
   tags: string[];
   networkId: string;
   rewardUnit: IEarnRewardUnit;

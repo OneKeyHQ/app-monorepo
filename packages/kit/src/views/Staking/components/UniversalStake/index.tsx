@@ -39,6 +39,7 @@ import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
+import { validateAmountInput } from '../../../Swap/utils/utils';
 
 type IUniversalStakeProps = {
   accountId: string;
@@ -83,6 +84,7 @@ type IUniversalStakeProps = {
   stakingTime?: number;
   nextLaunchLeft?: string;
   rewardToken?: string;
+  updateFrequency?: string;
 };
 
 export function UniversalStake({
@@ -115,6 +117,7 @@ export function UniversalStake({
   stakingTime,
   nextLaunchLeft,
   rewardToken,
+  updateFrequency,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
@@ -135,6 +138,9 @@ export function UniversalStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
+      if (!validateAmountInput(value, decimals)) {
+        return;
+      }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {

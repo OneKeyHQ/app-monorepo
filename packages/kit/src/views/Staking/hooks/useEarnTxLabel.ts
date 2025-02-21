@@ -9,7 +9,7 @@ export function useEarnTxLabel() {
   return useCallback(
     (label: string) => {
       const labelMaps: Record<string, string> = {
-        'stake': intl.formatMessage({ id: ETranslations.earn_stake }),
+        'stake': intl.formatMessage({ id: ETranslations.earn_deposit }),
         'redeem': intl.formatMessage({ id: ETranslations.earn_redeem }),
         'withdraw': intl.formatMessage({ id: ETranslations.global_withdraw }),
         'claim': intl.formatMessage({ id: ETranslations.earn_claim }),
