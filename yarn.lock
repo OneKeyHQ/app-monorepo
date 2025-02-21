@@ -6349,9 +6349,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/kaspa-core-lib@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "@onekeyfe/kaspa-core-lib@npm:1.0.1"
+"@onekeyfe/kaspa-core-lib@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "@onekeyfe/kaspa-core-lib@npm:1.0.2"
   dependencies:
     "@noble/hashes": "npm:1.1.5"
     "@noble/secp256k1": "npm:1.7.1"
@@ -6362,7 +6362,14 @@ __metadata:
     inherits: "npm:=2.0.1"
     lodash: "npm:^4.17.20"
     url: "npm:*"
-  checksum: 10/9d66f2220469503a17313c4e169d235f414dcb65093acf1ec47925d44ca3c1149ac681d5d5f72235c48788f971658abb9bd94a0861316c64806ed09d2964bcfc
+  checksum: 10/8c69bc4905970d01bef403b3571086bed110222cfecf3f2ea55fbec9f6acf7a7c1f86f950a87825f9791a555421ece79e38315a415acfcd9ef2e44646cbd8e25
+  languageName: node
+  linkType: hard
+
+"@onekeyfe/kaspa-wasm@npm:^1.0.2":
+  version: 1.0.2
+  resolution: "@onekeyfe/kaspa-wasm@npm:1.0.2"
+  checksum: 10/ff67e3e9a864f024dbae2813e1c8db1e2433137589847a8102d0a842dd119fea4316fd2040eda82410dea863df83a57a9028efd5adc12d8b53562d7107646309
   languageName: node
   linkType: hard
 
@@ -6948,7 +6955,8 @@ __metadata:
     "@onekeyfe/bitcoinforksjs-lib": "npm:7.0.0-rc.0"
     "@onekeyfe/cardano-coin-selection-asmjs": "npm:1.1.5"
     "@onekeyfe/coinselect": "npm:3.1.14"
-    "@onekeyfe/kaspa-core-lib": "npm:^1.0.1"
+    "@onekeyfe/kaspa-core-lib": "npm:^1.0.2"
+    "@onekeyfe/kaspa-wasm": "npm:^1.0.2"
     "@solana/spl-token": "npm:^0.4.8"
     "@solana/web3.js": "npm:^1.87.7"
     "@starcoin/starcoin": "npm:^2.3.7"

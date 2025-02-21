@@ -567,6 +567,7 @@ function SendDataInputContainer() {
               memo: memoValue,
               paymentId: paymentIdValue,
               note: noteValue,
+              tokenInfo: tokenDetails?.info,
             },
             isInternalTransfer: true,
           });
