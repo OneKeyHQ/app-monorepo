@@ -301,7 +301,7 @@ export async function transfer(
       info: {
         name: `${new BigNumber(amount.toString())
           .shiftedBy(-token.decimals)
-          .toString()} ${token.symbol}`,
+          .toFixed()} ${token.symbol}`,
         amount: _requiresExtraNativeToken.div(10 ** 8).toString(),
         symbol: 'CKB',
       },

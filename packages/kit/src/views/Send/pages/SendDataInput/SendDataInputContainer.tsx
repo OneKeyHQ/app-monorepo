@@ -675,7 +675,7 @@ function SendDataInputContainer() {
         await backgroundApiProxy.serviceValidator.validateSendAmount({
           accountId: currentAccount.accountId,
           networkId: currentAccount.networkId,
-          amount: amountBN.toString(),
+          amount: amountBN.toFixed(),
           tokenBalance: tokenDetails?.balanceParsed ?? '0',
           to: toRaw ?? '',
           isNative: tokenDetails?.info.isNative,
