@@ -646,6 +646,9 @@ export function ApproveBaseStake({
           <Stack pl="$5" $md={{ pt: '$5' }}>
             {isShowStakeProgress ? (
               <StakeProgress
+                approveType={
+                  details.provider.approveType ?? EApproveType.Legacy
+                }
                 currentStep={
                   isDisable || shouldApprove
                     ? EStakeProgressStep.approve
