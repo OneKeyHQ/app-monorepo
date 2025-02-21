@@ -157,9 +157,11 @@ export function ProtocolRewards({
   rewardNum,
   rewardAssets,
   onClaim,
+  updateFrequency,
 }: {
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
+  updateFrequency: string;
   onClaim?: (params?: {
     amount: string;
     claimTokenAddress?: string;
@@ -220,9 +222,14 @@ export function ProtocolRewards({
           renderContent={
             <Stack p="$5">
               <SizableText color="$text" size="$bodyLg">
-                {intl.formatMessage({
-                  id: ETranslations.earn_claim_rewards_morpho_desc,
-                })}
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.earn_claim_rewards_morpho_desc,
+                  },
+                  {
+                    time: updateFrequency || '',
+                  },
+                )}
               </SizableText>
             </Stack>
           }

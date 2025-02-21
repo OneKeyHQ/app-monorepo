@@ -1092,13 +1092,13 @@ function TxFeeInfo(props: IProps) {
         color="$text"
         formatter="balance"
         formatterOptions={{
-          tokenSymbol: txFee?.common.nativeSymbol,
+          tokenSymbol: txFeeCommon?.nativeSymbol,
         }}
       >
         {selectedFee?.totalNativeMinForDisplay ?? '-'}
       </NumberSizeableText>
     ),
-    [selectedFee?.totalNativeMinForDisplay, txFee?.common.nativeSymbol],
+    [selectedFee?.totalNativeMinForDisplay, txFeeCommon?.nativeSymbol],
   );
 
   const renderTotalFiat = useCallback(
