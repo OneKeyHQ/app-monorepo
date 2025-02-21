@@ -95,7 +95,11 @@ test('formatBalance', () => {
   // hundred
   expect(formatBalance('451.124282313')).toEqual({
     'formattedValue': '451.1243',
-    'meta': { 'value': '451.124282313' },
+    'meta': {
+      'decimalSymbol': '.',
+      'roundValue': '451.1243',
+      'value': '451.124282313',
+    },
   });
   expect(formatDisplayNumber(formatBalance('4512.1242'))).toEqual('4,512.1242');
   expect(formatDisplayNumber(formatBalance('-4512.1242'))).toEqual(
@@ -105,7 +109,11 @@ test('formatBalance', () => {
   // thousand
   expect(formatBalance('4512.1242')).toEqual({
     'formattedValue': '4,512.1242',
-    'meta': { 'value': '4512.1242' },
+    'meta': {
+      'decimalSymbol': '.',
+      'roundValue': '4512.1242',
+      'value': '4512.1242',
+    },
   });
   expect(formatDisplayNumber(formatBalance('4512.1242'))).toEqual('4,512.1242');
   expect(formatDisplayNumber(formatBalance('-4512.1242'))).toEqual(
@@ -115,7 +123,11 @@ test('formatBalance', () => {
   // less then 1 billion
   expect(formatBalance('382134512.1242')).toEqual({
     'formattedValue': '382,134,512.1242',
-    'meta': { 'value': '382134512.1242' },
+    'meta': {
+      'decimalSymbol': '.',
+      'roundValue': '382134512.1242',
+      'value': '382134512.1242',
+    },
   });
   expect(formatDisplayNumber(formatBalance('382134512.1242'))).toEqual(
     '382,134,512.1242',
@@ -126,7 +138,11 @@ test('formatBalance', () => {
 
   expect(formatBalance('882134512')).toEqual({
     'formattedValue': '882,134,512',
-    'meta': { 'value': '882134512' },
+    'meta': {
+      'decimalSymbol': '.',
+      'roundValue': '882134512.0000',
+      'value': '882134512',
+    },
   });
   expect(formatDisplayNumber(formatBalance('882134512'))).toEqual(
     '882,134,512',
@@ -139,6 +155,8 @@ test('formatBalance', () => {
   expect(formatBalance('235382184512.1242')).toEqual({
     'formattedValue': '235.3822',
     'meta': {
+      'decimalSymbol': '.',
+      'roundValue': '235.3822',
       'value': '235382184512.1242',
       'unit': 'B',
     },
@@ -154,6 +172,8 @@ test('formatBalance', () => {
   expect(formatBalance('564230002184512.1242')).toEqual({
     'formattedValue': '564.23',
     'meta': {
+      'decimalSymbol': '.',
+      'roundValue': '564.2300',
       'value': '564230002184512.1242',
       'unit': 'T',
     },
@@ -169,6 +189,8 @@ test('formatBalance', () => {
   expect(formatBalance('39477128561230002184512.1242')).toEqual({
     'formattedValue': '39,477,128.5612',
     'meta': {
+      'decimalSymbol': '.',
+      'roundValue': '39477128.5612',
       'value': '39477128561230002184512.1242',
       'unit': 'Q',
     },
@@ -184,8 +206,10 @@ test('formatBalance', () => {
   expect(formatBalance('0.1')).toEqual({
     'formattedValue': '0.1',
     'meta': {
-      'leadingZeros': 0,
+      'decimalSymbol': '.',
       'value': '0.1',
+      'leadingZeros': 0,
+      'roundValue': '0.1000',
     },
   });
   expect(formatDisplayNumber(formatBalance('0.1'))).toEqual('0.1');
@@ -194,7 +218,9 @@ test('formatBalance', () => {
   expect(formatBalance('0.0045000')).toEqual({
     'formattedValue': '0.0045',
     'meta': {
+      'decimalSymbol': '.',
       'leadingZeros': 2,
+      'roundValue': '0.004500',
       'value': '0.0045000',
     },
   });
@@ -204,7 +230,9 @@ test('formatBalance', () => {
   expect(formatBalance('0.0000454283')).toEqual({
     'formattedValue': '0.00004543',
     'meta': {
+      'decimalSymbol': '.',
       'leadingZeros': 4,
+      'roundValue': '0.00004543',
       'value': '0.0000454283',
     },
   });
@@ -219,7 +247,9 @@ test('formatBalance', () => {
   expect(formatBalance('0.0000041000')).toEqual({
     'formattedValue': '0.0000041',
     'meta': {
+      'decimalSymbol': '.',
       'leadingZeros': 5,
+      'roundValue': '0.000004100',
       'value': '0.0000041000',
     },
   });
@@ -231,7 +261,9 @@ test('formatBalance', () => {
   expect(formatBalance('-0.0000041000')).toEqual({
     'formattedValue': '-0.0000041',
     'meta': {
+      'decimalSymbol': '.',
       'leadingZeros': 5,
+      'roundValue': '-0.000004100',
       'value': '-0.0000041000',
     },
   });
@@ -245,7 +277,9 @@ test('formatBalance', () => {
   expect(formatBalance('0.0000000214562')).toEqual({
     'formattedValue': '0.00000002146',
     'meta': {
+      'decimalSymbol': '.',
       'leadingZeros': 7,
+      'roundValue': '0.00000002146',
       'value': '0.0000000214562',
     },
   });
@@ -392,6 +426,21 @@ test('formatPrice', () => {
   expect(
     formatDisplayNumber(formatPrice('123456789.999999999', { currency: '$' })),
   ).toEqual('$123,456,790.00');
+
+  expect(
+    formatPrice('123456789.999999999', {
+      currency: '$',
+      disableThousandSeparator: true,
+    }),
+  ).toEqual({
+    formattedValue: '123456790.00',
+    meta: {
+      currency: '$',
+      decimalSymbol: '.',
+      disableThousandSeparator: true,
+      value: '123456789.999999999',
+    },
+  });
 
   // eq 0
   expect(formatDisplayNumber(formatPrice('0', { currency: '$' }))).toEqual(

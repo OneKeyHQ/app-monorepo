@@ -2,6 +2,7 @@ import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
+import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapProviderSort,
   swapProviderRecommendApprovedWeights,
@@ -12,12 +13,18 @@ import type {
   IFetchQuoteResult,
   ISwapAlertState,
   ISwapAutoSlippageSuggestedValue,
+  ISwapLimitPriceInfo,
   ISwapNetwork,
   ISwapToken,
   ISwapTokenCatch,
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapLimitOrderExpiryStep,
+  ESwapLimitPartiallyFillStepMap,
+  ESwapTabSwitchType,
+  LIMIT_PRICE_DEFAULT_DECIMALS,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
 
@@ -46,11 +53,15 @@ export const {
 } = contextAtomComputed<ISwapNetwork[]>((get) => {
   let networks = get(swapNetworks());
   const swapType = get(swapTypeSwitchAtom());
-  networks = networks.filter((net) =>
-    swapType === ESwapTabSwitchType.BRIDGE
-      ? net.supportCrossChainSwap
-      : net.supportSingleSwap,
-  );
+  networks = networks.filter((net) => {
+    if (swapType === ESwapTabSwitchType.BRIDGE) {
+      return net.supportCrossChainSwap;
+    }
+    if (swapType === ESwapTabSwitchType.LIMIT) {
+      return net.supportLimit;
+    }
+    return net.supportSingleSwap;
+  });
   const allNetwork = {
     networkId: getNetworkIdsMap().onekeyall,
     name: dangerAllNetworkRepresent.name,
@@ -143,6 +154,7 @@ export const {
   atom: swapQuoteActionLockAtom,
   use: useSwapQuoteActionLockAtom,
 } = contextAtom<{
+  type?: ESwapTabSwitchType;
   actionLock: boolean;
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
@@ -380,6 +392,106 @@ export const {
   return (
     !quoteResult.unSupportReceiveAddressDifferent && !quoteResult.isWrapped
   );
+});
+
+// swap limit price rate
+export const {
+  atom: swapLimitPriceUseRateAtom,
+  use: useSwapLimitPriceUseRateAtom,
+} = contextAtom<ISwapLimitPriceInfo>({
+  fromToken: undefined,
+  toToken: undefined,
+});
+
+export const {
+  atom: swapLimitPriceMarketPriceAtom,
+  use: useSwapLimitPriceMarketPriceAtom,
+} = contextAtomComputed<ISwapLimitPriceInfo>((get) => {
+  const quoteResult = get(swapQuoteCurrentSelectAtom());
+  if (quoteResult?.limitPriceOrderMarketPrice) {
+    const {
+      fromTokenInfo,
+      toTokenInfo,
+      info: { provider },
+      limitPriceOrderMarketPrice,
+    } = quoteResult;
+    const { fromTokenPrice, toTokenPrice } = limitPriceOrderMarketPrice;
+    const fromPriceBN = new BigNumber(fromTokenPrice ?? 0);
+    const toPriceBN = new BigNumber(toTokenPrice ?? 0);
+    const rate = fromPriceBN.div(toPriceBN).toFixed();
+    const reverseRate = toPriceBN.div(fromPriceBN).toFixed();
+    const rateFormat = formatBalance(rate);
+    const reverseRateFormat = formatBalance(reverseRate);
+    let rateValue = rateFormat.meta.roundValue ?? rateFormat.meta.value;
+    let reverseRateValue =
+      reverseRateFormat.meta.roundValue ?? reverseRateFormat.meta.value;
+    if (rateFormat.meta.unit) {
+      rateValue = rateFormat.meta.value;
+    }
+    if (reverseRateFormat.meta.unit) {
+      reverseRateValue = reverseRateFormat.meta.value;
+    }
+    const limitPriceMarketInfo = {
+      fromToken: fromTokenInfo,
+      toToken: toTokenInfo,
+      rate: rateValue,
+      reverseRate: reverseRateValue,
+      provider,
+      fromTokenMarketPrice: fromTokenPrice,
+      toTokenMarketPrice: toTokenPrice,
+    };
+    return limitPriceMarketInfo;
+  }
+  return {};
+});
+
+export const {
+  atom: swapLimitExpirationTimeAtom,
+  use: useSwapLimitExpirationTimeAtom,
+} = contextAtom<{ label: string; value: string }>({
+  label: '',
+  value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+});
+
+export const {
+  atom: swapLimitPriceRateReverseAtom,
+  use: useSwapLimitPriceRateReverseAtom,
+} = contextAtom<boolean>(false);
+
+export const {
+  atom: swapLimitPriceToAmountAtom,
+  use: useSwapLimitPriceToAmountAtom,
+} = contextAtomComputed((get) => {
+  const quoteResult = get(swapQuoteCurrentSelectAtom());
+  const limitPriceUseRate = get(swapLimitPriceUseRateAtom());
+  if (
+    quoteResult?.limitPriceOrderMarketPrice &&
+    quoteResult?.fromAmount &&
+    limitPriceUseRate.rate &&
+    limitPriceUseRate.reverseRate
+  ) {
+    const { toToken, rate } = limitPriceUseRate;
+    const fromAmount = new BigNumber(quoteResult.fromAmount);
+    const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
+    const toAmount = toAmountBN
+      .decimalPlaces(
+        toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    return toAmount;
+  }
+  return '';
+});
+
+export const {
+  atom: swapLimitPartiallyFillAtom,
+  use: useSwapLimitPartiallyFillAtom,
+} = contextAtom<{ label: string; value: boolean }>({
+  label:
+    ESwapLimitPartiallyFillStepMap.find((item) => item.value === true)?.label ??
+    '',
+  value: true,
 });
 
 // swap state

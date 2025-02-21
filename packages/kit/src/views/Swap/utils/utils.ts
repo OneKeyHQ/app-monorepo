@@ -19,6 +19,14 @@ export function validateAmountInput(text: string, decimal?: number) {
   return true;
 }
 
+export function validateAmountInputNoDecimal(text: string) {
+  const regex = /^$|^0(\.\d*)?$|^[1-9]\d*(\.\d*)?$|^[1-9]\d*\.$|^0\.$/;
+  if (!regex.test(text)) {
+    return false;
+  }
+  return true;
+}
+
 export function truncateDecimalPlaces(str?: string, decimal?: number) {
   if (!str || Number.isNaN(str) || !decimal) {
     return null;

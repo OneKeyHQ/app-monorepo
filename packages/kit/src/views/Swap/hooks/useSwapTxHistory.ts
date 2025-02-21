@@ -1,7 +1,10 @@
 import { useCallback } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   ISwapTxHistory,
   ISwapTxInfo,
@@ -33,7 +36,7 @@ export function useSwapTxHistoryActions() {
       gasFeeFiatValue?: string;
       swapTxInfo: ISwapTxInfo;
     }) => {
-      if (swapTxInfo) {
+      if (swapTxInfo && swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo?.symbol,
