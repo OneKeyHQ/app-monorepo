@@ -281,10 +281,10 @@ class ServiceCloudBackup extends ServiceBase {
         JSON.stringify(cloudData),
         'utf8',
       );
-      await CloudFs.uploadToCloud(
-        localTempFilePath,
-        this.getBackupPath(filename),
-      );
+      // await CloudFs.uploadToCloud(
+      //   localTempFilePath,
+      //   this.getBackupPath(filename),
+      // );
       const existMetaData = await this.getMetaDataFromCloud();
       existMetaData.push({
         filename,
@@ -297,12 +297,12 @@ class ServiceCloudBackup extends ServiceBase {
       });
       const newMetaData = JSON.stringify(existMetaData);
       JSON.parse(newMetaData);
-      await RNFS.writeFile(localTempFilePath, newMetaData, 'utf8');
-      await CloudFs.uploadToCloud(
-        localTempFilePath,
-        this.getBackupPath(CLOUD_METADATA_FILE_NAME),
-      );
-      await RNFS.unlink(localTempFilePath);
+      // await RNFS.writeFile(localTempFilePath, newMetaData, 'utf8');
+      // await CloudFs.uploadToCloud(
+      //   localTempFilePath,
+      //   this.getBackupPath(CLOUD_METADATA_FILE_NAME),
+      // );
+      // await RNFS.unlink(localTempFilePath);
       this.metaDataCache = newMetaData;
       await this.getDataFromCloud.delete(CLOUD_METADATA_FILE_NAME);
     } catch (e) {

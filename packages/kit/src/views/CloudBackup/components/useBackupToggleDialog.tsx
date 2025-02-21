@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { cloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -12,12 +12,14 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { useBackupEntryStatus } from './useBackupEntryStatus';
 
 export function useBackupToggleAction() {
+  const intl = useIntl();
   const backupEntryStatus = useBackupEntryStatus();
   const toggle = useCallback(
     async (willIsEnabled: boolean, callback?: (isEnabled: boolean) => void) => {
       if (willIsEnabled) {
         await backupEntryStatus.check();
       }
+
       await cloudBackupPersistAtom.set({
         ...(await cloudBackupPersistAtom.get()),
         isEnabled: willIsEnabled,
@@ -25,12 +27,26 @@ export function useBackupToggleAction() {
           ? { isFirstEnabled: false, isInProgress: true }
           : { isFirstDisabled: false, isInProgress: false }),
       });
+
+      try {
+        await backgroundApiProxy.serviceCloudBackup.backupNow();
+      } catch (e) {
+        Toast.error({
+          title:
+            e instanceof Error
+              ? e.message
+              : intl.formatMessage({
+                  id: ETranslations.global_sync_error,
+                }),
+        });
+      }
+
       if (!willIsEnabled && platformEnv.isNativeAndroid) {
         await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(true);
       }
       callback?.(willIsEnabled);
     },
-    [backupEntryStatus],
+    [backupEntryStatus, intl],
   );
   return useMemo(() => ({ toggle }), [toggle]);
 }
