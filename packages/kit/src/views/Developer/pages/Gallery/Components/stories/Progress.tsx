@@ -32,12 +32,12 @@ const ProgressGallery = () => (
         title: '0',
         element: (
           <YStack gap="$2">
-            <XStack w="$10">
-              <Progress value={0} />
-            </XStack>
-            <XStack w="$20">
-              <Progress value={0.1} />
-            </XStack>
+            <Progress value={0} w={50} />
+            <Progress value={10} w={50} />
+            <Progress value={60} w={50} />
+            <Progress value={90} w={50} />
+            <Progress value={100} w={50} />
+            <Progress value={0.1} />
             <Progress value={60} />
             <Progress value={80} />
             <Progress value={100} />

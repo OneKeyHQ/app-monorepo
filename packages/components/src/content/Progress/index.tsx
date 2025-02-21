@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Progress as TMProgress } from 'tamagui';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { View } from '../../primitives';
 
+import { Progress as TMProgress } from './Progress';
+
+import type { IProgressProps as TMProgressProps } from './Progress';
 import type { LayoutChangeEvent } from 'react-native';
-import type { ProgressProps as TMProgressProps } from 'tamagui';
 
 export type IProgressProps = {
   size?: 'small' | 'medium';
