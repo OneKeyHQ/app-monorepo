@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Button, Progress, YStack } from '@onekeyhq/components';
+import { Button, Progress, XStack, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -32,8 +32,12 @@ const ProgressGallery = () => (
         title: '0',
         element: (
           <YStack gap="$2">
-            <Progress value={0} />
-            <Progress value={0.1} />
+            <XStack w="$10">
+              <Progress value={0} />
+            </XStack>
+            <XStack w="$20">
+              <Progress value={0.1} />
+            </XStack>
             <Progress value={60} />
             <Progress value={80} />
             <Progress value={100} />

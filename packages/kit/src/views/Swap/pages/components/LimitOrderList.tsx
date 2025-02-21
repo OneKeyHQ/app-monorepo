@@ -66,14 +66,16 @@ const LimitOrderList = ({
   const onCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
       Dialog.show({
-        title: 'Limit Order',
+        title: intl.formatMessage({
+          id: ETranslations.limit_cancel_order_title,
+        }),
         renderContent: <LimitOrderCancelDialog item={item} />,
         onConfirm: () => runCancel(item),
         showCancelButton: true,
         showConfirmButton: true,
       });
     },
-    [runCancel],
+    [intl, runCancel],
   );
   const renderItem = useCallback(
     ({ item }: { item: IFetchLimitOrderRes }) => (
@@ -122,9 +124,12 @@ const LimitOrderList = ({
       renderItem={renderItem}
       ListEmptyComponent={
         <Empty
-          icon="InboxOutline"
+          icon="SearchMenuOutline"
           title={intl.formatMessage({
-            id: ETranslations.global_no_results,
+            id: ETranslations.Limit_order_history_empty,
+          })}
+          description={intl.formatMessage({
+            id: ETranslations.Limit_order_history_empty_content,
           })}
         />
       }

@@ -38,6 +38,7 @@ const LimitOrderCard = ({
   cancelLoading?: boolean;
 }) => {
   const { fromTokenInfo, toTokenInfo, fromAmount, toAmount } = item;
+  const intl = useIntl();
   const createdAtFormat = useMemo(() => {
     const date = new BigNumber(item.createdAt).toNumber();
     const dateStr = formatDate(new Date(date), {
@@ -70,26 +71,27 @@ const LimitOrderCard = ({
     return (
       <YStack gap="$1" justifyContent="flex-start">
         <SizableText size="$bodySm" color="$textSubdued">
-          Expiration
+          {intl.formatMessage({ id: ETranslations.Limit_order_status_expired })}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
           {dateStr}
         </SizableText>
       </YStack>
     );
-  }, [item.expiredAt]);
+  }, [intl, item.expiredAt]);
+
   const tokenInfo = useCallback(() => {
     const fromAmountFormatted = new BigNumber(fromAmount).shiftedBy(
-      -fromTokenInfo.decimals,
+      -(fromTokenInfo?.decimals ?? 0),
     );
     const toAmountFormatted = new BigNumber(toAmount).shiftedBy(
-      -toTokenInfo.decimals,
+      -(toTokenInfo?.decimals ?? 0),
     );
 
     return (
       <XStack gap="$2" alignItems="center">
         <XStack gap="$1">
-          <Token size="xs" tokenImageUri={fromTokenInfo.logoURI} />
+          <Token size="xs" tokenImageUri={fromTokenInfo?.logoURI} />
           <NumberSizeableText
             size="$bodySm"
             color="$textSubdued"
@@ -98,12 +100,12 @@ const LimitOrderCard = ({
             {fromAmountFormatted.toFixed()}
           </NumberSizeableText>
           <SizableText size="$bodySm" color="$textSubdued">
-            {fromTokenInfo.symbol}
+            {fromTokenInfo?.symbol ?? '-'}
           </SizableText>
         </XStack>
         <SizableText size="$bodyMdMedium">→</SizableText>
         <XStack gap="$1">
-          <Token size="xs" tokenImageUri={toTokenInfo.logoURI} />
+          <Token size="xs" tokenImageUri={toTokenInfo?.logoURI} />
           <NumberSizeableText
             size="$bodySm"
             color="$textSubdued"
@@ -112,20 +114,20 @@ const LimitOrderCard = ({
             {toAmountFormatted.toFixed()}
           </NumberSizeableText>
           <SizableText size="$bodySm" color="$textSubdued">
-            {toTokenInfo.symbol}
+            {toTokenInfo?.symbol ?? '-'}
           </SizableText>
         </XStack>
       </XStack>
     );
   }, [
     fromAmount,
-    fromTokenInfo.decimals,
-    fromTokenInfo.logoURI,
-    fromTokenInfo.symbol,
+    fromTokenInfo?.decimals,
+    fromTokenInfo?.logoURI,
+    fromTokenInfo?.symbol,
     toAmount,
-    toTokenInfo.decimals,
-    toTokenInfo.logoURI,
-    toTokenInfo.symbol,
+    toTokenInfo?.decimals,
+    toTokenInfo?.logoURI,
+    toTokenInfo?.symbol,
   ]);
   const decimalsAmount = useMemo(
     () => ({
@@ -154,7 +156,7 @@ const LimitOrderCard = ({
     () => (
       <YStack gap="$1" justifyContent="flex-start">
         <SizableText size="$bodySm" color="$textSubdued">
-          Limit price
+          {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
           {`1 ${item?.fromTokenInfo?.symbol ?? '-'} = ${limitPrice ?? '-'} ${
@@ -163,37 +165,36 @@ const LimitOrderCard = ({
         </SizableText>
       </YStack>
     ),
-    [item, limitPrice],
+    [item, limitPrice, intl],
   );
-  const intl = useIntl();
   const renderLimitOrderStatus = useCallback(() => {
     const { status, executedSellAmount } = item ?? {};
     let label = intl.formatMessage({
-      id: ETranslations.swap_history_detail_badge_to_pending,
+      id: ETranslations.Limit_order_status_open,
     });
     let color = '@textCaution';
     if (status) {
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
-            id: ETranslations.swap_history_detail_badge_expired,
+            id: ETranslations.Limit_order_cancel,
           });
           color = '@textCritical';
           break;
         case ESwapLimitOrderStatus.FULFILLED:
           label = intl.formatMessage({
-            id: ETranslations.swap_history_detail_badge_to_success,
+            id: ETranslations.Limit_order_status_filled,
           });
           color = '$textSuccess';
           break;
         case ESwapLimitOrderStatus.EXPIRED:
           label = intl.formatMessage({
-            id: ETranslations.swap_history_detail_badge_expired,
+            id: ETranslations.Limit_order_status_expired,
           });
           break;
         case ESwapLimitOrderStatus.PRESIGNATURE_PENDING:
           label = intl.formatMessage({
-            id: ETranslations.swap_history_detail_badge_to_pending,
+            id: ETranslations.Limit_order_status_open,
           });
           break;
         default:
@@ -214,7 +215,7 @@ const LimitOrderCard = ({
     return (
       <YStack gap="$2">
         <SizableText size="$bodySm" color="$textSubdued">
-          Status
+          {intl.formatMessage({ id: ETranslations.Limit_order_status })}
         </SizableText>
         <XStack gap="$2" alignItems="center">
           <SizableText size="$bodySm" color={color}>

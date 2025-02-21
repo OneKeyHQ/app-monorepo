@@ -55,6 +55,7 @@ import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
+  useSwapLimitPartiallyFillAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -94,6 +95,7 @@ export function useSwapBuildTx() {
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
+  const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const [, setSettings] = useSettingsAtom();
   const { navigationToTxConfirm, navigationToMessageConfirm } =
@@ -424,6 +426,7 @@ export function useSwapBuildTx() {
             appData: string;
             receiver: string;
             buyAmount: string;
+            partiallyFillable: boolean;
           } =
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
@@ -458,8 +461,13 @@ export function useSwapBuildTx() {
                 ).shiftedBy(decimals);
                 finalBuyAmount = finalBuyAmountBN.toFixed();
               }
+              let partiallyFillable = unSignedOrder.partiallyFillable;
+              if (swapLimitPartiallyFillObj.value !== partiallyFillable) {
+                partiallyFillable = swapLimitPartiallyFillObj.value;
+              }
               unSignedOrder.buyAmount = finalBuyAmount;
               unSignedOrder.validTo = validTo;
+              unSignedOrder.partiallyFillable = partiallyFillable;
               const normalizeData = {
                 ...unSignedOrder,
                 sellTokenBalance:
@@ -705,8 +713,9 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
-    swapLimitExpirationTime,
+    swapLimitExpirationTime.value,
     swapLimitPriceToAmount,
+    swapLimitPartiallyFillObj.value,
     navigationToMessageConfirm,
     swapTypeSwitch,
   ]);

@@ -1,10 +1,13 @@
 import { useCallback, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { SegmentControl, YStack } from '@onekeyhq/components';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -33,15 +36,23 @@ const LimitOrderListModal = ({
     },
     [navigation, storeName],
   );
-
+  const intl = useIntl();
   return (
     <YStack px="$4" pt="$2" gap="$4">
       <SegmentControl
         w="100%"
         fullWidth
         options={[
-          { label: 'Open orders', value: 'open' },
-          { label: 'Order history', value: 'history' },
+          {
+            label: intl.formatMessage({ id: ETranslations.Limit_open_order }),
+            value: 'open',
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.Limit_order_history,
+            }),
+            value: 'history',
+          },
         ]}
         onChange={(value) => {
           setLimitOrderSelectedTab(value as 'open' | 'history');

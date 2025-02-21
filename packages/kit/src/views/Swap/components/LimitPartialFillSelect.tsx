@@ -6,16 +6,16 @@ import type { ISelectItem } from '@onekeyhq/components';
 import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
-interface ISwapLimitExpirySelectProps {
-  onSelectExpiryValue: (value: ISelectItem) => void;
-  currentSelectExpiryValue?: ISelectItem;
+interface ISwapLimitPartialFillSelectProps {
+  onSelectPartiallyFillValue: (value: ISelectItem) => void;
+  currentSelectPartiallyFillValue?: ISelectItem;
   selectItems: ISelectItem[];
 }
-const SwapLimitExpirySelect = ({
-  onSelectExpiryValue,
-  currentSelectExpiryValue,
+const SwapLimitPartialFillSelect = ({
+  onSelectPartiallyFillValue,
+  currentSelectPartiallyFillValue,
   selectItems,
-}: ISwapLimitExpirySelectProps) => {
+}: ISwapLimitPartialFillSelectProps) => {
   const intl = useIntl();
   const renderTrigger = useCallback(
     () => (
@@ -26,7 +26,7 @@ const SwapLimitExpirySelect = ({
         }}
       >
         <SizableText size="$bodyMdMedium">
-          {currentSelectExpiryValue?.label}
+          {currentSelectPartiallyFillValue?.label}
         </SizableText>
         <Icon
           size="$5"
@@ -36,25 +36,25 @@ const SwapLimitExpirySelect = ({
         />
       </XStack>
     ),
-    [currentSelectExpiryValue?.label],
+    [currentSelectPartiallyFillValue?.label],
   );
   return (
     <XStack justifyContent="space-between">
       <SizableText size="$bodyMd" color="$textSubdued" userSelect="none">
-        {intl.formatMessage({ id: ETranslations.Limit_info_order_expires })}
+        {intl.formatMessage({ id: ETranslations.Limit_info_partial_fill })}
       </SizableText>
       <Select
         placement="bottom-end"
         items={selectItems}
-        value={currentSelectExpiryValue?.value}
+        value={currentSelectPartiallyFillValue?.value}
         onChange={(value: string) => {
           const selectedItem = selectItems.find((item) => item.value === value);
           if (selectedItem) {
-            onSelectExpiryValue(selectedItem);
+            onSelectPartiallyFillValue(selectedItem);
           }
         }}
         title={intl.formatMessage({
-          id: ETranslations.Limit_info_order_expires,
+          id: ETranslations.Limit_info_partial_fill,
         })}
         renderTrigger={renderTrigger}
       />
@@ -62,4 +62,4 @@ const SwapLimitExpirySelect = ({
   );
 };
 
-export default memo(SwapLimitExpirySelect);
+export default memo(SwapLimitPartialFillSelect);

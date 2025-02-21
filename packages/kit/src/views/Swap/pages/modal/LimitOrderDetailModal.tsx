@@ -194,14 +194,16 @@ const LimitOrderDetailModal = () => {
         return;
       }
       Dialog.show({
-        title: 'Limit Order',
+        title: intl.formatMessage({
+          id: ETranslations.limit_cancel_order_title,
+        }),
         renderContent: <LimitOrderCancelDialog item={item} />,
         onConfirm: () => runCancel(item),
         showCancelButton: true,
         showConfirmButton: true,
       });
     },
-    [runCancel],
+    [intl, runCancel],
   );
 
   const renderLimitOrderStatus = useCallback(() => {

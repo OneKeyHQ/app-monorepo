@@ -226,6 +226,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   autoSlippage?: boolean;
   blockNumber?: number;
   expirationTime?: number;
+  limitPartiallyFillable?: boolean;
 }
 interface ISocketAsset {
   address: string;
@@ -703,20 +704,9 @@ export const LimitMarketUpPercentages = [0, 20, 50, 100];
 export const defaultLimitExpirationTime =
   ESwapLimitOrderExpiryStep.THIRTY_MINUTES;
 
-export const ESwapLimitOrderExpiryStepMap = [
-  {
-    label: '5 minutes',
-    value: ESwapLimitOrderExpiryStep.FIVE_MINUTES.toString(),
-  },
-  {
-    label: '30 minutes',
-    value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
-  },
-  { label: '1 hour', value: ESwapLimitOrderExpiryStep.ONE_HOUR.toString() },
-  { label: '1 day', value: ESwapLimitOrderExpiryStep.ONE_DAY.toString() },
-  { label: '3 days', value: ESwapLimitOrderExpiryStep.THREE_DAYS.toString() },
-  { label: '1 week', value: ESwapLimitOrderExpiryStep.ONE_WEEK.toString() },
-  { label: '1 month', value: ESwapLimitOrderExpiryStep.ONE_MONTH.toString() },
+export const ESwapLimitPartiallyFillStepMap = [
+  { label: 'Enabled', value: true },
+  { label: 'Disabled', value: false },
 ];
 
 export interface ISwapLimitPriceInfo {

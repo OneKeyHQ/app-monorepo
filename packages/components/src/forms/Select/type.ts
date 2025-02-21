@@ -19,7 +19,7 @@ export interface ISelectTriggerProps {
 
 export interface ISelectItem {
   label: string;
-  value: string;
+  value: any;
   leading?: ListItemProps['icon'];
   description?: string;
 }

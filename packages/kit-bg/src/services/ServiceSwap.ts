@@ -457,6 +457,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     protocol,
     expirationTime,
+    limitPartiallyFillable,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -468,6 +469,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId?: string;
     expirationTime?: number;
     protocol: ESwapTabSwitchType;
+    limitPartiallyFillable?: boolean;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
     const params: IFetchQuotesParams = {
@@ -485,6 +487,7 @@ export default class ServiceSwap extends ServiceBase {
       autoSlippage,
       blockNumber,
       expirationTime,
+      limitPartiallyFillable,
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -537,6 +540,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     protocol,
     expirationTime,
+    limitPartiallyFillable,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -548,6 +552,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId?: string;
     protocol: ESwapTabSwitchType;
     expirationTime?: number;
+    limitPartiallyFillable?: boolean;
   }) {
     await this.removeQuoteEventSourceListeners();
     const params: IFetchQuotesParams = {
@@ -565,6 +570,7 @@ export default class ServiceSwap extends ServiceBase {
       autoSlippage,
       blockNumber,
       expirationTime,
+      limitPartiallyFillable,
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)

@@ -63,6 +63,7 @@ import {
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
   swapLimitExpirationTimeAtom,
+  swapLimitPartiallyFillAtom,
   swapLimitPriceUseRateAtom,
   swapManualSelectQuoteProvidersAtom,
   swapNetworks,
@@ -346,6 +347,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           set(swapQuoteFetchingAtom(), true);
         }
         const protocol = get(swapTypeSwitchAtom());
+        const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
+        const limitPartiallyFillable = limitPartiallyFillableObj.value;
         const expirationTime = get(swapLimitExpirationTimeAtom());
         const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
           fromToken,
@@ -357,10 +360,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           blockNumber,
           accountId,
           protocol,
-          expirationTime:
-            protocol === ESwapTabSwitchType.LIMIT
-              ? Number(expirationTime.value)
-              : undefined,
+          ...(protocol === ESwapTabSwitchType.LIMIT
+            ? {
+                expirationTime: Number(expirationTime.value),
+                limitPartiallyFillable,
+              }
+            : {}),
         });
         if (!loadingDelayEnable) {
           set(swapQuoteFetchingAtom(), false);
@@ -582,6 +587,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = get(swapTypeSwitchAtom());
+      const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
+      const limitPartiallyFillable = limitPartiallyFillableObj.value;
       const expirationTime = get(swapLimitExpirationTimeAtom());
       if (shouldRefreshQuote) {
         this.cleanQuoteInterval();
@@ -600,10 +607,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         blockNumber,
         accountId,
         protocol,
-        expirationTime:
-          protocol === ESwapTabSwitchType.LIMIT
-            ? Number(expirationTime.value)
-            : undefined,
+        ...(protocol === ESwapTabSwitchType.LIMIT
+          ? {
+              expirationTime: Number(expirationTime.value),
+              limitPartiallyFillable,
+            }
+          : {}),
       });
     },
   );
