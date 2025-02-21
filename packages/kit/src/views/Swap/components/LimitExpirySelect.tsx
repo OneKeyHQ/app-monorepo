@@ -6,10 +6,14 @@ import type { ISelectItem } from '@onekeyhq/components';
 import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+interface ISwapLimitExpirySelectItem extends ISelectItem {
+  value: string;
+}
+
 interface ISwapLimitExpirySelectProps {
-  onSelectExpiryValue: (value: ISelectItem) => void;
-  currentSelectExpiryValue?: ISelectItem;
-  selectItems: ISelectItem[];
+  onSelectExpiryValue: (value: ISwapLimitExpirySelectItem) => void;
+  currentSelectExpiryValue?: ISwapLimitExpirySelectItem;
+  selectItems: ISwapLimitExpirySelectItem[];
 }
 const SwapLimitExpirySelect = ({
   onSelectExpiryValue,
@@ -51,7 +55,7 @@ const SwapLimitExpirySelect = ({
         placement="bottom-end"
         items={selectItems}
         value={currentSelectExpiryValue?.value}
-        onChange={(value: string) => {
+        onChange={(value) => {
           const selectedItem = selectItems.find((item) => item.value === value);
           if (selectedItem) {
             onSelectExpiryValue(selectedItem);

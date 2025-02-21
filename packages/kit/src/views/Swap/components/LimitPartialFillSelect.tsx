@@ -6,10 +6,14 @@ import type { ISelectItem } from '@onekeyhq/components';
 import { Icon, Select, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+interface ISwapLimitPartialFillSelectItem extends ISelectItem {
+  value: boolean;
+}
+
 interface ISwapLimitPartialFillSelectProps {
-  onSelectPartiallyFillValue: (value: ISelectItem) => void;
-  currentSelectPartiallyFillValue?: ISelectItem;
-  selectItems: ISelectItem[];
+  onSelectPartiallyFillValue: (value: ISwapLimitPartialFillSelectItem) => void;
+  currentSelectPartiallyFillValue?: ISwapLimitPartialFillSelectItem;
+  selectItems: ISwapLimitPartialFillSelectItem[];
 }
 const SwapLimitPartialFillSelect = ({
   onSelectPartiallyFillValue,
@@ -47,7 +51,7 @@ const SwapLimitPartialFillSelect = ({
         placement="bottom-end"
         items={selectItems}
         value={currentSelectPartiallyFillValue?.value}
-        onChange={(value: string) => {
+        onChange={(value) => {
           const selectedItem = selectItems.find((item) => item.value === value);
           if (selectedItem) {
             onSelectPartiallyFillValue(selectedItem);
