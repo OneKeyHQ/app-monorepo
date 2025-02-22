@@ -669,7 +669,6 @@ function BatchCreateAccountPreviewPage({
       getAccountCheckedState,
       intl,
       network?.symbol,
-      selectCheckBox,
     ],
   );
 
