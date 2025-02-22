@@ -24,6 +24,7 @@ export const StakingPercentageInputStageForNative = [25, 50, 75, 100];
 export function StakingAmountInput({
   title,
   inputProps,
+  disabled,
   onSelectPercentageStage,
   ...props
 }: IAmountInputFormItemProps & {
@@ -42,7 +43,11 @@ export function StakingAmountInput({
     }, 200);
   }, []);
   return (
-    <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
+    <YStack
+      borderRadius="$3"
+      backgroundColor={disabled ? '$bgDisabled' : '$bgSubdued'}
+      borderWidth="$0"
+    >
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
         <SizableText>{title}</SizableText>
         <AnimatePresence>
@@ -75,10 +80,16 @@ export function StakingAmountInput({
         borderWidth="$0"
         inputProps={{
           ...inputProps,
+          style: !platformEnv.isNative
+            ? ({
+                caretColor: 'transparent',
+              } as any)
+            : undefined,
           inputAccessoryViewID: stakingInputAccessoryViewID,
           autoCorrect: false,
           spellCheck: false,
           autoComplete: 'off',
+          editable: !disabled || inputProps?.disabled,
           onFocus: onFromInputFocus,
           onBlur: onFromInputBlur,
         }}
