@@ -43,7 +43,10 @@ import {
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
-import { StakingAmountInput } from '../StakingAmountInput';
+import {
+  PercentageStageOnKeyboard,
+  StakingAmountInput,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';
@@ -680,6 +683,9 @@ export function ApproveBaseStake({
             }}
           />
         </Stack>
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
       </Page.Footer>
     </StakingFormWrapper>
   );
