@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EOnChainHistoryTxStatus,
   type IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -64,12 +66,14 @@ export function useTrackTokenAllowance({
   initialValue,
   tokenAddress,
   spenderAddress,
+  approveType,
 }: {
   networkId: string;
   accountId: string;
   initialValue: string;
   tokenAddress: string;
   spenderAddress: string;
+  approveType: EApproveType;
 }) {
   const [allowance, setAllowance] = useState<string>(initialValue);
   const [trackTxId, setTrackTxId] = useState<string>('');
@@ -91,7 +95,10 @@ export function useTrackTokenAllowance({
             networkId,
             accountId,
             tokenAddress,
-            spenderAddress,
+            spenderAddress:
+              approveType === EApproveType.Permit
+                ? MorphoBundlerContract
+                : spenderAddress,
           });
         if (allowanceInfo) {
           setAllowance(allowanceInfo.allowanceParsed);
@@ -101,7 +108,14 @@ export function useTrackTokenAllowance({
       }
     }
     void fetchAllowance();
-  }, [txDetails, networkId, accountId, spenderAddress, tokenAddress]);
+  }, [
+    txDetails,
+    networkId,
+    accountId,
+    spenderAddress,
+    tokenAddress,
+    approveType,
+  ]);
   const trackAllowance = useCallback(
     (txid: string) => {
       setTrackTxId(txid);

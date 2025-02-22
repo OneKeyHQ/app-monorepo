@@ -26,6 +26,11 @@ export type IStakingInfo = {
   orderId?: string;
 };
 
+export enum EApproveType {
+  Permit = 'permit',
+  Legacy = 'legacy',
+}
+
 export type IStakeProviderInfo = {
   name: string;
   logoURI: string;
@@ -75,6 +80,8 @@ export type IStakeProviderInfo = {
   vaultName?: string;
   url?: string;
   rewardUnit: IEarnRewardUnit;
+
+  approveType?: EApproveType;
 };
 
 export type IStakeBaseParams = {
@@ -89,6 +96,8 @@ export type IStakeBaseParams = {
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
   morphoVault?: string; // morpho vault
+  approveType?: EApproveType;
+  permitSignature?: string;
 };
 
 export type IWithdrawBaseParams = {
@@ -454,3 +463,46 @@ export interface IEarnBabylonTrackingItem {
   amount: string;
   minStakeTerm?: number;
 }
+
+export interface IBuildPermit2ApproveSignDataParams {
+  networkId: string;
+  provider: string;
+  symbol: string;
+  accountAddress: string;
+  vault: string;
+  amount: string;
+}
+
+export interface IEarnPermit2ApproveSignData {
+  domain: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: string;
+  };
+  message: {
+    owner: string;
+    spender: string;
+    value: string;
+    nonce: string;
+    deadline: string;
+    expiry? : string; // dai
+  };
+  primaryType: string;
+  types: {
+    EIP712Domain: {
+      name: string;
+      type: string;
+    }[];
+    Permit: {
+      name: string;
+      type: string;
+    }[];
+  };
+}
+
+export type IApproveConfirmFnParams = {
+  amount: string;
+  approveType?: EApproveType;
+  permitSignature?: string;
+};

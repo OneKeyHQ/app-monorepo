@@ -49,3 +49,19 @@ interface INetworkStakingConfig {
 export interface IStakingConfig {
   [networkId: string]: INetworkStakingConfig;
 }
+
+export interface IEarnPermitCache {
+  accountId: string;
+  networkId: string;
+  tokenAddress: string;
+  amount: string;
+  signature: string;
+  expiredAt: number;
+}
+
+export interface IEarnPermitCacheKey {
+  accountId: string;
+  networkId: string;
+  tokenAddress: string;
+  amount: string;
+}
