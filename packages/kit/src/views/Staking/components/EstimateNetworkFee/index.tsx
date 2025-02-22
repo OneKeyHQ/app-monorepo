@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { ISizableTextProps } from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
@@ -164,9 +165,13 @@ export const useShowClaimEstimateGasAlert = () => {
 const EstimateNetworkFeeListItem = ({
   estFiatValue,
   onPress,
+  labelTextProps,
+  valueTextProps,
 }: {
   estFiatValue: string;
   onPress?: () => void;
+  labelTextProps?: ISizableTextProps;
+  valueTextProps?: ISizableTextProps;
 }) => {
   const intl = useIntl();
   const [
@@ -177,7 +182,7 @@ const EstimateNetworkFeeListItem = ({
 
   return Number(estFiatValue) > 0 ? (
     <CalculationListItem onPress={onPress}>
-      <CalculationListItem.Label>
+      <CalculationListItem.Label {...labelTextProps}>
         {intl.formatMessage({
           id: ETranslations.global_est_network_fee,
         })}
@@ -191,6 +196,7 @@ const EstimateNetworkFeeListItem = ({
           size="$bodyLgMedium"
           formatter="value"
           formatterOptions={{ currency: fiatSymbol }}
+          {...valueTextProps}
         >
           {estFiatValue}
         </NumberSizeableText>
@@ -214,14 +220,20 @@ export const EstimateNetworkFee = ({
   estimateFeeResp,
   onPress,
   isVisible,
+  labelTextProps,
+  valueTextProps,
 }: {
   estimateFeeResp?: IEarnEstimateFeeResp;
   isVisible?: boolean;
   onPress?: () => void;
+  labelTextProps?: ISizableTextProps;
+  valueTextProps?: ISizableTextProps;
 }) =>
   estimateFeeResp && isVisible ? (
     <EstimateNetworkFeeListItem
       estFiatValue={estimateFeeResp.feeFiatValue}
       onPress={onPress}
+      labelTextProps={labelTextProps}
+      valueTextProps={valueTextProps}
     />
   ) : null;
