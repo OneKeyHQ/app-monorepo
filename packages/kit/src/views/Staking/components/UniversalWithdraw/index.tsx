@@ -242,7 +242,7 @@ export const UniversalWithdraw = ({
     <StakingFormWrapper>
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
         <StakingAmountInput
-          title={intl.formatMessage({ id: ETranslations.earn_deposit })}
+          title={intl.formatMessage({ id: ETranslations.global_withdraw })}
           disabled={!editable}
           hasError={isCheckAmountMessageError}
           value={amountValue}
@@ -258,7 +258,7 @@ export const UniversalWithdraw = ({
           }}
           balanceProps={{
             value: balance,
-            iconText: intl.formatMessage({ id: ETranslations.earn_deposited }),
+            iconText: intl.formatMessage({ id: ETranslations.global_withdraw }),
             onPress: onMax,
           }}
           valueProps={{
