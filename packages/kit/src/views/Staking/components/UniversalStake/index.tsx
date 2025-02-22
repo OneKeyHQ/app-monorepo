@@ -15,7 +15,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -36,7 +35,10 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import { StakingAmountInput } from '../StakingAmountInput';
+import {
+  PercentageStageOnKeyboard,
+  StakingAmountInput,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
@@ -539,15 +541,20 @@ export function UniversalStake({
         accountId={accountId}
         networkId={networkId}
       />
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
-        })}
-        confirmButtonProps={{
-          onPress,
-          disabled: isDisable,
-        }}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_continue,
+          })}
+          confirmButtonProps={{
+            onPress,
+            disabled: isDisable,
+          }}
+        />
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      </Page.Footer>
     </StakingFormWrapper>
   );
 }
