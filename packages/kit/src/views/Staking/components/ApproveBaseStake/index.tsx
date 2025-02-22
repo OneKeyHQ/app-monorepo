@@ -249,13 +249,10 @@ export function ApproveBaseStake({
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
-      onChangeAmountValue(
-        BigNumber(balance)
-          .multipliedBy(percent / 100)
-          .toFixed(),
-      );
+      const value = BigNumber(balance).multipliedBy(percent / 100);
+      onChangeAmountValue(decimals ? value.toFixed(decimals) : value.toFixed());
     },
-    [balance, onChangeAmountValue],
+    [balance, decimals, onChangeAmountValue],
   );
 
   const estimatedAnnualRewards = useMemo<ITokenAnnualReward[]>(() => {
