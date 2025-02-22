@@ -244,7 +244,7 @@ export function ApproveBaseStake({
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
 
-  const onSelectStage = useCallback(
+  const onSelectPercentageStage = useCallback(
     (percent: number) => {
       onChangeAmountValue(
         BigNumber(balance)
@@ -524,7 +524,7 @@ export function ApproveBaseStake({
           currency: currentValue ? symbol : undefined,
         }}
         enableMaxAmount
-        onSelectStage={onSelectStage}
+        onSelectPercentageStage={onSelectPercentageStage}
       />
       {platformEnv.isDev ? (
         <SizableText>{`allowance: ${allowance}, shouldApprove: ${
