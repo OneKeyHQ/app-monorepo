@@ -689,7 +689,11 @@ export function ApproveBaseStake({
                       {capitalizeString(providerName || '')}
                     </SizableText>
                   </XStack>
-                  <YStack animation="quick" rotate={open ? '180deg' : '0deg'}>
+                  <YStack
+                    animation="quick"
+                    rotate={open ? '180deg' : '0deg'}
+                    left="$2"
+                  >
                     <Icon
                       name="ChevronDownSmallOutline"
                       color="$iconActive"
