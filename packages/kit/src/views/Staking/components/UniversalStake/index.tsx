@@ -41,7 +41,7 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { formatStakingDistanceToNowStrict } from '../utils';
+import { formatApy, formatStakingDistanceToNowStrict } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
@@ -422,7 +422,7 @@ export function UniversalStake({
               {details.provider.rewardUnit}
             </CalculationListItem.Label>
             <CalculationListItem.Value color="$textSuccess">
-              {`${apr}%`}
+              {`${formatApy(apr)}%`}
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
