@@ -16,7 +16,6 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
@@ -44,6 +43,7 @@ import {
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
+import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';
@@ -243,6 +243,17 @@ export function ApproveBaseStake({
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
+
+  const onSelectStage = useCallback(
+    (percent: number) => {
+      onChangeAmountValue(
+        BigNumber(balance)
+          .multipliedBy(percent / 100)
+          .toFixed(),
+      );
+    },
+    [balance, onChangeAmountValue],
+  );
 
   const estimatedAnnualRewards = useMemo<ITokenAnnualReward[]>(() => {
     const amountBN = new BigNumber(amountValue);
@@ -491,7 +502,8 @@ export function ApproveBaseStake({
     (shouldApprove || showStakeProgressRef.current[amountValue]);
   return (
     <StakingFormWrapper>
-      <AmountInput
+      <StakingAmountInput
+        title={intl.formatMessage({ id: ETranslations.earn_deposit })}
         hasError={isInsufficientBalance || isLessThanMinAmount}
         value={amountValue}
         onChange={onChangeAmountValue}
@@ -512,6 +524,7 @@ export function ApproveBaseStake({
           currency: currentValue ? symbol : undefined,
         }}
         enableMaxAmount
+        onSelectStage={onSelectStage}
       />
       {platformEnv.isDev ? (
         <SizableText>{`allowance: ${allowance}, shouldApprove: ${
