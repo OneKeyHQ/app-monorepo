@@ -36,6 +36,7 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatStakingDistanceToNowStrict } from '../utils';
@@ -172,6 +173,14 @@ export function UniversalStake({
     }
   }, [onChangeAmountValue, balance, minTransactionFee]);
 
+  const onSelectPercentageStage = useCallback(
+    (percent: number) => {
+      const value = BigNumber(balance).multipliedBy(percent / 100);
+      onChangeAmountValue(decimals ? value.toFixed(decimals) : value.toFixed());
+    },
+    [balance, decimals, onChangeAmountValue],
+  );
+
   const currentValue = useMemo<string | undefined>(() => {
     if (Number(amountValue) > 0 && Number(price) > 0) {
       const amountValueBn = new BigNumber(amountValue);
@@ -292,8 +301,9 @@ export function UniversalStake({
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
-        <AmountInput
-          bg={isDisabled ? '$bgDisabled' : '$bgApp'}
+        <StakingAmountInput
+          title={intl.formatMessage({ id: ETranslations.earn_deposit })}
+          disabled={isDisabled}
           hasError={isInsufficientBalance || isLessThanMinAmount}
           value={amountValue}
           onChange={onChangeAmountValue}
@@ -315,6 +325,7 @@ export function UniversalStake({
             currency: currentValue ? symbol : undefined,
           }}
           enableMaxAmount
+          onSelectPercentageStage={onSelectPercentageStage}
         />
         {isDisabled ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
