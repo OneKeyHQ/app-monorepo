@@ -7,5 +7,9 @@ export const EthereumWETH = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2';
 export const EthereumCbBTC = '0xcbB7C0000aB88B473b1f5aFd9ef808440eed33Bf';
 export const EthereumWBTC = '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599';
 export const BaseUSDC = '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913';
+
+export const MorphoBundlerContract =
+  '0x4095f064b8d3c3548a3bebfd0bbfd04750e30077';
+
 export const ALL_NETWORK_ACCOUNT_MOCK_ADDRESS = 'AllNetworkMockAddress';
 export const EMPTY_NATIVE_TOKEN_ADDRESS = '';

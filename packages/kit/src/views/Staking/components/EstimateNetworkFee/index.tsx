@@ -11,6 +11,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IOnDialogConfirm } from '@onekeyhq/components/src/composite/Dialog/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
@@ -29,10 +30,12 @@ export const useShowStakeEstimateGasAlert = () => {
       daysConsumed,
       estFiatValue,
       onConfirm,
+      onCancel,
     }: {
       estFiatValue: string;
       daysConsumed?: number;
-      onConfirm?: () => void;
+      onConfirm?: IOnDialogConfirm;
+      onCancel?: () => void;
     }) => {
       const description = daysConsumed
         ? (intl.formatMessage(
@@ -68,6 +71,7 @@ export const useShowStakeEstimateGasAlert = () => {
           </XStack>
         ),
         onConfirm,
+        onCancel,
       });
     },
     [intl, fiatSymbol],
