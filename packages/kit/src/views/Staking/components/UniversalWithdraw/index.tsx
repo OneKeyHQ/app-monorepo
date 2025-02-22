@@ -7,18 +7,14 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
-  Dialog,
-  IconButton,
   Image,
   NumberSizeableText,
   Page,
-  Popover,
   SizableText,
   Stack,
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -28,8 +24,11 @@ import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
-import { WithdrawShouldUnderstand } from '../EarnShouldUnderstand';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import {
+  PercentageStageOnKeyboard,
+  StakingAmountInput,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
@@ -213,6 +212,14 @@ export const UniversalWithdraw = ({
     onChangeAmountValue(balance, true);
   }, [onChangeAmountValue, balance]);
 
+  const onSelectPercentageStage = useCallback(
+    (percent: number) => {
+      const value = BigNumber(balance).multipliedBy(percent / 100);
+      onChangeAmountValue(decimals ? value.toFixed(decimals) : value.toFixed());
+    },
+    [balance, decimals, onChangeAmountValue],
+  );
+
   const isCheckAmountMessageError =
     amountValue?.length > 0 && !!checkAmountMessage;
 
@@ -234,8 +241,9 @@ export const UniversalWithdraw = ({
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
-        <AmountInput
-          bg={editable ? '$bgApp' : '$bgDisabled'}
+        <StakingAmountInput
+          title={intl.formatMessage({ id: ETranslations.earn_deposit })}
+          disabled={!editable}
           hasError={isCheckAmountMessageError}
           value={amountValue}
           onChange={onChangeAmountValue}
@@ -258,6 +266,7 @@ export const UniversalWithdraw = ({
             currency: currentValue ? symbol : undefined,
           }}
           enableMaxAmount
+          onSelectPercentageStage={onSelectPercentageStage}
         />
         {!editable ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
@@ -382,6 +391,22 @@ export const UniversalWithdraw = ({
           disabled: isDisable,
         }}
       />
+
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_withdraw,
+          })}
+          confirmButtonProps={{
+            onPress,
+            loading,
+            disabled: isDisable,
+          }}
+        />
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      </Page.Footer>
     </StakingFormWrapper>
   );
 };
