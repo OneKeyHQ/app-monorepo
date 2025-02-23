@@ -4,6 +4,8 @@ import { useCallback } from 'react';
 import { isNil } from 'lodash';
 import { useMedia, useProps } from 'tamagui';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
 
@@ -34,11 +36,15 @@ function BannerItem<T extends IBannerData>({
   itemTitleContainerStyle,
   onPress,
   item: rawItem,
+  isFirst,
+  isLast,
 }: {
   onPress: (item: T) => void;
   item: T;
   itemContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
+  isFirst?: boolean;
+  isLast?: boolean;
 }) {
   const item = useProps(rawItem, {
     resolveValues: 'value',
@@ -48,6 +54,11 @@ function BannerItem<T extends IBannerData>({
   }, [item, onPress]);
   return (
     <Stack
+      borderTopLeftRadius={isFirst ? '$3' : 0}
+      borderBottomLeftRadius={isFirst ? '$3' : 0}
+      borderTopRightRadius={isLast ? '$3' : 0}
+      borderBottomRightRadius={isLast ? '$3' : 0}
+      overflow="hidden"
       tag="section"
       flex={1}
       position="relative"
@@ -115,13 +126,15 @@ export function Banner<T extends IBannerData>({
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
       <BannerItem
+        isFirst={item.bannerId === data[0].bannerId}
+        isLast={item.bannerId === data[data.length - 1].bannerId}
         onPress={onItemPress}
         item={item}
         itemContainerStyle={itemContainerStyle}
         itemTitleContainerStyle={itemTitleContainerStyle}
       />
     ),
-    [itemContainerStyle, itemTitleContainerStyle, onItemPress],
+    [data, itemContainerStyle, itemTitleContainerStyle, onItemPress],
   );
 
   const renderPagination = useCallback(
@@ -143,6 +156,10 @@ export function Banner<T extends IBannerData>({
           >
             {data.map((_, index) => (
               <Stack
+                shadowColor="$blackA1"
+                shadowOffset={{ width: 2, height: 2 }}
+                shadowOpacity={0.2}
+                shadowRadius={3}
                 key={index}
                 w="$3"
                 $gtMd={{
@@ -157,7 +174,7 @@ export function Banner<T extends IBannerData>({
           </XStack>
         ) : null}
 
-        {showPaginationButton || media.gtMd ? (
+        {(showPaginationButton && !platformEnv.isNative) || media.gtMd ? (
           <>
             <PaginationButton
               isVisible={currentIndex !== 0}
@@ -187,6 +204,7 @@ export function Banner<T extends IBannerData>({
 
   return (
     <Swiper
+      position="relative"
       autoplay
       autoplayLoop
       autoplayLoopKeepAnimation

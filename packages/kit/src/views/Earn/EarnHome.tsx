@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type {
-  IIconButtonProps,
   IKeyOfIcons,
   ISizableTextProps,
   IYStackProps,
@@ -25,6 +24,7 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -67,7 +67,6 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
-const BANNER_ICON_OFFSET = 34;
 const BANNER_TITLE_OFFSET = {
   desktop: '$5',
   mobile: '$10',
@@ -668,12 +667,6 @@ function AvailableAssets() {
   return null;
 }
 
-const bannerIconStyle: Omit<IIconButtonProps, 'icon'> = {
-  bottom: '$3',
-  size: 'small',
-  transform: platformEnv.isNative ? '' : 'unset',
-};
-
 function BasicEarnHome() {
   const {
     activeAccount: { account, network, indexedAccount },
@@ -861,34 +854,27 @@ function BasicEarnHome() {
   const banners = useMemo(() => {
     if (earnBanners) {
       return earnBanners.length ? (
-        <Banner
-          showPaginationButton={!platformEnv.isNative}
-          height="$36"
-          $md={{
-            height: '$28',
-          }}
-          data={earnBanners}
-          onItemPress={onBannerPress}
-          isLoading={false}
-          leftIconButtonStyle={{
-            ...bannerIconStyle,
-            left: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
-          }}
-          rightIconButtonStyle={{
-            ...bannerIconStyle,
-            right: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
-          }}
-          itemContainerStyle={media.gtLg ? { px: 0 } : { px: '$5' }}
-          itemTitleContainerStyle={{
-            top: 0,
-            bottom: 0,
-            right: '$5',
-            left: media.gtLg
-              ? BANNER_TITLE_OFFSET.desktop
-              : BANNER_TITLE_OFFSET.mobile,
-            justifyContent: 'center',
-          }}
-        />
+        <Stack px="$5">
+          <Banner
+            showPaginationButton={!platformEnv.isNative}
+            height="$36"
+            $md={{
+              height: '$28',
+            }}
+            data={earnBanners}
+            onItemPress={onBannerPress}
+            isLoading={false}
+            itemTitleContainerStyle={{
+              top: 0,
+              bottom: 0,
+              right: '$5',
+              left: media.gtLg
+                ? BANNER_TITLE_OFFSET.desktop
+                : BANNER_TITLE_OFFSET.mobile,
+              justifyContent: 'center',
+            }}
+          />
+        </Stack>
       ) : null;
     }
     return (

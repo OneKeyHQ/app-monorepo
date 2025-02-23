@@ -4,6 +4,7 @@ import { IconButton } from '@onekeyhq/components';
 
 const CloseButton: React.FC<{ onClick: () => void }> = ({ onClick }) => (
   <IconButton
+    variant="primary"
     position="absolute"
     top="0"
     right="0"
