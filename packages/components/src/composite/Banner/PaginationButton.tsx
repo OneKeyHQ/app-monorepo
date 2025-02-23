@@ -47,7 +47,7 @@ export function PaginationButton({
       ]}
     >
       <Stack borderRadius="$full" bg="$whiteA12">
-        <IconButton icon={icon} onPress={onPress} />
+        <IconButton variant="tertiary" icon={icon} onPress={onPress} />
       </Stack>
     </Animated.View>
   );

@@ -5,8 +5,9 @@ import { isNil } from 'lodash';
 import { useMedia, useProps } from 'tamagui';
 
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
-import { Image, Stack, XStack } from '../../primitives';
+import { Image, SizableText, Stack, XStack } from '../../primitives';
 
+import CloseButton from './CloseButton';
 import { PaginationButton } from './PaginationButton';
 
 import type { IIconButtonProps } from '../../actions';
@@ -30,6 +31,7 @@ export interface IBannerData {
 
 function BannerItem<T extends IBannerData>({
   itemContainerStyle,
+  itemTitleContainerStyle,
   onPress,
   item: rawItem,
 }: {
@@ -63,6 +65,22 @@ function BannerItem<T extends IBannerData>({
           resizeMode={item.imgResizeMode}
         />
       ) : null}
+
+      <Stack position="absolute" {...itemTitleContainerStyle}>
+        {
+          // TODO：Lokalise processes \n as \\n when handling translations
+          item.title?.split(/\n|\\n/).map((text, index) => (
+            <SizableText
+              key={index}
+              color={item.theme === 'dark' ? '$textDark' : '$textLight'}
+              size="$headingLg"
+              {...item.titleTextProps}
+            >
+              {text}
+            </SizableText>
+          ))
+        }
+      </Stack>
     </Stack>
   );
 }
@@ -154,6 +172,8 @@ export function Banner<T extends IBannerData>({
             />
           </>
         ) : null}
+
+        <CloseButton onClick={() => {}} />
       </>
     ),
     [data, indicatorContainerStyle, showPaginationButton, media.gtMd],
