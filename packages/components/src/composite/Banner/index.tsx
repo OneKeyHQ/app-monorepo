@@ -109,6 +109,7 @@ export function Banner<T extends IBannerData>({
   rightIconButtonStyle,
   showPaginationButton = !platformEnv.isNative,
   showCloseButton = false,
+  onBannerClose,
   ...props
 }: {
   data: T[];
@@ -123,6 +124,7 @@ export function Banner<T extends IBannerData>({
   emptyComponent?: ReactElement;
   showCloseButton?: boolean;
   showPaginationButton?: boolean;
+  onBannerClose?: (bannerId: string) => void;
 } & IStackStyle) {
   const [isHovering, setIsHovering] = useState(false);
   const setIsHoveringThrottled = useDebouncedCallback((value: boolean) => {
@@ -196,13 +198,20 @@ export function Banner<T extends IBannerData>({
           </>
         ) : null}
 
-        {showCloseButton ? <CloseButton onPress={() => {}} /> : null}
+        {showCloseButton ? (
+          <CloseButton
+            onPress={() => {
+              onBannerClose?.(data[currentIndex].bannerId ?? '');
+            }}
+          />
+        ) : null}
       </>
     ),
     [
       data,
       indicatorContainerStyle,
       isHovering,
+      onBannerClose,
       showCloseButton,
       showPaginationButton,
     ],
