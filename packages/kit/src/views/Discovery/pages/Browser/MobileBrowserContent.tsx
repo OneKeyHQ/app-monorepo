@@ -10,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import WebContent from '../../components/WebContent/WebContent';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
+import { useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 
 function MobileBrowserContent({
   id,
@@ -28,6 +29,8 @@ function MobileBrowserContent({
     () => activeTabId === tab?.id,
     [tab?.id, activeTabId],
   );
+
+  useNotifyTabBarDisplay(!!activeTabId);
 
   const initCaptureViewRef = useCallback(
     ($ref: any) => {
