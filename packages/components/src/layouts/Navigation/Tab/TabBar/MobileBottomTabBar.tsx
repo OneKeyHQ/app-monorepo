@@ -1,17 +1,21 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
-import { StyleSheet } from 'react-native';
+import { Animated, StyleSheet } from 'react-native';
 
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import { Stack } from '@onekeyhq/components/src/primitives';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 
 import { MobileTabItem } from './MobileTabItem';
 
 import type { ITabNavigatorExtraConfig } from '../../Navigator/types';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs/src/types';
-import type { Animated, StyleProp, ViewStyle } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 
 export type IMobileBottomTabBarProps = BottomTabBarProps & {
   backgroundColor?: string;
@@ -26,11 +30,28 @@ export default function MobileBottomTabBar({
 }: IMobileBottomTabBarProps & {
   extraConfig?: ITabNavigatorExtraConfig<string>;
 }) {
-  // const isKeyboardShown = useIsKeyboardShown();
   const { routes } = state;
   const { bottom } = useSafeAreaInsets();
 
-  // const isHide = isKeyboardShown;
+  const heightAnim = useMemo(() => new Animated.Value(54), []);
+  const opacityAnim = useMemo(() => new Animated.Value(1), []);
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.HideTabBar, (hide) => {
+      Animated.parallel([
+        Animated.timing(heightAnim, {
+          toValue: hide ? 0 : 54,
+          duration: 250,
+          useNativeDriver: false,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue: hide ? 0 : 1,
+          duration: 250,
+          useNativeDriver: false,
+        }),
+      ]).start();
+    });
+  }, [heightAnim, opacityAnim]);
 
   const tabs = useMemo(
     () =>
@@ -100,15 +121,16 @@ export default function MobileBottomTabBar({
       borderTopColor="$borderSubdued"
       pb={bottom}
     >
-      <Stack
-        testID="Mobile-AppTabBar-Content"
-        accessibilityRole="tablist"
-        flexDirection="row"
-        justifyContent="space-around"
-        h={54}
+      <Animated.View
+        style={{
+          height: heightAnim,
+          opacity: opacityAnim,
+          flexDirection: 'row',
+          justifyContent: 'space-around',
+        }}
       >
         {tabs}
-      </Stack>
+      </Animated.View>
     </Stack>
   );
 }

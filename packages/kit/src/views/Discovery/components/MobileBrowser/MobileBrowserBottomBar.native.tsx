@@ -47,6 +47,7 @@ import {
 } from '../../hooks/useWebTabs';
 import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
+import { showTabBar } from '../../utils/tabBarUtils';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
 
@@ -217,6 +218,8 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
       closeWebTab({ tabId: id, entry: 'Menu' });
       setCurrentWebTab(null);
     });
+
+    showTabBar();
   }, [closeWebTab, setCurrentWebTab, id]);
 
   const handleGoBackHome = useCallback(async () => {
