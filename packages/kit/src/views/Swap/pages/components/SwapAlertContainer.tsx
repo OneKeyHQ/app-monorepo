@@ -2,18 +2,30 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Toast, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  SizableText,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
-import { useSwapSelectTokenDetailFetchingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapActions,
+  useSwapSelectTokenDetailFetchingAtom,
+  useSwapTypeSwitchAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useAccountManualCreatingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ISwapAlertActionData,
   ISwapAlertState,
+  ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapAlertActionType,
   ESwapAlertLevel,
+  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 export interface ISwapAlertContainerProps {
@@ -40,6 +52,8 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     useAccountManualCreatingAtom();
   const { createAddress } = useAccountSelectorCreateAddress();
   const [createAddressError, setCreateAddressError] = useState(false);
+  const { selectToToken, selectFromToken } = useSwapActions().current;
+  const [, setSwapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const handleAlertAction = useCallback(
     async (action?: {
       actionType: ESwapAlertActionType;
@@ -99,6 +113,25 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     return level === ESwapAlertLevel.WARNING ? 'warning' : 'default';
   }, []);
 
+  const switchToWrappedToken = useCallback(
+    (wrappedToken?: ISwapTokenBase) => {
+      if (wrappedToken) {
+        void selectFromToken(wrappedToken);
+      }
+    },
+    [selectFromToken],
+  );
+
+  const wrapToWrappedToken = useCallback(
+    (wrappedToken?: ISwapTokenBase) => {
+      if (wrappedToken) {
+        setSwapTypeSwitchValue(ESwapTabSwitchType.SWAP);
+        void selectToToken(wrappedToken);
+      }
+    },
+    [selectToToken, setSwapTypeSwitchValue],
+  );
+
   const createAlert = useCallback(
     (item: ISwapAlertState, index: number) => {
       const { alertLevel, title, icon, message, action } = item;
@@ -123,6 +156,48 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
       ) {
         return null;
       }
+      if (
+        item.action?.actionType === ESwapAlertActionType.LIMIT_NATIVE_WRAPPED &&
+        item.action?.actionData?.wrappedToken
+      ) {
+        return (
+          <Alert
+            key={index}
+            type={getAlertType(alertLevel)}
+            title={title}
+            icon={icon}
+            description={message}
+            descriptionComponent={
+              <XStack gap="$0.5">
+                <SizableText
+                  userSelect="none"
+                  cursor="pointer"
+                  size="$bodyMdMedium"
+                  textDecorationLine="underline"
+                  onPress={() =>
+                    switchToWrappedToken(item.action?.actionData?.wrappedToken)
+                  }
+                >
+                  {`Switch to ${item.action?.actionData?.wrappedToken?.symbol}`}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">or</SizableText>
+                <SizableText
+                  userSelect="none"
+                  cursor="pointer"
+                  size="$bodyMdMedium"
+                  textDecorationLine="underline"
+                  onPress={() =>
+                    wrapToWrappedToken(item.action?.actionData?.wrappedToken)
+                  }
+                >
+                  {`Wrap to ${item.action?.actionData?.wrappedToken?.symbol}`}
+                </SizableText>
+              </XStack>
+            }
+          />
+        );
+      }
+
       return (
         <Alert
           key={index}
@@ -155,6 +230,8 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
       haveErrorAlert,
       selectTokenDetailLoading.from,
       selectTokenDetailLoading.to,
+      switchToWrappedToken,
+      wrapToWrappedToken,
     ],
   );
 

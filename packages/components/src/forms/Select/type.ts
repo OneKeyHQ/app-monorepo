@@ -6,7 +6,7 @@ import type { GestureResponderEvent } from 'react-native';
 import type { ListItemProps, SheetProps } from 'tamagui';
 
 export interface ISelectRenderTriggerProps {
-  value?: string;
+  value?: string | number | boolean;
   label?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -19,14 +19,14 @@ export interface ISelectTriggerProps {
 
 export interface ISelectItem {
   label: string;
-  value: string;
+  value: string | number | boolean | undefined;
   leading?: ListItemProps['icon'];
   description?: string;
 }
 
 export interface ISelectItemProps extends ISelectItem {
   onSelect: (item: ISelectItem) => void;
-  selectedValue?: string | ISelectItem;
+  selectedValue?: string | number | boolean | undefined | ISelectItem;
   testID?: string;
 }
 
@@ -35,7 +35,9 @@ export interface ISelectSection {
   title?: string;
 }
 
-export type ISelectProps<T extends string | ISelectItem> = PropsWithChildren<{
+export type ISelectProps<
+  T extends string | number | boolean | undefined | ISelectItem,
+> = PropsWithChildren<{
   labelInValue?: boolean;
   items?: ISelectItem[];
   sections?: ISelectSection[];

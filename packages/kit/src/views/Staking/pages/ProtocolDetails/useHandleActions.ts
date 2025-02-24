@@ -2,8 +2,12 @@ import { useCallback } from 'react';
 
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import { EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
-import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+import {
+  EApproveType,
+  type IStakeProtocolDetails,
+} from '@onekeyhq/shared/types/staking';
 
 export const useHandleWithdraw = () => {
   const appNavigation = useAppNavigation();
@@ -82,7 +86,10 @@ export const useHandleStake = () => {
             await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
               accountId,
               networkId,
-              spenderAddress: details.approveTarget,
+              spenderAddress:
+                details.provider.approveType === EApproveType.Permit
+                  ? MorphoBundlerContract
+                  : details.approveTarget,
               tokenAddress: details.token.info.address,
             });
           appNavigation.push(EModalStakingRoutes.ApproveBaseStake, {

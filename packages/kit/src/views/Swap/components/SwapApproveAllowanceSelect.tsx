@@ -66,8 +66,8 @@ const SwapApproveAllowanceSelect = ({
         placement="bottom-end"
         items={selectItems}
         value={currentSelectAllowanceValue?.value}
-        onChange={(value: string) => {
-          onSelectAllowanceValue(value);
+        onChange={(value) => {
+          onSelectAllowanceValue(value as string);
         }}
         onOpenChange={onSelectOpenChange}
         title={intl.formatMessage({

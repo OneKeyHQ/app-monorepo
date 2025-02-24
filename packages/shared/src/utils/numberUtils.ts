@@ -9,6 +9,22 @@ import hexUtils from './hexUtils';
 
 import type { FormatNumberOptions } from '@formatjs/intl';
 
+export enum ENumberUnit {
+  Q = 'Q',
+  T = 'T',
+  B = 'B',
+  M = 'M',
+  K = 'K',
+}
+
+export enum ENumberUnitValue {
+  Q = 10e14,
+  T = 10e11,
+  B = 10e8,
+  M = 10e5,
+  K = 10e2,
+}
+
 const toBigIntHex = (value: BigNumber): string => {
   let hexStr = value.integerValue().toString(16);
 
@@ -45,6 +61,7 @@ export type IFormatterOptions = {
   currency?: string;
   tokenSymbol?: string;
   showPlusMinusSigns?: boolean;
+  disableThousandSeparator?: boolean;
 };
 
 export interface IDisplayNumber {
@@ -56,6 +73,7 @@ export interface IDisplayNumber {
     leadingZeros?: number;
     leading?: string;
     symbol?: string;
+    roundValue?: string;
     isZero?: boolean;
   } & IFormatterOptions;
 }
@@ -93,23 +111,42 @@ const lazyDecimalSymbol = (digits: number) => {
 
 const formatLocalNumber = (
   value: BigNumber | string,
-  digits = 2,
-  keepTrailingZeros = false,
+  {
+    digits = 2,
+    removeTrailingZeros = false,
+    disableThousandSeparator = false,
+  }: {
+    digits: number;
+    removeTrailingZeros: boolean;
+    disableThousandSeparator?: boolean;
+  },
 ) => {
   const num = new BigNumber(value).toFixed(digits, BigNumber.ROUND_HALF_UP);
 
   const [integerPart, decimalPart] = num.split('.');
-  const integer = `${integerPart === '-0' ? '-' : ''}${formatNumber(
-    new BigNumber(integerPart).toFixed() as any,
-  )}`;
+  const integer = `${integerPart === '-0' ? '-' : ''}${
+    disableThousandSeparator
+      ? integerPart
+      : formatNumber(new BigNumber(integerPart).toFixed() as any)
+  }`;
   const decimalSymbol = lazyDecimalSymbol(digits);
   const formatDecimal = `${decimalSymbol}${decimalPart}`;
   if (integer === '∞') {
-    return num;
+    return {
+      value: num,
+      decimalSymbol,
+      roundValue: num,
+    };
   }
   const result = `${integer}${formatDecimal}`;
 
-  return keepTrailingZeros ? stripTrailingZero(result, decimalSymbol) : result;
+  return {
+    value: removeTrailingZeros
+      ? stripTrailingZero(result, decimalSymbol)
+      : result,
+    decimalSymbol,
+    roundValue: num,
+  };
 };
 
 export type IFormatNumberFunc = (
@@ -127,51 +164,110 @@ export const formatBalance: IFormatNumberFunc = (value, options) => {
   if (absValue.eq(0)) {
     return { formattedValue: '0', meta: { value, isZero: true, ...options } };
   }
+
   if (absValue.gte(1)) {
-    if (absValue.gte(10e14)) {
+    if (absValue.gte(ENumberUnitValue.Q)) {
+      const {
+        value: formattedValue,
+        decimalSymbol,
+        roundValue,
+      } = formatLocalNumber(val.div(ENumberUnitValue.Q), {
+        digits: 4,
+        removeTrailingZeros: true,
+        disableThousandSeparator: options?.disableThousandSeparator,
+      });
       return {
-        formattedValue: formatLocalNumber(val.div(10e14), 4, true),
+        formattedValue,
         meta: {
           value,
-          unit: 'Q',
+          unit: ENumberUnit.Q,
+          roundValue,
+          decimalSymbol,
           ...options,
         },
       };
     }
 
-    if (absValue.gte(10e11)) {
+    if (absValue.gte(ENumberUnitValue.T)) {
+      const {
+        value: formattedValue,
+        decimalSymbol,
+        roundValue,
+      } = formatLocalNumber(val.div(ENumberUnitValue.T), {
+        digits: 4,
+        removeTrailingZeros: true,
+        disableThousandSeparator: options?.disableThousandSeparator,
+      });
       return {
-        formattedValue: formatLocalNumber(val.div(10e11), 4, true),
+        formattedValue,
         meta: {
           value,
-          unit: 'T',
+          unit: ENumberUnit.T,
+          roundValue,
+          decimalSymbol,
           ...options,
         },
       };
     }
 
-    if (absValue.gte(10e8)) {
+    if (absValue.gte(ENumberUnitValue.B)) {
+      const {
+        value: formattedValue,
+        decimalSymbol,
+        roundValue,
+      } = formatLocalNumber(val.div(ENumberUnitValue.B), {
+        digits: 4,
+        removeTrailingZeros: true,
+        disableThousandSeparator: options?.disableThousandSeparator,
+      });
       return {
-        formattedValue: formatLocalNumber(val.div(10e8), 4, true),
+        formattedValue,
         meta: {
           value,
-          unit: 'B',
+          unit: ENumberUnit.B,
+          roundValue,
+          decimalSymbol,
           ...options,
         },
       };
     }
+    const {
+      value: formattedValue,
+      decimalSymbol,
+      roundValue,
+    } = formatLocalNumber(val, {
+      digits: 4,
+      removeTrailingZeros: true,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
     return {
-      formattedValue: formatLocalNumber(val, 4, true),
-      meta: { value, ...options },
+      formattedValue,
+      meta: {
+        value,
+        roundValue,
+        decimalSymbol,
+        ...options,
+      },
     };
   }
 
   const zeros = countLeadingZeroDecimals(val);
+  const {
+    value: formattedValue,
+    decimalSymbol,
+    roundValue,
+  } = formatLocalNumber(val, {
+    digits: 4 + zeros,
+    removeTrailingZeros: true,
+    disableThousandSeparator: options?.disableThousandSeparator,
+  });
   return {
-    formattedValue: formatLocalNumber(val, 4 + zeros, true),
+    formattedValue,
     meta: {
       value,
       leadingZeros: zeros,
+      roundValue,
+      decimalSymbol,
       ...options,
     },
   };
@@ -185,22 +281,37 @@ export const formatPrice: IFormatNumberFunc = (value, options) => {
     return { formattedValue: value, meta: { value, invalid: true } };
   }
   if (val.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
     return {
-      formattedValue: formatLocalNumber('0', 2, false),
-      meta: { value, currency, isZero: true, ...options },
+      formattedValue,
+      meta: { value, currency, isZero: true, decimalSymbol, ...options },
     };
   }
   if (val.gte(1)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber(val, {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
     return {
-      formattedValue: formatLocalNumber(val, 2, false),
-      meta: { value, currency, ...options },
+      formattedValue,
+      meta: { value, currency, decimalSymbol, ...options },
     };
   }
 
   const zeros = countLeadingZeroDecimals(val);
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(val, {
+    digits: 4 + zeros,
+    removeTrailingZeros: true,
+    disableThousandSeparator: options?.disableThousandSeparator,
+  });
   return {
-    formattedValue: formatLocalNumber(val, 4 + zeros, true),
-    meta: { value, currency, leadingZeros: zeros, ...options },
+    formattedValue,
+    meta: { value, currency, leadingZeros: zeros, decimalSymbol, ...options },
   };
 };
 
@@ -211,14 +322,27 @@ export const formatPriceChange: IFormatNumberFunc = (value, options) => {
     return { formattedValue: value, meta: { value, invalid: true } };
   }
   if (val.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
     return {
-      formattedValue: formatLocalNumber('0', 2, false),
-      meta: { value, isZero: true, symbol: '%', ...options },
+      formattedValue,
+      meta: { value, isZero: true, symbol: '%', decimalSymbol, ...options },
     };
   }
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+    val.toFixed(2),
+    {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    },
+  );
   return {
-    formattedValue: formatLocalNumber(val.toFixed(2)),
-    meta: { value, symbol: '%', ...options },
+    formattedValue,
+    meta: { value, symbol: '%', decimalSymbol, ...options },
   };
 };
 
@@ -230,20 +354,38 @@ export const formatValue: IFormatNumberFunc = (value, options) => {
     return { formattedValue: value, meta: { value, invalid: true } };
   }
   if (val.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
     return {
-      formattedValue: formatLocalNumber('0', 2, false),
-      meta: { value, currency, isZero: true, ...options },
+      formattedValue,
+      meta: { value, currency, isZero: true, decimalSymbol, ...options },
     };
   }
   if (val.lt(0.01)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0.01', {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
     return {
-      formattedValue: formatLocalNumber('0.01', 2, true),
-      meta: { value, leading: '< ', currency, ...options },
+      formattedValue,
+      meta: { value, leading: '< ', currency, decimalSymbol, ...options },
     };
   }
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+    val.toFixed(2),
+    {
+      digits: 2,
+      removeTrailingZeros: false,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    },
+  );
   return {
-    formattedValue: formatLocalNumber(val.toFixed(2)),
-    meta: { value, currency, ...options },
+    formattedValue,
+    meta: { value, currency, decimalSymbol, ...options },
   };
 };
 
@@ -254,39 +396,116 @@ export const formatMarketCap: IFormatNumberFunc = (value, options) => {
     return { formattedValue: value, meta: { value, invalid: true } };
   }
   if (val.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 2,
+      removeTrailingZeros: true,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
     return {
-      formattedValue: '0',
-      meta: { value, isZero: true, ...options },
+      formattedValue,
+      meta: { value, isZero: true, decimalSymbol, ...options },
     };
   }
 
-  if (val.gte(10e11)) {
+  if (val.gte(ENumberUnitValue.T)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+      val.div(ENumberUnitValue.T),
+      {
+        digits: 2,
+        removeTrailingZeros: true,
+        disableThousandSeparator: options?.disableThousandSeparator,
+      },
+    );
     return {
-      formattedValue: formatLocalNumber(val.div(10e11), 2, true),
-      meta: { value, unit: 'T', ...options },
+      formattedValue,
+      meta: { value, unit: ENumberUnit.T, decimalSymbol, ...options },
     };
   }
-  if (val.gte(10e8)) {
+  if (val.gte(ENumberUnitValue.B)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+      val.div(ENumberUnitValue.B),
+      {
+        digits: 2,
+        removeTrailingZeros: true,
+        disableThousandSeparator: options?.disableThousandSeparator,
+      },
+    );
     return {
-      formattedValue: formatLocalNumber(val.div(10e8), 2, true),
-      meta: { value, unit: 'B', ...options },
+      formattedValue,
+      meta: { value, unit: ENumberUnit.B, decimalSymbol, ...options },
     };
   }
-  if (val.gte(10e5)) {
+  if (val.gte(ENumberUnitValue.M)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+      val.div(ENumberUnitValue.M),
+      {
+        digits: 2,
+        removeTrailingZeros: true,
+        disableThousandSeparator: options?.disableThousandSeparator,
+      },
+    );
     return {
-      formattedValue: formatLocalNumber(val.div(10e5), 2, true),
-      meta: { value, unit: 'M', ...options },
+      formattedValue,
+      meta: { value, unit: ENumberUnit.M, decimalSymbol, ...options },
     };
   }
-  if (val.gte(10e2)) {
+  if (val.gte(ENumberUnitValue.K)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+      val.div(ENumberUnitValue.K),
+      {
+        digits: 2,
+        removeTrailingZeros: true,
+        disableThousandSeparator: options?.disableThousandSeparator,
+      },
+    );
     return {
-      formattedValue: formatLocalNumber(val.div(10e2), 2, true),
-      meta: { value, unit: 'K', ...options },
+      formattedValue,
+      meta: { value, unit: ENumberUnit.K, decimalSymbol, ...options },
     };
   }
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(val, {
+    digits: 2,
+    removeTrailingZeros: true,
+    disableThousandSeparator: options?.disableThousandSeparator,
+  });
   return {
-    formattedValue: formatLocalNumber(val, 2, true),
-    meta: { value, ...options },
+    formattedValue,
+    meta: { value, decimalSymbol, ...options },
+  };
+};
+
+/** Antonym/Opposite Value */
+export const formatAntonym: IFormatNumberFunc = (value, options) => {
+  const val = new BigNumber(value);
+  if (val.isNaN()) {
+    return { formattedValue: value, meta: { value, invalid: true } };
+  }
+  // Negate the value
+  const oppositeVal = val.negated();
+
+  if (oppositeVal.eq(0)) {
+    const { value: formattedValue, decimalSymbol } = formatLocalNumber('0', {
+      digits: 4,
+      removeTrailingZeros: true,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    });
+    return {
+      formattedValue,
+      meta: { value, isZero: true, decimalSymbol, ...options },
+    };
+  }
+
+  const { value: formattedValue, decimalSymbol } = formatLocalNumber(
+    oppositeVal,
+    {
+      digits: 4,
+      removeTrailingZeros: true,
+      disableThousandSeparator: options?.disableThousandSeparator,
+    },
+  );
+  return {
+    formattedValue,
+    meta: { value, decimalSymbol, ...options },
   };
 };
 
@@ -334,7 +553,12 @@ export const formatDisplayNumber = (value: IDisplayNumber) => {
     if (isNegativeNumber) {
       strings.push('-');
     }
-    strings.push(formatLocalNumber('0', 1, false));
+    const { value: formattedZero } = formatLocalNumber('0', {
+      digits: 1,
+      removeTrailingZeros: false,
+      disableThousandSeparator: false,
+    });
+    strings.push(formattedZero);
     strings.push({ value: leadingZeros, type: 'sub' });
     strings.push(formattedValue.slice(leadingZeros + 2 + startsNumberIndex));
   } else {
@@ -367,6 +591,8 @@ export const NUMBER_FORMATTER = {
   value: formatValue,
   /** FDV / MarketCap / Volume / Liquidty / TVL / TokenSupply */
   marketCap: formatMarketCap,
+  /** Antonym/Opposite Value */
+  antonym: formatAntonym,
 };
 
 export interface INumberFormatProps {

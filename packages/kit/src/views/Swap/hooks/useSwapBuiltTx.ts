@@ -36,6 +36,7 @@ import {
 } from '@onekeyhq/shared/types/message';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  IFetchLimitOrderRes,
   IFetchQuoteResult,
   ISwapToken,
   ISwapTxInfo,
@@ -53,6 +54,9 @@ import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapLimitExpirationTimeAtom,
+  useSwapLimitPartiallyFillAtom,
+  useSwapLimitPriceToAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -89,6 +93,9 @@ export function useSwapBuildTx() {
   const [, setSwapManualSelectQuoteProviders] =
     useSwapManualSelectQuoteProvidersAtom();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
+  const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
+  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
+  const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const [, setSettings] = useSettingsAtom();
   const { navigationToTxConfirm, navigationToMessageConfirm } =
@@ -344,6 +351,7 @@ export function useSwapBuildTx() {
         amount: selectQuote?.fromAmount,
       };
       const swapInfo = {
+        protocol: selectQuote?.protocol ?? EProtocolOfExchange.SWAP,
         sender: {
           amount: selectQuote?.fromAmount,
           token: fromToken,
@@ -417,6 +425,8 @@ export function useSwapBuildTx() {
             validTo: number;
             appData: string;
             receiver: string;
+            buyAmount: string;
+            partiallyFillable: boolean;
           } =
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
@@ -424,6 +434,40 @@ export function useSwapBuildTx() {
             unSignedOrder.receiver = swapToAddressInfo.address;
             let dataMessage = unSignedMessage;
             if (!dataMessage && unSignedData) {
+              let validTo = unSignedOrder.validTo;
+              const quoteResultEstimatedTimeBN = new BigNumber(
+                selectQuote?.estimatedTime ?? 0,
+              );
+              const swapLimitExpirationTimeValueBN = new BigNumber(
+                swapLimitExpirationTime.value,
+              );
+              if (
+                selectQuote?.estimatedTime &&
+                !quoteResultEstimatedTimeBN.eq(swapLimitExpirationTimeValueBN)
+              ) {
+                validTo = new BigNumber(unSignedOrder.validTo)
+                  .minus(quoteResultEstimatedTimeBN)
+                  .plus(swapLimitExpirationTimeValueBN)
+                  .toNumber();
+              }
+              let finalBuyAmount = unSignedOrder.buyAmount;
+              if (
+                selectQuote?.limitPriceOrderMarketPrice &&
+                swapLimitPriceToAmount
+              ) {
+                const decimals = toToken.decimals;
+                const finalBuyAmountBN = new BigNumber(
+                  swapLimitPriceToAmount,
+                ).shiftedBy(decimals);
+                finalBuyAmount = finalBuyAmountBN.toFixed();
+              }
+              let partiallyFillable = unSignedOrder.partiallyFillable;
+              if (swapLimitPartiallyFillObj.value !== partiallyFillable) {
+                partiallyFillable = swapLimitPartiallyFillObj.value;
+              }
+              unSignedOrder.buyAmount = finalBuyAmount;
+              unSignedOrder.validTo = validTo;
+              unSignedOrder.partiallyFillable = partiallyFillable;
               const normalizeData = {
                 ...unSignedOrder,
                 sellTokenBalance:
@@ -432,7 +476,7 @@ export function useSwapBuildTx() {
                 buyTokenBalance: normalizeBuyTokenBalance(
                   unSignedOrder.buyTokenBalance as OrderBalance,
                 ),
-                validTo: timestamp(unSignedOrder.validTo),
+                validTo: timestamp(validTo),
                 appData: hashify(unSignedOrder.appData),
               };
               const populated =
@@ -625,6 +669,7 @@ export function useSwapBuildTx() {
           }
 
           const swapInfo: ISwapTxInfo = {
+            protocol: selectQuoteRes.protocol ?? EProtocolOfExchange.SWAP,
             sender: {
               amount: res.result.fromAmount ?? selectQuoteRes.fromAmount,
               token: fromToken,
@@ -668,6 +713,9 @@ export function useSwapBuildTx() {
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
+    swapLimitExpirationTime.value,
+    swapLimitPriceToAmount,
+    swapLimitPartiallyFillObj.value,
     navigationToMessageConfirm,
     swapTypeSwitch,
   ]);
@@ -870,10 +918,24 @@ export function useSwapBuildTx() {
               swapInfo: createBuildTxRes.swapInfo,
             });
           }
-          void syncRecentTokenPairs({
-            swapFromToken: fromToken,
-            swapToToken: toToken,
-          });
+          if (
+            createBuildTxRes?.swapInfo?.protocol === EProtocolOfExchange.SWAP
+          ) {
+            void syncRecentTokenPairs({
+              swapFromToken: fromToken,
+              swapToToken: toToken,
+            });
+          } else if (
+            createBuildTxRes?.swapInfo?.protocol === EProtocolOfExchange.LIMIT
+          ) {
+            void backgroundApiProxy.serviceSwap.swapLimitOrderFetchNewOrder(
+              swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+              !swapFromAddressInfo.accountInfo?.indexedAccount?.id
+                ? swapFromAddressInfo.accountInfo?.account?.id ??
+                    swapFromAddressInfo.accountInfo?.dbAccount?.id
+                : undefined,
+            );
+          }
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
             swapProvider: selectQuote?.info.provider,
             swapProviderName: selectQuote?.info.providerName,
@@ -913,19 +975,101 @@ export function useSwapBuildTx() {
     slippageItem,
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
+    swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+    swapFromAddressInfo.accountInfo?.account?.id,
+    swapFromAddressInfo.accountInfo?.dbAccount?.id,
     swapToAddressInfo.address,
     setSwapBuildTxFetching,
     createBuildTx,
-    navigationToTxConfirm,
-    handleBuildTxSuccess,
-    cancelBuildTx,
-    syncRecentTokenPairs,
     isFirstTimeSwap,
     pageType,
     setPersistSettings,
-    setSwapShouldRefreshQuote,
+    navigationToTxConfirm,
+    handleBuildTxSuccess,
+    cancelBuildTx,
     handleBuildTxSuccessWithSignedNoSend,
+    syncRecentTokenPairs,
+    setSwapShouldRefreshQuote,
   ]);
 
-  return { buildTx, wrappedTx, approveTx };
+  const cancelLimitOrder = useCallback(
+    async (item: IFetchLimitOrderRes) => {
+      if (item.cancelInfo) {
+        const { domain, types, data, signedType } = item.cancelInfo;
+        const populated = await ethers.utils._TypedDataEncoder.resolveNames(
+          domain,
+          types,
+          data,
+          async (value: string) => value,
+        );
+        const dataMessage = JSON.stringify(
+          ethers.utils._TypedDataEncoder.getPayload(
+            populated.domain,
+            types,
+            populated.value,
+          ),
+        );
+        if (dataMessage) {
+          const signHash = await new Promise<string>((resolve, reject) => {
+            if (
+              dataMessage &&
+              swapFromAddressInfo.address &&
+              swapFromAddressInfo.networkId
+            ) {
+              navigationToMessageConfirm({
+                accountId: swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                networkId: item.networkId,
+                unsignedMessage: {
+                  type: signedType ?? EMessageTypesEth.TYPED_DATA_V4,
+                  message: dataMessage,
+                  payload: [
+                    swapFromAddressInfo.address.toLowerCase(),
+                    dataMessage,
+                  ],
+                },
+                walletInternalSign: true,
+                onSuccess: (result: string) => {
+                  resolve(result);
+                },
+                onFail: (error: Error) => {
+                  reject(error);
+                },
+                onCancel: () => {
+                  reject(new Error('user cancel'));
+                },
+              });
+            } else {
+              reject(
+                new Error(
+                  `missing data: dataMessage: ${dataMessage ?? ''}, address: ${
+                    swapFromAddressInfo.address ?? ''
+                  }, networkId: ${swapFromAddressInfo.networkId ?? ''}`,
+                ),
+              );
+            }
+          });
+          if (signHash) {
+            await backgroundApiProxy.serviceSwap.cancelLimitOrder({
+              orderIds: [item.orderId],
+              signature: signHash,
+              signingScheme: ESigningScheme.EIP712,
+              networkId: item.networkId,
+              provider: item.provider,
+              userAddress: item.userAddress,
+            });
+            await backgroundApiProxy.serviceSwap.swapLimitOrderFetchNewOrder(
+              swapFromAddressInfo.accountInfo?.indexedAccount?.id,
+              !swapFromAddressInfo.accountInfo?.indexedAccount?.id
+                ? swapFromAddressInfo.accountInfo?.account?.id ??
+                    swapFromAddressInfo.accountInfo?.dbAccount?.id
+                : undefined,
+            );
+          }
+        }
+      }
+    },
+    [swapFromAddressInfo, navigationToMessageConfirm],
+  );
+
+  return { buildTx, wrappedTx, approveTx, cancelLimitOrder };
 }

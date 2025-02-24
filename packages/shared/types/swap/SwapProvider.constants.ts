@@ -108,7 +108,12 @@ export enum ESwapProviderSort {
 
 export const swapDefaultSetTokens: Record<
   string,
-  { fromToken?: ISwapToken; toToken?: ISwapToken }
+  {
+    fromToken?: ISwapToken;
+    toToken?: ISwapToken;
+    limitFromToken?: ISwapToken;
+    limitToToken?: ISwapToken;
+  }
 > = {
   'onekeyall--0': {
     fromToken: {
@@ -145,6 +150,16 @@ export const swapDefaultSetTokens: Record<
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address--1721282106924.png',
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
+    },
+    limitFromToken: {
+      'networkId': 'evm--1',
+      'contractAddress': '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+      'name': 'Wrapped Ether',
+      'symbol': 'WETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2-1720667871986.png',
+      'isNative': false,
     },
     toToken: {
       'networkId': 'evm--1',
@@ -274,6 +289,16 @@ export const swapDefaultSetTokens: Record<
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     },
+    limitFromToken: {
+      'networkId': 'evm--42161',
+      'contractAddress': '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+      'name': 'Wrapped Ether',
+      'symbol': 'WETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0x82af49447d8a07e3bd95bd0d56f35241523fbab1-1720668347864.png',
+      'isNative': false,
+    },
     toToken: {
       'networkId': 'evm--42161',
       'contractAddress': '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
@@ -298,6 +323,16 @@ export const swapDefaultSetTokens: Record<
         'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address--1721283653512.png',
       'isNative': true,
       'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
+    },
+    limitFromToken: {
+      'networkId': 'evm--8453',
+      'contractAddress': '0x4200000000000000000000000000000000000006',
+      'name': 'Wrapped Ether',
+      'symbol': 'WETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-0x4200000000000000000000000000000000000006-1720668314458.png',
+      'isNative': false,
     },
     toToken: {
       'networkId': 'evm--8453',
