@@ -26,6 +26,7 @@ import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalReceiveRoutes,
   EModalRoutes,
+  EModalWalletAddressRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -47,6 +48,7 @@ import {
 import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
@@ -249,11 +251,18 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   ]);
 
   const handleMultiDeriveAddressOnPress = useCallback(() => {
-    if (!account?.address || !network || !deriveInfo || !wallet) {
+    if (!network || !activeAccount.indexedAccount) {
       return;
     }
-    copyText(account.address);
-  }, [account, copyText, deriveInfo, network, wallet]);
+    navigation.pushModal(EModalRoutes.WalletAddress, {
+      screen: EModalWalletAddressRoutes.DeriveTypesAddress,
+      params: {
+        networkId: network.id,
+        indexedAccountId: activeAccount.indexedAccount.id,
+        actionType: EDeriveAddressActionType.Copy,
+      },
+    });
+  }, [activeAccount.indexedAccount, navigation, network]);
 
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
