@@ -60,7 +60,16 @@ export function DashboardBanner({
   );
 
   return (
-    <Stack p="$5" h={120} w="100%" justifyContent="center" alignItems="center">
+    <Stack
+      p="$5"
+      h={120}
+      w="100%"
+      $gtSm={{
+        w: 360,
+      }}
+      justifyContent="center"
+      alignItems="center"
+    >
       <Banner
         onBannerClose={(id) => {
           setBannerClose({
@@ -69,6 +78,7 @@ export function DashboardBanner({
         }}
         showCloseButton
         height={120}
+        w="100%"
         $gtSm={{
           w: 360,
         }}
