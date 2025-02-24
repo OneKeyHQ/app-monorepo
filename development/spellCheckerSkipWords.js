@@ -825,5 +825,5 @@ module.exports = [
   'cex',
   'Lokalise',
   'bundler',
-  'dai'
+  'dai',
 ];
