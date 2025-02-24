@@ -15,7 +15,10 @@ export enum EStakeProgressStep {
   deposit = 2,
 }
 
-export function StakeProgress({ currentStep, approveType }: IStakeProgressProps) {
+export function StakeProgress({
+  currentStep,
+  approveType,
+}: IStakeProgressProps) {
   const intl = useIntl();
   const isDepositStep = currentStep === EStakeProgressStep.deposit;
   return (
@@ -25,7 +28,13 @@ export function StakeProgress({ currentStep, approveType }: IStakeProgressProps)
           size="$bodyMdMedium"
           color={isDepositStep ? '$textSuccess' : undefined}
         >
-          1. {intl.formatMessage({ id: approveType === EApproveType.Permit ? ETranslations.earn_approve_permit : ETranslations.global_approve })}
+          1.{' '}
+          {intl.formatMessage({
+            id:
+              approveType === EApproveType.Permit
+                ? ETranslations.earn_approve_permit
+                : ETranslations.global_approve,
+          })}
         </SizableText>
         {isDepositStep ? (
           <Icon name="CheckRadioOutline" size="$4" color="$iconSuccess" />
