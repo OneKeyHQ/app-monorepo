@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Icon,
+  IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
   Skeleton,
@@ -191,7 +192,8 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveInfo } = activeAccount;
+  const { account, wallet, network, deriveInfo, deriveInfoItems } =
+    activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -246,6 +248,13 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     wallet,
   ]);
 
+  const handleMultiDeriveAddressOnPress = useCallback(() => {
+    if (!account?.address || !network || !deriveInfo || !wallet) {
+      return;
+    }
+    copyText(account.address);
+  }, [account, copyText, deriveInfo, network, wallet]);
+
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
     account?.address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS
@@ -259,6 +268,21 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   if (accountUtils.isAllNetworkMockAddress({ address: account?.address })) {
     return null;
+  }
+
+  // show copy address icon button if account has multiple derive types
+  if (deriveInfoItems.length > 1) {
+    return (
+      <IconButton
+        title={intl.formatMessage({
+          id: ETranslations.global_copy_address,
+        })}
+        icon="Copy3Outline"
+        size="small"
+        variant="tertiary"
+        onPress={handleMultiDeriveAddressOnPress}
+      />
+    );
   }
 
   // show address if account has an address
