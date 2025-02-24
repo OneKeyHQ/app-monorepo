@@ -170,7 +170,7 @@ function BottomMenu() {
       <DesktopTabItem
         onPress={openAddressBookPage}
         selected={false}
-        icon="BookOpenOutline"
+        icon="ContactsOutline"
         label={intl.formatMessage({
           id: ETranslations.address_book_title,
         })}

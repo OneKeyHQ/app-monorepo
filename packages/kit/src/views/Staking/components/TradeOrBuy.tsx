@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IPageNavigationProp } from '@onekeyhq/components';
+import type { IPageNavigationProp, IStackProps } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,10 +23,12 @@ function BasicTradeOrBuy({
   token,
   accountId,
   networkId,
+  containerProps,
 }: {
   token: IToken;
   accountId: string;
   networkId: string;
+  containerProps?: IStackProps;
 }) {
   const {
     activeAccount: { wallet },
@@ -77,6 +79,7 @@ function BasicTradeOrBuy({
       ai="center"
       jc="space-between"
       py="$5"
+      {...containerProps}
     >
       <SizableText size="$bodyLg" color="$textSubdued">
         {intl.formatMessage(
@@ -106,10 +109,12 @@ export function TradeOrBuy({
   token,
   accountId,
   networkId,
+  containerProps,
 }: {
   token: IToken;
   accountId: string;
   networkId: string;
+  containerProps?: IStackProps;
 }) {
   return (
     <HomeTokenListProviderMirror>
@@ -117,6 +122,7 @@ export function TradeOrBuy({
         token={token}
         accountId={accountId}
         networkId={networkId}
+        containerProps={containerProps}
       />
     </HomeTokenListProviderMirror>
   );
