@@ -114,7 +114,7 @@ export function TradeOrBuy({
   token: IToken;
   accountId: string;
   networkId: string;
-  containerProps: IStackProps;
+  containerProps?: IStackProps;
 }) {
   return (
     <HomeTokenListProviderMirror>
