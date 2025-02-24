@@ -12,12 +12,10 @@ export function PaginationButton({
   direction,
   onPress,
   isVisible,
-  onPointerEnter,
 }: {
   direction: 'previous' | 'next';
   onPress: () => void;
   isVisible: boolean;
-  onPointerEnter: () => void;
 }) {
   const icon =
     direction === 'previous' ? 'ChevronLeftOutline' : 'ChevronRightOutline';
@@ -26,7 +24,7 @@ export function PaginationButton({
   const opacity = useSharedValue(isVisible ? 1 : 0);
 
   useEffect(() => {
-    opacity.value = withTiming(isVisible ? 1 : 0, { duration: 200 });
+    opacity.value = withTiming(isVisible ? 1 : 0, { duration: 250 });
   }, [isVisible, opacity]);
 
   const animatedStyle = useAnimatedStyle(() => ({
@@ -35,11 +33,9 @@ export function PaginationButton({
 
   return (
     <Animated.View
-      onPointerEnter={onPointerEnter}
       style={[
         animatedStyle,
         {
-          display: isVisible ? 'flex' : 'none',
           position: 'absolute',
           top: 0,
           bottom: 0,

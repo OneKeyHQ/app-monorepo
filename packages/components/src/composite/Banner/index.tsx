@@ -186,18 +186,12 @@ export function Banner<T extends IBannerData>({
               isVisible={currentIndex !== 0 ? isHovering : false}
               direction="previous"
               onPress={gotToPrevIndex}
-              onPointerEnter={() => {
-                setIsHoveringThrottled(true);
-              }}
             />
 
             <PaginationButton
               isVisible={currentIndex !== data.length - 1 ? isHovering : false}
               direction="next"
               onPress={goToNextIndex}
-              onPointerEnter={() => {
-                setIsHoveringThrottled(true);
-              }}
             />
           </>
         ) : null}
@@ -209,7 +203,6 @@ export function Banner<T extends IBannerData>({
       data,
       indicatorContainerStyle,
       isHovering,
-      setIsHoveringThrottled,
       showCloseButton,
       showPaginationButton,
     ],
@@ -222,25 +215,35 @@ export function Banner<T extends IBannerData>({
   }
 
   return (
-    <Swiper
-      position="relative"
-      autoplay
-      autoplayLoop
-      autoplayLoopKeepAnimation
-      autoplayDelayMs={3000}
-      keyExtractor={keyExtractor}
-      data={data}
-      renderItem={renderItem}
-      renderPagination={renderPagination}
-      overflow="hidden"
-      borderRadius="$3"
-      onPointerEnter={() => {
+    <Stack
+      onMouseEnter={() => {
         setIsHoveringThrottled(true);
       }}
-      onPointerLeave={() => {
+      onMouseLeave={() => {
         setIsHoveringThrottled(false);
       }}
-      {...(props as any)}
-    />
+      w="100%"
+    >
+      <Swiper
+        position="relative"
+        autoplay
+        autoplayLoop
+        autoplayLoopKeepAnimation
+        autoplayDelayMs={3000}
+        keyExtractor={keyExtractor}
+        data={data}
+        renderItem={renderItem}
+        renderPagination={renderPagination}
+        overflow="hidden"
+        borderRadius="$3"
+        onPointerEnter={() => {
+          setIsHoveringThrottled(true);
+        }}
+        onPointerLeave={() => {
+          setIsHoveringThrottled(false);
+        }}
+        {...(props as any)}
+      />
+    </Stack>
   );
 }

@@ -56,33 +56,38 @@ export function DashboardBanner({
   );
 
   return (
-    <Stack alignItems="center" justifyContent="center" width="100%">
-      <Stack
-        m="$5"
+    <Stack
+      m="$5"
+      h={120}
+      w="100%"
+      $gtSm={{
+        w: 360,
+      }}
+      justifyContent="center"
+      alignItems="center"
+    >
+      <Banner
+        showCloseButton
+        w={360}
         height={120}
-        $gtSm={{
-          w: 360,
+        // height="$36"
+        // $md={{
+        //   height: '$28',
+        // }}
+        data={data}
+        isLoading={isLoading}
+        itemTitleContainerStyle={{ display: 'none' }}
+        emptyComponent={emptyComponent}
+        onItemPress={(item) => {
+          handleOpenWebSite({
+            webSite: {
+              url: item.href,
+              title: item.href,
+            },
+            useSystemBrowser: item.useSystemBrowser,
+          });
         }}
-        justifyContent="center"
-        alignItems="center"
-      >
-        <Banner
-          height={120}
-          data={data}
-          isLoading={isLoading}
-          itemTitleContainerStyle={{ display: 'none' }}
-          emptyComponent={emptyComponent}
-          onItemPress={(item) => {
-            handleOpenWebSite({
-              webSite: {
-                url: item.href,
-                title: item.href,
-              },
-              useSystemBrowser: item.useSystemBrowser,
-            });
-          }}
-        />
-      </Stack>
+      />
     </Stack>
   );
 }
