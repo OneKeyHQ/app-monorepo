@@ -38,6 +38,7 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { checkAndCreateFolder } from '../../utils/screenshot';
+import { showTabBar } from '../../utils/tabBarUtils';
 import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
@@ -81,19 +82,19 @@ function MobileBrowser() {
     void checkAndCreateFolder();
   }, []);
 
-  const closeCurrentWebTab = useCallback(
-    async () =>
-      activeTabId
-        ? closeWebTab({ tabId: activeTabId, entry: 'Menu' })
-        : Promise.resolve(),
-    [activeTabId, closeWebTab],
-  );
+  const closeCurrentWebTab = useCallback(async () => {
+    showTabBar();
+    return activeTabId
+      ? closeWebTab({ tabId: activeTabId, entry: 'Menu' })
+      : Promise.resolve();
+  }, [activeTabId, closeWebTab]);
 
   const onCloseCurrentWebTabAndGoHomePage = useCallback(() => {
     if (activeTabId) {
       closeWebTab({ tabId: activeTabId, entry: 'Menu' });
       setCurrentWebTab(null);
     }
+    showTabBar();
     return Promise.resolve();
   }, [activeTabId, closeWebTab, setCurrentWebTab]);
 
