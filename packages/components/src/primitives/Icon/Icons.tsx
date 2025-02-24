@@ -36,6 +36,7 @@ const icons = {
   CheckboxCheckedCustom: () => import("./react/custom/CheckboxChecked"),
   CheckboxIndeterminateCustom: () =>
     import("./react/custom/CheckboxIndeterminate"),
+  OnekeyDeviceCustom: () => import("./react/custom/OnekeyDevice"),
   RestartToUpdateCustom: () => import("./react/custom/RestartToUpdate"),
   ShortcutsCustom: () => import("./react/custom/Shortcuts"),
   SidebarLeftArrowCustom: () => import("./react/custom/SidebarLeftArrow"),
