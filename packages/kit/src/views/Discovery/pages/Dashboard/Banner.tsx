@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import type { ISizableTextProps } from '@onekeyhq/components';
-import { Banner, Skeleton, Stack, Toast } from '@onekeyhq/components';
+import { Banner, Skeleton, Stack } from '@onekeyhq/components';
 import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
@@ -51,7 +51,7 @@ export function DashboardBanner({
               height: 268,
             }}
             $gtLg={{
-              height: 364,
+              height: 360,
             }}
           />
         </Stack>
@@ -60,16 +60,7 @@ export function DashboardBanner({
   );
 
   return (
-    <Stack
-      m="$5"
-      h={120}
-      w="100%"
-      $gtSm={{
-        w: 360,
-      }}
-      justifyContent="center"
-      alignItems="center"
-    >
+    <Stack p="$5" h={120} w="100%" justifyContent="center" alignItems="center">
       <Banner
         onBannerClose={(id) => {
           setBannerClose({
@@ -77,12 +68,10 @@ export function DashboardBanner({
           });
         }}
         showCloseButton
-        w={360}
         height={120}
-        // height="$36"
-        // $md={{
-        //   height: '$28',
-        // }}
+        $gtSm={{
+          w: 360,
+        }}
         data={data}
         isLoading={isLoading}
         itemTitleContainerStyle={{ display: 'none' }}
