@@ -26,7 +26,7 @@ const LimitInfoContainer = () => {
   return (
     <YStack gap="$2" p="$4" bg="$bgSubdued" borderRadius="$3">
       <XStack justifyContent="space-between">
-        <SizableText>
+        <SizableText color="$textSubdued" size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
         </SizableText>
         <XStack alignItems="center" gap="$1">
