@@ -23,3 +23,19 @@ export const formatApy = (apy: string | number | undefined): string => {
   if (!apy) return '0';
   return new BigNumber(apy).decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2);
 };
+
+export const calcPercentBalance = ({
+  balance,
+  percent,
+  decimals,
+}: {
+  balance: string;
+  percent: number;
+  decimals?: number;
+}) => {
+  if (percent === 100) {
+    return balance;
+  }
+  const value = BigNumber(balance).multipliedBy(percent).dividedBy(100);
+  return decimals ? value.toFixed(decimals) : value.toFixed();
+};

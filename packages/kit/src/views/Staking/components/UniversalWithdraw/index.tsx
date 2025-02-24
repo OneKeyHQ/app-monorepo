@@ -30,6 +30,7 @@ import {
   StakingAmountInput,
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
+import { calcPercentBalance } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalWithdrawProps = {
@@ -214,8 +215,7 @@ export const UniversalWithdraw = ({
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
-      const value = BigNumber(balance).multipliedBy(percent / 100);
-      onChangeAmountValue(decimals ? value.toFixed(decimals) : value.toFixed());
+      onChangeAmountValue(calcPercentBalance(balance, percent, decimals));
     },
     [balance, decimals, onChangeAmountValue],
   );

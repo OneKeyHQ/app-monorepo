@@ -23,7 +23,10 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
-import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
+import {
+  calcPercentBalance,
+  formatApy,
+} from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -253,8 +256,7 @@ export function ApproveBaseStake({
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
-      const value = BigNumber(balance).multipliedBy(percent / 100);
-      onChangeAmountValue(decimals ? value.toFixed(decimals) : value.toFixed());
+      onChangeAmountValue(calcPercentBalance(balance, percent, decimals));
     },
     [balance, decimals, onChangeAmountValue],
   );

@@ -41,7 +41,7 @@ import {
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { formatApy, formatStakingDistanceToNowStrict } from '../utils';
+import { calcPercentBalance, formatApy, formatStakingDistanceToNowStrict } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
@@ -177,8 +177,7 @@ export function UniversalStake({
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
-      const value = BigNumber(balance).multipliedBy(percent / 100);
-      onChangeAmountValue(decimals ? value.toFixed(decimals) : value.toFixed());
+      onChangeAmountValue(calcPercentBalance(balance, percent, decimals));
     },
     [balance, decimals, onChangeAmountValue],
   );
