@@ -1,5 +1,4 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import type { CSSProperties } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
