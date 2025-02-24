@@ -32,6 +32,7 @@ import {
   useSwapAlertsAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -56,6 +57,7 @@ function useSwapWarningCheck() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
+  const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const refContainer = useRef<ISwapCheckWarningDef>({
     swapFromAddressInfo: {
       address: undefined,
@@ -105,6 +107,7 @@ function useSwapWarningCheck() {
     fromTokenBalance,
     quoteCurrentSelect,
     isFocused,
+    swapLimitUseRate,
   ]);
 }
 

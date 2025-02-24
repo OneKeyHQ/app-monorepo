@@ -35,6 +35,7 @@ export type IAddressValidation = {
 export type IFetchAccountDetailsParams = {
   accountId: string;
   networkId: string;
+  accountAddress?: string;
   cardanoPubKey?: string; // only available for cardano utxo query
   withUTXOList?: boolean;
   withNetWorth?: boolean;

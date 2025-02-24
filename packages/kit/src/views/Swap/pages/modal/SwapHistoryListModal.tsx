@@ -1,5 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -9,18 +10,23 @@ import {
   Empty,
   Heading,
   type IPageNavigationProp,
+  Icon,
   Page,
   SectionList,
+  Select,
+  SizableText,
   Skeleton,
   Stack,
   XStack,
   YStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -28,11 +34,17 @@ import {
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import {
+  EProtocolOfExchange,
   ESwapTxHistoryStatus,
   type ISwapTxHistory,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapTxHistoryListCell from '../../components/SwapTxHistoryListCell';
+import { SwapProviderMirror } from '../SwapProviderMirror';
+
+import LimitOrderListModalWithAllProvider from './LimitOrderListModal';
+
+import type { RouteProp } from '@react-navigation/core';
 
 interface ISectionData {
   title: string;
@@ -40,14 +52,29 @@ interface ISectionData {
   data: ISwapTxHistory[];
 }
 
-const SwapHistoryListModal = () => {
+const SwapHistoryListModal = ({
+  storeName,
+}: {
+  storeName: EJotaiContextStoreNames;
+}) => {
   const intl = useIntl();
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
+    >();
+  const { type } = route.params;
+  const [historyType, setHistoryType] = useState<EProtocolOfExchange>(
+    type ?? EProtocolOfExchange.SWAP,
+  );
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
-      const histories =
-        await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
-      return histories;
+      if (historyType !== EProtocolOfExchange.LIMIT) {
+        const histories =
+          await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
+        return histories;
+      }
+      return [];
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [swapHistoryPendingList],
@@ -209,63 +236,129 @@ const SwapHistoryListModal = () => {
     ),
     [navigation, swapTxHistoryList],
   );
+
+  const headerSelectType = useMemo(() => {
+    const title =
+      historyType === EProtocolOfExchange.LIMIT
+        ? intl.formatMessage({
+            id: ETranslations.swap_page_limit_dialog_title,
+          })
+        : intl.formatMessage({
+            id: ETranslations.swap_history_title,
+          });
+    return (
+      <Select
+        title={title}
+        items={[
+          {
+            label: intl.formatMessage({
+              id: ETranslations.swap_history_title,
+            }),
+            value: EProtocolOfExchange.SWAP,
+          },
+          {
+            label: intl.formatMessage({
+              id: ETranslations.swap_page_limit_dialog_title,
+            }),
+            value: EProtocolOfExchange.LIMIT,
+          },
+        ]}
+        onChange={(value) => {
+          setHistoryType(value as EProtocolOfExchange);
+        }}
+        value={historyType}
+        renderTrigger={(props) => (
+          <XStack {...props} alignItems="center" gap="$1" cursor="pointer">
+            <SizableText size="$headingLg">{title}</SizableText>
+            <Icon name="ChevronDownSmallSolid" size="$5" />
+          </XStack>
+        )}
+      />
+    );
+  }, [historyType, intl]);
+  const { gtMd } = useMedia();
   return (
     <Page>
-      <Page.Header headerRight={deleteButton} />
-      {isLoading ? (
-        Array.from({ length: 5 }).map((_, index) => (
-          <ListItem key={index}>
-            <Skeleton w="$10" h="$10" radius="round" />
-            <YStack>
-              <YStack py="$1">
-                <Skeleton h="$4" w="$32" />
-              </YStack>
-              <YStack py="$1">
-                <Skeleton h="$3" w="$24" />
-              </YStack>
-            </YStack>
-          </ListItem>
-        ))
-      ) : (
-        <SectionList
-          renderItem={renderItem}
-          sections={sectionData}
-          py="$1"
-          renderSectionHeader={({ section: { title, status } }) => (
-            <XStack px="$5" py="$2" gap="$3" alignItems="center">
-              {status === ESwapTxHistoryStatus.PENDING ? (
-                <Stack
-                  w="$2"
-                  h="$2"
-                  backgroundColor="$textCaution"
-                  borderRadius="$full"
+      <Page.Header
+        headerRight={
+          historyType === EProtocolOfExchange.LIMIT ? undefined : deleteButton
+        }
+        headerTitleAlign={gtMd ? 'left' : 'center'}
+        headerTitle={() => headerSelectType}
+      />
+      {historyType !== EProtocolOfExchange.LIMIT ? (
+        <>
+          {isLoading ? (
+            Array.from({ length: 5 }).map((_, index) => (
+              <ListItem key={index}>
+                <Skeleton w="$10" h="$10" radius="round" />
+                <YStack>
+                  <YStack py="$1">
+                    <Skeleton h="$4" w="$32" />
+                  </YStack>
+                  <YStack py="$1">
+                    <Skeleton h="$3" w="$24" />
+                  </YStack>
+                </YStack>
+              </ListItem>
+            ))
+          ) : (
+            <SectionList
+              renderItem={renderItem}
+              sections={sectionData}
+              py="$1"
+              renderSectionHeader={({ section: { title, status } }) => (
+                <XStack px="$5" py="$2" gap="$3" alignItems="center">
+                  {status === ESwapTxHistoryStatus.PENDING ? (
+                    <Stack
+                      w="$2"
+                      h="$2"
+                      backgroundColor="$textCaution"
+                      borderRadius="$full"
+                    />
+                  ) : null}
+                  <Heading
+                    size="$headingSm"
+                    color={
+                      status === ESwapTxHistoryStatus.PENDING
+                        ? '$textCaution'
+                        : '$textSubdued'
+                    }
+                  >
+                    {title}
+                  </Heading>
+                </XStack>
+              )}
+              estimatedItemSize="$10"
+              ListEmptyComponent={
+                <Empty
+                  icon="InboxOutline"
+                  title={intl.formatMessage({
+                    id: ETranslations.global_no_results,
+                  })}
                 />
-              ) : null}
-              <Heading
-                size="$headingSm"
-                color={
-                  status === ESwapTxHistoryStatus.PENDING
-                    ? '$textCaution'
-                    : '$textSubdued'
-                }
-              >
-                {title}
-              </Heading>
-            </XStack>
-          )}
-          estimatedItemSize="$10"
-          ListEmptyComponent={
-            <Empty
-              icon="InboxOutline"
-              title={intl.formatMessage({
-                id: ETranslations.global_no_results,
-              })}
+              }
             />
-          }
-        />
+          )}
+        </>
+      ) : (
+        <LimitOrderListModalWithAllProvider storeName={storeName} />
       )}
     </Page>
   );
 };
 
-export default SwapHistoryListModal;
+const SwapHistoryListModalWithProvider = () => {
+  const route =
+    useRoute<
+      RouteProp<IModalSwapParamList, EModalSwapRoutes.SwapHistoryList>
+    >();
+  const { storeName } = route.params;
+  return (
+    <SwapProviderMirror storeName={storeName}>
+      <SwapHistoryListModal storeName={storeName} />
+    </SwapProviderMirror>
+  );
+};
+
+export default SwapHistoryListModalWithProvider;

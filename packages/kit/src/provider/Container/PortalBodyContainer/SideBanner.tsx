@@ -156,12 +156,12 @@ function BottomMenu() {
       p="$3"
       borderTopWidth={StyleSheet.hairlineWidth}
       borderTopColor="$borderSubdued"
-      bg="$bg"
+      bg="$bgSidebar"
     >
       <DesktopTabItem
         onPress={openDeviceManagementPage}
         selected={false}
-        icon="PhoneOutline"
+        icon="OnekeyDeviceCustom"
         label={intl.formatMessage({
           id: ETranslations.global_my_onekey,
         })}
@@ -170,7 +170,7 @@ function BottomMenu() {
       <DesktopTabItem
         onPress={openAddressBookPage}
         selected={false}
-        icon="BookOpenOutline"
+        icon="ContactsOutline"
         label={intl.formatMessage({
           id: ETranslations.address_book_title,
         })}

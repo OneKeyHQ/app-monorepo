@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { useForm } from 'react-hook-form';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
-import type { IColorTokens } from '@onekeyhq/components';
+import type { IColorTokens, UseFormReturn } from '@onekeyhq/components';
 import {
   Alert,
   Button,
@@ -18,10 +17,10 @@ import {
   Stack,
   Toast,
   XStack,
+  useForm,
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
@@ -341,50 +340,44 @@ export function EnterPhase({
   onConfirm: (p: { passphrase: string; save: boolean }) => void;
   switchOnDevice: () => void;
 }) {
+  const intl = useIntl();
+  const formOption = useMemo(
+    () => ({
+      defaultValues: {
+        passphrase: '',
+        confirmPassphrase: '',
+      },
+      onSubmit: async (
+        form: UseFormReturn<{
+          passphrase: string;
+          confirmPassphrase: string;
+        }>,
+      ) => {
+        const values = form.getValues();
+        if (
+          !isSingleInput &&
+          (values.passphrase || '') !== (values.confirmPassphrase || '')
+        ) {
+          Toast.error({
+            title: intl.formatMessage({
+              id: ETranslations.feedback_passphrase_not_matched,
+            }),
+          });
+          return;
+        }
+        const passphrase = values.passphrase || '';
+        onConfirm({ passphrase, save: true });
+      },
+    }),
+    [intl, isSingleInput, onConfirm],
+  );
   const form = useForm<{
     passphrase: string;
     confirmPassphrase: string;
-  }>();
+  }>(formOption);
   const media = useMedia();
-  const intl = useIntl();
   const [secureEntry1, setSecureEntry1] = useState(true);
   const [secureEntry2, setSecureEntry2] = useState(true);
-
-  const handleSubmit = form.handleSubmit(async () => {
-    const values = form.getValues();
-    if (
-      !isSingleInput &&
-      (values.passphrase || '') !== (values.confirmPassphrase || '')
-    ) {
-      Toast.error({
-        title: intl.formatMessage({
-          id: ETranslations.feedback_passphrase_not_matched,
-        }),
-      });
-      return;
-    }
-    const passphrase = values.passphrase || '';
-    onConfirm({ passphrase, save: true });
-  });
-
-  const handleKeyPress = useCallback(
-    async (event: KeyboardEvent) => {
-      if (event.key === 'Enter') {
-        void handleSubmit();
-      }
-    },
-    [handleSubmit],
-  );
-
-  useEffect(() => {
-    if (platformEnv.isRuntimeBrowser && typeof document !== 'undefined') {
-      document.addEventListener('keypress', handleKeyPress);
-      return () => {
-        document.removeEventListener('keypress', handleKeyPress);
-      };
-    }
-    return undefined;
-  }, [handleKeyPress]);
 
   return (
     <Stack>
@@ -480,7 +473,7 @@ export function EnterPhase({
           } as any
         }
         variant="primary"
-        onPress={handleSubmit}
+        onPress={form.submit}
       >
         {intl.formatMessage({ id: ETranslations.global_confirm })}
       </Button>

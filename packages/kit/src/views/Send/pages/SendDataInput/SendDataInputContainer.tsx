@@ -7,6 +7,11 @@ import { utils } from 'ethers';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
+import type {
+  IFormMode,
+  IReValidateMode,
+  UseFormReturn,
+} from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -17,7 +22,6 @@ import {
   TextArea,
   TextAreaInput,
   XStack,
-  YStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
@@ -94,6 +98,18 @@ const showTxMessageFaq = (isContractTo: boolean) => {
     }),
   });
 };
+
+interface IFormValues {
+  accountId: string;
+  networkId: string;
+  to: IAddressInputValue;
+  amount: string;
+  nftAmount: string;
+  memo: string;
+  paymentId: string;
+  note: string;
+  txMessage: string;
+}
 
 function SendDataInputContainer() {
   const intl = useIntl();
@@ -272,22 +288,31 @@ function SendDataInputContainer() {
   }
   const currencySymbol = settings.currencyInfo.symbol;
   const tokenSymbol = tokenDetails?.info.symbol ?? '';
-
-  const form = useForm({
-    defaultValues: {
-      accountId,
-      networkId,
-      to: { raw: address } as IAddressInputValue,
-      amount: sendAmount,
-      nftAmount: sendAmount || '1',
-      memo: '',
-      paymentId: '',
-      note: '',
-      txMessage: '',
-    },
-    mode: 'onChange',
-    reValidateMode: 'onBlur',
-  });
+  const onSubmitRef = useRef<
+    ((formContext: UseFormReturn<any>) => Promise<void>) | null
+  >(null);
+  const formOptions = useMemo(
+    () => ({
+      defaultValues: {
+        accountId,
+        networkId,
+        to: { raw: address } as IAddressInputValue,
+        amount: sendAmount,
+        nftAmount: sendAmount || '1',
+        memo: '',
+        paymentId: '',
+        note: '',
+        txMessage: '',
+      },
+      mode: 'onChange' as IFormMode,
+      reValidateMode: 'onBlur' as IReValidateMode,
+      onSubmit: async (formContext: UseFormReturn<IFormValues>) => {
+        await onSubmitRef.current?.(formContext);
+      },
+    }),
+    [accountId, address, networkId, sendAmount],
+  );
+  const form = useForm<IFormValues>(formOptions);
 
   // token amount or fiat amount
   const amount = form.watch('amount');
@@ -454,7 +479,7 @@ function SendDataInputContainer() {
     navigation,
     networkId,
   ]);
-  const handleOnConfirm = useCallback(
+  onSubmitRef.current = useCallback(
     async () =>
       errorToastUtils.withErrorAutoToast(async () => {
         try {
@@ -542,6 +567,7 @@ function SendDataInputContainer() {
               memo: memoValue,
               paymentId: paymentIdValue,
               note: noteValue,
+              tokenInfo: tokenDetails?.info,
             },
             isInternalTransfer: true,
           });
@@ -650,7 +676,7 @@ function SendDataInputContainer() {
         await backgroundApiProxy.serviceValidator.validateSendAmount({
           accountId: currentAccount.accountId,
           networkId: currentAccount.networkId,
-          amount: amountBN.toString(),
+          amount: amountBN.toFixed(),
           tokenBalance: tokenDetails?.balanceParsed ?? '0',
           to: toRaw ?? '',
           isNative: tokenDetails?.info.isNative,
@@ -850,7 +876,19 @@ function SendDataInputContainer() {
         <Form.Field
           name="nftAmount"
           label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
-          rules={{ required: true, max: nftDetails?.amount ?? 1, min: 1 }}
+          rules={{
+            required: true,
+            max: nftDetails?.amount ?? 1,
+            min: 1,
+            onChange: (e: { target: { name: string; value: string } }) => {
+              const valueString = BigNumber(e.target?.value).toFixed();
+              if (/^[1-9]\d*$/.test(valueString)) {
+                form.setValue('nftAmount', valueString);
+              } else {
+                form.setValue('nftAmount', '');
+              }
+            },
+          }}
         >
           {isLoadingAssets ? null : (
             <SizableText
@@ -1289,7 +1327,7 @@ function SendDataInputContainer() {
         </AccountSelectorProviderMirror>
       </Page.Body>
       <Page.Footer
-        onConfirm={handleOnConfirm}
+        onConfirm={form.submit}
         onConfirmText={intl.formatMessage({
           id: ETranslations.send_preview_button,
         })}

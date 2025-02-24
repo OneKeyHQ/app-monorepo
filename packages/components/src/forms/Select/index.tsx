@@ -24,7 +24,7 @@ import type {
 import type { IListViewProps, ISectionListProps } from '../../layouts';
 import type { GestureResponderEvent } from 'react-native';
 
-const useTriggerLabel = (value: string) => {
+const useTriggerLabel = (value: string | number | undefined | boolean) => {
   const { sections, items } = useContext(SelectContext);
   return useMemo(() => {
     if (!value) {
@@ -130,7 +130,7 @@ function SelectItem({
   return useMemo(
     () => (
       <XStack
-        key={value}
+        key={String(value)}
         px="$2"
         py="$1.5"
         borderRadius="$2"
@@ -239,7 +239,7 @@ function SelectContent() {
         {...item}
         onSelect={handleSelect}
         selectedValue={(value as ISelectItem)?.value || (value as string)}
-        testID={`select-item-${item.value}`}
+        testID={`select-item-${String(item.value)}`}
       />
     ),
     [handleSelect, value],
@@ -262,7 +262,7 @@ function SelectContent() {
 
   const keyExtractor = useCallback(
     (item: ISelectItem, index: number) =>
-      `${item.value}-${item.label}-${index}`,
+      `${String(item.value)}-${item.label}-${index}`,
     [],
   );
 
@@ -326,7 +326,9 @@ function SelectContent() {
   );
 }
 
-function SelectFrame<T extends string | ISelectItem>({
+function SelectFrame<
+  T extends string | number | boolean | undefined | ISelectItem,
+>({
   items,
   placeholder,
   value,
@@ -394,7 +396,9 @@ function SelectFrame<T extends string | ISelectItem>({
   );
 }
 
-function BasicSelect<T extends string | ISelectItem>({
+function BasicSelect<
+  T extends string | number | boolean | undefined | ISelectItem,
+>({
   renderTrigger,
   testID = '',
   defaultTriggerInputProps,

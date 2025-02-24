@@ -10,6 +10,10 @@ const requestHelper: {
 } = {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   checkIsOneKeyDomain(url: string) {
+    // TODO: OK-35681
+    if (url.includes('api.revenuecat.com')) {
+      return Promise.resolve(false);
+    }
     throw new Error('Not implemented');
   },
   getSettingsPersistAtom(): Promise<ISettingsPersistAtom> {

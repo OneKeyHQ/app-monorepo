@@ -203,7 +203,7 @@ export function getStakingActionLabel({
       });
     case EEarnLabels.Stake:
       return appLocale.intl.formatMessage({
-        id: ETranslations.earn_stake,
+        id: ETranslations.earn_deposit,
       });
     case EEarnLabels.Redeem:
       return appLocale.intl.formatMessage({

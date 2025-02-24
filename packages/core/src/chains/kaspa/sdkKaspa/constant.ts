@@ -15,3 +15,5 @@ export const DEFAULT_FEE_RATE = 1;
 
 // export const DEFAULT_SEQNUMBER = 0xffffffffffffffffn;
 export const DEFAULT_SEQNUMBER = 0;
+
+export const BASE_KAS_TO_P2SH_ADDRESS = '1.3';

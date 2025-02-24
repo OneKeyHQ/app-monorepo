@@ -220,7 +220,7 @@ export function AssetItem({
         formatter="value"
         formatterOptions={{ currency: currencySymbol }}
       >
-        {new BigNumber(amountAbs).times(asset.price ?? 0).toString()}
+        {new BigNumber(amountAbs).times(asset.price ?? 0).toFixed()}
       </NumberSizeableTextWrapper>
     ) : null;
   }

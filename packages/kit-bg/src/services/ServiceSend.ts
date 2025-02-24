@@ -144,8 +144,14 @@ class ServiceSend extends ServiceBase {
 
   @backgroundMethod()
   public async broadcastTransaction(params: IBroadcastTransactionParams) {
-    const { accountId, networkId, signedTx, accountAddress, signature } =
-      params;
+    const {
+      accountId,
+      networkId,
+      signedTx,
+      accountAddress,
+      signature,
+      rawTxType,
+    } = params;
 
     // check if the network has custom rpc
     const customRpcInfo =
@@ -187,6 +193,7 @@ class ServiceSend extends ServiceBase {
         accountAddress,
         tx: signedTx.rawTx,
         signature,
+        rawTxType,
         disableBroadcast,
       },
       {
@@ -281,7 +288,7 @@ class ServiceSend extends ServiceBase {
   public async signAndSendTransaction(
     params: ISendTxBaseParams & ISignTransactionParamsBase,
   ) {
-    const { networkId, accountId, unsignedTx, signOnly } = params;
+    const { networkId, accountId, unsignedTx, signOnly, rawTxType } = params;
 
     const accountAddress =
       await this.backgroundApi.serviceAccount.getAccountAddressForApi({
@@ -320,6 +327,7 @@ class ServiceSend extends ServiceBase {
         networkId,
         accountAddress,
         signedTx,
+        rawTxType,
       });
       if (!txid) {
         if (vaultSettings.withoutBroadcastTxId) {

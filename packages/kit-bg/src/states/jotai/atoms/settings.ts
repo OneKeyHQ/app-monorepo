@@ -42,6 +42,7 @@ export type ISettingsPersistAtom = {
   isCustomNonceEnabled: boolean;
   isCustomTxMessageEnabled: boolean;
   isFloatingIconAlwaysDisplay: boolean;
+  isFilterScamHistoryEnabled: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -70,6 +71,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomNonceEnabled: false,
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
+  isFilterScamHistoryEnabled: false,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

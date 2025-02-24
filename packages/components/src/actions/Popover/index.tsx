@@ -315,50 +315,54 @@ function RawPopover({
                 mx: 'auto',
               }}
             >
-              <Stack
-                marginHorizontal="$5"
-                borderRadius="$6"
+              {/* header */}
+              <XStack
+                borderTopLeftRadius="$6"
+                borderTopRightRadius="$6"
                 backgroundColor="$bg"
+                mx="$5"
+                px="$5"
+                py="$4"
+                justifyContent="space-between"
+                alignItems="center"
                 borderCurve="continuous"
-                mb={bottom || '$5'}
+                gap="$2"
               >
-                <XStack
-                  px="$5"
-                  py="$4"
-                  justifyContent="space-between"
-                  alignItems="center"
-                  borderCurve="continuous"
-                  gap="$2"
-                >
-                  {typeof title === 'string' ? (
-                    <SizableText
-                      size="$headingXl"
-                      color="$text"
-                      flexShrink={1}
-                      style={{
-                        wordBreak: 'break-all',
-                      }}
-                    >
-                      {title}
-                    </SizableText>
-                  ) : (
-                    title
-                  )}
-                  <IconButton
-                    icon="CrossedSmallOutline"
-                    size="small"
-                    hitSlop={NATIVE_HIT_SLOP}
-                    onPress={closePopover}
-                    testID="popover-btn-close"
-                  />
-                </XStack>
+                {typeof title === 'string' ? (
+                  <SizableText
+                    size="$headingXl"
+                    color="$text"
+                    flexShrink={1}
+                    style={{
+                      wordBreak: 'break-all',
+                    }}
+                  >
+                    {title}
+                  </SizableText>
+                ) : (
+                  title
+                )}
+                <IconButton
+                  icon="CrossedSmallOutline"
+                  size="small"
+                  hitSlop={NATIVE_HIT_SLOP}
+                  onPress={closePopover}
+                  testID="popover-btn-close"
+                />
+              </XStack>
 
-                <TMPopover.Sheet.ScrollView
-                  showsVerticalScrollIndicator={false}
-                >
-                  {content}
-                </TMPopover.Sheet.ScrollView>
-              </Stack>
+              <TMPopover.Sheet.ScrollView
+                marginTop="$-0.5"
+                borderBottomLeftRadius="$6"
+                borderBottomRightRadius="$6"
+                backgroundColor="$bg"
+                showsVerticalScrollIndicator={false}
+                mx="$5"
+                mb={bottom || '$5'}
+                borderCurve="continuous"
+              >
+                {content}
+              </TMPopover.Sheet.ScrollView>
             </TMPopover.Sheet.Frame>
           </TMPopover.Sheet>
         </TMPopover.Adapt>

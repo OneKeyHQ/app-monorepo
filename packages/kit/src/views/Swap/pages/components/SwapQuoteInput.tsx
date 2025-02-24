@@ -1,12 +1,12 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
 
 import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapLimitPriceToAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  EProtocolOfExchange,
   ESwapDirectionType,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
@@ -52,6 +53,7 @@ const SwapQuoteInput = ({
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
+  const [swapLimitRateToAmount] = useSwapLimitPriceToAmountAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
   useSwapApproving();
@@ -64,6 +66,13 @@ const SwapQuoteInput = ({
       transform: [{ translateX: -24 }, { translateY: -24 }],
     };
   }, []);
+
+  const toAmount = useMemo(() => {
+    if (swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT) {
+      return swapLimitRateToAmount ?? '';
+    }
+    return swapQuoteCurrentSelect?.toAmount ?? '';
+  }, [swapLimitRateToAmount, swapQuoteCurrentSelect]);
 
   return (
     <YStack gap="$2">
@@ -80,21 +89,6 @@ const SwapQuoteInput = ({
         amountValue={fromInputAmount}
         onBalanceMaxPress={() => {
           const maxAmount = fromTokenBalance;
-          // if (fromToken?.reservationValue) {
-          //   const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
-          //   const fromTokenReservationValueBN = new BigNumber(
-          //     fromToken.reservationValue,
-          //   );
-          //   if (
-          //     fromTokenBalanceBN
-          //       .minus(fromTokenReservationValueBN)
-          //       .isGreaterThan(0)
-          //   ) {
-          //     maxAmount = fromTokenBalanceBN
-          //       .minus(fromTokenReservationValueBN)
-          //       .toFixed();
-          //   }
-          // }
           setFromInputAmount(maxAmount);
         }}
         onSelectToken={onSelectToken}
@@ -134,7 +128,7 @@ const SwapQuoteInput = ({
         inputLoading={swapQuoteLoading || quoteEventFetching}
         selectTokenLoading={selectLoading}
         direction={ESwapDirectionType.TO}
-        amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
+        amountValue={toAmount}
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />

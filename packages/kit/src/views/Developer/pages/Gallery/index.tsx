@@ -514,6 +514,13 @@ const RichSizeableTextGallery = LazyLoadPage(
     ),
 );
 
+const BannerGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Banner/Banner'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -749,5 +756,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentRichSizeableText,
     component: RichSizeableTextGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentBanner,
+    component: BannerGallery,
   },
 ];

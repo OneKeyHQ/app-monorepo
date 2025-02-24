@@ -34,7 +34,6 @@ import { PortfolioSection } from '../../components/ProtocolDetails/PortfolioSect
 import { StakedValueSection } from '../../components/ProtocolDetails/StakedValueSection';
 import { StakingTransactionIndicator } from '../../components/StakingActivityIndicator';
 import { OverviewSkeleton } from '../../components/StakingSkeleton';
-import { renderStakeText } from '../../components/utils';
 import { buildLocalTxStatusSyncId } from '../../utils/utils';
 
 import { useHandleStake, useHandleWithdraw } from './useHandleActions';
@@ -172,6 +171,7 @@ const ProtocolDetailsPage = () => {
   const handleClaim = useHandleClaim({
     accountId: earnAccount?.accountId,
     networkId,
+    updateFrequency: result?.updateFrequency,
   });
   const onClaim = useCallback(
     async (params?: {
@@ -291,7 +291,6 @@ const ProtocolDetailsPage = () => {
       disableUnstakeButton,
     ],
   );
-
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -349,7 +348,7 @@ const ProtocolDetailsPage = () => {
           {!media.gtMd ? (
             <Page.Footer
               onConfirmText={intl.formatMessage({
-                id: renderStakeText(provider),
+                id: ETranslations.earn_deposit,
               })}
               confirmButtonProps={stakeButtonProps}
               onCancelText={intl.formatMessage({

@@ -11,6 +11,8 @@ import type {
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import { airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 import { OneKeyErrorAirGapWalletMismatch } from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { EQRCodeHandlerNames } from '@onekeyhq/shared/types/qrCode';
 
@@ -103,8 +105,56 @@ export function useCreateQrWallet() {
   //   [],
   // );
 
+  const createQrWalletByAccount = useCallback(
+    async ({
+      walletId,
+      networkId,
+      indexedAccountId,
+    }: {
+      walletId: string;
+      networkId: string;
+      indexedAccountId: string;
+    }) => {
+      let byDevice: IDBDevice | undefined;
+      const byWallet = await backgroundApiProxy.serviceAccount.getWallet({
+        walletId,
+      });
+      if (byWallet.associatedDevice) {
+        byDevice = await backgroundApiProxy.serviceAccount.getDevice({
+          dbDeviceId: byWallet.associatedDevice,
+        });
+      }
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      // const { wallet: walletCreated } = await createQrWallet({
+      //   isOnboarding: false,
+      //   byDevice,
+      //   byWallet,
+      // });
+      const urJson =
+        await backgroundApiProxy.serviceQrWallet.prepareQrcodeWalletAddressCreate(
+          {
+            walletId,
+            networkId,
+            indexedAccountId,
+            appQrCodeModalTitle: appLocale.intl.formatMessage({
+              // eslint-disable-next-line spellcheck/spell-checker
+              id: ETranslations.scan_to_create_an_adderss,
+            }),
+          },
+        );
+      const result = await createQrWalletByUr({
+        urJson,
+        byDevice,
+        byWallet,
+      });
+      return result;
+    },
+    [createQrWalletByUr],
+  );
+
   return {
     createQrWallet,
     createQrWalletByUr,
+    createQrWalletByAccount,
   };
 }

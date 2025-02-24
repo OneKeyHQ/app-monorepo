@@ -250,6 +250,14 @@ function TxConfirmActions(props: IProps) {
           successfullySentTxs: successfullySentTxs.current,
         });
 
+      if (vaultSettings?.afterSendTxActionEnabled) {
+        await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
+          networkId,
+          accountId,
+          result,
+        });
+      }
+
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
@@ -311,6 +319,7 @@ function TxConfirmActions(props: IProps) {
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     vaultSettings?.replaceTxEnabled,
+    vaultSettings?.afterSendTxActionEnabled,
     signOnly,
     sourceInfo,
     transferPayload,

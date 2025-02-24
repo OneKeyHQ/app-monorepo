@@ -15,7 +15,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -27,6 +26,7 @@ import type {
   IStakeProtocolDetails,
 } from '@onekeyhq/shared/types/staking';
 
+import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
 import { CalculationList, CalculationListItem } from '../CalculationList';
@@ -35,9 +35,17 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import {
+  PercentageStageOnKeyboard,
+  StakingAmountInput,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { formatStakingDistanceToNowStrict } from '../utils';
+import {
+  calcPercentBalance,
+  formatApy,
+  formatStakingDistanceToNowStrict,
+} from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
@@ -83,6 +91,7 @@ type IUniversalStakeProps = {
   stakingTime?: number;
   nextLaunchLeft?: string;
   rewardToken?: string;
+  updateFrequency?: string;
 };
 
 export function UniversalStake({
@@ -115,6 +124,7 @@ export function UniversalStake({
   stakingTime,
   nextLaunchLeft,
   rewardToken,
+  updateFrequency,
 }: PropsWithChildren<IUniversalStakeProps>) {
   const intl = useIntl();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
@@ -135,6 +145,9 @@ export function UniversalStake({
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
+      if (!validateAmountInput(value, decimals)) {
+        return;
+      }
       const valueBN = new BigNumber(value);
       if (valueBN.isNaN()) {
         if (value === '') {
@@ -165,6 +178,19 @@ export function UniversalStake({
       onChangeAmountValue(balance);
     }
   }, [onChangeAmountValue, balance, minTransactionFee]);
+
+  const onSelectPercentageStage = useCallback(
+    (percent: number) => {
+      onChangeAmountValue(
+        calcPercentBalance({
+          balance,
+          percent,
+          decimals,
+        }),
+      );
+    },
+    [balance, decimals, onChangeAmountValue],
+  );
 
   const currentValue = useMemo<string | undefined>(() => {
     if (Number(amountValue) > 0 && Number(price) > 0) {
@@ -286,8 +312,9 @@ export function UniversalStake({
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
-        <AmountInput
-          bg={isDisabled ? '$bgDisabled' : '$bgApp'}
+        <StakingAmountInput
+          title={intl.formatMessage({ id: ETranslations.earn_deposit })}
+          disabled={isDisabled}
           hasError={isInsufficientBalance || isLessThanMinAmount}
           value={amountValue}
           onChange={onChangeAmountValue}
@@ -309,6 +336,7 @@ export function UniversalStake({
             currency: currentValue ? symbol : undefined,
           }}
           enableMaxAmount
+          onSelectPercentageStage={onSelectPercentageStage}
         />
         {isDisabled ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
@@ -403,7 +431,7 @@ export function UniversalStake({
               {details.provider.rewardUnit}
             </CalculationListItem.Label>
             <CalculationListItem.Value color="$textSuccess">
-              {`${apr}%`}
+              {`${formatApy(apr)}%`}
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
@@ -522,15 +550,20 @@ export function UniversalStake({
         accountId={accountId}
         networkId={networkId}
       />
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
-        })}
-        confirmButtonProps={{
-          onPress,
-          disabled: isDisable,
-        }}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_continue,
+          })}
+          confirmButtonProps={{
+            onPress,
+            disabled: isDisable,
+          }}
+        />
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      </Page.Footer>
     </StakingFormWrapper>
   );
 }
