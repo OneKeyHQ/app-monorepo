@@ -7,9 +7,11 @@ import type { SheetProps } from 'tamagui';
 
 export type IContextType = {
   isOpen?: boolean;
-  value?: string | ISelectItem;
+  value?: string | number | boolean | undefined | ISelectItem;
   items?: ISelectItem[];
-  onValueChange?: (value: string | ISelectItem) => void;
+  onValueChange?: (
+    value: string | number | boolean | undefined | ISelectItem,
+  ) => void;
   placeholder?: string;
   title?: string;
   disabled?: boolean;

@@ -824,4 +824,6 @@ module.exports = [
   'fet',
   'cex',
   'Lokalise',
+  'bundler',
+  'dai'
 ];

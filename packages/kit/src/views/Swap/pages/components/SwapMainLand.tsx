@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import BigNumber from 'bignumber.js';
 
@@ -13,6 +13,7 @@ import {
   useSwapQuoteIntervalCountAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
@@ -28,20 +29,25 @@ import type {
   ISwapInitParams,
   ISwapToken,
 } from '@onekeyhq/shared/types/swap/types';
-import { ESwapDirectionType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapRecentTokenPairsGroup from '../../components/SwapRecentTokenPairsGroup';
 import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapBuildTx } from '../../hooks/useSwapBuiltTx';
+import { useSwapInit } from '../../hooks/useSwapGlobal';
 import {
   useSwapQuoteEventFetching,
   useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
-import { useSwapInit } from '../../hooks/useSwapTokens';
 import { validateAmountInput } from '../../utils/utils';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import LimitInfoContainer from './LimitInfoContainer';
+import LimitOrderOpenItem from './LimitOrderOpenItem';
 import SwapActionsState from './SwapActionsState';
 import SwapAlertContainer from './SwapAlertContainer';
 import SwapHeaderContainer from './SwapHeaderContainer';
@@ -61,6 +67,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const [quoteResult] = useSwapQuoteCurrentSelectAtom();
   const [alerts] = useSwapAlertsAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const toAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const quoteLoading = useSwapQuoteLoading();
@@ -77,20 +84,26 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
+
+  const storeName = useMemo(
+    () =>
+      pageType === EPageType.modal
+        ? EJotaiContextStoreNames.swapModal
+        : EJotaiContextStoreNames.swap,
+    [pageType],
+  );
+
   const onSelectToken = useCallback(
     (type: ESwapDirectionType) => {
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapTokenSelect,
         params: {
           type,
-          storeName:
-            pageType === EPageType.modal
-              ? EJotaiContextStoreNames.swapModal
-              : EJotaiContextStoreNames.swap,
+          storeName,
         },
       });
     },
-    [navigation, pageType],
+    [navigation, storeName],
   );
   const onSelectRecentTokenPairs = useCallback(
     ({
@@ -109,26 +122,20 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapProviderSelect,
       params: {
-        storeName:
-          pageType === EPageType.modal
-            ? EJotaiContextStoreNames.swapModal
-            : EJotaiContextStoreNames.swap,
+        storeName,
       },
     });
-  }, [navigation, pageType]);
+  }, [navigation, storeName]);
 
   const onToAnotherAddressModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapToAnotherAddress,
       params: {
         address: toAddressInfo.address,
-        storeName:
-          pageType === EPageType.modal
-            ? EJotaiContextStoreNames.swapModal
-            : EJotaiContextStoreNames.swap,
+        storeName,
       },
     });
-  }, [navigation, pageType, toAddressInfo.address]);
+  }, [navigation, storeName, toAddressInfo.address]);
 
   const onBuildTx = useCallback(async () => {
     await buildTx();
@@ -221,11 +228,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             pageType={pageType}
             defaultSwapType={swapInitParams?.swapTabSwitchType}
           />
+          <LimitOrderOpenItem storeName={storeName} />
           <SwapQuoteInput
             onSelectToken={onSelectToken}
             selectLoading={fetchLoading}
             onSelectPercentageStage={onSelectPercentageStage}
           />
+          {swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
+            <LimitInfoContainer />
+          ) : null}
           <SwapActionsState
             onBuildTx={onBuildTx}
             onApprove={onApprove}

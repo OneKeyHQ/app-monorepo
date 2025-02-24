@@ -26,7 +26,7 @@ import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { LetterAvatar } from '../LetterAvatar';
 
-type IAmountInputFormItemProps = IFormFieldProps<
+export type IAmountInputFormItemProps = IFormFieldProps<
   string,
   {
     inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {

@@ -13,7 +13,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -23,7 +22,12 @@ import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
+import {
+  PercentageStageOnKeyboard,
+  StakingAmountInput,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
+import { calcPercentBalance } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalClaimProps = {
@@ -139,6 +143,19 @@ export const UniversalClaim = ({
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
 
+  const onSelectPercentageStage = useCallback(
+    (percent: number) => {
+      onChangeAmountValue(
+        calcPercentBalance({
+          balance,
+          percent,
+          decimals,
+        }),
+      );
+    },
+    [balance, decimals, onChangeAmountValue],
+  );
+
   const isDisable = useMemo(
     () =>
       BigNumber(amountValue).isNaN() ||
@@ -173,8 +190,9 @@ export const UniversalClaim = ({
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={editable ? 1 : 0.7}>
-        <AmountInput
-          bg={editable ? '$bgApp' : '$bgDisabled'}
+        <StakingAmountInput
+          title={intl.formatMessage({ id: ETranslations.earn_claim })}
+          disabled={!editable}
           hasError={isInsufficientBalance || isLessThanMinAmount}
           value={amountValue}
           onChange={onChangeAmountValue}
@@ -195,6 +213,7 @@ export const UniversalClaim = ({
             value: currentValue,
             currency: currentValue ? symbol : undefined,
           }}
+          onSelectPercentageStage={onSelectPercentageStage}
         />
         {!editable ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
@@ -256,16 +275,21 @@ export const UniversalClaim = ({
           />
         ) : null}
       </CalculationList>
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.earn_claim,
-        })}
-        confirmButtonProps={{
-          onPress,
-          loading,
-          disabled: isDisable,
-        }}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.earn_claim,
+          })}
+          confirmButtonProps={{
+            onPress,
+            loading,
+            disabled: isDisable,
+          }}
+        />
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      </Page.Footer>
     </StakingFormWrapper>
   );
 };

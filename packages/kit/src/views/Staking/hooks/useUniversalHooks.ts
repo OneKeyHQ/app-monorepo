@@ -9,6 +9,7 @@ import { type IModalSendParamList } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { EMessageTypesEth } from '@onekeyhq/shared/types/message';
 import type {
+  EApproveType,
   IStakeTxResponse,
   IStakingInfo,
 } from '@onekeyhq/shared/types/staking';
@@ -72,6 +73,8 @@ export function useUniversalStake({
       term,
       feeRate,
       morphoVault,
+      approveType,
+      permitSignature,
       provider,
       stakingInfo,
       onSuccess,
@@ -82,6 +85,8 @@ export function useUniversalStake({
       term?: number;
       feeRate?: number;
       morphoVault?: string;
+      approveType?: EApproveType;
+      permitSignature?: string;
       provider: string;
       stakingInfo?: IStakingInfo;
       onSuccess?: IModalSendParamList['SendConfirm']['onSuccess'];
@@ -97,6 +102,8 @@ export function useUniversalStake({
           provider,
           feeRate,
           morphoVault,
+          approveType,
+          permitSignature,
         });
 
       const encodedTx = await backgroundApiProxy.serviceStaking.buildEarnTx({

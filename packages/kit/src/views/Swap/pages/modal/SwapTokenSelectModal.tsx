@@ -119,7 +119,11 @@ const SwapTokenSelectPage = () => {
           ) ?? swapNetworksIncludeAllNetwork?.[0]
         );
       }
-      if (fromToken?.networkId && swapTypeSwitch === ESwapTabSwitchType.SWAP) {
+      if (
+        fromToken?.networkId &&
+        (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+          swapTypeSwitch === ESwapTabSwitchType.LIMIT)
+      ) {
         return (
           swapNetworksIncludeAllNetwork.find(
             (item: ISwapNetwork) => item.networkId === fromToken.networkId,

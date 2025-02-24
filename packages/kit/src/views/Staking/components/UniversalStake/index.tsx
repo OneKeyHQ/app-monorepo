@@ -15,7 +15,6 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -36,9 +35,17 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import {
+  PercentageStageOnKeyboard,
+  StakingAmountInput,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { formatStakingDistanceToNowStrict } from '../utils';
+import {
+  calcPercentBalance,
+  formatApy,
+  formatStakingDistanceToNowStrict,
+} from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
@@ -172,6 +179,19 @@ export function UniversalStake({
     }
   }, [onChangeAmountValue, balance, minTransactionFee]);
 
+  const onSelectPercentageStage = useCallback(
+    (percent: number) => {
+      onChangeAmountValue(
+        calcPercentBalance({
+          balance,
+          percent,
+          decimals,
+        }),
+      );
+    },
+    [balance, decimals, onChangeAmountValue],
+  );
+
   const currentValue = useMemo<string | undefined>(() => {
     if (Number(amountValue) > 0 && Number(price) > 0) {
       const amountValueBn = new BigNumber(amountValue);
@@ -292,8 +312,9 @@ export function UniversalStake({
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
-        <AmountInput
-          bg={isDisabled ? '$bgDisabled' : '$bgApp'}
+        <StakingAmountInput
+          title={intl.formatMessage({ id: ETranslations.earn_deposit })}
+          disabled={isDisabled}
           hasError={isInsufficientBalance || isLessThanMinAmount}
           value={amountValue}
           onChange={onChangeAmountValue}
@@ -315,6 +336,7 @@ export function UniversalStake({
             currency: currentValue ? symbol : undefined,
           }}
           enableMaxAmount
+          onSelectPercentageStage={onSelectPercentageStage}
         />
         {isDisabled ? (
           <Stack position="absolute" w="100%" h="100%" zIndex={1} />
@@ -409,7 +431,7 @@ export function UniversalStake({
               {details.provider.rewardUnit}
             </CalculationListItem.Label>
             <CalculationListItem.Value color="$textSuccess">
-              {`${apr}%`}
+              {`${formatApy(apr)}%`}
             </CalculationListItem.Value>
           </CalculationListItem>
         ) : null}
@@ -528,15 +550,20 @@ export function UniversalStake({
         accountId={accountId}
         networkId={networkId}
       />
-      <Page.Footer
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.global_continue,
-        })}
-        confirmButtonProps={{
-          onPress,
-          disabled: isDisable,
-        }}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.global_continue,
+          })}
+          confirmButtonProps={{
+            onPress,
+            disabled: isDisable,
+          }}
+        />
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
+      </Page.Footer>
     </StakingFormWrapper>
   );
 }
