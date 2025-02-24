@@ -47,9 +47,7 @@ export const useForm = <
       };
       const handler = async () => {
         const submit = formRef.current.handleSubmit(callback);
-        if (formRef.current.formState.isValid) {
-          await submit();
-        }
+        await submit();
       };
       return handler;
     }
