@@ -33,9 +33,13 @@ export const calcPercentBalance = ({
   percent: number;
   decimals?: number;
 }) => {
+  const valueNumber = BigNumber(balance);
+  if (valueNumber.isZero()) {
+    return '';
+  }
   if (percent === 100) {
     return balance;
   }
-  const value = BigNumber(balance).multipliedBy(percent).dividedBy(100);
+  const value = valueNumber.multipliedBy(percent).dividedBy(100);
   return decimals ? value.toFixed(decimals) : value.toFixed();
 };
