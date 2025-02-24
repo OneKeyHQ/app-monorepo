@@ -80,6 +80,19 @@ function ProfitInfo({
         />
       ) : (
         <XStack flexWrap="wrap" m="$-5" p="$2">
+          {!apys && apr && Number(apr) > 0 ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_rewards_percentage,
+              })}
+            >
+              <XStack gap="$1" alignItems="center">
+                <SizableText size="$bodyLgMedium" color="$textSuccess">
+                  {`${formatApy(apr)}% ${rewardUnit}`}
+                </SizableText>
+              </XStack>
+            </GridItem>
+          ) : null}
           {apys?.dailyNetApy && Number(apys.dailyNetApy) > 0 ? (
             <GridItem
               title={intl.formatMessage({

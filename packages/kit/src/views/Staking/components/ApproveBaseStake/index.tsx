@@ -11,9 +11,11 @@ import {
   Alert,
   Divider,
   Icon,
+  IconButton,
   Image,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
@@ -31,6 +33,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
@@ -49,6 +52,7 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import { MorphoApy } from '../ProtocolDetails/MorphoApy';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
 import {
   PercentageStageOnKeyboard,
@@ -558,7 +562,12 @@ export function ApproveBaseStake({
     if (showEstReceive && estReceiveToken) {
       items.push(
         <CalculationListItem>
-          <CalculationListItem.Label size="$bodyMd">
+          <CalculationListItem.Label
+            size="$bodyMd"
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_est_receive_tooltip,
+            })}
+          >
             {intl.formatMessage({
               id: ETranslations.earn_est_receive,
             })}
@@ -609,6 +618,7 @@ export function ApproveBaseStake({
     showEstimateGasAlert,
     totalAnnualRewardsFiatValue,
   ]);
+  const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (
     <StakingFormWrapper>
       <StakingAmountInput
@@ -671,7 +681,37 @@ export function ApproveBaseStake({
             <SizableText color="$textSuccess" size="$headingLg">
               {`${formatApy(apr)}% APY`}
             </SizableText>
-            <Icon name="CoinsAddOutline" size="$5" />
+            {details.provider.apys ? (
+              <Popover
+                floatingPanelProps={{
+                  w: 320,
+                }}
+                title={intl.formatMessage({
+                  id: ETranslations.earn_rewards,
+                })}
+                renderTrigger={
+                  <IconButton
+                    icon="CoinsAddOutline"
+                    size="small"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <MorphoApy
+                    apys={details.provider.apys}
+                    rewardAssets={details.rewardAssets}
+                    poolFee={
+                      earnUtils.isMorphoProvider({
+                        providerName: providerName || '',
+                      })
+                        ? details.provider.poolFee
+                        : undefined
+                    }
+                  />
+                }
+                placement="top"
+              />
+            ) : null}
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
@@ -731,19 +771,8 @@ export function ApproveBaseStake({
               bg="$transparent"
               userSelect="none"
               borderRadius="$1"
-              hoverStyle={{
-                bg: '$bgSubdued',
-              }}
-              pressStyle={{
-                bg: '$bgActive',
-              }}
-              focusVisibleStyle={{
-                outlineColor: '$focusRing',
-                outlineWidth: 2,
-                outlineStyle: 'solid',
-                outlineOffset: 0,
-              }}
-              disabled={accordionContent.length === 0}
+              cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
+              disabled={isAccordionTriggerDisabled}
             >
               {({ open }: { open: boolean }) => (
                 <>
@@ -758,17 +787,32 @@ export function ApproveBaseStake({
                       {capitalizeString(providerName || '')}
                     </SizableText>
                   </XStack>
-                  <YStack
-                    animation="quick"
-                    rotate={open ? '180deg' : '0deg'}
-                    left="$2"
-                  >
-                    <Icon
-                      name="ChevronDownSmallOutline"
-                      color="$iconActive"
-                      size="$5"
-                    />
-                  </YStack>
+                  <XStack>
+                    {isAccordionTriggerDisabled ? undefined : (
+                      <SizableText color="$textSubdued" size="$bodyMd">
+                        {intl.formatMessage({
+                          id: ETranslations.global_details,
+                        })}
+                      </SizableText>
+                    )}
+                    <YStack
+                      animation="quick"
+                      rotate={
+                        open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
+                      }
+                      left="$2"
+                    >
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        color={
+                          isAccordionTriggerDisabled
+                            ? '$iconDisabled'
+                            : '$iconSubdued'
+                        }
+                        size="$5"
+                      />
+                    </YStack>
+                  </XStack>
                 </>
               )}
             </Accordion.Trigger>

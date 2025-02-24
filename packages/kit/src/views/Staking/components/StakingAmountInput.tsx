@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useCallback, useState } from 'react';
 
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -84,7 +85,7 @@ export function StakingAmountInput({
             !platformEnv.isNative && disabled
               ? ({
                   caretColor: 'transparent',
-                } as any)
+                } as CSSProperties)
               : undefined,
           inputAccessoryViewID: stakingInputAccessoryViewID,
           autoCorrect: false,
