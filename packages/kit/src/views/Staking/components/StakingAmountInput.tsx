@@ -80,11 +80,12 @@ export function StakingAmountInput({
         borderWidth="$0"
         inputProps={{
           ...inputProps,
-          style: !platformEnv.isNative
-            ? ({
-                caretColor: 'transparent',
-              } as any)
-            : undefined,
+          style:
+            !platformEnv.isNative && disabled
+              ? ({
+                  caretColor: 'transparent',
+                } as any)
+              : undefined,
           inputAccessoryViewID: stakingInputAccessoryViewID,
           autoCorrect: false,
           spellCheck: false,
