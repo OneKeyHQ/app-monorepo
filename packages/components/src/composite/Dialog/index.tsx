@@ -206,7 +206,9 @@ function DialogFrame({
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
           zIndex={
-            platformEnv.isNative ? undefined : sheetProps?.zIndex || zIndex
+            platformEnv.isNativeAndroid
+              ? undefined
+              : sheetProps?.zIndex || zIndex
           }
         />
         <Sheet.Frame
