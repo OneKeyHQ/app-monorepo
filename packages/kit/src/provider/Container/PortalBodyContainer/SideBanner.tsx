@@ -161,7 +161,7 @@ function BottomMenu() {
       <DesktopTabItem
         onPress={openDeviceManagementPage}
         selected={false}
-        icon="PhoneOutline"
+        icon="OnekeyDeviceCustom"
         label={intl.formatMessage({
           id: ETranslations.global_my_onekey,
         })}
