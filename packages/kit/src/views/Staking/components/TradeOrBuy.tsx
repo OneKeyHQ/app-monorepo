@@ -28,7 +28,7 @@ function BasicTradeOrBuy({
   token: IToken;
   accountId: string;
   networkId: string;
-  containerProps: IStackProps;
+  containerProps?: IStackProps;
 }) {
   const {
     activeAccount: { wallet },
