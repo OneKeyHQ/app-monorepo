@@ -1,11 +1,6 @@
-import { useEffect } from 'react';
-
 import { useOnRouterChange } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { analytics } from '@onekeyhq/shared/src/analytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabHomeRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabHomeRoutes } from '@onekeyhq/shared/src/routes';
 
 import type { NavigationState, PartialState } from '@react-navigation/routers';
 
@@ -26,13 +21,6 @@ const getActiveRoute = (state: IState): { name: string; params?: object } => {
 };
 
 export default function PageTrackerContainer() {
-  const navigation = useAppNavigation();
-
-  // TODO: @houyao remove this
-  useEffect(() => {
-    navigation.switchTab(ETabRoutes.Discovery);
-  }, [navigation]);
-
   useOnRouterChange((state) => {
     try {
       if (state === undefined) {
