@@ -590,15 +590,10 @@ function BatchCreateAccountPreviewPage({
               }`}
               containerProps={{
                 flex: 1,
+                pointerEvents: 'none',
               }}
               disabled={account.existsInDb}
               value={checkedState}
-              onChange={(val) => {
-                selectCheckBox({
-                  val,
-                  accountsToSelect: [account],
-                });
-              }}
               label={String((account.pathIndex ?? 0) + 1)}
               labelProps={
                 {
@@ -674,7 +669,6 @@ function BatchCreateAccountPreviewPage({
       getAccountCheckedState,
       intl,
       network?.symbol,
-      selectCheckBox,
     ],
   );
 
@@ -694,8 +688,8 @@ function BatchCreateAccountPreviewPage({
   );
 
   const extraData = useMemo(
-    () => [selectedIndexesCount, balanceMap],
-    [selectedIndexesCount, balanceMap],
+    () => [totalCount, balanceMap],
+    [totalCount, balanceMap],
   );
 
   return (
