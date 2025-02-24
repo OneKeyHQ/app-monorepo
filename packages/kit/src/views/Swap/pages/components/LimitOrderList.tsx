@@ -118,6 +118,7 @@ const LimitOrderList = ({
     loadingSkeleton
   ) : (
     <ListView
+      flex={1}
       borderRadius="$3"
       estimatedItemSize="$20"
       data={orderData}
