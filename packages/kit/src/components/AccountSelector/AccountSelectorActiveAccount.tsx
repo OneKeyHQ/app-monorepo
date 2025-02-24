@@ -280,7 +280,10 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   }
 
   // show copy address icon button if account has multiple derive types
-  if (deriveInfoItems.length > 1) {
+  if (
+    !accountUtils.isOthersWallet({ walletId: wallet?.id }) &&
+    deriveInfoItems.length > 1
+  ) {
     return (
       <IconButton
         title={intl.formatMessage({

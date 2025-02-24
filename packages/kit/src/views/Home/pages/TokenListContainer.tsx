@@ -100,7 +100,9 @@ function TokenListContainer(props: ITabPageProps) {
   >(undefined);
   const intl = useIntl();
 
-  const isMultiDeriveAddress = deriveInfoItems.length > 1;
+  const mergeDeriveAddressData =
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+    deriveInfoItems.length > 1;
 
   const tokenListRef = useRef<{
     keys: string;
@@ -212,7 +214,7 @@ function TokenListContainer(props: ITabPageProps) {
 
         let r: IFetchAccountTokensResp = getEmptyTokenData();
 
-        if (isMultiDeriveAddress) {
+        if (mergeDeriveAddressData) {
           const { networkAccounts } =
             await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
               {
@@ -382,7 +384,7 @@ function TokenListContainer(props: ITabPageProps) {
     [
       account,
       network,
-      isMultiDeriveAddress,
+      mergeDeriveAddressData,
       updateAccountOverviewState,
       updateAccountWorth,
       refreshTokenList,
@@ -1167,7 +1169,7 @@ function TokenListContainer(props: ITabPageProps) {
       let tokenListMap: Record<string, ITokenFiat> = {};
       let tokenListValue = '0';
 
-      if (isMultiDeriveAddress) {
+      if (mergeDeriveAddressData) {
         const { networkAccounts } =
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
             {
@@ -1340,7 +1342,7 @@ function TokenListContainer(props: ITabPageProps) {
     account?.xpubSegwit,
     handleClearAllNetworkData,
     indexedAccount?.id,
-    isMultiDeriveAddress,
+    mergeDeriveAddressData,
     network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,
