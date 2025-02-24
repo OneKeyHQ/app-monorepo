@@ -207,7 +207,7 @@ function DialogFrame({
           backgroundColor="$bgBackdrop"
           zIndex={
             platformEnv.isNativeAndroid
-              ? undefined
+              ? sheetProps?.zIndex || zIndex
               : sheetProps?.zIndex || zIndex
           }
         />
