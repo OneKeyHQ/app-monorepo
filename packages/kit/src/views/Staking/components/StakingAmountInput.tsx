@@ -1,4 +1,3 @@
-import type { CSSProperties } from 'react';
 import { useCallback, useState } from 'react';
 
 import { InputAccessoryView, Keyboard } from 'react-native';
@@ -15,6 +14,8 @@ import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/Amo
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { StyleProp, TextStyle } from 'react-native';
 
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
@@ -85,7 +86,7 @@ export function StakingAmountInput({
             !platformEnv.isNative && disabled
               ? ({
                   caretColor: 'transparent',
-                } as CSSProperties)
+                } as unknown as StyleProp<TextStyle>)
               : undefined,
           inputAccessoryViewID: stakingInputAccessoryViewID,
           autoCorrect: false,
