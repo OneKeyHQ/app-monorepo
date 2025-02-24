@@ -1,8 +1,9 @@
 import type { ReactElement } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { useMedia, useProps } from 'tamagui';
+import { useProps } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -106,7 +107,8 @@ export function Banner<T extends IBannerData>({
   indicatorContainerStyle,
   leftIconButtonStyle,
   rightIconButtonStyle,
-  showPaginationButton = false,
+  showPaginationButton = !platformEnv.isNative,
+  showCloseButton = false,
   ...props
 }: {
   data: T[];
@@ -115,13 +117,17 @@ export function Banner<T extends IBannerData>({
   rightIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
   indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
-  showPaginationButton?: boolean;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
   isLoading?: boolean;
   emptyComponent?: ReactElement;
+  showCloseButton?: boolean;
+  showPaginationButton?: boolean;
 } & IStackStyle) {
-  const media = useMedia();
+  const [isHovering, setIsHovering] = useState(false);
+  const setIsHoveringThrottled = useDebouncedCallback((value: boolean) => {
+    setIsHovering(value);
+  }, 200);
 
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
@@ -158,7 +164,7 @@ export function Banner<T extends IBannerData>({
               <Stack
                 shadowColor="$blackA1"
                 shadowOffset={{ width: 2, height: 2 }}
-                shadowOpacity={0.2}
+                shadowOpacity={0.1}
                 shadowRadius={3}
                 key={index}
                 w="$3"
@@ -174,26 +180,39 @@ export function Banner<T extends IBannerData>({
           </XStack>
         ) : null}
 
-        {(showPaginationButton && !platformEnv.isNative) || media.gtMd ? (
+        {showPaginationButton ? (
           <>
             <PaginationButton
-              isVisible={currentIndex !== 0}
+              isVisible={currentIndex !== 0 ? isHovering : false}
               direction="previous"
               onPress={gotToPrevIndex}
+              onPointerEnter={() => {
+                setIsHoveringThrottled(true);
+              }}
             />
 
             <PaginationButton
-              isVisible={currentIndex !== data.length - 1}
+              isVisible={currentIndex !== data.length - 1 ? isHovering : false}
               direction="next"
               onPress={goToNextIndex}
+              onPointerEnter={() => {
+                setIsHoveringThrottled(true);
+              }}
             />
           </>
         ) : null}
 
-        <CloseButton onClick={() => {}} />
+        {showCloseButton ? <CloseButton onPress={() => {}} /> : null}
       </>
     ),
-    [data, indicatorContainerStyle, showPaginationButton, media.gtMd],
+    [
+      data,
+      indicatorContainerStyle,
+      isHovering,
+      setIsHoveringThrottled,
+      showCloseButton,
+      showPaginationButton,
+    ],
   );
 
   const keyExtractor = useCallback((item: T) => item.bannerId, []);
@@ -208,13 +227,19 @@ export function Banner<T extends IBannerData>({
       autoplay
       autoplayLoop
       autoplayLoopKeepAnimation
-      autoplayDelayMs={30_000}
+      autoplayDelayMs={3000}
       keyExtractor={keyExtractor}
       data={data}
       renderItem={renderItem}
       renderPagination={renderPagination}
       overflow="hidden"
       borderRadius="$3"
+      onPointerEnter={() => {
+        setIsHoveringThrottled(true);
+      }}
+      onPointerLeave={() => {
+        setIsHoveringThrottled(false);
+      }}
       {...(props as any)}
     />
   );

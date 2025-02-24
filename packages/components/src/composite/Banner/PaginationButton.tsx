@@ -7,16 +7,17 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { IconButton } from '../../actions';
-import { Stack } from '../../primitives';
 
 export function PaginationButton({
   direction,
   onPress,
   isVisible,
+  onPointerEnter,
 }: {
   direction: 'previous' | 'next';
   onPress: () => void;
   isVisible: boolean;
+  onPointerEnter: () => void;
 }) {
   const icon =
     direction === 'previous' ? 'ChevronLeftOutline' : 'ChevronRightOutline';
@@ -34,9 +35,11 @@ export function PaginationButton({
 
   return (
     <Animated.View
+      onPointerEnter={onPointerEnter}
       style={[
         animatedStyle,
         {
+          display: isVisible ? 'flex' : 'none',
           position: 'absolute',
           top: 0,
           bottom: 0,
@@ -46,7 +49,12 @@ export function PaginationButton({
         },
       ]}
     >
-      <IconButton variant="primary" icon={icon} onPress={onPress} />
+      <IconButton
+        disabled={!isVisible}
+        variant="primary"
+        icon={icon}
+        onPress={onPress}
+      />
     </Animated.View>
   );
 }

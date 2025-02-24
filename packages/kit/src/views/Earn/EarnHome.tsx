@@ -854,27 +854,24 @@ function BasicEarnHome() {
   const banners = useMemo(() => {
     if (earnBanners) {
       return earnBanners.length ? (
-        <Stack px="$5">
-          <Banner
-            showPaginationButton={!platformEnv.isNative}
-            height="$36"
-            $md={{
-              height: '$28',
-            }}
-            data={earnBanners}
-            onItemPress={onBannerPress}
-            isLoading={false}
-            itemTitleContainerStyle={{
-              top: 0,
-              bottom: 0,
-              right: '$5',
-              left: media.gtLg
-                ? BANNER_TITLE_OFFSET.desktop
-                : BANNER_TITLE_OFFSET.mobile,
-              justifyContent: 'center',
-            }}
-          />
-        </Stack>
+        <Banner
+          height="$36"
+          $md={{
+            height: '$28',
+          }}
+          data={earnBanners}
+          onItemPress={onBannerPress}
+          isLoading={false}
+          itemTitleContainerStyle={{
+            top: 0,
+            bottom: 0,
+            right: '$5',
+            left: media.gtLg
+              ? BANNER_TITLE_OFFSET.desktop
+              : BANNER_TITLE_OFFSET.mobile,
+            justifyContent: 'center',
+          }}
+        />
       ) : null;
     }
     return (
@@ -921,6 +918,7 @@ function BasicEarnHome() {
                 isFetchingAccounts={Boolean(result === undefined || isLoading)}
               />
               <YStack
+                px="$5"
                 minHeight="$36"
                 $md={{
                   minHeight: '$28',
@@ -929,6 +927,7 @@ function BasicEarnHome() {
                 width="100%"
                 borderCurve="continuous"
                 $gtLg={{
+                  px: '$0',
                   w: EARN_RIGHT_PANEL_WIDTH,
                 }}
               >
