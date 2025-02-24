@@ -256,7 +256,13 @@ export function ApproveBaseStake({
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
-      onChangeAmountValue(calcPercentBalance(balance, percent, decimals));
+      onChangeAmountValue(
+        calcPercentBalance({
+          balance,
+          percent,
+          decimals,
+        }),
+      );
     },
     [balance, decimals, onChangeAmountValue],
   );

@@ -27,8 +27,8 @@ import {
   StakingAmountInput,
 } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
-import { ValuePriceListItem } from '../ValuePriceListItem';
 import { calcPercentBalance } from '../utils';
+import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalClaimProps = {
   networkId: string;
@@ -145,7 +145,13 @@ export const UniversalClaim = ({
 
   const onSelectPercentageStage = useCallback(
     (percent: number) => {
-      onChangeAmountValue(calcPercentBalance(balance, percent, decimals));
+      onChangeAmountValue(
+        calcPercentBalance({
+          balance,
+          percent,
+          decimals,
+        }),
+      );
     },
     [balance, decimals, onChangeAmountValue],
   );
