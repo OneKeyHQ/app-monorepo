@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
@@ -549,6 +549,66 @@ export function ApproveBaseStake({
   const isShowStakeProgress =
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
+
+  const accordionContent = useMemo(() => {
+    const items: ReactElement[] = [];
+    if (Number(amountValue) <= 0) {
+      return items;
+    }
+    if (showEstReceive && estReceiveToken) {
+      items.push(
+        <CalculationListItem>
+          <CalculationListItem.Label size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.earn_est_receive,
+            })}
+          </CalculationListItem.Label>
+          <CalculationListItem.Value>
+            <NumberSizeableText
+              formatter="balance"
+              size="$bodyMdMedium"
+              formatterOptions={{ tokenSymbol: estReceiveToken }}
+            >
+              {BigNumber(amountValue)
+                .multipliedBy(estReceiveTokenRate)
+                .toFixed()}
+            </NumberSizeableText>
+          </CalculationListItem.Value>
+        </CalculationListItem>,
+      );
+    }
+    if (estimateFeeResp) {
+      items.push(
+        <EstimateNetworkFee
+          labelTextProps={{
+            size: '$bodyMd',
+          }}
+          valueTextProps={{
+            size: '$bodyMdMedium',
+          }}
+          estimateFeeResp={estimateFeeResp}
+          isVisible={!!totalAnnualRewardsFiatValue}
+          onPress={() => {
+            showEstimateGasAlert({
+              daysConsumed: daysSpent,
+              estFiatValue: estimateFeeResp.feeFiatValue,
+            });
+          }}
+        />,
+      );
+    }
+    return items;
+  }, [
+    amountValue,
+    daysSpent,
+    estReceiveToken,
+    estReceiveTokenRate,
+    estimateFeeResp,
+    intl,
+    showEstReceive,
+    showEstimateGasAlert,
+    totalAnnualRewardsFiatValue,
+  ]);
   return (
     <StakingFormWrapper>
       <StakingAmountInput
@@ -657,7 +717,7 @@ export function ApproveBaseStake({
           collapsible
           defaultValue=""
         >
-          <Accordion.Item value="a1">
+          <Accordion.Item value="staking-accordion-content">
             <Accordion.Trigger
               unstyled
               flexDirection="row"
@@ -683,6 +743,7 @@ export function ApproveBaseStake({
                 outlineStyle: 'solid',
                 outlineOffset: 0,
               }}
+              disabled={accordionContent.length === 0}
             >
               {({ open }: { open: boolean }) => (
                 <>
@@ -720,46 +781,7 @@ export function ApproveBaseStake({
                 pt="$3.5"
                 gap="$2.5"
               >
-                {showEstReceive &&
-                estReceiveToken &&
-                Number(amountValue) > 0 ? (
-                  <CalculationListItem>
-                    <CalculationListItem.Label size="$bodyMd">
-                      {intl.formatMessage({
-                        id: ETranslations.earn_est_receive,
-                      })}
-                    </CalculationListItem.Label>
-                    <CalculationListItem.Value>
-                      <NumberSizeableText
-                        formatter="balance"
-                        size="$bodyMdMedium"
-                        formatterOptions={{ tokenSymbol: estReceiveToken }}
-                      >
-                        {BigNumber(amountValue)
-                          .multipliedBy(estReceiveTokenRate)
-                          .toFixed()}
-                      </NumberSizeableText>
-                    </CalculationListItem.Value>
-                  </CalculationListItem>
-                ) : null}
-                {estimateFeeResp ? (
-                  <EstimateNetworkFee
-                    labelTextProps={{
-                      size: '$bodyMd',
-                    }}
-                    valueTextProps={{
-                      size: '$bodyMdMedium',
-                    }}
-                    estimateFeeResp={estimateFeeResp}
-                    isVisible={!!totalAnnualRewardsFiatValue}
-                    onPress={() => {
-                      showEstimateGasAlert({
-                        daysConsumed: daysSpent,
-                        estFiatValue: estimateFeeResp.feeFiatValue,
-                      });
-                    }}
-                  />
-                ) : null}
+                {accordionContent}
               </Accordion.Content>
             </Accordion.HeightAnimator>
           </Accordion.Item>
