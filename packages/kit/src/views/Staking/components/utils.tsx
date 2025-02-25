@@ -23,4 +23,3 @@ export const formatApy = (apy: string | number | undefined): string => {
   if (!apy) return '0';
   return new BigNumber(apy).decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2);
 };
-
