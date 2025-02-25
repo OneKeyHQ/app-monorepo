@@ -197,6 +197,14 @@ const LimitOrderDetailModal = () => {
         title: intl.formatMessage({
           id: ETranslations.limit_cancel_order_title,
         }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.limit_cancel_order_content,
+          },
+          {
+            orderID: `${item.orderId.slice(0, 6)}...${item.orderId.slice(-4)}`,
+          },
+        ),
         renderContent: <LimitOrderCancelDialog item={item} />,
         onConfirm: () => runCancel(item),
         showCancelButton: true,

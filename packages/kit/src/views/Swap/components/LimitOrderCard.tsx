@@ -30,6 +30,7 @@ const LimitOrderCard = ({
   hiddenCancelIcon = false,
   onCancel,
   cancelLoading,
+  hiddenHoverBg = false,
 }: {
   item: IFetchLimitOrderRes;
   progressWidth?: number;
@@ -37,6 +38,7 @@ const LimitOrderCard = ({
   hiddenCancelIcon?: boolean;
   onCancel?: () => void;
   cancelLoading?: boolean;
+  hiddenHoverBg?: boolean;
 }) => {
   const { fromTokenInfo, toTokenInfo, fromAmount, toAmount } = item;
   const intl = useIntl();
@@ -62,9 +64,10 @@ const LimitOrderCard = ({
     });
     return (
       <YStack
+        flex={1}
         gap="$1.5"
         justifyContent="flex-start"
-        minWidth={gtMd ? 175 : 155}
+        minWidth={gtMd ? 100 : 150}
       >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status_expired })}
@@ -139,9 +142,10 @@ const LimitOrderCard = ({
   const renderLimitOrderPrice = useCallback(
     () => (
       <YStack
+        flex={1}
         gap="$1.5"
+        minWidth={gtMd ? 180 : 160}
         justifyContent="flex-start"
-        minWidth={gtMd ? 175 : 155}
       >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
@@ -201,11 +205,11 @@ const LimitOrderCard = ({
       .multipliedBy(100)
       .toFixed(2);
     return (
-      <YStack gap="$1.5">
+      <YStack gap="$1.5" flex={1}>
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status })}
         </SizableText>
-        <XStack gap="$2" alignItems="center">
+        <XStack gap="$2" alignItems="center" flex={1}>
           <SizableText size="$bodySm" color={color}>
             {label}
           </SizableText>
@@ -215,7 +219,9 @@ const LimitOrderCard = ({
             colors={['$neutral5', '$textSuccess']}
             value={Number(sellPercentage)}
           />
-          <SizableText size="$bodySm">{`${sellPercentage}%`}</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {`${sellPercentage}%`}
+          </SizableText>
         </XStack>
       </YStack>
     );
@@ -225,12 +231,14 @@ const LimitOrderCard = ({
     <YStack
       flex={1}
       userSelect="none"
-      hoverStyle={{
-        bg: '$bgStrongHover',
-      }}
-      pressStyle={{
-        bg: '$bgStrongActive',
-      }}
+      {...(!hiddenHoverBg && {
+        hoverStyle: {
+          bg: '$bgStrongHover',
+        },
+        pressStyle: {
+          bg: '$bgStrongActive',
+        },
+      })}
       onPress={onPress ?? (() => {})}
       bg="$bgSubdued"
       p="$4"
@@ -259,7 +267,7 @@ const LimitOrderCard = ({
       <XStack
         flexWrap="wrap"
         justifyContent="flex-start"
-        gap={gtMd ? '$1' : '$3'}
+        gap="$3"
       >
         {renderLimitOrderPrice()}
         {expirationTitle}
