@@ -1,3 +1,4 @@
+import BigNumber from 'bignumber.js';
 import { Keyboard } from 'react-native';
 
 import { Button, XStack, useIsKeyboardShown } from '@onekeyhq/components';
@@ -5,6 +6,25 @@ import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/Sw
 
 export const PercentageInputStageForNative = [25, 50, 75, 100];
 
+export const calcPercentBalance = ({
+  balance,
+  percent,
+  decimals,
+}: {
+  balance: string;
+  percent: number;
+  decimals?: number;
+}) => {
+  const valueNumber = BigNumber(balance);
+  if (valueNumber.isZero()) {
+    return '';
+  }
+  if (percent === 100) {
+    return balance;
+  }
+  const value = valueNumber.multipliedBy(percent).dividedBy(100);
+  return decimals ? value.toFixed(decimals) : value.toFixed();
+};
 export function PercentageStageOnKeyboard({
   onSelectPercentageStage,
 }: {

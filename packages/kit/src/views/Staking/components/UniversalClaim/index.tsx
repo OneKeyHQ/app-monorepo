@@ -13,7 +13,10 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
+import {
+  PercentageStageOnKeyboard,
+  calcPercentBalance,
+} from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,7 +28,6 @@ import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
-import { calcPercentBalance } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalClaimProps = {
