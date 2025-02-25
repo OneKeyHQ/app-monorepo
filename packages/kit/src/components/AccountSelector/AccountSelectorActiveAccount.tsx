@@ -32,6 +32,7 @@ import {
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -48,7 +49,6 @@ import {
 import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
-import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
   const intl = useIntl();
@@ -281,7 +281,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   // show copy address icon button if account has multiple derive types
   if (
-    !accountUtils.isOthersWallet({ walletId: wallet?.id }) &&
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
     deriveInfoItems.length > 1
   ) {
     return (
