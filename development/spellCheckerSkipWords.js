@@ -826,4 +826,5 @@ module.exports = [
   'Lokalise',
   'bundler',
   'dai',
+  'neo',
 ];
