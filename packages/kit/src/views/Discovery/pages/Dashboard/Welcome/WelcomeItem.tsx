@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { ButtonFrame, Image, Stack } from '@onekeyhq/components';
+import { Image, Stack } from '@onekeyhq/components';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 // Animation constants
@@ -88,7 +88,7 @@ export const WelcomeItem = memo(
     logo,
     url,
     size = '$12',
-    borderRadius = 10,
+    borderRadius = 12,
   }: {
     logo: string;
     url?: string;
@@ -230,16 +230,14 @@ export const WelcomeItem = memo(
     }));
 
     return (
-      <Stack onMouseEnter={handleHoverIn} onMouseLeave={handleHoverOut}>
-        {/* <ButtonFrame
-          onPress={handlePress}
-          disabled={!url}
-          cursor={url ? 'pointer' : 'default'}
-          borderWidth={0}
-          width={size}
-          height={size}
-          bg="transparent"
-        > */}
+      <Stack
+        width={size}
+        height={size}
+        cursor={url ? 'pointer' : 'default'}
+        onPress={handlePress}
+        onMouseEnter={handleHoverIn}
+        onMouseLeave={handleHoverOut}
+      >
         <Animated.View style={animatedStyle}>
           <Image
             $platform-web={{
@@ -253,7 +251,6 @@ export const WelcomeItem = memo(
             borderRadius={borderRadius}
           />
         </Animated.View>
-        {/* </ButtonFrame> */}
       </Stack>
     );
   },
