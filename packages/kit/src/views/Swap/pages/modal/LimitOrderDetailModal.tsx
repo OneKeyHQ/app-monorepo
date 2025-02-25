@@ -29,7 +29,6 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
@@ -92,10 +91,20 @@ const LimitOrderDetailModal = () => {
   const limitPrice = useMemo(() => {
     const fromAmountNum = decimalsAmount.fromAmount;
     const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toFixed();
-    const formatLimitPrice = formatBalance(calculateLimitPrice);
-    return formatLimitPrice.formattedValue;
-  }, [decimalsAmount]);
+    const calculateLimitPrice = toAmountNum
+      .div(fromAmountNum)
+      .decimalPlaces(
+        orderItemState?.toTokenInfo.decimals ?? 0,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+
+    return calculateLimitPrice;
+  }, [
+    decimalsAmount.fromAmount,
+    decimalsAmount.toAmount,
+    orderItemState?.toTokenInfo.decimals,
+  ]);
 
   const renderLimitOrderAssets = useCallback(() => {
     const fromAsset = {
@@ -318,8 +327,6 @@ const LimitOrderDetailModal = () => {
     const executedSellAmountBN = new BigNumber(
       executedSellAmount ?? '0',
     ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
-    const executeBuyFormat = formatBalance(executedBuyAmountBN.toFixed());
-    const executeSellFormat = formatBalance(executedSellAmountBN.toFixed());
     const sellPercentage = executedSellAmountBN
       .div(fromAmountBN)
       .multipliedBy(100)
@@ -339,9 +346,9 @@ const LimitOrderDetailModal = () => {
         </XStack>
 
         <SizableText size="$bodySm" color="$textSubdued">
-          {`${executeSellFormat.formattedValue} ${
+          {`${executedSellAmountBN.toFixed()} ${
             fromTokenInfo?.symbol ?? '-'
-          } sold for total of ${executeBuyFormat.formattedValue} ${
+          } sold for total of ${executedBuyAmountBN.toFixed()} ${
             toTokenInfo?.symbol ?? '-'
           }`}
         </SizableText>

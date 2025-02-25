@@ -15,10 +15,10 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
-import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapLimitOrderStatus,
   type IFetchLimitOrderRes,
+  LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
@@ -132,10 +132,15 @@ const LimitOrderCard = ({
   const limitPrice = useMemo(() => {
     const fromAmountNum = decimalsAmount.fromAmount;
     const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toFixed();
-    const formatLimitPrice = formatBalance(calculateLimitPrice);
-    return formatLimitPrice.formattedValue;
-  }, [decimalsAmount]);
+    const calculateLimitPrice = toAmountNum
+      .div(fromAmountNum)
+      .decimalPlaces(
+        fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    return calculateLimitPrice;
+  }, [decimalsAmount, fromTokenInfo?.decimals]);
   const renderLimitOrderPrice = useCallback(
     () => (
       <YStack
