@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
 import { Banner, Skeleton, Stack } from '@onekeyhq/components';
-import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
+
+import { useBannerData } from '../../hooks/useBannerData';
 
 import type { IMatchDAppItemType } from '../../types';
 
@@ -20,25 +20,7 @@ export function DashboardBanner({
   }: IMatchDAppItemType & { useSystemBrowser: boolean }) => void;
   isLoading: boolean | undefined;
 }) {
-  const [bannerClose, setBannerClose] = useBannerClosePersistAtom();
-  const data = useMemo(
-    () =>
-      banners
-        .map((i) => ({
-          ...i,
-          imgUrl: i.src,
-          title: i.title || '',
-          titleTextProps: {
-            maxWidth: '$96',
-            size: '$headingLg',
-            $gtMd: {
-              size: '$heading2xl',
-            },
-          } as ISizableTextProps,
-        }))
-        .filter((i) => !bannerClose.ids.includes(i.bannerId)),
-    [banners, bannerClose],
-  );
+  const { data, closeBanner } = useBannerData(banners);
 
   const emptyComponent = useMemo(
     () =>
@@ -69,9 +51,7 @@ export function DashboardBanner({
     >
       <Banner
         onBannerClose={(id) => {
-          setBannerClose({
-            ids: [...bannerClose.ids, id],
-          });
+          closeBanner(id);
         }}
         showCloseButton
         height={120}

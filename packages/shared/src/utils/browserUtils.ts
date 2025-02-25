@@ -1,9 +1,9 @@
-const CowswapLogo = require('@onekeyhq/shared/src/assets/browser/Cowswap.svg');
-const EthenaLogo = require('@onekeyhq/shared/src/assets/browser/Ethena.svg');
-const MorphoLogo = require('@onekeyhq/shared/src/assets/browser/Morpho.svg');
-const PendleLogo = require('@onekeyhq/shared/src/assets/browser/Pendle.svg');
-const SkyLogo = require('@onekeyhq/shared/src/assets/browser/Sky.svg');
-const UniswapLogo = require('@onekeyhq/shared/src/assets/browser/Uniswap.svg');
+const CowswapLogo = require('@onekeyhq/shared/src/assets/browser/Cowswap.png');
+const EthenaLogo = require('@onekeyhq/shared/src/assets/browser/Ethena.png');
+const MorphoLogo = require('@onekeyhq/shared/src/assets/browser/Morpho.png');
+const PendleLogo = require('@onekeyhq/shared/src/assets/browser/Pendle.png');
+const SkyLogo = require('@onekeyhq/shared/src/assets/browser/Sky.png');
+const UniswapLogo = require('@onekeyhq/shared/src/assets/browser/Uniswap.png');
 
 export const browserWelcomeLogos = {
   cowswap: {

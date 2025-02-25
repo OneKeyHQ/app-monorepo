@@ -14,6 +14,6 @@ export const { target: bannerCloseIdsAtom, use: useBannerClosePersistAtom } =
     ids: string[];
   }>({
     persist: true,
-    name: EAtomNames.bannerCloseIdsAtom,
+    name: `${EAtomNames.bannerCloseIdsAtom}2`,
     initialValue: bannerCloseAtomInitialValue,
   });

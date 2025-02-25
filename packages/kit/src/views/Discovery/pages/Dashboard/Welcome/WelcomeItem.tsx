@@ -231,7 +231,7 @@ export const WelcomeItem = memo(
 
     return (
       <Stack onMouseEnter={handleHoverIn} onMouseLeave={handleHoverOut}>
-        <ButtonFrame
+        {/* <ButtonFrame
           onPress={handlePress}
           disabled={!url}
           cursor={url ? 'pointer' : 'default'}
@@ -239,17 +239,21 @@ export const WelcomeItem = memo(
           width={size}
           height={size}
           bg="transparent"
-        >
-          <Animated.View style={animatedStyle}>
-            <Image
-              transform="translate3d(0, 0, 0)"
-              source={{ uri: logo }}
-              width={size}
-              height={size}
-              borderRadius={borderRadius}
-            />
-          </Animated.View>
-        </ButtonFrame>
+        > */}
+        <Animated.View style={animatedStyle}>
+          <Image
+            $platform-web={{
+              transform: 'translate3d(0, 0, 0)',
+            }}
+            source={{
+              uri: logo,
+            }}
+            width={size}
+            height={size}
+            borderRadius={borderRadius}
+          />
+        </Animated.View>
+        {/* </ButtonFrame> */}
       </Stack>
     );
   },
