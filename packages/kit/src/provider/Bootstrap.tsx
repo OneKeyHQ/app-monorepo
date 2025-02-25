@@ -272,6 +272,10 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
           await backgroundApiProxy.serviceSpotlight.firstVisitTour(
             ESpotlightTour.showFloatingIconDialog,
           );
+          await backgroundApiProxy.serviceSetting.setIsShowFloatingButton(true);
+          defaultLogger.discovery.dapp.enableFloatingIcon({
+            enable: true,
+          });
         },
         onCancelText: intl.formatMessage({
           id: ETranslations.global_close,
