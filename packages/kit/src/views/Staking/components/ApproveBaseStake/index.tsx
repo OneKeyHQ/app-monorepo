@@ -28,6 +28,7 @@ import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/act
 import {
   calcPercentBalance,
   formatApy,
+  formatStakingDistanceToNowStrict,
 } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -348,13 +349,16 @@ export function ApproveBaseStake({
   }, [estimatedAnnualRewards]);
 
   const daysSpent = useMemo(() => {
-    if (totalAnnualRewardsFiatValue && estimateFeeResp?.feeFiatValue) {
-      return calcDaysSpent(
-        totalAnnualRewardsFiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+    // if (totalAnnualRewardsFiatValue && estimateFeeResp?.feeFiatValue) {
+    //   return calcDaysSpent(
+    //     totalAnnualRewardsFiatValue,
+    //     estimateFeeResp.feeFiatValue,
+    //   );
+    // }
+    if (estimateFeeResp?.coverFeeSeconds) {
+      return formatStakingDistanceToNowStrict(estimateFeeResp.coverFeeSeconds);
     }
-  }, [estimateFeeResp?.feeFiatValue, totalAnnualRewardsFiatValue]);
+  }, [estimateFeeResp?.coverFeeSeconds]);
 
   const checkEstimateGasAlert = useCallback(
     async (onNext: () => Promise<void>) => {
@@ -362,17 +366,17 @@ export function ApproveBaseStake({
         return onNext();
       }
 
-      const daySpent = calcDaysSpent(
-        totalAnnualRewardsFiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+      const daySpent =
+        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
 
       if (!daySpent || daySpent <= 5) {
         return onNext();
       }
 
       showEstimateGasAlert({
-        daysConsumed: daySpent,
+        daysConsumed: formatStakingDistanceToNowStrict(
+          estimateFeeResp.coverFeeSeconds,
+        ),
         estFiatValue: estimateFeeResp.feeFiatValue,
         onConfirm: async (dialogInstance: IDialogInstance) => {
           await dialogInstance.close();

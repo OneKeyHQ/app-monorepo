@@ -275,13 +275,12 @@ export function UniversalStake({
   }, [minStakeTerm]);
 
   const daysSpent = useMemo(() => {
-    if (estAnnualRewardsState?.fiatValue && estimateFeeResp?.feeFiatValue) {
-      return calcDaysSpent(
-        estAnnualRewardsState?.fiatValue,
-        estimateFeeResp.feeFiatValue,
+    if (estAnnualRewardsState?.coverFeeSeconds) {
+      return formatStakingDistanceToNowStrict(
+        estAnnualRewardsState?.coverFeeSeconds,
       );
     }
-  }, [estimateFeeResp?.feeFiatValue, estAnnualRewardsState?.fiatValue]);
+  }, [estAnnualRewardsState?.coverFeeSeconds]);
 
   const onPress = useCallback(async () => {
     Keyboard.dismiss();

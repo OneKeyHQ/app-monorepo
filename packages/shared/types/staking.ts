@@ -443,6 +443,7 @@ export type IEarnUnbondingDelegationList = IEarnUnbondingDelegationListItem[];
 
 export type IEarnEstimateFeeResp = {
   coverFeeDays?: string;
+  coverFeeSeconds?: string;
   feeFiatValue: string;
   token: {
     balance: string;
