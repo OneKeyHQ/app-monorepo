@@ -194,8 +194,14 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveInfo, deriveInfoItems } =
-    activeAccount;
+  const {
+    account,
+    wallet,
+    network,
+    deriveInfo,
+    deriveInfoItems,
+    vaultSettings,
+  } = activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -281,6 +287,7 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   // show copy address icon button if account has multiple derive types
   if (
+    vaultSettings?.mergeDeriveAssetsEnabled &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
     deriveInfoItems.length > 1
   ) {

@@ -53,14 +53,15 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network, wallet, deriveInfoItems },
+    activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
 
   const mergeDeriveAddressData =
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
-    deriveInfoItems.length > 1;
+    deriveInfoItems.length > 1 &&
+    vaultSettings?.mergeDeriveAssetsEnabled;
 
   const handleHistoryItemPress = useCallback(
     async (history: IAccountHistoryTx) => {
