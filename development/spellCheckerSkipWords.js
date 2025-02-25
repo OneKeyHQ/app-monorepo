@@ -823,6 +823,7 @@ module.exports = [
   'Blockflow',
   'fet',
   'cex',
+  'Lokalise',
   'bundler',
   'dai',
 ];
