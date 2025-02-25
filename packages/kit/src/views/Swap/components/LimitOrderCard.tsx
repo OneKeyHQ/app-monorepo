@@ -165,14 +165,14 @@ const LimitOrderCard = ({
     let label = intl.formatMessage({
       id: ETranslations.Limit_order_status_open,
     });
-    let color = '@textCaution';
+    let color = '$textSuccess';
     if (status) {
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
             id: ETranslations.Limit_order_cancel,
           });
-          color = '@textCritical';
+          color = '$textCritical';
           break;
         case ESwapLimitOrderStatus.FULFILLED:
           label = intl.formatMessage({
@@ -184,6 +184,7 @@ const LimitOrderCard = ({
           label = intl.formatMessage({
             id: ETranslations.Limit_order_status_expired,
           });
+          color = '$textCaution';
           break;
         case ESwapLimitOrderStatus.PRESIGNATURE_PENDING:
           label = intl.formatMessage({
