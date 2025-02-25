@@ -31,10 +31,16 @@ import {
 } from '../../states/jotai/contexts/historyList';
 import { ListItem } from '../ListItem';
 import { ListToolToolBar } from '../ListToolBar';
+import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 
 type IProps = {
   filteredHistory: IAccountHistoryTx[];
 };
+
+const filterScamHistorySupportedNetworks =
+  getNetworksSupportFilterScamHistory();
+const filterScamHistorySupportedNetworkIds =
+  filterScamHistorySupportedNetworks.map((n) => n.id);
 
 function TxHistoryListHeader({ filteredHistory }: IProps) {
   const intl = useIntl();
@@ -59,7 +65,9 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
   } = useActiveAccount({ num: 0 });
 
   const filterScamHistorySupported = useMemo(
-    () => network?.isAllNetworks || network?.backendIndex,
+    () =>
+      network?.isAllNetworks ||
+      filterScamHistorySupportedNetworkIds.includes(network?.id ?? ''),
     [network],
   );
 
