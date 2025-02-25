@@ -183,7 +183,7 @@ function TableRow<T>({
     }
   }, [drag, draggable, getTimeDiff, onRowEvents]);
 
-  const nativeScaleAnimationProps: IStackProps = platformEnv.isNative
+  const nativeScaleAnimationProps: IStackProps = platformEnv.isNativeIOS
     ? {
         scale: isDragging ? 0.9 : 1,
         animateOnly: ['transform'],
