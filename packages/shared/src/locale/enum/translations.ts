@@ -448,6 +448,7 @@
   earn_earnings_start = 'earn.earnings_start',
   earn_est_annual_rewards = 'earn.est_annual_rewards',
   earn_est_receive = 'earn.est_receive',
+  earn_est_receive_tooltip = 'earn.est_receive_tooltip',
   earn_feature_1_desc = 'earn.feature_1_desc',
   earn_feature_1_title = 'earn.feature_1_title',
   earn_feature_2_desc = 'earn.feature_2_desc',
