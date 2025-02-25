@@ -111,7 +111,6 @@ export default class CoreChainSoftware extends CoreChainApiBase {
 
   override async signMessage(payload: ICoreApiSignMsgPayload): Promise<string> {
     const { data, signer } = JSON.parse(payload.unsignedMsg.message);
-
     const messageData = Buffer.from(data).toString('base64');
     const unSignDoc = getADR36SignDoc(signer, messageData);
     const encodedTx = TransactionWrapper.fromAminoSignDoc(unSignDoc, undefined);
