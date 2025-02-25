@@ -30,6 +30,8 @@ import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import SwapInputActions from './SwapInputActions';
 
+import type { StyleProp, TextStyle } from 'react-native';
+
 interface ISwapInputContainerProps {
   direction: ESwapDirectionType;
   token?: ISwapToken;
@@ -249,7 +251,7 @@ const SwapInputContainer = ({
             !platformEnv.isNative && direction === ESwapDirectionType.TO
               ? ({
                   caretColor: 'transparent',
-                } as any)
+                } as unknown as StyleProp<TextStyle>)
               : undefined,
           inputAccessoryViewID:
             direction === ESwapDirectionType.FROM && platformEnv.isNativeIOS
