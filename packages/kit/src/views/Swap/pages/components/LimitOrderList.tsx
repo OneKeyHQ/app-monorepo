@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -65,12 +65,15 @@ const LimitOrderList = ({
   );
   const onCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
-      Dialog.show({
+      const dialog = Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.limit_cancel_order_title,
         }),
         renderContent: <LimitOrderCancelDialog item={item} />,
-        onConfirm: () => runCancel(item),
+        onConfirm: async () => {
+          await dialog.close();
+          await runCancel(item);
+        },
         showCancelButton: true,
         showConfirmButton: true,
       });
@@ -93,7 +96,15 @@ const LimitOrderList = ({
     let filteredData = swapLimitOrders;
     if (type === 'open') {
       filteredData = swapLimitOrders.filter(
-        (order) => order.status === ESwapLimitOrderStatus.OPEN,
+        (order) =>
+          order.status === ESwapLimitOrderStatus.OPEN ||
+          order.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+      );
+    } else {
+      filteredData = swapLimitOrders.filter(
+        (order) =>
+          order.status !== ESwapLimitOrderStatus.OPEN &&
+          order.status !== ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
       );
     }
     return (
@@ -118,6 +129,7 @@ const LimitOrderList = ({
     loadingSkeleton
   ) : (
     <ListView
+      flex={1}
       borderRadius="$3"
       estimatedItemSize="$20"
       data={orderData}
