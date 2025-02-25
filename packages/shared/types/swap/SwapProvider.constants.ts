@@ -1068,6 +1068,19 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
     },
     {
       'networkId': 'evm--42161',
+      'contractAddress': '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+      'name': 'Wrapped Ether',
+      'symbol': 'WETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0x82af49447d8a07e3bd95bd0d56f35241523fbab1-1720668347864.png',
+      'isNative': false,
+      'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
+    },
+    {
+      'networkId': 'evm--42161',
       'contractAddress': '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9',
       'name': 'Tether USD',
       'symbol': 'USDT',
