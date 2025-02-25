@@ -743,7 +743,7 @@ class ServiceAccount extends ServiceBase {
       );
     }
     // restoreAccountsToWallet
-    await localDb.addAccountsToWallet({
+    const { existsAccounts } = await localDb.addAccountsToWallet({
       walletId,
       accounts,
       importedCredential,
@@ -761,10 +761,15 @@ class ServiceAccount extends ServiceBase {
         skipIfExists: true,
       });
       for (const account of accounts) {
-        await this.setAccountName({
-          name: account.name,
-          indexedAccountId: account.indexedAccountId,
-        });
+        const isAccountExists = existsAccounts.some(
+          (existsAccount) => existsAccount.id === account.id,
+        );
+        if (!isAccountExists) {
+          await this.setAccountName({
+            name: account.name,
+            indexedAccountId: account.indexedAccountId,
+          });
+        }
       }
     }
   }

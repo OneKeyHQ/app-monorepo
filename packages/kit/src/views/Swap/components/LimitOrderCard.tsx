@@ -44,31 +44,21 @@ const LimitOrderCard = ({
   const createdAtFormat = useMemo(() => {
     const date = new BigNumber(item.createdAt).toNumber();
     const dateStr = formatDate(new Date(date), {
-      hideYear: false,
+      hideSeconds: true,
     });
     return (
       <XStack justifyContent="space-between">
         <SizableText size="$bodySm" color="$textSubdued">
           {dateStr}
         </SizableText>
-        {!hiddenCancelIcon ? (
-          <IconButton
-            icon="DeleteOutline"
-            size="small"
-            onPress={() => {
-              onCancel?.();
-            }}
-            loading={cancelLoading}
-          />
-        ) : null}
       </XStack>
     );
-  }, [item.createdAt, hiddenCancelIcon, cancelLoading, onCancel]);
+  }, [item.createdAt]);
 
   const expirationTitle = useMemo(() => {
     const date = new BigNumber(item.expiredAt).shiftedBy(3).toNumber();
     const dateStr = formatDate(new Date(date), {
-      hideYear: false,
+      hideSeconds: true,
     });
     return (
       <YStack
@@ -94,32 +84,22 @@ const LimitOrderCard = ({
 
     return (
       <XStack gap="$2" alignItems="center">
-        <XStack gap="$1">
+        <XStack gap="$1" alignItems="center">
           <Token size="xs" tokenImageUri={fromTokenInfo?.logoURI} />
-          <NumberSizeableText
-            size="$bodySm"
-            color="$textSubdued"
-            formatter="balance"
-          >
+          <NumberSizeableText size="$bodyMd" formatter="balance">
             {fromAmountFormatted.toFixed()}
           </NumberSizeableText>
-          <SizableText size="$bodySm" color="$textSubdued">
+          <SizableText size="$bodyMd">
             {fromTokenInfo?.symbol ?? '-'}
           </SizableText>
         </XStack>
-        <SizableText size="$bodyMdMedium">→</SizableText>
-        <XStack gap="$1">
+        <SizableText size="$bodyMd">→</SizableText>
+        <XStack gap="$1" alignItems="center">
           <Token size="xs" tokenImageUri={toTokenInfo?.logoURI} />
-          <NumberSizeableText
-            size="$bodySm"
-            color="$textSubdued"
-            formatter="balance"
-          >
+          <NumberSizeableText size="$bodyMd" formatter="balance">
             {toAmountFormatted.toFixed()}
           </NumberSizeableText>
-          <SizableText size="$bodySm" color="$textSubdued">
-            {toTokenInfo?.symbol ?? '-'}
-          </SizableText>
+          <SizableText size="$bodyMd">{toTokenInfo?.symbol ?? '-'}</SizableText>
         </XStack>
       </XStack>
     );
@@ -231,6 +211,7 @@ const LimitOrderCard = ({
           </SizableText>
           <Progress
             w={progressWidth}
+            h="$1"
             colors={['$neutral5', '$textSuccess']}
             value={Number(sellPercentage)}
           />
@@ -256,10 +237,24 @@ const LimitOrderCard = ({
       borderRadius="$3"
       gap="$3"
     >
-      <YStack gap="$2">
-        {createdAtFormat}
-        {tokenInfo()}
-      </YStack>
+      <XStack justifyContent="space-between" alignItems="flex-start">
+        <YStack gap="$2">
+          {createdAtFormat}
+          {tokenInfo()}
+        </YStack>
+        {!hiddenCancelIcon ? (
+          <IconButton
+            icon="DeleteOutline"
+            variant="tertiary"
+            color="$iconSubdued"
+            size="small"
+            onPress={() => {
+              onCancel?.();
+            }}
+            loading={cancelLoading}
+          />
+        ) : null}
+      </XStack>
       <Divider />
       <XStack
         flexWrap="wrap"
