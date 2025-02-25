@@ -471,7 +471,6 @@ class ServiceHardwareUI extends ServiceBase {
       }
       throw error;
     } finally {
-      console.log('connectId---', connectId);
       const handleError = () => {
         if (platformEnv.isNative && errorCode) {
           setTimeout(async () => {
