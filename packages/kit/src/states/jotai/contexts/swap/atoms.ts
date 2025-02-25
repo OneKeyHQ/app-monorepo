@@ -20,10 +20,10 @@ import type {
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  ESwapLimitOrderExpiryStep,
   ESwapLimitPartiallyFillStepMap,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
+  defaultLimitExpirationTime,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -450,7 +450,7 @@ export const {
   use: useSwapLimitExpirationTimeAtom,
 } = contextAtom<{ label: string; value: string }>({
   label: '',
-  value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+  value: defaultLimitExpirationTime.toString(),
 });
 
 export const {

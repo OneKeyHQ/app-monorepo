@@ -53,11 +53,7 @@ const LimitInfoContainer = () => {
         </XStack>
       </XStack>
       <LimitRateInput
-        limitPriceRateValue={
-          limitPriceSetReverse
-            ? limitPriceUseRate.reverseRate
-            : limitPriceUseRate.rate
-        }
+        inputRate={limitPriceUseRate.inputRate}
         onReverseChange={onChangeReverse}
         reverse={limitPriceSetReverse}
         onChangeText={onLimitRateChange}
