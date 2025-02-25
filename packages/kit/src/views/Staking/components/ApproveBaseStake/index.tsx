@@ -22,6 +22,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
@@ -54,10 +55,7 @@ import {
 } from '../EstimateNetworkFee';
 import { MorphoApy } from '../ProtocolDetails/MorphoApy';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
-import {
-  PercentageStageOnKeyboard,
-  StakingAmountInput,
-} from '../StakingAmountInput';
+import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';

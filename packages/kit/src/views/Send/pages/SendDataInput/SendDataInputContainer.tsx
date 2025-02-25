@@ -34,8 +34,8 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { PercentageStageOnKeyboard } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -77,7 +77,6 @@ import type { IToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 
 import { showBalanceDetailsDialog } from '../../../Home/components/BalanceDetailsDialog';
 import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { PercentageStageOnKeyboard } from '../../../Staking/components/StakingAmountInput';
 import { calcPercentBalance } from '../../../Staking/components/utils';
 
 import type { RouteProp } from '@react-navigation/core';
