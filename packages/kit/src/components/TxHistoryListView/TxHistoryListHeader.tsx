@@ -4,11 +4,13 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   ESwitchSize,
   IconButton,
   Popover,
   Stack,
   Switch,
+  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -36,6 +38,7 @@ type IProps = {
 
 function TxHistoryListHeader({ filteredHistory }: IProps) {
   const intl = useIntl();
+  const media = useMedia();
   const [searchKey] = useSearchKeyAtom();
   const [settings, setSettings] = useSettingsPersistAtom();
   const { updateSearchKey } = useHistoryListActions().current;
@@ -77,7 +80,21 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_settings })}
             renderTrigger={
-              <IconButton variant="tertiary" icon="SliderVerOutline" />
+              media.md ? (
+                <IconButton
+                  title={intl.formatMessage({
+                    id: ETranslations.manage_token_custom_token_title,
+                  })}
+                  variant="tertiary"
+                  icon="SliderHorOutline"
+                />
+              ) : (
+                <Button icon="SliderHorOutline" size="small" variant="tertiary">
+                  {intl.formatMessage({
+                    id: ETranslations.global_manage,
+                  })}
+                </Button>
+              )
             }
             renderContent={
               <Stack py="$2">
