@@ -593,7 +593,7 @@ function HardwareUiStateContainerCmpControlled() {
         }
         if (dialogProps) {
           setTimeout(() => {
-            Dialog.show(dialogProps);
+            Dialog.show(dialogProps as IDialogShowProps);
           }, 200);
         }
       },
