@@ -47,7 +47,7 @@
     <meta-data android:name="expo.modules.updates.EXPO_SDK_VERSION" android:value="49.0.0"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_CHECK_ON_LAUNCH" android:value="ALWAYS"/>
     <meta-data android:name="expo.modules.updates.EXPO_UPDATES_LAUNCH_WAIT_MS" android:value="0"/>
-    <meta-data android:name="expo.modules.notifications.default_notification_icon" android:resource="@drawable/notification_icon"/>
+    <meta-data android:name="expo.modules.notifications.default_notification_icon" android:resource="@drawable/jpush_notification_icon"/>
     <meta-data android:name="expo.modules.notifications.default_notification_color" android:resource="@color/notification_icon_color"/>
     <activity android:name=".MainActivity" android:label="@string/app_name" android:configChanges="keyboard|keyboardHidden|orientation|screenSize|uiMode" android:launchMode="singleTask" android:windowSoftInputMode="stateAlwaysHidden|adjustPan" android:theme="@style/Theme.App.SplashScreen" android:exported="true" android:screenOrientation="portrait" android:supportsPictureInPicture="true">
       <intent-filter>
