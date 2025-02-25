@@ -37,7 +37,14 @@ const LimitRateInput = ({
   );
   return (
     <XStack gap="$1" alignItems="center">
-      <SizableText size="$bodyMd" numberOfLines={1} flexShrink={0}>
+      <SizableText
+        size="$bodyMd"
+        numberOfLines={1}
+        flexShrink={0}
+        borderRightWidth={1}
+        borderRightColor="$borderSubdued"
+        paddingRight="$3"
+      >
         {fromTokenInfo ? `1 ${currency.from} = ` : '-'}
       </SizableText>
       <Input

@@ -53,9 +53,9 @@ const LimitOrderOpenItem = ({
         });
       }}
     >
-      <XStack gap="$2">
-        <Icon size={16} name="ClockTimeHistoryOutline" color="$iconSubdued" />
-        <SizableText size="$bodyMdMedium">
+      <XStack gap="$2" alignItems="center">
+        <Icon size={20} name="ClockTimeHistorySolid" color="$iconSubdued" />
+        <SizableText size="$bodyMdMedium" color="$text">
           {`${openLimitOrder.length} open limit order`}
         </SizableText>
       </XStack>

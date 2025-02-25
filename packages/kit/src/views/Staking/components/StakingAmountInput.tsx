@@ -15,6 +15,8 @@ import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import SwapPercentageStageBadge from '@onekeyhq/kit/src/views/Swap/components/SwapPercentageStageBadge';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import type { StyleProp, TextStyle } from 'react-native';
+
 export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
 
@@ -80,11 +82,12 @@ export function StakingAmountInput({
         borderWidth="$0"
         inputProps={{
           ...inputProps,
-          style: !platformEnv.isNative
-            ? ({
-                caretColor: 'transparent',
-              } as any)
-            : undefined,
+          style:
+            !platformEnv.isNative && disabled
+              ? ({
+                  caretColor: 'transparent',
+                } as unknown as StyleProp<TextStyle>)
+              : undefined,
           inputAccessoryViewID: stakingInputAccessoryViewID,
           autoCorrect: false,
           spellCheck: false,

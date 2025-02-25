@@ -1,14 +1,17 @@
 import type { ReactElement } from 'react';
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { isNil } from 'lodash';
-import { useMedia, useProps } from 'tamagui';
+import { useProps } from 'tamagui';
+import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { IconButton } from '../../actions';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
+
+import CloseButton from './CloseButton';
+import { PaginationButton } from './PaginationButton';
 
 import type { IIconButtonProps } from '../../actions';
 import type {
@@ -34,11 +37,15 @@ function BannerItem<T extends IBannerData>({
   itemTitleContainerStyle,
   onPress,
   item: rawItem,
+  isFirst,
+  isLast,
 }: {
   onPress: (item: T) => void;
   item: T;
   itemContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
+  isFirst?: boolean;
+  isLast?: boolean;
 }) {
   const item = useProps(rawItem, {
     resolveValues: 'value',
@@ -48,6 +55,11 @@ function BannerItem<T extends IBannerData>({
   }, [item, onPress]);
   return (
     <Stack
+      borderTopLeftRadius={isFirst ? '$3' : 0}
+      borderBottomLeftRadius={isFirst ? '$3' : 0}
+      borderTopRightRadius={isLast ? '$3' : 0}
+      borderBottomRightRadius={isLast ? '$3' : 0}
+      overflow="hidden"
       tag="section"
       flex={1}
       position="relative"
@@ -55,19 +67,17 @@ function BannerItem<T extends IBannerData>({
       onPress={onItemPress}
       {...itemContainerStyle}
     >
-      {item.imgUrl ? (
-        <Image flex={1} borderRadius="$3" bg="$bgStrong" src={item.imgUrl} />
-      ) : null}
+      {item.imgUrl ? <Image flex={1} bg="$bgStrong" src={item.imgUrl} /> : null}
 
       {item.imgSource ? (
         <Image
           flex={1}
-          borderRadius="$3"
           bg="$bgStrong"
           source={item.imgSource}
           resizeMode={item.imgResizeMode}
         />
       ) : null}
+
       <Stack position="absolute" {...itemTitleContainerStyle}>
         {
           // TODO：Lokalise processes \n as \\n when handling translations
@@ -97,7 +107,9 @@ export function Banner<T extends IBannerData>({
   indicatorContainerStyle,
   leftIconButtonStyle,
   rightIconButtonStyle,
-  showPaginationButton = false,
+  showPaginationButton = !platformEnv.isNative,
+  showCloseButton = false,
+  onBannerClose,
   ...props
 }: {
   data: T[];
@@ -106,24 +118,31 @@ export function Banner<T extends IBannerData>({
   rightIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
   indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
-  showPaginationButton?: boolean;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
   isLoading?: boolean;
   emptyComponent?: ReactElement;
+  showCloseButton?: boolean;
+  showPaginationButton?: boolean;
+  onBannerClose?: (bannerId: string) => void;
 } & IStackStyle) {
-  const media = useMedia();
+  const [isHovering, setIsHovering] = useState(false);
+  const setIsHoveringThrottled = useDebouncedCallback((value: boolean) => {
+    setIsHovering(value);
+  }, 200);
 
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
       <BannerItem
+        isFirst={item.bannerId === data[0].bannerId}
+        isLast={item.bannerId === data[data.length - 1].bannerId}
         onPress={onItemPress}
         item={item}
         itemContainerStyle={itemContainerStyle}
         itemTitleContainerStyle={itemTitleContainerStyle}
       />
     ),
-    [itemContainerStyle, itemTitleContainerStyle, onItemPress],
+    [data, itemContainerStyle, itemTitleContainerStyle, onItemPress],
   );
 
   const renderPagination = useCallback(
@@ -137,12 +156,18 @@ export function Banner<T extends IBannerData>({
           <XStack
             gap="$1"
             position="absolute"
-            right="$10"
-            bottom="$10"
+            right={0}
+            width="100%"
+            jc="center"
+            bottom="$2"
             {...indicatorContainerStyle}
           >
             {data.map((_, index) => (
               <Stack
+                shadowColor="$blackA1"
+                shadowOffset={{ width: 2, height: 2 }}
+                shadowOpacity={0.1}
+                shadowRadius={3}
                 key={index}
                 w="$3"
                 $gtMd={{
@@ -156,57 +181,39 @@ export function Banner<T extends IBannerData>({
             ))}
           </XStack>
         ) : null}
-        {showPaginationButton || media.gtMd ? (
-          <>
-            {currentIndex !== 0 ? (
-              <IconButton
-                position="absolute"
-                left="$10"
-                bottom="50%"
-                transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
-                icon="ChevronLeftOutline"
-                variant="tertiary"
-                iconProps={{
-                  color:
-                    data[currentIndex]?.theme === 'light'
-                      ? '$iconSubduedLight'
-                      : '$iconSubduedDark',
-                }}
-                onPress={gotToPrevIndex}
-                {...leftIconButtonStyle}
-              />
-            ) : null}
 
-            {currentIndex !== data.length - 1 ? (
-              <IconButton
-                icon="ChevronRightOutline"
-                variant="tertiary"
-                position="absolute"
-                right="$10"
-                bottom="50%"
-                transform={platformEnv.isNative ? '' : 'translateY(-50%)'}
-                iconProps={{
-                  color:
-                    data[currentIndex]?.theme === 'light'
-                      ? '$iconSubduedLight'
-                      : '$iconSubduedDark',
-                }}
-                onPress={goToNextIndex}
-                disabled={currentIndex === data.length - 1}
-                {...rightIconButtonStyle}
-              />
-            ) : null}
+        {showPaginationButton ? (
+          <>
+            <PaginationButton
+              isVisible={currentIndex !== 0 ? isHovering : false}
+              direction="previous"
+              onPress={gotToPrevIndex}
+            />
+
+            <PaginationButton
+              isVisible={currentIndex !== data.length - 1 ? isHovering : false}
+              direction="next"
+              onPress={goToNextIndex}
+            />
           </>
+        ) : null}
+
+        {showCloseButton ? (
+          <CloseButton
+            onPress={() => {
+              onBannerClose?.(data[currentIndex].bannerId ?? '');
+            }}
+          />
         ) : null}
       </>
     ),
     [
-      showPaginationButton,
-      media.gtMd,
       data,
-      leftIconButtonStyle,
-      rightIconButtonStyle,
       indicatorContainerStyle,
+      isHovering,
+      onBannerClose,
+      showCloseButton,
+      showPaginationButton,
     ],
   );
 
@@ -217,16 +224,35 @@ export function Banner<T extends IBannerData>({
   }
 
   return (
-    <Swiper
-      autoplay
-      autoplayLoop
-      autoplayLoopKeepAnimation
-      autoplayDelayMs={3000}
-      keyExtractor={keyExtractor}
-      data={data}
-      renderItem={renderItem}
-      renderPagination={renderPagination}
-      {...(props as any)}
-    />
+    <Stack
+      onMouseEnter={() => {
+        setIsHoveringThrottled(true);
+      }}
+      onMouseLeave={() => {
+        setIsHoveringThrottled(false);
+      }}
+      w="100%"
+    >
+      <Swiper
+        position="relative"
+        autoplay
+        autoplayLoop
+        autoplayLoopKeepAnimation
+        autoplayDelayMs={3000}
+        keyExtractor={keyExtractor}
+        data={data}
+        renderItem={renderItem}
+        renderPagination={renderPagination}
+        overflow="hidden"
+        borderRadius="$3"
+        onPointerEnter={() => {
+          setIsHoveringThrottled(true);
+        }}
+        onPointerLeave={() => {
+          setIsHoveringThrottled(false);
+        }}
+        {...(props as any)}
+      />
+    </Stack>
   );
 }

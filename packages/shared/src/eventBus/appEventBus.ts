@@ -102,6 +102,7 @@ export enum EAppEventBusNames {
   PrimeDeviceLogout = 'PrimeDeviceLogout',
   CreateAddressByDialog = 'CreateAddressByDialog',
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
+  HideTabBar = 'HideTabBar',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -303,6 +304,7 @@ export interface IAppEventBusPayload {
     promiseId: number;
     type: 'scam' | 'contract';
   };
+  [EAppEventBusNames.HideTabBar]: boolean;
 }
 
 export enum EEventBusBroadcastMethodNames {

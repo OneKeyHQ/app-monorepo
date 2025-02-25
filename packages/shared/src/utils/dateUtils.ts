@@ -104,6 +104,9 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
   if (options?.hideTimeForever) {
     formatTemplate = formatTemplate.replace(', HH:mm:ss', '');
   }
+  if (options?.hideSeconds) {
+    formatTemplate = formatTemplate.replace('HH:mm:ss', 'HH:mm');
+  }
 
   return formatDateFns(parsedDate, formatTemplate) ?? '';
 }
