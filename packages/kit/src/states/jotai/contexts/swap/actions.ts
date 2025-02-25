@@ -12,6 +12,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   swapApprovingStateFetchInterval,
@@ -253,6 +254,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   selectFromToken = contextAtomMethod(
     async (get, set, token: ISwapToken, disableCheckToToken?: boolean) => {
       const toToken = get(swapSelectToTokenAtom());
+      if (
+        equalTokenNoCaseSensitive({
+          token1: toToken,
+          token2: token,
+        })
+      ) {
+        return;
+      }
       const swapTypeSwitchValue = get(swapTypeSwitchAtom());
       this.cleanManualSelectQuoteProviders.call(set);
       await this.syncNetworksSort.call(set, token.networkId);
@@ -279,6 +288,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
 
   selectToToken = contextAtomMethod(async (get, set, token: ISwapToken) => {
     this.cleanManualSelectQuoteProviders.call(set);
+    const fromToken = get(swapSelectFromTokenAtom());
+    if (
+      equalTokenNoCaseSensitive({
+        token1: fromToken,
+        token2: token,
+      })
+    ) {
+      return;
+    }
     await this.syncNetworksSort.call(set, token.networkId);
     set(swapSelectToTokenAtom(), token);
   });
@@ -713,8 +731,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                 const quoteList = get(swapQuoteListAtom());
                 const updateQuoteList = quoteList.filter(
                   (quote) =>
-                    quote.info.provider !== preApproveTx.provider ||
-                    quote.quoteId !== preApproveTx.quoteId,
+                    quote.info.provider === preApproveTx.provider &&
+                    quote.quoteId === preApproveTx.quoteId,
                 );
                 set(swapQuoteListAtom(), [...updateQuoteList]);
               }
@@ -1391,27 +1409,37 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               if (detailInfo[0].logoURI) {
                 condition.logoURI = detailInfo[0].logoURI;
               }
-
-              if (type === ESwapDirectionType.FROM) {
-                set(swapSelectFromTokenAtom(), (pre) => {
-                  if (pre) {
-                    return {
-                      ...pre,
-                      ...condition,
-                      accountAddress,
-                    };
-                  }
-                });
-              } else {
-                set(swapSelectToTokenAtom(), (pre) => {
-                  if (pre) {
-                    return {
-                      ...pre,
-                      ...condition,
-                      accountAddress,
-                    };
-                  }
-                });
+              const newToken =
+                type === ESwapDirectionType.FROM
+                  ? get(swapSelectFromTokenAtom())
+                  : get(swapSelectToTokenAtom());
+              if (
+                equalTokenNoCaseSensitive({
+                  token1: newToken,
+                  token2: token,
+                })
+              ) {
+                if (type === ESwapDirectionType.FROM) {
+                  set(swapSelectFromTokenAtom(), (pre) => {
+                    if (pre) {
+                      return {
+                        ...pre,
+                        ...condition,
+                        accountAddress,
+                      };
+                    }
+                  });
+                } else {
+                  set(swapSelectToTokenAtom(), (pre) => {
+                    if (pre) {
+                      return {
+                        ...pre,
+                        ...condition,
+                        accountAddress,
+                      };
+                    }
+                  });
+                }
               }
             }
           } catch (e: any) {
@@ -1676,24 +1704,38 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           }
           // limit only support single network
           if (toToken?.networkId !== fromToken?.networkId) {
-            if (
-              fromNetworkDefault?.limitToToken ||
-              fromNetworkDefault?.toToken
-            ) {
-              set(
-                swapSelectToTokenAtom(),
-                fromNetworkDefault?.limitToToken ?? fromNetworkDefault?.toToken,
-              );
+            if (fromNetworkDefault?.limitToToken) {
               if (
-                fromNetworkDefault.limitToToken?.networkId ||
-                fromNetworkDefault?.toToken?.networkId
+                !fromToken ||
+                !equalsIgnoreCase(
+                  fromToken?.contractAddress,
+                  fromNetworkDefault?.limitToToken?.contractAddress,
+                )
               ) {
-                void this.syncNetworksSort.call(
-                  set,
-                  fromNetworkDefault.limitToToken?.networkId ??
-                    fromNetworkDefault?.toToken?.networkId ??
-                    '',
+                set(swapSelectToTokenAtom(), fromNetworkDefault?.limitToToken);
+                if (fromNetworkDefault.limitToToken?.networkId) {
+                  void this.syncNetworksSort.call(
+                    set,
+                    fromNetworkDefault.limitToToken?.networkId,
+                  );
+                }
+              } else if (
+                fromToken &&
+                !equalsIgnoreCase(
+                  fromToken?.contractAddress,
+                  fromNetworkDefault?.limitFromToken?.contractAddress,
+                )
+              ) {
+                set(
+                  swapSelectToTokenAtom(),
+                  fromNetworkDefault?.limitFromToken,
                 );
+                if (fromNetworkDefault.limitFromToken?.networkId) {
+                  void this.syncNetworksSort.call(
+                    set,
+                    fromNetworkDefault.limitFromToken?.networkId,
+                  );
+                }
               }
             } else {
               void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
