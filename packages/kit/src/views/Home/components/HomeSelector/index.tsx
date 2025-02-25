@@ -24,9 +24,9 @@ function HomeSelector(props: IProps) {
       {!createAddressDisabled ? (
         <AccountSelectorActiveAccountHome num={num} />
       ) : null}
-      {!createAddressDisabled ? (
+      {/* {!createAddressDisabled ? (
         <DeriveTypeSelectorTriggerForHome num={num} />
-      ) : null}
+      ) : null} */}
     </XStack>
   );
 }

@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
   Icon,
+  IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
   Skeleton,
@@ -25,11 +26,13 @@ import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
 import {
   EModalReceiveRoutes,
   EModalRoutes,
+  EModalWalletAddressRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useListenTabFocusState from '../../hooks/useListenTabFocusState';
@@ -191,7 +194,8 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
   const { copyText } = useClipboard();
-  const { account, wallet, network, deriveInfo } = activeAccount;
+  const { account, wallet, network, deriveInfo, deriveInfoItems } =
+    activeAccount;
 
   const { selectedAccount } = useSelectedAccount({ num });
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
@@ -246,6 +250,20 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
     wallet,
   ]);
 
+  const handleMultiDeriveAddressOnPress = useCallback(() => {
+    if (!network || !activeAccount.indexedAccount) {
+      return;
+    }
+    navigation.pushModal(EModalRoutes.WalletAddress, {
+      screen: EModalWalletAddressRoutes.DeriveTypesAddress,
+      params: {
+        networkId: network.id,
+        indexedAccountId: activeAccount.indexedAccount.id,
+        actionType: EDeriveAddressActionType.Copy,
+      },
+    });
+  }, [activeAccount.indexedAccount, navigation, network]);
+
   useShortcutsOnRouteFocused(
     EShortcutEvents.CopyAddressOrUrl,
     account?.address === ALL_NETWORK_ACCOUNT_MOCK_ADDRESS
@@ -259,6 +277,24 @@ export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
 
   if (accountUtils.isAllNetworkMockAddress({ address: account?.address })) {
     return null;
+  }
+
+  // show copy address icon button if account has multiple derive types
+  if (
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+    deriveInfoItems.length > 1
+  ) {
+    return (
+      <IconButton
+        title={intl.formatMessage({
+          id: ETranslations.global_copy_address,
+        })}
+        icon="Copy3Outline"
+        size="small"
+        variant="tertiary"
+        onPress={handleMultiDeriveAddressOnPress}
+      />
+    );
   }
 
   // show address if account has an address
