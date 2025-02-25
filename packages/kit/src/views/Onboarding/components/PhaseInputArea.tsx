@@ -262,25 +262,17 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      if (platformEnv.isNative && onPasteMnemonic(v, index)) {
-        onInputChange('');
-        onChange?.('');
-        return;
-      }
-
-      // Supports inputting mnemonic phrases via drag-and-drop text, such as 1Password.
-      if (!platformEnv.isNative) {
-        const trimmedValue = v ? v.trim() : '';
-        if (
-          trimmedValue &&
-          trimmedValue.split(' ').filter(Boolean).length === phraseLength &&
-          validateMnemonic(trimmedValue)
-        ) {
-          if (onPasteMnemonic(trimmedValue, 0)) {
-            onInputChange('');
-            onChange?.('');
-            return;
-          }
+      // Supports inputting mnemonic phrases via drag-and-drop text or toolbar of keyboard, such as 1Password.
+      const trimmedValue = v ? v.trim() : '';
+      if (
+        trimmedValue &&
+        trimmedValue.split(' ').filter(Boolean).length === phraseLength &&
+        validateMnemonic(trimmedValue)
+      ) {
+        if (onPasteMnemonic(trimmedValue, 0)) {
+          onInputChange('');
+          onChange?.('');
+          return;
         }
       }
 
@@ -288,7 +280,7 @@ function BasicPhaseInput(
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [index, onChange, onInputChange, onPasteMnemonic, phraseLength],
+    [onChange, onInputChange, onPasteMnemonic, phraseLength],
   );
 
   const handleOpenChange = useCallback(
