@@ -337,11 +337,11 @@ export function getADR36SignDoc(
 export function encodeSecp256k1Pubkey(pubkey: Uint8Array): ICosmosStdPublickey {
   if (pubkey.length !== 33 || (pubkey[0] !== 0x02 && pubkey[0] !== 0x03)) {
     throw new Error(
-      "Public key must be compressed secp256k1, i.e. 33 bytes starting with 0x02 or 0x03"
+      'Public key must be compressed secp256k1, i.e. 33 bytes starting with 0x02 or 0x03',
     );
   }
   return {
-    type: "tendermint/PubKeySecp256k1",
-    value: Buffer.from(pubkey).toString("base64"),
+    type: 'tendermint/PubKeySecp256k1',
+    value: Buffer.from(pubkey).toString('base64'),
   };
 }

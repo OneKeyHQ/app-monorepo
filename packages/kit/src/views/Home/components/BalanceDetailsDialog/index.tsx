@@ -80,7 +80,10 @@ function BalanceDetailsContent({
 
   const { inscriptionEnabled, showDeriveItems, networkAccounts } = result ?? {};
 
-  const { result: { overview, network } = {}, isLoading } = usePromiseResult(
+  const {
+    result: { overview, network } = { overview: undefined, network: undefined },
+    isLoading,
+  } = usePromiseResult(
     async () => {
       if (
         !accountId ||
