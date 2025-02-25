@@ -38,7 +38,7 @@ const LimitOrderListModal = ({
   );
   const intl = useIntl();
   return (
-    <YStack px="$4" pt="$2" gap="$4">
+    <YStack px="$4" pt="$2" gap="$4" flex={1}>
       <SegmentControl
         w="100%"
         fullWidth

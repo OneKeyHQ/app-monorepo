@@ -69,12 +69,9 @@ const SwapHistoryListModal = ({
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const { result: swapTxHistoryList, isLoading } = usePromiseResult(
     async () => {
-      if (historyType !== EProtocolOfExchange.LIMIT) {
-        const histories =
-          await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
-        return histories;
-      }
-      return [];
+      const histories =
+        await backgroundApiProxy.serviceSwap.fetchSwapHistoryListFromSimple();
+      return histories;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [swapHistoryPendingList],
