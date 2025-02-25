@@ -16,7 +16,6 @@ import { CoreSDKLoader } from '@onekeyhq/shared/src/hardware/instance';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';
 
@@ -53,7 +52,6 @@ export type ICloseHardwareUiStateDialogParams = {
   deviceResetToHome?: boolean;
   hardClose?: boolean; // hard close dialog by event bus
   skipDelayClose?: boolean;
-  onClose?: () => void;
 };
 
 @backgroundClass()
@@ -157,27 +155,6 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showBluetoothPermissionDialog({ connectId }: { connectId?: string }) {
-    await hardwareUiStateAtom.set({
-      action: EHardwareUiStateAction.BLUETOOTH_PERMISSION,
-      connectId: connectId || '',
-    });
-  }
-
-  @backgroundMethod()
-  async showBluetoothCharacteristicNotifyChangeFailureDialog({
-    connectId,
-  }: {
-    connectId?: string;
-  }) {
-    await hardwareUiStateAtom.set({
-      action:
-        EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
-      connectId: connectId || '',
-    });
-  }
-
-  @backgroundMethod()
   async sendEnterPinOnDeviceEvent({
     connectId,
     payload,
@@ -242,7 +219,6 @@ class ServiceHardwareUI extends ServiceBase {
       reason,
       deviceResetToHome = true,
       hardClose,
-      onClose,
     } = params;
 
     try {
@@ -270,7 +246,6 @@ class ServiceHardwareUI extends ServiceBase {
           forceDeviceResetToHome: deviceResetToHome,
         });
       }
-      onClose?.();
     } catch (error) {
       // closeHardwareUiStateDialog should be called safely, do not block caller
     }
@@ -302,7 +277,6 @@ class ServiceHardwareUI extends ServiceBase {
 
     let deviceResetToHome = true;
     let isBusy = false;
-    let errorCode: number | undefined;
     try {
       if (this.processingNestedNum <= 0) {
         this.processingNestedNum = 0;
@@ -462,8 +436,6 @@ class ServiceHardwareUI extends ServiceBase {
           ],
         })
       ) {
-        const { code } = (error || {}) as { code?: number };
-        errorCode = code;
         deviceResetToHome = false;
       } else if (!isHardwareError({ error: error as any })) {
         // not hardware error, reset to home
@@ -471,26 +443,6 @@ class ServiceHardwareUI extends ServiceBase {
       }
       throw error;
     } finally {
-      const handleError = () => {
-        if (platformEnv.isNative && errorCode) {
-          setTimeout(async () => {
-            switch (errorCode) {
-              case HardwareErrorCode.BlePermissionError:
-                await this.showBluetoothPermissionDialog({ connectId });
-                break;
-              case HardwareErrorCode.BleLocationError:
-                await this.showBluetoothCharacteristicNotifyChangeFailureDialog(
-                  {
-                    connectId,
-                  },
-                );
-                break;
-              default:
-                break;
-            }
-          }, 880);
-        }
-      };
       if (connectId && this.isOuterProcessing()) {
         if (!skipCloseHardwareUiStateDialog) {
           const closeDialogParams = {
@@ -506,14 +458,11 @@ class ServiceHardwareUI extends ServiceBase {
             connectId,
             skipDeviceCancel: closeDialogParams.skipDeviceCancel,
             deviceResetToHome: closeDialogParams.deviceResetToHome,
-            onClose: handleError,
           });
         }
         void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
           { connectId },
         );
-      } else {
-        handleError();
       }
       this.processingNestedNum -= 1;
     }
