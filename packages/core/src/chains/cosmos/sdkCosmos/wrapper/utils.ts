@@ -12,7 +12,7 @@ import { ProtoSignDoc } from '../proto/protoSignDoc';
 
 import type { TransactionWrapper } from '.';
 import type { ICosmosStdFee } from '../../types';
-import type { ICosmosStdSignDoc } from '../amino/types';
+import type { ICosmosStdPublickey, ICosmosStdSignDoc } from '../amino/types';
 import type { ICosmosUnpackedMessage } from '../proto/protoDecode';
 import type { Coin } from 'cosmjs-types/cosmos/base/v1beta1/coin';
 
@@ -331,5 +331,17 @@ export function getADR36SignDoc(
       },
     ],
     memo: '',
+  };
+}
+
+export function encodeSecp256k1Pubkey(pubkey: Uint8Array): ICosmosStdPublickey {
+  if (pubkey.length !== 33 || (pubkey[0] !== 0x02 && pubkey[0] !== 0x03)) {
+    throw new Error(
+      "Public key must be compressed secp256k1, i.e. 33 bytes starting with 0x02 or 0x03"
+    );
+  }
+  return {
+    type: "tendermint/PubKeySecp256k1",
+    value: Buffer.from(pubkey).toString("base64"),
   };
 }

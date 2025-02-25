@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type {
-  IIconButtonProps,
   IKeyOfIcons,
   ISizableTextProps,
   IYStackProps,
@@ -25,6 +24,7 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
+  Stack,
   XStack,
   YStack,
   useMedia,
@@ -67,7 +67,6 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
-const BANNER_ICON_OFFSET = 34;
 const BANNER_TITLE_OFFSET = {
   desktop: '$5',
   mobile: '$10',
@@ -668,12 +667,6 @@ function AvailableAssets() {
   return null;
 }
 
-const bannerIconStyle: Omit<IIconButtonProps, 'icon'> = {
-  bottom: '$3',
-  size: 'small',
-  transform: platformEnv.isNative ? '' : 'unset',
-};
-
 function BasicEarnHome() {
   const {
     activeAccount: { account, network, indexedAccount },
@@ -862,7 +855,6 @@ function BasicEarnHome() {
     if (earnBanners) {
       return earnBanners.length ? (
         <Banner
-          showPaginationButton={!platformEnv.isNative}
           height="$36"
           $md={{
             height: '$28',
@@ -870,21 +862,6 @@ function BasicEarnHome() {
           data={earnBanners}
           onItemPress={onBannerPress}
           isLoading={false}
-          leftIconButtonStyle={{
-            ...bannerIconStyle,
-            left: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
-          }}
-          rightIconButtonStyle={{
-            ...bannerIconStyle,
-            right: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
-          }}
-          indicatorContainerStyle={{
-            right: 0,
-            width: '100%',
-            jc: 'center',
-            bottom: '$5',
-          }}
-          itemContainerStyle={media.gtLg ? { px: 0 } : { px: '$5' }}
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
@@ -941,6 +918,7 @@ function BasicEarnHome() {
                 isFetchingAccounts={Boolean(result === undefined || isLoading)}
               />
               <YStack
+                px="$5"
                 minHeight="$36"
                 $md={{
                   minHeight: '$28',
@@ -949,6 +927,7 @@ function BasicEarnHome() {
                 width="100%"
                 borderCurve="continuous"
                 $gtLg={{
+                  px: '$0',
                   w: EARN_RIGHT_PANEL_WIDTH,
                 }}
               >

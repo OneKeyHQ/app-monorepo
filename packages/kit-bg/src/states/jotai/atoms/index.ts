@@ -17,3 +17,4 @@ export * from './v4migration';
 export * from './gallery';
 export * from './activeAccountValue';
 export * from './prime';
+export * from './bannerClose';
