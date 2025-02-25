@@ -13,6 +13,7 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
@@ -31,7 +32,6 @@ import {
 } from '../../states/jotai/contexts/historyList';
 import { ListItem } from '../ListItem';
 import { ListToolToolBar } from '../ListToolBar';
-import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 
 type IProps = {
   filteredHistory: IAccountHistoryTx[];
