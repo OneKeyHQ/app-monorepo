@@ -1,12 +1,6 @@
 import type { ReactNode } from 'react';
 
-import {
-  Divider,
-  SizableText,
-  Stack,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Divider, SizableText, XStack, YStack } from '@onekeyhq/components';
 
 export interface ISettingsListRowProps {
   title: string;
