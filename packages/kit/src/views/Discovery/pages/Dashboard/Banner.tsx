@@ -45,13 +45,10 @@ export function DashboardBanner({
       isLoading ? (
         <Stack p="$5">
           <Skeleton
-            h={188}
+            h={120}
             w="100%"
             $gtMd={{
-              height: 268,
-            }}
-            $gtLg={{
-              height: 360,
+              w: 360,
             }}
           />
         </Stack>
@@ -61,7 +58,7 @@ export function DashboardBanner({
 
   return (
     <Stack
-      p="$5"
+      m="$5"
       h={120}
       w="100%"
       $gtSm={{
