@@ -1,30 +1,39 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
+  Accordion,
   Alert,
+  Divider,
+  Icon,
+  IconButton,
   Image,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
-import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
+import {
+  calcPercentBalance,
+  formatApy,
+} from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EApproveType } from '@onekeyhq/shared/types/staking';
 import type {
   IApproveConfirmFnParams,
@@ -43,7 +52,12 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
+import { MorphoApy } from '../ProtocolDetails/MorphoApy';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
+import {
+  PercentageStageOnKeyboard,
+  StakingAmountInput,
+} from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { ValuePriceListItem } from '../ValuePriceListItem';
@@ -243,6 +257,19 @@ export function ApproveBaseStake({
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
   }, [onChangeAmountValue, balance]);
+
+  const onSelectPercentageStage = useCallback(
+    (percent: number) => {
+      onChangeAmountValue(
+        calcPercentBalance({
+          balance,
+          percent,
+          decimals,
+        }),
+      );
+    },
+    [balance, decimals, onChangeAmountValue],
+  );
 
   const estimatedAnnualRewards = useMemo<ITokenAnnualReward[]>(() => {
     const amountBN = new BigNumber(amountValue);
@@ -486,12 +513,116 @@ export function ApproveBaseStake({
     updatePermitCache,
   ]);
 
+  const placeholderTokens = useMemo(
+    () => (
+      <>
+        {details.token.info ? (
+          <NumberSizeableText
+            color="$textPlaceholder"
+            size="$bodyLgMedium"
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: details.token.info.symbol }}
+          >
+            0
+          </NumberSizeableText>
+        ) : null}
+        {details.provider.apys?.rewards
+          ? Object.entries(details.provider.apys.rewards).map(
+              ([tokenAddress, apy]) =>
+                details.rewardAssets?.[tokenAddress] ? (
+                  <NumberSizeableText
+                    key={tokenAddress}
+                    color="$textPlaceholder"
+                    size="$bodyLgMedium"
+                    formatter="balance"
+                    formatterOptions={{
+                      tokenSymbol:
+                        details.rewardAssets?.[tokenAddress].info.symbol,
+                    }}
+                  >
+                    0
+                  </NumberSizeableText>
+                ) : null,
+            )
+          : null}
+      </>
+    ),
+    [details.provider.apys?.rewards, details.rewardAssets, details.token.info],
+  );
+
   const isShowStakeProgress =
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
+
+  const accordionContent = useMemo(() => {
+    const items: ReactElement[] = [];
+    if (Number(amountValue) <= 0) {
+      return items;
+    }
+    if (showEstReceive && estReceiveToken) {
+      items.push(
+        <CalculationListItem>
+          <CalculationListItem.Label
+            size="$bodyMd"
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_est_receive_tooltip,
+            })}
+          >
+            {intl.formatMessage({
+              id: ETranslations.earn_est_receive,
+            })}
+          </CalculationListItem.Label>
+          <CalculationListItem.Value>
+            <NumberSizeableText
+              formatter="balance"
+              size="$bodyMdMedium"
+              formatterOptions={{ tokenSymbol: estReceiveToken }}
+            >
+              {BigNumber(amountValue)
+                .multipliedBy(estReceiveTokenRate)
+                .toFixed()}
+            </NumberSizeableText>
+          </CalculationListItem.Value>
+        </CalculationListItem>,
+      );
+    }
+    if (estimateFeeResp) {
+      items.push(
+        <EstimateNetworkFee
+          labelTextProps={{
+            size: '$bodyMd',
+          }}
+          valueTextProps={{
+            size: '$bodyMdMedium',
+          }}
+          estimateFeeResp={estimateFeeResp}
+          isVisible={!!totalAnnualRewardsFiatValue}
+          onPress={() => {
+            showEstimateGasAlert({
+              daysConsumed: daysSpent,
+              estFiatValue: estimateFeeResp.feeFiatValue,
+            });
+          }}
+        />,
+      );
+    }
+    return items;
+  }, [
+    amountValue,
+    daysSpent,
+    estReceiveToken,
+    estReceiveTokenRate,
+    estimateFeeResp,
+    intl,
+    showEstReceive,
+    showEstimateGasAlert,
+    totalAnnualRewardsFiatValue,
+  ]);
+  const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (
     <StakingFormWrapper>
-      <AmountInput
+      <StakingAmountInput
+        title={intl.formatMessage({ id: ETranslations.earn_deposit })}
         hasError={isInsufficientBalance || isLessThanMinAmount}
         value={amountValue}
         onChange={onChangeAmountValue}
@@ -512,6 +643,7 @@ export function ApproveBaseStake({
           currency: currentValue ? symbol : undefined,
         }}
         enableMaxAmount
+        onSelectPercentageStage={onSelectPercentageStage}
       />
       {platformEnv.isDev ? (
         <SizableText>{`allowance: ${allowance}, shouldApprove: ${
@@ -537,102 +669,178 @@ export function ApproveBaseStake({
           })}
         />
       ) : null}
-      <CalculationList>
-        {estimatedAnnualRewards.length > 0 ? (
-          <CalculationListItem
-            alignItems={
-              estimatedAnnualRewards.length > 1 ? 'flex-start' : 'center'
-            }
-          >
-            <Stack flex={1}>
-              <CalculationListItem.Label whiteSpace="nowrap">
-                {intl.formatMessage({
-                  id: ETranslations.earn_est_annual_rewards,
-                })}
-              </CalculationListItem.Label>
-            </Stack>
-            <YStack gap="$2" ai="flex-end" flex={1} $gtMd={{ flex: 4 }}>
-              {estimatedAnnualRewards.map((reward) => (
-                <ValuePriceListItem
-                  key={reward.token.address}
-                  tokenSymbol={reward.token.symbol}
-                  fiatSymbol={symbol}
-                  amount={reward.amount}
-                  fiatValue={reward.fiatValue}
-                />
-              ))}
-            </YStack>
-          </CalculationListItem>
-        ) : null}
-        {showEstReceive && estReceiveToken && Number(amountValue) > 0 ? (
-          <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.earn_est_receive })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>
-              <SizableText>
-                <NumberSizeableText
-                  formatter="balance"
-                  size="$bodyLgMedium"
-                  formatterOptions={{ tokenSymbol: estReceiveToken }}
-                >
-                  {BigNumber(amountValue)
-                    .multipliedBy(estReceiveTokenRate)
-                    .toFixed()}
-                </NumberSizeableText>
-              </SizableText>
-            </CalculationListItem.Value>
-          </CalculationListItem>
-        ) : null}
+      <YStack
+        p="$3.5"
+        pt="$5"
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+      >
         {apr && Number(apr) > 0 ? (
-          <CalculationListItem>
-            <CalculationListItem.Label>
-              {details.provider.rewardUnit}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value color="$textSuccess">{`${formatApy(
-              apr,
-            )}%`}</CalculationListItem.Value>
-          </CalculationListItem>
+          <XStack gap="$1" ai="center">
+            <SizableText color="$textSuccess" size="$headingLg">
+              {`${formatApy(apr)}% APY`}
+            </SizableText>
+            {details.provider.apys ? (
+              <Popover
+                floatingPanelProps={{
+                  w: 320,
+                }}
+                title={intl.formatMessage({
+                  id: ETranslations.earn_rewards,
+                })}
+                renderTrigger={
+                  <IconButton
+                    icon="CoinsAddOutline"
+                    size="small"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={
+                  <MorphoApy
+                    apys={details.provider.apys}
+                    rewardAssets={details.rewardAssets}
+                    poolFee={
+                      earnUtils.isMorphoProvider({
+                        providerName: providerName || '',
+                      })
+                        ? details.provider.poolFee
+                        : undefined
+                    }
+                  />
+                }
+                placement="top"
+              />
+            ) : null}
+          </XStack>
         ) : null}
-        {providerName && providerLogo ? (
-          <CalculationListItem>
-            <CalculationListItem.Label>
-              {providerLabel ??
-                intl.formatMessage({ id: ETranslations.global_protocol })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>
-              <XStack gap="$2" alignItems="center">
-                <Image
-                  width="$5"
-                  height="$5"
-                  src={providerLogo}
-                  borderRadius="$2"
-                />
-                <SizableText size="$bodyLgMedium">
-                  {capitalizeString(providerName)}
+        <YStack pt="$3.5" gap="$2">
+          <SizableText size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.earn_est_annual_rewards,
+            })}
+          </SizableText>
+          {estimatedAnnualRewards.length
+            ? estimatedAnnualRewards.map((reward) => (
+                <SizableText key={reward.token.address}>
+                  <NumberSizeableText
+                    size="$bodyLgMedium"
+                    formatter="balance"
+                    formatterOptions={{ tokenSymbol: reward.token.symbol }}
+                  >
+                    {reward.amount}
+                  </NumberSizeableText>
+                  {reward.fiatValue ? (
+                    <SizableText color="$textSubdued">
+                      <SizableText color="$textSubdued">{' ('}</SizableText>
+                      <NumberSizeableText
+                        size="$bodyLgMedium"
+                        formatter="value"
+                        color="$textSubdued"
+                        formatterOptions={{ currency: symbol }}
+                      >
+                        {reward.fiatValue}
+                      </NumberSizeableText>
+                      <SizableText color="$textSubdued">)</SizableText>
+                    </SizableText>
+                  ) : null}
                 </SizableText>
-              </XStack>
-            </CalculationListItem.Value>
-          </CalculationListItem>
-        ) : null}
-        {estimateFeeResp ? (
-          <EstimateNetworkFee
-            estimateFeeResp={estimateFeeResp}
-            isVisible={!!totalAnnualRewardsFiatValue}
-            onPress={() => {
-              showEstimateGasAlert({
-                daysConsumed: daysSpent,
-                estFiatValue: estimateFeeResp.feeFiatValue,
-              });
-            }}
-          />
-        ) : null}
-      </CalculationList>
-      <TradeOrBuy
-        token={details.token.info}
-        accountId={approveTarget.accountId}
-        networkId={approveTarget.networkId}
-      />
+              ))
+            : placeholderTokens}
+        </YStack>
+        <Divider my="$5" />
+
+        <Accordion
+          overflow="hidden"
+          width="100%"
+          type="single"
+          collapsible
+          defaultValue=""
+        >
+          <Accordion.Item value="staking-accordion-content">
+            <Accordion.Trigger
+              unstyled
+              flexDirection="row"
+              alignItems="center"
+              alignSelf="flex-start"
+              px="$1"
+              mx="$-1"
+              width="100%"
+              justifyContent="space-between"
+              borderWidth={0}
+              bg="$transparent"
+              userSelect="none"
+              borderRadius="$1"
+              cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
+              disabled={isAccordionTriggerDisabled}
+            >
+              {({ open }: { open: boolean }) => (
+                <>
+                  <XStack gap="$2" alignItems="center">
+                    <Image
+                      width="$5"
+                      height="$5"
+                      src={providerLogo}
+                      borderRadius="$2"
+                    />
+                    <SizableText size="$bodyLgMedium">
+                      {capitalizeString(providerName || '')}
+                    </SizableText>
+                  </XStack>
+                  <XStack>
+                    {isAccordionTriggerDisabled ? undefined : (
+                      <SizableText color="$textSubdued" size="$bodyMd">
+                        {intl.formatMessage({
+                          id: ETranslations.global_details,
+                        })}
+                      </SizableText>
+                    )}
+                    <YStack
+                      animation="quick"
+                      rotate={
+                        open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
+                      }
+                      left="$2"
+                    >
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        color={
+                          isAccordionTriggerDisabled
+                            ? '$iconDisabled'
+                            : '$iconSubdued'
+                        }
+                        size="$5"
+                      />
+                    </YStack>
+                  </XStack>
+                </>
+              )}
+            </Accordion.Trigger>
+            <Accordion.HeightAnimator animation="quick">
+              <Accordion.Content
+                animation="quick"
+                exitStyle={{ opacity: 0 }}
+                px={0}
+                pb={0}
+                pt="$3.5"
+                gap="$2.5"
+              >
+                {accordionContent}
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
+        <TradeOrBuy
+          token={details.token.info}
+          accountId={approveTarget.accountId}
+          networkId={approveTarget.networkId}
+          containerProps={{
+            borderTopWidth: 0,
+            py: 0,
+            pt: '$5',
+          }}
+        />
+      </YStack>
       <Page.Footer>
         <Stack
           bg="$bgApp"
@@ -667,6 +875,9 @@ export function ApproveBaseStake({
             }}
           />
         </Stack>
+        <PercentageStageOnKeyboard
+          onSelectPercentageStage={onSelectPercentageStage}
+        />
       </Page.Footer>
     </StakingFormWrapper>
   );

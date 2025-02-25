@@ -583,6 +583,14 @@ class ServiceCloudBackup extends ServiceBase {
         remotePassword,
       });
 
+      try {
+        await serviceAccount.generateHDWalletsMissingHash({
+          password: localPassword,
+        });
+      } catch (e) {
+        console.error('backup', e);
+      }
+
       for (const id of restoreList.HDWallets) {
         const { version, name, accounts, avatar } = privateData.wallets[id];
         if (version !== HDWALLET_BACKUP_VERSION) {
@@ -624,11 +632,11 @@ class ServiceCloudBackup extends ServiceBase {
             walletId: wallet.id,
             accounts,
           });
+          await serviceAccount.setWalletNameAndAvatar({
+            walletId: wallet?.id,
+            name,
+          });
         }
-        await serviceAccount.setWalletNameAndAvatar({
-          walletId: wallet?.id,
-          name,
-        });
       }
 
       for (const id of restoreList.watchingAccounts) {

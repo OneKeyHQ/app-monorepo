@@ -2401,7 +2401,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     importedCredential?: ICoreImportedCredentialEncryptHex | undefined;
     // accountNameBuilder for watching, imported, external account
     accountNameBuilder?: (data: { nextAccountId: number }) => string;
-  }): Promise<{ isOverrideAccounts: boolean }> {
+  }): Promise<{ isOverrideAccounts: boolean; existsAccounts: IDBAccount[] }> {
     this.validateAccountsFields(accounts);
 
     const wallet = await this.getWallet({ walletId });
@@ -2567,6 +2567,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
       return {
         isOverrideAccounts,
+        existsAccounts,
       };
       // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
     });

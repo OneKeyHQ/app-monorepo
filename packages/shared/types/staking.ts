@@ -486,7 +486,7 @@ export interface IEarnPermit2ApproveSignData {
     value: string;
     nonce: string;
     deadline: string;
-    expiry? : string; // dai
+    expiry?: string; // dai
   };
   primaryType: string;
   types: {
