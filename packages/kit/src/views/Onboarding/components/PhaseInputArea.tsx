@@ -45,7 +45,10 @@ import {
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
-import type { EMnemonicType } from '@onekeyhq/core/src/secret';
+import {
+  type EMnemonicType,
+  validateMnemonic,
+} from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -262,6 +265,20 @@ function BasicPhaseInput(
         onChange?.('');
         return;
       }
+
+      const trimmedValue = v ? v.trim() : '';
+      if (
+        trimmedValue &&
+        trimmedValue.split(' ').filter(Boolean).length >= 12 &&
+        validateMnemonic(trimmedValue)
+      ) {
+        if (onPasteMnemonic(trimmedValue, 0)) {
+          onInputChange('');
+          onChange?.('');
+          return;
+        }
+      }
+
       const rawText = v.replaceAll(PINYIN_COMPOSITION_SPACE, '');
       const text = onInputChange(rawText);
       onChange?.(text);
