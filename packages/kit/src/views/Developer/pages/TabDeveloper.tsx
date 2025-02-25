@@ -7,18 +7,15 @@ import {
   Button,
   Page,
   ScrollView,
-  Select,
   SizableText,
   Stack,
-  Switch,
   TextArea,
   YStack,
 } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
-import { useAutoNavigationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabDeveloperParamList } from '@onekeyhq/shared/src/routes';
-import { ETabDeveloperRoutes, ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { ETabDeveloperRoutes } from '@onekeyhq/shared/src/routes';
 import appStorage from '@onekeyhq/shared/src/storage/appStorage';
 import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorage';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
@@ -115,7 +112,6 @@ const TabDeveloper = () => {
 
   // @ts-expect-error
   const [rrtStatus, changeRRTStatus] = useStorage(EAppSyncStorageKeys.rrt);
-  const [autoJumpSettings, setAutoJumpSettings] = useAutoNavigationAtom();
 
   return (
     <AccountSelectorProviderMirror
@@ -229,50 +225,6 @@ const TabDeveloper = () => {
             <StartTimePanelContainer />
             <ConnectWalletConnectDapp />
             <TestRefresh />
-
-            <PartContainer title="Navigation Settings">
-              <YStack gap="$4">
-                <Stack flexDirection="row" alignItems="center" gap="$2">
-                  <Switch
-                    value={autoJumpSettings.enabled}
-                    onChange={(value) => {
-                      setAutoJumpSettings((prev) => ({
-                        ...prev,
-                        enabled: value,
-                      }));
-                    }}
-                  />
-                  <SizableText>Auto-jump on app launch</SizableText>
-                </Stack>
-
-                {autoJumpSettings.enabled ? (
-                  <Select
-                    items={[
-                      { label: 'Home', value: ETabRoutes.Home },
-                      { label: 'Discovery', value: ETabRoutes.Discovery },
-                      { label: 'Earn', value: ETabRoutes.Earn },
-                      { label: 'Swap', value: ETabRoutes.Swap },
-                      { label: 'Market', value: ETabRoutes.Market },
-                      ...(platformEnv.isDev
-                        ? [
-                            { label: 'Me', value: ETabRoutes.Me },
-                            { label: 'Developer', value: ETabRoutes.Developer },
-                          ]
-                        : []),
-                    ]}
-                    onChange={(value) => {
-                      setAutoJumpSettings((prev) => ({
-                        ...prev,
-                        selectedTab: value as ETabRoutes,
-                      }));
-                    }}
-                    value={autoJumpSettings.selectedTab as string}
-                    title="Jump to page"
-                  />
-                ) : null}
-              </YStack>
-            </PartContainer>
-
             {/* <WalletConnectModalNative2 /> */}
           </ScrollView>
         </Page.Body>

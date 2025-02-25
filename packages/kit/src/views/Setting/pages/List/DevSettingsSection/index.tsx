@@ -48,6 +48,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
+import { AutoJumpSetting } from './AutoJumpSetting';
 import { CrashDevSettings } from './CrashDevSettings';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
@@ -634,6 +635,7 @@ export const DevSettingsSection = () => {
           });
         }}
       />
+      <AutoJumpSetting />
     </Section>
   );
 };
