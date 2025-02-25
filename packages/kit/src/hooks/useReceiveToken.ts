@@ -29,6 +29,7 @@ function useReceiveToken({
   deriveType,
   tokens,
   tokenListState,
+  isMultipleDerive,
 }: {
   accountId: string;
   networkId: string;
@@ -41,6 +42,7 @@ function useReceiveToken({
     isRefreshing: boolean;
     initialized: boolean;
   };
+  isMultipleDerive?: boolean;
 }) {
   const intl = useIntl();
   const { vaultSettings, account, network } = useAccountData({
@@ -66,6 +68,29 @@ function useReceiveToken({
       if (!deriveInfo) return;
 
       if (vaultSettings?.isSingleToken || token) {
+        if (isMultipleDerive && !accountUtils.isOthersWallet({ walletId })) {
+          navigation.pushModal(EModalRoutes.ReceiveModal, {
+            screen: EModalReceiveRoutes.ReceiveSelectDeriveAddress,
+            params: {
+              networkId,
+              indexedAccountId: account?.indexedAccountId ?? '',
+              token: token ?? tokens?.data?.[0],
+              tokenMap: tokens?.map,
+              accountId: token?.accountId ?? accountId,
+              actionType: EDeriveAddressActionType.Select,
+              onSelected: ({ account: a }: { account: INetworkAccount }) => {
+                navigation.push(EModalReceiveRoutes.ReceiveToken, {
+                  networkId,
+                  accountId: a.id ?? accountId,
+                  walletId,
+                  token: token ?? tokens?.data?.[0],
+                });
+              },
+            },
+          });
+          return;
+        }
+
         navigation.pushModal(EModalRoutes.ReceiveModal, {
           screen: EModalReceiveRoutes.ReceiveToken,
           params: {
@@ -153,6 +178,7 @@ function useReceiveToken({
       accountId,
       deriveInfo,
       intl,
+      isMultipleDerive,
       navigation,
       network?.isAllNetworks,
       networkId,

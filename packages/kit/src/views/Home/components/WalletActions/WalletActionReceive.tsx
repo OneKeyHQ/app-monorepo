@@ -13,7 +13,14 @@ import { RawActions } from './RawActions';
 
 function WalletActionReceive() {
   const {
-    activeAccount: { network, account, wallet, deriveInfo, deriveType },
+    activeAccount: {
+      network,
+      account,
+      wallet,
+      deriveInfo,
+      deriveType,
+      deriveInfoItems,
+    },
   } = useActiveAccount({ num: 0 });
 
   const [allTokens] = useAllTokenListAtom();
@@ -39,6 +46,7 @@ function WalletActionReceive() {
       map,
     },
     tokenListState,
+    isMultipleDerive: deriveInfoItems.length > 1,
   });
 
   return (

@@ -68,7 +68,10 @@ const SwapQuoteInput = ({
   }, []);
 
   const toAmount = useMemo(() => {
-    if (swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT) {
+    if (
+      swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
+      !swapQuoteCurrentSelect.isWrapped
+    ) {
       return swapLimitRateToAmount ?? '';
     }
     return swapQuoteCurrentSelect?.toAmount ?? '';

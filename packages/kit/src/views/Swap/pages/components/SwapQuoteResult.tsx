@@ -215,7 +215,10 @@ const SwapQuoteResult = ({
   ) {
     return null;
   }
-  if (quoteResult?.protocol === EProtocolOfExchange.LIMIT) {
+  if (
+    quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
+    !quoteResult?.isWrapped
+  ) {
     return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
       <YStack gap="$2">
         <SwapProviderInfoItem

@@ -271,7 +271,8 @@ const SwapTokenSelectPage = () => {
       (net) => net.networkId,
     );
     if (
-      swapTypeSwitch === ESwapTabSwitchType.SWAP &&
+      (swapTypeSwitch === ESwapTabSwitchType.SWAP ||
+        swapTypeSwitch === ESwapTabSwitchType.LIMIT) &&
       type === ESwapDirectionType.TO &&
       fromToken
     ) {

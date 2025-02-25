@@ -2,7 +2,6 @@ import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
-import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapProviderSort,
   swapProviderRecommendApprovedWeights,
@@ -20,10 +19,10 @@ import type {
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  ESwapLimitOrderExpiryStep,
   ESwapLimitPartiallyFillStepMap,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
+  defaultLimitExpirationTime,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { createJotaiContext } from '../../utils/createJotaiContext';
@@ -418,24 +417,25 @@ export const {
     const { fromTokenPrice, toTokenPrice } = limitPriceOrderMarketPrice;
     const fromPriceBN = new BigNumber(fromTokenPrice ?? 0);
     const toPriceBN = new BigNumber(toTokenPrice ?? 0);
-    const rate = fromPriceBN.div(toPriceBN).toFixed();
-    const reverseRate = toPriceBN.div(fromPriceBN).toFixed();
-    const rateFormat = formatBalance(rate);
-    const reverseRateFormat = formatBalance(reverseRate);
-    let rateValue = rateFormat.meta.roundValue ?? rateFormat.meta.value;
-    let reverseRateValue =
-      reverseRateFormat.meta.roundValue ?? reverseRateFormat.meta.value;
-    if (rateFormat.meta.unit) {
-      rateValue = rateFormat.meta.value;
-    }
-    if (reverseRateFormat.meta.unit) {
-      reverseRateValue = reverseRateFormat.meta.value;
-    }
+    const rate = fromPriceBN
+      .div(toPriceBN)
+      .decimalPlaces(
+        toTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    const reverseRate = toPriceBN
+      .div(fromPriceBN)
+      .decimalPlaces(
+        fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
     const limitPriceMarketInfo = {
       fromToken: fromTokenInfo,
       toToken: toTokenInfo,
-      rate: rateValue,
-      reverseRate: reverseRateValue,
+      rate,
+      reverseRate,
       provider,
       fromTokenMarketPrice: fromTokenPrice,
       toTokenMarketPrice: toTokenPrice,
@@ -450,7 +450,7 @@ export const {
   use: useSwapLimitExpirationTimeAtom,
 } = contextAtom<{ label: string; value: string }>({
   label: '',
-  value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+  value: defaultLimitExpirationTime.toString(),
 });
 
 export const {

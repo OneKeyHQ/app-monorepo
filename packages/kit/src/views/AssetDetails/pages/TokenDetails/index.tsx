@@ -228,10 +228,9 @@ function TokenDetailsView() {
       );
     if (
       vaultSettings?.mergeDeriveAssetsEnabled &&
-      isAllNetworks &&
       !accountUtils.isOthersWallet({ walletId })
     ) {
-      if (tabs && !isEmpty(tabs)) {
+      if (tabs && !isEmpty(tabs) && tabs.length > 1) {
         return (
           <Tab
             disableRefresh
