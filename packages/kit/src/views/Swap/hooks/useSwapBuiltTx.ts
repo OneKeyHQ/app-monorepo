@@ -436,13 +436,13 @@ export function useSwapBuildTx() {
             if (!dataMessage && unSignedData) {
               let validTo = unSignedOrder.validTo;
               const quoteResultEstimatedTimeBN = new BigNumber(
-                selectQuote?.estimatedTime ?? 0,
+                selectQuote?.expirationTime ?? 0,
               );
               const swapLimitExpirationTimeValueBN = new BigNumber(
                 swapLimitExpirationTime.value,
               );
               if (
-                selectQuote?.estimatedTime &&
+                selectQuote?.expirationTime &&
                 !quoteResultEstimatedTimeBN.eq(swapLimitExpirationTimeValueBN)
               ) {
                 validTo = new BigNumber(unSignedOrder.validTo)

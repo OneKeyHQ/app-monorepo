@@ -10,7 +10,7 @@ import {
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 
-import { validateAmountInputNoDecimal } from '../utils/utils';
+import { validateAmountInputInfiniteDecimal } from '../utils/utils';
 
 export const useSwapLimitRate = () => {
   const [limitPriceUseRate, setLimitPriceUseRate] =
@@ -21,32 +21,53 @@ export const useSwapLimitRate = () => {
 
   const onLimitRateChange = useCallback(
     (text: string) => {
-      if (text === '' || validateAmountInputNoDecimal(text)) {
-        if (text === '') {
+      const isValidate = validateAmountInputInfiniteDecimal(text);
+      if (isValidate) {
+        const inputRate = new BigNumber(text);
+        if (text === '' || inputRate.isNaN() || inputRate.isZero()) {
           setLimitPriceUseRate({
             ...limitPriceUseRate,
             rate: '0',
             reverseRate: '0',
+            inputRate: text,
           });
         } else {
-          const newRate = new BigNumber(text);
-          const newReverseRate = new BigNumber(1).div(newRate);
-          const newReverseRateFormat = formatBalance(newReverseRate.toFixed());
-          let newReverseRateValue =
-            newReverseRateFormat.meta.roundValue ??
-            newReverseRateFormat.meta.value;
-          if (newReverseRateFormat.meta.unit) {
-            newReverseRateValue = newReverseRateFormat.meta.value;
+          const newRate = limitPriceSetReverse
+            ? new BigNumber(1).div(inputRate)
+            : inputRate;
+          const newReverseRate = limitPriceSetReverse
+            ? inputRate
+            : new BigNumber(1).div(inputRate);
+          let newReverseRateValue = newReverseRate.toFixed();
+          let newRateValue = newRate.toFixed();
+          if (!limitPriceSetReverse) {
+            const newReverseRateFormat = formatBalance(
+              newReverseRate.toFixed(),
+            );
+            newReverseRateValue =
+              newReverseRateFormat.meta.roundValue ??
+              newReverseRateFormat.meta.value;
+            if (newReverseRateFormat.meta.unit) {
+              newReverseRateValue = newReverseRateFormat.meta.value;
+            }
+          } else {
+            const newRateFormat = formatBalance(newRate.toFixed());
+            newRateValue =
+              newRateFormat.meta.roundValue ?? newRateFormat.meta.value;
+            if (newRateFormat.meta.unit) {
+              newRateValue = newRateFormat.meta.value;
+            }
           }
           setLimitPriceUseRate({
             ...limitPriceUseRate,
-            rate: newRate.toFixed(),
+            rate: newRateValue,
             reverseRate: newReverseRateValue,
+            inputRate: text,
           });
         }
       }
     },
-    [limitPriceUseRate, setLimitPriceUseRate],
+    [limitPriceSetReverse, limitPriceUseRate, setLimitPriceUseRate],
   );
 
   const limitPriceMarketRate = useMemo(
@@ -91,16 +112,23 @@ export const useSwapLimitRate = () => {
         ...limitPriceMarketPrice,
         rate: rateValue,
         reverseRate: reverseRateValue,
+        inputRate: limitPriceSetReverse ? reverseRateValue : rateValue,
       });
     },
-    [setLimitPriceUseRate, limitPriceMarketPrice],
+    [setLimitPriceUseRate, limitPriceMarketPrice, limitPriceSetReverse],
   );
 
   const onChangeReverse = useCallback(
     (reverse: boolean) => {
       setLimitPriceSetReverse(reverse);
+      setLimitPriceUseRate({
+        ...limitPriceUseRate,
+        inputRate: reverse
+          ? limitPriceUseRate.reverseRate
+          : limitPriceUseRate.rate,
+      });
     },
-    [setLimitPriceSetReverse],
+    [setLimitPriceSetReverse, setLimitPriceUseRate, limitPriceUseRate],
   );
 
   useEffect(() => {
@@ -124,12 +152,16 @@ export const useSwapLimitRate = () => {
       ) {
         setLimitPriceUseRate({
           ...limitPriceMarketPrice,
+          inputRate: limitPriceSetReverse
+            ? limitPriceMarketPrice.reverseRate
+            : limitPriceMarketPrice.rate,
         });
         setLimitPriceSetReverse(false);
       }
     }
   }, [
     limitPriceMarketPrice,
+    limitPriceSetReverse,
     limitPriceUseRate,
     setLimitPriceSetReverse,
     setLimitPriceUseRate,

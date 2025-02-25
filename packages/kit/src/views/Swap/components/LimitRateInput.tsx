@@ -15,16 +15,16 @@ interface ILimitRateInputProps {
   onChangeText: (text: string) => void;
   onReverseChange: (reverse: boolean) => void;
   reverse: boolean;
-  limitPriceRateValue?: string;
+  inputRate?: string;
 }
 
 const LimitRateInput = ({
   fromTokenInfo,
   toTokenInfo,
   onChangeText,
-  limitPriceRateValue,
   onReverseChange,
   reverse,
+  inputRate,
 }: ILimitRateInputProps) => {
   const currency = useMemo(
     () => ({
@@ -59,7 +59,7 @@ const LimitRateInput = ({
         }}
         onChangeText={onChangeText}
         textAlign="right"
-        value={limitPriceRateValue ?? ''}
+        value={inputRate ?? ''}
         placeholder="0.0"
       />
       {toTokenInfo ? (
