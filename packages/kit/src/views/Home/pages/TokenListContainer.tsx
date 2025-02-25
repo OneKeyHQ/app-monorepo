@@ -44,6 +44,7 @@ import perfUtils, {
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import {
   getEmptyTokenData,
+  getMergedDeriveTokenData,
   mergeDeriveTokenList,
   mergeDeriveTokenListMap,
   sortTokensByFiatValue,
@@ -90,6 +91,7 @@ function TokenListContainer(props: ITabPageProps) {
       isOthersWallet,
       deriveInfo,
       deriveType,
+      deriveInfoItems,
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
@@ -97,6 +99,10 @@ function TokenListContainer(props: ITabPageProps) {
     IAllNetworkAccountInfo[] | undefined
   >(undefined);
   const intl = useIntl();
+
+  const mergeDeriveAddressData =
+    !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
+    deriveInfoItems.length > 1;
 
   const tokenListRef = useRef<{
     keys: string;
@@ -205,13 +211,77 @@ function TokenListContainer(props: ITabPageProps) {
         });
 
         await backgroundApiProxy.serviceToken.abortFetchAccountTokens();
-        const r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-          accountId: account.id,
-          mergeTokens: true,
-          networkId: network.id,
-          flag: 'home-token-list',
-          saveToLocal: true,
-        });
+
+        let r: IFetchAccountTokensResp = getEmptyTokenData();
+
+        if (mergeDeriveAddressData) {
+          const { networkAccounts } =
+            await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+              {
+                networkId: network.id,
+                indexedAccountId: indexedAccount?.id ?? '',
+              },
+            );
+
+          const resp = await Promise.all(
+            networkAccounts.map((networkAccount) =>
+              backgroundApiProxy.serviceToken.fetchAccountTokens({
+                accountId: networkAccount.account?.id ?? '',
+                mergeTokens: true,
+                networkId: network.id,
+                flag: 'home-token-list',
+                saveToLocal: true,
+              }),
+            ),
+          );
+
+          const {
+            tokenList,
+            smallBalanceTokenList,
+            riskyTokenList,
+            tokenListMap,
+            smallBalanceTokenListMap,
+            riskyTokenListMap,
+            allTokenList,
+            allTokenListMap,
+          } = getMergedDeriveTokenData({
+            data: resp,
+            mergeDeriveAssetsEnabled: true,
+          });
+
+          r.tokens = {
+            data: tokenList.tokens,
+            keys: tokenList.keys,
+            fiatValue: tokenList.fiatValue,
+            map: tokenListMap,
+          };
+          r.smallBalanceTokens = {
+            data: smallBalanceTokenList.smallBalanceTokens,
+            keys: smallBalanceTokenList.keys,
+            fiatValue: smallBalanceTokenList.fiatValue,
+            map: smallBalanceTokenListMap,
+          };
+          r.riskTokens = {
+            data: riskyTokenList.riskyTokens,
+            keys: riskyTokenList.keys,
+            fiatValue: riskyTokenList.fiatValue,
+            map: riskyTokenListMap,
+          };
+          r.allTokens = {
+            data: allTokenList.tokens,
+            keys: allTokenList.keys,
+            fiatValue: allTokenList.fiatValue,
+            map: allTokenListMap,
+          };
+        } else {
+          r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
+            accountId: account.id,
+            mergeTokens: true,
+            networkId: network.id,
+            flag: 'home-token-list',
+            saveToLocal: true,
+          });
+        }
 
         let accountWorth = new BigNumber(0);
         accountWorth = accountWorth
@@ -314,6 +384,9 @@ function TokenListContainer(props: ITabPageProps) {
     [
       account,
       network,
+      mergeDeriveAddressData,
+      updateAccountOverviewState,
+      updateAccountWorth,
       refreshTokenList,
       refreshTokenListMap,
       refreshRiskyTokenList,
@@ -321,12 +394,11 @@ function TokenListContainer(props: ITabPageProps) {
       refreshSmallBalanceTokenList,
       refreshSmallBalanceTokenListMap,
       refreshSmallBalanceTokensFiatValue,
+      indexedAccount?.id,
       refreshAllTokenList,
       refreshAllTokenListMap,
       updateTokenListState,
       setIsHeaderRefreshing,
-      updateAccountOverviewState,
-      updateAccountWorth,
     ],
     {
       overrideIsFocused: (isPageFocused) =>
@@ -1090,21 +1162,85 @@ function TokenListContainer(props: ITabPageProps) {
         });
         return;
       }
-      const localTokens =
-        await backgroundApiProxy.serviceToken.getAccountLocalTokens({
-          accountId,
-          networkId,
-          accountAddress,
-          xpub,
+
+      let tokenList: IAccountToken[] = [];
+      let smallBalanceTokenList: IAccountToken[] = [];
+      let riskyTokenList: IAccountToken[] = [];
+      let tokenListMap: Record<string, ITokenFiat> = {};
+      let tokenListValue = '0';
+
+      if (mergeDeriveAddressData) {
+        const { networkAccounts } =
+          await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId,
+              indexedAccountId: indexedAccount?.id ?? '',
+            },
+          );
+
+        const resp = await Promise.all(
+          networkAccounts.map((networkAccount) =>
+            backgroundApiProxy.serviceToken.getAccountLocalTokens({
+              accountId: networkAccount.account?.id ?? '',
+              networkId,
+              accountAddress: networkAccount.account?.address ?? '',
+              xpub:
+                // @ts-expect-error
+                networkAccount.account?.xpubSegwit ||
+                // @ts-expect-error
+                networkAccount.account?.xpub,
+            }),
+          ),
+        );
+
+        const params = resp.map((r) => {
+          tokenListValue = new BigNumber(tokenListValue)
+            .plus(r.tokenListValue ?? '0')
+            .toFixed();
+          return {
+            tokens: {
+              data: r.tokenList,
+              keys: '',
+              map: r.tokenListMap,
+            },
+            smallBalanceTokens: {
+              data: r.smallBalanceTokenList,
+              keys: '',
+              map: r.tokenListMap,
+            },
+            riskTokens: {
+              data: r.riskyTokenList,
+              keys: '',
+              map: r.tokenListMap,
+            },
+          };
         });
 
-      const {
-        tokenList,
-        smallBalanceTokenList,
-        riskyTokenList,
-        tokenListMap,
-        tokenListValue,
-      } = localTokens;
+        const tokenListData = getMergedDeriveTokenData({
+          data: params,
+          mergeDeriveAssetsEnabled: true,
+        });
+
+        tokenList = tokenListData.tokenList.tokens;
+        smallBalanceTokenList =
+          tokenListData.smallBalanceTokenList.smallBalanceTokens;
+        riskyTokenList = tokenListData.riskyTokenList.riskyTokens;
+        tokenListMap = tokenListData.allTokenListMap;
+      } else {
+        const localTokens =
+          await backgroundApiProxy.serviceToken.getAccountLocalTokens({
+            accountId,
+            networkId,
+            accountAddress,
+            xpub,
+          });
+
+        tokenList = localTokens.tokenList;
+        smallBalanceTokenList = localTokens.smallBalanceTokenList;
+        riskyTokenList = localTokens.riskyTokenList;
+        tokenListMap = localTokens.tokenListMap;
+        tokenListValue = localTokens.tokenListValue;
+      }
 
       if (
         isEmpty(tokenList) &&
@@ -1205,6 +1341,8 @@ function TokenListContainer(props: ITabPageProps) {
     // @ts-expect-error
     account?.xpubSegwit,
     handleClearAllNetworkData,
+    indexedAccount?.id,
+    mergeDeriveAddressData,
     network?.id,
     refreshAllTokenList,
     refreshAllTokenListMap,

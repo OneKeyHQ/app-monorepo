@@ -40,7 +40,7 @@ function WalletActionSend() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveInfoItems },
   } = useActiveAccount({ num: 0 });
   // const { selectedAccount } = useSelectedAccount({ num: 0 });
   const intl = useIntl();
@@ -59,20 +59,51 @@ function WalletActionSend() {
   const handleOnSend = useCallback(async () => {
     if (!account || !network) return;
 
+    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+      networkId: network.id,
+      accountId: account.id,
+    });
+
     if (vaultSettings?.isSingleToken) {
-      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
-        networkId: network.id,
-        accountId: account.id,
-      });
-      navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-        screen: EModalSignatureConfirmRoutes.TxDataInput,
-        params: {
-          accountId: account.id,
-          networkId: network.id,
-          isNFT: false,
-          token: nativeToken,
-        },
-      });
+      if (
+        nativeToken &&
+        deriveInfoItems.length > 1 &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
+          params: {
+            networkId: network.id,
+            indexedAccountId: account.indexedAccountId ?? '',
+            walletId: wallet?.id ?? '',
+            accountId: account.id,
+            actionType: EDeriveAddressActionType.Select,
+            token: nativeToken,
+            tokenMap: map,
+            onUnmounted: () => {},
+            onSelected: ({ account: a }: { account: INetworkAccount }) => {
+              navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
+                accountId: a.id,
+                networkId: network.id,
+                isNFT: false,
+                token: nativeToken,
+                isAllNetworks: network?.isAllNetworks,
+              });
+            },
+          },
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxDataInput,
+          params: {
+            accountId: account.id,
+            networkId: network.id,
+            isNFT: false,
+            token: nativeToken,
+          },
+        });
+      }
+
       return;
     }
 
@@ -151,6 +182,7 @@ function WalletActionSend() {
     allTokens.keys,
     map,
     tokenListState,
+    deriveInfoItems.length,
     wallet?.id,
   ]);
 

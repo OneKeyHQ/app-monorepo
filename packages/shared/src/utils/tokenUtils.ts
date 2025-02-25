@@ -5,7 +5,12 @@ import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import networkUtils from './networkUtils';
 
-import type { IAccountToken, ITokenData, ITokenFiat } from '../../types/token';
+import type {
+  IAccountToken,
+  IFetchAccountTokensResp,
+  ITokenData,
+  ITokenFiat,
+} from '../../types/token';
 
 export const caseSensitiveNetworkImpl = [
   'sol',
@@ -280,4 +285,154 @@ export function equalTokenNoCaseSensitive({
     token1?.contractAddress?.toLowerCase() ===
     token2?.contractAddress?.toLowerCase()
   );
+}
+
+export function getMergedDeriveTokenData(params: {
+  data: IFetchAccountTokensResp[];
+  mergeDeriveAssetsEnabled: boolean;
+}) {
+  const { data, mergeDeriveAssetsEnabled } = params;
+
+  const tokenList: {
+    tokens: IAccountToken[];
+    keys: string;
+    fiatValue: string;
+  } = {
+    tokens: [],
+    keys: '',
+    fiatValue: '0',
+  };
+
+  const smallBalanceTokenList: {
+    smallBalanceTokens: IAccountToken[];
+    keys: string;
+    fiatValue: string;
+  } = {
+    smallBalanceTokens: [],
+    keys: '',
+    fiatValue: '0',
+  };
+
+  const riskyTokenList: {
+    riskyTokens: IAccountToken[];
+    keys: string;
+    fiatValue: string;
+  } = {
+    riskyTokens: [],
+    keys: '',
+    fiatValue: '0',
+  };
+
+  let tokenListMap: {
+    [key: string]: ITokenFiat;
+  } = {};
+
+  let smallBalanceTokenListMap: {
+    [key: string]: ITokenFiat;
+  } = {};
+
+  let riskyTokenListMap: {
+    [key: string]: ITokenFiat;
+  } = {};
+
+  const allTokenList: {
+    tokens: IAccountToken[];
+    keys: string;
+    fiatValue: string;
+  } = {
+    tokens: [],
+    keys: '',
+    fiatValue: '0',
+  };
+  let allTokenListMap: {
+    [key: string]: ITokenFiat;
+  } = {};
+  data.forEach((r) => {
+    tokenList.fiatValue = new BigNumber(tokenList.fiatValue)
+      .plus(r.tokens.fiatValue ?? '0')
+      .toFixed();
+    smallBalanceTokenList.fiatValue = new BigNumber(
+      smallBalanceTokenList.fiatValue ?? '0',
+    )
+      .plus(r.smallBalanceTokens.fiatValue ?? '0')
+      .toFixed();
+    riskyTokenList.fiatValue = new BigNumber(riskyTokenList.fiatValue ?? '0')
+      .plus(r.riskTokens.fiatValue ?? '0')
+      .toFixed();
+
+    tokenList.tokens = mergeDeriveTokenList({
+      sourceTokens: r.tokens.data,
+      targetTokens: tokenList.tokens,
+      mergeDeriveAssets: mergeDeriveAssetsEnabled,
+    });
+
+    tokenList.keys = `${tokenList.keys}_${r.tokens.keys}`;
+
+    tokenListMap = mergeDeriveTokenListMap({
+      sourceMap: r.tokens.map,
+      targetMap: tokenListMap,
+      mergeDeriveAssets: mergeDeriveAssetsEnabled,
+    });
+
+    smallBalanceTokenList.smallBalanceTokens = mergeDeriveTokenList({
+      sourceTokens: r.smallBalanceTokens.data,
+      targetTokens: smallBalanceTokenList.smallBalanceTokens,
+      mergeDeriveAssets: mergeDeriveAssetsEnabled,
+    });
+
+    smallBalanceTokenList.keys = `${smallBalanceTokenList.keys}_${r.smallBalanceTokens.keys}`;
+
+    smallBalanceTokenListMap = mergeDeriveTokenListMap({
+      sourceMap: r.smallBalanceTokens.map,
+      targetMap: smallBalanceTokenListMap,
+      mergeDeriveAssets: mergeDeriveAssetsEnabled,
+    });
+
+    riskyTokenList.riskyTokens = mergeDeriveTokenList({
+      sourceTokens: r.riskTokens.data,
+      targetTokens: riskyTokenList.riskyTokens,
+      mergeDeriveAssets: mergeDeriveAssetsEnabled,
+    });
+
+    riskyTokenList.riskyTokens = riskyTokenList.riskyTokens.concat(
+      r.riskTokens.data,
+    );
+    riskyTokenList.keys = `${riskyTokenList.keys}_${r.riskTokens.keys}`;
+
+    riskyTokenListMap = mergeDeriveTokenListMap({
+      sourceMap: r.riskTokens.map,
+      targetMap: riskyTokenListMap,
+      mergeDeriveAssets: mergeDeriveAssetsEnabled,
+    });
+  });
+
+  allTokenList.tokens = [
+    ...tokenList.tokens,
+    ...smallBalanceTokenList.smallBalanceTokens,
+    ...riskyTokenList.riskyTokens,
+  ];
+  allTokenList.keys = `${tokenList.keys}_${smallBalanceTokenList.keys}_${riskyTokenList.keys}`;
+
+  allTokenList.fiatValue = new BigNumber(allTokenList.fiatValue)
+    .plus(tokenList.fiatValue)
+    .plus(smallBalanceTokenList.fiatValue)
+    .plus(riskyTokenList.fiatValue)
+    .toFixed();
+
+  allTokenListMap = {
+    ...tokenListMap,
+    ...smallBalanceTokenListMap,
+    ...riskyTokenListMap,
+  };
+
+  return {
+    tokenList,
+    smallBalanceTokenList,
+    riskyTokenList,
+    tokenListMap,
+    smallBalanceTokenListMap,
+    riskyTokenListMap,
+    allTokenList,
+    allTokenListMap,
+  };
 }
