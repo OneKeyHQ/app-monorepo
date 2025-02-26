@@ -691,6 +691,7 @@ function SendReplaceTxContainer() {
       </>
     );
   }, [
+    fillUpNativeBalance,
     handleEditReplaceTxFeeInfo,
     handleResetFeeInfo,
     intl,
