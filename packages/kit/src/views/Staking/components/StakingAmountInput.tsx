@@ -25,6 +25,7 @@ export function StakingAmountInput({
   inputProps,
   disabled,
   onSelectPercentageStage,
+  value,
   ...props
 }: IAmountInputFormItemProps & {
   title: string;
@@ -50,7 +51,7 @@ export function StakingAmountInput({
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
         <SizableText>{title}</SizableText>
         <AnimatePresence>
-          {!platformEnv.isNative && percentageInputStageShow ? (
+          {!platformEnv.isNative && (percentageInputStageShow || !!value) ? (
             <XStack
               animation="quick"
               enterStyle={{
@@ -93,6 +94,7 @@ export function StakingAmountInput({
           onFocus: onFromInputFocus,
           onBlur: onFromInputBlur,
         }}
+        value={value}
         {...props}
       />
       {platformEnv.isNativeIOS ? (

@@ -138,7 +138,7 @@ function ProviderInfo({
           <GridItem title={intl.formatMessage({ id: ETranslations.earn_tvl })}>
             <NumberSizeableText
               userSelect="none"
-              size="$bodyMd"
+              size="$bodyLgMedium"
               formatterOptions={{ currency }}
               formatter="marketCap"
             >
@@ -152,7 +152,7 @@ function ProviderInfo({
           >
             <NumberSizeableText
               userSelect="none"
-              size="$bodyMd"
+              size="$bodyLgMedium"
               formatterOptions={{ currency }}
               formatter="marketCap"
             >

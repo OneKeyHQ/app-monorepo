@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -86,8 +87,6 @@ type IApproveBaseStakeProps = {
   estReceiveToken?: string;
   estReceiveTokenRate?: string;
 
-  estimateFeeResp?: IEarnEstimateFeeResp;
-
   providerName?: string;
   providerLogo?: string;
   onConfirm?: (params: IApproveConfirmFnParams) => Promise<void>;
@@ -115,7 +114,6 @@ export function ApproveBaseStake({
   approveTarget,
 
   providerLabel,
-  estimateFeeResp,
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
@@ -153,6 +151,30 @@ export function ApproveBaseStake({
     },
   ] = useSettingsPersistAtom();
 
+  const [estimateFeeResp, setEstimateFeeResp] = useState<
+    undefined | IEarnEstimateFeeResp
+  >();
+
+  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
+    if (!amount || Number(amount) === 0) {
+      setEstimateFeeResp(undefined);
+    }
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId: approveTarget.networkId,
+      provider: details.provider.name,
+      symbol: details.token.info.symbol,
+      action: 'stake',
+      amount: amount as string,
+      morphoVault: details.provider.vault,
+      accountAddress: account?.address,
+    });
+    setEstimateFeeResp(resp);
+  }, 500);
+
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
 
@@ -165,6 +187,7 @@ export function ApproveBaseStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          void fetchEstimateFeeResp();
         }
         return;
       }
@@ -177,9 +200,10 @@ export function ApproveBaseStake({
         setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
+        void fetchEstimateFeeResp(value);
       }
     },
-    [decimals],
+    [decimals, fetchEstimateFeeResp],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
