@@ -272,21 +272,18 @@ export function UniversalStake({
   }, [minStakeTerm]);
 
   const daysSpent = useMemo(() => {
-    if (estAnnualRewardsState?.coverFeeSeconds) {
-      return formatStakingDistanceToNowStrict(
-        estAnnualRewardsState?.coverFeeSeconds,
-      );
+    if (estimateFeeResp?.coverFeeSeconds) {
+      return formatStakingDistanceToNowStrict(estimateFeeResp?.coverFeeSeconds);
     }
-  }, [estAnnualRewardsState?.coverFeeSeconds]);
+  }, [estimateFeeResp?.coverFeeSeconds]);
 
   const onPress = useCallback(async () => {
     Keyboard.dismiss();
     const handleConfirm = () => onConfirm?.(amountValue);
     if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
-      const daySpent = calcDaysSpent(
-        estAnnualRewardsState.fiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+      const daySpent =
+        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
+
       if (daySpent && daySpent > 5) {
         showEstimateGasAlert({
           daysConsumed: daySpent,
