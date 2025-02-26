@@ -19,6 +19,8 @@
   "Limit.order_history": "ऑर्डर इतिहास",
   "Limit.order_history_empty": "कोई आदेश नहीं",
   "Limit.order_history_empty_content": "अभी तक कोई सक्रिय ऑर्डर नहीं है। शुरू करने के लिए एक नया ऑर्डर दें!",
+  "Limit.order_history_status_cancel": "रद्द करें",
+  "Limit.order_history_status_cancelling": "रद्द कर रहा है ...",
   "Limit.order_pair": "जोड़ी",
   "Limit.order_status": "स्थिति",
   "Limit.order_status_cancelled": "रद्द किया गया",

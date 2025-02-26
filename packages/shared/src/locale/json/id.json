@@ -19,6 +19,8 @@
   "Limit.order_history": "Riwayat pesanan",
   "Limit.order_history_empty": "Tidak ada pesanan",
   "Limit.order_history_empty_content": "Belum ada pesanan aktif. Buat pesanan baru untuk memulai!",
+  "Limit.order_history_status_cancel": "Batalkan",
+  "Limit.order_history_status_cancelling": "Membatalkan ...",
   "Limit.order_pair": "Pasangan",
   "Limit.order_status": "Status",
   "Limit.order_status_cancelled": "Dibatalkan",

@@ -19,6 +19,8 @@
   "Limit.order_history": "История заказов",
   "Limit.order_history_empty": "Нет заказов",
   "Limit.order_history_empty_content": "Пока нет активных заказов. Разместите новый, чтобы начать!",
+  "Limit.order_history_status_cancel": "Отмена",
+  "Limit.order_history_status_cancelling": "Отмена ...",
   "Limit.order_pair": "Пара",
   "Limit.order_status": "Статус",
   "Limit.order_status_cancelled": "Отменено",

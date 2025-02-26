@@ -19,6 +19,8 @@
   "Limit.order_history": "訂單歷史",
   "Limit.order_history_empty": "無訂單",
   "Limit.order_history_empty_content": "目前沒有活躍訂單。創建一個新訂單以開始吧！",
+  "Limit.order_history_status_cancel": "取消",
+  "Limit.order_history_status_cancelling": "取消中...",
   "Limit.order_pair": "交易對",
   "Limit.order_status": "狀態",
   "Limit.order_status_cancelled": "已取消",

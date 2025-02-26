@@ -19,6 +19,8 @@
   "Limit.order_history": "অর্ডার ইতিহাস",
   "Limit.order_history_empty": "কোনো অর্ডার নেই",
   "Limit.order_history_empty_content": "এখনও কোনো সক্রিয় অর্ডার নেই। শুরু করতে একটি নতুন অর্ডার দিন!",
+  "Limit.order_history_status_cancel": "বাতিল করুন",
+  "Limit.order_history_status_cancelling": "বাতিল করা হচ্ছে ...",
   "Limit.order_pair": "জোড়া",
   "Limit.order_status": "অবস্থা",
   "Limit.order_status_cancelled": "বাতিল",

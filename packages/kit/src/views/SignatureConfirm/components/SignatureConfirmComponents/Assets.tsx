@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -268,7 +269,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
           ? intl.formatMessage({
               id: ETranslations.swap_page_provider_approve_amount_un_limit,
             })
-          : Number(component.amountParsed).toString()
+          : new BigNumber(component.amountParsed).toFixed()
       }
       symbol={component.token.info.symbol}
       tokenProps={{

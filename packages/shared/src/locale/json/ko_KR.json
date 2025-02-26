@@ -19,6 +19,8 @@
   "Limit.order_history": "주문 내역",
   "Limit.order_history_empty": "주문 없음",
   "Limit.order_history_empty_content": "아직 활성 주문이 없습니다. 새 주문을 하여 시작하세요!",
+  "Limit.order_history_status_cancel": "취소",
+  "Limit.order_history_status_cancelling": "취소 중 ...",
   "Limit.order_pair": "페어",
   "Limit.order_status": "상태",
   "Limit.order_status_cancelled": "취소됨",
