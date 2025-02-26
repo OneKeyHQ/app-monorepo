@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import {
   Alert,
@@ -79,7 +80,6 @@ type IUniversalStakeProps = {
   isReachBabylonCap?: boolean;
   isDisabled?: boolean;
 
-  estimateFeeResp?: IEarnEstimateFeeResp;
   estimateFeeUTXO?: Required<Pick<IFeeUTXO, 'feeRate'>>[];
 
   onConfirm?: (amount: string) => Promise<void>;
@@ -112,7 +112,6 @@ export function UniversalStake({
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
-  estimateFeeResp,
   estimateFeeUTXO,
   isDisabled,
   maxAmount,
@@ -140,6 +139,30 @@ export function UniversalStake({
     [networkId],
   ).result;
 
+  const [estimateFeeResp, setEstimateFeeResp] = useState<
+    undefined | IEarnEstimateFeeResp
+  >();
+
+  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
+    if (!amount || Number(amount) === 0) {
+      setEstimateFeeResp(undefined);
+    }
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId,
+      networkId,
+    });
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId,
+      provider: details.provider.name,
+      symbol: details.token.info.symbol,
+      action: 'stake',
+      amount: amount as string,
+      morphoVault: details.provider.vault,
+      accountAddress: account?.address,
+    });
+    setEstimateFeeResp(resp);
+  }, 500);
+
   const onChangeAmountValue = useCallback(
     (value: string) => {
       if (!validateAmountInput(value, decimals)) {
@@ -149,6 +172,7 @@ export function UniversalStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          void fetchEstimateFeeResp();
         }
         return;
       }
@@ -161,9 +185,10 @@ export function UniversalStake({
         setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
+        void fetchEstimateFeeResp(value);
       }
     },
-    [decimals],
+    [decimals, fetchEstimateFeeResp],
   );
 
   const onMax = useCallback(() => {
