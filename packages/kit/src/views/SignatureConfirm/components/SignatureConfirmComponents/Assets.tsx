@@ -33,6 +33,7 @@ import {
 
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
+import BigNumber from 'bignumber.js';
 
 type IAssetsCommonProps = {
   networkId: string;
@@ -268,7 +269,7 @@ function AssetsTokenApproval(props: IAssetsApproveProps) {
           ? intl.formatMessage({
               id: ETranslations.swap_page_provider_approve_amount_un_limit,
             })
-          : Number(component.amountParsed).toString()
+          : new BigNumber(component.amountParsed).toFixed()
       }
       symbol={component.token.info.symbol}
       tokenProps={{
