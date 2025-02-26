@@ -176,7 +176,7 @@ function ApproveEditor(props: IProps) {
               }
               const valueBN = new BigNumber(value ?? 0);
               if (valueBN.isNaN()) {
-                const formattedValue = parseFloat(value);
+                const formattedValue = Number.parseFloat(value);
                 form.setValue(
                   'allowance',
                   isNaN(formattedValue) ? '' : String(formattedValue),
