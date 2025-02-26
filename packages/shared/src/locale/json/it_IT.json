@@ -19,6 +19,8 @@
   "Limit.order_history": "Cronologia ordini",
   "Limit.order_history_empty": "Nessun ordine",
   "Limit.order_history_empty_content": "Nessun ordine attivo ancora. Effettua un nuovo ordine per iniziare!",
+  "Limit.order_history_status_cancel": "Annulla",
+  "Limit.order_history_status_cancelling": "Annullamento ...",
   "Limit.order_pair": "Coppia",
   "Limit.order_status": "Stato",
   "Limit.order_status_cancelled": "Annullato",

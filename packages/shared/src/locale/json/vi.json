@@ -19,6 +19,8 @@
   "Limit.order_history": "Lịch sử đặt hàng",
   "Limit.order_history_empty": "Không có đơn hàng",
   "Limit.order_history_empty_content": "Chưa có đơn hàng nào đang hoạt động. Đặt một đơn hàng mới để bắt đầu!",
+  "Limit.order_history_status_cancel": "Hủy",
+  "Limit.order_history_status_cancelling": "Đang hủy ...",
   "Limit.order_pair": "Cặp",
   "Limit.order_status": "Trạng thái",
   "Limit.order_status_cancelled": "Đã hủy",

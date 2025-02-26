@@ -19,6 +19,8 @@
   "Limit.order_history": "Історія замовлень",
   "Limit.order_history_empty": "Немає замовлень",
   "Limit.order_history_empty_content": "Ще немає активних замовлень. Розмістіть нове, щоб почати!",
+  "Limit.order_history_status_cancel": "Скасувати",
+  "Limit.order_history_status_cancelling": "Скасування ...",
   "Limit.order_pair": "Пара",
   "Limit.order_status": "Статус",
   "Limit.order_status_cancelled": "Скасовано",

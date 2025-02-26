@@ -19,6 +19,8 @@
   "Limit.order_history": "注文履歴",
   "Limit.order_history_empty": "注文なし",
   "Limit.order_history_empty_content": "まだアクティブな注文はありません。新しい注文をして始めましょう！",
+  "Limit.order_history_status_cancel": "キャンセル",
+  "Limit.order_history_status_cancelling": "キャンセル中...",
   "Limit.order_pair": "ペア",
   "Limit.order_status": "ステータス",
   "Limit.order_status_cancelled": "キャンセルされました",

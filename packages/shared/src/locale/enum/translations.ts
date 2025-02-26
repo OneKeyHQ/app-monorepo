@@ -24,6 +24,8 @@
   Limit_order_history = 'Limit.order_history',
   Limit_order_history_empty = 'Limit.order_history_empty',
   Limit_order_history_empty_content = 'Limit.order_history_empty_content',
+  Limit_order_history_status_cancel = 'Limit.order_history_status_cancel',
+  Limit_order_history_status_cancelling = 'Limit.order_history_status_cancelling',
   Limit_order_pair = 'Limit.order_pair',
   Limit_order_status = 'Limit.order_status',
   Limit_order_status_cancelled = 'Limit.order_status_cancelled',

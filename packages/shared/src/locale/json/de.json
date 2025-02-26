@@ -19,6 +19,8 @@
   "Limit.order_history": "Bestellverlauf",
   "Limit.order_history_empty": "Keine Bestellungen",
   "Limit.order_history_empty_content": "Noch keine aktiven Bestellungen. Geben Sie eine neue auf, um zu beginnen!",
+  "Limit.order_history_status_cancel": "Abbrechen",
+  "Limit.order_history_status_cancelling": "Abbrechen ...",
   "Limit.order_pair": "Paar",
   "Limit.order_status": "Status",
   "Limit.order_status_cancelled": "Storniert",

@@ -19,6 +19,8 @@
   "Limit.order_history": "ประวัติการสั่งซื้อ",
   "Limit.order_history_empty": "ไม่มีคำสั่งซื้อ",
   "Limit.order_history_empty_content": "ยังไม่มีคำสั่งซื้อที่ใช้งานอยู่ เริ่มต้นด้วยการสั่งซื้อใหม่!",
+  "Limit.order_history_status_cancel": "ยกเลิก",
+  "Limit.order_history_status_cancelling": "กำลังยกเลิก ...",
   "Limit.order_pair": "คู่",
   "Limit.order_status": "สถานะ",
   "Limit.order_status_cancelled": "ยกเลิก",

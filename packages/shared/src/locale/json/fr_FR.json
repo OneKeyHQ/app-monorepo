@@ -19,6 +19,8 @@
   "Limit.order_history": "Historique des commandes",
   "Limit.order_history_empty": "Pas de commandes",
   "Limit.order_history_empty_content": "Pas encore de commandes actives. Passez-en une nouvelle pour commencer !",
+  "Limit.order_history_status_cancel": "Annuler",
+  "Limit.order_history_status_cancelling": "Annulation ...",
   "Limit.order_pair": "Paire",
   "Limit.order_status": "Statut",
   "Limit.order_status_cancelled": "Annulé",

@@ -19,6 +19,8 @@
   "Limit.order_history": "Histórico de pedidos",
   "Limit.order_history_empty": "Sem pedidos",
   "Limit.order_history_empty_content": "Ainda não há pedidos ativos. Faça um novo para começar!",
+  "Limit.order_history_status_cancel": "Cancelar",
+  "Limit.order_history_status_cancelling": "Cancelando ...",
   "Limit.order_pair": "Par",
   "Limit.order_status": "Status",
   "Limit.order_status_cancelled": "Cancelado",
