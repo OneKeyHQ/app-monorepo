@@ -59,7 +59,7 @@ const settings: IVaultSettings = {
   },
 
   nativeMinTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toFixed(),
-  isNativeTokenContractAddressEmpty: true,
+  isNativeTokenContractAddressEmpty: false,
 
   afterSendTxActionEnabled: true,
 };
