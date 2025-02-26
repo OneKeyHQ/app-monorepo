@@ -1073,10 +1073,12 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     name,
+    fallbackName,
     shouldCheckDuplicateName,
     skipAddIfNotEqualToAddress,
   }: {
     name?: string;
+    fallbackName?: string;
     shouldCheckDuplicateName?: boolean;
     credential: string;
     networkId: string;
@@ -1161,8 +1163,12 @@ class ServiceAccount extends ServiceBase {
       walletId,
       accounts,
       importedCredential: credentialEncrypt,
-      accountNameBuilder: ({ nextAccountId }) =>
-        accountUtils.buildBaseAccountName({ nextAccountId }),
+      accountNameBuilder: ({ nextAccountId }) => {
+        if (fallbackName) {
+          return fallbackName;
+        }
+        return accountUtils.buildBaseAccountName({ nextAccountId });
+      },
     });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     return {
@@ -1279,6 +1285,7 @@ class ServiceAccount extends ServiceBase {
     networkId,
     deriveType,
     name,
+    fallbackName,
     shouldCheckDuplicateName,
     isUrlAccount,
     skipAddIfNotEqualToAddress,
@@ -1286,6 +1293,7 @@ class ServiceAccount extends ServiceBase {
     input: string;
     networkId: string;
     name?: string;
+    fallbackName?: string;
     shouldCheckDuplicateName?: boolean;
     deriveType?: IAccountDeriveTypes;
     isUrlAccount?: boolean;
@@ -1404,10 +1412,15 @@ class ServiceAccount extends ServiceBase {
       allAccountsBelongToNetworkId: networkId,
       walletId,
       accounts,
-      accountNameBuilder: ({ nextAccountId }) =>
-        isUrlAccount
-          ? `Url Account ${Date.now()}`
-          : accountUtils.buildBaseAccountName({ nextAccountId }),
+      accountNameBuilder: ({ nextAccountId }) => {
+        if (isUrlAccount) {
+          return `Url Account ${Date.now()}`;
+        }
+        if (fallbackName) {
+          return fallbackName;
+        }
+        return accountUtils.buildBaseAccountName({ nextAccountId });
+      },
     });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     return {
