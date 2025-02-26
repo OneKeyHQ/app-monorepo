@@ -1,10 +1,11 @@
 import { useIntl } from 'react-intl';
 
-import { Icon, Input, Stack } from '@onekeyhq/components';
+import { Badge, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { browserWelcomeLogos } from '@onekeyhq/shared/src/utils/browserUtils';
 
 import { DefaultTitle } from './DefaultTitle';
+import { SearchInput } from './SearchInput';
 import { WelcomeItem } from './WelcomeItem';
 
 export function Welcome({ banner }: { banner: React.ReactNode }) {
@@ -19,36 +20,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
 
       {/* Main search input */}
       <Stack position="relative" zIndex={1}>
-        <Stack position="relative" maxWidth={384}>
-          <Input
-            InputComponentStyle={{
-              background: 'transparent',
-            }}
-            containerProps={{
-              borderWidth: 0,
-              borderRadius: '$full',
-              background: '$bgStrong',
-            }}
-            addOns={[
-              {
-                renderContent: (
-                  <Stack>
-                    <Icon name="ArrowRightOutline" size="$5" />
-                  </Stack>
-                ),
-                onPress: () => {},
-              },
-            ]}
-            size="large"
-            placeholder={intl.formatMessage({
-              id: ETranslations.browser_search_dapp_or_enter_url,
-            })}
-            leftIconName="SearchOutline"
-            borderRadius="$full"
-            py="$3"
-            bg="$backgroundStrong"
-          />
-        </Stack>
+        <SearchInput />
 
         {/* Scattered app icons */}
         <Stack
