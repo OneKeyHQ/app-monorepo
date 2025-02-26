@@ -88,7 +88,7 @@ export const WelcomeItem = memo(
     logo,
     url,
     size = '$12',
-    borderRadius = 12,
+    borderRadius = 14,
   }: {
     logo: string;
     url?: string;
