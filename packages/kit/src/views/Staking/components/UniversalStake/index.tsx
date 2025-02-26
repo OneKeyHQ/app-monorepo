@@ -286,7 +286,9 @@ export function UniversalStake({
 
       if (daySpent && daySpent > 5) {
         showEstimateGasAlert({
-          daysConsumed: daySpent,
+          daysConsumed: formatStakingDistanceToNowStrict(
+            estimateFeeResp.coverFeeSeconds,
+          ),
           estFiatValue: estimateFeeResp.feeFiatValue,
           onConfirm: handleConfirm,
         });
