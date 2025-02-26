@@ -22,12 +22,16 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  PercentageStageOnKeyboard,
+  calcPercentBalance,
+} from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import {
-  calcPercentBalance,
   formatApy,
+  formatStakingDistanceToNowStrict,
 } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -46,7 +50,7 @@ import { validateAmountInput } from '../../../Swap/utils/utils';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
-import { CalculationList, CalculationListItem } from '../CalculationList';
+import { CalculationListItem } from '../CalculationList';
 import {
   EstimateNetworkFee,
   calcDaysSpent,
@@ -54,13 +58,9 @@ import {
 } from '../EstimateNetworkFee';
 import { MorphoApy } from '../ProtocolDetails/MorphoApy';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
-import {
-  PercentageStageOnKeyboard,
-  StakingAmountInput,
-} from '../StakingAmountInput';
+import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
   details: IStakeProtocolDetails;
@@ -348,13 +348,10 @@ export function ApproveBaseStake({
   }, [estimatedAnnualRewards]);
 
   const daysSpent = useMemo(() => {
-    if (totalAnnualRewardsFiatValue && estimateFeeResp?.feeFiatValue) {
-      return calcDaysSpent(
-        totalAnnualRewardsFiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+    if (estimateFeeResp?.coverFeeSeconds) {
+      return formatStakingDistanceToNowStrict(estimateFeeResp.coverFeeSeconds);
     }
-  }, [estimateFeeResp?.feeFiatValue, totalAnnualRewardsFiatValue]);
+  }, [estimateFeeResp?.coverFeeSeconds]);
 
   const checkEstimateGasAlert = useCallback(
     async (onNext: () => Promise<void>) => {
@@ -362,17 +359,17 @@ export function ApproveBaseStake({
         return onNext();
       }
 
-      const daySpent = calcDaysSpent(
-        totalAnnualRewardsFiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+      const daySpent =
+        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
 
       if (!daySpent || daySpent <= 5) {
         return onNext();
       }
 
       showEstimateGasAlert({
-        daysConsumed: daySpent,
+        daysConsumed: formatStakingDistanceToNowStrict(
+          estimateFeeResp.coverFeeSeconds,
+        ),
         estFiatValue: estimateFeeResp.feeFiatValue,
         onConfirm: async (dialogInstance: IDialogInstance) => {
           await dialogInstance.close();
