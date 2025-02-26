@@ -507,6 +507,8 @@ function HistoryDetails() {
     return {
       from,
       to,
+      isSingleFrom: [...sends, ...receives].every((e) => e.from === from),
+      isSingleTo: [...sends, ...receives].every((e) => e.to === to),
       isSingleTransfer:
         from === to
           ? true
@@ -905,7 +907,12 @@ function HistoryDetails() {
     }
 
     if (vaultSettings?.isUtxo && !txAddresses?.isSingleTransfer) return null;
-    if (txAddresses?.from && txAddresses?.to && txAddresses?.isSingleTransfer) {
+    if (
+      txAddresses?.from &&
+      txAddresses?.to &&
+      (txAddresses?.isSingleTransfer ||
+        (txAddresses?.isSingleFrom && txAddresses?.isSingleTo))
+    ) {
       return (
         <>
           <InfoItem

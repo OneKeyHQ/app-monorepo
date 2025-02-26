@@ -131,7 +131,7 @@ function TxConfirmAlert(props: IProps) {
 
   const renderChainSpecialAlert = useCallback(() => {
     if (
-      getNetworkIdsMap().kaspa &&
+      networkId === getNetworkIdsMap().kaspa &&
       accountUtils.isHwAccount({ accountId }) &&
       transferPayload?.tokenInfo &&
       !transferPayload.tokenInfo.isNative
@@ -146,7 +146,7 @@ function TxConfirmAlert(props: IProps) {
       );
     }
     return null;
-  }, [accountId, intl, transferPayload?.tokenInfo]);
+  }, [accountId, intl, networkId, transferPayload?.tokenInfo]);
 
   return (
     <>
