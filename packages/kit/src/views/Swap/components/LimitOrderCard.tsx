@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Divider,
   IconButton,
   NumberSizeableText,
@@ -257,16 +258,27 @@ const LimitOrderCard = ({
           {tokenInfo()}
         </YStack>
         {!hiddenCancelIcon ? (
-          <IconButton
-            icon="DeleteOutline"
-            variant="tertiary"
-            color="$iconSubdued"
-            size="small"
-            onPress={() => {
+          <Badge
+            px="$2"
+            bg="$bgSubdued"
+            borderRadius="$2.5"
+            borderWidth={1}
+            borderColor={'$borderSubdued'}
+            onPress={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
               onCancel?.();
             }}
-            loading={cancelLoading}
-          />
+            userSelect="none"
+            hoverStyle={{
+              bg: '$bgStrongHover',
+            }}
+            pressStyle={{
+              bg: '$bgStrongActive',
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.Limit_order_cancel })}
+          </Badge>
         ) : null}
       </XStack>
       <Divider />
