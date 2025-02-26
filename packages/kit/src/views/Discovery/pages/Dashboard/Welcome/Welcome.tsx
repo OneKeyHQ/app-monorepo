@@ -58,12 +58,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
           </Stack>
 
           {/* Middle left */}
-          <Stack
-            position="absolute"
-            top="50%"
-            left="$4"
-            // transform="translateY(-50%)"
-          >
+          <Stack position="absolute" top="50%" left="$4">
             <WelcomeItem
               key={logos[3].name}
               logo={logos[3].icon}
