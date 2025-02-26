@@ -113,6 +113,7 @@ export function MoreActionButton() {
               }),
               icon: 'LockOutline',
               onPress: onLock,
+              testID: 'lock-now',
             },
             {
               label: intl.formatMessage({
@@ -120,6 +121,7 @@ export function MoreActionButton() {
               }),
               icon: 'ScanOutline',
               onPress: handleScan,
+              testID: 'scan-qr-code',
             },
           ],
         },
