@@ -21,19 +21,19 @@ export const browserWelcomeLogos = {
     url: 'https://www.pendle.finance/',
     icon: PendleLogo,
   },
-  ethena: {
-    name: 'Ethena',
-    url: 'https://ethena.io/',
-    icon: EthenaLogo,
+  morpho: {
+    name: 'Morpho',
+    url: 'https://www.morpho.xyz/',
+    icon: MorphoLogo,
   },
   sky: {
     name: 'Sky',
     url: 'https://sky.money/',
     icon: SkyLogo,
   },
-  morpho: {
-    name: 'Morpho',
-    url: 'https://www.morpho.xyz/',
-    icon: MorphoLogo,
+  ethena: {
+    name: 'Ethena',
+    url: 'https://ethena.io/',
+    icon: EthenaLogo,
   },
 };

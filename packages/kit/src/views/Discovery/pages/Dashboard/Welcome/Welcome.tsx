@@ -33,7 +33,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
 
         <WelcomeItem
           position="absolute"
-          top="40%"
+          top="30%"
           right="$0"
           key={logos[2].name}
           logo={logos[2].icon}
@@ -44,11 +44,13 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
 
       <Stack
         alignItems="center"
+        justifyContent="center"
         width="auto"
         position="relative"
         gap="$5"
         px="$5"
         py="$6"
+        minHeight="$48"
         $sm={{
           width: '100%',
         }}
@@ -62,7 +64,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
         <WelcomeItem
           position="absolute"
           top="22%"
-          left="$24"
+          left="$28"
           key={logos[3].name}
           logo={logos[3].icon}
           url={logos[3].url}
