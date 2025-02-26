@@ -200,7 +200,13 @@ const EstimateNetworkFeeListItem = ({
         >
           {estFiatValue}
         </NumberSizeableText>
-        {onPress ? <Icon name="ChevronRightSmallOutline" size={24} /> : null}
+        {onPress ? (
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        ) : null}
       </XStack>
     </CalculationListItem>
   ) : null;

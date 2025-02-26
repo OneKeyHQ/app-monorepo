@@ -736,7 +736,7 @@ export function ApproveBaseStake({
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <SizableText size="$bodyMd">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.earn_est_annual_rewards,
             })}
@@ -804,7 +804,7 @@ export function ApproveBaseStake({
                       src={providerLogo}
                       borderRadius="$2"
                     />
-                    <SizableText size="$bodyLgMedium">
+                    <SizableText size="$bodyMd">
                       {capitalizeString(providerName || '')}
                     </SizableText>
                   </XStack>

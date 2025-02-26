@@ -49,7 +49,9 @@ export function StakingAmountInput({
       borderWidth="$0"
     >
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
-        <SizableText>{title}</SizableText>
+        <SizableText size="$bodyMd" color="$textSubdued">
+          {title}
+        </SizableText>
         <AnimatePresence>
           {!platformEnv.isNative && (percentageInputStageShow || !!value) ? (
             <XStack

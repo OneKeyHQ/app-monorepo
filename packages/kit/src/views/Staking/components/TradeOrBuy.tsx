@@ -71,7 +71,7 @@ function BasicTradeOrBuy({
 
   return (
     <XStack ai="center" jc="space-between" pt="$5">
-      <SizableText size="$bodyLg" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
           { token: token.symbol },
