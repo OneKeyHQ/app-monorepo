@@ -12,9 +12,10 @@ export function SearchInput() {
 
   return (
     <XStack
+      testID="search-input"
       gap="$2"
       position="relative"
-      maxWidth={384}
+      width="100%"
       backgroundColor="$bgStrong"
       borderRadius="$full"
       alignItems="center"
@@ -27,6 +28,9 @@ export function SearchInput() {
       }}
       onPress={() => {}}
       p="$3"
+      $gtSm={{
+        w: 384,
+      }}
     >
       <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 

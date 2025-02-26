@@ -15,7 +15,9 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
       position="relative"
       px="$5"
       py="$6"
-      justifyContent="center"
+      $gtSm={{
+        alignItems: 'center',
+      }}
       flex={1}
     >
       {banner || <DefaultTitle />}
