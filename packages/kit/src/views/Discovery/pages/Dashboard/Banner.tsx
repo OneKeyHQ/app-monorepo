@@ -25,15 +25,13 @@ export function DashboardBanner({
   const emptyComponent = useMemo(
     () =>
       isLoading ? (
-        <Stack>
-          <Skeleton
-            h={120}
-            w="100%"
-            $gtMd={{
-              w: 360,
-            }}
-          />
-        </Stack>
+        <Skeleton
+          h={120}
+          w="100%"
+          $gtMd={{
+            w: 360,
+          }}
+        />
       ) : undefined,
     [isLoading],
   );
