@@ -773,7 +773,7 @@ function SendDataInputContainer() {
               const value = e.target?.value;
               const valueBN = new BigNumber(value ?? 0);
               if (valueBN.isNaN()) {
-                const formattedValue = parseFloat(value);
+                const formattedValue = Number.parseFloat(value);
                 form.setValue(
                   'amount',
                   isNaN(formattedValue) ? '' : String(formattedValue),
