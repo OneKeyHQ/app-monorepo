@@ -240,7 +240,11 @@ function TxConfirm() {
 
     return (
       <YStack gap="$5">
-        <TxConfirmAlert networkId={networkId} />
+        <TxConfirmAlert
+          networkId={networkId}
+          accountId={accountId}
+          transferPayload={transferPayload}
+        />
         {sourceInfo?.origin ? (
           <DAppSiteMark
             origin={sourceInfo.origin}
