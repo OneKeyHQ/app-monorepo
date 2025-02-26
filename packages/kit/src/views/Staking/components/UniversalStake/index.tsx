@@ -334,9 +334,9 @@ export function UniversalStake({
   ]);
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
-    if (Number(amountValue) <= 0) {
-      return items;
-    }
+    // if (Number(amountValue) <= 0) {
+    //   return items;
+    // }
     if (showEstReceive && estReceiveToken) {
       items.push(
         <CalculationListItem>
@@ -644,7 +644,7 @@ export function UniversalStake({
               userSelect="none"
               borderRadius="$1"
               cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
-              disabled={isAccordionTriggerDisabled}
+              disabled={!isAccordionTriggerDisabled}
             >
               {({ open }: { open: boolean }) => (
                 <>
