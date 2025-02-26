@@ -400,6 +400,7 @@ function HistoryDetails() {
     ],
     {
       watchLoading: true,
+      alwaysSetState: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
       checkIsFocused,
       overrideIsFocused: (isPageFocused) =>
