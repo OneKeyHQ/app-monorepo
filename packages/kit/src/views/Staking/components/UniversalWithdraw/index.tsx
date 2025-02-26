@@ -413,14 +413,14 @@ export const UniversalWithdraw = ({
             >
               {({ open }: { open: boolean }) => (
                 <>
-                  <XStack gap="$2" alignItems="center">
+                  <XStack gap="$1.5" alignItems="center">
                     <Image
                       width="$5"
                       height="$5"
                       src={providerLogo}
                       borderRadius="$2"
                     />
-                    <SizableText size="$bodyLgMedium">
+                    <SizableText size="$bodyMd">
                       {capitalizeString(providerName || '')}
                     </SizableText>
                   </XStack>

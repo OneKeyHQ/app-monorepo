@@ -516,7 +516,7 @@ export function UniversalStake({
         ) : null}
         {!btcStakeTerm ? (
           <YStack pt="$3.5" gap="$2">
-            <SizableText size="$bodyMd">
+            <SizableText size="$bodyMd" color="$textSubdued">
               {intl.formatMessage({
                 id: ETranslations.earn_est_annual_rewards,
               })}
@@ -648,14 +648,14 @@ export function UniversalStake({
             >
               {({ open }: { open: boolean }) => (
                 <>
-                  <XStack gap="$2" alignItems="center">
+                  <XStack gap="$1.5" alignItems="center">
                     <Image
                       width="$5"
                       height="$5"
                       src={providerLogo}
                       borderRadius="$2"
                     />
-                    <SizableText size="$bodyLgMedium">
+                    <SizableText size="$bodyMd">
                       {capitalizeString(providerName || '')}
                     </SizableText>
                   </XStack>

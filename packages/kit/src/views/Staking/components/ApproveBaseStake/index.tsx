@@ -797,7 +797,7 @@ export function ApproveBaseStake({
             >
               {({ open }: { open: boolean }) => (
                 <>
-                  <XStack gap="$2" alignItems="center">
+                  <XStack gap="$1.5" alignItems="center">
                     <Image
                       width="$5"
                       height="$5"
