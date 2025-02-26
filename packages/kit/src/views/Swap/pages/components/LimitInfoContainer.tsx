@@ -20,6 +20,7 @@ const LimitInfoContainer = () => {
     onSetMarketPrice,
     limitPriceSetReverse,
     onChangeReverse,
+    limitPriceEqualMarketPrice,
   } = useSwapLimitRate();
   const intl = useIntl();
 
@@ -36,7 +37,11 @@ const LimitInfoContainer = () => {
               bg="$bgApp"
               borderRadius="$2.5"
               borderWidth={1}
-              borderColor="$borderSubdued"
+              borderColor={
+                limitPriceEqualMarketPrice && percentage === 0
+                  ? '$borderActive'
+                  : '$borderSubdued'
+              }
               onPress={() => onSetMarketPrice(percentage)}
               hoverStyle={{
                 bg: '$bgStrongHover',
@@ -53,11 +58,7 @@ const LimitInfoContainer = () => {
         </XStack>
       </XStack>
       <LimitRateInput
-        limitPriceRateValue={
-          limitPriceSetReverse
-            ? limitPriceUseRate.reverseRate
-            : limitPriceUseRate.rate
-        }
+        inputRate={limitPriceUseRate.inputRate}
         onReverseChange={onChangeReverse}
         reverse={limitPriceSetReverse}
         onChangeText={onLimitRateChange}

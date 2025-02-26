@@ -476,7 +476,6 @@ class ServiceToken extends ServiceBase {
     tokenIdOnNetwork: string;
   }) {
     const { accountId, networkId, tokenIdOnNetwork } = params;
-
     const localToken = await this.backgroundApi.simpleDb.localTokens.getToken({
       networkId,
       tokenIdOnNetwork,

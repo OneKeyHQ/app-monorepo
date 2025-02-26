@@ -160,8 +160,20 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2-1720667871986.png',
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
     },
     toToken: {
+      'networkId': 'evm--1',
+      'contractAddress': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--1/tokens/address-0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/eth.png',
+    },
+    limitToToken: {
       'networkId': 'evm--1',
       'contractAddress': '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
       'name': 'USD Coin',
@@ -298,8 +310,22 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0x82af49447d8a07e3bd95bd0d56f35241523fbab1-1720668347864.png',
       'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
     },
     toToken: {
+      'networkId': 'evm--42161',
+      'contractAddress': '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0xaf88d065e77c8cc2239327c5edb3a432268e5831.png',
+      'isNative': false,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
+    },
+    limitToToken: {
       'networkId': 'evm--42161',
       'contractAddress': '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
       'name': 'USD Coin',
@@ -333,6 +359,18 @@ export const swapDefaultSetTokens: Record<
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-0x4200000000000000000000000000000000000006-1720668314458.png',
       'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
+    },
+    limitToToken: {
+      'networkId': 'evm--8453',
+      'contractAddress': '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
+      'name': 'USD Coin',
+      'symbol': 'USDC',
+      'decimals': 6,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-0x833589fcd6edb6e08f4c7c32d4f71b54bda02913.png',
+      'isNative': false,
+      'networkLogoURI': 'https://uni.onekey-asset.com/static/chain/base.png',
     },
     toToken: {
       'networkId': 'evm--8453',
@@ -1024,6 +1062,19 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
         'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address--1720669989878.png',
 
       'isNative': true,
+      'isPopular': true,
+      'networkLogoURI':
+        'https://uni.onekey-asset.com/static/chain/arbitrum.png',
+    },
+    {
+      'networkId': 'evm--42161',
+      'contractAddress': '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+      'name': 'Wrapped Ether',
+      'symbol': 'WETH',
+      'decimals': 18,
+      'logoURI':
+        'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0x82af49447d8a07e3bd95bd0d56f35241523fbab1-1720668347864.png',
+      'isNative': false,
       'isPopular': true,
       'networkLogoURI':
         'https://uni.onekey-asset.com/static/chain/arbitrum.png',

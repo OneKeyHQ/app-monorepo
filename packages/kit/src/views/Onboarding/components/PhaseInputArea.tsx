@@ -45,7 +45,10 @@ import {
   useKeyboardEvent,
   useMedia,
 } from '@onekeyhq/components';
-import type { EMnemonicType } from '@onekeyhq/core/src/secret';
+import {
+  type EMnemonicType,
+  validateMnemonic,
+} from '@onekeyhq/core/src/secret';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -200,6 +203,7 @@ function BasicPhaseInput(
     onChange,
     value,
     isShowError = false,
+    phraseLength,
     onInputChange,
     onInputFocus,
     onInputBlur,
@@ -215,6 +219,7 @@ function BasicPhaseInput(
   }: IPropsWithTestId<{
     value?: string;
     index: number;
+    phraseLength: number;
     isShowError: boolean;
     onInputChange: (value: string) => string;
     onChange?: (value: string) => void;
@@ -257,16 +262,25 @@ function BasicPhaseInput(
 
   const handleChangeText = useCallback(
     (v: string) => {
-      if (platformEnv.isNative && onPasteMnemonic(v, index)) {
-        onInputChange('');
-        onChange?.('');
-        return;
+      // Supports inputting mnemonic phrases via drag-and-drop text or toolbar of keyboard, such as 1Password.
+      const trimmedValue = v ? v.trim() : '';
+      if (
+        trimmedValue &&
+        trimmedValue.split(' ').filter(Boolean).length === phraseLength &&
+        validateMnemonic(trimmedValue)
+      ) {
+        if (onPasteMnemonic(trimmedValue, 0)) {
+          onInputChange('');
+          onChange?.('');
+          return;
+        }
       }
+
       const rawText = v.replaceAll(PINYIN_COMPOSITION_SPACE, '');
       const text = onInputChange(rawText);
       onChange?.(text);
     },
-    [index, onChange, onInputChange, onPasteMnemonic],
+    [onChange, onInputChange, onPasteMnemonic, phraseLength],
   );
 
   const handleOpenChange = useCallback(
@@ -449,14 +463,15 @@ export function PhaseInputArea({
   const [phraseLength, setPhraseLength] = useState(
     phraseLengthOptions[0].value,
   );
+  const phraseLengthNumber = Number(phraseLength);
   const { serviceAccount, servicePassword } = backgroundApiProxy;
   const defaultPhrasesMap = useMemo(() => {
     const map: Record<string, string> = {};
-    range(0, Number(phraseLength))?.forEach((_, i) => {
+    range(0, phraseLengthNumber)?.forEach((_, i) => {
       map[`phrase${i + 1}`] = defaultPhrases[i] || '';
     });
     return map;
-  }, [defaultPhrases, phraseLength]);
+  }, [defaultPhrases, phraseLengthNumber]);
   const form = useForm({
     defaultValues: defaultPhrasesMap,
   });
@@ -494,19 +509,19 @@ export function PhaseInputArea({
     focusNextInput,
     onPasteMnemonic,
     isShowErrors,
-  } = useSuggestion(form, Number(phraseLength), {
+  } = useSuggestion(form, phraseLengthNumber, {
     setPhraseLength,
   });
 
   const handleReturnKeyPressed = useCallback(
     (index: number) => {
-      if (index === Number(phraseLength) - 1) {
+      if (index === phraseLengthNumber - 1) {
         void handlePageFooterConfirm();
       } else {
         void focusNextInput();
       }
     },
-    [focusNextInput, handlePageFooterConfirm, phraseLength],
+    [focusNextInput, handlePageFooterConfirm, phraseLengthNumber],
   );
 
   useKeyboardEvent({
@@ -516,11 +531,11 @@ export function PhaseInputArea({
   const getReturnKeyLabel: (index: number) => ReturnKeyTypeOptions =
     useCallback(
       (index: number) =>
-        index === Number(phraseLength) - 1 ||
-        compact(Object.values(form.getValues())).length === Number(phraseLength)
+        index === phraseLengthNumber - 1 ||
+        compact(Object.values(form.getValues())).length === phraseLengthNumber
           ? 'done'
           : 'next',
-      [form, phraseLength],
+      [form, phraseLengthNumber],
     );
 
   const handleClear = useCallback(() => {
@@ -586,7 +601,7 @@ export function PhaseInputArea({
         <SecureView>
           <Form form={form}>
             <XStack px="$4" flexWrap="wrap">
-              {Array.from({ length: Number(phraseLength) }).map((_, index) => (
+              {Array.from({ length: phraseLengthNumber }).map((_, index) => (
                 <Stack
                   key={index}
                   $md={{
@@ -600,6 +615,7 @@ export function PhaseInputArea({
                       index={index}
                       isShowError={isShowErrors[index]}
                       onInputBlur={onInputBlur}
+                      phraseLength={phraseLengthNumber}
                       onInputChange={onInputChange}
                       onInputFocus={onInputFocus}
                       onPasteMnemonic={onPasteMnemonic}
