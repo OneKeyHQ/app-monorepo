@@ -710,7 +710,6 @@ export function UniversalStake({
             </SizableText>
           </YStack>
         ) : null}
-
         {btcStakeTerm ? (
           <YStack gap="$2">
             <XStack gap="$1">
@@ -733,61 +732,59 @@ export function UniversalStake({
             <SizableText size="$bodyLgMedium">{btcStakeTerm}</SizableText>
           </YStack>
         ) : null}
-        <XStack pt="$3.5" gap="$1">
-          {stakingTime ? (
-            <>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.earn_earnings_start })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage(
-                  { id: ETranslations.earn_in_number },
-                  {
-                    number: formatStakingDistanceToNowStrict(stakingTime),
-                  },
-                )}
-              </SizableText>
-            </>
-          ) : null}
-          {nextLaunchLeft && rewardToken ? (
-            <>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.earn_until_next_launch,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">
-                {intl.formatMessage(
-                  { id: ETranslations.earn_number_symbol_left },
-                  {
-                    number: Number(nextLaunchLeft).toFixed(2),
-                    symbol: rewardToken,
-                  },
-                )}
-              </SizableText>
-              <Popover.Tooltip
-                iconSize="$5"
-                title={intl.formatMessage({
-                  id: ETranslations.earn_until_next_launch,
-                })}
-                tooltip={intl.formatMessage({
-                  id: ETranslations.earn_until_next_launch_tooltip,
-                })}
-                placement="top"
-              />
-            </>
-          ) : null}
-          {btcUnlockTime ? (
-            <>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({
-                  id: ETranslations.earn_unlock_time,
-                })}
-              </SizableText>
-              <SizableText size="$bodyMdMedium">{btcUnlockTime}</SizableText>
-            </>
-          ) : null}
-        </XStack>
+        {stakingTime ? (
+          <XStack pt="$3.5" gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.earn_earnings_start })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage(
+                { id: ETranslations.earn_in_number },
+                {
+                  number: formatStakingDistanceToNowStrict(stakingTime),
+                },
+              )}
+            </SizableText>
+          </XStack>
+        ) : null}
+        {nextLaunchLeft && rewardToken ? (
+          <XStack pt="$3.5" gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.earn_until_next_launch,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
+              {intl.formatMessage(
+                { id: ETranslations.earn_number_symbol_left },
+                {
+                  number: Number(nextLaunchLeft).toFixed(2),
+                  symbol: rewardToken,
+                },
+              )}
+            </SizableText>
+            <Popover.Tooltip
+              iconSize="$5"
+              title={intl.formatMessage({
+                id: ETranslations.earn_until_next_launch,
+              })}
+              tooltip={intl.formatMessage({
+                id: ETranslations.earn_until_next_launch_tooltip,
+              })}
+              placement="top"
+            />
+          </XStack>
+        ) : null}
+        {btcUnlockTime ? (
+          <XStack pt="$3.5" gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.earn_unlock_time,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">{btcUnlockTime}</SizableText>
+          </XStack>
+        ) : null}
         <Divider my="$5" />
         <Accordion
           overflow="hidden"
