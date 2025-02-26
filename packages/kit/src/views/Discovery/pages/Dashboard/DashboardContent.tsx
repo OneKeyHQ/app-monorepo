@@ -23,6 +23,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { useBannerData } from '../../hooks/useBannerData';
 import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { DashboardBanner } from './Banner';
@@ -113,35 +114,42 @@ function DashboardContent({
     [navigation],
   );
 
+  // Use the useBannerData hook to get processed banner data
+  const { data: bannerData } = useBannerData(homePageData?.banners || []);
+  const hasBannerData = bannerData && bannerData.length > 0;
+
   const content = useMemo(() => {
     const isShowBanner =
       Array.isArray(homePageData?.banners) && homePageData.banners.length > 0;
+
     return (
       <>
         <Welcome
           banner={
-            <DashboardBanner
-              key="Banner"
-              banners={homePageData?.banners || []}
-              handleOpenWebSite={({ webSite, useSystemBrowser }) => {
-                if (useSystemBrowser && webSite?.url) {
-                  openUrlExternal(webSite.url);
-                } else if (webSite?.url) {
-                  handleOpenWebSite({
-                    switchToMultiTabBrowser: gtMd,
-                    webSite,
-                    navigation,
-                    shouldPopNavigation: false,
+            hasBannerData ? (
+              <DashboardBanner
+                key="Banner"
+                banners={homePageData?.banners || []}
+                handleOpenWebSite={({ webSite, useSystemBrowser }) => {
+                  if (useSystemBrowser && webSite?.url) {
+                    openUrlExternal(webSite.url);
+                  } else if (webSite?.url) {
+                    handleOpenWebSite({
+                      switchToMultiTabBrowser: gtMd,
+                      webSite,
+                      navigation,
+                      shouldPopNavigation: false,
+                    });
+                  }
+                  defaultLogger.discovery.dapp.enterDapp({
+                    dappDomain: webSite?.url || '',
+                    dappName: webSite?.title || '',
+                    enterMethod: EEnterMethod.banner,
                   });
-                }
-                defaultLogger.discovery.dapp.enterDapp({
-                  dappDomain: webSite?.url || '',
-                  dappName: webSite?.title || '',
-                  enterMethod: EEnterMethod.banner,
-                });
-              }}
-              isLoading={isLoading}
-            />
+                }}
+                isLoading={isLoading}
+              />
+            ) : null
           }
         />
 
@@ -196,6 +204,7 @@ function DashboardContent({
   }, [
     homePageData?.banners,
     homePageData?.categories,
+    hasBannerData,
     isLoading,
     bookmarksData,
     historiesData,

@@ -1,7 +1,4 @@
-import { useIntl } from 'react-intl';
-
-import { Badge, SizableText, Stack, XStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { Stack } from '@onekeyhq/components';
 import { browserWelcomeLogos } from '@onekeyhq/shared/src/utils/browserUtils';
 
 import { DefaultTitle } from './DefaultTitle';
@@ -9,7 +6,6 @@ import { SearchInput } from './SearchInput';
 import { WelcomeItem } from './WelcomeItem';
 
 export function Welcome({ banner }: { banner: React.ReactNode }) {
-  const intl = useIntl();
   // Convert browserWelcomeLogos to array for easier distribution
   const logos = Object.values(browserWelcomeLogos);
   const showIcons = false;
