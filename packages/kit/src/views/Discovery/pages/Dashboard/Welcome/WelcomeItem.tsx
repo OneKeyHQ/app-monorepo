@@ -10,7 +10,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Image, Stack } from '@onekeyhq/components';
+import { Image, Stack, useMedia } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 // Animation constants
@@ -101,6 +103,9 @@ export const WelcomeItem = memo(
     const rotate = useSharedValue(0);
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(DEFAULT_SHADOW_OPACITY);
+    const navigation = useAppNavigation();
+    const { gtMd } = useMedia();
+    const { handleOpenWebSite } = useBrowserAction().current;
 
     useEffect(() => {
       setTimeout(
@@ -209,7 +214,15 @@ export const WelcomeItem = memo(
 
     const handlePress = () => {
       if (url) {
-        openUrlExternal(url);
+        handleOpenWebSite({
+          switchToMultiTabBrowser: gtMd,
+          webSite: {
+            url,
+            title: url,
+          },
+          navigation,
+          shouldPopNavigation: false,
+        });
       }
     };
 
