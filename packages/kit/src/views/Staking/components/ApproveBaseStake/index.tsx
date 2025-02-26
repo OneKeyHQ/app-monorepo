@@ -348,12 +348,6 @@ export function ApproveBaseStake({
   }, [estimatedAnnualRewards]);
 
   const daysSpent = useMemo(() => {
-    // if (totalAnnualRewardsFiatValue && estimateFeeResp?.feeFiatValue) {
-    //   return calcDaysSpent(
-    //     totalAnnualRewardsFiatValue,
-    //     estimateFeeResp.feeFiatValue,
-    //   );
-    // }
     if (estimateFeeResp?.coverFeeSeconds) {
       return formatStakingDistanceToNowStrict(estimateFeeResp.coverFeeSeconds);
     }
