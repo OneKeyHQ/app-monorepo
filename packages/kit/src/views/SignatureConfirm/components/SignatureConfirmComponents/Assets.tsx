@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
@@ -33,7 +34,6 @@ import {
 
 import { showApproveEditor } from '../ApproveEditor';
 import { SignatureConfirmItem } from '../SignatureConfirmItem';
-import BigNumber from 'bignumber.js';
 
 type IAssetsCommonProps = {
   networkId: string;
