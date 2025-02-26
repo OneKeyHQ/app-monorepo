@@ -11,7 +11,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
   const showIcons = false;
 
   return (
-    <Stack position="relative" py="$6">
+    <Stack gap="$5" position="relative" px="$5" py="$6">
       {banner || <DefaultTitle />}
 
       {/* Main search input */}

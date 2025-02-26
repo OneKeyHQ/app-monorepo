@@ -224,7 +224,7 @@ export const WelcomeItem = memo(
       shadowOpacity: shadowOpacity.value,
       shadowRadius: SHADOW_RADIUS,
       elevation: ELEVATION,
-      background: 'transparent',
+      backgroundColor: 'transparent',
       borderRadius,
       overflow: 'hidden',
     }));

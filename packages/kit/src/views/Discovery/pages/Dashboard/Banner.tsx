@@ -25,7 +25,7 @@ export function DashboardBanner({
   const emptyComponent = useMemo(
     () =>
       isLoading ? (
-        <Stack p="$5">
+        <Stack>
           <Skeleton
             h={120}
             w="100%"
@@ -40,7 +40,6 @@ export function DashboardBanner({
 
   return (
     <Stack
-      m="$5"
       h={120}
       w="100%"
       $gtSm={{

@@ -1,6 +1,6 @@
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
@@ -12,14 +12,26 @@ export function SearchInput() {
 
   return (
     <XStack
+      gap="$2"
       position="relative"
       maxWidth={384}
-      background="$bgStrong"
+      backgroundColor="$bgStrong"
       borderRadius="$full"
       alignItems="center"
+      hoverStyle={{
+        cursor: 'pointer',
+        opacity: 0.8,
+      }}
+      pressStyle={{
+        opacity: 1,
+      }}
+      onPress={() => {}}
+      p="$3"
     >
-      <Stack>
-        <SizableText>
+      <Icon name="SearchOutline" size="$5" color="$textSubdued" />
+
+      <Stack flex={1}>
+        <SizableText size="$bodyLg" color="$textPlaceholder">
           {intl.formatMessage({
             id: ETranslations.browser_search_dapp_or_enter_url,
           })}
