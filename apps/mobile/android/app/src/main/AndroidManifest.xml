@@ -61,6 +61,18 @@
         <data android:scheme="onekey-wallet"/>
         <data android:scheme="so.onekey.app.wallet"/>
       </intent-filter>
+      <intent-filter>
+        <data android:scheme="wc"/>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+      </intent-filter>
+       <intent-filter>
+        <data android:scheme="ethereum"/>
+        <action android:name="android.intent.action.VIEW"/>
+        <category android:name="android.intent.category.DEFAULT"/>
+        <category android:name="android.intent.category.BROWSABLE"/>
+      </intent-filter>
     </activity>
     <activity android:name="com.facebook.react.devsupport.DevSettingsActivity" android:exported="false"/>
     <provider
