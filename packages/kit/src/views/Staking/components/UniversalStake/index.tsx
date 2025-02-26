@@ -273,7 +273,7 @@ export function UniversalStake({
 
   const daysSpent = useMemo(() => {
     if (estimateFeeResp?.coverFeeSeconds) {
-      return formatStakingDistanceToNowStrict(estimateFeeResp?.coverFeeSeconds);
+      return formatStakingDistanceToNowStrict(estimateFeeResp.coverFeeSeconds);
     }
   }, [estimateFeeResp?.coverFeeSeconds]);
 
