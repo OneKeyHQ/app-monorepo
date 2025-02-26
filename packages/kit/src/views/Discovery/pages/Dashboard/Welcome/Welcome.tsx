@@ -10,7 +10,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
 
   return (
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
-      <Stack $md={{ display: 'none' }} flex={1} width="$50" height="100%">
+      <Stack $sm={{ display: 'none' }} flex={1} width="$50" height="100%">
         <WelcomeItem
           position="absolute"
           top="25%"
@@ -60,7 +60,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
         <SearchInput />
       </Stack>
 
-      <Stack $md={{ display: 'none' }} flex={1} width="$50" height="100%">
+      <Stack $sm={{ display: 'none' }} flex={1} width="$50" height="100%">
         <WelcomeItem
           position="absolute"
           top="22%"

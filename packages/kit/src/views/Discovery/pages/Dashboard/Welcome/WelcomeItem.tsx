@@ -13,7 +13,7 @@ import Animated, {
 import { Image, Stack, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Animation constants
 const FADE_IN_DURATION = 1000;
@@ -258,9 +258,14 @@ export const WelcomeItem = memo(
             $platform-web={{
               transform: 'translate3d(0, 0, 0)',
             }}
-            source={{
-              uri: logo,
-            }}
+            // @ts-expect-error
+            source={
+              platformEnv.isNative
+                ? logo
+                : {
+                    uri: logo,
+                  }
+            }
             width={size}
             height={size}
             borderRadius={borderRadius}
