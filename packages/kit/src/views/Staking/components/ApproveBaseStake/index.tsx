@@ -54,7 +54,6 @@ import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import {
   EstimateNetworkFee,
-  calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { MorphoApy } from '../ProtocolDetails/MorphoApy';
