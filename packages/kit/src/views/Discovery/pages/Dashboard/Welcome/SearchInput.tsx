@@ -2,6 +2,10 @@ import { useIntl } from 'react-intl';
 
 import { SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
+
+import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 
 export function SearchInput() {
   const intl = useIntl();
@@ -22,33 +26,12 @@ export function SearchInput() {
         </SizableText>
       </Stack>
 
-      <XStack gap="$1">
-        <Stack
-          bg="$bgStrong"
-          borderRadius="$1"
-          w="$4"
-          h="$4"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <SizableText color="$textSubdued" size="$headingXs">
-            ⌘
-          </SizableText>
-        </Stack>
-
-        <Stack
-          bg="$bgStrong"
-          borderRadius="$1"
-          w="$4"
-          h="$4"
-          alignItems="center"
-          justifyContent="center"
-        >
-          <SizableText color="$textSubdued" size="$headingXs">
-            T
-          </SizableText>
-        </Stack>
-      </XStack>
+      {platformEnv.isDesktop ? (
+        <XStack gap="$1">
+          <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
+          <KeyboardShortcutKey label="T" />
+        </XStack>
+      ) : null}
     </XStack>
   );
 }
