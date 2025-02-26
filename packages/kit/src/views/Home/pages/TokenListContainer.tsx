@@ -92,6 +92,7 @@ function TokenListContainer(props: ITabPageProps) {
       deriveInfo,
       deriveType,
       deriveInfoItems,
+      vaultSettings,
     },
   } = useActiveAccount({ num: 0 });
   const [shouldAlwaysFetch, setShouldAlwaysFetch] = useState(false);
@@ -101,6 +102,7 @@ function TokenListContainer(props: ITabPageProps) {
   const intl = useIntl();
 
   const mergeDeriveAddressData =
+    vaultSettings?.mergeDeriveAssetsEnabled &&
     !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' }) &&
     deriveInfoItems.length > 1;
 
@@ -123,8 +125,6 @@ function TokenListContainer(props: ITabPageProps) {
     tokens: [],
     map: {},
   });
-
-  const { vaultSettings } = useAccountData({ networkId: network?.id ?? '' });
 
   const { handleFiatCrypto, isSupported } = useFiatCrypto({
     accountId: account?.id ?? '',
