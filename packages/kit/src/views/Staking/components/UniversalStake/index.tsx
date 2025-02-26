@@ -15,6 +15,10 @@ import {
   XStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  PercentageStageOnKeyboard,
+  calcPercentBalance,
+} from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,17 +39,10 @@ import {
   calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
-import {
-  PercentageStageOnKeyboard,
-  StakingAmountInput,
-} from '../StakingAmountInput';
+import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import {
-  calcPercentBalance,
-  formatApy,
-  formatStakingDistanceToNowStrict,
-} from '../utils';
+import { formatApy, formatStakingDistanceToNowStrict } from '../utils';
 import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
@@ -275,25 +272,23 @@ export function UniversalStake({
   }, [minStakeTerm]);
 
   const daysSpent = useMemo(() => {
-    if (estAnnualRewardsState?.fiatValue && estimateFeeResp?.feeFiatValue) {
-      return calcDaysSpent(
-        estAnnualRewardsState?.fiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+    if (estimateFeeResp?.coverFeeSeconds) {
+      return formatStakingDistanceToNowStrict(estimateFeeResp.coverFeeSeconds);
     }
-  }, [estimateFeeResp?.feeFiatValue, estAnnualRewardsState?.fiatValue]);
+  }, [estimateFeeResp?.coverFeeSeconds]);
 
   const onPress = useCallback(async () => {
     Keyboard.dismiss();
     const handleConfirm = () => onConfirm?.(amountValue);
     if (estAnnualRewardsState?.fiatValue && estimateFeeResp) {
-      const daySpent = calcDaysSpent(
-        estAnnualRewardsState.fiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+      const daySpent =
+        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
+
       if (daySpent && daySpent > 5) {
         showEstimateGasAlert({
-          daysConsumed: daySpent,
+          daysConsumed: formatStakingDistanceToNowStrict(
+            estimateFeeResp.coverFeeSeconds,
+          ),
           estFiatValue: estimateFeeResp.feeFiatValue,
           onConfirm: handleConfirm,
         });
