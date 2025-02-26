@@ -408,6 +408,8 @@ export const {
   use: useSwapLimitPriceMarketPriceAtom,
 } = contextAtomComputed<ISwapLimitPriceInfo>((get) => {
   const quoteResult = get(swapQuoteCurrentSelectAtom());
+  const currentSelectFromToken = get(swapSelectFromTokenAtom());
+  const currentSelectToToken = get(swapSelectToTokenAtom());
   if (quoteResult?.limitPriceOrderMarketPrice) {
     const {
       fromTokenInfo,
@@ -416,8 +418,12 @@ export const {
       limitPriceOrderMarketPrice,
     } = quoteResult;
     const { fromTokenPrice, toTokenPrice } = limitPriceOrderMarketPrice;
-    const fromPriceBN = new BigNumber(fromTokenPrice ?? 0);
-    const toPriceBN = new BigNumber(toTokenPrice ?? 0);
+    const fromPriceBN = new BigNumber(
+      fromTokenPrice ?? currentSelectFromToken?.price ?? 0,
+    );
+    const toPriceBN = new BigNumber(
+      toTokenPrice ?? currentSelectToToken?.price ?? 0,
+    );
     const rate = fromPriceBN.div(toPriceBN).toFixed();
     const reverseRate = toPriceBN.div(fromPriceBN).toFixed();
     const rateFormat = formatBalance(rate);

@@ -106,6 +106,7 @@ export interface ISwapToken extends ISwapTokenBase {
   reservationValue?: string;
 
   isPopular?: boolean;
+  isWrapped?: boolean;
 }
 
 export interface ISwapTokenCatch {

@@ -37,6 +37,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { LowerTransactionAmountError } from '@onekeyhq/shared/src/errors';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResult } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -465,13 +466,20 @@ const SwapTokenSelectPage = () => {
 
   const openChainSelector = useConfigurableChainSelector();
   const { bottom } = useSafeAreaInsets();
-  const currentNetworkPopularTokens = useMemo(
-    () =>
-      currentSelectNetwork?.networkId
-        ? swapPopularTokens[currentSelectNetwork?.networkId] ?? []
-        : [],
-    [currentSelectNetwork?.networkId],
-  );
+  const currentNetworkPopularTokens = useMemo(() => {
+    let popularTokens =
+      swapPopularTokens[currentSelectNetwork?.networkId ?? ''] ?? [];
+    if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      const wrappedToken = popularTokens.find((item) => item.isWrapped);
+      if (wrappedToken) {
+        popularTokens = [
+          wrappedToken,
+          ...popularTokens.filter((item) => !item.isWrapped),
+        ];
+      }
+    }
+    return popularTokens;
+  }, [currentSelectNetwork?.networkId, swapTypeSwitch]);
   return (
     <Page skipLoading={platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
