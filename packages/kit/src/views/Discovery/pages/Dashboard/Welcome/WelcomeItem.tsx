@@ -22,8 +22,8 @@ const FLOAT_DURATION_BASE = 1500;
 const FLOAT_DURATION_VARIANCE = 1000;
 const FLOAT_MAX_DELAY = 500;
 
-const ROTATION_MIN_ANGLE = 0;
-const ROTATION_MAX_ANGLE = 5;
+const ROTATION_MIN_ANGLE = -10;
+const ROTATION_MAX_ANGLE = 15;
 const ROTATION_DURATION_BASE = 2000;
 const ROTATION_DURATION_VARIANCE = 1000;
 const ROTATION_MAX_DELAY = 300;
@@ -41,9 +41,9 @@ const ANIMATION_SHADOW_OPACITY = 0.4;
 const HOVER_TRANSITION_DURATION = 300;
 const HOVER_SCALE_FACTOR = 1.2;
 
-const SHADOW_COLOR = '#000';
-const SHADOW_OFFSET = { width: 2, height: 4 };
-const SHADOW_RADIUS = 18;
+const SHADOW_COLOR = '#444';
+const SHADOW_OFFSET = { width: 2, height: 8 };
+const SHADOW_RADIUS = 22;
 const ELEVATION = 5;
 
 // Helper function to create random value within range
@@ -88,13 +88,14 @@ export const WelcomeItem = memo(
     logo,
     url,
     size = '$12',
-    borderRadius = 14,
+    borderRadius = 12,
+    ...stackProps
   }: {
     logo: string;
     url?: string;
     size?: string;
     borderRadius?: number;
-  }) => {
+  } & React.ComponentProps<typeof Stack>) => {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(0);
     const rotate = useSharedValue(0);
@@ -237,6 +238,7 @@ export const WelcomeItem = memo(
         onPress={handlePress}
         onMouseEnter={handleHoverIn}
         onMouseLeave={handleHoverOut}
+        {...stackProps}
       >
         <Animated.View style={animatedStyle}>
           <Image
