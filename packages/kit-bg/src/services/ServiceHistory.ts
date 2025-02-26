@@ -365,7 +365,7 @@ class ServiceHistory extends ServiceBase {
       result = result.filter(
         (tx) =>
           !tx.decodedTx.riskyLevel ||
-          tx.decodedTx.riskyLevel < TX_RISKY_LEVEL_SPAM,
+          tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
       );
     }
 
@@ -470,7 +470,7 @@ class ServiceHistory extends ServiceBase {
       result = result.filter(
         (tx) =>
           !tx.decodedTx.riskyLevel ||
-          tx.decodedTx.riskyLevel < TX_RISKY_LEVEL_SPAM,
+          tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
       );
     }
 
