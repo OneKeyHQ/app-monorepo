@@ -1,14 +1,12 @@
 import { useCallback, useState } from 'react';
 
-import { InputAccessoryView, Keyboard } from 'react-native';
+import { InputAccessoryView } from 'react-native';
 
 import {
   AnimatePresence,
-  Button,
   SizableText,
   XStack,
   YStack,
-  useIsKeyboardShown,
 } from '@onekeyhq/components';
 import type { IAmountInputFormItemProps } from '@onekeyhq/kit/src/components/AmountInput';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
@@ -21,7 +19,6 @@ export const stakingInputAccessoryViewID =
   'staking-amount-input-accessory-view';
 
 export const StakingPercentageInputStage = [25, 50, 100];
-export const StakingPercentageInputStageForNative = [25, 50, 75, 100];
 
 export function StakingAmountInput({
   title,
@@ -105,50 +102,4 @@ export function StakingAmountInput({
       ) : null}
     </YStack>
   );
-}
-
-export function PercentageStageOnKeyboard({
-  onSelectPercentageStage,
-}: {
-  onSelectPercentageStage?: (stage: number) => void;
-}) {
-  const isShow = useIsKeyboardShown();
-  return isShow ? (
-    <XStack
-      alignItems="center"
-      gap="$1"
-      justifyContent="space-around"
-      bg="$bgSubdued"
-      h="$10"
-    >
-      <>
-        {StakingPercentageInputStageForNative.map((stage) => (
-          <SwapPercentageStageBadge
-            badgeSize="lg"
-            key={`swap-percentage-input-stage-${stage}`}
-            stage={stage}
-            borderRadius={0}
-            onSelectStage={onSelectPercentageStage}
-            flex={1}
-            justifyContent="center"
-            alignItems="center"
-            h="$10"
-          />
-        ))}
-        <Button
-          icon="CheckLargeOutline"
-          flex={1}
-          h="$10"
-          size="small"
-          justifyContent="center"
-          borderRadius={0}
-          alignItems="center"
-          variant="tertiary"
-          onPress={() => {
-            Keyboard.dismiss();
-          }}
-        />
-      </>
-    </XStack>
-  ) : null;
 }
