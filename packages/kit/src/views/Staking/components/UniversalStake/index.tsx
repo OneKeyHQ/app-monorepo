@@ -161,7 +161,7 @@ export function UniversalStake({
       accountAddress: account?.address,
     });
     setEstimateFeeResp(resp);
-  }, 500);
+  }, 300);
 
   const onChangeAmountValue = useCallback(
     (value: string) => {

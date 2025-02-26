@@ -173,7 +173,7 @@ export function ApproveBaseStake({
       accountAddress: account?.address,
     });
     setEstimateFeeResp(resp);
-  }, 500);
+  }, 300);
 
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
