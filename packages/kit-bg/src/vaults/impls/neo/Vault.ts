@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { sc, tx, wallet } from '@cityofzion/neon-core';
+import { sc, tx, u, wallet } from '@cityofzion/neon-core';
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
@@ -246,10 +246,38 @@ export default class Vault extends VaultBase {
     throw new OneKeyInternalError();
   }
 
-  override updateUnsignedTx(
+  override async updateUnsignedTx(
     params: IUpdateUnsignedTxParams,
   ): Promise<IUnsignedTxPro> {
-    throw new NotImplemented();
+    const { unsignedTx, nativeAmountInfo, feeInfo } = params;
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxNeoN3;
+    const transaction = tx.Transaction.fromJson(encodedTx);
+
+    // max send
+    if (nativeAmountInfo?.maxSendAmount) {
+      // TODO:
+      // - 根据最新的 amount, systemFee, networkFee, 更新 transaction
+    }
+
+    if (feeInfo?.feeNeoN3) {
+      const {
+        systemFee = '0',
+        networkFee = '0',
+        priorityFee = '0',
+      } = feeInfo.feeNeoN3;
+      transaction.systemFee = u.BigInteger.fromNumber(
+        new BigNumber(systemFee).toNumber(),
+      );
+      transaction.networkFee = u.BigInteger.fromNumber(
+        new BigNumber(networkFee).plus(priorityFee).toNumber(),
+      );
+      return {
+        ...unsignedTx,
+        encodedTx: transaction.toJson(),
+      };
+    }
+
+    return Promise.resolve(unsignedTx);
   }
 
   override validateAddress(address: string): Promise<IAddressValidation> {

@@ -7,6 +7,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { EDBAccountType } from '../../../dbs/local/consts';
 
+import { NEO_GAS_TOKEN_ADDRESS } from './sdkNeo/constant';
+
 import type { IAccountDeriveInfoMapBase, IVaultSettings } from '../../types';
 
 const accountDeriveInfo: IAccountDeriveInfoMapBase = {
@@ -49,6 +51,7 @@ const settings: IVaultSettings = {
     default: {
       curve: 'secp256k1',
       addressPrefix: '',
+      nativeTokenAddress: NEO_GAS_TOKEN_ADDRESS,
     },
   },
 };
