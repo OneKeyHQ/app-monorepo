@@ -31,7 +31,7 @@ function Dashboard() {
 
   return (
     <Page>
-      <Page.Header headerRight={headerRight} />
+      <Page.Header />
       {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
       {platformEnv.isNativeIOS ? (
         <XStack px="$5" pt={top}>

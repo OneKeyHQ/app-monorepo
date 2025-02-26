@@ -9,8 +9,8 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
   const logos = Object.values(browserWelcomeLogos);
 
   return (
-    <XStack justifyContent="center">
-      <Stack $2md={{ display: 'none' }} flex={1} width="$50" height="100%">
+    <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
+      <Stack $md={{ display: 'none' }} flex={1} width="$50" height="100%">
         <WelcomeItem
           position="absolute"
           top="25%"
@@ -43,22 +43,22 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
       </Stack>
 
       <Stack
-        gap="$5"
+        alignItems="center"
+        width="auto"
         position="relative"
+        gap="$5"
         px="$5"
         py="$6"
-        $gtSm={{
-          alignItems: 'center',
+        $sm={{
+          width: '100%',
         }}
       >
         {banner || <DefaultTitle />}
 
-        <Stack position="relative">
-          <SearchInput />
-        </Stack>
+        <SearchInput />
       </Stack>
 
-      <Stack $2md={{ display: 'none' }} flex={1} width="$50" height="100%">
+      <Stack $md={{ display: 'none' }} flex={1} width="$50" height="100%">
         <WelcomeItem
           position="absolute"
           top="22%"
