@@ -40,7 +40,7 @@ const settings: IVaultSettings = {
   defaultFeePresetIndex: 1,
 
   isUtxo: false,
-  isSingleToken: true,
+  isSingleToken: false,
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
