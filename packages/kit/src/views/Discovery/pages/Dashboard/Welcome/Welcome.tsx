@@ -6,12 +6,18 @@ import { SearchInput } from './SearchInput';
 import { WelcomeItem } from './WelcomeItem';
 
 export function Welcome({ banner }: { banner: React.ReactNode }) {
-  // Convert browserWelcomeLogos to array for easier distribution
   const logos = Object.values(browserWelcomeLogos);
   const showIcons = false;
 
   return (
-    <Stack gap="$5" position="relative" px="$5" py="$6">
+    <Stack
+      gap="$5"
+      position="relative"
+      px="$5"
+      py="$6"
+      justifyContent="center"
+      flex={1}
+    >
       {banner || <DefaultTitle />}
 
       {/* Main search input */}
