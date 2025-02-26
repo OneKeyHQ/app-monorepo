@@ -22,13 +22,14 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  PercentageStageOnKeyboard,
+  calcPercentBalance,
+} from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
-import {
-  calcPercentBalance,
-  formatApy,
-} from '@onekeyhq/kit/src/views/Staking/components/utils';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -46,7 +47,7 @@ import { validateAmountInput } from '../../../Swap/utils/utils';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
-import { CalculationList, CalculationListItem } from '../CalculationList';
+import { CalculationListItem } from '../CalculationList';
 import {
   EstimateNetworkFee,
   calcDaysSpent,
@@ -54,13 +55,9 @@ import {
 } from '../EstimateNetworkFee';
 import { MorphoApy } from '../ProtocolDetails/MorphoApy';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
-import {
-  PercentageStageOnKeyboard,
-  StakingAmountInput,
-} from '../StakingAmountInput';
+import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
   details: IStakeProtocolDetails;
