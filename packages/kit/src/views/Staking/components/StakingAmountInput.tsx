@@ -53,7 +53,9 @@ export function StakingAmountInput({
           {title}
         </SizableText>
         <AnimatePresence>
-          {!platformEnv.isNative && (percentageInputStageShow || !!value) ? (
+          {!platformEnv.isNative &&
+          !disabled &&
+          (percentageInputStageShow || !!value) ? (
             <XStack
               animation="quick"
               enterStyle={{
