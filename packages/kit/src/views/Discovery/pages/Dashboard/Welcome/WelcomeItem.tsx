@@ -17,15 +17,15 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 // Animation constants
 const FADE_IN_DURATION = 1000;
-const FADE_IN_DELAY = 1500;
+const FADE_IN_DELAY = 1000;
 const FLOAT_MIN_DISTANCE = 3;
 const FLOAT_MAX_DISTANCE = 7;
 const FLOAT_DURATION_BASE = 1500;
 const FLOAT_DURATION_VARIANCE = 1000;
 const FLOAT_MAX_DELAY = 500;
 
-const ROTATION_MIN_ANGLE = -15;
-const ROTATION_MAX_ANGLE = 15;
+const ROTATION_MIN_ANGLE = -20;
+const ROTATION_MAX_ANGLE = 20;
 const ROTATION_DURATION_BASE = 2000;
 const ROTATION_DURATION_VARIANCE = 1000;
 const ROTATION_MAX_DELAY = 300;
