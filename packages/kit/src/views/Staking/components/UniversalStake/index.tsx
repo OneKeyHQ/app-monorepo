@@ -40,17 +40,15 @@ import type {
 import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { BtcFeeRateInput } from '../BtcFeeRateInput';
-import { CalculationList, CalculationListItem } from '../CalculationList';
+import { CalculationListItem } from '../CalculationList';
 import {
   EstimateNetworkFee,
-  calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
 import { formatApy, formatStakingDistanceToNowStrict } from '../utils';
-import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalStakeProps = {
   accountId: string;
