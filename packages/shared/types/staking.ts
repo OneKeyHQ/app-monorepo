@@ -82,6 +82,8 @@ export type IStakeProviderInfo = {
   rewardUnit: IEarnRewardUnit;
 
   approveType?: EApproveType;
+
+  liquidity?: string;
 };
 
 export type IStakeBaseParams = {
