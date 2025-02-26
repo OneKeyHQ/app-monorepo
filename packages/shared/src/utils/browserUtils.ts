@@ -5,7 +5,17 @@ const PendleLogo = require('@onekeyhq/shared/src/assets/browser/Pendle.png');
 const SkyLogo = require('@onekeyhq/shared/src/assets/browser/Sky.png');
 const UniswapLogo = require('@onekeyhq/shared/src/assets/browser/Uniswap.png');
 
-export const browserWelcomeLogos = {
+export interface IBrowserWelcomeLogo {
+  name: string;
+  url: string;
+  icon: any; // Using 'any' for the icon as it's a required image
+}
+
+export type IBrowserWelcomeLogos = {
+  [key: string]: IBrowserWelcomeLogo;
+};
+
+export const browserWelcomeLogos: IBrowserWelcomeLogos = {
   uniswap: {
     name: 'Uniswap',
     url: 'https://uniswap.org/',

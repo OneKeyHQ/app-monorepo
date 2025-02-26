@@ -258,10 +258,9 @@ export const WelcomeItem = memo(
             $platform-web={{
               transform: 'translate3d(0, 0, 0)',
             }}
-            // @ts-expect-error
             source={
               platformEnv.isNative
-                ? logo
+                ? (logo as any)
                 : {
                     uri: logo,
                   }
