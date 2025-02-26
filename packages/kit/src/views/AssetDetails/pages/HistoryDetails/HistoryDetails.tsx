@@ -962,6 +962,8 @@ function HistoryDetails() {
     txAddresses?.isSingleTransfer,
     txAddresses?.from,
     txAddresses?.to,
+    txAddresses?.isSingleFrom,
+    txAddresses?.isSingleTo,
     intl,
     networkId,
     accountId,
