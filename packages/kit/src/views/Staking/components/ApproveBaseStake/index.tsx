@@ -855,11 +855,6 @@ export function ApproveBaseStake({
           token={details.token.info}
           accountId={approveTarget.accountId}
           networkId={approveTarget.networkId}
-          containerProps={{
-            borderTopWidth: 0,
-            py: 0,
-            pt: '$5',
-          }}
         />
       </YStack>
       <Page.Footer>

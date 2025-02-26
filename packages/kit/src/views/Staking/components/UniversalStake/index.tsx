@@ -1,19 +1,25 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
-import { Keyboard } from 'react-native';
+import { Keyboard, StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
+  Accordion,
   Alert,
+  Divider,
+  Icon,
+  IconButton,
   Image,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -328,7 +334,80 @@ export function UniversalStake({
     estimateFeeResp,
     showEstimateGasAlert,
   ]);
+  const accordionContent = useMemo(() => {
+    const items: ReactElement[] = [];
+    if (Number(amountValue) <= 0) {
+      return items;
+    }
+    if (showEstReceive && estReceiveToken) {
+      items.push(
+        <CalculationListItem>
+          <CalculationListItem.Label
+            size="$bodyMd"
+            tooltip={intl.formatMessage({
+              id: ETranslations.earn_est_receive_tooltip,
+            })}
+          >
+            {intl.formatMessage({
+              id: ETranslations.earn_est_receive,
+            })}
+          </CalculationListItem.Label>
+          <CalculationListItem.Value>
+            <NumberSizeableText
+              formatter="balance"
+              size="$bodyMdMedium"
+              formatterOptions={{ tokenSymbol: estReceiveToken }}
+            >
+              {BigNumber(amountValue)
+                .multipliedBy(estReceiveTokenRate)
+                .toFixed()}
+            </NumberSizeableText>
+          </CalculationListItem.Value>
+        </CalculationListItem>,
+      );
+    }
+    if (estimateFeeResp) {
+      items.push(
+        <EstimateNetworkFee
+          estimateFeeResp={estimateFeeResp}
+          isVisible={!!estAnnualRewardsState?.fiatValue}
+          onPress={() => {
+            showEstimateGasAlert({
+              daysConsumed: daysSpent,
+              estFiatValue: estimateFeeResp.feeFiatValue,
+            });
+          }}
+        />,
+      );
+    }
 
+    if (
+      providerName?.toLowerCase() === EEarnProviderEnum.Babylon.toLowerCase() &&
+      estimateFeeUTXO
+    ) {
+      items.push(
+        <BtcFeeRateInput
+          estimateFeeUTXO={estimateFeeUTXO}
+          onFeeRateChange={onFeeRateChange}
+        />,
+      );
+    }
+    return items;
+  }, [
+    amountValue,
+    daysSpent,
+    estAnnualRewardsState?.fiatValue,
+    estReceiveToken,
+    estReceiveTokenRate,
+    estimateFeeResp,
+    estimateFeeUTXO,
+    intl,
+    onFeeRateChange,
+    providerName,
+    showEstReceive,
+    showEstimateGasAlert,
+  ]);
+  const isAccordionTriggerDisabled = !amountValue;
   return (
     <StakingFormWrapper>
       <Stack position="relative" opacity={isDisabled ? 0.7 : 1}>
@@ -565,11 +644,237 @@ export function UniversalStake({
           />
         ) : null}
       </CalculationList>
-      <TradeOrBuy
-        token={details.token.info}
-        accountId={accountId}
-        networkId={networkId}
-      />
+
+      <YStack
+        p="$3.5"
+        pt="$5"
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+      >
+        {!btcStakeTerm && apr && Number(apr) > 0 ? (
+          <XStack gap="$1" ai="center">
+            <SizableText color="$textSuccess" size="$headingLg">
+              {`${formatApy(apr)}% APY`}
+            </SizableText>
+            {details.provider.apys ? (
+              <Popover
+                floatingPanelProps={{
+                  w: 320,
+                }}
+                title={intl.formatMessage({
+                  id: ETranslations.earn_rewards,
+                })}
+                renderTrigger={
+                  <IconButton
+                    icon="CoinsAddOutline"
+                    size="small"
+                    variant="tertiary"
+                  />
+                }
+                renderContent={null}
+                placement="top"
+              />
+            ) : null}
+          </XStack>
+        ) : null}
+        {!btcStakeTerm ? (
+          <YStack pt="$3.5" gap="$2">
+            <SizableText size="$bodyMd">
+              {intl.formatMessage({
+                id: ETranslations.earn_est_annual_rewards,
+              })}
+            </SizableText>
+            <SizableText>
+              <NumberSizeableText
+                size="$bodyLgMedium"
+                formatter="balance"
+                formatterOptions={{ tokenSymbol: tokenSymbol ?? '' }}
+              >
+                {estAnnualRewardsState?.amount || 0}
+              </NumberSizeableText>
+              {estAnnualRewardsState?.fiatValue ? (
+                <SizableText color="$textSubdued">
+                  <SizableText color="$textSubdued">{' ('}</SizableText>
+                  <NumberSizeableText
+                    size="$bodyLgMedium"
+                    formatter="value"
+                    color="$textSubdued"
+                    formatterOptions={{ currency: symbol }}
+                  >
+                    {estAnnualRewardsState?.fiatValue}
+                  </NumberSizeableText>
+                  <SizableText color="$textSubdued">)</SizableText>
+                </SizableText>
+              ) : null}
+            </SizableText>
+          </YStack>
+        ) : null}
+
+        {btcStakeTerm ? (
+          <YStack gap="$2">
+            <XStack gap="$1">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.earn_term,
+                })}
+              </SizableText>
+              <Popover.Tooltip
+                iconSize="$5"
+                title={intl.formatMessage({
+                  id: ETranslations.earn_term,
+                })}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.earn_term_tooltip,
+                })}
+                placement="top"
+              />
+            </XStack>
+            <SizableText size="$bodyLgMedium">{btcStakeTerm}</SizableText>
+          </YStack>
+        ) : null}
+        <XStack pt="$3.5" gap="$1">
+          {stakingTime ? (
+            <>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.earn_earnings_start })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_in_number },
+                  {
+                    number: formatStakingDistanceToNowStrict(stakingTime),
+                  },
+                )}
+              </SizableText>
+            </>
+          ) : null}
+          {nextLaunchLeft && rewardToken ? (
+            <>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.earn_until_next_launch,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage(
+                  { id: ETranslations.earn_number_symbol_left },
+                  {
+                    number: Number(nextLaunchLeft).toFixed(2),
+                    symbol: rewardToken,
+                  },
+                )}
+              </SizableText>
+              <Popover.Tooltip
+                iconSize="$5"
+                title={intl.formatMessage({
+                  id: ETranslations.earn_until_next_launch,
+                })}
+                tooltip={intl.formatMessage({
+                  id: ETranslations.earn_until_next_launch_tooltip,
+                })}
+                placement="top"
+              />
+            </>
+          ) : null}
+          {btcUnlockTime ? (
+            <>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({
+                  id: ETranslations.earn_unlock_time,
+                })}
+              </SizableText>
+              <SizableText size="$bodyMdMedium">{btcUnlockTime}</SizableText>
+            </>
+          ) : null}
+        </XStack>
+        <Divider my="$5" />
+        <Accordion
+          overflow="hidden"
+          width="100%"
+          type="single"
+          collapsible
+          defaultValue=""
+        >
+          <Accordion.Item value="staking-accordion-content">
+            <Accordion.Trigger
+              unstyled
+              flexDirection="row"
+              alignItems="center"
+              alignSelf="flex-start"
+              px="$1"
+              mx="$-1"
+              width="100%"
+              justifyContent="space-between"
+              borderWidth={0}
+              bg="$transparent"
+              userSelect="none"
+              borderRadius="$1"
+              cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
+              disabled={isAccordionTriggerDisabled}
+            >
+              {({ open }: { open: boolean }) => (
+                <>
+                  <XStack gap="$2" alignItems="center">
+                    <Image
+                      width="$5"
+                      height="$5"
+                      src={providerLogo}
+                      borderRadius="$2"
+                    />
+                    <SizableText size="$bodyLgMedium">
+                      {capitalizeString(providerName || '')}
+                    </SizableText>
+                  </XStack>
+                  <XStack>
+                    {isAccordionTriggerDisabled ? undefined : (
+                      <SizableText color="$textSubdued" size="$bodyMd">
+                        {intl.formatMessage({
+                          id: ETranslations.global_details,
+                        })}
+                      </SizableText>
+                    )}
+                    <YStack
+                      animation="quick"
+                      rotate={
+                        open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
+                      }
+                      left="$2"
+                    >
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        color={
+                          isAccordionTriggerDisabled
+                            ? '$iconDisabled'
+                            : '$iconSubdued'
+                        }
+                        size="$5"
+                      />
+                    </YStack>
+                  </XStack>
+                </>
+              )}
+            </Accordion.Trigger>
+            <Accordion.HeightAnimator animation="quick">
+              <Accordion.Content
+                animation="quick"
+                exitStyle={{ opacity: 0 }}
+                px={0}
+                pb={0}
+                pt="$3.5"
+                gap="$2.5"
+              >
+                {accordionContent}
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
+        <TradeOrBuy
+          token={details.token.info}
+          accountId={accountId}
+          networkId={networkId}
+        />
+      </YStack>
       <Page.Footer>
         <Page.FooterActions
           onConfirmText={intl.formatMessage({
