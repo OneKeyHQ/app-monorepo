@@ -34,7 +34,7 @@ export const useShowStakeEstimateGasAlert = () => {
       onCancel,
     }: {
       estFiatValue: string;
-      daysConsumed?: number;
+      daysConsumed?: number | string;
       onConfirm?: IOnDialogConfirm;
       onCancel?: () => void;
     }) => {
