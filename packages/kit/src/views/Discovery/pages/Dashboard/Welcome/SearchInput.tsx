@@ -1,14 +1,28 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 
 export function SearchInput() {
   const intl = useIntl();
+
+  const navigation = useAppNavigation();
+  const handleSearchBarPress = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.SearchModal,
+    });
+  }, [navigation]);
 
   return (
     <XStack
@@ -26,7 +40,7 @@ export function SearchInput() {
       pressStyle={{
         opacity: 1,
       }}
-      onPress={() => {}}
+      onPress={handleSearchBarPress}
       p="$3"
       $gtSm={{
         w: 384,
