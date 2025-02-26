@@ -1,5 +1,5 @@
 // Let's Dive in
-import { useEffect } from 'react';
+import { memo, useEffect } from 'react';
 
 import { useIntl } from 'react-intl';
 import Animated, {
@@ -11,7 +11,7 @@ import Animated, {
 import { SizableText } from '@onekeyhq/components/src/primitives';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 
-export const DefaultTitle = () => {
+const DefaultTitleComponent = () => {
   const intl = useIntl();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(-10);
@@ -43,3 +43,5 @@ export const DefaultTitle = () => {
     </Animated.View>
   );
 };
+
+export const DefaultTitle = memo(DefaultTitleComponent);
