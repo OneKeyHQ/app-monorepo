@@ -40,7 +40,7 @@ export function BookmarksSection({
   const isNilDataSource = isNil(bookmarksData);
 
   return (
-    <Stack px="$5" minHeight="$40">
+    <Stack minHeight="$40">
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading selected>
           {intl.formatMessage({ id: ETranslations.explore_bookmarks })}

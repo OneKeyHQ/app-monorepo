@@ -134,23 +134,27 @@ function DashboardContent({
         />
 
         {platformEnv.isExtension || platformEnv.isWeb ? null : (
-          <BookmarksSection
-            key="BookmarksSection"
-            bookmarksData={bookmarksData}
-            handleOpenWebSite={({ webSite }) => {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                webSite,
-                navigation,
-                shouldPopNavigation: false,
-              });
-              defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: webSite?.url || '',
-                dappName: webSite?.title || '',
-                enterMethod: EEnterMethod.dashboard,
-              });
-            }}
-          />
+          <Stack alignItems="center">
+            <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+              <BookmarksSection
+                key="BookmarksSection"
+                bookmarksData={bookmarksData}
+                handleOpenWebSite={({ webSite }) => {
+                  handleOpenWebSite({
+                    switchToMultiTabBrowser: gtMd,
+                    webSite,
+                    navigation,
+                    shouldPopNavigation: false,
+                  });
+                  defaultLogger.discovery.dapp.enterDapp({
+                    dappDomain: webSite?.url || '',
+                    dappName: webSite?.title || '',
+                    enterMethod: EEnterMethod.dashboard,
+                  });
+                }}
+              />
+            </Stack>
+          </Stack>
         )}
       </>
     ),

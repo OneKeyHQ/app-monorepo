@@ -152,7 +152,10 @@ function MobileBrowser() {
             <Icon name="CrossedLargeOutline" mr="$4" />
           </Stack>
         ) : null}
-        <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+
+        {!displayHomePage ? (
+          <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+        ) : null}
         <HeaderRightToolBar />
       </XStack>
       <Page.Body>

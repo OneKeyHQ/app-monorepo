@@ -1,6 +1,15 @@
-import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { useIntl } from 'react-intl';
+
+import {
+  Page,
+  SizableText,
+  Stack,
+  XStack,
+  useSafeAreaInsets,
+} from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
@@ -28,15 +37,29 @@ function HistoryButton() {
   );
 }
 
+const HeaderLeft = () => {
+  const intl = useIntl();
+
+  return (
+    <SizableText size="$headingLg" color="$text">
+      {intl.formatMessage({ id: ETranslations.global_browser })}
+    </SizableText>
+  );
+};
+
 function Dashboard() {
   const { top } = useSafeAreaInsets();
 
   return (
     <Page>
-      <Page.Header headerRight={HistoryButton} />
+      <Page.Header headerLeft={HeaderLeft} headerRight={HistoryButton} />
       {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
       {platformEnv.isNativeIOS ? (
-        <XStack px="$5" pt={top} justifyContent="flex-end">
+        <XStack px="$5" pt={top} justifyContent="space-between">
+          <Stack flex={1} pl="$5" alignItems="center">
+            <HeaderLeft />
+          </Stack>
+
           <HistoryButton />
         </XStack>
       ) : null}

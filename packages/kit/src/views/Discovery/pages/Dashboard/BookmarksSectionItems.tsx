@@ -27,6 +27,9 @@ export function BookmarksSectionItems({
           $gt2Md={{
             width: '16.6%',
           }}
+          $gtXl={{
+            width: '14.2%',
+          }}
         >
           <BookmarksSectionItem
             logo={logo}
