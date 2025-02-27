@@ -1,3 +1,5 @@
+import type { ImageURISource } from 'react-native';
+
 const CowswapLogo = require('@onekeyhq/shared/src/assets/browser/Cowswap.png');
 const EthenaLogo = require('@onekeyhq/shared/src/assets/browser/Ethena.png');
 const MorphoLogo = require('@onekeyhq/shared/src/assets/browser/Morpho.png');
@@ -8,7 +10,7 @@ const UniswapLogo = require('@onekeyhq/shared/src/assets/browser/Uniswap.png');
 export interface IBrowserWelcomeLogo {
   name: string;
   url: string;
-  icon: any; // Using 'any' for the icon as it's a required image
+  icon: ImageURISource;
 }
 
 export type IBrowserWelcomeLogos = {
