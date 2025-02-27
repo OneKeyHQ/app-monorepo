@@ -804,7 +804,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
           async () => {
             const result = await serviceAccount.addWatchingAccount({
               input,
-              name: v4account.name,
+              fallbackName: v4account.name,
               networkId,
               deriveType,
               isUrlAccount: false,
@@ -1117,7 +1117,7 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                         credential: await servicePassword.encodeSensitiveText({
                           text: v4privateKey,
                         }),
-                        name: v4account.name,
+                        fallbackName: v4account.name,
                         networkId,
                         deriveType,
                         skipAddIfNotEqualToAddress: v4account.address,

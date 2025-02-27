@@ -13,7 +13,6 @@ import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/Ac
 import {
   useSwapActions,
   useSwapSelectTokenDetailFetchingAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useAccountManualCreatingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -25,7 +24,6 @@ import type {
 import {
   ESwapAlertActionType,
   ESwapAlertLevel,
-  ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
 export interface ISwapAlertContainerProps {
@@ -53,7 +51,6 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   const { createAddress } = useAccountSelectorCreateAddress();
   const [createAddressError, setCreateAddressError] = useState(false);
   const { selectToToken, selectFromToken } = useSwapActions().current;
-  const [, setSwapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const handleAlertAction = useCallback(
     async (action?: {
       actionType: ESwapAlertActionType;
@@ -125,11 +122,10 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
   const wrapToWrappedToken = useCallback(
     (wrappedToken?: ISwapTokenBase) => {
       if (wrappedToken) {
-        setSwapTypeSwitchValue(ESwapTabSwitchType.SWAP);
         void selectToToken(wrappedToken);
       }
     },
-    [selectToToken, setSwapTypeSwitchValue],
+    [selectToToken],
   );
 
   const createAlert = useCallback(

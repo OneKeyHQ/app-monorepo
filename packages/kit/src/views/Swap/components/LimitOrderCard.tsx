@@ -16,6 +16,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapLimitOrderStatus,
   type IFetchLimitOrderRes,
@@ -143,7 +144,8 @@ const LimitOrderCard = ({
         BigNumber.ROUND_HALF_UP,
       )
       .toFixed();
-    return calculateLimitPrice;
+    const limitPriceFormat = formatBalance(calculateLimitPrice);
+    return limitPriceFormat.formattedValue;
   }, [decimalsAmount, fromTokenInfo?.decimals]);
   const renderLimitOrderPrice = useCallback(
     () => (

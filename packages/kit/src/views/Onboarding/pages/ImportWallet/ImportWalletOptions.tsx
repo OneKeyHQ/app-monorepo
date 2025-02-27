@@ -3,7 +3,6 @@ import { InteractionManager, Keyboard } from 'react-native';
 
 import type { IIconProps, IPropsWithTestId } from '@onekeyhq/components';
 import {
-  Badge,
   Button,
   Dialog,
   Divider,

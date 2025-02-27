@@ -92,10 +92,20 @@ const LimitOrderDetailModal = () => {
   const limitPrice = useMemo(() => {
     const fromAmountNum = decimalsAmount.fromAmount;
     const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toFixed();
-    const formatLimitPrice = formatBalance(calculateLimitPrice);
-    return formatLimitPrice.formattedValue;
-  }, [decimalsAmount]);
+    const calculateLimitPrice = toAmountNum
+      .div(fromAmountNum)
+      .decimalPlaces(
+        orderItemState?.toTokenInfo.decimals ?? 0,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    const limitPriceFormat = formatBalance(calculateLimitPrice);
+    return limitPriceFormat.formattedValue;
+  }, [
+    decimalsAmount.fromAmount,
+    decimalsAmount.toAmount,
+    orderItemState?.toTokenInfo.decimals,
+  ]);
 
   const renderLimitOrderAssets = useCallback(() => {
     const fromAsset = {
@@ -296,6 +306,22 @@ const LimitOrderDetailModal = () => {
     );
   }, [orderItemState]);
 
+  const surplus = useMemo(() => {
+    const { executedBuyAmount, toAmount, toTokenInfo } = orderItemState ?? {};
+    const executedBuyAmountBN = new BigNumber(
+      executedBuyAmount ?? '0',
+    ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
+    const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
+      -(toTokenInfo?.decimals ?? 0),
+    );
+    const surplusBN = executedBuyAmountBN.minus(toAmountBN);
+    const surplusFormat = formatBalance(surplusBN.toFixed());
+    if (surplusBN.gt(0)) {
+      return surplusFormat.formattedValue;
+    }
+    return null;
+  }, [orderItemState]);
+
   const renderLimitOrderPrice = useCallback(
     () => (
       <SizableText size="$bodyMd" color="$textSubdued">
@@ -321,11 +347,15 @@ const LimitOrderDetailModal = () => {
     const executedBuyAmountBN = new BigNumber(
       executedBuyAmount ?? '0',
     ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
+    const formattedExecutedBuyAmount = formatBalance(
+      executedBuyAmountBN.toFixed(),
+    );
     const executedSellAmountBN = new BigNumber(
       executedSellAmount ?? '0',
     ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
-    const executeBuyFormat = formatBalance(executedBuyAmountBN.toFixed());
-    const executeSellFormat = formatBalance(executedSellAmountBN.toFixed());
+    const formattedExecutedSellAmount = formatBalance(
+      executedSellAmountBN.toFixed(),
+    );
     const sellPercentage = executedSellAmountBN
       .div(fromAmountBN)
       .multipliedBy(100)
@@ -345,9 +375,9 @@ const LimitOrderDetailModal = () => {
         </XStack>
 
         <SizableText size="$bodySm" color="$textSubdued">
-          {`${executeSellFormat.formattedValue} ${
+          {`${formattedExecutedSellAmount.formattedValue} ${
             fromTokenInfo?.symbol ?? '-'
-          } sold for total of ${executeBuyFormat.formattedValue} ${
+          } sold for total of ${formattedExecutedBuyAmount.formattedValue} ${
             toTokenInfo?.symbol ?? '-'
           }`}
         </SizableText>
@@ -395,6 +425,15 @@ const LimitOrderDetailModal = () => {
               renderContent={renderLimitOrderFilledStatus()}
               compactAll
             />
+            {surplus ? (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_surplus,
+                })}
+                renderContent={`${surplus} ${orderItemState.toTokenInfo.symbol}`}
+              />
+            ) : null}
           </InfoItemGroup>
           <Divider mx="$5" />
           <InfoItemGroup>
@@ -438,6 +477,7 @@ const LimitOrderDetailModal = () => {
     renderLimitOrderPrice,
     renderLimitOrderStatus,
     gtMd,
+    surplus,
   ]);
 
   return (

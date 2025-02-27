@@ -182,7 +182,7 @@ const EstimateNetworkFeeListItem = ({
 
   return Number(estFiatValue) > 0 ? (
     <CalculationListItem onPress={onPress}>
-      <CalculationListItem.Label {...labelTextProps}>
+      <CalculationListItem.Label size="$bodyMd" {...labelTextProps}>
         {intl.formatMessage({
           id: ETranslations.global_est_network_fee,
         })}
@@ -193,14 +193,20 @@ const EstimateNetworkFeeListItem = ({
         mr={onPress ? -6 : undefined}
       >
         <NumberSizeableText
-          size="$bodyLgMedium"
+          size="$bodyMdMedium"
           formatter="value"
           formatterOptions={{ currency: fiatSymbol }}
           {...valueTextProps}
         >
           {estFiatValue}
         </NumberSizeableText>
-        {onPress ? <Icon name="ChevronRightSmallOutline" size={24} /> : null}
+        {onPress ? (
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        ) : null}
       </XStack>
     </CalculationListItem>
   ) : null;

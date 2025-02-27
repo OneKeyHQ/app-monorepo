@@ -106,6 +106,7 @@ export interface ISwapToken extends ISwapTokenBase {
   reservationValue?: string;
 
   isPopular?: boolean;
+  isWrapped?: boolean;
 }
 
 export interface ISwapTokenCatch {
@@ -309,6 +310,14 @@ export interface IFetchQuoteResult {
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
+  networkCostExceedInfo?: {
+    tokenInfo: {
+      symbol: string;
+      networkId: string;
+    };
+    cost: string;
+    exceedPercent: string;
+  };
   limitPriceOrderMarketPrice?: {
     fromTokenPrice?: number;
     toTokenPrice?: number;
