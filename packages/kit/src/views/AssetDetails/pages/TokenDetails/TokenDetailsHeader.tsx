@@ -1,28 +1,35 @@
 import type { PropsWithChildren } from 'react';
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IXStackProps } from '@onekeyhq/components';
 import {
   DebugRenderTracker,
   Divider,
+  Icon,
+  SizableText,
   Skeleton,
   Stack,
   XStack,
   YStack,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { TokenDetailStakingEntry } from '@onekeyhq/kit/src/views/Staking/components/TokenDetailStakingEntry';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
   EModalSendRoutes,
@@ -63,10 +70,12 @@ function TokenDetailsHeader(props: IProps) {
     isTabView,
   } = props;
   const navigation = useAppNavigation();
+  const intl = useIntl();
+  const copyAccountAddress = useCopyAccountAddress();
 
   const [settings] = useSettingsPersistAtom();
 
-  const { network, wallet } = useAccountData({
+  const { network, wallet, account } = useAccountData({
     accountId,
     networkId,
     walletId,
@@ -285,12 +294,41 @@ function TokenDetailsHeader(props: IProps) {
             </ActionsRowContainer>
           </RawActions>
         </Stack>
-        <TokenDetailStakingEntry
+        <Divider />
+        <YStack
+          onPress={() =>
+            copyAccountAddress({
+              accountId,
+              networkId,
+            })
+          }
+          px="$5"
+          py="$3"
+          {...listItemPressStyle}
+        >
+          <XStack alignItems="center" justifyContent="space-between">
+            <YStack gap="$1">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.global_my_address })}
+              </SizableText>
+              <SizableText size="$bodyMd" color="$text">
+                {accountUtils.isHwWallet({ walletId }) ||
+                accountUtils.isQrWallet({ walletId })
+                  ? accountUtils.shortenAddress({
+                      address: account?.address ?? '',
+                    })
+                  : account?.address}
+              </SizableText>
+            </YStack>
+            <Icon name="Copy3Outline" />
+          </XStack>
+        </YStack>
+        {/* <TokenDetailStakingEntry
           networkId={networkId}
           accountId={accountId}
           indexedAccountId={indexedAccountId}
           tokenAddress={tokenInfo.address}
-        />
+        /> */}
         {/* History */}
         <Divider mb="$3" />
       </>
