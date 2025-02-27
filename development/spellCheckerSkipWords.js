@@ -826,4 +826,7 @@ module.exports = [
   'Lokalise',
   'bundler',
   'dai',
+  'Pendle',
+  'Cowswap',
+  'Ethena',
 ];
