@@ -37,9 +37,7 @@ function ActionItem({
   showButtonStyle = false,
   ...rest
 }: IActionItemsProps) {
-  const media = useMedia();
-
-  if (showButtonStyle || media.gtSm) {
+  if (showButtonStyle) {
     return (
       <Button
         {...(!label && {
@@ -171,7 +169,7 @@ function RawActions({ children, ...rest }: IXStackProps) {
       $gtSm={{
         flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
         justifyContent: 'flex-start',
-        gap: '$2',
+        gap: '$8',
       }}
       {...rest}
     >

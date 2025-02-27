@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -15,7 +15,6 @@ import {
   YStack,
   useTabIsRefreshingFocused,
 } from '@onekeyhq/components';
-import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import NumberSizeableTextWrapper from '@onekeyhq/kit/src/components/NumberSizeableTextWrapper';
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
@@ -26,16 +25,15 @@ import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAdd
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
-import { TokenDetailStakingEntry } from '@onekeyhq/kit/src/views/Staking/components/TokenDetailStakingEntry';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
-  EModalSendRoutes,
   EModalSignatureConfirmRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
@@ -246,52 +244,36 @@ function TokenDetailsHeader(props: IProps) {
           </XStack>
           {/* Actions */}
           <RawActions flexDirection="column" gap="$5">
-            <ActionsRowContainer>
-              <ReviewControl>
-                <ActionBuy
-                  networkId={networkId}
-                  accountId={accountId}
-                  walletType={wallet?.type}
-                  tokenAddress={tokenInfo.address}
-                />
-              </ReviewControl>
+            <ReviewControl>
+              <ActionBuy
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+              />
+            </ReviewControl>
 
-              <RawActions.Swap
-                onPress={handleOnSwap}
-                disabled={disableSwapAction}
+            <RawActions.Swap
+              onPress={handleOnSwap}
+              disabled={disableSwapAction}
+            />
+            <RawActions.Bridge
+              onPress={handleOnBridge}
+              disabled={disableSwapAction}
+            />
+            <ReviewControl>
+              <ActionSell
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
               />
-              <RawActions.Bridge
-                onPress={handleOnBridge}
-                disabled={disableSwapAction}
-              />
-              <ReviewControl>
-                <ActionSell
-                  networkId={networkId}
-                  accountId={accountId}
-                  walletType={wallet?.type}
-                  tokenAddress={tokenInfo.address}
-                />
-              </ReviewControl>
-            </ActionsRowContainer>
-            <ActionsRowContainer>
-              <RawActions.Send onPress={handleSendPress} />
-              <RawActions.Receive
-                disabled={isReceiveDisabled}
-                onPress={() => handleOnReceive(tokenInfo)}
-              />
-              <Stack
-                w={50}
-                $gtSm={{
-                  display: 'none',
-                }}
-              />
-              <Stack
-                w={50}
-                $gtSm={{
-                  display: 'none',
-                }}
-              />
-            </ActionsRowContainer>
+            </ReviewControl>
+            <RawActions.Send onPress={handleSendPress} />
+            <RawActions.Receive
+              disabled={isReceiveDisabled}
+              onPress={() => handleOnReceive(tokenInfo)}
+            />
           </RawActions>
         </Stack>
         <Divider />
