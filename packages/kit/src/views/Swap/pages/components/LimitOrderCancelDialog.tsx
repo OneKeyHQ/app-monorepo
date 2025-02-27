@@ -1,14 +1,11 @@
-import { useIntl } from 'react-intl';
-
 import { YStack, useMedia } from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 
 import LimitOrderCard from '../../components/LimitOrderCard';
 
 const LimitOrderCancelDialog = ({ item }: { item: IFetchLimitOrderRes }) => {
-  const intl = useIntl();
   const { gtMd } = useMedia();
   return (
     <YStack gap="$4">
@@ -22,7 +19,7 @@ const LimitOrderCancelDialog = ({ item }: { item: IFetchLimitOrderRes }) => {
         size="$bodyMd"
         color="$textSubdued"
         translationId={ETranslations.limit_cancel_order_off_chain_tip}
-      ></HyperlinkText>
+      />
     </YStack>
   );
 };

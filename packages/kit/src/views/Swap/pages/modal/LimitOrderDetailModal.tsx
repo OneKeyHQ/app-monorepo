@@ -29,6 +29,7 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
@@ -91,20 +92,10 @@ const LimitOrderDetailModal = () => {
   const limitPrice = useMemo(() => {
     const fromAmountNum = decimalsAmount.fromAmount;
     const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum
-      .div(fromAmountNum)
-      .decimalPlaces(
-        orderItemState?.toTokenInfo.decimals ?? 0,
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-
-    return calculateLimitPrice;
-  }, [
-    decimalsAmount.fromAmount,
-    decimalsAmount.toAmount,
-    orderItemState?.toTokenInfo.decimals,
-  ]);
+    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toFixed();
+    const formatLimitPrice = formatBalance(calculateLimitPrice);
+    return formatLimitPrice.formattedValue;
+  }, [decimalsAmount]);
 
   const renderLimitOrderAssets = useCallback(() => {
     const fromAsset = {
@@ -202,7 +193,7 @@ const LimitOrderDetailModal = () => {
       if (!item) {
         return;
       }
-      const dialog = Dialog.show({
+      Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.limit_cancel_order_title,
         }),
@@ -215,10 +206,7 @@ const LimitOrderDetailModal = () => {
           },
         ),
         renderContent: <LimitOrderCancelDialog item={item} />,
-        onConfirm: async () => {
-          await dialog.close();
-          await runCancel(item);
-        },
+        onConfirm: () => runCancel(item),
         showCancelButton: true,
         showConfirmButton: true,
       });
@@ -229,32 +217,31 @@ const LimitOrderDetailModal = () => {
   const renderLimitOrderStatus = useCallback(() => {
     const { status } = orderItemState ?? {};
     let label = intl.formatMessage({
-      id: ETranslations.Limit_order_status_open,
+      id: ETranslations.swap_history_detail_badge_to_pending,
     });
-    let color = '$textSuccess';
+    let color = '@textCaution';
     if (status) {
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_cancel,
+            id: ETranslations.swap_history_detail_badge_expired,
           });
-          color = '$textCritical';
+          color = '@textCritical';
           break;
         case ESwapLimitOrderStatus.FULFILLED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_status_filled,
+            id: ETranslations.swap_history_detail_badge_to_success,
           });
           color = '$textSuccess';
           break;
         case ESwapLimitOrderStatus.EXPIRED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_status_expired,
+            id: ETranslations.swap_history_detail_badge_expired,
           });
-          color = '$textCaution';
           break;
         case ESwapLimitOrderStatus.PRESIGNATURE_PENDING:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_status_open,
+            id: ETranslations.swap_history_detail_badge_to_pending,
           });
           break;
         default:
@@ -265,7 +252,7 @@ const LimitOrderDetailModal = () => {
           <SizableText size="$bodyMdMedium" color={color}>
             {label}
           </SizableText>
-          {orderItemState?.cancelInfo ? (
+          {status === ESwapLimitOrderStatus.OPEN ? (
             <Button
               variant="primary"
               size="small"
@@ -276,7 +263,7 @@ const LimitOrderDetailModal = () => {
             >
               {cancelLoading
                 ? intl.formatMessage({
-                    id: ETranslations.Limit_order_history_status_cancelling,
+                    id: ETranslations.Limit_order_history_status_canceling,
                   })
                 : intl.formatMessage({
                     id: ETranslations.Limit_order_history_status_cancel,
@@ -287,7 +274,7 @@ const LimitOrderDetailModal = () => {
       );
     }
     return null;
-  }, [gtMd, intl, orderItemState, cancelLoading, onCancel]);
+  }, [intl, orderItemState, cancelLoading, onCancel]);
 
   const renderLimitOrderExpiry = useCallback(() => {
     const { createdAt, expiredAt } = orderItemState ?? {};
@@ -337,6 +324,8 @@ const LimitOrderDetailModal = () => {
     const executedSellAmountBN = new BigNumber(
       executedSellAmount ?? '0',
     ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
+    const executeBuyFormat = formatBalance(executedBuyAmountBN.toFixed());
+    const executeSellFormat = formatBalance(executedSellAmountBN.toFixed());
     const sellPercentage = executedSellAmountBN
       .div(fromAmountBN)
       .multipliedBy(100)
@@ -356,15 +345,15 @@ const LimitOrderDetailModal = () => {
         </XStack>
 
         <SizableText size="$bodySm" color="$textSubdued">
-          {`${executedSellAmountBN.toFixed()} ${
+          {`${executeSellFormat.formattedValue} ${
             fromTokenInfo?.symbol ?? '-'
-          } sold for total of ${executedBuyAmountBN.toFixed()} ${
+          } sold for total of ${executeBuyFormat.formattedValue} ${
             toTokenInfo?.symbol ?? '-'
           }`}
         </SizableText>
       </YStack>
     );
-  }, [orderItemState]);
+  }, [orderItemState, gtMd]);
 
   const renderLimitOrderDetails = useCallback(() => {
     if (!orderItemState) {
@@ -448,6 +437,7 @@ const LimitOrderDetailModal = () => {
     renderLimitOrderFilledStatus,
     renderLimitOrderPrice,
     renderLimitOrderStatus,
+    gtMd,
   ]);
 
   return (

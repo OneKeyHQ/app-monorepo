@@ -263,7 +263,7 @@ const LimitOrderCard = ({
             bg="$bgSubdued"
             borderRadius="$2.5"
             borderWidth={1}
-            borderColor={'$borderSubdued'}
+            borderColor="$borderSubdued"
             onPress={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -282,11 +282,7 @@ const LimitOrderCard = ({
         ) : null}
       </XStack>
       <Divider />
-      <XStack
-        flexWrap="wrap"
-        justifyContent="flex-start"
-        gap="$3"
-      >
+      <XStack flexWrap="wrap" justifyContent="flex-start" gap="$3">
         {renderLimitOrderPrice()}
         {expirationTitle}
         {renderLimitOrderStatus()}
