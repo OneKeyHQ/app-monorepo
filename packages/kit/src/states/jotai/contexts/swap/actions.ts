@@ -176,8 +176,20 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapTypeSwitchValue === ESwapTabSwitchType.LIMIT
     ) {
       const defaultTokenSet = swapDefaultSetTokens[token.networkId];
-      if (defaultTokenSet?.toToken) {
-        return defaultTokenSet.toToken;
+      if (defaultTokenSet?.limitToToken && defaultTokenSet?.limitFromToken) {
+        if (
+          equalTokenNoCaseSensitive({
+            token1: defaultTokenSet?.limitToToken,
+            token2: token,
+          }) &&
+          !equalTokenNoCaseSensitive({
+            token1: defaultTokenSet?.limitFromToken,
+            token2: token,
+          })
+        ) {
+          return defaultTokenSet.limitFromToken;
+        }
+        return defaultTokenSet.limitToToken;
       }
       return undefined;
     }

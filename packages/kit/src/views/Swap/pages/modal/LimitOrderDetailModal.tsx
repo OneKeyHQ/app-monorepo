@@ -29,6 +29,7 @@ import type {
   IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
@@ -98,8 +99,8 @@ const LimitOrderDetailModal = () => {
         BigNumber.ROUND_HALF_UP,
       )
       .toFixed();
-
-    return calculateLimitPrice;
+    const limitPriceFormat = formatBalance(calculateLimitPrice);
+    return limitPriceFormat.formattedValue;
   }, [
     decimalsAmount.fromAmount,
     decimalsAmount.toAmount,
@@ -300,6 +301,22 @@ const LimitOrderDetailModal = () => {
     );
   }, [orderItemState]);
 
+  const surplus = useMemo(() => {
+    const { executedBuyAmount, toAmount, toTokenInfo } = orderItemState ?? {};
+    const executedBuyAmountBN = new BigNumber(
+      executedBuyAmount ?? '0',
+    ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
+    const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
+      -(toTokenInfo?.decimals ?? 0),
+    );
+    const surplusBN = executedBuyAmountBN.minus(toAmountBN);
+    const surplusFormat = formatBalance(surplusBN.toFixed());
+    if (surplusBN.gt(0)) {
+      return surplusFormat.formattedValue;
+    }
+    return null;
+  }, [orderItemState]);
+
   const renderLimitOrderPrice = useCallback(
     () => (
       <SizableText size="$bodySm" color="$textSubdued">
@@ -325,9 +342,15 @@ const LimitOrderDetailModal = () => {
     const executedBuyAmountBN = new BigNumber(
       executedBuyAmount ?? '0',
     ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
+    const formattedExecutedBuyAmount = formatBalance(
+      executedBuyAmountBN.toFixed(),
+    );
     const executedSellAmountBN = new BigNumber(
       executedSellAmount ?? '0',
     ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
+    const formattedExecutedSellAmount = formatBalance(
+      executedSellAmountBN.toFixed(),
+    );
     const sellPercentage = executedSellAmountBN
       .div(fromAmountBN)
       .multipliedBy(100)
@@ -347,9 +370,9 @@ const LimitOrderDetailModal = () => {
         </XStack>
 
         <SizableText size="$bodySm" color="$textSubdued">
-          {`${executedSellAmountBN.toFixed()} ${
+          {`${formattedExecutedSellAmount.formattedValue} ${
             fromTokenInfo?.symbol ?? '-'
-          } sold for total of ${executedBuyAmountBN.toFixed()} ${
+          } sold for total of ${formattedExecutedBuyAmount.formattedValue} ${
             toTokenInfo?.symbol ?? '-'
           }`}
         </SizableText>
@@ -392,6 +415,15 @@ const LimitOrderDetailModal = () => {
               label="Filled"
               renderContent={renderLimitOrderFilledStatus()}
             />
+            {surplus ? (
+              <InfoItem
+                disabledCopy
+                label={intl.formatMessage({
+                  id: ETranslations.swap_history_detail_surplus,
+                })}
+                renderContent={`${surplus} ${orderItemState.toTokenInfo.symbol}`}
+              />
+            ) : null}
           </InfoItemGroup>
           <Divider mx="$5" />
           <InfoItemGroup>
@@ -428,6 +460,7 @@ const LimitOrderDetailModal = () => {
     renderLimitOrderFilledStatus,
     renderLimitOrderPrice,
     renderLimitOrderStatus,
+    surplus,
   ]);
 
   return (
