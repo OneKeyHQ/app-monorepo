@@ -283,9 +283,19 @@ export function UniversalStake({
   const btcStakeTerm = useMemo(() => {
     if (minStakeTerm && Number(minStakeTerm) > 0 && minStakeBlocks) {
       const days = Math.ceil(minStakeTerm / (1000 * 60 * 60 * 24));
-      return intl.formatMessage(
-        { id: ETranslations.earn_number_days_number_block },
-        { 'number_days': days, 'number': minStakeBlocks },
+      return (
+        <SizableText size="$bodyLgMedium">
+          {intl.formatMessage(
+            { id: ETranslations.earn_term_number_days },
+            { number_days: days },
+          )}
+          <SizableText size="$bodyLgMedium" color="$textSubdued">
+            {intl.formatMessage(
+              { id: ETranslations.earn_term_number_block },
+              { number: minStakeBlocks },
+            )}
+          </SizableText>
+        </SizableText>
       );
     }
     return null;
@@ -565,7 +575,7 @@ export function UniversalStake({
                 placement="top"
               />
             </XStack>
-            <SizableText size="$bodyLgMedium">{btcStakeTerm}</SizableText>
+            {btcStakeTerm}
           </YStack>
         ) : null}
         {stakingTime ? (
