@@ -4,6 +4,7 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
+  Badge,
   Divider,
   IconButton,
   NumberSizeableText,
@@ -19,6 +20,7 @@ import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapLimitOrderStatus,
   type IFetchLimitOrderRes,
+  LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
 import { Token } from '../../../components/Token';
@@ -30,6 +32,7 @@ const LimitOrderCard = ({
   hiddenCancelIcon = false,
   onCancel,
   cancelLoading,
+  hiddenHoverBg = false,
 }: {
   item: IFetchLimitOrderRes;
   progressWidth?: number;
@@ -37,6 +40,7 @@ const LimitOrderCard = ({
   hiddenCancelIcon?: boolean;
   onCancel?: () => void;
   cancelLoading?: boolean;
+  hiddenHoverBg?: boolean;
 }) => {
   const { fromTokenInfo, toTokenInfo, fromAmount, toAmount } = item;
   const intl = useIntl();
@@ -62,9 +66,10 @@ const LimitOrderCard = ({
     });
     return (
       <YStack
+        flex={1}
         gap="$1.5"
         justifyContent="flex-start"
-        minWidth={gtMd ? 175 : 155}
+        minWidth={gtMd ? 100 : 150}
       >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status_expired })}
@@ -132,16 +137,23 @@ const LimitOrderCard = ({
   const limitPrice = useMemo(() => {
     const fromAmountNum = decimalsAmount.fromAmount;
     const toAmountNum = decimalsAmount.toAmount;
-    const calculateLimitPrice = toAmountNum.div(fromAmountNum).toFixed();
-    const formatLimitPrice = formatBalance(calculateLimitPrice);
-    return formatLimitPrice.formattedValue;
-  }, [decimalsAmount]);
+    const calculateLimitPrice = toAmountNum
+      .div(fromAmountNum)
+      .decimalPlaces(
+        fromTokenInfo?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+        BigNumber.ROUND_HALF_UP,
+      )
+      .toFixed();
+    const limitPriceFormat = formatBalance(calculateLimitPrice);
+    return limitPriceFormat.formattedValue;
+  }, [decimalsAmount, fromTokenInfo?.decimals]);
   const renderLimitOrderPrice = useCallback(
     () => (
       <YStack
+        flex={1}
         gap="$1.5"
+        minWidth={gtMd ? 180 : 160}
         justifyContent="flex-start"
-        minWidth={gtMd ? 175 : 155}
       >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_limit_price })}
@@ -160,14 +172,14 @@ const LimitOrderCard = ({
     let label = intl.formatMessage({
       id: ETranslations.Limit_order_status_open,
     });
-    let color = '@textCaution';
+    let color = '$textSuccess';
     if (status) {
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
             id: ETranslations.Limit_order_cancel,
           });
-          color = '@textCritical';
+          color = '$textCritical';
           break;
         case ESwapLimitOrderStatus.FULFILLED:
           label = intl.formatMessage({
@@ -179,6 +191,7 @@ const LimitOrderCard = ({
           label = intl.formatMessage({
             id: ETranslations.Limit_order_status_expired,
           });
+          color = '$textCaution';
           break;
         case ESwapLimitOrderStatus.PRESIGNATURE_PENDING:
           label = intl.formatMessage({
@@ -201,11 +214,11 @@ const LimitOrderCard = ({
       .multipliedBy(100)
       .toFixed(2);
     return (
-      <YStack gap="$1.5">
+      <YStack gap="$1.5" flex={1}>
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status })}
         </SizableText>
-        <XStack gap="$2" alignItems="center">
+        <XStack gap="$2" alignItems="center" flex={1}>
           <SizableText size="$bodySm" color={color}>
             {label}
           </SizableText>
@@ -215,7 +228,9 @@ const LimitOrderCard = ({
             colors={['$neutral5', '$textSuccess']}
             value={Number(sellPercentage)}
           />
-          <SizableText size="$bodySm">{`${sellPercentage}%`}</SizableText>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {`${sellPercentage}%`}
+          </SizableText>
         </XStack>
       </YStack>
     );
@@ -225,12 +240,14 @@ const LimitOrderCard = ({
     <YStack
       flex={1}
       userSelect="none"
-      hoverStyle={{
-        bg: '$bgStrongHover',
-      }}
-      pressStyle={{
-        bg: '$bgStrongActive',
-      }}
+      {...(!hiddenHoverBg && {
+        hoverStyle: {
+          bg: '$bgStrongHover',
+        },
+        pressStyle: {
+          bg: '$bgStrongActive',
+        },
+      })}
       onPress={onPress ?? (() => {})}
       bg="$bgSubdued"
       p="$4"
@@ -243,24 +260,31 @@ const LimitOrderCard = ({
           {tokenInfo()}
         </YStack>
         {!hiddenCancelIcon ? (
-          <IconButton
-            icon="DeleteOutline"
-            variant="tertiary"
-            color="$iconSubdued"
-            size="small"
-            onPress={() => {
+          <Badge
+            px="$2"
+            bg="$bgSubdued"
+            borderRadius="$2.5"
+            borderWidth={1}
+            borderColor="$borderSubdued"
+            onPress={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
               onCancel?.();
             }}
-            loading={cancelLoading}
-          />
+            userSelect="none"
+            hoverStyle={{
+              bg: '$bgStrongHover',
+            }}
+            pressStyle={{
+              bg: '$bgStrongActive',
+            }}
+          >
+            {intl.formatMessage({ id: ETranslations.Limit_order_cancel })}
+          </Badge>
         ) : null}
       </XStack>
       <Divider />
-      <XStack
-        flexWrap="wrap"
-        justifyContent="flex-start"
-        gap={gtMd ? '$1' : '$3'}
-      >
+      <XStack flexWrap="wrap" justifyContent="flex-start" gap="$3">
         {renderLimitOrderPrice()}
         {expirationTitle}
         {renderLimitOrderStatus()}

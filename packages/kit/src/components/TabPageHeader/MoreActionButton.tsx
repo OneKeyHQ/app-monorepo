@@ -20,10 +20,12 @@ import {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
+import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 
 export function MoreActionButton() {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const onLock = useOnLock();
   const scanQrCode = useScanQrCode();
   const {
     activeAccount: { account },
@@ -102,28 +104,55 @@ export function MoreActionButton() {
           icon="DotGridOutline"
         />
       }
-      items={[
+      sections={[
         {
-          label: intl.formatMessage({ id: ETranslations.global_my_onekey }),
-          icon: 'PhoneOutline',
-          onPress: handleDeviceManagement,
-          testID: 'my-onekey',
+          items: [
+            {
+              label: intl.formatMessage({
+                id: ETranslations.settings_lock_now,
+              }),
+              icon: 'LockOutline',
+              onPress: onLock,
+              testID: 'lock-now',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.scan_scan_qr_code,
+              }),
+              icon: 'ScanOutline',
+              onPress: handleScan,
+              testID: 'scan-qr-code',
+            },
+          ],
         },
         {
-          label: intl.formatMessage({ id: ETranslations.scan_scan_qr_code }),
-          icon: 'ScanOutline',
-          onPress: handleScan,
+          items: [
+            {
+              label: intl.formatMessage({ id: ETranslations.global_my_onekey }),
+              icon: 'OnekeyDeviceCustom',
+              onPress: handleDeviceManagement,
+              testID: 'my-onekey',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.address_book_title,
+              }),
+              icon: 'ContactsOutline',
+              onPress: handleAddressBook,
+              testID: 'address-book',
+            },
+          ],
         },
         {
-          label: intl.formatMessage({ id: ETranslations.address_book_title }),
-          icon: 'BookOpenOutline',
-          onPress: handleAddressBook,
-          testID: 'address-book',
-        },
-        {
-          label: intl.formatMessage({ id: ETranslations.settings_settings }),
-          icon: 'SettingsOutline',
-          onPress: handleSettings,
+          items: [
+            {
+              label: intl.formatMessage({
+                id: ETranslations.settings_settings,
+              }),
+              icon: 'SettingsOutline',
+              onPress: handleSettings,
+            },
+          ],
         },
       ]}
     />

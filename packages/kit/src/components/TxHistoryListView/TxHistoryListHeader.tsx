@@ -4,13 +4,16 @@ import { debounce } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   ESwitchSize,
   IconButton,
   Popover,
   Stack,
   Switch,
+  useMedia,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { getNetworksSupportFilterScamHistory } from '@onekeyhq/shared/src/config/presetNetworks';
 import {
   SEARCH_DEBOUNCE_INTERVAL,
   SEARCH_KEY_MIN_LENGTH,
@@ -34,8 +37,14 @@ type IProps = {
   filteredHistory: IAccountHistoryTx[];
 };
 
+const filterScamHistorySupportedNetworks =
+  getNetworksSupportFilterScamHistory();
+const filterScamHistorySupportedNetworkIds =
+  filterScamHistorySupportedNetworks.map((n) => n.id);
+
 function TxHistoryListHeader({ filteredHistory }: IProps) {
   const intl = useIntl();
+  const media = useMedia();
   const [searchKey] = useSearchKeyAtom();
   const [settings, setSettings] = useSettingsPersistAtom();
   const { updateSearchKey } = useHistoryListActions().current;
@@ -56,7 +65,9 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
   } = useActiveAccount({ num: 0 });
 
   const filterScamHistorySupported = useMemo(
-    () => network?.isAllNetworks || network?.backendIndex,
+    () =>
+      network?.isAllNetworks ||
+      filterScamHistorySupportedNetworkIds.includes(network?.id ?? ''),
     [network],
   );
 
@@ -77,7 +88,21 @@ function TxHistoryListHeader({ filteredHistory }: IProps) {
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_settings })}
             renderTrigger={
-              <IconButton variant="tertiary" icon="SliderVerOutline" />
+              media.md ? (
+                <IconButton
+                  title={intl.formatMessage({
+                    id: ETranslations.manage_token_custom_token_title,
+                  })}
+                  variant="tertiary"
+                  icon="SliderHorOutline"
+                />
+              ) : (
+                <Button icon="SliderHorOutline" size="small" variant="tertiary">
+                  {intl.formatMessage({
+                    id: ETranslations.global_manage,
+                  })}
+                </Button>
+              )
             }
             renderContent={
               <Stack py="$2">

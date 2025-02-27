@@ -25,9 +25,8 @@ const LimitOrderListItem = ({
       <LimitOrderCard
         item={item}
         onPress={() => onClickCell(item)}
-        progressWidth={gtMd ? 115 : 255}
+        progressWidth={gtMd ? 100 : 200}
         onCancel={() => onCancel(item)}
-        cancelLoading={cancelLoading}
         hiddenCancelIcon={item.status !== ESwapLimitOrderStatus.OPEN}
       />
     </XStack>

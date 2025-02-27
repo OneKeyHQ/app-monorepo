@@ -106,6 +106,7 @@ export interface ISwapToken extends ISwapTokenBase {
   reservationValue?: string;
 
   isPopular?: boolean;
+  isWrapped?: boolean;
 }
 
 export interface ISwapTokenCatch {
@@ -285,7 +286,7 @@ export interface IFetchQuoteResult {
   eventId?: string;
   protocol?: EProtocolOfExchange;
   info: IFetchQuoteInfo;
-  expirationTime?: number;
+  expirationTime?: number; // limit order expiration time
   errorMessage?: string;
   shouldWrappedToken?: ISwapTokenBase;
   fromAmount?: string;
@@ -309,6 +310,14 @@ export interface IFetchQuoteResult {
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
+  networkCostExceedInfo?: {
+    tokenInfo: {
+      symbol: string;
+      networkId: string;
+    };
+    cost: string;
+    exceedPercent: string;
+  };
   limitPriceOrderMarketPrice?: {
     fromTokenPrice?: number;
     toTokenPrice?: number;
@@ -701,8 +710,7 @@ export enum ESwapLimitOrderExpiryStep {
 
 export const LimitMarketUpPercentages = [0, 20, 50, 100];
 
-export const defaultLimitExpirationTime =
-  ESwapLimitOrderExpiryStep.THIRTY_MINUTES;
+export const defaultLimitExpirationTime = ESwapLimitOrderExpiryStep.ONE_WEEK;
 
 export const ESwapLimitPartiallyFillStepMap = [
   { label: 'Enabled', value: true },
@@ -717,6 +725,7 @@ export interface ISwapLimitPriceInfo {
   rate?: string;
   reverseRate?: string;
   provider?: string;
+  inputRate?: string;
 }
 
 export const ESwapLimitOrderUpdateInterval = 10_000;

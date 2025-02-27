@@ -8,6 +8,7 @@ import {
   Dialog,
   IconButton,
   ListView,
+  NumberSizeableText,
   Page,
   SizableText,
   Skeleton,
@@ -38,19 +39,6 @@ import {
 import { capitalizeString } from '../../utils/utils';
 
 import { AssetProtocolContent } from './AssetProtocolIntro';
-
-function formatNumber(num: number): string {
-  if (num >= 1_000_000_000) {
-    return `${(num / 1_000_000_000).toFixed(1).replace(/\.0$/, '')}B`;
-  }
-  if (num >= 1_000_000) {
-    return `${(num / 1_000_000).toFixed(1).replace(/\.0$/, '')}M`;
-  }
-  if (num >= 1000) {
-    return `${(num / 1000).toFixed(1).replace(/\.0$/, '')}K`;
-  }
-  return num.toFixed(2);
-}
 
 function StakeTypeBadge({
   stakeType,
@@ -208,13 +196,17 @@ function AssetProtocolListContent({
                 <ProviderTypeBadge type={item.provider.type} />
               </XStack>
             }
-            secondary={`TVL ${currencySymbol}${formatNumber(
-              Number(item.provider.totalFiatValue),
-            )}`}
-            secondaryTextProps={{
-              color: '$textSubdued',
-              size: '$bodyMd',
-            }}
+            secondary={
+              <NumberSizeableText
+                userSelect="none"
+                color="$textSubdued"
+                size="$bodyMd"
+                formatterOptions={{ currency: currencySymbol }}
+                formatter="marketCap"
+              >
+                {item.provider.totalFiatValue}
+              </NumberSizeableText>
+            }
           />
           <ListItem.Text
             align="right"
