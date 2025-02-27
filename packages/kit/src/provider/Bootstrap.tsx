@@ -333,7 +333,7 @@ export function Bootstrap() {
     ) {
       const timer = setTimeout(() => {
         navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
-      }, 300);
+      }, 1000);
 
       return () => clearTimeout(timer);
     }
