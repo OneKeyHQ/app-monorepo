@@ -28,6 +28,7 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import {
@@ -244,7 +245,12 @@ export function ApproveBaseStake({
     details.provider?.approveType === EApproveType.Permit;
   const permitSignatureRef = useRef<string | undefined>(undefined);
 
+  const isFocus = useIsFocused();
+
   const shouldApprove = useMemo(() => {
+    if (!isFocus) {
+      return true;
+    }
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
@@ -264,18 +270,20 @@ export function ApproveBaseStake({
 
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
+    isFocus,
     amountValue,
     allowance,
     usePermit2Approve,
     getPermitCache,
-    approveTarget,
-    token,
+    approveTarget.accountId,
+    approveTarget.networkId,
+    token.address,
   ]);
 
   const onConfirmText = useMemo(() => {
     if (shouldApprove) {
       return intl.formatMessage(
-        { id: ETranslations.form__approve_str },
+        { id: ETranslations.earn_approve_deposit },
         { amount: amountValue, symbol: token.symbol },
       );
     }
