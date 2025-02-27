@@ -1,7 +1,13 @@
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  NumberSizeableText,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
@@ -17,6 +23,8 @@ type IProviderInfoProps = {
     link: string;
     vaultName?: string;
     vaultLink?: string;
+    totalStaked?: string;
+    liquidity?: string;
   };
   minOrMaxStaking?: {
     minValue?: number;
@@ -70,6 +78,8 @@ function ProviderInfo({
       };
     }
   }
+  const [settings] = useSettingsPersistAtom();
+  const currency = settings.currencyInfo.symbol;
   return (
     <YStack gap="$6">
       <SizableText size="$headingLg">
@@ -124,6 +134,32 @@ function ProviderInfo({
             {validator?.vaultName}
           </GridItem>
         ) : null}
+        {validator?.totalStaked ? (
+          <GridItem title={intl.formatMessage({ id: ETranslations.earn_tvl })}>
+            <NumberSizeableText
+              userSelect="none"
+              size="$bodyMd"
+              formatterOptions={{ currency }}
+              formatter="marketCap"
+            >
+              {validator?.totalStaked}
+            </NumberSizeableText>
+          </GridItem>
+        ) : null}
+        {validator?.liquidity ? (
+          <GridItem
+            title={intl.formatMessage({ id: ETranslations.global_liquidity })}
+          >
+            <NumberSizeableText
+              userSelect="none"
+              size="$bodyMd"
+              formatterOptions={{ currency }}
+              formatter="marketCap"
+            >
+              {validator?.liquidity}
+            </NumberSizeableText>
+          </GridItem>
+        ) : null}
         {network?.name ? (
           <GridItem
             title={intl.formatMessage({ id: ETranslations.global_network })}
@@ -164,6 +200,8 @@ export const ProviderSection = ({
       vaultName: details.provider.vaultName,
       vaultLink: details.provider.url,
       isProtocol: details.provider.name.toLowerCase() !== 'everstake',
+      totalStaked: details.provider.totalStaked,
+      liquidity: details.provider.liquidity,
     };
     if (details.provider.minStakeAmount) {
       providerProps.minOrMaxStaking = {

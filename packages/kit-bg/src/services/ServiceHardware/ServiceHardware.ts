@@ -91,6 +91,17 @@ export type IDeviceGetFeaturesOptions = {
   };
 };
 
+// skip events
+const SKIPPED_EVENTS = [
+  EHardwareUiStateAction.CLOSE_UI_WINDOW,
+  EHardwareUiStateAction.PREVIOUS_ADDRESS,
+];
+
+const NEW_DIALOG_EVENTS = [
+  EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+  EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
+];
+
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
   constructor(props: IServiceBaseProps) {
@@ -328,24 +339,25 @@ class ServiceHardware extends ServiceBase {
 
         // skip ui-close_window event, which cause infinite loop
         //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
-        if (
-          ![
-            // skip events
-            EHardwareUiStateAction.CLOSE_UI_WINDOW,
-            EHardwareUiStateAction.PREVIOUS_ADDRESS,
-          ].includes(newUiRequestType)
-        ) {
+        if (!SKIPPED_EVENTS.includes(newUiRequestType)) {
           defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
             action: newUiRequestType,
             connectId,
             payload: newPayload,
           });
-          // show hardware ui dialog
-          await hardwareUiStateAtom.set({
-            action: newUiRequestType,
-            connectId,
-            payload: newPayload,
-          });
+
+          if (NEW_DIALOG_EVENTS.includes(newUiRequestType)) {
+            appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+              uiRequestType: newUiRequestType,
+            });
+          } else {
+            // show hardware ui dialog
+            await hardwareUiStateAtom.set({
+              action: newUiRequestType,
+              connectId,
+              payload: newPayload,
+            });
+          }
         }
         await hardwareUiStateCompletedAtom.set({
           action: newUiRequestType,
