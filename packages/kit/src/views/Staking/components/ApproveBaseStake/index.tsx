@@ -10,6 +10,7 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Accordion,
   Alert,
+  Dialog,
   Divider,
   Icon,
   IconButton,
@@ -254,6 +255,14 @@ export function ApproveBaseStake({
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
+    if (
+      earnUtils.isUSDTonETHNetwork(token) &&
+      allowanceBN.gt(0) &&
+      amountValueBN.gt(allowanceBN)
+    ) {
+      return true;
+    }
+
     if (usePermit2Approve) {
       // Check permit cache first
       const permitCache = getPermitCache({
@@ -271,13 +280,13 @@ export function ApproveBaseStake({
     return !amountValueBN.isNaN() && allowanceBN.lt(amountValue);
   }, [
     isFocus,
+    token,
     amountValue,
     allowance,
     usePermit2Approve,
     getPermitCache,
     approveTarget.accountId,
     approveTarget.networkId,
-    token.address,
   ]);
 
   const onConfirmText = useMemo(() => {
@@ -454,6 +463,32 @@ export function ApproveBaseStake({
     permitSignatureRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
 
+    const allowanceBN = BigNumber(allowance);
+    const amountBN = BigNumber(amountValue);
+
+    if (
+      earnUtils.isUSDTonETHNetwork(token) &&
+      allowanceBN.gt(0) &&
+      amountBN.gt(allowanceBN)
+    ) {
+      Dialog.confirm({
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        onConfirm: () => {
+          console.log('unlimmit');
+        },
+        showCancelButton: true,
+        title: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+        }),
+        icon: 'ErrorOutline',
+      });
+    }
+
     if (usePermit2Approve) {
       const handlePermit2Approve = async () => {
         try {
@@ -533,17 +568,22 @@ export function ApproveBaseStake({
     });
   }, [
     amountValue,
-    approveTarget,
-    navigationToTxConfirm,
-    trackAllowance,
+    allowance,
     token,
-    details,
     usePermit2Approve,
-    getPermitSignature,
-    onSubmit,
+    approveTarget.accountId,
+    approveTarget.networkId,
+    approveTarget.spenderAddress,
+    approveTarget.token,
+    navigationToTxConfirm,
+    intl,
     checkEstimateGasAlert,
     getPermitCache,
+    getPermitSignature,
+    details,
     updatePermitCache,
+    onSubmit,
+    trackAllowance,
   ]);
 
   const placeholderTokens = useMemo(
