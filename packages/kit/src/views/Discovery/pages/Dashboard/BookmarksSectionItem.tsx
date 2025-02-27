@@ -23,31 +23,10 @@ export function BookmarksSectionItem({
 }) {
   return (
     <Stack
-      flexBasis="25%"
+      justifyContent="center"
       alignItems="center"
-      gap="$2"
-      py="$2"
-      $gtSm={{
-        flexBasis: '20%',
-      }}
-      $gtLg={{
-        p: '$3',
-        flexBasis: '33.3333%',
-        flexDirection: 'row',
-        gap: '$5',
-      }}
-      $gtXl={{
-        flexBasis: '25%',
-      }}
       userSelect="none"
-      onPress={() =>
-        handleOpenWebSite({
-          webSite: {
-            url,
-            title,
-          },
-        })
-      }
+      onPress={() => handleOpenWebSite({ webSite: { url, title } })}
     >
       <Image
         size="$14"
@@ -78,6 +57,7 @@ export function BookmarksSectionItem({
           <Skeleton width="100%" height="100%" />
         </Image.Loading>
       </Image>
+
       <SizableText
         size="$bodyLgMedium"
         px="$2"
