@@ -10,7 +10,7 @@ const UniswapLogo = require('@onekeyhq/shared/src/assets/browser/Uniswap.png');
 export interface IBrowserWelcomeLogo {
   name: string;
   url: string;
-  icon: ImageURISource;
+  icon: ImageURISource | ImageURISource['uri'];
 }
 
 export type IBrowserWelcomeLogos = {

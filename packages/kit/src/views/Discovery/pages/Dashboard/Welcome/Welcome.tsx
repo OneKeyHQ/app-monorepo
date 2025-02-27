@@ -1,5 +1,6 @@
 import { Stack, XStack } from '@onekeyhq/components';
 import { browserWelcomeLogos } from '@onekeyhq/shared/src/utils/browserUtils';
+import type { ImageURISource } from 'react-native';
 
 import { DefaultTitle } from './DefaultTitle';
 import { SearchInput } from './SearchInput';

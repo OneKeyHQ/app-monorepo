@@ -15,6 +15,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import type { ImageSourcePropType, ImageURISource } from 'react-native';
+
 // Animation constants
 const FADE_IN_DURATION = 1000;
 const FADE_IN_DELAY = 1000;
@@ -93,7 +95,7 @@ export const WelcomeItem = memo(
     borderRadius = 12,
     ...stackProps
   }: {
-    logo: string;
+    logo: ImageURISource | ImageURISource['uri'];
     url?: string;
     size?: string;
     borderRadius?: number;
@@ -259,11 +261,11 @@ export const WelcomeItem = memo(
               transform: 'translate3d(0, 0, 0)',
             }}
             source={
-              platformEnv.isNative
-                ? (logo as any)
+              (platformEnv.isNative
+                ? logo
                 : {
                     uri: logo,
-                  }
+                  }) as ImageSourcePropType
             }
             width={size}
             height={size}
