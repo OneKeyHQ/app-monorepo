@@ -2666,10 +2666,10 @@ const neoN3: IServerNetwork = {
   'code': 'neon3',
   'shortcode': 'neon3',
   'shortname': 'neon3',
-  'decimals': 9,
+  'decimals': 8,
   'feeMeta': {
     'code': 'gas',
-    'decimals': 9,
+    'decimals': 8,
     'symbol': 'GAS',
   },
   'isTestnet': false,
