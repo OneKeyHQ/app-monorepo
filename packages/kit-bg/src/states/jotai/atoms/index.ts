@@ -3,7 +3,6 @@ export * from './notifications';
 export * from './account';
 export * from './addressBooks';
 export * from './appUpdate';
-export * from './autoNavigation';
 export * from './cloudBackup';
 export * from './currency';
 export * from './demo';

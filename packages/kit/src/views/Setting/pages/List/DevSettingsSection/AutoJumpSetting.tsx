@@ -9,12 +9,18 @@ import {
 } from '@onekeyhq/components';
 import type { ISelectRenderTriggerProps } from '@onekeyhq/components/src/forms/Select/type';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
-import { useAutoNavigationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 export const AutoJumpSetting = memo(() => {
-  const [autoJumpSettings, setAutoJumpSettings] = useAutoNavigationAtom();
+  const [devSettings, setDevSettings] = useDevSettingsPersistAtom();
+  const defaultAutoNavigation = {
+    enabled: true,
+    selectedTab: ETabRoutes.Discovery,
+  };
+  const autoNavigation =
+    devSettings.settings?.autoNavigation || defaultAutoNavigation;
 
   return (
     <YStack>
@@ -22,24 +28,36 @@ export const AutoJumpSetting = memo(() => {
         <ListItem
           title="Auto Jump on Launch"
           onPress={() => {
-            setAutoJumpSettings((prev) => ({
+            setDevSettings((prev) => ({
               ...prev,
-              enabled: !prev.enabled,
+              settings: {
+                ...prev.settings,
+                autoNavigation: {
+                  ...autoNavigation,
+                  enabled: !autoNavigation.enabled,
+                },
+              },
             }));
           }}
         >
           <Switch
-            value={autoJumpSettings.enabled}
+            value={autoNavigation.enabled}
             onChange={(value: boolean) => {
-              setAutoJumpSettings((prev) => ({
+              setDevSettings((prev) => ({
                 ...prev,
-                enabled: value,
+                settings: {
+                  ...prev.settings,
+                  autoNavigation: {
+                    ...autoNavigation,
+                    enabled: value,
+                  },
+                },
               }));
             }}
           />
         </ListItem>
 
-        {autoJumpSettings.enabled ? (
+        {autoNavigation.enabled ? (
           <>
             <ListItem.Separator />
             <ListItem
@@ -63,12 +81,18 @@ export const AutoJumpSetting = memo(() => {
                       : []),
                   ]}
                   onChange={(value) => {
-                    setAutoJumpSettings((prev) => ({
+                    setDevSettings((prev) => ({
                       ...prev,
-                      selectedTab: value as ETabRoutes,
+                      settings: {
+                        ...prev.settings,
+                        autoNavigation: {
+                          ...autoNavigation,
+                          selectedTab: value as ETabRoutes,
+                        },
+                      },
                     }));
                   }}
-                  value={autoJumpSettings.selectedTab ?? ETabRoutes.Home}
+                  value={autoNavigation.selectedTab ?? ETabRoutes.Home}
                   renderTrigger={(props: ISelectRenderTriggerProps) => (
                     <SizableText size="$bodyLgMedium" color="$textSubdued">
                       {props.value?.toString() || ''}

@@ -42,7 +42,7 @@ export enum EAtomNames {
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
-  autoNavigationAtom = 'autoNavigationAtom', // persist
+  // autoNavigationAtom functionality has been merged into devSettingsPersistAtom
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
