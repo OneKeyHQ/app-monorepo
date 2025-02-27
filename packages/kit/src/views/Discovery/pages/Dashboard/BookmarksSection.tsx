@@ -18,18 +18,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 
-import type {
-  IBrowserBookmark,
-  IBrowserHistory,
-  IMatchDAppItemType,
-} from '../../types';
+import type { IBrowserBookmark, IMatchDAppItemType } from '../../types';
 
 function Items({
   dataSource,
   handleOpenWebSite,
   ...restProps
 }: IXStackProps & {
-  dataSource: IBrowserBookmark[] | IBrowserHistory[];
+  dataSource: IBrowserBookmark[];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   const [numberOfItems, setNumberOfItems] = useState(0);
@@ -130,56 +126,42 @@ function Items({
   );
 }
 
-export function BookmarksAndHistoriesSection({
+export function BookmarksSection({
   bookmarksData,
-  historiesData,
   onPressMore,
   handleOpenWebSite,
-  showSectionHeaderBorder,
 }: {
-  showSectionHeaderBorder?: boolean;
   bookmarksData: IBrowserBookmark[] | undefined;
-  historiesData: IBrowserHistory[] | undefined;
   onPressMore: (isHistoriesView: boolean) => void;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   const intl = useIntl();
-  const [isHistoriesView, setIsHistoriesView] = useState(false);
 
-  const dataSource = useMemo<IBrowserBookmark[] | IBrowserHistory[]>(
-    () => (isHistoriesView ? historiesData ?? [] : bookmarksData ?? []),
-    [historiesData, bookmarksData, isHistoriesView],
+  const dataSource = useMemo<IBrowserBookmark[]>(
+    () => bookmarksData ?? [],
+    [bookmarksData],
   );
 
-  const isNilDataSource = isHistoriesView
-    ? isNil(historiesData)
-    : isNil(bookmarksData);
+  const isNilDataSource = isNil(bookmarksData);
 
   return (
     <Stack px="$5" minHeight="$40">
-      <DashboardSectionHeader showSectionHeaderBorder={showSectionHeaderBorder}>
-        <DashboardSectionHeader.Heading
-          selected={!isHistoriesView}
-          onPress={() => setIsHistoriesView(false)}
-        >
+      <DashboardSectionHeader>
+        <DashboardSectionHeader.Heading selected>
           {intl.formatMessage({ id: ETranslations.explore_bookmarks })}
         </DashboardSectionHeader.Heading>
-        <DashboardSectionHeader.Heading
-          selected={isHistoriesView}
-          onPress={() => setIsHistoriesView(true)}
-        >
-          {intl.formatMessage({ id: ETranslations.explore_history })}
-        </DashboardSectionHeader.Heading>
+
         {dataSource.length > 0 ? (
           <DashboardSectionHeader.Button
             onPress={() => {
-              onPressMore(isHistoriesView);
+              onPressMore(false);
             }}
           >
             {intl.formatMessage({ id: ETranslations.explore_see_all })}
           </DashboardSectionHeader.Button>
         ) : null}
       </DashboardSectionHeader>
+
       {dataSource.length > 0 ? (
         <Items dataSource={dataSource} handleOpenWebSite={handleOpenWebSite} />
       ) : (
@@ -200,9 +182,7 @@ export function BookmarksAndHistoriesSection({
               textAlign="center"
             >
               {intl.formatMessage({
-                id: isHistoriesView
-                  ? ETranslations.explore_no_history
-                  : ETranslations.explore_no_boomark,
+                id: ETranslations.explore_no_boomark,
               })}
             </SizableText>
           )}

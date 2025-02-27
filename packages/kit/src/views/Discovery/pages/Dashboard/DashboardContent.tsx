@@ -7,7 +7,6 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -27,8 +26,7 @@ import { useBannerData } from '../../hooks/useBannerData';
 import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { DashboardBanner } from './Banner';
-import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
-import { SuggestedAndExploreSection } from './SuggestAndExploreSection';
+import { BookmarksSection } from './BookmarksSection';
 import { Welcome } from './Welcome';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
@@ -43,7 +41,7 @@ function DashboardContent({
   const { displayHomePage } = useDisplayHomePageFlag();
   const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
-  const { result: [bookmarksData, historiesData] = [], run: refreshLocalData } =
+  const { result: [bookmarksData] = [], run: refreshLocalData } =
     usePromiseResult(
       async () => {
         const bookmarks = backgroundApiProxy.serviceDiscovery.getBookmarkData({
@@ -103,26 +101,18 @@ function DashboardContent({
     }
   }, [displayHomePage, refreshLocalData]);
 
-  const onPressMore = useCallback(
-    (isHistoriesView: boolean) => {
-      navigation.pushModal(EModalRoutes.DiscoveryModal, {
-        screen: isHistoriesView
-          ? EDiscoveryModalRoutes.HistoryListModal
-          : EDiscoveryModalRoutes.BookmarkListModal,
-      });
-    },
-    [navigation],
-  );
+  const onPressMore = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.BookmarkListModal,
+    });
+  }, [navigation]);
 
   // Use the useBannerData hook to get processed banner data
   const { data: bannerData } = useBannerData(homePageData?.banners || []);
   const hasBannerData = bannerData && bannerData.length > 0;
 
-  const content = useMemo(() => {
-    const isShowBanner =
-      Array.isArray(homePageData?.banners) && homePageData.banners.length > 0;
-
-    return (
+  const content = useMemo(
+    () => (
       <>
         <Welcome
           banner={
@@ -154,11 +144,9 @@ function DashboardContent({
         />
 
         {platformEnv.isExtension || platformEnv.isWeb ? null : (
-          <BookmarksAndHistoriesSection
-            showSectionHeaderBorder={isShowBanner}
-            key="BookmarksAndHistoriesSection"
+          <BookmarksSection
+            key="BookmarksSection"
             bookmarksData={bookmarksData}
-            historiesData={historiesData}
             onPressMore={onPressMore}
             handleOpenWebSite={({ webSite }) => {
               handleOpenWebSite({
@@ -175,44 +163,19 @@ function DashboardContent({
             }}
           />
         )}
-        <ReviewControl>
-          <SuggestedAndExploreSection
-            key="SuggestedAndExploreSection"
-            suggestedData={
-              Array.isArray(homePageData?.categories)
-                ? homePageData.categories
-                : []
-            }
-            handleOpenWebSite={({ webSite }) => {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                webSite,
-                navigation,
-                shouldPopNavigation: false,
-              });
-              defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: webSite?.url || '',
-                dappName: webSite?.title || '',
-                enterMethod: EEnterMethod.dashboard,
-              });
-            }}
-            isLoading={isLoading}
-          />
-        </ReviewControl>
       </>
-    );
-  }, [
-    homePageData?.banners,
-    homePageData?.categories,
-    hasBannerData,
-    isLoading,
-    bookmarksData,
-    historiesData,
-    onPressMore,
-    handleOpenWebSite,
-    gtMd,
-    navigation,
-  ]);
+    ),
+    [
+      homePageData?.banners,
+      hasBannerData,
+      isLoading,
+      bookmarksData,
+      onPressMore,
+      handleOpenWebSite,
+      gtMd,
+      navigation,
+    ],
+  );
 
   if (platformEnv.isNative) {
     return (
