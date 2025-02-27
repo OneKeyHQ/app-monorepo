@@ -166,7 +166,7 @@ const WithdrawPage = () => {
   }, [details]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage(
           { id: ETranslations.earn_withdraw_token },

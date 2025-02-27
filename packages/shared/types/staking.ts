@@ -39,6 +39,7 @@ export type IStakeProviderInfo = {
   aprWithoutFee?: string;
   poolFee: string;
   totalStaked: string;
+  totalStakedFiatValue: string;
   totalFiatValue: string;
   minStakeAmount: string;
   maxStakeAmount: string;
@@ -252,6 +253,7 @@ export type IStakeProtocolDetails = {
   earnings24h?: string;
   provider: IStakeProviderInfo;
   totalStaked?: string;
+  totalStakedFiatValue?: string;
   stakingCap?: string;
   token: IEarnTokenItem;
   network?: {
