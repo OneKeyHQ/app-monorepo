@@ -1,10 +1,15 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 import { BookmarksSectionItems } from './BookmarksSectionItems';
 import { DashboardSectionHeader } from './DashboardSectionHeader';
@@ -13,14 +18,19 @@ import type { IBrowserBookmark, IMatchDAppItemType } from '../../types';
 
 export function BookmarksSection({
   bookmarksData,
-  onPressMore,
   handleOpenWebSite,
 }: {
   bookmarksData: IBrowserBookmark[] | undefined;
-  onPressMore: (isHistoriesView: boolean) => void;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+
+  const onPressMore = useCallback(() => {
+    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+      screen: EDiscoveryModalRoutes.BookmarkListModal,
+    });
+  }, [navigation]);
 
   const dataSource = useMemo<IBrowserBookmark[]>(
     () => bookmarksData ?? [],
@@ -39,7 +49,7 @@ export function BookmarksSection({
         {dataSource.length > 0 ? (
           <DashboardSectionHeader.Button
             onPress={() => {
-              onPressMore(false);
+              onPressMore();
             }}
           >
             {intl.formatMessage({ id: ETranslations.explore_see_all })}

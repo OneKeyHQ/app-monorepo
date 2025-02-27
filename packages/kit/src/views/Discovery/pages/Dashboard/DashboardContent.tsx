@@ -101,12 +101,6 @@ function DashboardContent({
     }
   }, [displayHomePage, refreshLocalData]);
 
-  const onPressMore = useCallback(() => {
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.BookmarkListModal,
-    });
-  }, [navigation]);
-
   // Use the useBannerData hook to get processed banner data
   const { data: bannerData } = useBannerData(homePageData?.banners || []);
   const hasBannerData = bannerData && bannerData.length > 0;
@@ -147,7 +141,6 @@ function DashboardContent({
           <BookmarksSection
             key="BookmarksSection"
             bookmarksData={bookmarksData}
-            onPressMore={onPressMore}
             handleOpenWebSite={({ webSite }) => {
               handleOpenWebSite({
                 switchToMultiTabBrowser: gtMd,
@@ -170,7 +163,6 @@ function DashboardContent({
       hasBannerData,
       isLoading,
       bookmarksData,
-      onPressMore,
       handleOpenWebSite,
       gtMd,
       navigation,
