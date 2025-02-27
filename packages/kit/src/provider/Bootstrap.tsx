@@ -12,7 +12,10 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useAppIsLockedAtom,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -317,6 +320,26 @@ export const useLaunchEvents = (): void => {
 };
 
 export function Bootstrap() {
+  const navigation = useAppNavigation();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const autoNavigation = devSettings.settings?.autoNavigation;
+
+  useEffect(() => {
+    if (
+      platformEnv.isDev &&
+      autoNavigation?.enabled &&
+      autoNavigation?.selectedTab &&
+      Object.values(ETabRoutes).includes(autoNavigation.selectedTab)
+    ) {
+      const timer = setTimeout(() => {
+        navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
+
   useFetchCurrencyList();
   useAboutVersion();
   useDesktopEvents();
