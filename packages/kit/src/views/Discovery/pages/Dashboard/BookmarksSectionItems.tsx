@@ -1,17 +1,9 @@
 import { useEffect, useState } from 'react';
 
-import { StyleSheet } from 'react-native';
-
 import type { IXStackProps } from '@onekeyhq/components';
-import {
-  Icon,
-  Image,
-  SizableText,
-  Skeleton,
-  Stack,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { XStack, useMedia } from '@onekeyhq/components';
+
+import { BookmarksSectionItem } from './BookmarksSectionItem';
 
 import type { IBrowserBookmark, IMatchDAppItemType } from '../../types';
 
@@ -46,76 +38,13 @@ export function BookmarksSectionItems({
       {...restProps}
     >
       {dataSource.slice(0, numberOfItems).map(({ logo, title, url }, index) => (
-        <Stack
+        <BookmarksSectionItem
           key={index}
-          flexBasis="25%"
-          alignItems="center"
-          gap="$2"
-          py="$2"
-          $gtSm={{
-            flexBasis: '20%',
-          }}
-          $gtLg={{
-            p: '$3',
-            flexBasis: '33.3333%',
-            flexDirection: 'row',
-            gap: '$5',
-          }}
-          $gtXl={{
-            flexBasis: '25%',
-          }}
-          userSelect="none"
-          onPress={() =>
-            handleOpenWebSite({
-              webSite: {
-                url,
-                title,
-              },
-            })
-          }
-        >
-          <Image
-            size="$14"
-            borderRadius="$3"
-            $gtLg={{
-              w: '$12',
-              h: '$12',
-            }}
-            borderCurve="continuous"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-          >
-            <Image.Source
-              source={{
-                uri: logo,
-              }}
-            />
-            <Image.Fallback>
-              <Icon
-                size="$14"
-                $gtLg={{
-                  size: '$12',
-                }}
-                name="GlobusOutline"
-              />
-            </Image.Fallback>
-            <Image.Loading>
-              <Skeleton width="100%" height="100%" />
-            </Image.Loading>
-          </Image>
-          <SizableText
-            size="$bodyLgMedium"
-            px="$2"
-            $gtMd={{
-              size: '$bodyMdMedium',
-              px: '$0',
-            }}
-            textAlign="center"
-            numberOfLines={1}
-          >
-            {title}
-          </SizableText>
-        </Stack>
+          logo={logo}
+          title={title}
+          url={url}
+          handleOpenWebSite={handleOpenWebSite}
+        />
       ))}
     </XStack>
   );
