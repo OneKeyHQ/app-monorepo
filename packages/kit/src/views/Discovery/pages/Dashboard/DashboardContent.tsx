@@ -15,11 +15,7 @@ import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discov
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useBannerData } from '../../hooks/useBannerData';
