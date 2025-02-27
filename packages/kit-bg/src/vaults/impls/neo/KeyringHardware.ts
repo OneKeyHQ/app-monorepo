@@ -1,5 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
+import { tx, wallet } from '@cityofzion/neon-core';
+
+import type { IEncodedTxNeoN3 } from '@onekeyhq/core/src/chains/neo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
@@ -10,7 +13,9 @@ import {
   NotImplemented,
   OneKeyHardwareError,
 } from '@onekeyhq/shared/src/errors';
+import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -89,10 +94,49 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
   }
 
-  override signTransaction(
+  override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    throw new NotImplemented();
+    const encodedTx = params.unsignedTx.encodedTx as IEncodedTxNeoN3;
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const dbAccount = await this.vault.getAccount();
+
+    const transaction = tx.Transaction.fromJson(encodedTx);
+    const serializedTx = transaction.serialize(false);
+
+    const magicNumber = 860_833_102;
+    const sdk = await this.getHardwareSDKInstance();
+    const response = await sdk.neoSignTransaction(connectId, deviceId, {
+      path: dbAccount.path,
+      rawTx: serializedTx,
+      magicNumber,
+      ...params.deviceParams?.deviceCommonParams,
+    });
+
+    if (response.success) {
+      const { signature, public_key: publicKey } = response.payload;
+      const verificationScript =
+        wallet.getVerificationScriptFromPublicKey(publicKey);
+      transaction.addWitness(
+        new tx.Witness({
+          invocationScript: `0c40${signature}`,
+          verificationScript,
+        }),
+      );
+      return {
+        txid: '',
+        rawTx: Buffer.from(transaction.serialize(true), 'hex').toString(
+          'base64',
+        ),
+        signatureScheme: undefined,
+        signature,
+        publicKey,
+        encodedTx: params.unsignedTx.encodedTx,
+      };
+    }
+
+    throw convertDeviceError(response.payload);
   }
 
   override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
