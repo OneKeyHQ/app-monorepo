@@ -465,13 +465,20 @@ const SwapTokenSelectPage = () => {
 
   const openChainSelector = useConfigurableChainSelector();
   const { bottom } = useSafeAreaInsets();
-  const currentNetworkPopularTokens = useMemo(
-    () =>
-      currentSelectNetwork?.networkId
-        ? swapPopularTokens[currentSelectNetwork?.networkId] ?? []
-        : [],
-    [currentSelectNetwork?.networkId],
-  );
+  const currentNetworkPopularTokens = useMemo(() => {
+    let popularTokens =
+      swapPopularTokens[currentSelectNetwork?.networkId ?? ''] ?? [];
+    if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+      const wrappedToken = popularTokens.find((item) => item.isWrapped);
+      if (wrappedToken) {
+        popularTokens = [
+          wrappedToken,
+          ...popularTokens.filter((item) => !item.isWrapped),
+        ];
+      }
+    }
+    return popularTokens;
+  }, [currentSelectNetwork?.networkId, swapTypeSwitch]);
   return (
     <Page skipLoading={platformEnv.isNativeIOS} safeAreaEnabled={false}>
       <Page.Header
