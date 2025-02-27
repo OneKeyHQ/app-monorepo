@@ -104,6 +104,50 @@ export default class Vault extends VaultBase {
     };
   }
 
+  private async buildTransferTransaction({
+    fromAddress,
+    toAddress,
+    tokenScriptHash,
+    amount,
+    systemFee = '0',
+    networkFee = '0',
+  }: {
+    fromAddress: string;
+    toAddress: string;
+    tokenScriptHash: string;
+    amount: string;
+    systemFee?: string;
+    networkFee?: string;
+  }) {
+    const scriptHash = wallet.getScriptHashFromAddress(fromAddress);
+
+    const script = sc.createScript({
+      scriptHash: tokenScriptHash,
+      operation: 'transfer',
+      args: [
+        sc.ContractParam.hash160(fromAddress),
+        sc.ContractParam.hash160(toAddress),
+        sc.ContractParam.integer(amount),
+        sc.ContractParam.any(null),
+      ],
+    });
+
+    const currentHeight = await this.getBlockCount();
+
+    return new tx.Transaction({
+      signers: [
+        {
+          account: scriptHash,
+          scopes: tx.WitnessScope.CalledByEntry,
+        },
+      ],
+      validUntilBlock: currentHeight + 100,
+      systemFee,
+      networkFee,
+      script,
+    });
+  }
+
   override async buildEncodedTx(
     params: IBuildEncodedTxParams,
   ): Promise<IEncodedTxNeoN3> {
@@ -123,29 +167,13 @@ export default class Vault extends VaultBase {
       transferInfo,
     });
 
-    const script = sc.createScript({
-      scriptHash: inputs.tokenScriptHash,
-      operation: 'transfer',
-      args: [
-        sc.ContractParam.hash160(inputs.fromAccountAddress),
-        sc.ContractParam.hash160(inputs.toAccountAddress),
-        sc.ContractParam.integer(inputs.amountToTransfer),
-        sc.ContractParam.any(null),
-      ],
-    });
-
-    const currentHeight = await this.getBlockCount();
-
-    const transaction = new tx.Transaction({
-      signers: [
-        {
-          account: inputs.scriptHash,
-          scopes: tx.WitnessScope.CalledByEntry,
-        },
-      ],
-      validUntilBlock: currentHeight + 100,
+    const transaction = await this.buildTransferTransaction({
+      fromAddress: inputs.fromAccountAddress,
+      toAddress: inputs.toAccountAddress,
+      tokenScriptHash: inputs.tokenScriptHash,
+      amount: inputs.amountToTransfer,
       systemFee: inputs.systemFee,
-      script,
+      networkFee: inputs.networkFee,
     });
 
     return transaction.toJson();
@@ -254,11 +282,54 @@ export default class Vault extends VaultBase {
     const transaction = tx.Transaction.fromJson(encodedTx);
 
     // max send
-    if (nativeAmountInfo?.maxSendAmount) {
-      // TODO:
-      // - 根据最新的 amount, systemFee, networkFee, 更新 transaction
+    if (nativeAmountInfo?.maxSendAmount && unsignedTx.transfersInfo?.[0]) {
+      const transferInfo = unsignedTx.transfersInfo[0];
+      const { to, tokenInfo } = transferInfo;
+      const dbAccount = await this.getAccount();
+
+      if (!tokenInfo) {
+        throw new OneKeyInternalError('Token info is required');
+      }
+
+      const maxAmount = new BigNumber(nativeAmountInfo.maxSendAmount)
+        .shiftedBy(tokenInfo.decimals || 0)
+        .toFixed();
+
+      let systemFee = '0';
+      let networkFee = '0';
+
+      if (feeInfo?.feeNeoN3) {
+        const {
+          systemFee: customSystemFee = '0',
+          networkFee: customNetworkFee = '0',
+          priorityFee = '0',
+        } = feeInfo.feeNeoN3;
+
+        systemFee = customSystemFee;
+        networkFee = new BigNumber(customNetworkFee)
+          .plus(priorityFee)
+          .toFixed();
+      } else if (transaction.systemFee && transaction.networkFee) {
+        systemFee = transaction.systemFee.toString();
+        networkFee = transaction.networkFee.toString();
+      }
+
+      const maxAmountTransaction = await this.buildTransferTransaction({
+        fromAddress: dbAccount.address,
+        toAddress: to,
+        tokenScriptHash: tokenInfo.address,
+        amount: maxAmount,
+        systemFee,
+        networkFee,
+      });
+
+      return {
+        ...unsignedTx,
+        encodedTx: maxAmountTransaction.toJson(),
+      };
     }
 
+    // update fee
     if (feeInfo?.feeNeoN3) {
       const {
         systemFee = '0',

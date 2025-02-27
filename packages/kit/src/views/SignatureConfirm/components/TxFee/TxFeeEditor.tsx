@@ -1410,8 +1410,9 @@ function TxFeeEditor(props: IProps) {
             </Form.Field>
 
             <Form.Field
-              // TODO: i18n
-              label="network fee"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_network_fee,
+              })}
               name="neoN3NetworkFee"
               rules={{
                 required: true,
@@ -1434,8 +1435,9 @@ function TxFeeEditor(props: IProps) {
             </Form.Field>
 
             <Form.Field
-              // TODO: i18n
-              label="system fee"
+              label={intl.formatMessage({
+                id: ETranslations.global_system_fee,
+              })}
               name="neoN3SystemFee"
               rules={{
                 required: true,
@@ -1840,8 +1842,7 @@ function TxFeeEditor(props: IProps) {
 
       const totalFee =
         currentFeeType === EFeeType.Custom
-          ? // TODO: sys fee ?
-            systemFee.plus(networkFee).plus(priorityFee)
+          ? systemFee.plus(networkFee).plus(priorityFee)
           : calculateNeoN3TotalFee({ feeInfo: fee });
       const totalFeeInNative = calculateTotalFeeNative({
         amount: totalFee,
@@ -1850,20 +1851,20 @@ function TxFeeEditor(props: IProps) {
 
       feeInfoItems = [
         {
-          // TODO: i18n
-          label: 'system fee',
-          customValue: systemFee.toFixed(),
+          label: intl.formatMessage({ id: ETranslations.form__priority_fee }),
+          customValue: priorityFee.toFixed(),
           customSymbol: feeSymbol,
         },
         {
-          // TODO: i18n
-          label: 'network fee',
+          label: intl.formatMessage({
+            id: ETranslations.swap_history_detail_network_fee,
+          }),
           customValue: networkFee.toFixed(),
           customSymbol: feeSymbol,
         },
         {
-          label: intl.formatMessage({ id: ETranslations.form__priority_fee }),
-          customValue: priorityFee.toFixed(),
+          label: intl.formatMessage({ id: ETranslations.global_system_fee }),
+          customValue: systemFee.toFixed(),
           customSymbol: feeSymbol,
         },
         {
