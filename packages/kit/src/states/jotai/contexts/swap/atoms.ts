@@ -20,6 +20,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapLimitPartiallyFillStepMap,
+  ESwapQuoteKind,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -117,6 +118,9 @@ export const {
   use: useSwapFromTokenAmountAtom,
 } = contextAtom<string>('');
 
+export const { atom: swapToTokenAmountAtom, use: useSwapToTokenAmountAtom } =
+  contextAtom<string>('');
+
 export const {
   atom: swapSelectedFromTokenBalanceAtom,
   use: useSwapSelectedFromTokenBalanceAtom,
@@ -158,7 +162,9 @@ export const {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   fromTokenAmount?: string;
+  toTokenAmount?: string;
   accountId?: string;
+  kind?: ESwapQuoteKind;
   address?: string;
 }>({ actionLock: false });
 
@@ -465,27 +471,40 @@ export const {
 } = contextAtom<boolean>(false);
 
 export const {
-  atom: swapLimitPriceToAmountAtom,
-  use: useSwapLimitPriceToAmountAtom,
+  atom: swapLimitPriceAmountAtom,
+  use: useSwapLimitPriceAmountAtom,
 } = contextAtomComputed((get) => {
   const quoteResult = get(swapQuoteCurrentSelectAtom());
   const limitPriceUseRate = get(swapLimitPriceUseRateAtom());
   if (
     quoteResult?.limitPriceOrderMarketPrice &&
-    quoteResult?.fromAmount &&
     limitPriceUseRate.rate &&
     limitPriceUseRate.reverseRate
   ) {
-    const { toToken, rate } = limitPriceUseRate;
-    const fromAmount = new BigNumber(quoteResult.fromAmount);
-    const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
-    const toAmount = toAmountBN
-      .decimalPlaces(
-        toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-    return toAmount;
+    if (quoteResult?.kind === ESwapQuoteKind.SELL && quoteResult?.fromAmount) {
+      const { toToken, rate } = limitPriceUseRate;
+      const fromAmount = new BigNumber(quoteResult.fromAmount);
+      const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
+      const toAmount = toAmountBN
+        .decimalPlaces(
+          toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          BigNumber.ROUND_HALF_UP,
+        )
+        .toFixed();
+      return toAmount;
+    }
+    if (quoteResult?.kind === ESwapQuoteKind.BUY && quoteResult?.toAmount) {
+      const { fromToken, reverseRate } = limitPriceUseRate;
+      const toAmount = new BigNumber(quoteResult.toAmount);
+      const fromAmountBN = new BigNumber(toAmount).multipliedBy(reverseRate);
+      const fromAmount = fromAmountBN
+        .decimalPlaces(
+          fromToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          BigNumber.ROUND_HALF_UP,
+        )
+        .toFixed();
+      return fromAmount;
+    }
   }
   return '';
 });

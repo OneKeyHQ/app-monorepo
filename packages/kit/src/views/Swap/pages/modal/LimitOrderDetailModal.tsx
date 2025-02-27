@@ -358,15 +358,15 @@ const LimitOrderDetailModal = () => {
     return (
       <YStack gap="$2">
         <XStack alignItems="center" gap="$2">
-          <SizableText size="$bodySm" color="$textSubdued">
-            {`${sellPercentage}%`}
-          </SizableText>
           <XStack w="$20">
             <Progress
               colors={['$neutral5', '$textSuccess']}
               value={Number(sellPercentage)}
             />
           </XStack>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {`${sellPercentage}%`}
+          </SizableText>
         </XStack>
 
         <SizableText size="$bodySm" color="$textSubdued">

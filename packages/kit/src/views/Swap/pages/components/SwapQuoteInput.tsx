@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useEffect, useMemo } from 'react';
 
 import { InputAccessoryView } from 'react-native';
 
@@ -6,18 +6,20 @@ import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapLimitPriceToAmountAtom,
+  useSwapLimitPriceAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenDetailFetchingAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
+  useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapQuoteKind,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -44,6 +46,7 @@ const SwapQuoteInput = ({
   onSelectPercentageStage,
 }: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -53,7 +56,7 @@ const SwapQuoteInput = ({
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  const [swapLimitRateToAmount] = useSwapLimitPriceToAmountAtom();
+  const [swapLimitRateAmount] = useSwapLimitPriceAmountAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
   useSwapApproving();
@@ -67,15 +70,25 @@ const SwapQuoteInput = ({
     };
   }, []);
 
-  const toAmount = useMemo(() => {
+  useEffect(() => {
     if (
       swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
-      !swapQuoteCurrentSelect.isWrapped
+      !swapQuoteCurrentSelect?.isWrapped
     ) {
-      return swapLimitRateToAmount ?? '';
+      if (swapQuoteCurrentSelect?.kind === ESwapQuoteKind.BUY) {
+        setFromInputAmount(swapLimitRateAmount ?? '');
+      } else {
+        setToInputAmount(swapLimitRateAmount ?? '');
+      }
+    } else {
+      setToInputAmount(swapQuoteCurrentSelect?.toAmount ?? '');
     }
-    return swapQuoteCurrentSelect?.toAmount ?? '';
-  }, [swapLimitRateToAmount, swapQuoteCurrentSelect]);
+  }, [
+    swapLimitRateAmount,
+    swapQuoteCurrentSelect,
+    setToInputAmount,
+    setFromInputAmount,
+  ]);
 
   return (
     <YStack gap="$2">
@@ -131,7 +144,12 @@ const SwapQuoteInput = ({
         inputLoading={swapQuoteLoading || quoteEventFetching}
         selectTokenLoading={selectLoading}
         direction={ESwapDirectionType.TO}
-        amountValue={toAmount}
+        onAmountChange={(value) => {
+          if (validateAmountInput(value, toToken?.decimals)) {
+            setToInputAmount(value);
+          }
+        }}
+        amountValue={toInputAmount}
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />

@@ -8,6 +8,7 @@ import {
   useSwapLimitPriceUseRateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { LimitMarketUpPercentages } from '@onekeyhq/shared/types/swap/types';
 
 import { validateAmountInput } from '../utils/utils';
 
@@ -85,13 +86,31 @@ export const useSwapLimitRate = () => {
     ],
   );
 
-  const limitPriceEqualMarketPrice = useMemo(
-    () =>
-      new BigNumber(limitPriceUseRate.rate ?? '0').eq(
-        new BigNumber(limitPriceMarketPrice.rate ?? '0'),
-      ),
-    [limitPriceMarketPrice.rate, limitPriceUseRate.rate],
-  );
+  const limitPriceEqualMarketPrice = useMemo(() => {
+    const equalResult = LimitMarketUpPercentages.map((percentage) => {
+      const percentageBN = new BigNumber(1 + percentage / 100);
+      const priceMarketBN = new BigNumber(limitPriceMarketPrice.rate ?? '0');
+      const useRateBN = new BigNumber(limitPriceUseRate.rate ?? '0');
+      const rateBN = priceMarketBN.multipliedBy(percentageBN);
+      const formatRate = rateBN.decimalPlaces(
+        limitPriceMarketPrice.toToken?.decimals ?? 0,
+        BigNumber.ROUND_HALF_UP,
+      );
+      const limitPriceEqualMarket = useRateBN.eq(formatRate);
+      return {
+        percentage,
+        equal:
+          priceMarketBN.isZero() || useRateBN.isZero()
+            ? false
+            : limitPriceEqualMarket,
+      };
+    });
+    return equalResult;
+  }, [
+    limitPriceMarketPrice.rate,
+    limitPriceMarketPrice.toToken?.decimals,
+    limitPriceUseRate.rate,
+  ]);
 
   const onSetMarketPrice = useCallback(
     (percentage: number) => {
@@ -99,7 +118,9 @@ export const useSwapLimitRate = () => {
       const rateBN = new BigNumber(
         limitPriceMarketPrice.rate ?? '0',
       ).multipliedBy(percentageBN);
-      const reverseRateBN = new BigNumber(1).div(rateBN);
+      const reverseRateBN = rateBN.isZero()
+        ? new BigNumber(0)
+        : new BigNumber(1).div(rateBN);
       const formatRate = rateBN.decimalPlaces(
         limitPriceMarketPrice.toToken?.decimals ?? 0,
         BigNumber.ROUND_HALF_UP,

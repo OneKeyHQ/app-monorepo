@@ -298,25 +298,6 @@ export function useSwapQuote() {
           appEventBus.on(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         }
       }
-      // setTimeout(() => {
-      //   // ext env txId data is undefined when useListenTabFocusState is called
-      //   if (pageType !== EPageType.modal) {
-      //     if (
-      //       isFocus &&
-      //       !isHiddenModel &&
-      //       !swapApprovingTxRef.current?.txId &&
-      //       !swapShouldRefreshRef.current
-      //     ) {
-      //       void recoverQuoteInterval(
-      //         swapSlippageRef.current,
-      //         activeAccountRef.current?.address,
-      //         activeAccountRef.current?.accountInfo?.account?.id,
-      //       );
-      //     } else {
-      //       cleanQuoteInterval();
-      //     }
-      //   }
-      // }, 100);
     },
   );
   useEffect(() => {

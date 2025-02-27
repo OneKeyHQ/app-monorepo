@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
@@ -23,7 +25,15 @@ const LimitInfoContainer = () => {
     limitPriceEqualMarketPrice,
   } = useSwapLimitRate();
   const intl = useIntl();
-
+  const checkEqualMarketPrice = useCallback(
+    (percentage: number) => {
+      const equalResult = limitPriceEqualMarketPrice.find(
+        (item) => item.percentage === percentage,
+      );
+      return equalResult?.equal;
+    },
+    [limitPriceEqualMarketPrice],
+  );
   return (
     <YStack gap="$2" p="$4" bg="$bgSubdued" borderRadius="$3">
       <XStack justifyContent="space-between">
@@ -38,7 +48,7 @@ const LimitInfoContainer = () => {
               borderRadius="$2.5"
               borderWidth={1}
               borderColor={
-                limitPriceEqualMarketPrice && percentage === 0
+                checkEqualMarketPrice(percentage)
                   ? '$borderActive'
                   : '$borderSubdued'
               }
