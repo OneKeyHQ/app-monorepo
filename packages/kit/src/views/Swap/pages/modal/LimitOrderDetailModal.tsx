@@ -203,15 +203,20 @@ const LimitOrderDetailModal = () => {
       if (!item) {
         return;
       }
-      const dialog = Dialog.show({
+      Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.limit_cancel_order_title,
         }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.limit_cancel_order_content,
+          },
+          {
+            orderID: `${item.orderId.slice(0, 6)}...${item.orderId.slice(-4)}`,
+          },
+        ),
         renderContent: <LimitOrderCancelDialog item={item} />,
-        onConfirm: async () => {
-          await dialog.close();
-          await runCancel(item);
-        },
+        onConfirm: () => runCancel(item),
         showCancelButton: true,
         showConfirmButton: true,
       });
@@ -222,64 +227,64 @@ const LimitOrderDetailModal = () => {
   const renderLimitOrderStatus = useCallback(() => {
     const { status } = orderItemState ?? {};
     let label = intl.formatMessage({
-      id: ETranslations.Limit_order_status_open,
+      id: ETranslations.swap_history_detail_badge_to_pending,
     });
-    let color = '$textSuccess';
+    let color = '@textCaution';
     if (status) {
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_cancel,
+            id: ETranslations.swap_history_detail_badge_expired,
           });
-          color = '$textCritical';
+          color = '@textCritical';
           break;
         case ESwapLimitOrderStatus.FULFILLED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_status_filled,
+            id: ETranslations.swap_history_detail_badge_to_success,
           });
           color = '$textSuccess';
           break;
         case ESwapLimitOrderStatus.EXPIRED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_status_expired,
+            id: ETranslations.swap_history_detail_badge_expired,
           });
-          color = '$textCaution';
           break;
         case ESwapLimitOrderStatus.PRESIGNATURE_PENDING:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_status_open,
+            id: ETranslations.swap_history_detail_badge_to_pending,
           });
           break;
         default:
           break;
       }
       return (
-        <Stack
-          flexDirection={gtMd ? 'column' : 'row'}
-          gap="$2"
-          alignItems={gtMd ? 'flex-start' : 'center'}
-        >
+        <XStack gap="$4" alignItems="center">
           <SizableText size="$bodyMdMedium" color={color}>
             {label}
           </SizableText>
-          {orderItemState?.cancelInfo ? (
+          {status === ESwapLimitOrderStatus.OPEN ? (
             <Button
-              variant="secondary"
+              variant="primary"
               size="small"
-              icon="DeleteOutline"
               onPress={() => {
                 void onCancel(orderItemState);
               }}
               loading={cancelLoading}
             >
-              {cancelLoading ? 'Cancelling...' : 'Cancel'}
+              {cancelLoading
+                ? intl.formatMessage({
+                    id: ETranslations.Limit_order_history_status_canceling,
+                  })
+                : intl.formatMessage({
+                    id: ETranslations.Limit_order_history_status_cancel,
+                  })}
             </Button>
           ) : null}
-        </Stack>
+        </XStack>
       );
     }
     return null;
-  }, [gtMd, intl, orderItemState, cancelLoading, onCancel]);
+  }, [intl, orderItemState, cancelLoading, onCancel]);
 
   const renderLimitOrderExpiry = useCallback(() => {
     const { createdAt, expiredAt } = orderItemState ?? {};
@@ -319,7 +324,7 @@ const LimitOrderDetailModal = () => {
 
   const renderLimitOrderPrice = useCallback(
     () => (
-      <SizableText size="$bodySm" color="$textSubdued">
+      <SizableText size="$bodyMd" color="$textSubdued">
         {`1 ${orderItemState?.fromTokenInfo?.symbol ?? '-'} = ${
           limitPrice ?? '-'
         } ${orderItemState?.toTokenInfo?.symbol ?? '-'}`}
@@ -357,16 +362,16 @@ const LimitOrderDetailModal = () => {
       .toFixed(2);
     return (
       <YStack gap="$2">
-        <XStack alignItems="center" gap="$2">
+        <XStack alignItems="center" gap="$2" flex={1}>
+          <Progress
+            h="$1"
+            w={gtMd ? 200 : 250}
+            colors={['$neutral5', '$textSuccess']}
+            value={Number(sellPercentage)}
+          />
           <SizableText size="$bodySm" color="$textSubdued">
             {`${sellPercentage}%`}
           </SizableText>
-          <XStack w="$20">
-            <Progress
-              colors={['$neutral5', '$textSuccess']}
-              value={Number(sellPercentage)}
-            />
-          </XStack>
         </XStack>
 
         <SizableText size="$bodySm" color="$textSubdued">
@@ -378,7 +383,7 @@ const LimitOrderDetailModal = () => {
         </SizableText>
       </YStack>
     );
-  }, [orderItemState]);
+  }, [orderItemState, gtMd]);
 
   const renderLimitOrderDetails = useCallback(() => {
     if (!orderItemState) {
@@ -397,10 +402,15 @@ const LimitOrderDetailModal = () => {
               compactAll
             />
             <InfoItem
-              label="Created | Expiry"
+              label={intl.formatMessage({
+                id: ETranslations.Limit_order_history_created_expiry,
+              })}
               renderContent={renderLimitOrderExpiry()}
               compactAll
             />
+          </InfoItemGroup>
+          <Divider mx="$5" />
+          <InfoItemGroup flexDirection={gtMd ? 'row' : 'column'}>
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.Limit_limit_price,
@@ -408,12 +418,12 @@ const LimitOrderDetailModal = () => {
               renderContent={renderLimitOrderPrice()}
               compactAll
             />
-          </InfoItemGroup>
-          <Divider mx="$5" />
-          <InfoItemGroup>
             <InfoItem
-              label="Filled"
+              label={intl.formatMessage({
+                id: ETranslations.Limit_order_history_filled,
+              })}
               renderContent={renderLimitOrderFilledStatus()}
+              compactAll
             />
             {surplus ? (
               <InfoItem
@@ -428,7 +438,9 @@ const LimitOrderDetailModal = () => {
           <Divider mx="$5" />
           <InfoItemGroup>
             <InfoItem
-              label="Order ID"
+              label={intl.formatMessage({
+                id: ETranslations.Limit_order_history_order_id,
+              })}
               renderContent={orderItemState.orderId}
               {...(orderItemState.orderSupportUrl
                 ? {
@@ -439,12 +451,16 @@ const LimitOrderDetailModal = () => {
               showCopy
             />
             <InfoItem
-              label="Pay"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_pay_address,
+              })}
               renderContent={orderItemState.payAddress}
               showCopy
             />
             <InfoItem
-              label="Receive"
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_received_address,
+              })}
               renderContent={orderItemState.receiveAddress}
               showCopy
             />
@@ -460,12 +476,17 @@ const LimitOrderDetailModal = () => {
     renderLimitOrderFilledStatus,
     renderLimitOrderPrice,
     renderLimitOrderStatus,
+    gtMd,
     surplus,
   ]);
 
   return (
     <Page scrollEnabled>
-      <Page.Header title="Order detail" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.Limit_order_history_title,
+        })}
+      />
       <Page.Body>{renderLimitOrderDetails()}</Page.Body>
     </Page>
   );
