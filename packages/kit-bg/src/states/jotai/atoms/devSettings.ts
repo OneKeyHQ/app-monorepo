@@ -26,7 +26,6 @@ export interface IDevSettings {
   showTradingView?: boolean;
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
-  // auto navigation settings
   autoNavigation?: {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
