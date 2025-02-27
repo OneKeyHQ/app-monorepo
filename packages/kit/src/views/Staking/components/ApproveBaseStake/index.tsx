@@ -155,8 +155,13 @@ export function ApproveBaseStake({
   >();
 
   const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
-    if (!amount || Number(amount) === 0) {
+    if (!amount) {
       setEstimateFeeResp(undefined);
+      return;
+    }
+    const amountNumber = BigNumber(amount);
+    if (amountNumber.isZero() || amountNumber.isNaN()) {
+      return;
     }
     const account = await backgroundApiProxy.serviceAccount.getAccount({
       accountId: approveTarget.accountId,
@@ -167,12 +172,12 @@ export function ApproveBaseStake({
       provider: details.provider.name,
       symbol: details.token.info.symbol,
       action: 'stake',
-      amount: amount as string,
+      amount: amountNumber.toFixed(),
       morphoVault: details.provider.vault,
       accountAddress: account?.address,
     });
     setEstimateFeeResp(resp);
-  }, 300);
+  }, 350);
 
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
