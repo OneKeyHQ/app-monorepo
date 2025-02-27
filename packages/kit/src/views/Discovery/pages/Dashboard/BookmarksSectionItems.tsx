@@ -1,7 +1,5 @@
-import { useEffect, useState } from 'react';
-
 import type { IYStackProps } from '@onekeyhq/components';
-import { YStack, useMedia } from '@onekeyhq/components';
+import { YStack } from '@onekeyhq/components';
 
 import { BookmarksSectionItem } from './BookmarksSectionItem';
 
@@ -21,15 +19,9 @@ export function BookmarksSectionItems({
         <YStack
           key={index}
           width="25%"
-          $gtSm={{
-            width: '20%',
-          }}
-          $gt2Md={{
-            width: '16.6%',
-          }}
-          $gtXl={{
-            width: '14.2%',
-          }}
+          $gtSm={{ width: '20%' }}
+          $gt2Md={{ width: '16.6%' }}
+          $gtXl={{ width: '14.2%' }}
         >
           <BookmarksSectionItem
             logo={logo}
