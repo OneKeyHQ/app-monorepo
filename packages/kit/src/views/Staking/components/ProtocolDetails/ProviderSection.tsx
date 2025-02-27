@@ -10,7 +10,10 @@ import {
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
-import type { IStakeProtocolDetails } from '@onekeyhq/shared/types/staking';
+import type {
+  IEarnTokenItem,
+  IStakeProtocolDetails,
+} from '@onekeyhq/shared/types/staking';
 
 import { capitalizeString } from '../../utils/utils';
 
@@ -48,6 +51,7 @@ type IProviderInfoProps = {
   poolFee?: {
     value: string;
   };
+  token?: IEarnTokenItem;
 };
 
 function ProviderInfo({
@@ -57,6 +61,7 @@ function ProviderInfo({
   network,
   babylonConfirmedCap,
   babylonStakingCap,
+  token,
   poolFee,
 }: IProviderInfoProps) {
   const intl = useIntl();
@@ -154,7 +159,7 @@ function ProviderInfo({
             <NumberSizeableText
               userSelect="none"
               size="$bodyLgMedium"
-              formatterOptions={{ currency }}
+              formatterOptions={{ tokenSymbol: token?.info.symbol }}
               formatter="marketCap"
             >
               {validator?.liquidity}
@@ -246,6 +251,9 @@ export const ProviderSection = ({
   }
   if (details.network) {
     providerProps.network = details.network;
+  }
+  if (details.token) {
+    providerProps.token = details.token;
   }
   if (Object.keys(providerProps).length === 0) {
     return null;
