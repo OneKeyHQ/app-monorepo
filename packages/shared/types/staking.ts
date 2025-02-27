@@ -39,6 +39,7 @@ export type IStakeProviderInfo = {
   aprWithoutFee?: string;
   poolFee: string;
   totalStaked: string;
+  totalStakedFiatValue: string;
   totalFiatValue: string;
   minStakeAmount: string;
   maxStakeAmount: string;
@@ -82,6 +83,8 @@ export type IStakeProviderInfo = {
   rewardUnit: IEarnRewardUnit;
 
   approveType?: EApproveType;
+
+  liquidity?: string;
 };
 
 export type IStakeBaseParams = {
@@ -250,6 +253,7 @@ export type IStakeProtocolDetails = {
   earnings24h?: string;
   provider: IStakeProviderInfo;
   totalStaked?: string;
+  totalStakedFiatValue?: string;
   stakingCap?: string;
   token: IEarnTokenItem;
   network?: {
@@ -443,6 +447,7 @@ export type IEarnUnbondingDelegationList = IEarnUnbondingDelegationListItem[];
 
 export type IEarnEstimateFeeResp = {
   coverFeeDays?: string;
+  coverFeeSeconds?: string;
   feeFiatValue: string;
   token: {
     balance: string;

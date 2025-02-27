@@ -627,11 +627,11 @@ class ServiceCloudBackup extends ServiceBase {
             avatarInfo: avatar,
             walletHash,
           });
+        await serviceAccount.restoreAccountsToWallet({
+          walletId: wallet.id,
+          accounts,
+        });
         if (!isOverrideWallet) {
-          await serviceAccount.restoreAccountsToWallet({
-            walletId: wallet.id,
-            accounts,
-          });
           await serviceAccount.setWalletNameAndAvatar({
             walletId: wallet?.id,
             name,

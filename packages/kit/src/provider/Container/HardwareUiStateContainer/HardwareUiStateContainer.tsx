@@ -1,4 +1,4 @@
-import type { ComponentProps, ForwardedRef } from 'react';
+import type { ComponentProps, ForwardedRef, ReactElement } from 'react';
 import {
   forwardRef,
   memo,
@@ -10,9 +10,10 @@ import {
 } from 'react';
 
 import { Semaphore } from 'async-mutex';
+import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance } from '@onekeyhq/components';
+import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
 import {
   Dialog,
   DialogContainer,
@@ -48,6 +49,8 @@ import {
   OpenBleNotifyChangeErrorDialog,
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
+  buildBleNotifyChangeError,
+  buildBleSettingsDialogProps,
 } from '../../../components/Hardware/HardwareDialog';
 
 import ActionsQueueManager from './ActionsQueueManager';
@@ -286,6 +289,7 @@ const HardwareSingletonDialog = forwardRef(HardwareSingletonDialogCmp);
 const SHOW_HARDWARE_TOAST_VIEWPORT_NAME = 'SHOW_HARDWARE_TOAST_VIEWPORT_NAME';
 
 function HardwareUiStateContainerCmpControlled() {
+  const intl = useIntl();
   const [state] = useHardwareUiStateAtom();
   const stateRef = useRef(state);
   stateRef.current = state;
@@ -574,6 +578,32 @@ function HardwareUiStateContainerCmpControlled() {
       }}
     />
   );
+
+  useEffect(() => {
+    const callback = throttle(
+      ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
+        let dialogProps: IDialogShowProps | undefined;
+        if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
+          dialogProps = buildBleSettingsDialogProps(intl);
+        } else if (
+          uiRequestType ===
+          EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
+        ) {
+          dialogProps = buildBleNotifyChangeError(intl);
+        }
+        if (dialogProps) {
+          setTimeout(() => {
+            Dialog.show(dialogProps as IDialogShowProps);
+          }, 200);
+        }
+      },
+      2500,
+    );
+    appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, callback);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RequestHardwareUIDialog, callback);
+    };
+  }, [intl]);
 
   return (
     <>

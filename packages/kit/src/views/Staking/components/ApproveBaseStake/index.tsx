@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -22,12 +23,16 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  PercentageStageOnKeyboard,
+  calcPercentBalance,
+} from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
 import {
-  calcPercentBalance,
   formatApy,
+  formatStakingDistanceToNowStrict,
 } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -46,21 +51,16 @@ import { validateAmountInput } from '../../../Swap/utils/utils';
 import { useEarnPermitApprove } from '../../hooks/useEarnPermitApprove';
 import { useTrackTokenAllowance } from '../../hooks/useUtilsHooks';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
-import { CalculationList, CalculationListItem } from '../CalculationList';
+import { CalculationListItem } from '../CalculationList';
 import {
   EstimateNetworkFee,
-  calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { MorphoApy } from '../ProtocolDetails/MorphoApy';
 import { EStakeProgressStep, StakeProgress } from '../StakeProgress';
-import {
-  PercentageStageOnKeyboard,
-  StakingAmountInput,
-} from '../StakingAmountInput';
+import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
 import { TradeOrBuy } from '../TradeOrBuy';
-import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IApproveBaseStakeProps = {
   details: IStakeProtocolDetails;
@@ -85,8 +85,6 @@ type IApproveBaseStakeProps = {
   showEstReceive?: boolean;
   estReceiveToken?: string;
   estReceiveTokenRate?: string;
-
-  estimateFeeResp?: IEarnEstimateFeeResp;
 
   providerName?: string;
   providerLogo?: string;
@@ -115,7 +113,6 @@ export function ApproveBaseStake({
   approveTarget,
 
   providerLabel,
-  estimateFeeResp,
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
@@ -153,6 +150,30 @@ export function ApproveBaseStake({
     },
   ] = useSettingsPersistAtom();
 
+  const [estimateFeeResp, setEstimateFeeResp] = useState<
+    undefined | IEarnEstimateFeeResp
+  >();
+
+  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
+    if (!amount || Number(amount) === 0) {
+      setEstimateFeeResp(undefined);
+    }
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId: approveTarget.networkId,
+      provider: details.provider.name,
+      symbol: details.token.info.symbol,
+      action: 'stake',
+      amount: amount as string,
+      morphoVault: details.provider.vault,
+      accountAddress: account?.address,
+    });
+    setEstimateFeeResp(resp);
+  }, 300);
+
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
 
@@ -165,6 +186,7 @@ export function ApproveBaseStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          void fetchEstimateFeeResp();
         }
         return;
       }
@@ -177,9 +199,10 @@ export function ApproveBaseStake({
         setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
+        void fetchEstimateFeeResp(value);
       }
     },
-    [decimals],
+    [decimals, fetchEstimateFeeResp],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -348,13 +371,10 @@ export function ApproveBaseStake({
   }, [estimatedAnnualRewards]);
 
   const daysSpent = useMemo(() => {
-    if (totalAnnualRewardsFiatValue && estimateFeeResp?.feeFiatValue) {
-      return calcDaysSpent(
-        totalAnnualRewardsFiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+    if (estimateFeeResp?.coverFeeSeconds) {
+      return formatStakingDistanceToNowStrict(estimateFeeResp.coverFeeSeconds);
     }
-  }, [estimateFeeResp?.feeFiatValue, totalAnnualRewardsFiatValue]);
+  }, [estimateFeeResp?.coverFeeSeconds]);
 
   const checkEstimateGasAlert = useCallback(
     async (onNext: () => Promise<void>) => {
@@ -362,17 +382,17 @@ export function ApproveBaseStake({
         return onNext();
       }
 
-      const daySpent = calcDaysSpent(
-        totalAnnualRewardsFiatValue,
-        estimateFeeResp.feeFiatValue,
-      );
+      const daySpent =
+        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
 
       if (!daySpent || daySpent <= 5) {
         return onNext();
       }
 
       showEstimateGasAlert({
-        daysConsumed: daySpent,
+        daysConsumed: formatStakingDistanceToNowStrict(
+          estimateFeeResp.coverFeeSeconds,
+        ),
         estFiatValue: estimateFeeResp.feeFiatValue,
         onConfirm: async (dialogInstance: IDialogInstance) => {
           await dialogInstance.close();
@@ -715,7 +735,7 @@ export function ApproveBaseStake({
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <SizableText size="$bodyMd">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.earn_est_annual_rewards,
             })}
@@ -776,14 +796,14 @@ export function ApproveBaseStake({
             >
               {({ open }: { open: boolean }) => (
                 <>
-                  <XStack gap="$2" alignItems="center">
+                  <XStack gap="$1.5" alignItems="center">
                     <Image
                       width="$5"
                       height="$5"
                       src={providerLogo}
                       borderRadius="$2"
                     />
-                    <SizableText size="$bodyLgMedium">
+                    <SizableText size="$bodyMd">
                       {capitalizeString(providerName || '')}
                     </SizableText>
                   </XStack>
@@ -834,11 +854,6 @@ export function ApproveBaseStake({
           token={details.token.info}
           accountId={approveTarget.accountId}
           networkId={approveTarget.networkId}
-          containerProps={{
-            borderTopWidth: 0,
-            py: 0,
-            pt: '$5',
-          }}
         />
       </YStack>
       <Page.Footer>

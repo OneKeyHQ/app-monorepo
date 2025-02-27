@@ -955,6 +955,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'networkId': 'evm--1',
       'contractAddress': '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
       'name': 'Wrapped Ether',
+      'isWrapped': true,
       'symbol': 'WETH',
       'decimals': 18,
       'logoURI':
@@ -1071,6 +1072,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'contractAddress': '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
       'name': 'Wrapped Ether',
       'symbol': 'WETH',
+      'isWrapped': true,
       'decimals': 18,
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--42161/tokens/address-0x82af49447d8a07e3bd95bd0d56f35241523fbab1-1720668347864.png',
@@ -1154,6 +1156,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'contractAddress': '0x4200000000000000000000000000000000000006',
       'name': 'Wrapped Ether',
       'symbol': 'WETH',
+      'isWrapped': true,
       'decimals': 18,
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--8453/tokens/address-0x4200000000000000000000000000000000000006-1720668314458.png',
@@ -1244,6 +1247,7 @@ export const swapPopularTokens: Record<string, ISwapToken[]> = {
       'contractAddress': '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619',
       'name': 'Wrapped Ether',
       'symbol': 'WETH',
+      'isWrapped': true,
       'decimals': 18,
       'logoURI':
         'https://uni.onekey-asset.com/server-service-indexer/evm--137/tokens/address-0x7ceb23fd6bc0add59e62ac25578270cff1b9f619-1720668277811.png',
