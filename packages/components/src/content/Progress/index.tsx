@@ -11,6 +11,12 @@ import type { LayoutChangeEvent } from 'react-native';
 
 export type IProgressProps = {
   size?: 'small' | 'medium';
+  /**
+   * Whether to animate the progress bar
+   * @default true
+   * @platform web
+   */
+  animated?: boolean;
 } & Omit<TMProgressProps, 'size'>;
 
 const DEFAULT_MAX = 100;
@@ -38,6 +44,7 @@ export function Progress({
   value,
   colors = [],
   gap = 0,
+  animated,
   ...props
 }: Omit<IProgressProps, 'max' | 'gap'> & {
   colors?: IProgressProps['backgroundColor'][];
@@ -72,7 +79,7 @@ export function Progress({
           // https://github.com/tamagui/tamagui/issues/2753
           // https://github.com/tamagui/tamagui/issues/2847
           // Enabling animation on Native platforms causes the progress bar to fail initial rendering
-          animation={platformEnv.isNative ? null : 'quick'}
+          animation={!platformEnv.isNative && animated ? 'quick' : null}
           backgroundColor={colors[1] || '$bgPrimary'}
           borderRadius="$full"
         />
