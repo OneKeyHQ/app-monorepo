@@ -23,6 +23,7 @@ export function BookmarksSectionItem({
 }) {
   return (
     <Stack
+      gap="$3"
       justifyContent="center"
       alignItems="center"
       userSelect="none"
@@ -31,27 +32,13 @@ export function BookmarksSectionItem({
       <Image
         size="$14"
         borderRadius="$3"
-        $gtLg={{
-          w: '$12',
-          h: '$12',
-        }}
         borderCurve="continuous"
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
       >
-        <Image.Source
-          source={{
-            uri: logo,
-          }}
-        />
+        <Image.Source source={{ uri: logo }} />
         <Image.Fallback>
-          <Icon
-            size="$14"
-            $gtLg={{
-              size: '$12',
-            }}
-            name="GlobusOutline"
-          />
+          <Icon size="$14" name="GlobusOutline" />
         </Image.Fallback>
         <Image.Loading>
           <Skeleton width="100%" height="100%" />
@@ -59,12 +46,8 @@ export function BookmarksSectionItem({
       </Image>
 
       <SizableText
-        size="$bodyLgMedium"
         px="$2"
-        $gtMd={{
-          size: '$bodyMdMedium',
-          px: '$0',
-        }}
+        size="$bodyLgMedium"
         textAlign="center"
         numberOfLines={1}
       >
