@@ -23,6 +23,7 @@ export function BookmarksSectionItem({
 }) {
   return (
     <Stack
+      py="$2"
       gap="$3"
       justifyContent="center"
       alignItems="center"
