@@ -7,9 +7,15 @@ import { Dialog, useClipboard } from '@onekeyhq/components';
 import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAllTokenListAtom,
+  useAllTokenListMapAtom,
+  useTokenListStateAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { openExplorerAddressUrl } from '@onekeyhq/kit/src/utils/explorerUtils';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
@@ -20,22 +26,45 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalFiatCryptoRoutes,
+  EModalRoutes,
+  EModalWalletAddressRoutes,
+} from '@onekeyhq/shared/src/routes';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
+import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { RawActions } from './RawActions';
 
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, network, wallet, deriveInfo, deriveType } = activeAccount;
+  const { account, network, wallet, deriveInfo, deriveType, deriveInfoItems } =
+    activeAccount;
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { copyText } = useClipboard();
+  const [allTokens] = useAllTokenListAtom();
+  const [map] = useAllTokenListMapAtom();
+  const [tokenListState] = useTokenListStateAtom();
+
   const { handleOnReceive } = useReceiveToken({
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
     walletId: wallet?.id ?? '',
     deriveInfo,
     deriveType,
+    tokens: {
+      data: allTokens.tokens,
+      keys: allTokens.keys,
+      map,
+    },
+    tokenListState,
+    isMultipleDerive: deriveInfoItems.length > 1,
   });
+
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
     useAllNetworkCopyAddressHandler({ activeAccount });
 
@@ -58,23 +87,6 @@ export function WalletActionMore() {
     return false;
   }, [isSellSupported, wallet?.type]);
 
-  const handleCopyAddress = useCallback(() => {
-    if (isAllNetworkEnabled) {
-      void handleAllNetworkCopyAddress();
-    } else if (wallet?.type === WALLET_TYPE_HW) {
-      handleOnReceive();
-    } else {
-      copyText(account?.address || '');
-    }
-  }, [
-    account?.address,
-    copyText,
-    handleOnReceive,
-    wallet?.type,
-    isAllNetworkEnabled,
-    handleAllNetworkCopyAddress,
-  ]);
-
   const show = useReviewControl();
 
   const vaultSettings = usePromiseResult(async () => {
@@ -83,6 +95,101 @@ export function WalletActionMore() {
     });
     return settings;
   }, [network?.id]).result;
+
+  const handleCopyAddress = useCallback(() => {
+    if (isAllNetworkEnabled) {
+      void handleAllNetworkCopyAddress();
+    } else if (wallet?.type === WALLET_TYPE_HW) {
+      handleOnReceive();
+    } else if (
+      deriveInfoItems.length > 1 &&
+      vaultSettings?.mergeDeriveAssetsEnabled &&
+      !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+    ) {
+      navigation.pushModal(EModalRoutes.WalletAddress, {
+        screen: EModalWalletAddressRoutes.DeriveTypesAddress,
+        params: {
+          networkId: network?.id ?? '',
+          indexedAccountId: account?.indexedAccountId ?? '',
+          actionType: EDeriveAddressActionType.Copy,
+        },
+      });
+    } else {
+      copyText(account?.address || '');
+    }
+  }, [
+    isAllNetworkEnabled,
+    wallet?.type,
+    wallet?.id,
+    deriveInfoItems.length,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    handleAllNetworkCopyAddress,
+    handleOnReceive,
+    navigation,
+    network?.id,
+    account?.indexedAccountId,
+    account?.address,
+    copyText,
+  ]);
+
+  const handleSellToken = useCallback(async () => {
+    if (vaultSettings?.isSingleToken) {
+      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+      });
+      if (
+        account &&
+        network &&
+        wallet &&
+        nativeToken &&
+        deriveInfoItems.length > 1 &&
+        vaultSettings?.mergeDeriveAssetsEnabled &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
+        navigation.pushModal(EModalRoutes.FiatCryptoModal, {
+          screen: EModalFiatCryptoRoutes.DeriveTypesAddress,
+          params: {
+            networkId: network.id,
+            indexedAccountId: account.indexedAccountId ?? '',
+            accountId: account.id,
+            actionType: EDeriveAddressActionType.Select,
+            token: nativeToken,
+            tokenMap: map,
+            onUnmounted: () => {},
+            onSelected: async ({
+              account: a,
+            }: {
+              account: INetworkAccount;
+            }) => {
+              const { url } =
+                await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
+                  networkId: network?.id ?? '',
+                  tokenAddress: nativeToken.address,
+                  accountId: a.id,
+                  type: 'sell',
+                });
+              openUrlExternal(url);
+              navigation.pop();
+            },
+          },
+        });
+        return;
+      }
+    }
+
+    sellCrypto();
+  }, [
+    account,
+    deriveInfoItems.length,
+    map,
+    navigation,
+    network,
+    sellCrypto,
+    vaultSettings?.isSingleToken,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    wallet,
+  ]);
 
   const viewExplorerDisabled = usePromiseResult(async () => {
     if (!network?.isCustomNetwork) {
@@ -93,6 +200,63 @@ export function WalletActionMore() {
     }
     return true;
   }, [network?.isCustomNetwork, network?.explorerURL]).result;
+
+  const handleViewInExplorer = useCallback(async () => {
+    if (vaultSettings?.isSingleToken) {
+      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+        networkId: network?.id ?? '',
+        accountId: account?.id ?? '',
+      });
+      if (
+        account &&
+        network &&
+        wallet &&
+        nativeToken &&
+        deriveInfoItems.length > 1 &&
+        vaultSettings?.mergeDeriveAssetsEnabled &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
+        navigation.pushModal(EModalRoutes.FiatCryptoModal, {
+          screen: EModalFiatCryptoRoutes.DeriveTypesAddress,
+          params: {
+            networkId: network.id,
+            indexedAccountId: account.indexedAccountId ?? '',
+            accountId: account.id,
+            actionType: EDeriveAddressActionType.Select,
+            token: nativeToken,
+            tokenMap: map,
+            onUnmounted: () => {},
+            onSelected: async ({
+              account: a,
+            }: {
+              account: INetworkAccount;
+            }) => {
+              await openExplorerAddressUrl({
+                networkId: network?.id,
+                address: a?.address,
+              });
+              navigation.pop();
+            },
+          },
+        });
+        return;
+      }
+    }
+
+    await openExplorerAddressUrl({
+      networkId: network?.id,
+      address: account?.address,
+    });
+  }, [
+    account,
+    deriveInfoItems.length,
+    map,
+    navigation,
+    network,
+    vaultSettings?.isSingleToken,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    wallet,
+  ]);
 
   const sections: ComponentProps<typeof RawActions.More>['sections'] = [];
 
@@ -109,11 +273,7 @@ export function WalletActionMore() {
                   id: ETranslations.global_view_in_blockchain_explorer,
                 }),
                 icon: 'GlobusOutline',
-                onPress: () =>
-                  openExplorerAddressUrl({
-                    networkId: network?.id,
-                    address: account?.address,
-                  }),
+                onPress: handleViewInExplorer,
                 disabled: viewExplorerDisabled,
               },
             ]
@@ -140,7 +300,7 @@ export function WalletActionMore() {
           label: intl.formatMessage({ id: ETranslations.global_cash_out }),
           icon: 'MinusLargeOutline',
           disabled: Boolean(isSellDisabled || !account?.id || !network?.id),
-          onPress: sellCrypto,
+          onPress: handleSellToken,
         },
       ],
     });
