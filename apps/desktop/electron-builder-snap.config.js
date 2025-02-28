@@ -57,4 +57,5 @@ module.exports = {
     'target': ['snap'],
   },
   'afterSign': 'scripts/notarize.js',
+  'afterPack': 'scripts/fileOperation.js',
 };

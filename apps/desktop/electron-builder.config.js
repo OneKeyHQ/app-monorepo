@@ -114,4 +114,5 @@ module.exports = {
     'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
   },
   'afterSign': 'scripts/notarize.js',
+  'afterPack': 'scripts/fileOperation.js',
 };
