@@ -112,7 +112,7 @@ function HistoryListModal() {
                   }),
                   onConfirm: () => handleDeleteAll(),
                   onConfirmText: intl.formatMessage({
-                    id: ETranslations.explore_remove_all,
+                    id: ETranslations.global_clear,
                   }),
                 });
               }}
