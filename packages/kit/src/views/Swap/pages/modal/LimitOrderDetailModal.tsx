@@ -375,15 +375,21 @@ const LimitOrderDetailModal = () => {
         </XStack>
 
         <SizableText size="$bodySm" color="$textSubdued">
-          {`${formattedExecutedSellAmount.formattedValue} ${
-            fromTokenInfo?.symbol ?? '-'
-          } sold for total of ${formattedExecutedBuyAmount.formattedValue} ${
-            toTokenInfo?.symbol ?? '-'
-          }`}
+          {intl.formatMessage(
+            {
+              id: ETranslations.limit_history_fill_sold,
+            },
+            {
+              num1: formattedExecutedSellAmount.formattedValue,
+              token1: fromTokenInfo?.symbol ?? '-',
+              num2: formattedExecutedBuyAmount.formattedValue,
+              token2: toTokenInfo?.symbol ?? '-',
+            },
+          )}
         </SizableText>
       </YStack>
     );
-  }, [orderItemState, gtMd]);
+  }, [orderItemState, gtMd, intl]);
 
   const renderLimitOrderDetails = useCallback(() => {
     if (!orderItemState) {

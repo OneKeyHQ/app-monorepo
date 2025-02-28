@@ -1296,7 +1296,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           ...alertsRes,
           {
             icon: 'ErrorSolid',
-            title: `Con not sell ${quoteResult.fromTokenInfo.symbol}`,
+            title: appLocale.intl.formatMessage(
+              {
+                id: ETranslations.Limit_native_token_no_sell,
+              },
+              {
+                token: quoteResult.fromTokenInfo.symbol,
+              },
+            ),
             alertLevel: ESwapAlertLevel.INFO,
             action: {
               actionType: ESwapAlertActionType.LIMIT_NATIVE_WRAPPED,
