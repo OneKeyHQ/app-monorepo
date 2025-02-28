@@ -166,7 +166,6 @@ function WebContent({
         onOpenWindow={(e) => {
           void gotoSite({
             url: e.nativeEvent.targetUrl,
-            userTriggered: true,
             siteMode,
           });
         }}

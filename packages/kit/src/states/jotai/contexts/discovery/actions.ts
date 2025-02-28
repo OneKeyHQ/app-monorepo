@@ -623,7 +623,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         siteMode,
         isNewWindow,
         isInPlace,
-        userTriggered,
       }: IGotoSiteFnParams,
     ) => {
       const tab = this.getWebTabById.call(set, id ?? '');
@@ -631,13 +630,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const validatedUrl = uriUtils.validateUrl(url);
         if (!validatedUrl) {
           return;
-        }
-
-        if (userTriggered) {
-          void this.addBrowserHistory.call(set, {
-            url: validatedUrl,
-            title: title ?? '',
-          });
         }
 
         if (browserTypeHandler === 'StandardBrowser') {
@@ -712,7 +704,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
               webSite.url,
             ),
           isNewWindow,
-          userTriggered: true,
         });
       }
       if (dApp) {
@@ -722,7 +713,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           title: dApp.name,
           dAppId: dApp.dappId,
           favicon: dApp.logo || dApp.originLogo,
-          userTriggered: true,
           isNewWindow,
         });
       }

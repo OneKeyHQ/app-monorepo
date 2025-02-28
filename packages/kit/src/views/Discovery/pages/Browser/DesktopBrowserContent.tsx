@@ -229,23 +229,12 @@ function BasicDesktopBrowserContent({
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
-  const browserHistoryAction = useBrowserHistoryAction();
-  const handleAddBrowserHistory = useCallback(
-    (siteInfo: { url: string; title: string }) => {
-      void browserHistoryAction.current.addBrowserHistory(siteInfo);
-    },
-    [browserHistoryAction],
-  );
+
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
       {tab?.url ? (
-        <WebContent
-          id={id}
-          url={tab.url}
-          isCurrent={isActive}
-          addBrowserHistory={handleAddBrowserHistory}
-        />
+        <WebContent id={id} url={tab.url} isCurrent={isActive} />
       ) : null}
     </Freeze>
   );
