@@ -1,20 +1,5 @@
-import { useIntl } from 'react-intl';
-
-import {
-  Page,
-  SizableText,
-  Stack,
-  XStack,
-  useSafeAreaInsets,
-} from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { Page, Stack, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
@@ -36,7 +21,6 @@ function Dashboard() {
           <Stack flex={1} pl="$5" alignItems="center">
             <BrowserTitle />
           </Stack>
-
           <HistoryIconButton />
         </XStack>
       ) : null}
