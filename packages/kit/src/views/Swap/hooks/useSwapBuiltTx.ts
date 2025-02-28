@@ -45,6 +45,7 @@ import {
   EProtocolOfExchange,
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
+  ESwapQuoteKind,
   EWrappedType,
 } from '@onekeyhq/shared/types/swap/types';
 import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
@@ -56,6 +57,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
+  useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
@@ -94,6 +96,7 @@ export function useSwapBuildTx() {
     useSwapManualSelectQuoteProvidersAtom();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
+  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
@@ -129,7 +132,10 @@ export function useSwapBuildTx() {
   );
 
   const clearQuoteData = useCallback(() => {
-    setSwapFromTokenAmount(''); // send success, clear from token amount
+    setSwapFromTokenAmount({
+      value: '',
+      isInput: true,
+    }); // send success, clear from token amount
     setSwapQuoteResultList([]);
     setSwapQuoteEventTotalCount({
       count: 0,
@@ -426,6 +432,7 @@ export function useSwapBuildTx() {
             appData: string;
             receiver: string;
             buyAmount: string;
+            sellAmount: string;
             partiallyFillable: boolean;
           } =
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
@@ -451,21 +458,32 @@ export function useSwapBuildTx() {
                   .toNumber();
               }
               let finalBuyAmount = unSignedOrder.buyAmount;
+              let finalSellAmount = unSignedOrder.sellAmount;
               if (
                 selectQuote?.limitPriceOrderMarketPrice &&
-                swapLimitPriceToAmount
+                (swapLimitPriceFromAmount || swapLimitPriceToAmount)
               ) {
-                const decimals = toToken.decimals;
-                const finalBuyAmountBN = new BigNumber(
-                  swapLimitPriceToAmount,
+                const decimals =
+                  selectQuote?.kind === ESwapQuoteKind.SELL
+                    ? toToken.decimals
+                    : fromToken.decimals;
+                const finalAmountBN = new BigNumber(
+                  selectQuote?.kind === ESwapQuoteKind.SELL
+                    ? swapLimitPriceToAmount
+                    : swapLimitPriceFromAmount,
                 ).shiftedBy(decimals);
-                finalBuyAmount = finalBuyAmountBN.toFixed();
+                if (selectQuote?.kind === ESwapQuoteKind.SELL) {
+                  finalBuyAmount = finalAmountBN.toFixed();
+                } else {
+                  finalSellAmount = finalAmountBN.toFixed();
+                }
               }
               let partiallyFillable = unSignedOrder.partiallyFillable;
               if (swapLimitPartiallyFillObj.value !== partiallyFillable) {
                 partiallyFillable = swapLimitPartiallyFillObj.value;
               }
               unSignedOrder.buyAmount = finalBuyAmount;
+              unSignedOrder.sellAmount = finalSellAmount;
               unSignedOrder.validTo = validTo;
               unSignedOrder.partiallyFillable = partiallyFillable;
               const normalizeData = {
@@ -649,6 +667,22 @@ export function useSwapBuildTx() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           } else if (res?.ctx.cowSwapOrderId) {
             skipSendTransAction = true;
+            void Toast.success({
+              title: intl.formatMessage({
+                id: ETranslations.limit_toast_order_submitted,
+              }),
+              message: intl.formatMessage(
+                {
+                  id: ETranslations.limit_toast_order_content,
+                },
+                {
+                  num1: res.result.fromAmount,
+                  num2: res.result.toAmount,
+                  token1: fromToken.symbol,
+                  token2: toToken.symbol,
+                },
+              ),
+            });
           }
           // check gasLimit
           const buildGasLimitBN = new BigNumber(res.result?.gasLimit ?? 0);
@@ -714,10 +748,12 @@ export function useSwapBuildTx() {
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
     swapLimitExpirationTime.value,
+    swapLimitPriceFromAmount,
     swapLimitPriceToAmount,
     swapLimitPartiallyFillObj.value,
     navigationToMessageConfirm,
     swapTypeSwitch,
+    intl,
   ]);
 
   const approveTx = useCallback(

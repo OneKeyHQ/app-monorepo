@@ -46,6 +46,7 @@ import {
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
   ESwapFetchCancelCause,
+  ESwapQuoteKind,
   ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
@@ -82,6 +83,7 @@ import {
   swapSelectedToTokenBalanceAtom,
   swapShouldRefreshQuoteAtom,
   swapSilenceQuoteLoading,
+  swapToTokenAmountAtom,
   swapTokenFetchingAtom,
   swapTokenMapAtom,
   swapTokenMetadataAtom,
@@ -357,13 +359,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       fromToken: ISwapToken,
       toToken: ISwapToken,
-      fromTokenAmount: string,
       slippagePercentage: number,
       autoSlippage?: boolean,
       address?: string,
       accountId?: string,
       loadingDelayEnable?: boolean,
       blockNumber?: number,
+      kind?: ESwapQuoteKind,
+      fromTokenAmount?: string,
+      toTokenAmount?: string,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       if (shouldRefreshQuote) {
@@ -384,6 +388,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromToken,
           toToken,
           fromTokenAmount,
+          toTokenAmount,
+          kind,
           userAddress: address,
           slippagePercentage,
           autoSlippage,
@@ -608,12 +614,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set,
       fromToken: ISwapToken,
       toToken: ISwapToken,
-      fromTokenAmount: string,
       slippagePercentage: number,
       autoSlippage?: boolean,
       address?: string,
       accountId?: string,
       blockNumber?: number,
+      kind?: ESwapQuoteKind,
+      fromTokenAmount?: string,
+      toTokenAmount?: string,
     ) => {
       const shouldRefreshQuote = get(swapShouldRefreshQuoteAtom());
       const protocol = get(swapTypeSwitchAtom());
@@ -636,6 +644,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         autoSlippage,
         blockNumber,
         accountId,
+        kind,
+        toTokenAmount,
         protocol,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {
@@ -656,18 +666,22 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       accountId?: string,
       blockNumber?: number,
       unResetCount?: boolean,
+      kind?: ESwapQuoteKind,
     ) => {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       const swapTabSwitchType = get(swapTypeSwitchAtom());
+      const toTokenAmount = get(swapToTokenAmountAtom());
       set(swapQuoteActionLockAtom(), (v) => ({
         ...v,
         type: swapTabSwitchType,
         actionLock: true,
         fromToken,
         toToken,
-        fromTokenAmount,
+        fromTokenAmount: fromTokenAmount.value,
+        toTokenAmount: toTokenAmount.value,
+        kind,
         accountId,
         address,
       }));
@@ -678,23 +692,30 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       set(swapBuildTxFetchingAtom(), false);
       set(swapShouldRefreshQuoteAtom(), false);
-      const fromTokenAmountNumber = Number(fromTokenAmount);
+      const fromTokenAmountNumber = Number(fromTokenAmount.value);
+      const toTokenAmountNumber = Number(toTokenAmount.value);
       if (
         fromToken &&
         toToken &&
-        !Number.isNaN(fromTokenAmountNumber) &&
-        fromTokenAmountNumber > 0
+        ((kind === ESwapQuoteKind.SELL &&
+          !Number.isNaN(fromTokenAmountNumber) &&
+          fromTokenAmountNumber > 0) ||
+          (kind === ESwapQuoteKind.BUY &&
+            !Number.isNaN(toTokenAmountNumber) &&
+            toTokenAmountNumber > 0))
       ) {
         void this.runQuoteEvent.call(
           set,
           fromToken,
           toToken,
-          fromTokenAmount,
           slippageItem.value,
           slippageItem.key === ESwapSlippageSegmentKey.AUTO,
           address,
           accountId,
           blockNumber,
+          kind,
+          fromTokenAmount.value,
+          toTokenAmount.value,
         );
       } else {
         set(swapQuoteFetchingAtom(), false);
@@ -804,6 +825,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       address?: string,
       accountId?: string,
       unResetCount?: boolean,
+      kind?: ESwapQuoteKind,
     ) => {
       const { actionLock: swapQuoteActionLock } = get(
         swapQuoteActionLockAtom(),
@@ -828,24 +850,33 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
-      const fromTokenAmountNumber = Number(fromTokenAmount);
+      const toTokenAmount = get(swapToTokenAmountAtom());
+      const fromTokenAmountNumber = Number(fromTokenAmount.value);
+      const toTokenAmountNumber = Number(toTokenAmount.value);
       if (
         fromToken &&
         toToken &&
-        !Number.isNaN(fromTokenAmountNumber) &&
-        fromTokenAmountNumber > 0
+        ((kind === ESwapQuoteKind.SELL &&
+          !Number.isNaN(fromTokenAmountNumber) &&
+          fromTokenAmountNumber > 0) ||
+          (kind === ESwapQuoteKind.BUY &&
+            !Number.isNaN(toTokenAmountNumber) &&
+            toTokenAmountNumber > 0))
       ) {
         this.quoteInterval = setTimeout(() => {
           void this.runQuote.call(
             set,
             fromToken,
             toToken,
-            fromTokenAmount,
             slippageItem.value,
             slippageItem.key === ESwapSlippageSegmentKey.AUTO,
             address,
             accountId,
             true,
+            undefined,
+            kind,
+            fromTokenAmount.value,
+            toTokenAmount.value,
           );
         }, swapQuoteFetchInterval);
       }
@@ -1052,7 +1083,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       if (
         fromToken?.price &&
         toToken?.price &&
-        (quoteResult?.instantRate || limitPriceUseRate?.rate)
+        (quoteResult?.instantRate ||
+          (limitPriceUseRate?.rate &&
+            quoteResult?.protocol === EProtocolOfExchange.LIMIT))
       ) {
         const fromTokenPrice = new BigNumber(fromToken.price);
         const toTokenPrice = new BigNumber(toToken.price);
@@ -1135,7 +1168,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
 
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
       // check min max amount
       if (quoteResult && quoteResult.limit?.min) {
         const minAmountBN = new BigNumber(quoteResult.limit.min);
@@ -1759,6 +1792,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             } else {
               void this.resetSwapTokenData.call(set, ESwapDirectionType.TO);
             }
+          }
+          const fromLimitTokenDefault = fromNetworkDefault?.limitFromToken;
+          if (
+            fromToken &&
+            fromToken.isNative &&
+            !equalTokenNoCaseSensitive({
+              token1: toToken,
+              token2: fromLimitTokenDefault,
+            })
+          ) {
+            set(swapSelectFromTokenAtom(), fromLimitTokenDefault);
           }
         }
       }

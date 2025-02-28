@@ -232,6 +232,7 @@ const SwapSettingsDialogContent = () => {
     useSettingsAtom();
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const rightTrigger = useMemo(
     () => (
       <SegmentControl
@@ -272,36 +273,40 @@ const SwapSettingsDialogContent = () => {
   );
   return (
     <YStack gap="$5">
-      <HeightTransition>
-        <YStack gap="$5">
-          <SwapSettingsSlippageItem
+      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+        <>
+          <HeightTransition>
+            <YStack gap="$5">
+              <SwapSettingsSlippageItem
+                title={intl.formatMessage({
+                  id: ETranslations.swap_page_provider_slippage_tolerance,
+                })}
+                rightTrigger={rightTrigger}
+              />
+              {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
+                <SwapSlippageCustomContent swapSlippage={slippageItem} />
+              ) : null}
+            </YStack>
+          </HeightTransition>
+          <Divider />
+          <SwapSettingsCommonItem
             title={intl.formatMessage({
-              id: ETranslations.swap_page_provider_slippage_tolerance,
+              id: ETranslations.swap_page_settings_simple_mode,
             })}
-            rightTrigger={rightTrigger}
+            content={intl.formatMessage({
+              id: ETranslations.swap_page_settings_simple_mode_content,
+            })}
+            badgeContent="Beta"
+            value={swapBatchApproveAndSwap}
+            onChange={(v) => {
+              setPersistSettings((s) => ({
+                ...s,
+                swapBatchApproveAndSwap: v,
+              }));
+            }}
           />
-          {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
-            <SwapSlippageCustomContent swapSlippage={slippageItem} />
-          ) : null}
-        </YStack>
-      </HeightTransition>
-      <Divider />
-      <SwapSettingsCommonItem
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_settings_simple_mode,
-        })}
-        content={intl.formatMessage({
-          id: ETranslations.swap_page_settings_simple_mode_content,
-        })}
-        badgeContent="Beta"
-        value={swapBatchApproveAndSwap}
-        onChange={(v) => {
-          setPersistSettings((s) => ({
-            ...s,
-            swapBatchApproveAndSwap: v,
-          }));
-        }}
-      />
+        </>
+      ) : null}
       <SwapSettingsCommonItem
         title={intl.formatMessage({
           id: ETranslations.swap_page_settings_recipient_title,
