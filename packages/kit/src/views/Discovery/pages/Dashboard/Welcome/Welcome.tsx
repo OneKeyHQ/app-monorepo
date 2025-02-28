@@ -1,8 +1,11 @@
-import { Stack, XStack } from '@onekeyhq/components';
+import { useMemo } from 'react';
+
+import { Skeleton, Stack, XStack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 
 import { DefaultTitle } from './DefaultTitle';
 import { SearchInput } from './SearchInput';
-import { testData } from './testdata';
 import { WelcomeItem } from './WelcomeItem';
 
 // Define types for our component
@@ -51,14 +54,30 @@ function DappSideDisplay({
 }
 
 export function Welcome({ banner }: { banner: React.ReactNode }) {
-  // Find the "Onekey hot" category and extract its dapps
-  const onekeyHotCategory = testData.data.categories.find(
-    (category) => category.name === 'Onekey hot',
+  // Fetch discovery data
+  const { result: discoveryData, isLoading } = usePromiseResult(
+    async () =>
+      backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
+    [],
+    {
+      watchLoading: true,
+      revalidateOnFocus: true,
+    },
   );
-  const dapps = onekeyHotCategory?.dapps || [];
+
+  // Find the "Onekey hot" category and extract its dapps
+  const dapps = useMemo(() => {
+    const onekeyHotCategory = discoveryData?.categories?.find(
+      (category) => category.name === 'Onekey hot',
+    );
+    return onekeyHotCategory?.dapps || [];
+  }, [discoveryData]);
 
   // Create a randomized array of dapps
-  const shuffledDapps = [...dapps].sort(() => Math.random() - 0.5);
+  const shuffledDapps = useMemo(
+    () => [...dapps].sort(() => Math.random() - 0.5),
+    [dapps],
+  );
 
   // Configuration for left side items
   const leftSideItems = [
@@ -81,6 +100,30 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
     width: '$50',
     height: '100%',
   };
+
+  // If loading, show a loading state
+  if (isLoading) {
+    return (
+      <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
+        <Stack
+          alignItems="center"
+          justifyContent="center"
+          width="auto"
+          position="relative"
+          gap="$5"
+          px="$5"
+          py="$6"
+          minHeight="$48"
+          $sm={{
+            width: '100%',
+          }}
+        >
+          <Skeleton width="$40" height="$12" />
+          <Skeleton width="$52" height="$10" />
+        </Stack>
+      </XStack>
+    );
+  }
 
   return (
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
