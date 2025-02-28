@@ -1,18 +1,25 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 import { useDebouncedCallback } from 'use-debounce';
 
 import {
+  Accordion,
   Alert,
+  Divider,
+  Icon,
+  IconButton,
   Image,
   NumberSizeableText,
   Page,
+  Popover,
   SizableText,
   Stack,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
@@ -240,9 +247,26 @@ export const UniversalWithdraw = ({
   const editable = initialAmount === undefined;
 
   const fiatValue = useMemo(
-    () => BigNumber(amountValue).multipliedBy(price).toFixed(),
+    () =>
+      amountValue ? BigNumber(amountValue).multipliedBy(price).toFixed() : 0,
     [amountValue, price],
   );
+  const accordionContent = useMemo(() => {
+    const items: ReactElement[] = [];
+    if (Number(amountValue) <= 0) {
+      return items;
+    }
+    if (estimateFeeResp) {
+      items.push(
+        <EstimateNetworkFee
+          estimateFeeResp={estimateFeeResp}
+          isVisible={Number(amountValue) > 0}
+        />,
+      );
+    }
+    return items;
+  }, [amountValue, estimateFeeResp]);
+  const isAccordionTriggerDisabled = !amountValue;
 
   return (
     <StakingFormWrapper>
@@ -296,97 +320,154 @@ export const UniversalWithdraw = ({
           title={checkAmountMessage}
         />
       ) : null}
-      <CalculationList>
-        {amountValue && !hideReceived ? (
-          <CalculationListItem ai="flex-start">
-            <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.earn_receive })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>
-              <ValuePriceListItem
-                tokenSymbol={tokenSymbol ?? ''}
-                fiatSymbol={symbol}
-                amount={amountValue}
-                fiatValue={fiatValue}
-              />
-            </CalculationListItem.Value>
-          </CalculationListItem>
-        ) : null}
-        {showPayWith && payWithToken && Number(amountValue) > 0 ? (
-          <CalculationListItem>
-            <CalculationListItem.Label>
-              {intl.formatMessage({ id: ETranslations.earn_pay_with })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyLgMedium"
-                formatterOptions={{ tokenSymbol: payWithToken }}
-              >
-                {BigNumber(amountValue)
-                  .multipliedBy(payWithTokenRate)
-                  .toFixed()}
-              </NumberSizeableText>
-            </CalculationListItem.Value>
-          </CalculationListItem>
-        ) : null}
-        {providerLogo && providerName ? (
-          <CalculationListItem>
-            <CalculationListItem.Label>
-              {providerLabel ??
-                intl.formatMessage({
-                  id: ETranslations.global_protocol,
-                })}
-            </CalculationListItem.Label>
-            <CalculationListItem.Value>
-              <XStack gap="$2" alignItems="center">
-                <Image
-                  width="$5"
-                  height="$5"
-                  src={providerLogo}
-                  borderRadius="$2"
-                />
-                <SizableText size="$bodyLgMedium">
-                  {capitalizeString(providerName)}
-                </SizableText>
-              </XStack>
-            </CalculationListItem.Value>
-          </CalculationListItem>
-        ) : null}
+      <YStack
+        p="$3.5"
+        pt="$5"
+        borderRadius="$3"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+      >
+        <YStack gap="$2">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.earn_receive,
+            })}
+          </SizableText>
+          <SizableText>
+            <NumberSizeableText
+              size="$bodyLgMedium"
+              formatter="balance"
+              formatterOptions={{ tokenSymbol: tokenSymbol ?? '' }}
+            >
+              {amountValue || 0}
+            </NumberSizeableText>
+            {fiatValue ? (
+              <SizableText color="$textSubdued">
+                <SizableText color="$textSubdued">{' ('}</SizableText>
+                <NumberSizeableText
+                  size="$bodyLgMedium"
+                  formatter="value"
+                  color="$textSubdued"
+                  formatterOptions={{ currency: symbol }}
+                >
+                  {fiatValue}
+                </NumberSizeableText>
+                <SizableText color="$textSubdued">)</SizableText>
+              </SizableText>
+            ) : null}
+          </SizableText>
+        </YStack>
         {unstakingPeriod ? (
-          <CalculationListItem>
-            <XStack flex={1} alignItems="center" gap="$1">
-              <CalculationListItem.Label
-                tooltip={intl.formatMessage({
-                  id: ETranslations.earn_unstaking_period_tooltip,
-                })}
-              >
-                {intl.formatMessage({
-                  id: ETranslations.earn_unstaking_period,
-                })}
-              </CalculationListItem.Label>
-            </XStack>
-
-            <CalculationListItem.Value>
+          <XStack pt="$3.5" gap="$1">
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.earn_unstaking_period,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMdMedium">
               {intl.formatMessage(
                 {
                   id: showDetailWithdrawalRequested
                     ? ETranslations.earn_claim_available_in_number_days
                     : ETranslations.earn_up_to_number_days,
                 },
-                { 'number': unstakingPeriod },
+                { number: unstakingPeriod },
               )}
-            </CalculationListItem.Value>
-          </CalculationListItem>
+            </SizableText>
+            <Popover.Tooltip
+              iconSize="$5"
+              title={intl.formatMessage({
+                id: ETranslations.earn_unstaking_period,
+              })}
+              tooltip={intl.formatMessage({
+                id: ETranslations.earn_unstaking_period_tooltip,
+              })}
+              placement="top"
+            />
+          </XStack>
         ) : null}
-        {estimateFeeResp ? (
-          <EstimateNetworkFee
-            estimateFeeResp={estimateFeeResp}
-            isVisible={Number(amountValue) > 0}
-          />
-        ) : null}
-      </CalculationList>
-
+        <Divider my="$5" />
+        <Accordion
+          overflow="hidden"
+          width="100%"
+          type="single"
+          collapsible
+          defaultValue=""
+        >
+          <Accordion.Item value="staking-accordion-content">
+            <Accordion.Trigger
+              unstyled
+              flexDirection="row"
+              alignItems="center"
+              alignSelf="flex-start"
+              px="$1"
+              mx="$-1"
+              width="100%"
+              justifyContent="space-between"
+              borderWidth={0}
+              bg="$transparent"
+              userSelect="none"
+              borderRadius="$1"
+              cursor={isAccordionTriggerDisabled ? 'not-allowed' : 'pointer'}
+              disabled={isAccordionTriggerDisabled}
+            >
+              {({ open }: { open: boolean }) => (
+                <>
+                  <XStack gap="$1.5" alignItems="center">
+                    <Image
+                      width="$5"
+                      height="$5"
+                      src={providerLogo}
+                      borderRadius="$2"
+                    />
+                    <SizableText size="$bodyMd">
+                      {capitalizeString(providerName || '')}
+                    </SizableText>
+                  </XStack>
+                  <XStack>
+                    {isAccordionTriggerDisabled ? undefined : (
+                      <SizableText color="$textSubdued" size="$bodyMd">
+                        {intl.formatMessage({
+                          id: ETranslations.global_details,
+                        })}
+                      </SizableText>
+                    )}
+                    <YStack
+                      animation="quick"
+                      rotate={
+                        open && !isAccordionTriggerDisabled ? '180deg' : '0deg'
+                      }
+                      left="$2"
+                    >
+                      <Icon
+                        name="ChevronDownSmallOutline"
+                        color={
+                          isAccordionTriggerDisabled
+                            ? '$iconDisabled'
+                            : '$iconSubdued'
+                        }
+                        size="$5"
+                      />
+                    </YStack>
+                  </XStack>
+                </>
+              )}
+            </Accordion.Trigger>
+            <Accordion.HeightAnimator animation="quick">
+              <Accordion.Content
+                animation="quick"
+                exitStyle={{ opacity: 0 }}
+                px={0}
+                pb={0}
+                pt="$3.5"
+                gap="$2.5"
+              >
+                {accordionContent}
+              </Accordion.Content>
+            </Accordion.HeightAnimator>
+          </Accordion.Item>
+        </Accordion>
+      </YStack>
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_withdraw,

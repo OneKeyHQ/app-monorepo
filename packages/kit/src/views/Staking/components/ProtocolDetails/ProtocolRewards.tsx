@@ -193,6 +193,7 @@ export function ProtocolRewards({
   return (
     <YStack
       gap="$2.5"
+      mt="$3"
       py="$3.5"
       px="$4"
       borderRadius="$3"

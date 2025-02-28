@@ -4,6 +4,7 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useDebouncedCallback } from 'use-debounce';
 
 import type { IDialogInstance } from '@onekeyhq/components';
 import {
@@ -53,7 +54,6 @@ import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
 import { CalculationListItem } from '../CalculationList';
 import {
   EstimateNetworkFee,
-  calcDaysSpent,
   useShowStakeEstimateGasAlert,
 } from '../EstimateNetworkFee';
 import { MorphoApy } from '../ProtocolDetails/MorphoApy';
@@ -86,8 +86,6 @@ type IApproveBaseStakeProps = {
   estReceiveToken?: string;
   estReceiveTokenRate?: string;
 
-  estimateFeeResp?: IEarnEstimateFeeResp;
-
   providerName?: string;
   providerLogo?: string;
   onConfirm?: (params: IApproveConfirmFnParams) => Promise<void>;
@@ -115,7 +113,6 @@ export function ApproveBaseStake({
   approveTarget,
 
   providerLabel,
-  estimateFeeResp,
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
@@ -153,6 +150,30 @@ export function ApproveBaseStake({
     },
   ] = useSettingsPersistAtom();
 
+  const [estimateFeeResp, setEstimateFeeResp] = useState<
+    undefined | IEarnEstimateFeeResp
+  >();
+
+  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
+    if (!amount || Number(amount) === 0) {
+      setEstimateFeeResp(undefined);
+    }
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId: approveTarget.networkId,
+      provider: details.provider.name,
+      symbol: details.token.info.symbol,
+      action: 'stake',
+      amount: amount as string,
+      morphoVault: details.provider.vault,
+      accountAddress: account?.address,
+    });
+    setEstimateFeeResp(resp);
+  }, 300);
+
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
 
@@ -165,6 +186,7 @@ export function ApproveBaseStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
+          void fetchEstimateFeeResp();
         }
         return;
       }
@@ -177,9 +199,10 @@ export function ApproveBaseStake({
         setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
+        void fetchEstimateFeeResp(value);
       }
     },
-    [decimals],
+    [decimals, fetchEstimateFeeResp],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -712,7 +735,7 @@ export function ApproveBaseStake({
           </XStack>
         ) : null}
         <YStack pt="$3.5" gap="$2">
-          <SizableText size="$bodyMd">
+          <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.earn_est_annual_rewards,
             })}
@@ -773,14 +796,14 @@ export function ApproveBaseStake({
             >
               {({ open }: { open: boolean }) => (
                 <>
-                  <XStack gap="$2" alignItems="center">
+                  <XStack gap="$1.5" alignItems="center">
                     <Image
                       width="$5"
                       height="$5"
                       src={providerLogo}
                       borderRadius="$2"
                     />
-                    <SizableText size="$bodyLgMedium">
+                    <SizableText size="$bodyMd">
                       {capitalizeString(providerName || '')}
                     </SizableText>
                   </XStack>
@@ -831,11 +854,6 @@ export function ApproveBaseStake({
           token={details.token.info}
           accountId={approveTarget.accountId}
           networkId={approveTarget.networkId}
-          containerProps={{
-            borderTopWidth: 0,
-            py: 0,
-            pt: '$5',
-          }}
         />
       </YStack>
       <Page.Footer>

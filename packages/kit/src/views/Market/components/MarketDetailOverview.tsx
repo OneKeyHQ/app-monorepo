@@ -96,7 +96,7 @@ export function Overview24PriceChange({
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
       {priceChange !== undefined ? (
-        <Progress value={priceChange} height="$1" />
+        <Progress animated value={priceChange} height="$1" />
       ) : null}
       <XStack jc="space-between">
         <XStack gap="$1">
