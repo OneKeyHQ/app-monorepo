@@ -1,0 +1,53 @@
+import { useEffect, useState } from 'react';
+
+import type { IYStackProps } from '@onekeyhq/components';
+import { YStack, useMedia } from '@onekeyhq/components';
+import type { IDApp } from '@onekeyhq/shared/types/discovery';
+
+import { TrendingSectionItem } from './TrendingSectionItem';
+
+import type { IMatchDAppItemType } from '../../types';
+
+export function TrendingSectionItems({
+  dataSource,
+  handleOpenWebSite,
+  ...restProps
+}: IYStackProps & {
+  dataSource: IDApp[];
+  handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+}) {
+  const [numberOfItems, setNumberOfItems] = useState(0);
+  const media = useMedia();
+
+  useEffect(() => {
+    const calculateNumberOfItems = () => {
+      if (media.gtXl) return 7;
+      if (media.gt2Md) return 6;
+      if (media.gtSm) return 10;
+      return 8;
+    };
+    setNumberOfItems(calculateNumberOfItems());
+  }, [media.gtXl, media.gt2Md, media.gtSm]);
+
+  return (
+    <YStack flexDirection="row" flexWrap="wrap" {...restProps}>
+      {dataSource.slice(0, numberOfItems).map((dApp, index) => (
+        <YStack
+          key={dApp.dappId || index}
+          width="25%"
+          $gtSm={{ width: '20%' }}
+          $gt2Md={{ width: '16.6%' }}
+          $gtXl={{ width: '14.2%' }}
+        >
+          <TrendingSectionItem
+            logo={dApp.logo}
+            title={dApp.name}
+            url={dApp.url}
+            dApp={dApp}
+            handleOpenWebSite={handleOpenWebSite}
+          />
+        </YStack>
+      ))}
+    </YStack>
+  );
+}

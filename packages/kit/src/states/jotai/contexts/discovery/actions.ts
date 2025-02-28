@@ -24,6 +24,10 @@ import {
   processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -308,6 +312,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const closedTab = tabs[targetIndex];
         tabs.splice(targetIndex, 1);
 
+        // Add to browser history when tab is closed
+        if (closedTab.url && closedTab.title && closedTab.url !== homeTab.url) {
+          void this.addBrowserHistory.call(set, {
+            url: closedTab.url,
+            title: closedTab.title,
+          });
+        }
+
         if (isClosingActiveTab) {
           let newActiveTabIndex = targetIndex - 1;
           // If the first tab is closed and there are other tabs
@@ -349,6 +361,17 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const activeTabId = get(activeTabIdAtom());
     const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
     const tabsToClose = tabs.filter((tab) => !tab.isPinned);
+
+    // Add all closed tabs to browser history
+    tabsToClose.forEach((tab) => {
+      if (tab.url && tab.title && tab.url !== homeTab.url) {
+        void this.addBrowserHistory.call(set, {
+          url: tab.url,
+          title: tab.title,
+        });
+      }
+    });
+
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
       this.setCurrentWebTab.call(set, null);
@@ -450,6 +473,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(data);
+
+      setTimeout(() => {
+        // Trigger bookmark list refresh after building bookmark data
+        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+      }, 200);
     },
   );
 
@@ -595,7 +623,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         siteMode,
         isNewWindow,
         isInPlace,
-        userTriggered,
       }: IGotoSiteFnParams,
     ) => {
       const tab = this.getWebTabById.call(set, id ?? '');
@@ -603,13 +630,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const validatedUrl = uriUtils.validateUrl(url);
         if (!validatedUrl) {
           return;
-        }
-
-        if (userTriggered) {
-          void this.addBrowserHistory.call(set, {
-            url: validatedUrl,
-            title: title ?? '',
-          });
         }
 
         if (browserTypeHandler === 'StandardBrowser') {
@@ -684,7 +704,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
               webSite.url,
             ),
           isNewWindow,
-          userTriggered: true,
         });
       }
       if (dApp) {
@@ -694,7 +713,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           title: dApp.name,
           dAppId: dApp.dappId,
           favicon: dApp.logo || dApp.originLogo,
-          userTriggered: true,
           isNewWindow,
         });
       }

@@ -258,7 +258,7 @@ function SearchModal() {
                   });
                 }}
               />
-              <XStack>
+              <XStack $gtMd={{ px: '$3' }}>
                 {localData?.bookmarkData?.map((item, index) => (
                   <Stack
                     key={index}
