@@ -37,9 +37,7 @@ function ActionItem({
   showButtonStyle = false,
   ...rest
 }: IActionItemsProps) {
-  const media = useMedia();
-
-  if (showButtonStyle || media.gtSm) {
+  if (showButtonStyle) {
     return (
       <Button
         {...(!label && {
@@ -138,6 +136,17 @@ function ActionBridge(props: IActionItemsProps) {
   );
 }
 
+function ActionEarn(props: IActionItemsProps) {
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_earn })}
+      icon="CoinsOutline"
+      {...props}
+    />
+  );
+}
+
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
   const intl = useIntl();
   const media = useMedia();
@@ -171,7 +180,7 @@ function RawActions({ children, ...rest }: IXStackProps) {
       $gtSm={{
         flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
         justifyContent: 'flex-start',
-        gap: '$2',
+        gap: '$8',
       }}
       {...rest}
     >
@@ -187,5 +196,6 @@ RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;
 RawActions.Bridge = ActionBridge;
+RawActions.Earn = ActionEarn;
 
 export { RawActions, ActionItem };
