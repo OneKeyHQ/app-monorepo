@@ -35,6 +35,7 @@ import {
   swapQuoteEventTimeout,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
+  ESwapQuoteKind,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
   IFetchLimitOrderRes,
@@ -459,10 +460,12 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     expirationTime,
     limitPartiallyFillable,
+    kind,
+    toTokenAmount,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
-    fromTokenAmount: string;
+    fromTokenAmount?: string;
     userAddress?: string;
     slippagePercentage: number;
     autoSlippage?: boolean;
@@ -471,6 +474,8 @@ export default class ServiceSwap extends ServiceBase {
     expirationTime?: number;
     protocol: ESwapTabSwitchType;
     limitPartiallyFillable?: boolean;
+    kind?: ESwapQuoteKind;
+    toTokenAmount?: string;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
     const params: IFetchQuotesParams = {
@@ -489,6 +494,8 @@ export default class ServiceSwap extends ServiceBase {
       blockNumber,
       expirationTime,
       limitPartiallyFillable,
+      kind,
+      toTokenAmount,
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -542,10 +549,12 @@ export default class ServiceSwap extends ServiceBase {
     protocol,
     expirationTime,
     limitPartiallyFillable,
+    kind,
+    toTokenAmount,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
-    fromTokenAmount: string;
+    fromTokenAmount?: string;
     userAddress?: string;
     slippagePercentage: number;
     autoSlippage?: boolean;
@@ -554,6 +563,8 @@ export default class ServiceSwap extends ServiceBase {
     protocol: ESwapTabSwitchType;
     expirationTime?: number;
     limitPartiallyFillable?: boolean;
+    kind?: ESwapQuoteKind;
+    toTokenAmount?: string;
   }) {
     await this.removeQuoteEventSourceListeners();
     const params: IFetchQuotesParams = {
@@ -572,6 +583,8 @@ export default class ServiceSwap extends ServiceBase {
       blockNumber,
       expirationTime,
       limitPartiallyFillable,
+      kind,
+      toTokenAmount,
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
@@ -1408,6 +1421,81 @@ export default class ServiceSwap extends ServiceBase {
 
   // --- limit order ---
 
+  async checkLimitOrderStatus(
+    fetchResult: IFetchLimitOrderRes[],
+    currentSwapLimitOrders: IFetchLimitOrderRes[],
+  ) {
+    const openOrders = currentSwapLimitOrders.filter(
+      (order) =>
+        order.status === ESwapLimitOrderStatus.OPEN ||
+        order.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
+    );
+
+    openOrders.forEach((openOrder) => {
+      const updatedOrder = fetchResult.find(
+        (order) => order.orderId === openOrder.orderId,
+      );
+      const newStatus = updatedOrder?.status;
+      if (
+        updatedOrder &&
+        newStatus !== ESwapLimitOrderStatus.OPEN &&
+        newStatus !== ESwapLimitOrderStatus.PRESIGNATURE_PENDING
+      ) {
+        let toastTitle = '';
+        let toastMessage = '';
+        let method: 'success' | 'error' | 'message' = 'success';
+        if (ESwapLimitOrderStatus.FULFILLED === newStatus) {
+          appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
+            fromToken: openOrder.fromTokenInfo,
+            toToken: openOrder.toTokenInfo,
+            status: ESwapTxHistoryStatus.SUCCESS,
+          });
+          toastTitle = appLocale.intl.formatMessage({
+            id: ETranslations.limit_toast_order_filled,
+          });
+          toastMessage = appLocale.intl.formatMessage(
+            {
+              id: ETranslations.limit_toast_order_content,
+            },
+            {
+              num1: openOrder.executedSellAmount,
+              num2: openOrder.executedBuyAmount,
+              token1: openOrder.fromTokenInfo.symbol,
+              token2: openOrder.toTokenInfo.symbol,
+            },
+          );
+        }
+        if (ESwapLimitOrderStatus.CANCELLED === newStatus) {
+          method = 'error';
+          toastTitle = appLocale.intl.formatMessage({
+            id: ETranslations.swap_page_toast_swap_failed,
+          });
+          toastTitle = appLocale.intl.formatMessage({
+            id: ETranslations.limit_toast_order_cancelled,
+          });
+          toastMessage = appLocale.intl.formatMessage(
+            {
+              id: ETranslations.limit_toast_order_content,
+            },
+            {
+              num1: openOrder.fromAmount,
+              num2: openOrder.toAmount,
+              token1: openOrder.fromTokenInfo.symbol,
+              token2: openOrder.toTokenInfo.symbol,
+            },
+          );
+        }
+        if (toastTitle && toastMessage) {
+          void this.backgroundApi.serviceApp.showToast({
+            method,
+            title: toastTitle,
+            message: toastMessage,
+          });
+        }
+      }
+    });
+  }
+
   @backgroundMethod()
   async swapLimitOrdersFetchLoop(
     indexedAccountId?: string,
@@ -1443,7 +1531,6 @@ export default class ServiceSwap extends ServiceBase {
           ...pre,
           swapLimitOrders: [],
         }));
-        return;
       }
       const openLimitOrders = swapLimitOrders.filter(
         (item) => item.status === ESwapLimitOrderStatus.OPEN,
@@ -1481,6 +1568,7 @@ export default class ServiceSwap extends ServiceBase {
             res = await this.fetchLimitOrders(accounts);
           }
           if (res.length) {
+            await this.checkLimitOrderStatus(res, swapLimitOrders);
             await inAppNotificationAtom.set((pre) => {
               let newList = [...pre.swapLimitOrders];
               res.forEach((item) => {

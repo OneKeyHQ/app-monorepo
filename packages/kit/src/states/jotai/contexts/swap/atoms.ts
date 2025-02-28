@@ -8,6 +8,7 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ESwapDirectionType,
+  ESwapQuoteKind,
   ESwapRateDifferenceUnit,
   IFetchQuoteResult,
   ISwapAlertState,
@@ -114,7 +115,22 @@ export const {
 export const {
   atom: swapFromTokenAmountAtom,
   use: useSwapFromTokenAmountAtom,
-} = contextAtom<string>('');
+} = contextAtom<{
+  value: string;
+  isInput: boolean;
+}>({
+  value: '',
+  isInput: false,
+});
+
+export const { atom: swapToTokenAmountAtom, use: useSwapToTokenAmountAtom } =
+  contextAtom<{
+    value: string;
+    isInput: boolean;
+  }>({
+    value: '',
+    isInput: false,
+  });
 
 export const {
   atom: swapSelectedFromTokenBalanceAtom,
@@ -157,7 +173,9 @@ export const {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
   fromTokenAmount?: string;
+  toTokenAmount?: string;
   accountId?: string;
+  kind?: ESwapQuoteKind;
   address?: string;
 }>({ actionLock: false });
 
@@ -184,7 +202,7 @@ export const {
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
   const list = get(swapQuoteListAtom());
   const fromTokenAmount = get(swapFromTokenAmountAtom());
-  const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+  const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
   const sortType = get(swapProviderSortAtom());
   const resetList: IFetchQuoteResult[] = list.map(
     (item: IFetchQuoteResult) => ({
@@ -464,27 +482,57 @@ export const {
 } = contextAtom<boolean>(false);
 
 export const {
+  atom: swapLimitPriceFromAmountAtom,
+  use: useSwapLimitPriceFromAmountAtom,
+} = contextAtomComputed((get) => {
+  const quoteResult = get(swapQuoteCurrentSelectAtom());
+  const toTokenAmount = get(swapToTokenAmountAtom());
+  const limitPriceUseRate = get(swapLimitPriceUseRateAtom());
+  if (
+    quoteResult?.limitPriceOrderMarketPrice &&
+    limitPriceUseRate.rate &&
+    limitPriceUseRate.reverseRate
+  ) {
+    if (toTokenAmount.value && toTokenAmount.isInput) {
+      const { fromToken, reverseRate } = limitPriceUseRate;
+      const toAmount = new BigNumber(toTokenAmount.value);
+      const fromAmountBN = new BigNumber(toAmount).multipliedBy(reverseRate);
+      const fromAmount = fromAmountBN
+        .decimalPlaces(
+          fromToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          BigNumber.ROUND_HALF_UP,
+        )
+        .toFixed();
+      return fromAmount;
+    }
+  }
+  return '';
+});
+
+export const {
   atom: swapLimitPriceToAmountAtom,
   use: useSwapLimitPriceToAmountAtom,
 } = contextAtomComputed((get) => {
   const quoteResult = get(swapQuoteCurrentSelectAtom());
+  const fromTokenAmount = get(swapFromTokenAmountAtom());
   const limitPriceUseRate = get(swapLimitPriceUseRateAtom());
   if (
     quoteResult?.limitPriceOrderMarketPrice &&
-    quoteResult?.fromAmount &&
     limitPriceUseRate.rate &&
     limitPriceUseRate.reverseRate
   ) {
-    const { toToken, rate } = limitPriceUseRate;
-    const fromAmount = new BigNumber(quoteResult.fromAmount);
-    const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
-    const toAmount = toAmountBN
-      .decimalPlaces(
-        toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-        BigNumber.ROUND_HALF_UP,
-      )
-      .toFixed();
-    return toAmount;
+    if (fromTokenAmount.value && fromTokenAmount.isInput) {
+      const { toToken, rate } = limitPriceUseRate;
+      const fromAmount = new BigNumber(fromTokenAmount.value);
+      const toAmountBN = new BigNumber(fromAmount).multipliedBy(rate);
+      const toAmount = toAmountBN
+        .decimalPlaces(
+          toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+          BigNumber.ROUND_HALF_UP,
+        )
+        .toFixed();
+      return toAmount;
+    }
   }
   return '';
 });
