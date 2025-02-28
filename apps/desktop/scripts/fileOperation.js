@@ -44,6 +44,7 @@ exports.default = async function fileOperation(context) {
       version: FuseVersion.V1,
       strictlyRequireAllFuses: true,
       [FuseV1Options.enableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.RunAsNode]: false,
     });
   }
 };
