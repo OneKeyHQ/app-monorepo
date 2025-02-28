@@ -20,7 +20,7 @@ export function DashboardBanner({
   }: IMatchDAppItemType & { useSystemBrowser: boolean }) => void;
   isLoading: boolean | undefined;
 }) {
-  const { data, closeBanner } = useBannerData(banners);
+  const { data, closeAllBanners } = useBannerData(banners);
 
   const emptyComponent = useMemo(
     () =>
@@ -47,8 +47,8 @@ export function DashboardBanner({
       alignItems="center"
     >
       <Banner
-        onBannerClose={(id) => {
-          closeBanner(id);
+        onBannerClose={() => {
+          closeAllBanners();
         }}
         showCloseButton
         height={120}
