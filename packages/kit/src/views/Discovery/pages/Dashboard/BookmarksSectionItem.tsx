@@ -1,12 +1,6 @@
 import { StyleSheet } from 'react-native';
 
-import {
-  Icon,
-  Image,
-  SizableText,
-  Skeleton,
-  Stack,
-} from '@onekeyhq/components';
+import { Icon, Image, SizableText, Stack } from '@onekeyhq/components';
 
 import type { IMatchDAppItemType } from '../../types';
 
@@ -32,6 +26,7 @@ export function BookmarksSectionItem({
     >
       <Image
         size="$14"
+        position="relative"
         borderRadius="$3"
         borderCurve="continuous"
         borderWidth={StyleSheet.hairlineWidth}
@@ -41,9 +36,6 @@ export function BookmarksSectionItem({
         <Image.Fallback>
           <Icon size="$14" name="GlobusOutline" />
         </Image.Fallback>
-        <Image.Loading>
-          <Skeleton width="100%" height="100%" />
-        </Image.Loading>
       </Image>
 
       <SizableText
