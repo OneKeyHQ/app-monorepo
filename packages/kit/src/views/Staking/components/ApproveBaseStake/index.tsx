@@ -472,7 +472,6 @@ export function ApproveBaseStake({
       tokenInfo: {
         ...token,
         isNative: !!token.isNative,
-        // address: token.contractAddress,
         name: token.name ?? token.symbol,
       },
     };
