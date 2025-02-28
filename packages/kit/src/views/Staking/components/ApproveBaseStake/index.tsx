@@ -190,7 +190,6 @@ export function ApproveBaseStake({
   const permitSignatureRef = useRef<string | undefined>(undefined);
 
   const isFocus = useIsFocused();
-  const approveOnThisTx = useRef(false);
 
   const shouldApprove = useMemo(() => {
     if (!isFocus) {
@@ -198,19 +197,6 @@ export function ApproveBaseStake({
     }
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
-
-    if (earnUtils.isUSDTonETHNetwork(token)) {
-      if (allowanceBN.isZero()) {
-        return true;
-      }
-
-      if (
-        allowanceBN.gt(0) &&
-        (!approveOnThisTx.current || amountValueBN.gt(allowanceBN))
-      ) {
-        return true;
-      }
-    }
 
     if (usePermit2Approve) {
       // Check permit cache first
@@ -563,10 +549,7 @@ export function ApproveBaseStake({
     const amountBN = BigNumber(amountValue);
 
     if (earnUtils.isUSDTonETHNetwork(token)) {
-      if (
-        allowanceBN.gt(0) &&
-        (!approveOnThisTx.current || amountBN.gt(allowanceBN))
-      ) {
+      if (allowanceBN.gt(0) && amountBN.gt(allowanceBN)) {
         showResetUSDTApproveValueDialog();
         return;
       }
@@ -647,7 +630,6 @@ export function ApproveBaseStake({
       onSuccess(data) {
         trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
-        approveOnThisTx.current = true;
         setTimeout(() => {
           void fetchEstimateFeeResp(amountValue);
         }, 200);
