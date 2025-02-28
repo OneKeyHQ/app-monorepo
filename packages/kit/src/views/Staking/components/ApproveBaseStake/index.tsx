@@ -222,6 +222,7 @@ export function ApproveBaseStake({
       });
       if (permitCache) {
         permitSignatureRef.current = permitCache.signature;
+        permitSignatureAmountRef.current = amountValue;
         return false;
       }
     }
@@ -597,6 +598,7 @@ export function ApproveBaseStake({
             amountValue,
             details,
           });
+          permitSignatureAmountRef.current = amountValue;
           permitSignatureRef.current = permitBundlerAction;
 
           // Update permit cache
