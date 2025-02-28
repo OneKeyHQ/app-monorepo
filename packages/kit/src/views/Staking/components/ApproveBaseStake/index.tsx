@@ -515,6 +515,9 @@ export function ApproveBaseStake({
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_continue,
         }),
+        onClose: () => {
+          setApproving(false);
+        },
         onConfirm: () => {
           void resetUSDTApproveValue();
         },
