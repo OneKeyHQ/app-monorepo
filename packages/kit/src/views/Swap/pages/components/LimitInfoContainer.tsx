@@ -47,6 +47,7 @@ const LimitInfoContainer = () => {
               bg="$bgApp"
               borderRadius="$2.5"
               borderWidth={1}
+              borderCurve="continuous"
               borderColor={
                 checkEqualMarketPrice(percentage)
                   ? '$borderActive'

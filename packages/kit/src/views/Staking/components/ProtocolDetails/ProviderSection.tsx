@@ -24,6 +24,7 @@ type IProviderInfoProps = {
     vaultName?: string;
     vaultLink?: string;
     totalStaked?: string;
+    totalStakedFiatValue?: string;
     liquidity?: string;
   };
   minOrMaxStaking?: {
@@ -134,15 +135,15 @@ function ProviderInfo({
             {validator?.vaultName}
           </GridItem>
         ) : null}
-        {validator?.totalStaked ? (
+        {validator?.totalStakedFiatValue ? (
           <GridItem title={intl.formatMessage({ id: ETranslations.earn_tvl })}>
             <NumberSizeableText
               userSelect="none"
-              size="$bodyMd"
+              size="$bodyLgMedium"
               formatterOptions={{ currency }}
               formatter="marketCap"
             >
-              {validator?.totalStaked}
+              {validator?.totalStakedFiatValue}
             </NumberSizeableText>
           </GridItem>
         ) : null}
@@ -152,7 +153,7 @@ function ProviderInfo({
           >
             <NumberSizeableText
               userSelect="none"
-              size="$bodyMd"
+              size="$bodyLgMedium"
               formatterOptions={{ currency }}
               formatter="marketCap"
             >
@@ -201,6 +202,7 @@ export const ProviderSection = ({
       vaultLink: details.provider.url,
       isProtocol: details.provider.name.toLowerCase() !== 'everstake',
       totalStaked: details.provider.totalStaked,
+      totalStakedFiatValue: details.provider.totalStakedFiatValue,
       liquidity: details.provider.liquidity,
     };
     if (details.provider.minStakeAmount) {

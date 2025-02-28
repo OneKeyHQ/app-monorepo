@@ -164,27 +164,41 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
             icon={icon}
             description={message}
             descriptionComponent={
-              <XStack gap="$0.5">
+              <XStack gap="$1">
                 <SizableText
                   userSelect="none"
                   cursor="pointer"
-                  size="$bodyMdMedium"
+                  size="$bodyMd"
                   textDecorationLine="underline"
+                  textDecorationStyle="dotted"
                   onPress={() =>
                     switchToWrappedToken(item.action?.actionData?.wrappedToken)
                   }
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
                 >
                   {`Switch to ${item.action?.actionData?.wrappedToken?.symbol}`}
                 </SizableText>
-                <SizableText size="$bodyMdMedium">or</SizableText>
+                <SizableText size="$bodyMd">or</SizableText>
                 <SizableText
                   userSelect="none"
                   cursor="pointer"
-                  size="$bodyMdMedium"
+                  size="$bodyMd"
                   textDecorationLine="underline"
+                  textDecorationStyle="dotted"
                   onPress={() =>
                     wrapToWrappedToken(item.action?.actionData?.wrappedToken)
                   }
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
                 >
                   {`Wrap to ${item.action?.actionData?.wrappedToken?.symbol}`}
                 </SizableText>

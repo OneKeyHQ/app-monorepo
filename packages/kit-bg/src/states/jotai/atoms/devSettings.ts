@@ -1,4 +1,5 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -25,6 +26,10 @@ export interface IDevSettings {
   showTradingView?: boolean;
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
+  autoNavigation?: {
+    enabled: boolean;
+    selectedTab: ETabRoutes | null;
+  };
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -48,6 +53,10 @@ export const {
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
       showPrimeTest: true,
+      autoNavigation: {
+        enabled: true,
+        selectedTab: ETabRoutes.Discovery,
+      },
     },
   },
 });
