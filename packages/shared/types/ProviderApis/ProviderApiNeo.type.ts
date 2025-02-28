@@ -32,6 +32,17 @@ export interface ISigners {
   allowedGroups?: string[];
 }
 
+export interface IInvokeParams {
+  scriptHash: string;
+  operation: string;
+  args: IArgument[];
+  fee?: string;
+  extraSystemFee?: string;
+  overrideSystemFee?: string;
+  broadcastOverride?: boolean;
+  signers: ISigners[];
+}
+
 export interface IInvokeMultipleParams {
   fee?: string;
   extraSystemFee?: string;
@@ -41,14 +52,8 @@ export interface IInvokeMultipleParams {
   signers: ISigners[];
 }
 
-export interface IInvokeMultipleResponse {
+export interface IInvokeResponse {
   txid?: string;
   nodeURL?: string;
   signedTx?: string;
-}
-
-export interface IInvokeMultiple {
-  invokeMultiple(
-    params: IInvokeMultipleParams,
-  ): Promise<IInvokeMultipleResponse>;
 }

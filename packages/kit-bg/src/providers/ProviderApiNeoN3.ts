@@ -12,7 +12,13 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { IInvokeMultipleParams } from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
+import type {
+  IInvokeArguments,
+  IInvokeMultipleParams,
+  IInvokeParams,
+  IInvokeResponse,
+  ISigners,
+} from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
 import { NeoDApiErrors } from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
 
 import { vaultFactory } from '../vaults/factory';
@@ -136,11 +142,123 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     return this.neo_accounts(request);
   }
 
+  private async signInvokeTx(params: {
+    request: IJsBridgeMessagePayload;
+    invokeArgs: IInvokeArguments[];
+    signers: ISigners[];
+    fee?: string;
+    extraSystemFee?: string;
+    overrideSystemFee?: string;
+    broadcastOverride?: boolean;
+  }): Promise<IInvokeResponse> {
+    const {
+      request,
+      invokeArgs,
+      signers,
+      fee,
+      extraSystemFee,
+      overrideSystemFee,
+      broadcastOverride,
+    } = params;
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as INeoVault;
+
+    const processedInvokeArgs = await Promise.all(
+      invokeArgs.map((item) => vault.createInvokeInputs(item)),
+    );
+    const encodedTx = await vault.createNeo3InvokeTx({
+      invokeArgs: processedInvokeArgs as ContractCall[],
+      signers,
+      networkFee: fee ?? '0',
+      systemFee: extraSystemFee ?? '0',
+      overrideSystemFee,
+    });
+
+    // const signOnly = !!broadcastOverride;
+    const signOnly = true;
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx,
+        accountId,
+        networkId,
+        signOnly,
+      });
+
+    if (signOnly) {
+      return {
+        txid: result.txid,
+        nodeURL: NODE_URL,
+      };
+    }
+    return {
+      txid: result.txid,
+      signedTx: Buffer.from(result.rawTx, 'base64').toString('hex'),
+    };
+  }
+
+  @providerApiMethod()
+  async invoke(
+    request: IJsBridgeMessagePayload,
+    params: IInvokeParams,
+  ): Promise<IInvokeResponse> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+
+    if (
+      !params.signers ||
+      !Array.isArray(params.signers) ||
+      !params.scriptHash ||
+      !params.operation
+    ) {
+      return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
+    }
+
+    if (
+      params.signers.some(
+        (signer) => signer.account === undefined || signer.scopes === undefined,
+      )
+    ) {
+      return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
+    }
+
+    // Convert single invoke to the format expected by handleInvokeOperation
+    const invokeArgs: IInvokeArguments[] = [
+      {
+        scriptHash: params.scriptHash,
+        operation: params.operation,
+        args: params.args || [],
+      },
+    ];
+
+    return this.signInvokeTx({
+      request,
+      invokeArgs,
+      signers: params.signers,
+      fee: params.fee,
+      extraSystemFee: params.extraSystemFee,
+      overrideSystemFee: params.overrideSystemFee,
+      broadcastOverride: params.broadcastOverride,
+    });
+  }
+
   @providerApiMethod()
   async invokeMultiple(
     request: IJsBridgeMessagePayload,
     params: IInvokeMultipleParams,
-  ) {
+  ): Promise<IInvokeResponse> {
     defaultLogger.discovery.dapp.dappRequest({ request });
     console.log('invokeMultiple ====>>>>: ', request);
 
@@ -176,54 +294,15 @@ class ProviderApiNeoN3 extends ProviderApiBase {
       return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
     }
 
-    const accountsInfo = await this.getAccountsInfo(request);
-    const { accountInfo: { accountId, networkId, address } = {} } =
-      accountsInfo[0];
-
-    if (!networkId || !accountId) {
-      throw web3Errors.provider.custom({
-        code: 4002,
-        message: `Can not get account`,
-      });
-    }
-
-    const vault = (await vaultFactory.getVault({
-      networkId,
-      accountId,
-    })) as INeoVault;
-
-    const invokeArgs = await Promise.all(
-      params.invokeArgs.map((item) => vault.createInvokeInputs(item)),
-    );
-    const encodedTx = await vault.createNeo3InvokeTx({
-      invokeArgs: invokeArgs as ContractCall[],
+    return this.signInvokeTx({
+      request,
+      invokeArgs: params.invokeArgs,
       signers: params.signers,
-      networkFee: params.fee ?? '0',
-      systemFee: params.extraSystemFee ?? '0',
+      fee: params.fee,
+      extraSystemFee: params.extraSystemFee,
       overrideSystemFee: params.overrideSystemFee,
+      broadcastOverride: params.broadcastOverride,
     });
-
-    const signOnly = !!params.broadcastOverride;
-    const result =
-      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
-        request,
-        encodedTx,
-        accountId,
-        networkId,
-        signOnly,
-      });
-
-    console.log('=======>result: ', result);
-    if (signOnly) {
-      return {
-        txid: result.txid,
-        nodeURL: NODE_URL,
-      };
-    }
-    return {
-      txid: result.txid,
-      signedTx: Buffer.from(result.rawTx, 'base64').toString('hex'),
-    };
   }
 }
 
