@@ -45,7 +45,7 @@ export const browserWelcomeLogos: IBrowserWelcomeLogos = {
   },
   ethena: {
     name: 'Ethena',
-    url: 'https://ethena.io/',
+    url: 'https://ethena.fi/',
     icon: EthenaLogo,
   },
 };
