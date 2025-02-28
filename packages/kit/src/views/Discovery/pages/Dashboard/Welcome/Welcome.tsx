@@ -1,10 +1,11 @@
 import { Stack, XStack } from '@onekeyhq/components';
 import { browserWelcomeLogos } from '@onekeyhq/shared/src/utils/browserUtils';
-import type { ImageURISource } from 'react-native';
 
 import { DefaultTitle } from './DefaultTitle';
 import { SearchInput } from './SearchInput';
 import { WelcomeItem } from './WelcomeItem';
+
+import type { ImageURISource } from 'react-native';
 
 export function Welcome({ banner }: { banner: React.ReactNode }) {
   const logos = Object.values(browserWelcomeLogos);
