@@ -87,6 +87,7 @@ export function BookmarksSection({
   );
 
   const isLoadingBookmarks = isNil(bookmarksData);
+  const hasBookmarks = dataSource.length > 0;
 
   return (
     <Stack minHeight="$40">
@@ -95,14 +96,14 @@ export function BookmarksSection({
           {intl.formatMessage({ id: ETranslations.explore_bookmarks })}
         </DashboardSectionHeader.Heading>
 
-        {dataSource.length > 0 ? (
+        {hasBookmarks ? (
           <DashboardSectionHeader.Button onPress={onPressMore}>
             {intl.formatMessage({ id: ETranslations.explore_see_all })}
           </DashboardSectionHeader.Button>
         ) : null}
       </DashboardSectionHeader>
 
-      {dataSource.length > 0 ? (
+      {hasBookmarks ? (
         <BookmarksSectionItems
           dataSource={dataSource}
           handleOpenWebSite={handleOpenWebSite}
