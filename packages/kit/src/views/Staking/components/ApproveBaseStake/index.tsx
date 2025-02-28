@@ -248,6 +248,7 @@ export function ApproveBaseStake({
   const permitSignatureRef = useRef<string | undefined>(undefined);
 
   const isFocus = useIsFocused();
+  const approveOnThisTx = useRef(false);
 
   const shouldApprove = useMemo(() => {
     if (!isFocus) {
@@ -256,12 +257,17 @@ export function ApproveBaseStake({
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
 
-    if (
-      earnUtils.isUSDTonETHNetwork(token) &&
-      allowanceBN.gt(0) &&
-      !amountValueBN.eq(allowanceBN)
-    ) {
-      return true;
+    if (earnUtils.isUSDTonETHNetwork(token)) {
+      if (allowanceBN.isZero()) {
+        return true;
+      }
+
+      if (
+        allowanceBN.gt(0) &&
+        (!approveOnThisTx.current || amountValueBN.gt(allowanceBN))
+      ) {
+        return true;
+      }
     }
 
     if (usePermit2Approve) {
@@ -497,6 +503,28 @@ export function ApproveBaseStake({
     token,
   ]);
 
+  const showResetUSDTApproveValueDialog = useCallback(() => {
+    Dialog.confirm({
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.global_continue,
+      }),
+      onClose: () => {
+        setApproving(false);
+      },
+      onConfirm: () => {
+        void resetUSDTApproveValue();
+      },
+      showCancelButton: true,
+      title: intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
+      }),
+      icon: 'ErrorOutline',
+    });
+  }, [intl, resetUSDTApproveValue]);
+
   const onApprove = useCallback(async () => {
     setApproving(true);
     permitSignatureRef.current = undefined;
@@ -505,31 +533,14 @@ export function ApproveBaseStake({
     const allowanceBN = BigNumber(allowance);
     const amountBN = BigNumber(amountValue);
 
-    if (
-      earnUtils.isUSDTonETHNetwork(token) &&
-      allowanceBN.gt(0) &&
-      amountBN.gt(allowanceBN)
-    ) {
-      Dialog.confirm({
-        onConfirmText: intl.formatMessage({
-          id: ETranslations.global_continue,
-        }),
-        onClose: () => {
-          setApproving(false);
-        },
-        onConfirm: () => {
-          void resetUSDTApproveValue();
-        },
-        showCancelButton: true,
-        title: intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.swap_page_provider_approve_usdt_dialog_content,
-        }),
-        icon: 'ErrorOutline',
-      });
-      return;
+    if (earnUtils.isUSDTonETHNetwork(token)) {
+      if (
+        allowanceBN.gt(0) &&
+        (!approveOnThisTx.current || amountBN.gt(allowanceBN))
+      ) {
+        showResetUSDTApproveValueDialog();
+        return;
+      }
     }
 
     if (usePermit2Approve) {
@@ -601,6 +612,7 @@ export function ApproveBaseStake({
       onSuccess(data) {
         trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
+        approveOnThisTx.current = true;
       },
       onFail() {
         setApproving(false);
