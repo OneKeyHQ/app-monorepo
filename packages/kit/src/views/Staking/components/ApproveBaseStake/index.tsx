@@ -496,7 +496,6 @@ export function ApproveBaseStake({
     approveTarget.spenderAddress,
     navigationToTxConfirm,
     token,
-    trackAllowance,
   ]);
 
   const onApprove = useCallback(async () => {
