@@ -171,6 +171,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
                   size="$bodyMd"
                   textDecorationLine="underline"
                   textDecorationStyle="dotted"
+                  textDecorationColor="$textDisabled"
                   onPress={() =>
                     switchToWrappedToken(item.action?.actionData?.wrappedToken)
                   }
@@ -181,15 +182,27 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
                     bg: '$bgActive',
                   }}
                 >
-                  {`Switch to ${item.action?.actionData?.wrappedToken?.symbol}`}
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.Limit_native_token_no_sell_switch,
+                    },
+                    {
+                      token: item.action?.actionData?.wrappedToken?.symbol,
+                    },
+                  )}
                 </SizableText>
-                <SizableText size="$bodyMd">or</SizableText>
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.global_or,
+                  })}
+                </SizableText>
                 <SizableText
                   userSelect="none"
                   cursor="pointer"
                   size="$bodyMd"
                   textDecorationLine="underline"
                   textDecorationStyle="dotted"
+                  textDecorationColor="$textDisabled"
                   onPress={() =>
                     wrapToWrappedToken(item.action?.actionData?.wrappedToken)
                   }
@@ -200,7 +213,14 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
                     bg: '$bgActive',
                   }}
                 >
-                  {`Wrap to ${item.action?.actionData?.wrappedToken?.symbol}`}
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.Limit_native_token_no_sell_wrap,
+                    },
+                    {
+                      token: item.action?.actionData?.wrappedToken?.symbol,
+                    },
+                  )}
                 </SizableText>
               </XStack>
             }
@@ -232,6 +252,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
       );
     },
     [
+      intl,
       accountManualCreatingAtom.isLoading,
       accountManualCreatingAtom.key,
       createAddressError,

@@ -712,11 +712,6 @@ export const LimitMarketUpPercentages = [0, 20, 50, 100];
 
 export const defaultLimitExpirationTime = ESwapLimitOrderExpiryStep.ONE_WEEK;
 
-export const ESwapLimitPartiallyFillStepMap = [
-  { label: 'Enabled', value: true },
-  { label: 'Disabled', value: false },
-];
-
 export interface ISwapLimitPriceInfo {
   fromToken?: ISwapToken;
   toToken?: ISwapToken;
