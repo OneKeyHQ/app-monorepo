@@ -39,6 +39,8 @@ import {
 } from '../../hooks/useWebTabs';
 import { checkAndCreateFolder } from '../../utils/screenshot';
 import { showTabBar } from '../../utils/tabBarUtils';
+import { BrowserTitle } from '../components/BrowserTitle';
+import { HistoryIconButton } from '../components/HistoryIconButton';
 import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
@@ -156,9 +158,18 @@ function MobileBrowser() {
         {!displayHomePage ? (
           <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
         ) : (
-          <Stack>
-            <Icon name="AccessibilityEyeOutline" />
-          </Stack>
+          <XStack
+            width="100%"
+            position="relative"
+            justifyContent="center"
+            alignItems="center"
+          >
+            <BrowserTitle />
+
+            <Stack position="absolute" right={0}>
+              <HistoryIconButton />
+            </Stack>
+          </XStack>
         )}
         <HeaderRightToolBar />
       </XStack>

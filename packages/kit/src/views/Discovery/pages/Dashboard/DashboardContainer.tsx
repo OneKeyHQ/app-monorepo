@@ -17,12 +17,19 @@ function Dashboard() {
       <Page.Header headerLeft={BrowserTitle} headerRight={HistoryIconButton} />
       {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
       {platformEnv.isNativeIOS ? (
-        <XStack px="$5" pt={top} justifyContent="space-between">
-          <Stack flex={1} pl="$5" alignItems="center">
-            <BrowserTitle />
+        <Stack
+          pt={top}
+          width="100%"
+          position="relative"
+          justifyContent="center"
+          alignItems="center"
+        >
+          <BrowserTitle />
+
+          <Stack position="absolute" right="$5">
+            <HistoryIconButton />
           </Stack>
-          <HistoryIconButton />
-        </XStack>
+        </Stack>
       ) : null}
       <Page.Body>
         <DashboardContent />
