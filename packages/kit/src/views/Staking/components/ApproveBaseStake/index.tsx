@@ -260,18 +260,11 @@ export function ApproveBaseStake({
 
       permitParams.approveType = 'permit';
 
-      const amountBN = BigNumber(amount);
-      const allowanceBN = BigNumber(allowance);
-      if (amountBN.gt(allowanceBN)) {
-        const permitCache = getPermitCache({
-          accountId: approveTarget.accountId,
-          networkId: approveTarget.networkId,
-          tokenAddress: token.address,
-          amount,
-        });
-
-        if (permitCache) {
-          permitParams.permitSignature = permitCache.signature;
+      if (permitSignatureRef.current) {
+        const amountBN = BigNumber(amount);
+        const allowanceBN = BigNumber(permitSignatureRef.current.amount);
+        if (amountBN.gt(allowanceBN)) {
+          permitParams.permitSignature = permitSignatureRef.current.signature;
         }
       }
     }
@@ -611,6 +604,10 @@ export function ApproveBaseStake({
             expiredAt: Date.now() + 24 * 60 * 60 * 1000, // 24 hours
           });
 
+          setTimeout(() => {
+            void fetchEstimateFeeResp(amountValue);
+          }, 200);
+
           void onSubmit();
           setApproving(false);
         } catch (error: unknown) {
@@ -644,6 +641,9 @@ export function ApproveBaseStake({
         trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
         approveOnThisTx.current = true;
+        setTimeout(() => {
+          void fetchEstimateFeeResp(amountValue);
+        }, 200);
       },
       onFail() {
         setApproving(false);
@@ -670,6 +670,7 @@ export function ApproveBaseStake({
     updatePermitCache,
     onSubmit,
     trackAllowance,
+    fetchEstimateFeeResp,
   ]);
 
   const placeholderTokens = useMemo(
