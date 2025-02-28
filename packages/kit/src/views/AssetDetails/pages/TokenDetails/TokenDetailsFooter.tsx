@@ -12,14 +12,14 @@ import {
   Skeleton,
   XStack,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
-import { useTokenDetailsContext } from './TokenDetailsContext';
-
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { marketNavigation } from '../../../Market/marketUtils';
+
+import { useTokenDetailsContext } from './TokenDetailsContext';
 
 function TokenDetailsFooter() {
   const intl = useIntl();
