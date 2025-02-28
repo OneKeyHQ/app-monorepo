@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
 import { InputAccessoryView } from 'react-native';
 
@@ -76,12 +76,21 @@ const SwapQuoteInput = ({
       !swapQuoteCurrentSelect?.isWrapped
     ) {
       if (swapQuoteCurrentSelect?.kind === ESwapQuoteKind.BUY) {
-        setFromInputAmount(swapLimitRateAmount ?? '');
+        setFromInputAmount({
+          value: swapLimitRateAmount ?? '',
+          isInput: false,
+        });
       } else {
-        setToInputAmount(swapLimitRateAmount ?? '');
+        setToInputAmount({
+          value: swapLimitRateAmount ?? '',
+          isInput: false,
+        });
       }
     } else {
-      setToInputAmount(swapQuoteCurrentSelect?.toAmount ?? '');
+      setToInputAmount({
+        value: swapQuoteCurrentSelect?.toAmount ?? '',
+        isInput: false,
+      });
     }
   }, [
     swapLimitRateAmount,
@@ -98,14 +107,20 @@ const SwapQuoteInput = ({
         selectTokenLoading={selectLoading}
         onAmountChange={(value) => {
           if (validateAmountInput(value, fromToken?.decimals)) {
-            setFromInputAmount(value);
+            setFromInputAmount({
+              value,
+              isInput: true,
+            });
           }
         }}
         onSelectPercentageStage={onSelectPercentageStage}
-        amountValue={fromInputAmount}
+        amountValue={fromInputAmount.value}
         onBalanceMaxPress={() => {
           const maxAmount = fromTokenBalance;
-          setFromInputAmount(maxAmount);
+          setFromInputAmount({
+            value: maxAmount,
+            isInput: true,
+          });
         }}
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
@@ -146,10 +161,13 @@ const SwapQuoteInput = ({
         direction={ESwapDirectionType.TO}
         onAmountChange={(value) => {
           if (validateAmountInput(value, toToken?.decimals)) {
-            setToInputAmount(value);
+            setToInputAmount({
+              value,
+              isInput: true,
+            });
           }
         }}
-        amountValue={toInputAmount}
+        amountValue={toInputAmount.value}
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />

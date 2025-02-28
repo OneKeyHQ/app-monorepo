@@ -97,7 +97,7 @@ const SwapInputContainer = ({
           accountUtils.isHwWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id })));
     const balanceBN = new BigNumber(fromTokenBalance ?? 0);
-    const amountValueBN = new BigNumber(fromTokenAmount ?? 0);
+    const amountValueBN = new BigNumber(fromTokenAmount.value ?? 0);
     const hasBalanceError =
       direction === ESwapDirectionType.FROM &&
       !!fromToken &&
@@ -268,7 +268,9 @@ const SwapInputContainer = ({
             inputIsLoading,
           color: inputIsLoading ? '$textPlaceholder' : undefined,
           style:
-            !platformEnv.isNative && direction === ESwapDirectionType.TO
+            !platformEnv.isNative &&
+            direction === ESwapDirectionType.TO &&
+            swapTypeSwitch !== ESwapTabSwitchType.LIMIT
               ? ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)

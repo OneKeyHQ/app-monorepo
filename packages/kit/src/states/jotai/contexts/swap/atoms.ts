@@ -116,10 +116,22 @@ export const {
 export const {
   atom: swapFromTokenAmountAtom,
   use: useSwapFromTokenAmountAtom,
-} = contextAtom<string>('');
+} = contextAtom<{
+  value: string;
+  isInput: boolean;
+}>({
+  value: '',
+  isInput: false,
+});
 
 export const { atom: swapToTokenAmountAtom, use: useSwapToTokenAmountAtom } =
-  contextAtom<string>('');
+  contextAtom<{
+    value: string;
+    isInput: boolean;
+  }>({
+    value: '',
+    isInput: false,
+  });
 
 export const {
   atom: swapSelectedFromTokenBalanceAtom,
@@ -191,7 +203,7 @@ export const {
 } = contextAtomComputed<IFetchQuoteResult[]>((get) => {
   const list = get(swapQuoteListAtom());
   const fromTokenAmount = get(swapFromTokenAmountAtom());
-  const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+  const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
   const sortType = get(swapProviderSortAtom());
   const resetList: IFetchQuoteResult[] = list.map(
     (item: IFetchQuoteResult) => ({

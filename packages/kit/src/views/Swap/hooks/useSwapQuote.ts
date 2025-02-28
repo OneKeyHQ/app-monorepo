@@ -14,6 +14,8 @@ import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils
 import {
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
   type ISwapApproveTransaction,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -31,6 +33,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSlippageDialogOpeningAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 import { truncateDecimalPlaces } from '../utils/utils';
@@ -55,6 +58,7 @@ export function useSwapQuote() {
   const [swapApproveAllowanceSelectOpen] =
     useSwapApproveAllowanceSelectOpenAtom();
   const [fromTokenAmount, setFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [toTokenAmount, setToTokenAmount] = useSwapToTokenAmountAtom();
   const [swapQuoteResultList, setSwapQuoteResultList] = useSwapQuoteListAtom();
   const [swapQuoteEventTotalCount, setSwapQuoteEventTotalCount] =
     useSwapQuoteEventTotalCountAtom();
@@ -64,11 +68,16 @@ export function useSwapQuote() {
   const [swapShouldRefresh] = useSwapShouldRefreshQuoteAtom();
   const [swapTabSwitchType] = useSwapTypeSwitchAtom();
 
+  const swapTabSwitchTypeRef = useRef(swapTabSwitchType);
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
 
   const swapSlippageRef = useRef(slippageItem);
+
+  if (swapTabSwitchTypeRef.current !== swapTabSwitchType) {
+    swapTabSwitchTypeRef.current = swapTabSwitchType;
+  }
   if (swapQuoteFetchingRef.current !== swapQuoteFetching) {
     swapQuoteFetchingRef.current = swapQuoteFetching;
   }
@@ -107,15 +116,36 @@ export function useSwapQuote() {
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
   });
+
+  const toAmountDebounce = useDebounce(toTokenAmount, 500, {
+    leading: true,
+  });
+
   const alignmentDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
-      fromAmountDebounce,
+      fromAmountDebounce.value,
       fromToken?.decimals,
     );
-    if (checkedDecimal && checkedDecimal !== fromAmountDebounce) {
-      setFromTokenAmount(checkedDecimal);
+    if (checkedDecimal && checkedDecimal !== fromAmountDebounce.value) {
+      setFromTokenAmount((v) => ({
+        ...v,
+        value: checkedDecimal,
+      }));
     }
   }, [fromToken?.decimals, fromAmountDebounce, setFromTokenAmount]);
+
+  const alignmentToDecimal = useCallback(() => {
+    const checkedDecimal = truncateDecimalPlaces(
+      toAmountDebounce.value,
+      toToken?.decimals,
+    );
+    if (checkedDecimal && checkedDecimal !== toAmountDebounce.value) {
+      setToTokenAmount((v) => ({
+        ...v,
+        value: checkedDecimal,
+      }));
+    }
+  }, [toToken?.decimals, toAmountDebounce, setToTokenAmount]);
 
   useEffect(() => {
     if (!isFocusRef.current) return;
@@ -124,9 +154,29 @@ export function useSwapQuote() {
         swapSlippageRef.current,
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
       );
     }
   }, [fromTokenAmount, quoteAction]);
+
+  useEffect(() => {
+    if (!isFocusRef.current) return;
+    if (
+      !toTokenAmount &&
+      swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT
+    ) {
+      void quoteAction(
+        swapSlippageRef.current,
+        activeAccountRef.current?.address,
+        activeAccountRef.current?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.BUY,
+      );
+    }
+  }, [toTokenAmount, quoteAction]);
 
   useEffect(() => {
     if (swapSlippageDialogOpening.status || swapApproveAllowanceSelectOpen) {
@@ -139,6 +189,9 @@ export function useSwapQuote() {
         swapSlippageRef.current,
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        ESwapQuoteKind.SELL,
       );
     }
     // else {
@@ -170,6 +223,8 @@ export function useSwapQuote() {
         activeAccountRef.current?.address,
         activeAccountRef.current?.accountInfo?.account?.id,
         swapApprovingTransaction.blockNumber,
+        undefined,
+        ESwapQuoteKind.SELL,
       );
     }
   }, [intl, cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
@@ -195,7 +250,8 @@ export function useSwapQuote() {
     if (
       swapTabSwitchType === swapQuoteActionLockRef.current?.type &&
       swapQuoteActionLockRef.current?.actionLock &&
-      swapQuoteActionLockRef.current?.fromTokenAmount === fromAmountDebounce &&
+      swapQuoteActionLockRef.current?.fromTokenAmount ===
+        fromAmountDebounce.value &&
       equalTokenNoCaseSensitive({
         token1: swapQuoteActionLockRef.current?.fromToken,
         token2: {
@@ -221,6 +277,9 @@ export function useSwapQuote() {
       swapSlippageRef.current,
       activeAccountRef.current?.address,
       activeAccountRef.current?.accountInfo?.account?.id,
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
     );
     return () => {
       cleanQuoteInterval();
@@ -238,6 +297,13 @@ export function useSwapQuote() {
     fromAmountDebounce,
     swapTabSwitchType,
   ]);
+
+  // useEffect(() => {
+  //   if (!isFocusRef.current) return;
+  //   if (toTokenAmount) {
+  //     alignmentToDecimal();
+  //   }
+  // }, [toTokenAmount, alignmentToDecimal]);
 
   // Due to the changes in derived types causing address changes, this is not in the swap tab.
   useEffect(() => {
@@ -290,7 +356,7 @@ export function useSwapQuote() {
               count: 0,
             });
             setSwapQuoteResultList([]);
-            setFromTokenAmount('');
+            setFromTokenAmount({ value: '', isInput: true });
           }
           appEventBus.off(EAppEventBusNames.SwapQuoteEvent, quoteEventHandler);
         } else {

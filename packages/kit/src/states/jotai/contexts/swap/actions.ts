@@ -26,7 +26,6 @@ import {
   swapTokenCatchMapMaxCount,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
-  ESwapQuoteKind,
   IFetchQuotesParams,
   IFetchTokensParams,
   ISwapAlertActionData,
@@ -47,6 +46,7 @@ import {
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
   ESwapFetchCancelCause,
+  ESwapQuoteKind,
   ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
   ESwapTabSwitchType,
@@ -679,8 +679,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         actionLock: true,
         fromToken,
         toToken,
-        fromTokenAmount,
-        toTokenAmount,
+        fromTokenAmount: fromTokenAmount.value,
+        toTokenAmount: toTokenAmount.value,
         kind,
         accountId,
         address,
@@ -692,12 +692,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       set(swapBuildTxFetchingAtom(), false);
       set(swapShouldRefreshQuoteAtom(), false);
-      const fromTokenAmountNumber = Number(fromTokenAmount);
+      const fromTokenAmountNumber = Number(fromTokenAmount.value);
+      const toTokenAmountNumber = Number(toTokenAmount.value);
       if (
         fromToken &&
         toToken &&
-        !Number.isNaN(fromTokenAmountNumber) &&
-        fromTokenAmountNumber > 0
+        ((kind === ESwapQuoteKind.SELL &&
+          !Number.isNaN(fromTokenAmountNumber) &&
+          fromTokenAmountNumber > 0) ||
+          (kind === ESwapQuoteKind.BUY &&
+            !Number.isNaN(toTokenAmountNumber) &&
+            toTokenAmountNumber > 0))
       ) {
         void this.runQuoteEvent.call(
           set,
@@ -709,8 +714,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           accountId,
           blockNumber,
           kind,
-          fromTokenAmount,
-          toTokenAmount,
+          fromTokenAmount.value,
+          toTokenAmount.value,
         );
       } else {
         set(swapQuoteFetchingAtom(), false);
@@ -846,12 +851,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       const toTokenAmount = get(swapToTokenAmountAtom());
-      const fromTokenAmountNumber = Number(fromTokenAmount);
+      const fromTokenAmountNumber = Number(fromTokenAmount.value);
+      const toTokenAmountNumber = Number(toTokenAmount.value);
       if (
         fromToken &&
         toToken &&
-        !Number.isNaN(fromTokenAmountNumber) &&
-        fromTokenAmountNumber > 0
+        ((kind === ESwapQuoteKind.SELL &&
+          !Number.isNaN(fromTokenAmountNumber) &&
+          fromTokenAmountNumber > 0) ||
+          (kind === ESwapQuoteKind.BUY &&
+            !Number.isNaN(toTokenAmountNumber) &&
+            toTokenAmountNumber > 0))
       ) {
         this.quoteInterval = setTimeout(() => {
           void this.runQuote.call(
@@ -865,8 +875,8 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             true,
             undefined,
             kind,
-            fromTokenAmount,
-            toTokenAmount,
+            fromTokenAmount.value,
+            toTokenAmount.value,
           );
         }, swapQuoteFetchInterval);
       }
@@ -1158,7 +1168,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         }
       }
 
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
       // check min max amount
       if (quoteResult && quoteResult.limit?.min) {
         const minAmountBN = new BigNumber(quoteResult.limit.min);

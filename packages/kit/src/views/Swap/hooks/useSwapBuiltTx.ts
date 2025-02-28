@@ -130,7 +130,10 @@ export function useSwapBuildTx() {
   );
 
   const clearQuoteData = useCallback(() => {
-    setSwapFromTokenAmount(''); // send success, clear from token amount
+    setSwapFromTokenAmount({
+      value: '',
+      isInput: true,
+    }); // send success, clear from token amount
     setSwapQuoteResultList([]);
     setSwapQuoteEventTotalCount({
       count: 0,

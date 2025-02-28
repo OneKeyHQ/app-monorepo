@@ -198,7 +198,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           fromSelectToken?.decimals,
         )
       ) {
-        setFromInputAmount(amountAfterDecimal.toFixed());
+        setFromInputAmount({
+          value: amountAfterDecimal.toFixed(),
+          isInput: true,
+        });
       }
     },
     [fromTokenBalance, fromSelectToken?.decimals, setFromInputAmount],
@@ -260,7 +263,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           <SwapRecentTokenPairsGroup
             onSelectTokenPairs={onSelectRecentTokenPairs}
             tokenPairs={swapRecentTokenPairs}
-            fromTokenAmount={fromTokenAmount}
+            fromTokenAmount={fromTokenAmount.value}
           />
         </YStack>
       </YStack>
