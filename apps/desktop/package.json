@@ -47,6 +47,7 @@
     "node-fetch": "^2.6.7"
   },
   "devDependencies": {
+    "@electron/fuses": "1.8.0",
     "@electron/notarize": "2.3.2",
     "@electron/remote": "^2.0.1",
     "@types/adm-zip": "^0",
