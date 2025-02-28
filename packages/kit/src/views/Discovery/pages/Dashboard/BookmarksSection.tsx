@@ -52,10 +52,7 @@ export function BookmarksSection({
   // Listen for tab focus state to refresh data
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     if (isFocus) {
-      // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
-      setTimeout(() => {
-        void refreshLocalData();
-      });
+      void refreshLocalData();
     }
   });
 
@@ -89,7 +86,7 @@ export function BookmarksSection({
     [bookmarksData],
   );
 
-  const isNilDataSource = isNil(bookmarksData);
+  const isLoadingBookmarks = isNil(bookmarksData);
 
   return (
     <Stack minHeight="$40">
@@ -99,11 +96,7 @@ export function BookmarksSection({
         </DashboardSectionHeader.Heading>
 
         {dataSource.length > 0 ? (
-          <DashboardSectionHeader.Button
-            onPress={() => {
-              onPressMore();
-            }}
-          >
+          <DashboardSectionHeader.Button onPress={onPressMore}>
             {intl.formatMessage({ id: ETranslations.explore_see_all })}
           </DashboardSectionHeader.Button>
         ) : null}
@@ -123,7 +116,7 @@ export function BookmarksSection({
           borderCurve="continuous"
           justifyContent="center"
         >
-          {isNilDataSource ? (
+          {isLoadingBookmarks ? (
             <Skeleton w="100%" />
           ) : (
             <SizableText

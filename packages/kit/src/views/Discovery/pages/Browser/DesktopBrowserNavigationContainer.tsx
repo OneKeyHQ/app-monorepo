@@ -10,10 +10,6 @@ import {
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
