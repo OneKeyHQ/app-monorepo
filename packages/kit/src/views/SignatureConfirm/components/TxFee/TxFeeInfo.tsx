@@ -966,18 +966,6 @@ function TxFeeInfo(props: IProps) {
       nativeTokenInfo.balance ?? 0,
     );
 
-    console.log(
-      '[TxFeeDebug] isMaxSend:',
-      nativeTokenTransferAmountToUpdate.isMaxSend,
-    );
-    console.log(
-      '[TxFeeDebug] requiredNativeBalance:',
-      requiredNativeBalance.toFixed(),
-    );
-    console.log('[TxFeeDebug] nativeTokenInfo:', {
-      balance: nativeTokenInfo.balance,
-    });
-
     updateSendTxStatus({
       isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
         ? false

@@ -16,6 +16,7 @@ import {
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
@@ -115,7 +116,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     });
 
     if (response.success) {
-      const { signature, public_key: publicKey } = response.payload;
+      const { signature, publicKey } = response.payload;
       const verificationScript =
         wallet.getVerificationScriptFromPublicKey(publicKey);
       transaction.addWitness(
@@ -124,11 +125,10 @@ export class KeyringHardware extends KeyringHardwareBase {
           verificationScript,
         }),
       );
+      const finalSerializedTx = transaction.serialize(true);
       return {
-        txid: '',
-        rawTx: Buffer.from(transaction.serialize(true), 'hex').toString(
-          'base64',
-        ),
+        txid: hexUtils.addHexPrefix(transaction.hash()),
+        rawTx: Buffer.from(finalSerializedTx, 'hex').toString('base64'),
         signatureScheme: undefined,
         signature,
         publicKey,

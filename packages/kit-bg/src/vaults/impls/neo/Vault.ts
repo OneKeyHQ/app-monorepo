@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { sc, tx, u, wallet } from '@cityofzion/neon-core';
+import { ContractParam } from '@cityofzion/neon-core/lib/sc';
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
@@ -18,6 +19,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IArgument,
+  IInvokeArguments,
+} from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
 import {
   EDecodedTxActionType,
   EDecodedTxStatus,
@@ -46,6 +51,8 @@ import type {
   IUpdateUnsignedTxParams,
   IValidateGeneralInputParams,
 } from '../../types';
+import type { ContractCall } from '@cityofzion/neon-core/lib/sc';
+import type { SignerLike } from '@cityofzion/neon-core/lib/tx';
 
 export default class Vault extends VaultBase {
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
@@ -425,5 +432,51 @@ export default class Vault extends VaultBase {
         }`,
       );
     }
+  }
+
+  /** ************************************ DApp Method ************************************* */
+  // Invoke
+  async createInvokeInputs(invokeArgs: IInvokeArguments) {
+    const { args, scriptHash, operation } = invokeArgs;
+    return {
+      scriptHash,
+      operation,
+      args: args.map((item: IArgument) => {
+        if (item && item.type && item.type === 'Address') {
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
+          return sc.ContractParam.hash160(item.value.toString());
+        }
+        if (item) {
+          return ContractParam.fromJson(item).toJson();
+        }
+        return null;
+      }),
+    };
+  }
+
+  async createNeo3InvokeTx(params: {
+    invokeArgs: ContractCall[];
+    signers: SignerLike[];
+    networkFee: string;
+    systemFee?: any;
+    overrideSystemFee?: any;
+  }) {
+    let script = '';
+    try {
+      script = sc.createScript(...params.invokeArgs);
+    } catch (error) {
+      throw new OneKeyInternalError('Failed to create script');
+    }
+
+    const currentHeight = await this.getBlockCount();
+
+    const transaction = new tx.Transaction({
+      signers: params.signers,
+      validUntilBlock: currentHeight + 100,
+      systemFee: '0',
+      script,
+    });
+
+    return transaction.toJson();
   }
 }
