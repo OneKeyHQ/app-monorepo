@@ -155,7 +155,11 @@ function MobileBrowser() {
 
         {!displayHomePage ? (
           <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
-        ) : null}
+        ) : (
+          <Stack>
+            <Icon name="AccessibilityEyeOutline" />
+          </Stack>
+        )}
         <HeaderRightToolBar />
       </XStack>
       <Page.Body>

@@ -19,48 +19,25 @@ import {
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+import { BrowserTitle } from '../components/BrowserTitle';
+import { HistoryIconButton } from '../components/HistoryIconButton';
 
 import DashboardContent from './DashboardContent';
-
-function HistoryButton() {
-  const navigation = useAppNavigation();
-
-  return (
-    <HeaderIconButton
-      icon="ClockTimeHistoryOutline"
-      onPress={() => {
-        navigation.pushModal(EModalRoutes.DiscoveryModal, {
-          screen: EDiscoveryModalRoutes.HistoryListModal,
-        });
-      }}
-    />
-  );
-}
-
-const HeaderLeft = () => {
-  const intl = useIntl();
-
-  return (
-    <SizableText size="$headingLg" color="$text">
-      {intl.formatMessage({ id: ETranslations.global_browser })}
-    </SizableText>
-  );
-};
 
 function Dashboard() {
   const { top } = useSafeAreaInsets();
 
   return (
     <Page>
-      <Page.Header headerLeft={HeaderLeft} headerRight={HistoryButton} />
+      <Page.Header headerLeft={BrowserTitle} headerRight={HistoryIconButton} />
       {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
       {platformEnv.isNativeIOS ? (
         <XStack px="$5" pt={top} justifyContent="space-between">
           <Stack flex={1} pl="$5" alignItems="center">
-            <HeaderLeft />
+            <BrowserTitle />
           </Stack>
 
-          <HistoryButton />
+          <HistoryIconButton />
         </XStack>
       ) : null}
       <Page.Body>
