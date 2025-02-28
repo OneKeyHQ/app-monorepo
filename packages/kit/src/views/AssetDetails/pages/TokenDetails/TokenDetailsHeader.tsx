@@ -1,6 +1,8 @@
 import type { PropsWithChildren } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
+import { type IProps } from '.';
+
 import { useIntl } from 'react-intl';
 
 import type { IXStackProps } from '@onekeyhq/components';
@@ -37,11 +39,11 @@ import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
+import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
+
 import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
-
-import type { IProps } from '.';
-import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
+import { useTokenDetailsContext } from './TokenDetailsContext';
 
 function TokenDetailsHeader(props: IProps) {
   const {
@@ -58,6 +60,7 @@ function TokenDetailsHeader(props: IProps) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const copyAccountAddress = useCopyAccountAddress();
+  const { updateTokenMetadata } = useTokenDetailsContext();
 
   const [settings] = useSettingsPersistAtom();
 
@@ -86,9 +89,13 @@ function TokenDetailsHeader(props: IProps) {
             networkId,
             contractList: [tokenInfo.address],
           });
+        updateTokenMetadata({
+          price: tokensDetails[0].price,
+          priceChange24h: tokensDetails[0].price24h,
+        });
         return tokensDetails[0];
       },
-      [accountId, networkId, tokenInfo.address],
+      [accountId, networkId, tokenInfo.address, updateTokenMetadata],
       {
         watchLoading: true,
         overrideIsFocused: (isPageFocused) =>
