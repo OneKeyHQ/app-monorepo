@@ -50,6 +50,16 @@ function getEarnPermitCacheKey(payload: IEarnPermitCacheKey) {
   return `${payload.accountId}_${payload.networkId}_${payload.tokenAddress}_${payload.amount}`;
 }
 
+function isUSDTonETHNetwork({
+  networkId,
+  symbol,
+}: {
+  networkId?: string;
+  symbol?: string;
+}) {
+  return networkId === 'evm--1' && symbol === 'USDT';
+}
+
 export default {
   getEarnProviderEnumKey,
   isMorphoProvider,
@@ -58,4 +68,5 @@ export default {
   isEverstakeProvider,
   getEarnProviderName,
   getEarnPermitCacheKey,
+  isUSDTonETHNetwork,
 };

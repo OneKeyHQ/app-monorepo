@@ -1052,6 +1052,8 @@ class ServiceStaking extends ServiceBase {
     morphoVault?: string;
     identity?: string;
     accountAddress?: string;
+    approveType?: 'permit';
+    permitSignature?: string;
   }) {
     const { symbol, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
