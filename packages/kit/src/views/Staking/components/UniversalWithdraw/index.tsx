@@ -84,6 +84,8 @@ type IUniversalWithdrawProps = {
 const isNaN = (num: string) =>
   BigNumber(num).isNaN() || (typeof num === 'string' && num.endsWith('.'));
 
+const WITHDRAW_ACCORDION_KEY = 'withdraw-accordion-content';
+
 export const UniversalWithdraw = ({
   balance,
   price: inputPrice,
@@ -392,9 +394,9 @@ export const UniversalWithdraw = ({
           width="100%"
           type="single"
           collapsible
-          defaultValue=""
+          defaultValue={WITHDRAW_ACCORDION_KEY}
         >
-          <Accordion.Item value="staking-accordion-content">
+          <Accordion.Item value={WITHDRAW_ACCORDION_KEY}>
             <Accordion.Trigger
               unstyled
               flexDirection="row"
