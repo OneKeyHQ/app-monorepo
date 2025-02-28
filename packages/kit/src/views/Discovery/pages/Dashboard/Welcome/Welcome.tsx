@@ -1,8 +1,13 @@
+
 import { useMemo } from 'react';
 
 import { Skeleton, Stack, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+
+import { Stack, XStack } from '@onekeyhq/components';
+import { browserWelcomeLogos } from '@onekeyhq/shared/src/utils/browserUtils';
+
 
 import { DefaultTitle } from './DefaultTitle';
 import { SearchInput } from './SearchInput';
@@ -52,6 +57,9 @@ function DappSideDisplay({
     </Stack>
   );
 }
+
+import type { ImageURISource } from 'react-native';
+
 
 export function Welcome({ banner }: { banner: React.ReactNode }) {
   // Fetch discovery data

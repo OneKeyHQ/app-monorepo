@@ -85,6 +85,7 @@ export function useFiatCrypto({
     fiatCryptoType,
     networkId,
   );
+
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
   const navigation = useAppNavigation();
