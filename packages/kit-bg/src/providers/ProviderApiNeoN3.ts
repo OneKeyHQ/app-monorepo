@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { tx, wallet } from '@cityofzion/neon-core';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -28,6 +29,10 @@ import ProviderApiBase from './ProviderApiBase';
 import type { IProviderBaseBackgroundNotifyInfo } from './ProviderApiBase';
 import type INeoVault from '../vaults/impls/neo/Vault';
 import type { ContractCall } from '@cityofzion/neon-core/lib/sc';
+import type {
+  TransactionJson,
+  TransactionLike,
+} from '@cityofzion/neon-core/lib/tx';
 import type { IJsBridgeMessagePayload } from '@onekeyfe/cross-inpage-provider-types';
 
 const NODE_URL = 'http://seed1.neo.org:10332/';
@@ -142,6 +147,76 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     return this.neo_accounts(request);
   }
 
+  @providerApiMethod()
+  async send(
+    request: IJsBridgeMessagePayload,
+    params: {
+      fromAddress: string;
+      toAddress: string;
+      asset: string;
+      amount: string;
+      fee?: string;
+      broadcastOverride?: boolean;
+    },
+  ) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    const scriptHash = wallet.getScriptHashFromAddress(params.fromAddress);
+    const inputs = {
+      scriptHash,
+      fromAccountAddress: params.fromAddress,
+      toAccountAddress: params.toAddress,
+      tokenScriptHash: params.asset,
+      amountToTransfer: params.amount,
+      systemFee: '0',
+      networkFee: '0',
+    };
+
+    const vault = (await vaultFactory.getVault({
+      networkId,
+      accountId,
+    })) as INeoVault;
+
+    const transaction = await vault.buildTransferTransaction({
+      fromAddress: inputs.fromAccountAddress,
+      toAddress: inputs.toAccountAddress,
+      tokenScriptHash: inputs.tokenScriptHash,
+      amount: inputs.amountToTransfer,
+      systemFee: inputs.systemFee,
+      networkFee: inputs.networkFee,
+    });
+
+    const signOnly = !!params.broadcastOverride;
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: transaction.toJson(),
+        accountId,
+        networkId,
+        signOnly,
+      });
+
+    if (signOnly) {
+      return {
+        txid: result.txid,
+        nodeURL: NODE_URL,
+      };
+    }
+    return {
+      txid: result.txid,
+      signedTx: Buffer.from(result.rawTx, 'base64').toString('hex'),
+    };
+  }
+
   private async signInvokeTx(params: {
     request: IJsBridgeMessagePayload;
     invokeArgs: IInvokeArguments[];
@@ -187,8 +262,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
       overrideSystemFee,
     });
 
-    // const signOnly = !!broadcastOverride;
-    const signOnly = true;
+    const signOnly = !!broadcastOverride;
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
@@ -216,7 +290,6 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     params: IInvokeParams,
   ): Promise<IInvokeResponse> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-
     if (
       !params.signers ||
       !Array.isArray(params.signers) ||
@@ -260,8 +333,6 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     params: IInvokeMultipleParams,
   ): Promise<IInvokeResponse> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    console.log('invokeMultiple ====>>>>: ', request);
-
     if (
       !params.signers ||
       !Array.isArray(params.signers) ||
@@ -303,6 +374,56 @@ class ProviderApiNeoN3 extends ProviderApiBase {
       overrideSystemFee: params.overrideSystemFee,
       broadcastOverride: params.broadcastOverride,
     });
+  }
+
+  @providerApiMethod()
+  async signTransaction(
+    request: IJsBridgeMessagePayload,
+    params: {
+      transaction: TransactionLike;
+    },
+  ): Promise<TransactionJson> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const { transaction } = params;
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+
+    if (!networkId || !accountId) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    let finalTransaction: tx.Transaction;
+    try {
+      finalTransaction = tx.Transaction.fromJson(
+        transaction as unknown as TransactionJson,
+      );
+    } catch (error) {
+      try {
+        finalTransaction = new tx.Transaction(transaction);
+      } catch (err) {
+        throw web3Errors.provider.custom({
+          code: 40_003,
+          message: `Invalid transaction`,
+        });
+      }
+    }
+
+    const result =
+      await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
+        request,
+        encodedTx: finalTransaction.toJson(),
+        accountId,
+        networkId,
+        signOnly: true,
+      });
+
+    const rawTx = Buffer.from(result.rawTx, 'base64').toString('hex');
+    const t = tx.Transaction.deserialize(rawTx);
+    return t.toJson();
   }
 }
 

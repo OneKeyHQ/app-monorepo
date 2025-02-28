@@ -111,7 +111,7 @@ export default class Vault extends VaultBase {
     };
   }
 
-  private async buildTransferTransaction({
+  async buildTransferTransaction({
     fromAddress,
     toAddress,
     tokenScriptHash,
@@ -182,7 +182,6 @@ export default class Vault extends VaultBase {
       systemFee: inputs.systemFee,
       networkFee: inputs.networkFee,
     });
-
     return transaction.toJson();
   }
 
