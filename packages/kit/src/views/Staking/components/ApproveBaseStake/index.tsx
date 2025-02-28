@@ -37,6 +37,7 @@ import {
   formatStakingDistanceToNowStrict,
 } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -458,6 +459,47 @@ export function ApproveBaseStake({
 
   const showStakeProgressRef = useRef<Record<string, boolean>>({});
 
+  const resetUSDTApproveValue = useCallback(async () => {
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+    const approveResetInfo: IApproveInfo = {
+      owner: account.address,
+      spender: approveTarget.spenderAddress,
+      amount: '0',
+      isMax: false,
+      tokenInfo: {
+        ...token,
+        isNative: !!token.isNative,
+        // address: token.contractAddress,
+        name: token.name ?? token.symbol,
+      },
+    };
+    const approvesInfo = [approveResetInfo];
+    await navigationToTxConfirm({
+      approvesInfo,
+
+      onSuccess(data) {
+        trackAllowance(data[0].decodedTx.txid);
+        setApproving(false);
+      },
+      onFail() {
+        setApproving(false);
+      },
+      onCancel() {
+        setApproving(false);
+      },
+    });
+  }, [
+    approveTarget.accountId,
+    approveTarget.networkId,
+    approveTarget.spenderAddress,
+    navigationToTxConfirm,
+    token,
+    trackAllowance,
+  ]);
+
   const onApprove = useCallback(async () => {
     setApproving(true);
     permitSignatureRef.current = undefined;
@@ -476,7 +518,7 @@ export function ApproveBaseStake({
           id: ETranslations.global_continue,
         }),
         onConfirm: () => {
-          console.log('unlimmit');
+          void resetUSDTApproveValue();
         },
         showCancelButton: true,
         title: intl.formatMessage({
@@ -487,6 +529,7 @@ export function ApproveBaseStake({
         }),
         icon: 'ErrorOutline',
       });
+      return;
     }
 
     if (usePermit2Approve) {
@@ -577,6 +620,7 @@ export function ApproveBaseStake({
     approveTarget.token,
     navigationToTxConfirm,
     intl,
+    resetUSDTApproveValue,
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
