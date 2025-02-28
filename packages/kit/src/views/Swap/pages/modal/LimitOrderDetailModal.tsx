@@ -203,7 +203,7 @@ const LimitOrderDetailModal = () => {
       if (!item) {
         return;
       }
-      Dialog.show({
+      const dialog = Dialog.show({
         title: intl.formatMessage({
           id: ETranslations.limit_cancel_order_title,
         }),
@@ -216,7 +216,10 @@ const LimitOrderDetailModal = () => {
           },
         ),
         renderContent: <LimitOrderCancelDialog item={item} />,
-        onConfirm: () => runCancel(item),
+        onConfirm: async () => {
+          await dialog.close();
+          await runCancel(item);
+        },
         showCancelButton: true,
         showConfirmButton: true,
       });
