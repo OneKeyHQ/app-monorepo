@@ -55,7 +55,6 @@ function WebContent({
   const changeNavigationInfo = (siteInfo: WebViewNavigation) => {
     setBackEnabled(siteInfo.canGoBack);
     setForwardEnabled(siteInfo.canGoForward);
-    addBrowserHistory?.(siteInfo);
   };
 
   const onLoadStart = ({ nativeEvent }: WebViewNavigationEvent) => {

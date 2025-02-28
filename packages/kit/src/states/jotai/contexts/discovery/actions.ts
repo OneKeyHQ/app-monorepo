@@ -308,6 +308,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const closedTab = tabs[targetIndex];
         tabs.splice(targetIndex, 1);
 
+        // Add to browser history when tab is closed
+        if (closedTab.url && closedTab.title && closedTab.url !== homeTab.url) {
+          void this.addBrowserHistory.call(set, {
+            url: closedTab.url,
+            title: closedTab.title,
+          });
+        }
+
         if (isClosingActiveTab) {
           let newActiveTabIndex = targetIndex - 1;
           // If the first tab is closed and there are other tabs
@@ -349,6 +357,17 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     const activeTabId = get(activeTabIdAtom());
     const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
     const tabsToClose = tabs.filter((tab) => !tab.isPinned);
+
+    // Add all closed tabs to browser history
+    tabsToClose.forEach((tab) => {
+      if (tab.url && tab.title && tab.url !== homeTab.url) {
+        void this.addBrowserHistory.call(set, {
+          url: tab.url,
+          title: tab.title,
+        });
+      }
+    });
+
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
       this.setCurrentWebTab.call(set, null);

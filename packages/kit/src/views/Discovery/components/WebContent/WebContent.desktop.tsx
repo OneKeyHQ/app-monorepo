@@ -96,15 +96,9 @@ function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
     ({ title }: PageTitleUpdatedEvent) => {
       if (title && title.length) {
         onNavigation({ id, title });
-        if (urlRef.current) {
-          addBrowserHistory?.({
-            url: urlRef.current,
-            title,
-          });
-        }
       }
     },
-    [id, addBrowserHistory, onNavigation],
+    [id, onNavigation],
   );
   const onPageFaviconUpdated = useCallback(
     async (e: PageFaviconUpdatedEvent) => {
