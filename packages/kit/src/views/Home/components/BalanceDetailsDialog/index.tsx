@@ -4,10 +4,11 @@ import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
 
 import {
+  Button,
   Dialog,
+  Divider,
   ESwitchSize,
   Icon,
-  Button,
   IconButton,
   SizableText,
   Skeleton,
@@ -15,7 +16,6 @@ import {
   Switch,
   XStack,
   YStack,
-  Divider,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
