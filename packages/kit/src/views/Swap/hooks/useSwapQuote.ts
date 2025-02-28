@@ -149,7 +149,7 @@ export function useSwapQuote() {
 
   useEffect(() => {
     if (!isFocusRef.current) return;
-    if (!fromTokenAmount) {
+    if (!fromTokenAmount.value && fromTokenAmount.isInput) {
       void quoteAction(
         swapSlippageRef.current,
         activeAccountRef.current?.address,
@@ -164,7 +164,8 @@ export function useSwapQuote() {
   useEffect(() => {
     if (!isFocusRef.current) return;
     if (
-      !toTokenAmount &&
+      !toTokenAmount.value &&
+      toTokenAmount.isInput &&
       swapTabSwitchTypeRef.current === ESwapTabSwitchType.LIMIT
     ) {
       void quoteAction(
@@ -272,6 +273,9 @@ export function useSwapQuote() {
     ) {
       return;
     }
+    if (fromAmountDebounce.value && !fromAmountDebounce.isInput) {
+      return;
+    }
     alignmentDecimal();
     void quoteAction(
       swapSlippageRef.current,
@@ -298,12 +302,80 @@ export function useSwapQuote() {
     swapTabSwitchType,
   ]);
 
-  // useEffect(() => {
-  //   if (!isFocusRef.current) return;
-  //   if (toTokenAmount) {
-  //     alignmentToDecimal();
-  //   }
-  // }, [toTokenAmount, alignmentToDecimal]);
+  useEffect(() => {
+    if (!isFocusRef.current) return;
+    if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
+      return;
+    }
+    if (
+      fromToken?.networkId !== activeAccountRef.current?.networkId ||
+      equalTokenNoCaseSensitive({
+        token1: {
+          networkId: fromToken?.networkId,
+          contractAddress: fromToken?.contractAddress,
+        },
+        token2: {
+          networkId: toToken?.networkId,
+          contractAddress: toToken?.contractAddress,
+        },
+      })
+    ) {
+      return;
+    }
+    // fromToken & address change will trigger effect twice. so this use skip
+    if (
+      swapTabSwitchType === swapQuoteActionLockRef.current?.type &&
+      swapQuoteActionLockRef.current?.actionLock &&
+      swapQuoteActionLockRef.current?.toTokenAmount ===
+        toAmountDebounce.value &&
+      equalTokenNoCaseSensitive({
+        token1: swapQuoteActionLockRef.current?.fromToken,
+        token2: {
+          networkId: fromToken?.networkId,
+          contractAddress: fromToken?.contractAddress,
+        },
+      }) &&
+      equalTokenNoCaseSensitive({
+        token1: swapQuoteActionLockRef.current?.toToken,
+        token2: {
+          networkId: toToken?.networkId,
+          contractAddress: toToken?.contractAddress,
+        },
+      }) &&
+      swapQuoteActionLockRef.current.accountId ===
+        activeAccountRef.current?.accountInfo?.account?.id &&
+      swapQuoteActionLockRef.current?.address === swapAddressInfo.address
+    ) {
+      return;
+    }
+    if (toAmountDebounce.value && !toAmountDebounce.isInput) {
+      return;
+    }
+    alignmentToDecimal();
+    void quoteAction(
+      swapSlippageRef.current,
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+      undefined,
+      undefined,
+      ESwapQuoteKind.BUY,
+    );
+    return () => {
+      cleanQuoteInterval();
+    };
+  }, [
+    cleanQuoteInterval,
+    quoteAction,
+    swapAddressInfo.address,
+    swapAddressInfo.networkId,
+    fromToken?.networkId,
+    fromToken?.contractAddress,
+    toToken?.networkId,
+    toToken?.contractAddress,
+    alignmentToDecimal,
+    toAmountDebounce,
+    swapTabSwitchType,
+  ]);
 
   // Due to the changes in derived types causing address changes, this is not in the swap tab.
   useEffect(() => {
@@ -328,6 +400,9 @@ export function useSwapQuote() {
       swapSlippageRef.current,
       activeAccountRef.current?.address,
       activeAccountRef.current?.accountInfo?.account?.id,
+      undefined,
+      undefined,
+      ESwapQuoteKind.SELL,
     );
     return () => {
       cleanQuoteInterval();

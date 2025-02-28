@@ -6,7 +6,8 @@ import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapLimitPriceAmountAtom,
+  useSwapLimitPriceFromAmountAtom,
+  useSwapLimitPriceToAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -19,7 +20,6 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
-  ESwapQuoteKind,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -56,7 +56,8 @@ const SwapQuoteInput = ({
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
-  const [swapLimitRateAmount] = useSwapLimitPriceAmountAtom();
+  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
+  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
   useSwapApproving();
@@ -73,37 +74,57 @@ const SwapQuoteInput = ({
   useEffect(() => {
     if (
       swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
-      !swapQuoteCurrentSelect?.isWrapped
+      !swapQuoteCurrentSelect?.isWrapped &&
+      swapLimitPriceFromAmount
     ) {
-      if (swapQuoteCurrentSelect?.kind === ESwapQuoteKind.BUY) {
-        setFromInputAmount({
-          value: swapLimitRateAmount ?? '',
-          isInput: false,
-        });
-      } else {
-        setToInputAmount({
-          value: swapLimitRateAmount ?? '',
-          isInput: false,
-        });
-      }
-    } else {
+      setFromInputAmount({
+        value: swapLimitPriceFromAmount,
+        isInput: false,
+      });
+    }
+  }, [
+    setFromInputAmount,
+    swapLimitPriceFromAmount,
+    swapQuoteCurrentSelect?.isWrapped,
+    swapQuoteCurrentSelect?.protocol,
+  ]);
+
+  useEffect(() => {
+    if (
+      swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
+      !swapQuoteCurrentSelect?.isWrapped &&
+      swapLimitPriceToAmount
+    ) {
+      setToInputAmount({
+        value: swapLimitPriceToAmount,
+        isInput: false,
+      });
+    }
+  }, [
+    setToInputAmount,
+    swapLimitPriceToAmount,
+    swapQuoteCurrentSelect?.isWrapped,
+    swapQuoteCurrentSelect?.protocol,
+  ]);
+
+  useEffect(() => {
+    if (
+      swapQuoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT ||
+      swapQuoteCurrentSelect?.isWrapped
+    ) {
       setToInputAmount({
         value: swapQuoteCurrentSelect?.toAmount ?? '',
         isInput: false,
       });
     }
-  }, [
-    swapLimitRateAmount,
-    swapQuoteCurrentSelect,
-    setToInputAmount,
-    setFromInputAmount,
-  ]);
+  }, [swapQuoteCurrentSelect, setToInputAmount, setFromInputAmount]);
 
   return (
     <YStack gap="$2">
       <SwapInputContainer
         token={fromToken}
         direction={ESwapDirectionType.FROM}
+        inputLoading={swapQuoteLoading || quoteEventFetching}
         selectTokenLoading={selectLoading}
         onAmountChange={(value) => {
           if (validateAmountInput(value, fromToken?.decimals)) {

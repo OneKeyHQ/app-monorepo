@@ -57,7 +57,8 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
-  useSwapLimitPriceAmountAtom,
+  useSwapLimitPriceFromAmountAtom,
+  useSwapLimitPriceToAmountAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -95,7 +96,8 @@ export function useSwapBuildTx() {
     useSwapManualSelectQuoteProvidersAtom();
   const { generateSwapHistoryItem } = useSwapTxHistoryActions();
   const [swapLimitExpirationTime] = useSwapLimitExpirationTimeAtom();
-  const [swapLimitPriceAmount] = useSwapLimitPriceAmountAtom();
+  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
+  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const [, setSettings] = useSettingsAtom();
@@ -459,14 +461,16 @@ export function useSwapBuildTx() {
               let finalSellAmount = unSignedOrder.sellAmount;
               if (
                 selectQuote?.limitPriceOrderMarketPrice &&
-                swapLimitPriceAmount
+                (swapLimitPriceFromAmount || swapLimitPriceToAmount)
               ) {
                 const decimals =
                   selectQuote?.kind === ESwapQuoteKind.SELL
                     ? toToken.decimals
                     : fromToken.decimals;
                 const finalAmountBN = new BigNumber(
-                  swapLimitPriceAmount,
+                  selectQuote?.kind === ESwapQuoteKind.SELL
+                    ? swapLimitPriceToAmount
+                    : swapLimitPriceFromAmount,
                 ).shiftedBy(decimals);
                 if (selectQuote?.kind === ESwapQuoteKind.SELL) {
                   finalBuyAmount = finalAmountBN.toFixed();
@@ -744,7 +748,8 @@ export function useSwapBuildTx() {
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
     swapLimitExpirationTime.value,
-    swapLimitPriceAmount,
+    swapLimitPriceFromAmount,
+    swapLimitPriceToAmount,
     swapLimitPartiallyFillObj.value,
     navigationToMessageConfirm,
     swapTypeSwitch,

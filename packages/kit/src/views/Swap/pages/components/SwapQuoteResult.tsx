@@ -210,8 +210,8 @@ const SwapQuoteResult = ({
   if (
     !fromToken ||
     !toToken ||
-    new BigNumber(fromTokenAmount).isNaN() ||
-    new BigNumber(fromTokenAmount).isZero()
+    new BigNumber(fromTokenAmount.value).isNaN() ||
+    new BigNumber(fromTokenAmount.value).isZero()
   ) {
     return null;
   }
@@ -254,8 +254,8 @@ const SwapQuoteResult = ({
   if (
     fromToken &&
     toToken &&
-    !new BigNumber(fromAmountDebounce).isZero() &&
-    !new BigNumber(fromAmountDebounce).isNaN()
+    !new BigNumber(fromAmountDebounce.value).isZero() &&
+    !new BigNumber(fromAmountDebounce.value).isNaN()
   ) {
     return (
       <Accordion type="single" collapsible>

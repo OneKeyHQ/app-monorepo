@@ -1531,7 +1531,6 @@ export default class ServiceSwap extends ServiceBase {
           ...pre,
           swapLimitOrders: [],
         }));
-        return;
       }
       const openLimitOrders = swapLimitOrders.filter(
         (item) => item.status === ESwapLimitOrderStatus.OPEN,
