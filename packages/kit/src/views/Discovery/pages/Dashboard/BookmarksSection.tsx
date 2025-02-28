@@ -1,14 +1,23 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
 import { BookmarksSectionItems } from './BookmarksSectionItems';
@@ -17,14 +26,57 @@ import { DashboardSectionHeader } from './DashboardSectionHeader';
 import type { IBrowserBookmark, IMatchDAppItemType } from '../../types';
 
 export function BookmarksSection({
-  bookmarksData,
   handleOpenWebSite,
 }: {
-  bookmarksData: IBrowserBookmark[] | undefined;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+
+  const { result: bookmarksData, run: refreshLocalData } = usePromiseResult(
+    async () => {
+      const bookmarks =
+        await backgroundApiProxy.serviceDiscovery.getBookmarkData({
+          generateIcon: true,
+          sliceCount: 14,
+        });
+
+      return bookmarks;
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
+
+  // Listen for tab focus state to refresh data
+  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
+    if (isFocus) {
+      // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
+      setTimeout(() => {
+        void refreshLocalData();
+      });
+    }
+  });
+
+  // Set up listener for bookmark list refresh event
+  useEffect(() => {
+    const refreshBookmarkHandler = () => {
+      void refreshLocalData();
+    };
+
+    appEventBus.on(
+      EAppEventBusNames.RefreshBookmarkList,
+      refreshBookmarkHandler,
+    );
+
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.RefreshBookmarkList,
+        refreshBookmarkHandler,
+      );
+    };
+  }, [refreshLocalData]);
 
   const onPressMore = useCallback(() => {
     navigation.pushModal(EModalRoutes.DiscoveryModal, {

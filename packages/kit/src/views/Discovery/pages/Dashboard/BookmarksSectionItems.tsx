@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
+
 import type { IYStackProps } from '@onekeyhq/components';
-import { YStack } from '@onekeyhq/components';
+import { YStack, useMedia } from '@onekeyhq/components';
 
 import { BookmarksSectionItem } from './BookmarksSectionItem';
 
@@ -13,9 +15,22 @@ export function BookmarksSectionItems({
   dataSource: IBrowserBookmark[];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
+  const [numberOfItems, setNumberOfItems] = useState(0);
+  const media = useMedia();
+
+  useEffect(() => {
+    const calculateNumberOfItems = () => {
+      if (media.gtXl) return 14;
+      if (media.gt2Md) return 12;
+      if (media.gtSm) return 10;
+      return 8;
+    };
+    setNumberOfItems(calculateNumberOfItems());
+  }, [media.gtXl, media.gtLg, media.gtSm, media.gtMd, media.gt2Md]);
+
   return (
     <YStack flexDirection="row" flexWrap="wrap" {...restProps}>
-      {dataSource.slice(0, 8).map(({ logo, title, url }, index) => (
+      {dataSource.slice(0, numberOfItems).map(({ logo, title, url }, index) => (
         <YStack
           key={index}
           width="25%"

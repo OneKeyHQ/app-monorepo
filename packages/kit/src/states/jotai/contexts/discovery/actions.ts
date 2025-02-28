@@ -24,6 +24,10 @@ import {
   processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -469,6 +473,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(data);
+
+      setTimeout(() => {
+        // Trigger bookmark list refresh after building bookmark data
+        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+      }, 200);
     },
   );
 

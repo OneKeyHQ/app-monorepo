@@ -12,6 +12,10 @@ import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusSta
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,27 +38,8 @@ function DashboardContent({
 }) {
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
-  const { displayHomePage } = useDisplayHomePageFlag();
   const { gtMd } = useMedia();
   const { handleOpenWebSite } = useBrowserAction().current;
-  const { result: [bookmarksData] = [], run: refreshLocalData } =
-    usePromiseResult(
-      async () => {
-        const bookmarks = backgroundApiProxy.serviceDiscovery.getBookmarkData({
-          generateIcon: true,
-          sliceCount: 8,
-        });
-        const histories = backgroundApiProxy.serviceDiscovery.getHistoryData({
-          generateIcon: true,
-          sliceCount: 8,
-        });
-        return Promise.all([bookmarks, histories]);
-      },
-      [],
-      {
-        watchLoading: true,
-      },
-    );
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -81,21 +66,6 @@ function DashboardContent({
     setIsRefreshing(true);
     void run();
   }, [run]);
-
-  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
-    if (isFocus) {
-      // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
-      setTimeout(() => {
-        void refreshLocalData();
-      });
-    }
-  });
-
-  useEffect(() => {
-    if (displayHomePage && platformEnv.isNative) {
-      void refreshLocalData();
-    }
-  }, [displayHomePage, refreshLocalData]);
 
   // Use the useBannerData hook to get processed banner data
   const { data: bannerData } = useBannerData(homePageData?.banners || []);
@@ -138,7 +108,6 @@ function DashboardContent({
             <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
               <BookmarksSection
                 key="BookmarksSection"
-                bookmarksData={bookmarksData}
                 handleOpenWebSite={({ webSite }) => {
                   handleOpenWebSite({
                     switchToMultiTabBrowser: gtMd,
@@ -162,7 +131,6 @@ function DashboardContent({
       homePageData?.banners,
       hasBannerData,
       isLoading,
-      bookmarksData,
       handleOpenWebSite,
       gtMd,
       navigation,
