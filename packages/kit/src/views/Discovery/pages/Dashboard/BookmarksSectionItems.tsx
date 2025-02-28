@@ -26,7 +26,7 @@ export function BookmarksSectionItems({
       return 8;
     };
     setNumberOfItems(calculateNumberOfItems());
-  }, [media.gtXl, media.gtLg, media.gtSm, media.gtMd, media.gt2Md]);
+  }, [media.gtXl, media.gt2Md, media.gtSm]);
 
   return (
     <YStack flexDirection="row" flexWrap="wrap" {...restProps}>
