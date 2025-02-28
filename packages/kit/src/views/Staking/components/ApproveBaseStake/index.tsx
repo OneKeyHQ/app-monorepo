@@ -259,7 +259,7 @@ export function ApproveBaseStake({
     if (
       earnUtils.isUSDTonETHNetwork(token) &&
       allowanceBN.gt(0) &&
-      amountValueBN.gt(allowanceBN)
+      !amountValueBN.eq(allowanceBN)
     ) {
       return true;
     }
