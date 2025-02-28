@@ -19,12 +19,9 @@ import type { IWebTab } from '../../types';
 import type { DidStartNavigationEvent, PageTitleUpdatedEvent } from 'electron';
 import type { WebViewProps } from 'react-native-webview';
 
-type IWebContentProps = IWebTab &
-  WebViewProps & {
-    addBrowserHistory?: (siteInfo: { url: string; title: string }) => void;
-  };
+type IWebContentProps = IWebTab & WebViewProps;
 
-function WebContent({ id, url, addBrowserHistory }: IWebContentProps) {
+function WebContent({ id, url }: IWebContentProps) {
   const navigation = useAppNavigation();
   const urlRef = useRef<string>('');
   const phishingUrlRef = useRef<string>('');

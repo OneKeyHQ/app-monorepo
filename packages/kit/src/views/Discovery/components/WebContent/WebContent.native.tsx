@@ -27,7 +27,6 @@ type IWebContentProps = IWebTab &
     isCurrent: boolean;
     setBackEnabled: Dispatch<SetStateAction<boolean>>;
     setForwardEnabled: Dispatch<SetStateAction<boolean>>;
-    addBrowserHistory: (siteInfo: { url: string; title: string }) => void;
   };
 
 function WebContent({
@@ -38,7 +37,6 @@ function WebContent({
   canGoBack,
   setBackEnabled,
   setForwardEnabled,
-  addBrowserHistory,
   onScroll,
   siteMode,
 }: IWebContentProps) {
