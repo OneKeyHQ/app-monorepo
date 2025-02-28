@@ -1,11 +1,9 @@
-import type { PropsWithChildren } from 'react';
 import { memo, useCallback, useMemo } from 'react';
 
 import { type IProps } from '.';
 
 import { useIntl } from 'react-intl';
 
-import type { IXStackProps } from '@onekeyhq/components';
 import {
   DebugRenderTracker,
   Divider,
@@ -92,6 +90,7 @@ function TokenDetailsHeader(props: IProps) {
         updateTokenMetadata({
           price: tokensDetails[0].price,
           priceChange24h: tokensDetails[0].price24h,
+          coingeckoId: tokensDetails[0].info.coingeckoId,
         });
         return tokensDetails[0];
       },

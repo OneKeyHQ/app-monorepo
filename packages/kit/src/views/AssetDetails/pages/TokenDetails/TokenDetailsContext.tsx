@@ -4,7 +4,7 @@ export interface ITokenDetailsContextValue {
   tokenMetadata?: {
     price?: number;
     priceChange24h?: number;
-    [key: string]: any;
+    coingeckoId?: string;
   };
   updateTokenMetadata: (
     data: Partial<ITokenDetailsContextValue['tokenMetadata']>,

@@ -49,6 +49,7 @@ import TokenDetailsViews from './TokenDetailsView';
 
 import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import type { RouteProp } from '@react-navigation/core';
+import TokenDetailsFooter from './TokenDetailsFooter';
 
 const num = 0;
 
@@ -275,13 +276,14 @@ function TokenDetailsView() {
   ]);
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page safeAreaEnabled>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}
         headerRight={headerRight}
       />
       <Page.Body>{renderTokenDetailsView()}</Page.Body>
+      <TokenDetailsFooter />
     </Page>
   );
 }

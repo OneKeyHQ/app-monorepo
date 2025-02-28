@@ -1,32 +1,95 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+
+import BigNumber from 'bignumber.js';
+import { useIntl } from 'react-intl';
+
+import {
+  Divider,
+  Icon,
+  NumberSizeableText,
+  Page,
+  SizableText,
+  Skeleton,
+  XStack,
+} from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
-import { Page, XStack, SizableText } from '@onekeyhq/components';
-import { useIntl } from 'react-intl';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { marketNavigation } from '../../../Market/marketUtils';
 
 function TokenDetailsFooter() {
   const intl = useIntl();
   const { tokenMetadata } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
+  const navigation = useAppNavigation();
 
-  if (tokenMetadata) {
+  const priceChangeColor = useMemo(() => {
+    const priceChangeBN = new BigNumber(tokenMetadata?.priceChange24h ?? 0);
+    if (priceChangeBN.isGreaterThan(0)) {
+      return '$textSuccess';
+    }
+    if (priceChangeBN.isLessThan(0)) {
+      return '$textCritical';
+    }
+    return '$textSubdued';
+  }, [tokenMetadata?.priceChange24h]);
+
+  return (
     <Page.Footer>
-      <XStack>
+      <Divider />
+      <XStack
+        px="$5"
+        py="$3"
+        justifyContent="space-between"
+        alignItems="center"
+        {...(tokenMetadata?.coingeckoId ? listItemPressStyle : null)}
+        backgroundColor="$bgSubdued"
+        onPress={() => {
+          if (tokenMetadata?.coingeckoId) {
+            void marketNavigation.pushDetailPageFromDeeplink(navigation, {
+              coinGeckoId: tokenMetadata.coingeckoId,
+            });
+          }
+        }}
+      >
         <SizableText size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.global_market })}
         </SizableText>
-        <XStack>
-          <SizableText size="$bodyMd">
-            {intl.formatMessage({ id: ETranslations.global_market_cap })}
-          </SizableText>
-        </XStack>
+        {tokenMetadata ? (
+          <XStack alignItems="center" gap="$2">
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="price"
+              formatterOptions={{
+                currency: settings.currencyInfo.symbol,
+              }}
+            >
+              {tokenMetadata?.price}
+            </NumberSizeableText>
+            <NumberSizeableText
+              size="$bodyMd"
+              formatter="priceChange"
+              formatterOptions={{
+                showPlusMinusSigns: true,
+              }}
+              color={priceChangeColor}
+            >
+              {tokenMetadata?.priceChange24h}
+            </NumberSizeableText>
+            {tokenMetadata.coingeckoId ? (
+              <Icon name="ChevronRightSmallOutline" color="$iconSubdued" />
+            ) : null}
+          </XStack>
+        ) : (
+          <Skeleton.BodyMd />
+        )}
       </XStack>
-    </Page.Footer>;
-  }
-
-  return null;
+    </Page.Footer>
+  );
 }
 
 export default memo(TokenDetailsFooter);
