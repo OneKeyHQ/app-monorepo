@@ -6,14 +6,18 @@ import { useIntl } from 'react-intl';
 import {
   Dialog,
   Empty,
-  ListView,
+  Heading,
+  SectionList,
+  SizableText,
   Skeleton,
   Toast,
+  XStack,
   useMedia,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import {
   ESwapLimitOrderStatus,
   type IFetchLimitOrderRes,
@@ -28,6 +32,12 @@ interface ILimitOrderListProps {
   onClickCell: (item: IFetchLimitOrderRes) => void;
   isLoading?: boolean;
   type: 'open' | 'history';
+}
+
+interface ISectionData {
+  title: string;
+  status?: ESwapLimitOrderStatus;
+  data: IFetchLimitOrderRes[];
 }
 
 const LimitOrderList = ({
@@ -124,6 +134,35 @@ const LimitOrderList = ({
     );
   }, [swapLimitOrders, type]);
 
+  const sectionData = useMemo(() => {
+    const groupByDay = orderData.reduce<Record<string, IFetchLimitOrderRes[]>>(
+      (acc, item) => {
+        const date = new Date(item.createdAt);
+        const monthDay = formatDate(date, {
+          hideTimeForever: true,
+          hideYear: false,
+        });
+
+        if (!acc[monthDay]) {
+          acc[monthDay] = [];
+        }
+
+        acc[monthDay].push(item);
+
+        return acc;
+      },
+      {},
+    );
+
+    const result: ISectionData[] = Object.entries(groupByDay).map(
+      ([title, data]) => ({
+        title,
+        data,
+      }),
+    );
+    return result;
+  }, [orderData]);
+
   const loadingSkeleton = useMemo(
     () =>
       Array.from({ length: gtMd ? 4 : 3 }).map((_, index) => (
@@ -136,12 +175,19 @@ const LimitOrderList = ({
   return !swapLimitOrders.length && isLoading ? (
     loadingSkeleton
   ) : (
-    <ListView
+    <SectionList
       flex={1}
       borderRadius="$3"
       estimatedItemSize="$20"
-      data={orderData}
+      sections={sectionData}
       renderItem={renderItem}
+      renderSectionHeader={({ section: { title } }) => (
+        <XStack px="$2" pb="$2" alignItems="center">
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {title}
+          </SizableText>
+        </XStack>
+      )}
       ListEmptyComponent={
         <Empty
           icon="SearchMenuOutline"

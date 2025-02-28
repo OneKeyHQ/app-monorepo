@@ -260,13 +260,7 @@ export const WelcomeItem = memo(
             $platform-web={{
               transform: 'translate3d(0, 0, 0)',
             }}
-            source={
-              (platformEnv.isNative
-                ? logo
-                : {
-                    uri: logo,
-                  }) as ImageSourcePropType
-            }
+            source={{ uri: logo } as ImageSourcePropType}
             width={size}
             height={size}
             borderRadius={borderRadius}

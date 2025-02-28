@@ -11,7 +11,6 @@ import {
   IconButton,
   Page,
   SectionList,
-  Skeleton,
   Toast,
   XStack,
   useMedia,
@@ -106,14 +105,14 @@ function HistoryListModal() {
               onPress={() => {
                 Dialog.show({
                   title: intl.formatMessage({
-                    id: ETranslations.explore_clear_history_prompt,
+                    id: ETranslations.browser_clear_recently_closed,
                   }),
                   description: intl.formatMessage({
-                    id: ETranslations.explore_clear_history_message,
+                    id: ETranslations.browser_clear_recently_closed_description,
                   }),
                   onConfirm: () => handleDeleteAll(),
                   onConfirmText: intl.formatMessage({
-                    id: ETranslations.explore_remove_all,
+                    id: ETranslations.global_clear,
                   }),
                 });
               }}
@@ -143,7 +142,9 @@ function HistoryListModal() {
   return (
     <Page scrollEnabled>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.explore_history })}
+        title={intl.formatMessage({
+          id: ETranslations.browser_recently_closed,
+        })}
         headerRight={headerRight}
       />
       <Page.Body>
@@ -156,7 +157,7 @@ function HistoryListModal() {
               my="$4"
               icon="ClockTimeHistoryOutline"
               title={intl.formatMessage({
-                id: ETranslations.explore_no_history,
+                id: ETranslations.browser_no_closed_tabs,
               })}
             />
           }

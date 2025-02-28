@@ -27,12 +27,14 @@ import { Token } from '../../../components/Token';
 const LimitOrderCard = ({
   item,
   progressWidth = 255,
+  hiddenCreateTime,
   onPress,
   hiddenCancelIcon = false,
   onCancel,
   hiddenHoverBg = false,
 }: {
   item: IFetchLimitOrderRes;
+  hiddenCreateTime?: boolean;
   progressWidth?: number;
   onPress?: () => void;
   hiddenCancelIcon?: boolean;
@@ -48,6 +50,9 @@ const LimitOrderCard = ({
     const dateStr = formatDate(new Date(date), {
       hideSeconds: true,
     });
+    if (hiddenCreateTime) {
+      return null;
+    }
     return (
       <XStack justifyContent="space-between">
         <SizableText size="$bodySm" color="$textSubdued">
@@ -55,7 +60,7 @@ const LimitOrderCard = ({
         </SizableText>
       </XStack>
     );
-  }, [item.createdAt]);
+  }, [hiddenCreateTime, item.createdAt]);
 
   const expirationTitle = useMemo(() => {
     const date = new BigNumber(item.expiredAt).shiftedBy(3).toNumber();

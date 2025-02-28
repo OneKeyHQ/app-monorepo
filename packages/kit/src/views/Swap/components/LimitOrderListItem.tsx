@@ -17,13 +17,13 @@ const LimitOrderListItem = ({
   item,
   onClickCell,
   onCancel,
-  cancelLoading,
 }: ILimitOrderListItemProps) => {
   const { gtMd } = useMedia();
   return (
     <XStack mb="$2">
       <LimitOrderCard
         item={item}
+        hiddenCreateTime
         onPress={() => onClickCell(item)}
         progressWidth={gtMd ? 100 : 200}
         onCancel={() => onCancel(item)}

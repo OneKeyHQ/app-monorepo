@@ -1826,3 +1826,50 @@ export const swapBridgeDefaultTokenExtraConfigs = {
     },
   },
 };
+
+export const wrappedTokens = [
+  {
+    networkId: 'evm--1',
+    address: '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
+  },
+  {
+    networkId: 'evm--56',
+    address: '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
+  },
+  {
+    networkId: 'evm--137',
+    address: '0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270',
+  },
+  {
+    networkId: 'evm--250',
+    address: '0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83',
+  },
+  {
+    networkId: 'evm--42161',
+    address: '0x82af49447d8a07e3bd95bd0d56f35241523fbab1',
+  },
+  {
+    networkId: 'evm--43114',
+    address: '0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7',
+  },
+  {
+    networkId: 'evm--128',
+    address: '0x5545153ccfca01fbd7dd11c0b23ba694d9509a6f',
+  },
+  {
+    networkId: 'evm--66',
+    address: '0x8f8526dbfd6e38e3d8307702ca8469bae6c56c15',
+  },
+  {
+    networkId: 'evm--10',
+    address: '0x4200000000000000000000000000000000000006',
+  },
+  {
+    networkId: 'evm--8453',
+    address: '0x4200000000000000000000000000000000000006',
+  },
+  {
+    networkId: 'evm--324',
+    address: '0x5aea5775959fbc2557cc8789bc1bf90a239d9a91',
+  },
+];

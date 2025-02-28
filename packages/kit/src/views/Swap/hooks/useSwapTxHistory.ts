@@ -109,7 +109,10 @@ export function useSwapTxHistoryActions() {
     (item: ISwapTxHistory) => {
       setFromToken(item?.baseInfo.fromToken);
       setToken(item?.baseInfo.toToken);
-      setFromTokenAmount(item?.baseInfo.fromAmount);
+      setFromTokenAmount({
+        value: item?.baseInfo.fromAmount,
+        isInput: true,
+      });
     },
     [setFromToken, setFromTokenAmount, setToken],
   );

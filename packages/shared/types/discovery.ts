@@ -1,27 +1,49 @@
 export interface IDiscoveryHomePageData {
   banners: IDiscoveryBanner[];
   categories: ICategory[];
+  trending: IDApp[];
 }
 
 export interface IDiscoveryBanner {
   bannerId: string;
   src: string;
   href: string;
-  hrefType: string;
+  hrefType: 'internal' | 'external';
   rank: number;
   useSystemBrowser: boolean;
   title?: string;
   theme?: 'light' | 'dark';
+  takeEffect?: {
+    start: number;
+    end: number;
+    platform: string[];
+    deleted: boolean;
+  };
 }
 
 export interface ICategory {
   categoryId: string;
   name: string;
   dapps: IDApp[];
+  origin?: string;
+  recommendIndex?: number;
+  recommend?: {
+    start: number;
+    end: number;
+    platform: string[];
+    deleted: boolean;
+  };
   dappInfo?: {
-    information?: string;
+    information?:
+      | string
+      | {
+          text: string;
+          lokaliseKey: string;
+          deleted: boolean;
+        };
     link?: string;
     showLink?: boolean;
+    deleted?: boolean;
   };
 }
 
@@ -30,12 +52,17 @@ export interface IDApp {
   name: string;
   url: string;
   logo: string;
-  originLogo: string;
+  originLogo?: string;
   description: string;
   networkIds: string[];
-  categories: ICategory[];
+  categories?: ICategory[];
+  categoryIds?: string[];
+  tagIds?: string[];
   tags: IDAppTag[];
   keyword?: string;
+  order?: number;
+  origins?: string[];
+  _id?: string;
 }
 
 export interface IDAppTag {

@@ -32,6 +32,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapQuoteKind,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -169,7 +170,7 @@ const SwapActionsState = ({
           id: ETranslations.global_continue,
         }),
         onConfirm: () => {
-          onApprove(fromAmount, swapActionState.approveUnLimit, true);
+          onApprove(fromAmount.value, swapActionState.approveUnLimit, true);
         },
         showCancelButton: true,
         title: intl.formatMessage({
@@ -181,7 +182,7 @@ const SwapActionsState = ({
         icon: 'ErrorOutline',
       });
     } else {
-      onApprove(fromAmount, swapActionState.approveUnLimit);
+      onApprove(fromAmount.value, swapActionState.approveUnLimit);
     }
   }, [
     fromAmount,
@@ -199,6 +200,9 @@ const SwapActionsState = ({
         swapSlippageRef.current,
         swapFromAddressInfo?.address,
         swapFromAddressInfo?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
       );
     } else {
       cleanQuoteInterval();
@@ -215,6 +219,7 @@ const SwapActionsState = ({
     }
   }, [
     cleanQuoteInterval,
+    currentQuoteRes?.kind,
     handleApprove,
     onBuildTx,
     onWrapped,
