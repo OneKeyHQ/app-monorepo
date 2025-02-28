@@ -157,67 +157,8 @@ export function ApproveBaseStake({
     undefined | IEarnEstimateFeeResp
   >();
 
-  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
-    if (!amount) {
-      setEstimateFeeResp(undefined);
-      return;
-    }
-    const amountNumber = BigNumber(amount);
-    if (amountNumber.isZero() || amountNumber.isNaN()) {
-      return;
-    }
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId: approveTarget.networkId,
-      provider: details.provider.name,
-      symbol: details.token.info.symbol,
-      action: 'stake',
-      amount: amountNumber.toFixed(),
-      morphoVault: details.provider.vault,
-      accountAddress: account?.address,
-    });
-    setEstimateFeeResp(resp);
-  }, 350);
-
   const { getPermitSignature } = useEarnPermitApprove();
   const { getPermitCache, updatePermitCache } = useEarnActions().current;
-
-  const onChangeAmountValue = useCallback(
-    (value: string) => {
-      if (!validateAmountInput(value, decimals)) {
-        return;
-      }
-      const valueBN = new BigNumber(value);
-      if (valueBN.isNaN()) {
-        if (value === '') {
-          setAmountValue('');
-          void fetchEstimateFeeResp();
-        }
-        return;
-      }
-      const isOverflowDecimals = Boolean(
-        decimals &&
-          Number(decimals) > 0 &&
-          countDecimalPlaces(value) > decimals,
-      );
-      if (isOverflowDecimals) {
-        setAmountValue((oldValue) => oldValue);
-      } else {
-        setAmountValue(value);
-        void fetchEstimateFeeResp(value);
-      }
-    },
-    [decimals, fetchEstimateFeeResp],
-  );
-
-  const currentValue = useMemo<string | undefined>(() => {
-    const amountValueBn = new BigNumber(amountValue);
-    if (amountValueBn.isNaN()) return undefined;
-    return amountValueBn.multipliedBy(price).toFixed();
-  }, [amountValue, price]);
 
   const isInsufficientBalance = useMemo<boolean>(
     () => new BigNumber(amountValue).gt(balance),
@@ -295,6 +236,96 @@ export function ApproveBaseStake({
     approveTarget.accountId,
     approveTarget.networkId,
   ]);
+
+  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
+    if (!amount) {
+      setEstimateFeeResp(undefined);
+      return;
+    }
+    const amountNumber = BigNumber(amount);
+    if (amountNumber.isZero() || amountNumber.isNaN()) {
+      return;
+    }
+
+    const permitParams: {
+      approveType?: 'permit';
+      permitSignature?: string;
+    } = {};
+
+    if (usePermit2Approve) {
+      if (shouldApprove) {
+        setEstimateFeeResp(undefined);
+        return;
+      }
+
+      permitParams.approveType = 'permit';
+
+      const amountBN = BigNumber(amount);
+      const allowanceBN = BigNumber(allowance);
+      if (amountBN.gt(allowanceBN)) {
+        const permitCache = getPermitCache({
+          accountId: approveTarget.accountId,
+          networkId: approveTarget.networkId,
+          tokenAddress: token.address,
+          amount,
+        });
+
+        if (permitCache) {
+          permitParams.permitSignature = permitCache.signature;
+        }
+      }
+    }
+
+    const account = await backgroundApiProxy.serviceAccount.getAccount({
+      accountId: approveTarget.accountId,
+      networkId: approveTarget.networkId,
+    });
+    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+      networkId: approveTarget.networkId,
+      provider: details.provider.name,
+      symbol: details.token.info.symbol,
+      action: 'stake',
+      amount: amountNumber.toFixed(),
+      morphoVault: details.provider.vault,
+      accountAddress: account?.address,
+      ...permitParams,
+    });
+    setEstimateFeeResp(resp);
+  }, 350);
+
+  const onChangeAmountValue = useCallback(
+    (value: string) => {
+      if (!validateAmountInput(value, decimals)) {
+        return;
+      }
+      const valueBN = new BigNumber(value);
+      if (valueBN.isNaN()) {
+        if (value === '') {
+          setAmountValue('');
+          void fetchEstimateFeeResp();
+        }
+        return;
+      }
+      const isOverflowDecimals = Boolean(
+        decimals &&
+          Number(decimals) > 0 &&
+          countDecimalPlaces(value) > decimals,
+      );
+      if (isOverflowDecimals) {
+        setAmountValue((oldValue) => oldValue);
+      } else {
+        setAmountValue(value);
+        void fetchEstimateFeeResp(value);
+      }
+    },
+    [decimals, fetchEstimateFeeResp],
+  );
+
+  const currentValue = useMemo<string | undefined>(() => {
+    const amountValueBn = new BigNumber(amountValue);
+    if (amountValueBn.isNaN()) return undefined;
+    return amountValueBn.multipliedBy(price).toFixed();
+  }, [amountValue, price]);
 
   const onConfirmText = useMemo(() => {
     if (shouldApprove) {
@@ -631,8 +662,7 @@ export function ApproveBaseStake({
     approveTarget.spenderAddress,
     approveTarget.token,
     navigationToTxConfirm,
-    intl,
-    resetUSDTApproveValue,
+    showResetUSDTApproveValueDialog,
     checkEstimateGasAlert,
     getPermitCache,
     getPermitSignature,
