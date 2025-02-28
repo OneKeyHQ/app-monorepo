@@ -20,8 +20,8 @@ export function BookmarksSectionItems({
 
   useEffect(() => {
     const calculateNumberOfItems = () => {
-      if (media.gtXl) return 14;
-      if (media.gt2Md) return 12;
+      if (media.gtXl) return 7;
+      if (media.gt2Md) return 6;
       if (media.gtSm) return 10;
       return 8;
     };
