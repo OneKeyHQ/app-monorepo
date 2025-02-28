@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Badge,
   Divider,
-  IconButton,
   NumberSizeableText,
   Progress,
   SizableText,
@@ -31,7 +30,6 @@ const LimitOrderCard = ({
   onPress,
   hiddenCancelIcon = false,
   onCancel,
-  cancelLoading,
   hiddenHoverBg = false,
 }: {
   item: IFetchLimitOrderRes;
@@ -189,7 +187,7 @@ const LimitOrderCard = ({
           break;
         case ESwapLimitOrderStatus.EXPIRED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_status_expired,
+            id: ETranslations.limit_order_expired,
           });
           color = '$textCaution';
           break;
