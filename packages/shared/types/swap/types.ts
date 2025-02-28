@@ -50,6 +50,11 @@ export enum EExplorerType {
   TO = 'to',
 }
 
+export enum ESwapQuoteKind {
+  SELL = 'sell',
+  BUY = 'buy',
+}
+
 export enum ETokenRiskLevel {
   UNKNOWN = 0,
   BENIGN = 1,
@@ -119,7 +124,7 @@ interface IFetchSwapQuoteBaseParams {
   toNetworkId: string;
   fromTokenAddress: string;
   toTokenAddress: string;
-  fromTokenAmount: string;
+  fromTokenAmount?: string;
   protocol: string;
 }
 
@@ -228,6 +233,8 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   blockNumber?: number;
   expirationTime?: number;
   limitPartiallyFillable?: boolean;
+  kind?: ESwapQuoteKind;
+  toTokenAmount?: string;
 }
 interface ISocketAsset {
   address: string;
@@ -310,6 +317,7 @@ export interface IFetchQuoteResult {
   toTokenInfo: ISwapTokenBase;
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
+  kind?: ESwapQuoteKind;
   networkCostExceedInfo?: {
     tokenInfo: {
       symbol: string;
@@ -711,11 +719,6 @@ export enum ESwapLimitOrderExpiryStep {
 export const LimitMarketUpPercentages = [0, 20, 50, 100];
 
 export const defaultLimitExpirationTime = ESwapLimitOrderExpiryStep.ONE_WEEK;
-
-export const ESwapLimitPartiallyFillStepMap = [
-  { label: 'Enabled', value: true },
-  { label: 'Disabled', value: false },
-];
 
 export interface ISwapLimitPriceInfo {
   fromToken?: ISwapToken;

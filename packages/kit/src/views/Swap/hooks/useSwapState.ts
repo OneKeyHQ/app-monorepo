@@ -20,8 +20,10 @@ import type {
   ISwapState,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapAlertLevel,
   ESwapDirectionType,
+  ESwapQuoteKind,
   ESwapSlippageSegmentKey,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
@@ -186,8 +188,10 @@ export function useSwapActionState() {
             fromToken?.contractAddress ||
           quoteCurrentSelect.toTokenInfo.contractAddress !==
             toToken?.contractAddress)) ||
-      (quoteCurrentSelect?.allowanceResult &&
-        quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount),
+      (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
+        quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
+        quoteCurrentSelect?.allowanceResult &&
+        quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount.value),
     [
       fromToken?.contractAddress,
       fromToken?.networkId,
@@ -206,7 +210,8 @@ export function useSwapActionState() {
     if (
       !swapFromAddressInfo.address ||
       !swapToAddressInfo.address ||
-      quoteCurrentSelect?.fromAmount !== fromTokenAmount
+      (quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
+        quoteCurrentSelect?.fromAmount !== fromTokenAmount.value)
     ) {
       infoRes.disable = true;
     }
@@ -255,7 +260,7 @@ export function useSwapActionState() {
       }
 
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
       if (
         fromToken &&
         swapFromAddressInfo.address &&

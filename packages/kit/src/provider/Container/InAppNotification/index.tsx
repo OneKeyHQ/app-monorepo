@@ -23,7 +23,11 @@ const InAppNotification = () => {
         ? activeAccount?.account?.id ?? activeAccount?.dbAccount?.id
         : undefined,
     );
-  }, [activeAccount]);
+  }, [
+    activeAccount?.indexedAccount?.id,
+    activeAccount?.account?.id,
+    activeAccount?.dbAccount?.id,
+  ]);
 
   return null;
 };
