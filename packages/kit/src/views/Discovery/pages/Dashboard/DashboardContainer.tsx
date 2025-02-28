@@ -26,7 +26,7 @@ function Dashboard() {
         >
           <BrowserTitle />
 
-          <Stack position="absolute" right="$5">
+          <Stack position="absolute" right="$5" pt={top}>
             <HistoryIconButton />
           </Stack>
         </Stack>
