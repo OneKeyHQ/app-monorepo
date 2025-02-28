@@ -41,19 +41,7 @@ import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
 
 import type { IProps } from '.';
-
-function ActionsRowContainer(props: PropsWithChildren<IXStackProps>) {
-  return (
-    <XStack
-      justifyContent="space-between"
-      $gtSm={{
-        gap: '$2',
-        justifyContent: 'flex-start',
-      }}
-      {...props}
-    />
-  );
-}
+import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
 
 function TokenDetailsHeader(props: IProps) {
   const {
@@ -243,7 +231,7 @@ function TokenDetailsHeader(props: IProps) {
             </Stack>
           </XStack>
           {/* Actions */}
-          <RawActions flexDirection="column" gap="$5">
+          <RawActions gap="$8" flexWrap="wrap" flexDirection="row">
             <ReviewControl>
               <ActionBuy
                 networkId={networkId}
@@ -274,6 +262,13 @@ function TokenDetailsHeader(props: IProps) {
               disabled={isReceiveDisabled}
               onPress={() => handleOnReceive(tokenInfo)}
             />
+            <WalletActionEarn
+              accountId={accountId}
+              tokenAddress={tokenInfo.address}
+              networkId={networkId}
+              indexedAccountId={indexedAccountId}
+            />
+            <Stack w={50} />
           </RawActions>
         </Stack>
         <Divider />
@@ -305,12 +300,6 @@ function TokenDetailsHeader(props: IProps) {
             <Icon name="Copy3Outline" />
           </XStack>
         </YStack>
-        {/* <TokenDetailStakingEntry
-          networkId={networkId}
-          accountId={accountId}
-          indexedAccountId={indexedAccountId}
-          tokenAddress={tokenInfo.address}
-        /> */}
         {/* History */}
         <Divider mb="$3" />
       </>

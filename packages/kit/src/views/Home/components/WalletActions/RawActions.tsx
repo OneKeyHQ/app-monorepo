@@ -136,6 +136,17 @@ function ActionBridge(props: IActionItemsProps) {
   );
 }
 
+function ActionEarn(props: IActionItemsProps) {
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_earn })}
+      icon="CoinsOutline"
+      {...props}
+    />
+  );
+}
+
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
   const intl = useIntl();
   const media = useMedia();
@@ -185,5 +196,6 @@ RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;
 RawActions.Bridge = ActionBridge;
+RawActions.Earn = ActionEarn;
 
 export { RawActions, ActionItem };
