@@ -11,7 +11,6 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import {
   EAppEventBusNames,
   appEventBus,

@@ -7,18 +7,21 @@ import {
   Skeleton,
   Stack,
 } from '@onekeyhq/components';
+import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import type { IMatchDAppItemType } from '../../types';
 
-export function BookmarksSectionItem({
+export function TrendingSectionItem({
   logo,
   title,
   url,
+  dApp,
   handleOpenWebSite,
 }: {
   logo?: string;
   title: string;
   url: string;
+  dApp: IDApp;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
   return (
@@ -28,7 +31,7 @@ export function BookmarksSectionItem({
       justifyContent="center"
       alignItems="center"
       userSelect="none"
-      onPress={() => handleOpenWebSite({ webSite: { url, title } })}
+      onPress={() => handleOpenWebSite({ dApp, webSite: { url, title } })}
     >
       <Image
         size="$14"

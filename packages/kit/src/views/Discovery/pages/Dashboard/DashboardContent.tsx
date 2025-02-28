@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   RefreshControl,
   ScrollView,
@@ -20,6 +22,8 @@ import { useBannerData } from '../../hooks/useBannerData';
 
 import { DashboardBanner } from './Banner';
 import { BookmarksSection } from './BookmarksSection';
+import { DiveInContent } from './DiveInContent';
+import { TrendingSection } from './TrendingSection';
 import { Welcome } from './Welcome';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
@@ -64,6 +68,40 @@ function DashboardContent({
   const { data: bannerData } = useBannerData(homePageData?.banners || []);
   const hasBannerData = bannerData && bannerData.length > 0;
 
+  // Add usePromiseResult hooks to get bookmark and trending data
+  const { result: bookmarksData } = usePromiseResult(
+    async () => {
+      const bookmarks =
+        await backgroundApiProxy.serviceDiscovery.getBookmarkData({
+          generateIcon: true,
+          sliceCount: 14,
+        });
+
+      return bookmarks;
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const { result: trendingData } = usePromiseResult<any[]>(
+    async () => {
+      const data =
+        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+      return data.trending || [];
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
+
+  // Check if both bookmarks and trending have no data
+  const hasBookmarks = (bookmarksData && bookmarksData.length > 0) || false;
+  const hasTrending = (trendingData && trendingData.length > 0) || false;
+  const showDiveInDescription = !hasBookmarks && !hasTrending;
+
   const content = useMemo(
     () => (
       <>
@@ -98,24 +136,49 @@ function DashboardContent({
 
         {platformEnv.isExtension || platformEnv.isWeb ? null : (
           <Stack alignItems="center">
-            <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
-              <BookmarksSection
-                key="BookmarksSection"
-                handleOpenWebSite={({ webSite }) => {
-                  handleOpenWebSite({
-                    switchToMultiTabBrowser: gtMd,
-                    webSite,
-                    navigation,
-                    shouldPopNavigation: false,
-                  });
-                  defaultLogger.discovery.dapp.enterDapp({
-                    dappDomain: webSite?.url || '',
-                    dappName: webSite?.title || '',
-                    enterMethod: EEnterMethod.dashboard,
-                  });
-                }}
-              />
-            </Stack>
+            {showDiveInDescription ? (
+              <DiveInContent />
+            ) : (
+              <>
+                <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+                  <BookmarksSection
+                    key="BookmarksSection"
+                    handleOpenWebSite={({ webSite }) => {
+                      handleOpenWebSite({
+                        switchToMultiTabBrowser: gtMd,
+                        webSite,
+                        navigation,
+                        shouldPopNavigation: false,
+                      });
+                      defaultLogger.discovery.dapp.enterDapp({
+                        dappDomain: webSite?.url || '',
+                        dappName: webSite?.title || '',
+                        enterMethod: EEnterMethod.dashboard,
+                      });
+                    }}
+                  />
+                </Stack>
+
+                {/* here is trending */}
+                <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+                  <TrendingSection
+                    handleOpenWebSite={({ webSite }) => {
+                      handleOpenWebSite({
+                        switchToMultiTabBrowser: gtMd,
+                        webSite,
+                        navigation,
+                        shouldPopNavigation: false,
+                      });
+                      defaultLogger.discovery.dapp.enterDapp({
+                        dappDomain: webSite?.url || '',
+                        dappName: webSite?.title || '',
+                        enterMethod: EEnterMethod.dashboard,
+                      });
+                    }}
+                  />
+                </Stack>
+              </>
+            )}
           </Stack>
         )}
       </>
@@ -127,6 +190,7 @@ function DashboardContent({
       handleOpenWebSite,
       gtMd,
       navigation,
+      showDiveInDescription,
     ],
   );
 
