@@ -481,7 +481,6 @@ export function ApproveBaseStake({
       approvesInfo,
 
       onSuccess(data) {
-        trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
       },
       onFail() {
