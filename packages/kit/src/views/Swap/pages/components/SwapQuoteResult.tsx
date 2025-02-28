@@ -31,7 +31,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EProtocolOfExchange,
   ESwapLimitOrderExpiryStep,
-  ESwapLimitPartiallyFillStepMap,
   type IFetchQuoteResult,
   type ISwapToken,
   type ISwapTokenMetadata,
@@ -203,6 +202,23 @@ const SwapQuoteResult = ({
     ],
     [intl],
   );
+  const limitOrderPartiallyFillStepMap = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.Limit_info_partial_fill_enable,
+        }),
+        value: true,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.Limit_info_partial_fill_disable,
+        }),
+        value: false,
+      },
+    ],
+    [intl],
+  );
 
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
@@ -220,7 +236,7 @@ const SwapQuoteResult = ({
     !quoteResult?.isWrapped
   ) {
     return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
-      <YStack gap="$2">
+      <YStack gap="$3">
         <SwapProviderInfoItem
           providerIcon={quoteResult?.info.providerLogo ?? ''}
           providerName={quoteResult?.info.providerName ?? ''}
@@ -246,7 +262,7 @@ const SwapQuoteResult = ({
         <LimitPartialFillSelect
           currentSelectPartiallyFillValue={swapLimitPartiallyFill}
           onSelectPartiallyFillValue={setSwapLimitPartiallyFill}
-          selectItems={ESwapLimitPartiallyFillStepMap}
+          selectItems={limitOrderPartiallyFillStepMap}
         />
       </YStack>
     ) : null;
@@ -275,7 +291,6 @@ const SwapQuoteResult = ({
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
-                providerName={quoteResult?.info.providerName ?? ''}
                 isLoading={swapQuoteLoading}
                 refreshAction={refreshAction}
                 onOpenResult={

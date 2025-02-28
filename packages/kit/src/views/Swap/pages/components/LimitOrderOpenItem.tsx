@@ -1,11 +1,14 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSwapTypeSwitchAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import type { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes, EModalSwapRoutes } from '@onekeyhq/shared/src/routes';
 import {
@@ -20,6 +23,7 @@ const LimitOrderOpenItem = ({
   storeName: EJotaiContextStoreNames;
 }) => {
   const [{ swapLimitOrders }] = useInAppNotificationAtom();
+  const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const openLimitOrder = useMemo(
@@ -56,7 +60,12 @@ const LimitOrderOpenItem = ({
       <XStack gap="$2" alignItems="center">
         <Icon size={20} name="ClockTimeHistorySolid" color="$iconSubdued" />
         <SizableText size="$bodyMdMedium" color="$text">
-          {`${openLimitOrder.length} open limit order`}
+          {intl.formatMessage(
+            {
+              id: ETranslations.Limit_open_limit_order,
+            },
+            { num: openLimitOrder.length },
+          )}
         </SizableText>
       </XStack>
       <Icon size={20} name="ArrowRightOutline" color="$iconSubdued" />

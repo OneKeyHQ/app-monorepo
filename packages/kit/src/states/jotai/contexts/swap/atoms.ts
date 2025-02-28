@@ -20,7 +20,6 @@ import type {
   ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 import {
-  ESwapLimitPartiallyFillStepMap,
   ESwapTabSwitchType,
   LIMIT_PRICE_DEFAULT_DECIMALS,
   defaultLimitExpirationTime,
@@ -542,9 +541,7 @@ export const {
   atom: swapLimitPartiallyFillAtom,
   use: useSwapLimitPartiallyFillAtom,
 } = contextAtom<{ label: string; value: boolean }>({
-  label:
-    ESwapLimitPartiallyFillStepMap.find((item) => item.value === true)?.label ??
-    '',
+  label: '',
   value: true,
 });
 

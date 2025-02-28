@@ -30,7 +30,11 @@ const SwapLimitPartialFillSelect = ({
         }}
       >
         <SizableText size="$bodyMdMedium">
-          {currentSelectPartiallyFillValue?.label}
+          {currentSelectPartiallyFillValue?.label
+            ? currentSelectPartiallyFillValue?.label
+            : intl.formatMessage({
+                id: ETranslations.Limit_info_partial_fill_enable,
+              })}
         </SizableText>
         <Icon
           size="$5"
@@ -40,7 +44,7 @@ const SwapLimitPartialFillSelect = ({
         />
       </XStack>
     ),
-    [currentSelectPartiallyFillValue?.label],
+    [currentSelectPartiallyFillValue?.label, intl],
   );
   return (
     <XStack justifyContent="space-between">
