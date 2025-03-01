@@ -4,7 +4,9 @@ import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
 
 import {
+  Button,
   Dialog,
+  Divider,
   ESwitchSize,
   Icon,
   IconButton,
@@ -47,11 +49,7 @@ function BalanceDetailsContent({
 }) {
   const [settings, setSettings] = useSettingsPersistAtom();
   const { result } = usePromiseResult(async () => {
-    const [i, vaultSettings, { networkAccounts: n }] = await Promise.all([
-      backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled({
-        networkId,
-        accountId,
-      }),
+    const [vaultSettings, { networkAccounts: n }] = await Promise.all([
       backgroundApiProxy.serviceNetwork.getVaultSettings({
         networkId,
       }),
@@ -62,6 +60,16 @@ function BalanceDetailsContent({
         },
       ),
     ]);
+
+    const i =
+      await backgroundApiProxy.serviceSetting.checkInscriptionProtectionEnabled(
+        {
+          networkId,
+          accountId,
+          mergeDeriveAssetsEnabled: vaultSettings?.mergeDeriveAssetsEnabled,
+        },
+      );
+
     const s = !!(
       vaultSettings.mergeDeriveAssetsEnabled &&
       !accountUtils.isOthersAccount({
@@ -253,19 +261,18 @@ function BalanceDetailsContent({
         <YStack {...detailsBlockStyles}>
           <XStack justifyContent="space-between" alignItems="center">
             <XStack>
-              <SizableText size="$bodyLgMedium" color="$textSubdued" pr="$2">
-                {appLocale.intl.formatMessage({
-                  id: ETranslations.balance_detail_frozen,
-                })}
-              </SizableText>
-              <IconButton
+              <Button
                 variant="tertiary"
-                icon="QuestionmarkOutline"
+                iconAfter="QuestionmarkOutline"
+                color="$textSubdued"
                 onPress={() => {
                   openUrlExternal(whatIsFrozenBalanceUrl);
                 }}
-                color="$iconSubdued"
-              />
+              >
+                {appLocale.intl.formatMessage({
+                  id: ETranslations.balance_detail_frozen,
+                })}
+              </Button>
             </XStack>
             {isLoading ? (
               <Skeleton.BodyLg />
@@ -283,76 +290,80 @@ function BalanceDetailsContent({
           </XStack>
           {showDeriveItems && networkAccounts ? (
             <YStack gap="$2" mt="$3">
-              {networkAccounts.map((item, index) => (
-                <XStack
-                  justifyContent="space-between"
-                  alignItems="center"
-                  key={item.deriveType}
-                >
-                  <SizableText size="$bodyMd" color="$textSubdued">
-                    {item.deriveInfo.label ?? ''}
-                  </SizableText>
-                  {isLoading ? (
-                    <Skeleton.BodyMd />
-                  ) : (
-                    <SizableText
-                      textAlign="right"
-                      size="$bodyMd"
-                      color="$textSubdued"
+              {networkAccounts.map((item, index) => {
+                if (item.deriveType === 'BIP86') {
+                  return (
+                    <XStack
+                      justifyContent="space-between"
+                      alignItems="center"
+                      key={item.deriveType}
                     >
-                      {`${
-                        overview?.deriveItems?.[index]?.frozenBalanceParsed ??
-                        '-'
-                      } ${network?.symbol ?? ''}`}
-                    </SizableText>
-                  )}
-                </XStack>
-              ))}
+                      <SizableText size="$bodyMd" color="$textSubdued">
+                        {item.deriveInfo.label ?? ''}
+                      </SizableText>
+                      {isLoading ? (
+                        <Skeleton.BodyMd />
+                      ) : (
+                        <SizableText
+                          textAlign="right"
+                          size="$bodyMd"
+                          color="$textSubdued"
+                        >
+                          {`${
+                            overview?.deriveItems?.[index]
+                              ?.frozenBalanceParsed ?? '-'
+                          } ${network?.symbol ?? ''}`}
+                        </SizableText>
+                      )}
+                    </XStack>
+                  );
+                }
+                return null;
+              })}
             </YStack>
           ) : null}
-        </YStack>
-        {inscriptionEnabled ? (
-          <XStack
-            justifyContent="space-between"
-            alignItems="center"
-            {...detailsBlockStyles}
-          >
-            <Stack>
-              <SizableText size="$bodyLgMedium" color="$textSubdued">
-                {appLocale.intl.formatMessage({
-                  id: ETranslations.balance_detail_frozen_by_inscription,
-                })}
-              </SizableText>
-              <XStack
-                alignItems="center"
-                userSelect="none"
-                onPress={() => {
-                  openUrlExternal(howToTransferOrdinalsAssetsUrl);
-                }}
-                hoverStyle={{
-                  opacity: 0.75,
-                }}
-              >
-                <SizableText size="$bodyMd" color="$textSubdued" mr="$1.5">
-                  {appLocale.intl.formatMessage({
-                    id: ETranslations.open_ordinals_transfer_tutorial_url_message,
-                  })}
-                </SizableText>
-                <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
+          {inscriptionEnabled ? (
+            <>
+              <Divider my="$3" />
+              <XStack justifyContent="space-between" alignItems="center">
+                <Stack>
+                  <SizableText size="$bodyLgMedium" color="$textSubdued">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.balance_detail_frozen_by_inscription,
+                    })}
+                  </SizableText>
+                  <XStack
+                    alignItems="center"
+                    userSelect="none"
+                    onPress={() => {
+                      openUrlExternal(howToTransferOrdinalsAssetsUrl);
+                    }}
+                    hoverStyle={{
+                      opacity: 0.75,
+                    }}
+                  >
+                    <SizableText size="$bodyMd" color="$textSubdued" mr="$1.5">
+                      {appLocale.intl.formatMessage({
+                        id: ETranslations.open_ordinals_transfer_tutorial_url_message,
+                      })}
+                    </SizableText>
+                    <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
+                  </XStack>
+                </Stack>
+                <Switch
+                  size={ESwitchSize.small}
+                  value={settings.inscriptionProtection}
+                  onChange={(value) => {
+                    setSettings((v) => ({
+                      ...v,
+                      inscriptionProtection: value,
+                    }));
+                  }}
+                />
               </XStack>
-            </Stack>
-            <Switch
-              size={ESwitchSize.small}
-              value={settings.inscriptionProtection}
-              onChange={(value) => {
-                setSettings((v) => ({
-                  ...v,
-                  inscriptionProtection: value,
-                }));
-              }}
-            />
-          </XStack>
-        ) : null}
+            </>
+          ) : null}
+        </YStack>
       </YStack>
     </>
   );

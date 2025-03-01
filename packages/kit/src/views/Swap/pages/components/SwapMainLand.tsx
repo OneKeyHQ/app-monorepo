@@ -31,6 +31,7 @@ import type {
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
+  ESwapQuoteKind,
   ESwapTabSwitchType,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -159,6 +160,9 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           swapSlippageRef.current,
           swapFromAddressInfo?.address,
           swapFromAddressInfo?.accountInfo?.account?.id,
+          undefined,
+          undefined,
+          quoteResult?.kind ?? ESwapQuoteKind.SELL,
         );
       } else {
         setSwapQuoteIntervalCount((v) => v + 1);
@@ -168,13 +172,15 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           swapFromAddressInfo?.accountInfo?.account?.id,
           undefined,
           true,
+          quoteResult?.kind ?? ESwapQuoteKind.SELL,
         );
       }
     },
     [
       quoteAction,
-      swapFromAddressInfo?.accountInfo?.account?.id,
       swapFromAddressInfo?.address,
+      swapFromAddressInfo?.accountInfo?.account?.id,
+      quoteResult?.kind,
       setSwapQuoteIntervalCount,
     ],
   );
@@ -198,7 +204,10 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           fromSelectToken?.decimals,
         )
       ) {
-        setFromInputAmount(amountAfterDecimal.toFixed());
+        setFromInputAmount({
+          value: amountAfterDecimal.toFixed(),
+          isInput: true,
+        });
       }
     },
     [fromTokenBalance, fromSelectToken?.decimals, setFromInputAmount],
@@ -260,7 +269,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           <SwapRecentTokenPairsGroup
             onSelectTokenPairs={onSelectRecentTokenPairs}
             tokenPairs={swapRecentTokenPairs}
-            fromTokenAmount={fromTokenAmount}
+            fromTokenAmount={fromTokenAmount.value}
           />
         </YStack>
       </YStack>

@@ -10,8 +10,10 @@ import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,7 +22,9 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
+  ESwapQuoteKind,
   ESwapRateDifferenceUnit,
+  ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -81,6 +85,8 @@ const SwapInputContainer = ({
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
 
   const fromInputHasError = useMemo(() => {
     const accountError =
@@ -91,7 +97,7 @@ const SwapInputContainer = ({
           accountUtils.isHwWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id })));
     const balanceBN = new BigNumber(fromTokenBalance ?? 0);
-    const amountValueBN = new BigNumber(fromTokenAmount ?? 0);
+    const amountValueBN = new BigNumber(fromTokenAmount.value ?? 0);
     const hasBalanceError =
       direction === ESwapDirectionType.FROM &&
       !!fromToken &&
@@ -182,6 +188,20 @@ const SwapInputContainer = ({
     }, 200);
   };
 
+  const inputIsLoading = useMemo(() => {
+    if (direction === ESwapDirectionType.TO) {
+      return (
+        inputLoading &&
+        (!swapQuoteActionLock.kind ||
+          swapQuoteActionLock.kind === ESwapQuoteKind.SELL)
+      );
+    }
+    if (direction === ESwapDirectionType.FROM) {
+      return inputLoading && swapQuoteActionLock.kind === ESwapQuoteKind.BUY;
+    }
+    return inputLoading;
+  }, [direction, inputLoading, swapQuoteActionLock.kind]);
+
   const showPercentageInput = useMemo(
     () =>
       direction === ESwapDirectionType.FROM &&
@@ -242,13 +262,15 @@ const SwapInputContainer = ({
         }}
         inputProps={{
           placeholder: '0.0',
-          readOnly: direction === ESwapDirectionType.TO,
-          color:
-            direction === ESwapDirectionType.TO && inputLoading
-              ? '$textPlaceholder'
-              : undefined,
+          readOnly:
+            (direction === ESwapDirectionType.TO &&
+              swapTypeSwitch !== ESwapTabSwitchType.LIMIT) ||
+            inputIsLoading,
+          color: inputIsLoading ? '$textPlaceholder' : undefined,
           style:
-            !platformEnv.isNative && direction === ESwapDirectionType.TO
+            !platformEnv.isNative &&
+            direction === ESwapDirectionType.TO &&
+            swapTypeSwitch !== ESwapTabSwitchType.LIMIT
               ? ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)

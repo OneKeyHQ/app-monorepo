@@ -68,7 +68,11 @@ function useReceiveToken({
       if (!deriveInfo) return;
 
       if (vaultSettings?.isSingleToken || token) {
-        if (isMultipleDerive && !accountUtils.isOthersWallet({ walletId })) {
+        if (
+          isMultipleDerive &&
+          !accountUtils.isOthersWallet({ walletId }) &&
+          vaultSettings?.mergeDeriveAssetsEnabled
+        ) {
           navigation.pushModal(EModalRoutes.ReceiveModal, {
             screen: EModalReceiveRoutes.ReceiveSelectDeriveAddress,
             params: {
@@ -185,6 +189,7 @@ function useReceiveToken({
       tokenListState,
       tokens,
       vaultSettings?.isSingleToken,
+      vaultSettings?.mergeDeriveAssetsEnabled,
       walletId,
     ],
   );

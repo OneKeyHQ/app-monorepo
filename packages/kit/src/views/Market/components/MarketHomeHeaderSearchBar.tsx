@@ -27,7 +27,7 @@ export function MarketHomeHeaderSearchBar() {
 
   useShortcutsOnRouteFocused(SEARCH_IN_PAGE_KEY, toUniversalSearchPage);
   return (
-    <XStack $gtMd={{ width: 280 }}>
+    <XStack $gtSm={{ width: 280 }}>
       <SearchBar
         placeholder={intl.formatMessage({
           id: ETranslations.global_search_tokens,

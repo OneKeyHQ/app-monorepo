@@ -36,7 +36,6 @@ const SwapQuoteResultRate = ({
   fromToken,
   toToken,
   providerIcon,
-  providerName,
   isLoading,
   onOpenResult,
   openResult,
@@ -60,7 +59,7 @@ const SwapQuoteResultRate = ({
     }
     if (!rateIsExit) {
       return (
-        <SizableText ml="$1" size="$bodyMdMedium">
+        <SizableText ml="$1" size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.swap_page_provider_rate_unavailable,
           })}
@@ -82,7 +81,7 @@ const SwapQuoteResultRate = ({
         cursor="pointer"
       >
         <SizableText
-          size="$bodyMdMedium"
+          size="$bodyMd"
           maxWidth={240}
           $gtMd={{
             maxWidth: 240,
@@ -94,12 +93,12 @@ const SwapQuoteResultRate = ({
               ? toToken.symbol.toUpperCase()
               : fromToken.symbol.toUpperCase()
           } = `}
-          <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+          <NumberSizeableText size="$bodyMd" formatter="balance">
             {isReverse
               ? new BigNumber(1).div(rateBN).toFixed()
               : rateBN.toFixed()}
           </NumberSizeableText>
-          <SizableText size="$bodyMdMedium">
+          <SizableText size="$bodyMd">
             {` ${isReverse ? fromToken.symbol : toToken.symbol}`}
           </SizableText>
         </SizableText>
@@ -143,14 +142,6 @@ const SwapQuoteResultRate = ({
               h="$5"
               borderRadius="$1"
             />
-            <SizableText
-              numberOfLines={1}
-              size="$bodyMdMedium"
-              ml="$1"
-              flexShrink={1}
-            >
-              {providerName ?? ''}
-            </SizableText>
             {/* </XStack> */}
           </XStack>
         )}
