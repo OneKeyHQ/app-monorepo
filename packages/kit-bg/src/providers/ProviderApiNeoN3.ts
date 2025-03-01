@@ -7,12 +7,14 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   NotImplemented,
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
+import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 import type {
@@ -103,6 +105,31 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     return this.getAccountOrConnect(request);
   }
 
+  @providerApiMethod()
+  async getPublicKey(request: IJsBridgeMessagePayload) {
+    return this.getAccountOrConnect(request);
+  }
+
+  @providerApiMethod()
+  async getNetworks() {
+    return Promise.resolve({
+      networks: ['N3MainNet'],
+      chainId: 3,
+      defaultNetwork: 'N3MainNet',
+    });
+  }
+
+  /** Read Method */
+  @providerApiMethod()
+  async getProvider() {
+    return Promise.resolve({
+      name: 'OneKey',
+      website: 'https://onekey.so/',
+      version: '5.7.0',
+      compatibility: [],
+    });
+  }
+
   private _fetchBalanceDataCached = memoizee(
     async (accountId: string, networkId: string, address: string) => {
       const vault = (await vaultFactory.getVault({
@@ -173,28 +200,42 @@ class ProviderApiNeoN3 extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async getPublicKey(request: IJsBridgeMessagePayload) {
-    return this.getAccountOrConnect(request);
-  }
-
-  @providerApiMethod()
-  async getNetworks() {
-    return Promise.resolve({
-      networks: ['N3MainNet'],
-      chainId: 3,
-      defaultNetwork: 'N3MainNet',
+  async getStorage(
+    request: IJsBridgeMessagePayload,
+    params?: {
+      scriptHash: string;
+      key: string;
+    },
+  ): Promise<{ result: string }> {
+    if (!params?.scriptHash || !params?.key || !request.origin) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Invalid params`,
+      });
+    }
+    const result = await this.backgroundApi.serviceDApp.proxyRPCCall({
+      skipParseResponse: true,
+      networkId: getNetworkIdsMap().neon3,
+      request: {
+        method: 'getstorage',
+        params: [params.scriptHash, hexUtils.utf8StringToHexString(params.key)],
+      },
+      origin: request.origin,
     });
-  }
-
-  /** Read Method */
-  @providerApiMethod()
-  async getProvider() {
-    return Promise.resolve({
-      name: 'OneKey',
-      website: 'https://onekey.so/',
-      version: '5.7.0',
-      compatibility: [],
-    });
+    const r = result[0];
+    // @ts-expect-error
+    if (r?.error) {
+      return {
+        // @ts-expect-error
+        data: null,
+        // @ts-expect-error
+        description: r.error,
+        type: 'RPC_ERROR',
+      };
+    }
+    console.log('result: ===>>>:', result);
+    // @ts-expect-error
+    return { result: r?.result ?? '' };
   }
 
   /** Write Method */
