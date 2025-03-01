@@ -7097,8 +7097,6 @@ __metadata:
   dependencies:
     "@electron/notarize": "npm:2.3.2"
     "@electron/remote": "npm:^2.0.1"
-    "@onekeyhq/components": "npm:*"
-    "@onekeyhq/kit": "npm:*"
     "@sentry/electron": "npm:5.8.0"
     "@types/adm-zip": "npm:^0"
     "@types/electron-localshortcut": "npm:^3.1.0"
