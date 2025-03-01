@@ -505,7 +505,6 @@ export function ApproveBaseStake({
     await navigationToTxConfirm({
       approvesInfo,
       onSuccess() {
-        setApproving(false);
         // Poll for allowance updates until it becomes 0
         const pollAllowanceUntilZero = async () => {
           try {
@@ -564,6 +563,7 @@ export function ApproveBaseStake({
     approveTarget.accountId,
     approveTarget.networkId,
     approveTarget.spenderAddress,
+    currentAllowance,
     fetchAllowanceResponse,
     navigationToTxConfirm,
     token,
