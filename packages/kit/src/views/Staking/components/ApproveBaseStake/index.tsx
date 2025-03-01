@@ -428,7 +428,7 @@ export function ApproveBaseStake({
       const daySpent =
         Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
 
-      if (!daySpent || daySpent <= 5) {
+      if (usePermit2Approve || !daySpent || daySpent <= 5) {
         return onNext();
       }
 
@@ -446,7 +446,12 @@ export function ApproveBaseStake({
         },
       });
     },
-    [totalAnnualRewardsFiatValue, estimateFeeResp, showEstimateGasAlert],
+    [
+      totalAnnualRewardsFiatValue,
+      estimateFeeResp,
+      usePermit2Approve,
+      showEstimateGasAlert,
+    ],
   );
 
   const onSubmit = useCallback(async () => {
@@ -735,7 +740,7 @@ export function ApproveBaseStake({
         </CalculationListItem>,
       );
     }
-    if (estimateFeeResp) {
+    if (estimateFeeResp && !usePermit2Approve) {
       items.push(
         <EstimateNetworkFee
           labelTextProps={{
@@ -766,6 +771,7 @@ export function ApproveBaseStake({
     showEstReceive,
     showEstimateGasAlert,
     totalAnnualRewardsFiatValue,
+    usePermit2Approve,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (
