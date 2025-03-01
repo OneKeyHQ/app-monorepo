@@ -138,6 +138,7 @@ export function ApproveBaseStake({
     allowance,
     loading: loadingAllowance,
     trackAllowance,
+    fetchAllowanceResponse,
   } = useTrackTokenAllowance({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
@@ -503,9 +504,55 @@ export function ApproveBaseStake({
     const approvesInfo = [approveResetInfo];
     await navigationToTxConfirm({
       approvesInfo,
-
-      onSuccess(data) {
+      onSuccess() {
         setApproving(false);
+        // Poll for allowance updates until it becomes 0
+        const pollAllowanceUntilZero = async () => {
+          try {
+            const allowanceValue = '1'; // Start with non-zero value
+            let attempts = 0;
+            const maxAttempts = 10; // Prevent infinite polling
+            const pollInterval = 5000; // 3 seconds between polls
+
+            const checkAllowance = async () => {
+              // Fetch latest allowance
+              const allowanceInfo = await fetchAllowanceResponse();
+
+              if (allowanceInfo) {
+                // If allowance is now 0, stop polling
+                if (BigNumber(allowanceInfo.allowanceParse).isZero()) {
+                  setApproving(false);
+                  return;
+                }
+              }
+
+              attempts += 1;
+
+              // If we've reached max attempts but allowance is still not 0
+              if (
+                attempts >= maxAttempts &&
+                BigNumber(currentAllowance).gt(0)
+              ) {
+                setApproving(false);
+                return;
+              }
+
+              // Continue polling if conditions are met
+              if (BigNumber(currentAllowance).gt(0) && attempts < maxAttempts) {
+                setTimeout(checkAllowance, pollInterval);
+              }
+            };
+
+            // Start the recursive polling
+            setTimeout(checkAllowance, pollInterval);
+          } catch (error) {
+            console.error('Error polling for allowance:', error);
+            setApproving(false);
+          }
+        };
+
+        // Start polling for USDT reset
+        void pollAllowanceUntilZero();
       },
       onFail() {
         setApproving(false);
@@ -518,6 +565,7 @@ export function ApproveBaseStake({
     approveTarget.accountId,
     approveTarget.networkId,
     approveTarget.spenderAddress,
+    fetchAllowanceResponse,
     navigationToTxConfirm,
     token,
   ]);
