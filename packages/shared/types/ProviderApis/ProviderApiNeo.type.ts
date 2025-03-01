@@ -57,3 +57,21 @@ export interface IInvokeResponse {
   nodeURL?: string;
   signedTx?: string;
 }
+
+export interface ISignMessageV2Params {
+  message: string;
+  isJsonObject?: boolean;
+}
+
+export interface ISignMessageV2Response {
+  publicKey: string;
+  data: string;
+  salt?: string;
+  message: string;
+}
+
+export interface ISignMessageWithoutSaltV2Response {
+  publicKey: string;
+  data: string;
+  message: string;
+}

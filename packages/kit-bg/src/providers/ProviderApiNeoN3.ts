@@ -13,11 +13,14 @@ import {
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 import type {
   IInvokeArguments,
   IInvokeMultipleParams,
   IInvokeParams,
   IInvokeResponse,
+  ISignMessageV2Params,
+  ISignMessageV2Response,
   ISigners,
 } from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
 import { NeoDApiErrors } from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
@@ -424,6 +427,76 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     const rawTx = Buffer.from(result.rawTx, 'base64').toString('hex');
     const t = tx.Transaction.deserialize(rawTx);
     return t.toJson();
+  }
+
+  @providerApiMethod()
+  async signMessage(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    throw new NotImplemented();
+  }
+
+  @providerApiMethod()
+  async signMessageWithoutSalt(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    throw new NotImplemented();
+  }
+
+  private async _signMessageV2(
+    request: IJsBridgeMessagePayload,
+    params: ISignMessageV2Params,
+    hasSalt: boolean,
+  ): Promise<ISignMessageV2Response> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    if (!params.message) {
+      return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
+    }
+
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+    const resultStr = await this.backgroundApi.serviceDApp.openSignMessageModal(
+      {
+        request,
+        accountId: accountId ?? '',
+        networkId: networkId ?? '',
+        unsignedMessage: {
+          type: EMessageTypesCommon.SIMPLE_SIGN,
+          message: params.message,
+          payload: {
+            hasSalt,
+          },
+        },
+      },
+    );
+
+    const result = JSON.parse(resultStr as string) as {
+      signature: string;
+      publicKey: string;
+      salt?: string;
+    };
+
+    return {
+      message: params.message,
+      data: result.signature,
+      publicKey: result.publicKey,
+      salt: result.salt,
+    };
+  }
+
+  @providerApiMethod()
+  async signMessageV2(
+    request: IJsBridgeMessagePayload,
+    params: ISignMessageV2Params,
+  ): Promise<ISignMessageV2Response> {
+    return this._signMessageV2(request, params, true);
+  }
+
+  @providerApiMethod()
+  async signMessageWithoutSaltV2(
+    request: IJsBridgeMessagePayload,
+    params: ISignMessageV2Params,
+  ): Promise<ISignMessageV2Response> {
+    return this._signMessageV2(request, params, false);
   }
 }
 

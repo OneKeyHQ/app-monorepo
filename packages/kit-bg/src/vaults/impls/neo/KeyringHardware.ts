@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 
-import { tx, wallet } from '@cityofzion/neon-core';
+import * as crypto from 'crypto';
+
+import { tx, u, wallet } from '@cityofzion/neon-core';
 
 import type { IEncodedTxNeoN3 } from '@onekeyhq/core/src/chains/neo/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
@@ -139,7 +141,45 @@ export class KeyringHardware extends KeyringHardwareBase {
     throw convertDeviceError(response.payload);
   }
 
-  override signMessage(params: ISignMessageParams): Promise<ISignedMessagePro> {
-    throw new NotImplemented();
+  override async signMessage(
+    params: ISignMessageParams,
+  ): Promise<ISignedMessagePro> {
+    const sdk = await this.getHardwareSDKInstance();
+    const deviceParams = checkIsDefined(params.deviceParams);
+    const { connectId, deviceId } = deviceParams.dbDevice;
+    const dbAccount = await this.vault.getAccount();
+    const result = await Promise.all(
+      params.messages.map(async (payload) => {
+        const { hasSalt } = payload.payload;
+        const randomSalt = crypto.randomBytes(16).toString('hex');
+        const unsignedMessage = hasSalt
+          ? randomSalt + payload.message
+          : payload.message;
+        const parameterHexString = Buffer.from(unsignedMessage).toString('hex');
+        const lengthHex = u.num2VarInt(parameterHexString.length / 2);
+        const concatenatedString = lengthHex + parameterHexString;
+        const serializedTransaction = `000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000${concatenatedString}`;
+
+        const magicNumber = 860_833_102;
+        const response = await sdk.neoSignTransaction(connectId, deviceId, {
+          path: dbAccount.path,
+          rawTx: serializedTransaction,
+          magicNumber,
+          ...params.deviceParams?.deviceCommonParams,
+        });
+
+        if (!response.success) {
+          throw convertDeviceError(response.payload);
+        }
+
+        const { signature, publicKey } = response.payload;
+        return JSON.stringify({
+          signature,
+          publicKey,
+          salt: hasSalt ? randomSalt : undefined,
+        });
+      }),
+    );
+    return result;
   }
 }
