@@ -510,7 +510,7 @@ export function ApproveBaseStake({
           try {
             let attempts = 0;
             const maxAttempts = 10; // Prevent infinite polling
-            const pollInterval = 5000; // 3 seconds between polls
+            const pollInterval = 3000; // 3 seconds between polls
 
             const checkAllowance = async () => {
               // Fetch latest allowance
