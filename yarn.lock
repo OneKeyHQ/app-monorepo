@@ -7108,7 +7108,6 @@ __metadata:
     cross-env: "npm:^7.0.3"
     electron: "npm:27.3.1"
     electron-builder: "npm:26.0.9"
-    electron-check-biometric-auth-changed: "npm:0.0.6"
     electron-context-menu: "npm:^3.5.0"
     electron-is-dev: "npm:^2.0.0"
     electron-log: "npm:5.2.0"
@@ -22232,17 +22231,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-check-biometric-auth-changed@npm:0.0.6":
-  version: 0.0.6
-  resolution: "electron-check-biometric-auth-changed@npm:0.0.6"
-  dependencies:
-    bindings: "npm:^1.5.0"
-    node-addon-api: "npm:^7.1.0"
-    node-gyp: "npm:latest"
-  checksum: 10/daf0bc6d4cddf7c411d4c315910854c974fbc62c9ea7a12bf23bc368c452f0e0bcff5f4b127de9f4145b62c020e2a02d592b781de730926355ef9e1138af6142
-  languageName: node
-  linkType: hard
-
 "electron-context-menu@npm:^3.5.0":
   version: 3.6.1
   resolution: "electron-context-menu@npm:3.6.1"
@@ -32202,15 +32190,6 @@ __metadata:
   dependencies:
     node-gyp: "npm:latest"
   checksum: 10/f1a54ae38f6cbd4cdfe69d1b2f3f0c4a3d227eb50f5073f0a3b985d29a0c39c94b82c88213e5075ee1bc262f2e869841c733ebe7111a5e376f1732649edf6a93
-  languageName: node
-  linkType: hard
-
-"node-addon-api@npm:^7.1.0":
-  version: 7.1.1
-  resolution: "node-addon-api@npm:7.1.1"
-  dependencies:
-    node-gyp: "npm:latest"
-  checksum: 10/ee1e1ed6284a2f8cd1d59ac6175ecbabf8978dcf570345e9a8095a9d0a2b9ced591074ae77f9009287b00c402352b38aa9322a34f2199cdc9f567b842a636b94
   languageName: node
   linkType: hard
 
