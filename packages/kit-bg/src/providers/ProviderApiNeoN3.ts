@@ -12,6 +12,7 @@ import {
   OneKeyInternalError,
 } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 import type {
@@ -68,26 +69,6 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     throw new NotImplemented();
   }
 
-  // Provider API
-  @providerApiMethod()
-  async getProvider() {
-    return Promise.resolve({
-      name: 'OneKey',
-      website: 'https://onekey.so/',
-      version: '5.7.0',
-      compatibility: [],
-    });
-  }
-
-  @providerApiMethod()
-  async getNetworks() {
-    return Promise.resolve({
-      networks: ['N3MainNet'],
-      chainId: 3,
-      defaultNetwork: 'N3MainNet',
-    });
-  }
-
   private async neo_accounts(
     request: IJsBridgeMessagePayload,
   ): Promise<{ address: string; publicKey: string; isLedger: boolean } | null> {
@@ -116,14 +97,104 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     return this.neo_accounts(request);
   }
 
+  /** Common Method */
   @providerApiMethod()
   async getAccount(request: IJsBridgeMessagePayload) {
     return this.getAccountOrConnect(request);
   }
 
+  private _fetchBalanceDataCached = memoizee(
+    async (accountId: string, networkId: string, address: string) => {
+      const vault = (await vaultFactory.getVault({
+        networkId,
+        accountId,
+      })) as INeoVault;
+
+      const balance = await vault.fetchTokenList({
+        accountId,
+        requestApiParams: {
+          accountAddress: address,
+          networkId,
+          contractList: [],
+          hiddenTokens: [],
+        },
+        flag: 'home-token-list',
+      });
+
+      const result: {
+        [address: string]: {
+          contract: string;
+          symbol: string;
+          amount: string;
+        }[];
+      } = {
+        [address]: [],
+      };
+      if (balance?.data?.data?.tokens) {
+        const { tokens } = balance.data.data;
+        const { map: tokenMap, data: tokenData } = tokens;
+
+        tokenData.forEach((token) => {
+          const contractAddress = token.address;
+
+          const key = token.$key;
+          const tokenInfo = tokenMap[key];
+
+          if (tokenInfo && tokenInfo.balance) {
+            result[address].push({
+              contract: contractAddress,
+              symbol: token.symbol,
+              amount: tokenInfo.balanceParsed ?? '0',
+            });
+          }
+        });
+      }
+      return result;
+    },
+    {
+      promise: true,
+      maxAge: timerUtils.getTimeDurationMs({ seconds: 15 }),
+    },
+  );
+
+  @providerApiMethod()
+  async getBalance(request: IJsBridgeMessagePayload) {
+    const accountsInfo = await this.getAccountsInfo(request);
+    const { accountInfo: { accountId, networkId, address } = {} } =
+      accountsInfo[0];
+    if (!accountId || !networkId || !address) {
+      throw web3Errors.provider.custom({
+        code: 4002,
+        message: `Can not get account`,
+      });
+    }
+
+    return this._fetchBalanceDataCached(accountId, networkId, address);
+  }
+
   @providerApiMethod()
   async getPublicKey(request: IJsBridgeMessagePayload) {
     return this.getAccountOrConnect(request);
+  }
+
+  @providerApiMethod()
+  async getNetworks() {
+    return Promise.resolve({
+      networks: ['N3MainNet'],
+      chainId: 3,
+      defaultNetwork: 'N3MainNet',
+    });
+  }
+
+  /** Read Method */
+  @providerApiMethod()
+  async getProvider() {
+    return Promise.resolve({
+      name: 'OneKey',
+      website: 'https://onekey.so/',
+      version: '5.7.0',
+      compatibility: [],
+    });
   }
 
   /** Write Method */
