@@ -1,4 +1,5 @@
 const DLLs = require('./electron-dll.config');
+const nodeModules = require('./node_modules');
 
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
@@ -16,12 +17,15 @@ module.exports = {
   'directories': {
     'output': 'build-electron',
   },
+  'includeSubNodeModules': true,
+  'npmRebuild': false,
   'files': [
     'build/**/*',
     '!build/static/bin/**/*',
     'dist/**/*.js',
     '!dist/__**',
     'package.json',
+    ...nodeModules.map((moduleName) => `node_modules/${moduleName}`),
   ],
   'protocols': {
     'name': 'electron-deep-linking',

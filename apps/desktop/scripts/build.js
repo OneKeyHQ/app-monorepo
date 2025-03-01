@@ -2,7 +2,7 @@ const path = require('path');
 const childProcess = require('child_process');
 const { build } = require('esbuild');
 const glob = require('glob');
-const pkg = require('../package.json');
+const nodeModules = require('../node_modules');
 
 const electronSource = path.join(__dirname, '..', 'src-electron');
 
@@ -48,11 +48,7 @@ build({
       '../../../node_modules/axios/dist/esm/axios.js',
     ),
   },
-  // Avoid introducing dependencies that lead to script bloat.
-  external: Object.keys({
-    ...pkg.dependencies,
-    ...pkg.devDependencies,
-  }),
+  external: nodeModules,
   tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'dist'),
   define: {
