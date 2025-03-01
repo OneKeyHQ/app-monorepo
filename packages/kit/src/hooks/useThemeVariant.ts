@@ -25,7 +25,7 @@ export const useSyncThemeVariant = platformEnv.isNative
       useEffect(() => {
         setTimeout(() => {
           localStorage.setItem(THEME_PRELOAD_STORAGE_KEY, theme);
-          // startup theme on desktop: apps/desktop/src-electron/app.ts 213L
+          // startup theme on desktop: apps/desktop/app/app.ts 213L
           if (platformEnv.isDesktop) {
             globalThis.desktopApi?.changeTheme(theme);
           }

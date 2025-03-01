@@ -24,7 +24,6 @@ module.exports = {
     'dist/**/*.js',
     '!dist/__**',
     'package.json',
-    ...nodeModules.map((moduleName) => `node_modules/${moduleName}`),
   ],
   'protocols': {
     'name': 'electron-deep-linking',

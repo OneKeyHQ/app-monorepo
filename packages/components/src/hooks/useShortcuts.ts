@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 

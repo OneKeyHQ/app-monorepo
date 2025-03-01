@@ -1,0 +1,22 @@
+{
+  "name": "@onekeyhq/desktop",
+  "version": "1.0.0",
+  "description": "Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others",
+  "private": true,
+  "author": "OneKey <hi@onekey.so>",
+  "dependencies": {
+    "@onekeyhq/components": "*",
+    "@onekeyhq/kit": "*",
+    "@sentry/electron": "5.8.0",
+    "adm-zip": "^0.5.10",
+    "electron-check-biometric-auth-changed": "0.0.6",
+    "electron-context-menu": "^3.5.0",
+    "electron-is-dev": "^2.0.0",
+    "electron-log": "5.2.0",
+    "electron-store": "^8.2.0",
+    "electron-updater": "6.1.8",
+    "electron-windows-security": "0.0.5",
+    "keytar": "^7.9.0",
+    "node-fetch": "^2.6.7"
+  }
+}

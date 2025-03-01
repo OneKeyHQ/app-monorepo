@@ -4,7 +4,7 @@ const { build } = require('esbuild');
 const glob = require('glob');
 const nodeModules = require('../node_modules');
 
-const electronSource = path.join(__dirname, '..', 'src-electron');
+const electronSource = path.join(__dirname, '..', 'app');
 
 const gitRevision = childProcess
   .execSync('git rev-parse HEAD')
@@ -18,7 +18,7 @@ const hrstart = process.hrtime();
 // Get all .js files in service directory
 const serviceFiles = glob
   .sync(path.join(electronSource, 'service', '*.ts'))
-  .map((name) => name.split('src-electron/').pop());
+  .map((name) => name.split('app/').pop());
 
 build({
   entryPoints: ['app.ts', 'preload.ts', ...serviceFiles].map((f) =>
@@ -33,11 +33,11 @@ build({
     '@onekeyhq/shared': path.join(__dirname, '../../../packages/shared'),
     'react-native': path.join(
       __dirname,
-      '../../desktop/src-electron/libs/react-native-mock',
+      '../../desktop/app/libs/react-native-mock',
     ),
     '@sentry/react-native': path.join(
       __dirname,
-      '../../desktop/src-electron/libs/sentry-react-native-mock',
+      '../../desktop/app/libs/sentry-react-native-mock',
     ),
     'react-native-uuid': path.join(
       __dirname,

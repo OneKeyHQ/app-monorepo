@@ -42,7 +42,7 @@
     "_tsc": "node ./development/lint/ts",
     "reinstall": "yarn clean && yarn install",
     "_lint": "node ./development/lint/eslint",
-    "_electron": "node ./development/lint/src-electron",
+    "_electron": "node ./development/lint/app",
     "_lang": "node ./development/lint/lang",
     "_folder": "yarn workspaces foreach -A -p --topological-dev run _folderslint",
     "lint:project": "yarn _tsc && yarn _lint && yarn _electron && yarn _folder && yarn _lang",
