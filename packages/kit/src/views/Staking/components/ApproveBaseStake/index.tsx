@@ -509,7 +509,6 @@ export function ApproveBaseStake({
         // Poll for allowance updates until it becomes 0
         const pollAllowanceUntilZero = async () => {
           try {
-            const allowanceValue = '1'; // Start with non-zero value
             let attempts = 0;
             const maxAttempts = 10; // Prevent infinite polling
             const pollInterval = 5000; // 3 seconds between polls
