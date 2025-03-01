@@ -1,4 +1,4 @@
-// import { checkBiometricAuthChanged } from 'electron-check-biometric-auth-changed';
+import { checkBiometricAuthChanged } from 'electron-check-biometric-auth-changed';
 
 import { ECheckBiometricAuthChangedEventType } from './enum';
 
@@ -11,11 +11,11 @@ process.parentPort.on(
     switch (e.data.type) {
       case ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged:
         {
-          // const result = checkBiometricAuthChanged();
-          // process.parentPort.postMessage({
-          //   type: ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
-          //   result,
-          // });
+          const result = checkBiometricAuthChanged();
+          process.parentPort.postMessage({
+            type: ECheckBiometricAuthChangedEventType.CheckBiometricAuthChanged,
+            result,
+          });
         }
         break;
       default:
