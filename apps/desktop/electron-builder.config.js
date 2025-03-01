@@ -17,7 +17,6 @@ module.exports = {
   'directories': {
     'output': 'build-electron',
   },
-  'includeSubNodeModules': true,
   'npmRebuild': false,
   'files': [
     'build/**/*',
