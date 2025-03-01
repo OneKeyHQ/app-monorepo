@@ -2,7 +2,7 @@ const path = require('path');
 const childProcess = require('child_process');
 const { build } = require('esbuild');
 const glob = require('glob');
-const nodeModules = require('../node_modules');
+const pkg = require('../app/package.json');
 
 const electronSource = path.join(__dirname, '..', 'app');
 
@@ -48,7 +48,7 @@ build({
       '../../../node_modules/axios/dist/esm/axios.js',
     ),
   },
-  external: nodeModules,
+  external: ['electron', ...Object.keys(pkg.dependencies)],
   tsconfig: path.join(electronSource, 'tsconfig.json'),
   outdir: path.join(__dirname, '..', 'dist'),
   define: {
