@@ -162,7 +162,7 @@ export const useShowClaimEstimateGasAlert = () => {
   );
 };
 
-const EstimateNetworkFeeListItem = ({
+function EstimateNetworkFeeListItem ({
   estFiatValue,
   onPress,
   labelTextProps,
@@ -172,7 +172,7 @@ const EstimateNetworkFeeListItem = ({
   onPress?: () => void;
   labelTextProps?: ISizableTextProps;
   valueTextProps?: ISizableTextProps;
-}) => {
+})  {
   const intl = useIntl();
   const [
     {
