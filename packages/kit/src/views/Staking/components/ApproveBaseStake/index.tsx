@@ -520,7 +520,7 @@ export function ApproveBaseStake({
 
               if (allowanceInfo) {
                 // If allowance is now 0, stop polling
-                if (BigNumber(allowanceInfo.allowanceParse).isZero()) {
+                if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
                   setApproving(false);
                   return;
                 }
