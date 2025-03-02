@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { tx, wallet } from '@cityofzion/neon-core';
@@ -411,6 +412,70 @@ class ProviderApiNeoN3 extends ProviderApiBase {
         }`,
       });
     }
+  }
+
+  @providerApiMethod()
+  async verifyMessage(request: IJsBridgeMessagePayload) {
+    throw new NotImplemented();
+  }
+
+  @providerApiMethod()
+  async verifyMessageV2(request: IJsBridgeMessagePayload) {
+    throw new NotImplemented();
+  }
+
+  @providerApiMethod()
+  async getBlock(
+    request: IJsBridgeMessagePayload,
+    params: { blockHeight: boolean },
+  ) {
+    const response = await this.backgroundApi.serviceDApp.proxyRPCCall({
+      networkId: getNetworkIdsMap().neon3,
+      request: {
+        method: 'getblock',
+        params: [params.blockHeight, 1],
+      },
+      origin: request.origin || '',
+      skipParseResponse: true,
+    });
+    // @ts-expect-error
+    return response[0]?.result ?? response[0]?.error;
+  }
+
+  @providerApiMethod()
+  async getTransaction(
+    request: IJsBridgeMessagePayload,
+    params: { txid: string },
+  ) {
+    const response = await this.backgroundApi.serviceDApp.proxyRPCCall({
+      networkId: getNetworkIdsMap().neon3,
+      request: {
+        method: 'getrawtransaction',
+        params: [params.txid, true],
+      },
+      origin: request.origin || '',
+      skipParseResponse: true,
+    });
+    // @ts-expect-error
+    return response[0]?.result ?? response[0]?.error;
+  }
+
+  @providerApiMethod()
+  async getApplicationLog(
+    request: IJsBridgeMessagePayload,
+    params: { txid: string },
+  ) {
+    const response = await this.backgroundApi.serviceDApp.proxyRPCCall({
+      networkId: getNetworkIdsMap().neon3,
+      request: {
+        method: 'getapplicationlog',
+        params: [params.txid],
+      },
+      origin: request.origin || '',
+      skipParseResponse: true,
+    });
+    // @ts-expect-error
+    return response[0]?.result ?? response[0]?.error;
   }
 
   /** Write Method */
