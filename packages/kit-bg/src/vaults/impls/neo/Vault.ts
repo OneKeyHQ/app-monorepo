@@ -237,7 +237,18 @@ export default class Vault extends VaultBase {
       });
       actions.push(action);
     } else {
-      // TODO: contract interaction
+      actions.push({
+        type: EDecodedTxActionType.FUNCTION_CALL,
+        functionCall: {
+          functionName: '',
+          from: account.address,
+          to: '',
+          functionHash: encodedTx.script,
+          icon: network.logoURI ?? '',
+          args: [encodedTx.script],
+        },
+        data: encodedTx.script,
+      });
     }
 
     if (actions.length === 0) {
