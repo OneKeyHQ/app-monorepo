@@ -30,6 +30,12 @@ export interface ISigners {
   scopes: string;
   allowedContracts?: string[];
   allowedGroups?: string[];
+  rules?: IWitnessRule[];
+}
+
+export interface IWitnessRule {
+  action: string;
+  condition: any;
 }
 
 export interface IInvokeParams {
@@ -74,4 +80,27 @@ export interface ISignMessageWithoutSaltV2Response {
   publicKey: string;
   data: string;
   message: string;
+}
+
+export interface IInvokeReadParams {
+  scriptHash: string;
+  operation: string;
+  args: IArgument[];
+  signers: ISigners[];
+}
+
+export interface IInvokeReadResponse {
+  script: string;
+  state: string;
+  gas_consumed: string;
+  stack: IArgument[];
+}
+
+export interface IInvokeReadMultiParams {
+  invokeReadArgs: {
+    scriptHash: string;
+    operation: string;
+    args: IArgument[];
+  }[];
+  signers: ISigners[];
 }

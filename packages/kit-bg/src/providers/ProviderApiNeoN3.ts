@@ -1,3 +1,4 @@
+/* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { tx, wallet } from '@cityofzion/neon-core';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
@@ -21,6 +22,8 @@ import type {
   IInvokeArguments,
   IInvokeMultipleParams,
   IInvokeParams,
+  IInvokeReadMultiParams,
+  IInvokeReadResponse,
   IInvokeResponse,
   ISignMessageV2Params,
   ISignMessageV2Response,
@@ -236,6 +239,127 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     console.log('result: ===>>>:', result);
     // @ts-expect-error
     return { result: r?.result ?? '' };
+  }
+
+  @providerApiMethod()
+  async invokeReadMulti(
+    request: IJsBridgeMessagePayload,
+    params: IInvokeReadMultiParams,
+  ): Promise<IInvokeReadResponse[]> {
+    if (
+      !params?.signers ||
+      !Array.isArray(params.signers) ||
+      !params.invokeReadArgs
+    ) {
+      return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
+    }
+
+    if (
+      params.signers.some(
+        (signer) => signer.account === undefined || signer.scopes === undefined,
+      )
+    ) {
+      return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
+    }
+
+    if (
+      !Array.isArray(params.invokeReadArgs) ||
+      params.invokeReadArgs.length === 0
+    ) {
+      return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
+    }
+
+    const signers = params.signers.map((signer) => ({
+      account: signer.account,
+      scopes: signer.scopes,
+      allowedcontracts: signer.allowedContracts || undefined,
+      allowedgroups: signer.allowedGroups || undefined,
+    }));
+
+    const processedInvokeReadArgs = params.invokeReadArgs.map(
+      (invokeReadItem) => {
+        const processedArgs = invokeReadItem.args.map((item) => {
+          if (!item || typeof item !== 'object') {
+            return item;
+          }
+
+          if (item.type === 'Address') {
+            return {
+              type: 'Hash160',
+              value: wallet.getScriptHashFromAddress(item.value),
+            };
+          }
+
+          if (item.type === 'Boolean' && typeof item.value === 'string') {
+            const lowerValue = item.value.toLowerCase();
+            if (lowerValue === 'true') {
+              return {
+                type: 'Boolean',
+                value: true,
+              };
+            }
+            if (lowerValue === 'false') {
+              return {
+                type: 'Boolean',
+                value: false,
+              };
+            }
+            throw web3Errors.provider.custom({
+              code: 4002,
+              message: `Invalid Boolean value: ${item.value}`,
+            });
+          }
+
+          return item;
+        });
+        return [
+          invokeReadItem.scriptHash,
+          invokeReadItem.operation,
+          processedArgs,
+          signers,
+        ];
+      },
+    );
+
+    try {
+      const results = await Promise.all(
+        processedInvokeReadArgs.map((rpcParams) =>
+          this.backgroundApi.serviceDApp.proxyRPCCall({
+            networkId: getNetworkIdsMap().neon3,
+            request: {
+              method: 'invokefunction',
+              params: rpcParams,
+            },
+            origin: request.origin || '',
+            skipParseResponse: true,
+          }),
+        ),
+      );
+
+      const formattedResults: IInvokeReadResponse[] = results.map(
+        (resultArray) => {
+          const resultObj = resultArray[0] as { result: IInvokeReadResponse };
+          const rpcResult = resultObj.result;
+
+          return {
+            script: rpcResult.script || '',
+            state: rpcResult.state || '',
+            gas_consumed: rpcResult.gas_consumed || '0',
+            stack: rpcResult.stack || [],
+          };
+        },
+      );
+
+      return formattedResults;
+    } catch (error) {
+      console.error('invokeReadMulti error:', error);
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message: `Error invoking read methods: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      });
+    }
   }
 
   /** Write Method */
