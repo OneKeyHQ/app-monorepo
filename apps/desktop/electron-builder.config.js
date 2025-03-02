@@ -1,5 +1,4 @@
 const DLLs = require('./electron-dll.config');
-const nodeModules = require('./node_modules');
 
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
