@@ -478,6 +478,40 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     return response[0]?.result ?? response[0]?.error;
   }
 
+  @providerApiMethod()
+  async pickAddress(request: IJsBridgeMessagePayload) {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+    const account = await this.neo_accounts(request);
+    if (account) {
+      if (request.origin) {
+        await this.backgroundApi.serviceDApp.disconnectWebsite({
+          origin: request.origin,
+          storageType: 'injectedProvider',
+          entry: 'Browser',
+        });
+      }
+    }
+    await timerUtils.wait(500);
+    await this.backgroundApi.serviceDApp.openConnectionModal(request);
+    return this.neo_accounts(request);
+  }
+
+  @providerApiMethod()
+  async AddressToScriptHash(
+    request: IJsBridgeMessagePayload,
+    params: { address: string },
+  ) {
+    return Promise.resolve(wallet.getScriptHashFromAddress(params.address));
+  }
+
+  @providerApiMethod()
+  async ScriptHashToAddress(
+    request: IJsBridgeMessagePayload,
+    params: { scriptHash: string },
+  ) {
+    return Promise.resolve(wallet.getAddressFromScriptHash(params.scriptHash));
+  }
+
   /** Write Method */
   @providerApiMethod()
   async switchWalletNetwork(request: IJsBridgeMessagePayload) {
