@@ -19,10 +19,12 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EMessageTypesCommon } from '@onekeyhq/shared/types/message';
 import type {
+  IArgument,
   IInvokeArguments,
   IInvokeMultipleParams,
   IInvokeParams,
   IInvokeReadMultiParams,
+  IInvokeReadParams,
   IInvokeReadResponse,
   IInvokeResponse,
   ISignMessageV2Params,
@@ -241,6 +243,125 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     return { result: r?.result ?? '' };
   }
 
+  private async _processInvokeReadArgs(
+    args: IArgument[],
+  ): Promise<IArgument[]> {
+    return args.map((item) => {
+      if (!item) {
+        return item;
+      }
+
+      if (item.type === 'Address') {
+        return {
+          type: 'Hash160',
+          value: wallet.getScriptHashFromAddress(item.value),
+        };
+      }
+
+      if (item.type === 'Boolean' && typeof item.value === 'string') {
+        const lowerValue = item.value.toLowerCase();
+        if (lowerValue === 'true') {
+          return {
+            type: 'Boolean',
+            value: true,
+          };
+        }
+        if (lowerValue === 'false') {
+          return {
+            type: 'Boolean',
+            value: false,
+          };
+        }
+        throw web3Errors.provider.custom({
+          code: 4002,
+          message: `Invalid Boolean value: ${item.value}`,
+        });
+      }
+
+      return item;
+    });
+  }
+
+  private async _executeInvokeRead(
+    request: IJsBridgeMessagePayload,
+    scriptHash: string,
+    operation: string,
+    args: IArgument[],
+    signers: ISigners[],
+  ): Promise<IInvokeReadResponse> {
+    const formattedSigners = signers.map((signer) => ({
+      account: signer.account,
+      scopes: signer.scopes,
+      allowedcontracts: signer.allowedContracts || undefined,
+      allowedgroups: signer.allowedGroups || undefined,
+    }));
+
+    const processedArgs = await this._processInvokeReadArgs(args);
+
+    const response = await this.backgroundApi.serviceDApp.proxyRPCCall({
+      networkId: getNetworkIdsMap().neon3,
+      request: {
+        method: 'invokefunction',
+        params: [scriptHash, operation, processedArgs, formattedSigners],
+      },
+      origin: request.origin || '',
+      skipParseResponse: true,
+    });
+
+    const resultObj = response[0] as { result: IInvokeReadResponse };
+    const rpcResult = resultObj.result;
+
+    return {
+      script: rpcResult.script || '',
+      state: rpcResult.state || '',
+      gas_consumed: rpcResult.gas_consumed || '0',
+      stack: rpcResult.stack || [],
+    };
+  }
+
+  @providerApiMethod()
+  async invokeRead(
+    request: IJsBridgeMessagePayload,
+    params: IInvokeReadParams,
+  ): Promise<IInvokeReadResponse> {
+    defaultLogger.discovery.dapp.dappRequest({ request });
+
+    if (
+      !params?.signers ||
+      !Array.isArray(params.signers) ||
+      !params.scriptHash ||
+      !params.operation
+    ) {
+      return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
+    }
+
+    if (
+      params.signers.some(
+        (signer) => signer.account === undefined || signer.scopes === undefined,
+      )
+    ) {
+      return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
+    }
+
+    try {
+      return await this._executeInvokeRead(
+        request,
+        params.scriptHash,
+        params.operation,
+        params.args || [],
+        params.signers,
+      );
+    } catch (error) {
+      console.error('invokeRead error:', error);
+      throw web3Errors.provider.custom({
+        code: 4003,
+        message: `Error invoking read method: ${
+          error instanceof Error ? error.message : 'Unknown error'
+        }`,
+      });
+    }
+  }
+
   @providerApiMethod()
   async invokeReadMulti(
     request: IJsBridgeMessagePayload,
@@ -269,88 +390,18 @@ class ProviderApiNeoN3 extends ProviderApiBase {
       return Promise.reject(NeoDApiErrors.MALFORMED_INPUT);
     }
 
-    const signers = params.signers.map((signer) => ({
-      account: signer.account,
-      scopes: signer.scopes,
-      allowedcontracts: signer.allowedContracts || undefined,
-      allowedgroups: signer.allowedGroups || undefined,
-    }));
-
-    const processedInvokeReadArgs = params.invokeReadArgs.map(
-      (invokeReadItem) => {
-        const processedArgs = invokeReadItem.args.map((item) => {
-          if (!item || typeof item !== 'object') {
-            return item;
-          }
-
-          if (item.type === 'Address') {
-            return {
-              type: 'Hash160',
-              value: wallet.getScriptHashFromAddress(item.value),
-            };
-          }
-
-          if (item.type === 'Boolean' && typeof item.value === 'string') {
-            const lowerValue = item.value.toLowerCase();
-            if (lowerValue === 'true') {
-              return {
-                type: 'Boolean',
-                value: true,
-              };
-            }
-            if (lowerValue === 'false') {
-              return {
-                type: 'Boolean',
-                value: false,
-              };
-            }
-            throw web3Errors.provider.custom({
-              code: 4002,
-              message: `Invalid Boolean value: ${item.value}`,
-            });
-          }
-
-          return item;
-        });
-        return [
-          invokeReadItem.scriptHash,
-          invokeReadItem.operation,
-          processedArgs,
-          signers,
-        ];
-      },
-    );
-
     try {
-      const results = await Promise.all(
-        processedInvokeReadArgs.map((rpcParams) =>
-          this.backgroundApi.serviceDApp.proxyRPCCall({
-            networkId: getNetworkIdsMap().neon3,
-            request: {
-              method: 'invokefunction',
-              params: rpcParams,
-            },
-            origin: request.origin || '',
-            skipParseResponse: true,
-          }),
+      return await Promise.all(
+        params.invokeReadArgs.map((item) =>
+          this._executeInvokeRead(
+            request,
+            item.scriptHash,
+            item.operation,
+            item.args || [],
+            params.signers,
+          ),
         ),
       );
-
-      const formattedResults: IInvokeReadResponse[] = results.map(
-        (resultArray) => {
-          const resultObj = resultArray[0] as { result: IInvokeReadResponse };
-          const rpcResult = resultObj.result;
-
-          return {
-            script: rpcResult.script || '',
-            state: rpcResult.state || '',
-            gas_consumed: rpcResult.gas_consumed || '0',
-            stack: rpcResult.stack || [],
-          };
-        },
-      );
-
-      return formattedResults;
     } catch (error) {
       console.error('invokeReadMulti error:', error);
       throw web3Errors.provider.custom({
