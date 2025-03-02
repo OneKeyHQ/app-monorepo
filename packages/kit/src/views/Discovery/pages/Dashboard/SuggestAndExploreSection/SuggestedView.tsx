@@ -63,7 +63,7 @@ export function SuggestedView({
             <Heading size="$headingMd" userSelect="none">
               {i.name}
             </Heading>
-            {(i?.dappInfo?.information?.length ?? 0) > 0 ? (
+            {i?.dappInfo?.information ? (
               <IconButton
                 alignSelf="center"
                 icon="InfoCircleOutline"
@@ -73,7 +73,10 @@ export function SuggestedView({
                   const dialog = Dialog.show({
                     icon: 'InfoCircleOutline',
                     title: i.name,
-                    description: i?.dappInfo?.information,
+                    description:
+                      typeof i?.dappInfo?.information === 'string'
+                        ? i.dappInfo.information
+                        : i?.dappInfo?.information?.text,
                     onConfirmText: intl.formatMessage({
                       id: ETranslations.global_got_it,
                     }),

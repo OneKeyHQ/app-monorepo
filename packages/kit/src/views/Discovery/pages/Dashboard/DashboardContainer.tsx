@@ -1,42 +1,35 @@
-import { useCallback } from 'react';
-
-import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { Page, Stack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 
-import CustomHeaderSearch from '../../components/CustomHeaderSearch';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+import { BrowserTitle } from '../components/BrowserTitle';
+import { HistoryIconButton } from '../components/HistoryIconButton';
 
 import DashboardContent from './DashboardContent';
 
 function Dashboard() {
-  const navigation = useAppNavigation();
-  const handleSearchBarPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [navigation]);
-
-  const headerRight = useCallback(
-    () => <CustomHeaderSearch handleSearchBarPress={handleSearchBarPress} />,
-    [handleSearchBarPress],
-  );
   const { top } = useSafeAreaInsets();
 
   return (
     <Page>
-      <Page.Header headerRight={headerRight} />
+      <Page.Header headerLeft={BrowserTitle} headerRight={HistoryIconButton} />
       {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
       {platformEnv.isNativeIOS ? (
-        <XStack px="$5" pt={top}>
-          {headerRight()}
-        </XStack>
+        <Stack
+          pt={top}
+          width="100%"
+          position="relative"
+          justifyContent="center"
+          alignItems="center"
+        >
+          <BrowserTitle />
+
+          <Stack position="absolute" right="$5" pt={top}>
+            <HistoryIconButton />
+          </Stack>
+        </Stack>
       ) : null}
       <Page.Body>
         <DashboardContent />

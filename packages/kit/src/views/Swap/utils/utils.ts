@@ -19,12 +19,10 @@ export function validateAmountInput(text: string, decimal?: number) {
   return true;
 }
 
-export function validateAmountInputNoDecimal(text: string) {
-  const regex = /^$|^0(\.\d*)?$|^[1-9]\d*(\.\d*)?$|^[1-9]\d*\.$|^0\.$/;
-  if (!regex.test(text)) {
-    return false;
-  }
-  return true;
+export function validateAmountInputInfiniteDecimal(text: string) {
+  // 修改后的正则，支持输入过程中的状态：
+  const regex = /^$|^0$|^0\.$|^0\.\d*$|^[1-9]\d*$|^[1-9]\d*\.$|^[1-9]\d*\.\d*$/;
+  return regex.test(text);
 }
 
 export function truncateDecimalPlaces(str?: string, decimal?: number) {

@@ -475,9 +475,11 @@ class ServiceSetting extends ServiceBase {
   public async checkInscriptionProtectionEnabled({
     networkId,
     accountId,
+    mergeDeriveAssetsEnabled,
   }: {
     networkId: string;
     accountId: string;
+    mergeDeriveAssetsEnabled?: boolean;
   }) {
     if (!networkId || !accountId) {
       return false;
@@ -485,6 +487,11 @@ class ServiceSetting extends ServiceBase {
     if (!networkUtils.isBTCNetwork(networkId)) {
       return false;
     }
+
+    if (mergeDeriveAssetsEnabled) {
+      return true;
+    }
+
     const account = await this.backgroundApi.serviceAccount.getAccount({
       networkId,
       accountId,

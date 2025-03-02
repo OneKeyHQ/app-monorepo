@@ -3,7 +3,7 @@ import { forwardRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance } from '@onekeyhq/components';
+import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
 import { DialogContainer } from '@onekeyhq/components';
 import {
   openBLEPermissionsSettings,
@@ -11,6 +11,29 @@ import {
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { IntlShape } from 'react-intl';
+
+export const buildBleSettingsDialogProps = (
+  intl: IntlShape,
+): IDialogShowProps =>
+  ({
+    icon: 'BluetoothOutline',
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_enable_bluetooth,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_enable_bluetooth_help_text,
+    }),
+    onConfirmText: intl.formatMessage({
+      id: ETranslations.global_go_to_settings,
+    }),
+    onConfirm: async ({ close }) => {
+      await close?.();
+      await openBLESettings();
+    },
+    showCancelButton: false,
+  } as const);
 
 function OpenBleSettingDialogContainer(
   props: any,
@@ -21,27 +44,34 @@ function OpenBleSettingDialogContainer(
   return (
     <DialogContainer
       ref={ref}
-      icon="BluetoothOutline"
-      title={intl.formatMessage({
-        id: ETranslations.onboarding_enable_bluetooth,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.onboarding_enable_bluetooth_help_text,
-      })}
-      onConfirmText={intl.formatMessage({
-        id: ETranslations.global_go_to_settings,
-      })}
-      onConfirm={async ({ close }) => {
-        await close?.();
-        await openBLESettings();
-      }}
-      showCancelButton={false}
+      {...buildBleSettingsDialogProps(intl)}
       {...props} // pass down cloneElement props
     />
   );
 }
 
 export const OpenBleSettingsDialog = forwardRef(OpenBleSettingDialogContainer);
+
+export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
+  ({
+    icon: 'BluetoothOutline',
+    title: intl.formatMessage({
+      id: ETranslations.feedback_bluetooth_issue,
+    }),
+    description: intl.formatMessage({
+      id: platformEnv.isNativeIOS
+        ? ETranslations.feedback_try_toggling_bluetooth
+        : ETranslations.feedback_try_repairing_device_in_settings,
+    }),
+    onConfirmText: intl.formatMessage({
+      id: ETranslations.global_go_to_settings,
+    }),
+    onConfirm: async ({ close }) => {
+      await close?.();
+      await openBLESettings();
+    },
+    showCancelButton: false,
+  } as const);
 
 function OpenBleNotifyChangeErrorDialogContainer(
   props: any,
@@ -52,23 +82,7 @@ function OpenBleNotifyChangeErrorDialogContainer(
   return (
     <DialogContainer
       ref={ref}
-      icon="BluetoothOutline"
-      title={intl.formatMessage({
-        id: ETranslations.feedback_bluetooth_issue,
-      })}
-      description={intl.formatMessage({
-        id: platformEnv.isNativeIOS
-          ? ETranslations.feedback_try_toggling_bluetooth
-          : ETranslations.feedback_try_repairing_device_in_settings,
-      })}
-      onConfirmText={intl.formatMessage({
-        id: ETranslations.global_go_to_settings,
-      })}
-      onConfirm={async ({ close }) => {
-        await close?.();
-        await openBLESettings();
-      }}
-      showCancelButton={false}
+      {...buildBleNotifyChangeError(intl)}
       {...props} // pass down cloneElement props
     />
   );

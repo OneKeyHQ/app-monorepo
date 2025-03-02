@@ -8,6 +8,7 @@ import type {
 } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 
@@ -85,6 +86,7 @@ export enum EAppEventBusNames {
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
   RefreshHistoryList = 'RefreshHistoryList',
+  RefreshBookmarkList = 'RefreshBookmarkList',
   AccountDataUpdate = 'AccountDataUpdate',
   onDragBeginInListView = 'onDragBeginInListView',
   onDragEndInListView = 'onDragEndInListView',
@@ -103,6 +105,7 @@ export enum EAppEventBusNames {
   CreateAddressByDialog = 'CreateAddressByDialog',
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   HideTabBar = 'HideTabBar',
+  RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -242,6 +245,7 @@ export interface IAppEventBusPayload {
         }[];
       };
   [EAppEventBusNames.RefreshHistoryList]: undefined;
+  [EAppEventBusNames.RefreshBookmarkList]: undefined;
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
@@ -305,6 +309,9 @@ export interface IAppEventBusPayload {
     type: 'scam' | 'contract';
   };
   [EAppEventBusNames.HideTabBar]: boolean;
+  [EAppEventBusNames.RequestHardwareUIDialog]: {
+    uiRequestType: EHardwareUiStateAction;
+  };
 }
 
 export enum EEventBusBroadcastMethodNames {

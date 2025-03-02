@@ -31,7 +31,6 @@ export interface IGotoSiteFnParams {
   isNewWindow?: boolean;
   isInPlace?: boolean;
   id?: string;
-  userTriggered?: boolean;
   siteMode?: ESiteMode;
 }
 

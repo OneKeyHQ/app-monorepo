@@ -30,11 +30,14 @@ import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
+  EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapQuoteKind,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
+import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
@@ -167,7 +170,7 @@ const SwapActionsState = ({
           id: ETranslations.global_continue,
         }),
         onConfirm: () => {
-          onApprove(fromAmount, swapActionState.approveUnLimit, true);
+          onApprove(fromAmount.value, swapActionState.approveUnLimit, true);
         },
         showCancelButton: true,
         title: intl.formatMessage({
@@ -179,7 +182,7 @@ const SwapActionsState = ({
         icon: 'ErrorOutline',
       });
     } else {
-      onApprove(fromAmount, swapActionState.approveUnLimit);
+      onApprove(fromAmount.value, swapActionState.approveUnLimit);
     }
   }, [
     fromAmount,
@@ -197,6 +200,9 @@ const SwapActionsState = ({
         swapSlippageRef.current,
         swapFromAddressInfo?.address,
         swapFromAddressInfo?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
       );
     } else {
       cleanQuoteInterval();
@@ -213,6 +219,7 @@ const SwapActionsState = ({
     }
   }, [
     cleanQuoteInterval,
+    currentQuoteRes?.kind,
     handleApprove,
     onBuildTx,
     onWrapped,
@@ -254,10 +261,35 @@ const SwapActionsState = ({
           </Button>
         ) : undefined,
       });
+    } else if (
+      currentQuoteRes?.networkCostExceedInfo &&
+      !currentQuoteRes.allowanceResult
+    ) {
+      Dialog.confirm({
+        title: intl.formatMessage({
+          id: ETranslations.swap_network_cost_dialog_title,
+        }),
+        icon: 'ErrorSolid',
+        renderContent: (
+          <TransactionLossNetworkFeeExceedDialog
+            protocol={currentQuoteRes.protocol ?? EProtocolOfExchange.SWAP}
+            networkCostExceedInfo={currentQuoteRes.networkCostExceedInfo}
+          />
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        onConfirm: () => {
+          onActionHandler();
+        },
+      });
     } else {
       onActionHandler();
     }
   }, [
+    currentQuoteRes?.allowanceResult,
+    currentQuoteRes?.networkCostExceedInfo,
+    currentQuoteRes?.protocol,
     currentQuoteRes?.quoteShowTip,
     intl,
     onActionHandler,

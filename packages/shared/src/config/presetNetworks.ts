@@ -2943,3 +2943,19 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   neoN3,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
+
+export const getNetworksSupportFilterScamHistory = memoFn(
+  (): IServerNetwork[] => [
+    eth,
+    sepolia,
+    holesky,
+    base,
+    optimism,
+    avalanche,
+    arbitrum,
+    bsc,
+    polygon,
+    etc,
+    tron,
+  ],
+);

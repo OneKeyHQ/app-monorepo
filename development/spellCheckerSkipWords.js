@@ -827,4 +827,7 @@ module.exports = [
   'bundler',
   'dai',
   'neo',
+  'Pendle',
+  'Cowswap',
+  'Ethena',
 ];

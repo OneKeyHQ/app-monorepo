@@ -400,6 +400,7 @@ function HistoryDetails() {
     ],
     {
       watchLoading: true,
+      alwaysSetState: true,
       pollingInterval: POLLING_INTERVAL_FOR_HISTORY,
       checkIsFocused,
       overrideIsFocused: (isPageFocused) =>
@@ -506,6 +507,8 @@ function HistoryDetails() {
     return {
       from,
       to,
+      isSingleFrom: [...sends, ...receives].every((e) => e.from === from),
+      isSingleTo: [...sends, ...receives].every((e) => e.to === to),
       isSingleTransfer:
         from === to
           ? true
@@ -904,7 +907,12 @@ function HistoryDetails() {
     }
 
     if (vaultSettings?.isUtxo && !txAddresses?.isSingleTransfer) return null;
-    if (txAddresses?.from && txAddresses?.to && txAddresses?.isSingleTransfer) {
+    if (
+      txAddresses?.from &&
+      txAddresses?.to &&
+      (txAddresses?.isSingleTransfer ||
+        (txAddresses?.isSingleFrom && txAddresses?.isSingleTo))
+    ) {
       return (
         <>
           <InfoItem
@@ -954,6 +962,8 @@ function HistoryDetails() {
     txAddresses?.isSingleTransfer,
     txAddresses?.from,
     txAddresses?.to,
+    txAddresses?.isSingleFrom,
+    txAddresses?.isSingleTo,
     intl,
     networkId,
     accountId,

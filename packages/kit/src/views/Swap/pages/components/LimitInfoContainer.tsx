@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
@@ -20,9 +22,18 @@ const LimitInfoContainer = () => {
     onSetMarketPrice,
     limitPriceSetReverse,
     onChangeReverse,
+    limitPriceEqualMarketPrice,
   } = useSwapLimitRate();
   const intl = useIntl();
-
+  const checkEqualMarketPrice = useCallback(
+    (percentage: number) => {
+      const equalResult = limitPriceEqualMarketPrice.find(
+        (item) => item.percentage === percentage,
+      );
+      return equalResult?.equal;
+    },
+    [limitPriceEqualMarketPrice],
+  );
   return (
     <YStack gap="$2" p="$4" bg="$bgSubdued" borderRadius="$3">
       <XStack justifyContent="space-between">
@@ -36,7 +47,12 @@ const LimitInfoContainer = () => {
               bg="$bgApp"
               borderRadius="$2.5"
               borderWidth={1}
-              borderColor="$borderSubdued"
+              borderCurve="continuous"
+              borderColor={
+                checkEqualMarketPrice(percentage)
+                  ? '$borderActive'
+                  : '$borderSubdued'
+              }
               onPress={() => onSetMarketPrice(percentage)}
               hoverStyle={{
                 bg: '$bgStrongHover',
@@ -53,11 +69,7 @@ const LimitInfoContainer = () => {
         </XStack>
       </XStack>
       <LimitRateInput
-        limitPriceRateValue={
-          limitPriceSetReverse
-            ? limitPriceUseRate.reverseRate
-            : limitPriceUseRate.rate
-        }
+        inputRate={limitPriceUseRate.inputRate}
         onReverseChange={onChangeReverse}
         reverse={limitPriceSetReverse}
         onChangeText={onLimitRateChange}

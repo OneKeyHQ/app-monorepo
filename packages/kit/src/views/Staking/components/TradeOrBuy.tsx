@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import type { IPageNavigationProp, IStackProps } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
@@ -23,12 +22,10 @@ function BasicTradeOrBuy({
   token,
   accountId,
   networkId,
-  containerProps,
 }: {
   token: IToken;
   accountId: string;
   networkId: string;
-  containerProps?: IStackProps;
 }) {
   const {
     activeAccount: { wallet },
@@ -73,15 +70,8 @@ function BasicTradeOrBuy({
   }
 
   return (
-    <XStack
-      borderTopColor="$borderSubdued"
-      borderTopWidth={StyleSheet.hairlineWidth}
-      ai="center"
-      jc="space-between"
-      py="$5"
-      {...containerProps}
-    >
-      <SizableText size="$bodyLg" color="$textSubdued">
+    <XStack ai="center" jc="space-between" pt="$5">
+      <SizableText size="$bodyMd" color="$textSubdued">
         {intl.formatMessage(
           { id: ETranslations.earn_not_enough_token },
           { token: token.symbol },
@@ -109,12 +99,10 @@ export function TradeOrBuy({
   token,
   accountId,
   networkId,
-  containerProps,
 }: {
   token: IToken;
   accountId: string;
   networkId: string;
-  containerProps?: IStackProps;
 }) {
   return (
     <HomeTokenListProviderMirror>
@@ -122,7 +110,6 @@ export function TradeOrBuy({
         token={token}
         accountId={accountId}
         networkId={networkId}
-        containerProps={containerProps}
       />
     </HomeTokenListProviderMirror>
   );

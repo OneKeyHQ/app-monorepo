@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 
-import type { ISizableTextProps } from '@onekeyhq/components';
 import { Banner, Skeleton, Stack } from '@onekeyhq/components';
-import { useBannerClosePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
+
+import { useBannerData } from '../../hooks/useBannerData';
 
 import type { IMatchDAppItemType } from '../../types';
 
@@ -20,48 +20,24 @@ export function DashboardBanner({
   }: IMatchDAppItemType & { useSystemBrowser: boolean }) => void;
   isLoading: boolean | undefined;
 }) {
-  const [bannerClose, setBannerClose] = useBannerClosePersistAtom();
-  const data = useMemo(
-    () =>
-      banners
-        .map((i) => ({
-          ...i,
-          imgUrl: i.src,
-          title: i.title || '',
-          titleTextProps: {
-            maxWidth: '$96',
-            size: '$headingLg',
-            $gtMd: {
-              size: '$heading2xl',
-            },
-          } as ISizableTextProps,
-        }))
-        .filter((i) => !bannerClose.ids.includes(i.bannerId)),
-    [banners, bannerClose],
-  );
+  const { data, closeAllBanners } = useBannerData(banners);
 
   const emptyComponent = useMemo(
     () =>
       isLoading ? (
-        <Stack p="$5">
-          <Skeleton
-            h={188}
-            w="100%"
-            $gtMd={{
-              height: 268,
-            }}
-            $gtLg={{
-              height: 360,
-            }}
-          />
-        </Stack>
+        <Skeleton
+          h={120}
+          w="100%"
+          $gtMd={{
+            w: 360,
+          }}
+        />
       ) : undefined,
     [isLoading],
   );
 
   return (
     <Stack
-      p="$5"
       h={120}
       w="100%"
       $gtSm={{
@@ -71,10 +47,8 @@ export function DashboardBanner({
       alignItems="center"
     >
       <Banner
-        onBannerClose={(id) => {
-          setBannerClose({
-            ids: [...bannerClose.ids, id],
-          });
+        onBannerClose={() => {
+          closeAllBanners();
         }}
         showCloseButton
         height={120}
