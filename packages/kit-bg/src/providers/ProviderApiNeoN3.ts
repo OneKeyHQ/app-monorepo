@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { tx, wallet } from '@cityofzion/neon-core';
+import { tx, u, wallet } from '@cityofzion/neon-core';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 
@@ -31,10 +31,13 @@ import type {
   ISignMessageV2Params,
   ISignMessageV2Response,
   ISigners,
+  IVerifyMessageV2Params,
+  IVerifyMessageV2Response,
 } from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
 import { NeoDApiErrors } from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
 
 import { vaultFactory } from '../vaults/factory';
+import { verify } from '../vaults/impls/neo/sdkNeo/signMessage';
 
 import ProviderApiBase from './ProviderApiBase';
 
@@ -420,8 +423,19 @@ class ProviderApiNeoN3 extends ProviderApiBase {
   }
 
   @providerApiMethod()
-  async verifyMessageV2(request: IJsBridgeMessagePayload) {
-    throw new NotImplemented();
+  async verifyMessageV2(
+    request: IJsBridgeMessagePayload,
+    params: IVerifyMessageV2Params,
+  ): Promise<IVerifyMessageV2Response> {
+    const parameterHexString = Buffer.from(params.message).toString('hex');
+    const lengthHex = u.num2VarInt(parameterHexString.length / 2);
+    const concatenatedString = lengthHex + parameterHexString;
+    const messageHex = `000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000${concatenatedString}`;
+    const signHex = u.num2hexstring(0, 4, true) + u.sha256(messageHex);
+    const result = verify(signHex, params.data, params.publicKey);
+    return {
+      result,
+    };
   }
 
   @providerApiMethod()

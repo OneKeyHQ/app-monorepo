@@ -104,3 +104,13 @@ export interface IInvokeReadMultiParams {
   }[];
   signers: ISigners[];
 }
+
+export interface IVerifyMessageV2Params {
+  message: string;
+  data: string;
+  publicKey: string;
+}
+
+export interface IVerifyMessageV2Response {
+  result: boolean;
+}
