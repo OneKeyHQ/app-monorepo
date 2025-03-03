@@ -206,7 +206,7 @@ export function HeaderRight({
     );
 
     const moreActionButton =
-      isIpadLandscape || !media.gtMd ? (
+      isIpadLandscape || (!platformEnv.isNativeIpad && !media.gtMd) ? (
         <MoreActionButton key="more-action" />
       ) : null;
 
