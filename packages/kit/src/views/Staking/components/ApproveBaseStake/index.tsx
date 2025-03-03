@@ -522,18 +522,11 @@ export function ApproveBaseStake({
 
               attempts += 1;
 
-              // If we've reached max attempts but allowance is still not 0
-              if (
-                attempts >= maxAttempts &&
-                BigNumber(currentAllowance).gt(0)
-              ) {
+              if (attempts < maxAttempts) {
+                setTimeout(checkAllowance, pollInterval);
+              } else {
                 setApproving(false);
                 return;
-              }
-
-              // Continue polling if conditions are met
-              if (BigNumber(currentAllowance).gt(0) && attempts < maxAttempts) {
-                setTimeout(checkAllowance, pollInterval);
               }
             };
 
