@@ -2657,6 +2657,31 @@ const benfen: IServerNetwork = {
   'status': ENetworkStatus.LISTED,
 };
 
+const neoN3: IServerNetwork = {
+  'impl': 'neo',
+  'chainId': '3',
+  'id': 'neo--3',
+  'name': 'Neo N3',
+  'symbol': 'GAS',
+  'code': 'neon3',
+  'shortcode': 'neon3',
+  'shortname': 'neon3',
+  'decimals': 8,
+  'feeMeta': {
+    'code': 'gas',
+    'decimals': 8,
+    'symbol': 'GAS',
+  },
+  'isTestnet': false,
+  'extensions': {
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/neon3.png',
+  'defaultEnabled': true,
+  'status': ENetworkStatus.LISTED,
+};
+
 const chainsOnlyEnabledInDev = [
   tatom, // Cosmos Testnet
 ];
@@ -2773,6 +2798,7 @@ export const presetNetworksMap = {
   ton,
   scdo,
   benfen,
+  neoN3,
 };
 
 // top 20 tvl evm networks
@@ -2914,6 +2940,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => [
   ton,
   scdo,
   benfen,
+  neoN3,
   ...(platformEnv.isDev ? chainsOnlyEnabledInDev : []),
 ]);
 

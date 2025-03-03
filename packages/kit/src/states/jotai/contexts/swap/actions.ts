@@ -970,7 +970,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       let rateDifferenceRes:
         | { value: string; unit: ESwapRateDifferenceUnit }
         | undefined;
-
       // current quote result  current token  not match
       if (
         quoteResult &&
@@ -983,6 +982,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           quoteResult?.toTokenInfo?.contractAddress !==
             toToken?.contractAddress)
       ) {
+        set(rateDifferenceAtom(), rateDifferenceRes);
         return;
       }
 

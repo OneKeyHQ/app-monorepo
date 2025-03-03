@@ -26,6 +26,7 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
+  formatBalance,
   numberFormat,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -667,6 +668,16 @@ export function useSwapBuildTx() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           } else if (res?.ctx.cowSwapOrderId) {
             skipSendTransAction = true;
+            const fromAmountBN = new BigNumber(
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              res.ctx?.cowSwapUnSignedOrder?.sellAmount ?? '0',
+            ).shiftedBy(-(fromToken.decimals ?? 0));
+            const formattedFromAmount = formatBalance(fromAmountBN.toFixed());
+            const toAmountBN = new BigNumber(
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              res.ctx?.cowSwapUnSignedOrder?.buyAmount ?? '0',
+            ).shiftedBy(-(toToken.decimals ?? 0));
+            const formattedToAmount = formatBalance(toAmountBN.toFixed());
             void Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.limit_toast_order_submitted,
@@ -676,8 +687,8 @@ export function useSwapBuildTx() {
                   id: ETranslations.limit_toast_order_content,
                 },
                 {
-                  num1: res.result.fromAmount,
-                  num2: res.result.toAmount,
+                  num1: formattedFromAmount.formattedValue,
+                  num2: formattedToAmount.formattedValue,
                   token1: fromToken.symbol,
                   token2: toToken.symbol,
                 },
@@ -964,12 +975,13 @@ export function useSwapBuildTx() {
           } else if (
             createBuildTxRes?.swapInfo?.protocol === EProtocolOfExchange.LIMIT
           ) {
-            void backgroundApiProxy.serviceSwap.swapLimitOrderFetchNewOrder(
+            void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
               swapFromAddressInfo.accountInfo?.indexedAccount?.id,
               !swapFromAddressInfo.accountInfo?.indexedAccount?.id
                 ? swapFromAddressInfo.accountInfo?.account?.id ??
                     swapFromAddressInfo.accountInfo?.dbAccount?.id
                 : undefined,
+              true,
             );
           }
           defaultLogger.swap.createSwapOrder.swapCreateOrder({
@@ -1093,12 +1105,13 @@ export function useSwapBuildTx() {
               provider: item.provider,
               userAddress: item.userAddress,
             });
-            await backgroundApiProxy.serviceSwap.swapLimitOrderFetchNewOrder(
+            await backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
               swapFromAddressInfo.accountInfo?.indexedAccount?.id,
               !swapFromAddressInfo.accountInfo?.indexedAccount?.id
                 ? swapFromAddressInfo.accountInfo?.account?.id ??
                     swapFromAddressInfo.accountInfo?.dbAccount?.id
                 : undefined,
+              true,
             );
           }
         }

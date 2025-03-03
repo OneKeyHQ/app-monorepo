@@ -26,7 +26,7 @@ import { KeyboardContainer } from './KeyboardContainer';
 import { NavigationContainer } from './NavigationContainer';
 import { PortalBodyContainer } from './PortalBodyContainer';
 import { PrevCheckBeforeSendingContainer } from './PrevCheckBeforeSendingContainer';
-import { PrimeLoginContainer } from './PrimeLoginContainer';
+import { PrimeLoginContainerLazy } from './PrimeLoginContainer';
 
 const PageTrackerContainer = LazyLoad(
   () => import('./PageTrackerContainer'),
@@ -101,7 +101,7 @@ export function Container() {
           <CreateAddressContainer />
           <PrevCheckBeforeSendingContainer />
           <HardwareUiStateContainer />
-          <PrimeLoginContainer />
+          <PrimeLoginContainerLazy />
           <DialogLoadingContainer />
           <CloudBackupContainer />
           <FullWindowOverlayContainer />

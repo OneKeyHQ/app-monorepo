@@ -138,6 +138,7 @@ export function ApproveBaseStake({
     allowance,
     loading: loadingAllowance,
     trackAllowance,
+    fetchAllowanceResponse,
   } = useTrackTokenAllowance({
     accountId: approveTarget.accountId,
     networkId: approveTarget.networkId,
@@ -186,11 +187,9 @@ export function ApproveBaseStake({
 
   const usePermit2Approve =
     details.provider?.approveType === EApproveType.Permit;
-  const permitSignatureAmountRef = useRef<string | undefined>(undefined);
   const permitSignatureRef = useRef<string | undefined>(undefined);
 
   const isFocus = useIsFocused();
-  const approveOnThisTx = useRef(false);
 
   const shouldApprove = useMemo(() => {
     if (!isFocus) {
@@ -198,19 +197,6 @@ export function ApproveBaseStake({
     }
     const amountValueBN = BigNumber(amountValue);
     const allowanceBN = new BigNumber(allowance);
-
-    if (earnUtils.isUSDTonETHNetwork(token)) {
-      if (allowanceBN.isZero()) {
-        return true;
-      }
-
-      if (
-        allowanceBN.gt(0) &&
-        (!approveOnThisTx.current || amountValueBN.gt(allowanceBN))
-      ) {
-        return true;
-      }
-    }
 
     if (usePermit2Approve) {
       // Check permit cache first
@@ -222,7 +208,6 @@ export function ApproveBaseStake({
       });
       if (permitCache) {
         permitSignatureRef.current = permitCache.signature;
-        permitSignatureAmountRef.current = amountValue;
         return false;
       }
     }
@@ -264,11 +249,9 @@ export function ApproveBaseStake({
 
       if (permitSignatureRef.current) {
         const amountBN = BigNumber(amount);
-        if (permitSignatureAmountRef.current) {
-          const allowanceBN = BigNumber(permitSignatureAmountRef.current);
-          if (amountBN.gt(allowanceBN)) {
-            permitParams.permitSignature = permitSignatureRef.current;
-          }
+        const allowanceBN = BigNumber(allowance);
+        if (amountBN.gt(allowanceBN)) {
+          permitParams.permitSignature = permitSignatureRef.current;
         }
       }
     }
@@ -442,7 +425,7 @@ export function ApproveBaseStake({
       const daySpent =
         Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
 
-      if (!daySpent || daySpent <= 5) {
+      if (usePermit2Approve || !daySpent || daySpent <= 5) {
         return onNext();
       }
 
@@ -460,7 +443,12 @@ export function ApproveBaseStake({
         },
       });
     },
-    [totalAnnualRewardsFiatValue, estimateFeeResp, showEstimateGasAlert],
+    [
+      totalAnnualRewardsFiatValue,
+      estimateFeeResp,
+      usePermit2Approve,
+      showEstimateGasAlert,
+    ],
   );
 
   const onSubmit = useCallback(async () => {
@@ -512,9 +500,45 @@ export function ApproveBaseStake({
     const approvesInfo = [approveResetInfo];
     await navigationToTxConfirm({
       approvesInfo,
+      onSuccess() {
+        // Poll for allowance updates until it becomes 0
+        const pollAllowanceUntilZero = async () => {
+          try {
+            let attempts = 0;
+            const maxAttempts = 10; // Prevent infinite polling
+            const pollInterval = 3000; // 3 seconds between polls
 
-      onSuccess(data) {
-        setApproving(false);
+            const checkAllowance = async () => {
+              // Fetch latest allowance
+              const allowanceInfo = await fetchAllowanceResponse();
+
+              if (allowanceInfo) {
+                // If allowance is now 0, stop polling
+                if (BigNumber(allowanceInfo.allowanceParsed).isZero()) {
+                  setApproving(false);
+                  return;
+                }
+              }
+
+              attempts += 1;
+
+              if (attempts < maxAttempts) {
+                setTimeout(checkAllowance, pollInterval);
+              } else {
+                setApproving(false);
+              }
+            };
+
+            // Start the recursive polling
+            setTimeout(checkAllowance, pollInterval);
+          } catch (error) {
+            console.error('Error polling for allowance:', error);
+            setApproving(false);
+          }
+        };
+
+        // Start polling for USDT reset
+        void pollAllowanceUntilZero();
       },
       onFail() {
         setApproving(false);
@@ -527,6 +551,7 @@ export function ApproveBaseStake({
     approveTarget.accountId,
     approveTarget.networkId,
     approveTarget.spenderAddress,
+    fetchAllowanceResponse,
     navigationToTxConfirm,
     token,
   ]);
@@ -556,17 +581,13 @@ export function ApproveBaseStake({
   const onApprove = useCallback(async () => {
     setApproving(true);
     permitSignatureRef.current = undefined;
-    permitSignatureAmountRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
 
     const allowanceBN = BigNumber(allowance);
     const amountBN = BigNumber(amountValue);
 
     if (earnUtils.isUSDTonETHNetwork(token)) {
-      if (
-        allowanceBN.gt(0) &&
-        (!approveOnThisTx.current || amountBN.gt(allowanceBN))
-      ) {
+      if (allowanceBN.gt(0) && amountBN.gt(allowanceBN)) {
         showResetUSDTApproveValueDialog();
         return;
       }
@@ -585,7 +606,6 @@ export function ApproveBaseStake({
 
           if (permitCache) {
             permitSignatureRef.current = permitCache.signature;
-            permitSignatureAmountRef.current = amountValue;
             void onSubmit();
             setApproving(false);
             return;
@@ -598,7 +618,6 @@ export function ApproveBaseStake({
             amountValue,
             details,
           });
-          permitSignatureAmountRef.current = amountValue;
           permitSignatureRef.current = permitBundlerAction;
 
           // Update permit cache
@@ -647,7 +666,6 @@ export function ApproveBaseStake({
       onSuccess(data) {
         trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
-        approveOnThisTx.current = true;
         setTimeout(() => {
           void fetchEstimateFeeResp(amountValue);
         }, 200);
@@ -753,7 +771,7 @@ export function ApproveBaseStake({
         </CalculationListItem>,
       );
     }
-    if (estimateFeeResp) {
+    if (estimateFeeResp && !usePermit2Approve) {
       items.push(
         <EstimateNetworkFee
           labelTextProps={{
@@ -784,6 +802,7 @@ export function ApproveBaseStake({
     showEstReceive,
     showEstimateGasAlert,
     totalAnnualRewardsFiatValue,
+    usePermit2Approve,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (
