@@ -71,7 +71,7 @@ jobs:
 
       - name: Install electron-builder v23
         env:
-            NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           cd ./apps/desktop && yarn add electron-builder@23.6.0
 
