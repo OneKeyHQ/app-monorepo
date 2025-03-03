@@ -50,7 +50,7 @@ build({
   },
   external: ['electron', ...Object.keys(pkg.dependencies)],
   tsconfig: path.join(electronSource, 'tsconfig.json'),
-  outdir: path.join(__dirname, '..', 'dist'),
+  outdir: path.join(__dirname, '..', 'app/dist'),
   define: {
     'process.env.NODE_ENV': JSON.stringify(
       process.env.NODE_ENV || 'development',

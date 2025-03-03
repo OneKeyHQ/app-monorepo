@@ -1,7 +1,13 @@
+const path = require('path');
 const DLLs = require('./electron-dll.config');
 
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
+
+const getPath = (...paths) => {
+  console.log(path.join(__dirname, ...paths));
+  return path.join(__dirname, ...paths)
+};
 
 module.exports = {
   'extraMetadata': {
@@ -18,11 +24,11 @@ module.exports = {
   },
   'npmRebuild': false,
   'files': [
-    'build/**/*',
-    '!build/static/bin/**/*',
-    'dist/**/*.js',
+    'dist/**/*',
     '!dist/__**',
-    'package.json',
+    getPath('build/**/*'),
+    `!${getPath('build/static/bin/**/*')}`,
+    getPath('package.json'),
   ],
   'protocols': {
     'name': 'electron-deep-linking',
@@ -30,11 +36,11 @@ module.exports = {
   },
   'extraResources': [
     {
-      'from': 'build/static/images/icons/512x512.png',
+      'from': getPath('build/static/images/icons/512x512.png'),
       'to': 'static/images/icons/512x512.png',
     },
     {
-      'from': 'build/static/preload.js',
+      'from': getPath('build/static/preload.js'),
       'to': 'static/preload.js',
     },
   ],
@@ -58,22 +64,24 @@ module.exports = {
         'type': 'file',
       },
     ],
-    'icon': 'build/static/images/icons/dmg.icns',
-    'background': 'build/static/images/icons/background.tiff',
+    'icon': getPath('build/static/images/icons/dmg.icns'),
+    'background': getPath('build/static/images/icons/background.tiff'),
   },
   'nsis': {
     'oneClick': false,
-    'installerSidebar': 'build/static/images/icons/installerSidebar.bmp',
+    'installerSidebar': getPath(
+      'build/static/images/icons/installerSidebar.bmp',
+    ),
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
     'extraResources': [
       {
-        'from': 'build/static/bin/bridge/mac-${arch}',
+        'from': getPath('build/static/bin/bridge/mac-${arch}'),
         'to': 'bin/bridge',
       },
     ],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': getPath('build/static/images/icons/512x512.png'),
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
     'gatekeeperAssess': false,
@@ -91,12 +99,12 @@ module.exports = {
   'win': {
     'extraResources': [
       {
-        'from': 'build/static/bin/bridge/win-${arch}',
+        'from': getPath('build/static/bin/bridge/win-${arch}'),
         'to': 'bin/bridge',
       },
     ],
     'extraFiles': [...DLLs],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': getPath('build/static/images/icons/512x512.png'),
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
@@ -108,12 +116,12 @@ module.exports = {
         'to': 'bin/bridge',
       },
     ],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': getPath('build/static/images/icons/512x512.png'),
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
     'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
   },
-  'afterSign': 'scripts/notarize.js',
-  'afterPack': 'scripts/fileOperation.js',
+  'afterSign': getPath('scripts/notarize.js'),
+  'afterPack': getPath('scripts/fileOperation.js'),
 };
