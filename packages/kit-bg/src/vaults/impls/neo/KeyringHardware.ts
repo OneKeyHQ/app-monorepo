@@ -70,7 +70,7 @@ export class KeyringHardware extends KeyringHardwareBase {
               buildResultAccount: ({ account }) => ({
                 path: account.path,
                 address: account.payload?.address || '',
-                publicKey: account.payload?.publicKey || '',
+                publicKey: account.payload?.pub || '',
               }),
             });
             if (allNetworkAccounts) {

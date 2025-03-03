@@ -54,8 +54,7 @@ const NODE_URL = 'http://seed1.neo.org:10332/';
 
 @backgroundClass()
 class ProviderApiNeoN3 extends ProviderApiBase {
-  // @ts-expect-error
-  public providerName = 'neo';
+  public providerName = IInjectedProviderNames.neo;
 
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,

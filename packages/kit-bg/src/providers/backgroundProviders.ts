@@ -89,9 +89,7 @@ function createBackgroundProviders({
     [IInjectedProviderNames.btc]: new ProviderApiBtc({
       backgroundApi,
     }),
-    // TODO: Replace with ProviderApiNeoN3
-    // @ts-expect-error
-    'neo': new ProviderApiNeoN3({
+    [IInjectedProviderNames.neo]: new ProviderApiNeoN3({
       backgroundApi,
     }),
     // eslint-disable-next-line spellcheck/spell-checker

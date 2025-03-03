@@ -332,8 +332,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.polkadot,
   IInjectedProviderNames.webln,
   IInjectedProviderNames.bfc,
-  // TODO: replace with IMPL_NEO
-  'neo',
+  IInjectedProviderNames.neo,
 ];
 
 export function getNetworkImplsFromDappScope(
