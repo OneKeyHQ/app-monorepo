@@ -171,7 +171,6 @@
     "@types/lodash": "^4.17.7",
     "@types/long": "^5.0.0",
     "@types/memoizee": "^0.4.10",
-    "@types/node": "20.11.18",
     "@types/punycode": "^2",
     "@types/react": "^18.2.29",
     "@types/react-beautiful-dnd": "13.1.8",
