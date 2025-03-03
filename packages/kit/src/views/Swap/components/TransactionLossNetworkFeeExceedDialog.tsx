@@ -27,7 +27,7 @@ const TransactionLossNetworkFeeExceedDialog = ({
             id: ETranslations.swap_network_cost_dialog_description,
           },
           {
-            number: networkCostExceedInfo.cost,
+            number: ` ${networkCostExceedInfo.exceedPercent}%`,
             token: networkCostExceedInfo.tokenInfo.symbol,
           },
         )}

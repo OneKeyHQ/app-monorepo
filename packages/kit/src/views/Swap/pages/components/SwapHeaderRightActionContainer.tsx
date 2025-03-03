@@ -344,6 +344,7 @@ const SwapHeaderRightActionContainer = ({
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapPendingStatusList = useMemo(
     () =>
       swapHistoryPendingList.filter(
@@ -354,7 +355,10 @@ const SwapHeaderRightActionContainer = ({
     [swapHistoryPendingList],
   );
   const slippageTitle = useMemo(() => {
-    if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
+    if (
+      slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+    ) {
       return (
         <SizableText
           color={
@@ -367,8 +371,7 @@ const SwapHeaderRightActionContainer = ({
       );
     }
     return null;
-  }, [slippageItem.key, slippageItem.value]);
-  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  }, [slippageItem.key, slippageItem.value, swapTypeSwitch]);
   const onOpenHistoryListModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,

@@ -232,7 +232,11 @@ const SwapActionsState = ({
   ]);
 
   const onActionHandlerBefore = useCallback(() => {
-    if (!swapActionState.isRefreshQuote && currentQuoteRes?.quoteShowTip) {
+    if (swapActionState.isRefreshQuote) {
+      onActionHandler();
+      return;
+    }
+    if (currentQuoteRes?.quoteShowTip) {
       Dialog.confirm({
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_continue,
