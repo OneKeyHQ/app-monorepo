@@ -1,54 +1,8 @@
-const path = require('path');
+const baseElectronBuilderConfig = require('./electron-builder-base.config');
 const DLLs = require('./electron-dll.config');
 
-/* eslint-disable no-template-curly-in-string */
-require('../../development/env');
-
-const getPath = (...paths) => {
-  console.log(path.join(__dirname, ...paths));
-  return path.join(__dirname, ...paths)
-};
-
 module.exports = {
-  'extraMetadata': {
-    'main': 'dist/app.js',
-    'version': process.env.VERSION,
-  },
-  'appId': 'so.onekey.wallet.desktop',
-  'productName': 'OneKey',
-  'copyright': 'Copyright © ${author}',
-  'asar': true,
-  'buildVersion': process.env.BUILD_NUMBER,
-  'directories': {
-    'output': 'build-electron',
-  },
-  'npmRebuild': false,
-  'files': [
-    'dist/**/*',
-    '!dist/__**',
-    'build/**/*',
-    '!build/static/bin/**/*',
-    'package.json',
-  ],
-  'protocols': {
-    'name': 'electron-deep-linking',
-    'schemes': ['onekey-wallet', 'wc', 'ethereum'],
-  },
-  'extraResources': [
-    {
-      'from': 'app/build/static/images/icons/512x512.png',
-      'to': 'static/images/icons/512x512.png',
-    },
-    {
-      'from': 'app/build/static/preload.js',
-      'to': 'static/preload.js',
-    },
-  ],
-  'publish': {
-    'provider': 'github',
-    'repo': 'app-monorepo',
-    'owner': 'OneKeyHQ',
-  },
+  ...baseElectronBuilderConfig,
   'dmg': {
     'sign': false,
     'contents': [
@@ -69,8 +23,7 @@ module.exports = {
   },
   'nsis': {
     'oneClick': false,
-    'installerSidebar': 
-      'app/build/static/images/icons/installerSidebar.bmp',
+    'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
@@ -121,6 +74,4 @@ module.exports = {
     'category': 'Utility',
     'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
   },
-  'afterSign': getPath('scripts/notarize.js'),
-  'afterPack': getPath('scripts/fileOperation.js'),
 };
