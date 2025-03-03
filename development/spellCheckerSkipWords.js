@@ -826,6 +826,7 @@ module.exports = [
   'Lokalise',
   'bundler',
   'dai',
+  'neo',
   'Pendle',
   'Cowswap',
   'Ethena',
