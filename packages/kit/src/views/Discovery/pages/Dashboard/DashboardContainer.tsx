@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import { Page, Stack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -11,22 +13,26 @@ import DashboardContent from './DashboardContent';
 
 function Dashboard() {
   const { top } = useSafeAreaInsets();
+  const renderHeaderLeft = useCallback(() => <BrowserTitle />, []);
 
   return (
     <Page>
-      <Page.Header headerLeft={BrowserTitle} headerRight={HistoryIconButton} />
+      <Page.Header
+        headerLeft={renderHeaderLeft}
+        headerRight={HistoryIconButton}
+      />
       {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
       {platformEnv.isNativeIOS ? (
         <Stack
           pt={top}
+          px="$5"
           width="100%"
           position="relative"
-          justifyContent="center"
-          alignItems="center"
+          justifyContent="space-between"
         >
           <BrowserTitle />
 
-          <Stack position="absolute" right="$5" pt={top}>
+          <Stack position="absolute" right="$0" pt={top}>
             <HistoryIconButton />
           </Stack>
         </Stack>
