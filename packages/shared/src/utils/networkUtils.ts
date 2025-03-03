@@ -9,7 +9,10 @@ import {
   EBtcDappUniSetChainTypeEnum,
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
-import { getDefaultEnabledEVMNetworksInAllNetworks } from '../config/presetNetworks';
+import {
+  getDefaultEnabledEVMNetworksInAllNetworks,
+  getPresetNetworks,
+} from '../config/presetNetworks';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
@@ -185,6 +188,11 @@ function toNetworkIdFallback({
   return networkId;
 }
 
+function getLocalNetworkInfo(networkId: string) {
+  const networks = getPresetNetworks();
+  return networks.find((network) => network.id === networkId);
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -199,4 +207,5 @@ export default {
   getDefaultDeriveTypeVisibleNetworks,
   toNetworkIdFallback,
   getBtcDappUniSetChainName,
+  getLocalNetworkInfo,
 };
