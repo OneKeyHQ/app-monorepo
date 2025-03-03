@@ -187,7 +187,6 @@ export function ApproveBaseStake({
 
   const usePermit2Approve =
     details.provider?.approveType === EApproveType.Permit;
-  const permitSignatureAmountRef = useRef<string | undefined>(undefined);
   const permitSignatureRef = useRef<string | undefined>(undefined);
 
   const isFocus = useIsFocused();
@@ -250,13 +249,11 @@ export function ApproveBaseStake({
       permitParams.approveType = 'permit';
 
       if (permitSignatureRef.current) {
-        const amountBN = BigNumber(amount);
-        if (permitSignatureAmountRef.current) {
-          const allowanceBN = BigNumber(permitSignatureAmountRef.current);
+          const amountBN = BigNumber(amount);
+          const allowanceBN = BigNumber(allowance);
           if (amountBN.gt(allowanceBN)) {
             permitParams.permitSignature = permitSignatureRef.current;
           }
-        }
       }
     }
 
@@ -594,7 +591,6 @@ export function ApproveBaseStake({
   const onApprove = useCallback(async () => {
     setApproving(true);
     permitSignatureRef.current = undefined;
-    permitSignatureAmountRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
 
     const allowanceBN = BigNumber(allowance);
@@ -620,7 +616,6 @@ export function ApproveBaseStake({
 
           if (permitCache) {
             permitSignatureRef.current = permitCache.signature;
-            permitSignatureAmountRef.current = amountValue;
             void onSubmit();
             setApproving(false);
             return;
@@ -633,7 +628,6 @@ export function ApproveBaseStake({
             amountValue,
             details,
           });
-          permitSignatureAmountRef.current = amountValue;
           permitSignatureRef.current = permitBundlerAction;
 
           // Update permit cache
