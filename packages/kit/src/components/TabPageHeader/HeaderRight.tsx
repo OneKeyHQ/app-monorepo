@@ -3,7 +3,13 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
+import {
+  ActionList,
+  SizableText,
+  Stack,
+  useIsIpadLandscape,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -41,6 +47,7 @@ export function HeaderRight({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isIpadLandscape = useIsIpadLandscape();
   const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -198,9 +205,10 @@ export function HeaderRight({
       </Stack>
     );
 
-    const moreActionButton = media.gtMd ? null : (
-      <MoreActionButton key="more-action" />
-    );
+    const moreActionButton =
+      isIpadLandscape || !media.gtMd ? (
+        <MoreActionButton key="more-action" />
+      ) : null;
 
     const searchInput = media.gtMd ? (
       <UniversalSearchInput key="searchInput" />
