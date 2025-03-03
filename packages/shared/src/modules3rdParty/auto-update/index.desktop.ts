@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
 
-import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 
 import { ETranslations } from '../../locale';
 import { appLocale } from '../../locale/appLocale';

@@ -127,7 +127,7 @@ function SignatureAssetDetailItem({
           </SizableText>
         ) : null}
         {type !== 'nft' || (type === 'nft' && NFTType === ENFTType.ERC1155) ? (
-          <SizableText size="$headingMd">
+          <SizableText size="$headingMd" maxWidth={240} overflow="hidden">
             {isSendNativeTokenOnly &&
             nativeTokenTransferAmountToUpdate?.isMaxSend &&
             !isNil(nativeTokenTransferAmountToUpdate.amountToUpdate) &&

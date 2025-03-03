@@ -1,55 +1,15 @@
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
+const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
 module.exports = {
-  'extraMetadata': {
-    'main': 'dist/app.js',
-    'version': process.env.VERSION,
-  },
-  'appId': 'so.onekey.wallet',
-  'productName': 'OneKey',
-  'copyright': 'Copyright © ${author}',
-  'asar': true,
-  'buildVersion': `${process.env.BUILD_NUMBER}0`,
-  'directories': {
-    'output': 'build-electron',
-  },
-  'files': [
-    'build/**/*',
-    '!build/static/bin/**/*',
-    'dist/**/*.js',
-    '!dist/__**',
-    'package.json',
-  ],
-  'protocols': {
-    'name': 'electron-deep-linking',
-    'schemes': ['onekey-wallet', 'wc', 'ethereum'],
-  },
-  'extraResources': [
-    {
-      'from': 'build/static/images/icons/512x512.png',
-      'to': 'static/images/icons/512x512.png',
-    },
-    {
-      'from': 'build/static/images/icons/icon.icns',
-      'to': 'static/images/icons/icon.icns',
-    },
-    {
-      'from': 'build/static/preload.js',
-      'to': 'static/preload.js',
-    },
-  ],
-  'publish': {
-    'provider': 'github',
-    'repo': 'app-monorepo',
-    'owner': 'OneKeyHQ',
-  },
+  ...baseElectronBuilderConfig,
   'dmg': {
     'sign': false,
   },
   'mac': {
     'identity': null,
-    'icon': 'build/static/images/icons/icon.icns',
+    'icon': 'app/build/static/images/icons/icon.icns',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
     'darkModeSupport': false,
@@ -73,7 +33,5 @@ module.exports = {
       'ITSAppUsesNonExemptEncryption': false,
     },
   },
-  'afterSign': 'scripts/notarize.js',
-  'afterPack': 'scripts/fileOperation.js',
   'asarUnpack': ['**/*.node'],
 };
