@@ -5,7 +5,7 @@ import { formatDistanceToNowStrict } from '@onekeyhq/shared/src/utils/dateUtils'
 const TIME_23H = 23 * 3600;
 const TIME_24H = 24 * 3600;
 
-const MAX_STAKING_DISTANCE = 24 * 3600 * 365 * 999;
+const MAX_STAKING_DISTANCE = 24 * 3600 * 365 * 10;
 export function formatStakingDistanceToNowStrict(
   stakingTime?: number | string,
 ) {
