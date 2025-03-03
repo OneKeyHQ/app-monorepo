@@ -33,4 +33,5 @@ module.exports = {
       'ITSAppUsesNonExemptEncryption': false,
     },
   },
+  'asarUnpack': ['**/*.node'],
 };
