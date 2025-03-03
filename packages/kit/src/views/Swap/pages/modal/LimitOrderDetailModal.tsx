@@ -180,11 +180,6 @@ const LimitOrderDetailModal = () => {
       try {
         setCancelLoading(true);
         await cancelLimitOrder(item);
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.global_success,
-          }),
-        });
       } catch (error) {
         console.error(error);
         Toast.error({
@@ -230,31 +225,32 @@ const LimitOrderDetailModal = () => {
   const renderLimitOrderStatus = useCallback(() => {
     const { status } = orderItemState ?? {};
     let label = intl.formatMessage({
-      id: ETranslations.swap_history_detail_badge_to_pending,
+      id: ETranslations.Limit_order_status_open,
     });
-    let color = '@textCaution';
+    let color = '$textSuccess';
     if (status) {
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
-            id: ETranslations.swap_history_detail_badge_expired,
+            id: ETranslations.Limit_order_cancel,
           });
-          color = '@textCritical';
+          color = '$textCritical';
           break;
         case ESwapLimitOrderStatus.FULFILLED:
           label = intl.formatMessage({
-            id: ETranslations.swap_history_detail_badge_to_success,
+            id: ETranslations.Limit_order_status_filled,
           });
           color = '$textSuccess';
           break;
         case ESwapLimitOrderStatus.EXPIRED:
           label = intl.formatMessage({
-            id: ETranslations.swap_history_detail_badge_expired,
+            id: ETranslations.Limit_order_status_expired,
           });
+          color = '$textCaution';
           break;
         case ESwapLimitOrderStatus.PRESIGNATURE_PENDING:
           label = intl.formatMessage({
-            id: ETranslations.swap_history_detail_badge_to_pending,
+            id: ETranslations.Limit_order_status_open,
           });
           break;
         default:
