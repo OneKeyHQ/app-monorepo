@@ -238,6 +238,7 @@ function TxFeeInfo(props: IProps) {
               feeAlgo: r.feeAlgo ? [r.feeAlgo] : undefined,
               feeDot: r.feeDot ? [r.feeDot] : undefined,
               feeBudget: r.feeBudget ? [r.feeBudget] : undefined,
+              feeNeoN3: r.feeNeoN3 ? [r.feeNeoN3] : undefined,
             },
             e,
           };
@@ -328,6 +329,7 @@ function TxFeeInfo(props: IProps) {
         txFee.feeAlgo?.length ||
         txFee.feeDot?.length ||
         txFee.feeBudget?.length ||
+        txFee.feeNeoN3?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -342,6 +344,7 @@ function TxFeeInfo(props: IProps) {
           feeAlgo: txFee.feeAlgo?.[i],
           feeDot: txFee.feeDot?.[i],
           feeBudget: txFee.feeBudget?.[i],
+          feeNeoN3: txFee.feeNeoN3?.[i],
         };
 
         const useDappFeeAndNotEditFee =
@@ -479,6 +482,13 @@ function TxFeeInfo(props: IProps) {
           customFeeInfo.feeBudget = {
             ...txFee.feeBudget[sendSelectedFee.presetIndex],
             ...(customFee?.feeBudget ?? {}),
+          };
+        }
+
+        if (txFee.feeNeoN3 && !isEmpty(txFee.feeNeoN3)) {
+          customFeeInfo.feeNeoN3 = {
+            ...txFee.feeNeoN3[sendSelectedFee.presetIndex],
+            ...(customFee?.feeNeoN3 ?? {}),
           };
         }
 
@@ -636,6 +646,7 @@ function TxFeeInfo(props: IProps) {
     customFee?.feeAlgo,
     customFee?.feeDot,
     customFee?.feeBudget,
+    customFee?.feeNeoN3,
     unsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,
