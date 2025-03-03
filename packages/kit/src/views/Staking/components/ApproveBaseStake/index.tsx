@@ -248,11 +248,11 @@ export function ApproveBaseStake({
       permitParams.approveType = 'permit';
 
       if (permitSignatureRef.current) {
-          const amountBN = BigNumber(amount);
-          const allowanceBN = BigNumber(allowance);
-          if (amountBN.gt(allowanceBN)) {
-            permitParams.permitSignature = permitSignatureRef.current;
-          }
+        const amountBN = BigNumber(amount);
+        const allowanceBN = BigNumber(allowance);
+        if (amountBN.gt(allowanceBN)) {
+          permitParams.permitSignature = permitSignatureRef.current;
+        }
       }
     }
 
@@ -551,7 +551,6 @@ export function ApproveBaseStake({
     approveTarget.accountId,
     approveTarget.networkId,
     approveTarget.spenderAddress,
-    currentAllowance,
     fetchAllowanceResponse,
     navigationToTxConfirm,
     token,
