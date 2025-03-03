@@ -313,7 +313,7 @@ function SearchModal() {
             <Stack pt="$5">
               <DappSearchModalSectionHeader
                 title={intl.formatMessage({
-                  id: ETranslations.explore_history,
+                  id: ETranslations.browser_recently_closed,
                 })}
                 onMorePress={() => {
                   jumpPageRef.current = true;
