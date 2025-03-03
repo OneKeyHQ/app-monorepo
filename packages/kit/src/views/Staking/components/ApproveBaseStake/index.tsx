@@ -208,7 +208,6 @@ export function ApproveBaseStake({
       });
       if (permitCache) {
         permitSignatureRef.current = permitCache.signature;
-        permitSignatureAmountRef.current = amountValue;
         return false;
       }
     }
