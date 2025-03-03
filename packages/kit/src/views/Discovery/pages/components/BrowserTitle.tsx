@@ -25,5 +25,3 @@ export function BrowserTitle() {
     </SizableText>
   );
 }
-
-export default BrowserTitle;
