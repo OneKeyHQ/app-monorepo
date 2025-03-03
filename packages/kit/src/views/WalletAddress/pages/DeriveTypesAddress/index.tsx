@@ -177,6 +177,50 @@ const DeriveTypesAddressItem = ({
     setIsAccountCreated,
     intl,
   ]);
+
+  const renderSelectDeriveTypeItem = useCallback(() => {
+    if (loading) {
+      return null;
+    }
+    if (actionType !== EDeriveAddressActionType.Select) {
+      return null;
+    }
+
+    if (item.account) {
+      return (
+        <YStack>
+          <NumberSizeableText
+            formatter="balance"
+            formatterOptions={{ tokenSymbol: token?.symbol }}
+            numberOfLines={1}
+            textAlign="right"
+            size="$bodyLgMedium"
+          >
+            {tokenFiat?.balanceParsed ?? 0}
+          </NumberSizeableText>
+          <NumberSizeableText
+            formatter="value"
+            formatterOptions={{ currency: settings.currencyInfo.symbol }}
+            size="$bodyMd"
+            color="$textSubdued"
+            textAlign="right"
+          >
+            {tokenFiat?.fiatValue ?? 0}
+          </NumberSizeableText>
+        </YStack>
+      );
+    }
+
+    return <Icon name="PlusLargeOutline" color="$iconSubdued" />;
+  }, [
+    item.account,
+    loading,
+    actionType,
+    tokenFiat,
+    settings.currencyInfo.symbol,
+    token?.symbol,
+  ]);
+
   return (
     <ListItem
       title={item.deriveInfo.label}
@@ -203,30 +247,7 @@ const DeriveTypesAddressItem = ({
           color="$iconSubdued"
         />
       ) : null}
-      {!loading &&
-      actionType === EDeriveAddressActionType.Select &&
-      item.account ? (
-        <YStack>
-          <NumberSizeableText
-            formatter="balance"
-            formatterOptions={{ tokenSymbol: token?.symbol }}
-            numberOfLines={1}
-            textAlign="right"
-            size="$bodyLgMedium"
-          >
-            {tokenFiat?.balanceParsed ?? 0}
-          </NumberSizeableText>
-          <NumberSizeableText
-            formatter="value"
-            formatterOptions={{ currency: settings.currencyInfo.symbol }}
-            size="$bodyMd"
-            color="$textSubdued"
-            textAlign="right"
-          >
-            {tokenFiat?.fiatValue ?? 0}
-          </NumberSizeableText>
-        </YStack>
-      ) : null}
+      {renderSelectDeriveTypeItem()}
     </ListItem>
   );
 };
