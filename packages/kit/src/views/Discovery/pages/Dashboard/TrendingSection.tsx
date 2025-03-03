@@ -1,17 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { isNil } from 'lodash';
-import { useIntl } from 'react-intl';
 
 import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
@@ -24,12 +17,7 @@ export function TrendingSection({
 }: {
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }) {
-  const intl = useIntl();
-  const navigation = useAppNavigation();
-
-  const { result: trendingData, run: refreshTrendingData } = usePromiseResult<
-    IDApp[]
-  >(
+  const { result: trendingData } = usePromiseResult<IDApp[]>(
     async () => {
       const data =
         await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
@@ -40,16 +28,6 @@ export function TrendingSection({
       watchLoading: true,
     },
   );
-
-  const onPressMore = useCallback(() => {
-    // Navigate to a trending view if needed
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-      params: {
-        url: 'trending',
-      },
-    });
-  }, [navigation]);
 
   const dataSource = useMemo<IDApp[]>(() => trendingData ?? [], [trendingData]);
 
