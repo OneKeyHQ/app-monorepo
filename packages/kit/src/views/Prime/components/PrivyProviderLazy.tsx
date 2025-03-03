@@ -2,20 +2,18 @@ import { Suspense, lazy } from 'react';
 
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 
-const PrimeLoginContainer = lazy(() =>
-  import('./PrimeLoginContainer').then((m) => ({
-    default: m.PrimeLoginContainer,
-  })),
+const PrivyProvider = lazy(() =>
+  import('./PrivyProvider').then((m) => ({ default: m.PrivyProvider })),
 );
 
-export function PrimeLoginContainerLazy() {
+export function PrivyProviderLazy({ children }: { children: React.ReactNode }) {
   const [devSettings] = useDevSettingsPersistAtom();
   if (devSettings.enabled && devSettings.settings?.showPrimeTest) {
     return (
       <Suspense fallback={null}>
-        <PrimeLoginContainer />
+        <PrivyProvider>{children}</PrivyProvider>
       </Suspense>
     );
   }
-  return null;
+  return children;
 }
