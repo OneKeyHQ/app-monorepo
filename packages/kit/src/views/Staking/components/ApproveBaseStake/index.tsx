@@ -224,10 +224,9 @@ export function ApproveBaseStake({
     approveTarget.networkId,
   ]);
 
-  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
+  const fetchEstimateFeeResp = useCallback(async (amount?: string) => {
     if (!amount) {
-      setEstimateFeeResp(undefined);
-      return;
+      return undefined;
     }
     const amountNumber = BigNumber(amount);
     if (amountNumber.isZero() || amountNumber.isNaN()) {
@@ -241,8 +240,7 @@ export function ApproveBaseStake({
 
     if (usePermit2Approve) {
       if (shouldApprove) {
-        setEstimateFeeResp(undefined);
-        return;
+        return undefined;
       }
 
       permitParams.approveType = 'permit';
@@ -270,6 +268,11 @@ export function ApproveBaseStake({
       accountAddress: account?.address,
       ...permitParams,
     });
+    return resp
+  }, []);
+
+  const debouncedFetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
+    const resp = await fetchEstimateFeeResp(amount);
     setEstimateFeeResp(resp);
   }, 350);
 
@@ -282,7 +285,7 @@ export function ApproveBaseStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
-          void fetchEstimateFeeResp();
+          void debouncedFetchEstimateFeeResp();
         }
         return;
       }
@@ -295,10 +298,10 @@ export function ApproveBaseStake({
         setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
-        void fetchEstimateFeeResp(value);
+        void debouncedFetchEstimateFeeResp(value);
       }
     },
-    [decimals, fetchEstimateFeeResp],
+    [decimals, debouncedFetchEstimateFeeResp],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -632,7 +635,7 @@ export function ApproveBaseStake({
           });
 
           setTimeout(() => {
-            void fetchEstimateFeeResp(amountValue);
+            void debouncedFetchEstimateFeeResp(amountValue);
           }, 200);
 
           void onSubmit();
@@ -668,7 +671,7 @@ export function ApproveBaseStake({
         trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
         setTimeout(() => {
-          void fetchEstimateFeeResp(amountValue);
+          void debouncedFetchEstimateFeeResp(amountValue);
         }, 200);
       },
       onFail() {
@@ -696,7 +699,7 @@ export function ApproveBaseStake({
     updatePermitCache,
     onSubmit,
     trackAllowance,
-    fetchEstimateFeeResp,
+    debouncedFetchEstimateFeeResp,
   ]);
 
   const placeholderTokens = useMemo(
