@@ -28,7 +28,7 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
-import { PrimeHeaderIconButton } from '../../views/Prime/components/PrimeHeaderIconButton';
+import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 
 import { MoreActionButton } from './MoreActionButton';
@@ -138,11 +138,11 @@ export function HeaderRight({
         onPress={onScanButtonPressed}
       />
     ) : null;
-    // const primeButton =
-    //   devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
-    //     <PrimeHeaderIconButton key="prime" />
-    //   ) : null;
-    const primeButton = <PrimeHeaderIconButton key="prime" />;
+
+    const primeButton =
+      devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
+        <PrimeHeaderIconButtonLazy key="prime" visible />
+      ) : null;
 
     let notificationsButton: ReactNode | null = (
       <Stack key="notifications" testID="headerRightNotificationsButton">
@@ -237,13 +237,14 @@ export function HeaderRight({
       searchInput,
     ].filter(Boolean);
   }, [
-    media.gtMd,
-    intl,
-    onScanButtonPressed,
-    devSettings.enabled,
-    openNotificationsModal,
-    firstTimeGuideOpened,
     badge,
+    devSettings.enabled,
+    devSettings?.settings?.showPrimeTest,
+    firstTimeGuideOpened,
+    intl,
+    media.gtMd,
+    onScanButtonPressed,
+    openNotificationsModal,
     sceneName,
   ]);
   return (
