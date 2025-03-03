@@ -268,13 +268,16 @@ export function ApproveBaseStake({
       accountAddress: account?.address,
       ...permitParams,
     });
-    return resp
+    return resp;
   }, []);
 
-  const debouncedFetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
-    const resp = await fetchEstimateFeeResp(amount);
-    setEstimateFeeResp(resp);
-  }, 350);
+  const debouncedFetchEstimateFeeResp = useDebouncedCallback(
+    async (amount?: string) => {
+      const resp = await fetchEstimateFeeResp(amount);
+      setEstimateFeeResp(resp);
+    },
+    350,
+  );
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -421,30 +424,35 @@ export function ApproveBaseStake({
 
   const checkEstimateGasAlert = useCallback(
     async (onNext: () => Promise<void>) => {
-      if (!totalAnnualRewardsFiatValue || !estimateFeeResp) {
+      if (!totalAnnualRewardsFiatValue || usePermit2Approve) {
         return onNext();
       }
 
-      const daySpent =
-        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
+      const response = await fetchEstimateFeeResp(amountValue);
 
-      if (usePermit2Approve || !daySpent || daySpent <= 5) {
-        return onNext();
+      if (!response) {
+        onNext();
+      } else {
+        const daySpent = Number(response?.coverFeeSeconds || 0) / 3600 / 24;
+
+        if (!daySpent || daySpent <= 5) {
+          return onNext();
+        }
+
+        showEstimateGasAlert({
+          daysConsumed: formatStakingDistanceToNowStrict(
+            response.coverFeeSeconds,
+          ),
+          estFiatValue: response.feeFiatValue,
+          onConfirm: async (dialogInstance: IDialogInstance) => {
+            await dialogInstance.close();
+            await onNext();
+          },
+          onCancel: () => {
+            setApproving(false);
+          },
+        });
       }
-
-      showEstimateGasAlert({
-        daysConsumed: formatStakingDistanceToNowStrict(
-          estimateFeeResp.coverFeeSeconds,
-        ),
-        estFiatValue: estimateFeeResp.feeFiatValue,
-        onConfirm: async (dialogInstance: IDialogInstance) => {
-          await dialogInstance.close();
-          await onNext();
-        },
-        onCancel: () => {
-          setApproving(false);
-        },
-      });
     },
     [
       totalAnnualRewardsFiatValue,
