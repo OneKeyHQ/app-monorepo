@@ -27,7 +27,7 @@ module.exports = {
     'dist/**/*',
     '!dist/__**',
     'build/**/*',
-    'build/static/bin/**/*',
+    '!build/static/bin/**/*',
     'package.json',
   ],
   'protocols': {
