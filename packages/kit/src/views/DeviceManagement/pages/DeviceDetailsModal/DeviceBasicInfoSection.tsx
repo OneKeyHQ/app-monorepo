@@ -64,7 +64,7 @@ function DeviceBasicInfoSection({
           type: 'critical' as IBadgeType,
           icon: 'ErrorSolid' as IKeyOfIcons,
           color: '$iconCritical' as IIconProps['color'],
-          textId: ETranslations.global_unofficial,
+          textId: ETranslations.global_unverified,
         },
       };
 

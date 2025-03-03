@@ -25,6 +25,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   calculateCkbTotalFee,
+  calculateNeoN3TotalFee,
   calculateSolTotalFee,
   calculateSuiTotalFee,
   calculateTotalFeeNative,
@@ -258,6 +259,17 @@ function TxFeeEditor(props: IProps) {
       computationCostBase: customFee?.feeBudget?.computationCostBase ?? '0',
       storageCost: customFee?.feeBudget?.storageCost ?? '0',
       storageRebate: customFee?.feeBudget?.storageRebate ?? '0',
+
+      // fee neo-n3
+      neoN3SystemFee: new BigNumber(customFee?.feeNeoN3?.systemFee ?? '0')
+        .shiftedBy(-feeDecimals)
+        .toFixed(),
+      neoN3NetworkFee: new BigNumber(customFee?.feeNeoN3?.networkFee ?? '0')
+        .shiftedBy(-feeDecimals)
+        .toFixed(),
+      neoN3PriorityFee: new BigNumber(customFee?.feeNeoN3?.priorityFee ?? '0')
+        .shiftedBy(-feeDecimals)
+        .toFixed(),
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -309,6 +321,18 @@ function TxFeeEditor(props: IProps) {
         storageCost: watchAllFields.storageCost,
         storageRebate: watchAllFields.storageRebate,
       },
+
+      feeNeoN3: customFee?.feeNeoN3 && {
+        systemFee: new BigNumber(watchAllFields.neoN3SystemFee || 0)
+          .shiftedBy(customFee?.common?.feeDecimals)
+          .toFixed(0),
+        networkFee: new BigNumber(watchAllFields.neoN3NetworkFee || 0)
+          .shiftedBy(customFee?.common?.feeDecimals)
+          .toFixed(0),
+        priorityFee: new BigNumber(watchAllFields.neoN3PriorityFee || 0)
+          .shiftedBy(customFee?.common?.feeDecimals)
+          .toFixed(0),
+      },
     }),
     [
       algoMinFee,
@@ -321,6 +345,7 @@ function TxFeeEditor(props: IProps) {
       customFee?.gasEIP1559,
       customFee?.feeDot,
       customFee?.feeBudget,
+      customFee?.feeNeoN3,
       watchAllFields.computeUnitPrice,
       watchAllFields.feeRate,
       watchAllFields.feeRateCkb,
@@ -335,6 +360,9 @@ function TxFeeEditor(props: IProps) {
       watchAllFields.computationCostBase,
       watchAllFields.storageCost,
       watchAllFields.storageRebate,
+      watchAllFields.neoN3SystemFee,
+      watchAllFields.neoN3NetworkFee,
+      watchAllFields.neoN3PriorityFee,
     ],
   );
 
@@ -779,6 +807,22 @@ function TxFeeEditor(props: IProps) {
       return true;
     },
     [algoMinFee, intl],
+  );
+
+  const handleValidateNeoN3Fees = useCallback(
+    (value: string) => {
+      const fee = new BigNumber(value || 0);
+
+      if (fee.isNaN() || fee.isLessThan(0)) {
+        return intl.formatMessage(
+          { id: ETranslations.form_must_greater_then_value },
+          { value: 0 },
+        );
+      }
+
+      return true;
+    },
+    [intl],
   );
 
   const handleApplyFeeInfo = useCallback(async () => {
@@ -1335,6 +1379,89 @@ function TxFeeEditor(props: IProps) {
         </Form>
       );
     }
+
+    if (customFee?.feeNeoN3) {
+      return (
+        <Form form={form}>
+          <YStack gap="$5">
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.form__priority_fee,
+              })}
+              name="neoN3PriorityFee"
+              rules={{
+                required: true,
+                validate: handleValidateNeoN3Fees,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
+                  },
+                ]}
+              />
+            </Form.Field>
+
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.swap_history_detail_network_fee,
+              })}
+              name="neoN3NetworkFee"
+              rules={{
+                required: true,
+                validate: handleValidateNeoN3Fees,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
+                  },
+                ]}
+              />
+            </Form.Field>
+
+            <Form.Field
+              label={intl.formatMessage({
+                id: ETranslations.global_system_fee,
+              })}
+              name="neoN3SystemFee"
+              rules={{
+                required: true,
+                validate: handleValidateNeoN3Fees,
+                onChange: (e: { target: { name: string; value: string } }) =>
+                  handleFormValueOnChange({
+                    name: e.target.name,
+                    value: e.target.value,
+                  }),
+              }}
+            >
+              <Input
+                flex={1}
+                addOns={[
+                  {
+                    label: feeSymbol,
+                  },
+                ]}
+              />
+            </Form.Field>
+          </YStack>
+        </Form>
+      );
+    }
   }, [
     currentFeeType,
     customFee,
@@ -1354,6 +1481,7 @@ function TxFeeEditor(props: IProps) {
     handleValidatePriorityFee,
     handleValidateSuiGasBudget,
     handleValidateSuiGasPrice,
+    handleValidateNeoN3Fees,
     intl,
     priorityFeeAlert,
     recommendGasLimit.gasLimit,
@@ -1691,6 +1819,63 @@ function TxFeeEditor(props: IProps) {
             .toFixed(),
         },
       ];
+    } else if (fee.feeNeoN3) {
+      let systemFee = new BigNumber(0);
+      let networkFee = new BigNumber(0);
+      let priorityFee = new BigNumber(0);
+
+      if (currentFeeType === EFeeType.Custom) {
+        systemFee = new BigNumber(watchAllFields.neoN3SystemFee || 0);
+        networkFee = new BigNumber(watchAllFields.neoN3NetworkFee || 0);
+        priorityFee = new BigNumber(watchAllFields.neoN3PriorityFee || 0);
+      } else {
+        systemFee = new BigNumber(fee.feeNeoN3.systemFee || 0).shiftedBy(
+          -feeDecimals,
+        );
+        networkFee = new BigNumber(fee.feeNeoN3.networkFee || 0).shiftedBy(
+          -feeDecimals,
+        );
+        priorityFee = new BigNumber(fee.feeNeoN3.priorityFee || 0).shiftedBy(
+          -feeDecimals,
+        );
+      }
+
+      const totalFee =
+        currentFeeType === EFeeType.Custom
+          ? systemFee.plus(networkFee).plus(priorityFee)
+          : calculateNeoN3TotalFee({ feeInfo: fee });
+      const totalFeeInNative = calculateTotalFeeNative({
+        amount: totalFee,
+        feeInfo: fee,
+      });
+
+      feeInfoItems = [
+        {
+          label: intl.formatMessage({ id: ETranslations.form__priority_fee }),
+          customValue: priorityFee.toFixed(),
+          customSymbol: feeSymbol,
+        },
+        {
+          label: intl.formatMessage({
+            id: ETranslations.swap_history_detail_network_fee,
+          }),
+          customValue: networkFee.toFixed(),
+          customSymbol: feeSymbol,
+        },
+        {
+          label: intl.formatMessage({ id: ETranslations.global_system_fee }),
+          customValue: systemFee.toFixed(),
+          customSymbol: feeSymbol,
+        },
+        {
+          label: intl.formatMessage({ id: ETranslations.fee_fee }),
+          nativeValue: totalFeeInNative,
+          nativeSymbol,
+          fiatValue: new BigNumber(totalFeeInNative)
+            .times(nativeTokenPrice || 0)
+            .toFixed(),
+        },
+      ];
     }
 
     return (
@@ -1730,6 +1915,9 @@ function TxFeeEditor(props: IProps) {
     watchAllFields.priorityFee,
     watchAllFields.gasSuiBudget,
     watchAllFields.gasSuiPrice,
+    watchAllFields.neoN3NetworkFee,
+    watchAllFields.neoN3PriorityFee,
+    watchAllFields.neoN3SystemFee,
   ]);
 
   const renderFeeDetails = useCallback(() => {
