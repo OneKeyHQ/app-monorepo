@@ -557,17 +557,18 @@ export function ApproveBaseStake({
   ]);
 
   const showResetUSDTApproveValueDialog = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
       }),
-      onClose: () => {
+      showExitButton: false,
+      dismissOnOverlayPress: false,
+      onCancel: () => {
         setApproving(false);
       },
       onConfirm: () => {
         void resetUSDTApproveValue();
       },
-      showCancelButton: true,
       title: intl.formatMessage({
         id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
       }),
