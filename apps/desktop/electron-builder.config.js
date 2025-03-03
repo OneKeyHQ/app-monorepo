@@ -26,9 +26,9 @@ module.exports = {
   'files': [
     'dist/**/*',
     '!dist/__**',
-    getPath('build/**/*'),
-    `!${getPath('build/static/bin/**/*')}`,
-    getPath('package.json'),
+    'build/**/*',
+    'build/static/bin/**/*',
+    'package.json',
   ],
   'protocols': {
     'name': 'electron-deep-linking',
@@ -36,11 +36,11 @@ module.exports = {
   },
   'extraResources': [
     {
-      'from': getPath('build/static/images/icons/512x512.png'),
+      'from': 'build/static/images/icons/512x512.png',
       'to': 'static/images/icons/512x512.png',
     },
     {
-      'from': getPath('build/static/preload.js'),
+      'from': 'build/static/preload.js',
       'to': 'static/preload.js',
     },
   ],
@@ -64,24 +64,24 @@ module.exports = {
         'type': 'file',
       },
     ],
-    'icon': getPath('build/static/images/icons/dmg.icns'),
-    'background': getPath('build/static/images/icons/background.tiff'),
+    'icon': 'build/static/images/icons/dmg.icns',
+    'background': 'build/static/images/icons/background.tiff',
   },
   'nsis': {
     'oneClick': false,
-    'installerSidebar': getPath(
+    'installerSidebar': 
       'build/static/images/icons/installerSidebar.bmp',
-    ),
+    ,
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
     'extraResources': [
       {
-        'from': getPath('build/static/bin/bridge/mac-${arch}'),
+        'from': 'build/static/bin/bridge/mac-${arch}',
         'to': 'bin/bridge',
       },
     ],
-    'icon': getPath('build/static/images/icons/512x512.png'),
+    'icon': 'build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
     'gatekeeperAssess': false,
@@ -99,12 +99,12 @@ module.exports = {
   'win': {
     'extraResources': [
       {
-        'from': getPath('build/static/bin/bridge/win-${arch}'),
+        'from': 'build/static/bin/bridge/win-${arch}',
         'to': 'bin/bridge',
       },
     ],
     'extraFiles': [...DLLs],
-    'icon': getPath('build/static/images/icons/512x512.png'),
+    'icon': 'build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
@@ -116,7 +116,7 @@ module.exports = {
         'to': 'bin/bridge',
       },
     ],
-    'icon': getPath('build/static/images/icons/512x512.png'),
+    'icon': 'build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',

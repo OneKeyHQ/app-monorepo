@@ -1,3 +1,4 @@
+const path = require('path');
 const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
 
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
@@ -24,6 +25,7 @@ module.exports = ({
         {
           output: {
             crossOriginLoading: 'anonymous',
+            path: path.join(basePath, 'app/dist'),
           },
           plugins: [new SubresourceIntegrityPlugin()],
         },
