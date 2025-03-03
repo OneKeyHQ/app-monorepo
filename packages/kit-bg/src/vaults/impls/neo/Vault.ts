@@ -1,11 +1,15 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { sc, tx, u, wallet } from '@cityofzion/neon-core';
+import { rpc, sc, tx, u, wallet } from '@cityofzion/neon-core';
 import { ContractParam } from '@cityofzion/neon-core/lib/sc';
 import BigNumber from 'bignumber.js';
 import { isEmpty } from 'lodash';
 
 import type { IEncodedTxNeoN3 } from '@onekeyhq/core/src/chains/neo/types';
-import type { IEncodedTx, IUnsignedTxPro } from '@onekeyhq/core/src/types';
+import type {
+  IEncodedTx,
+  ISignedTxPro,
+  IUnsignedTxPro,
+} from '@onekeyhq/core/src/types';
 import {
   InvalidAddress,
   NotImplemented,
@@ -19,6 +23,10 @@ import type {
   IXprvtValidation,
   IXpubValidation,
 } from '@onekeyhq/shared/types/address';
+import type {
+  IMeasureRpcStatusParams,
+  IMeasureRpcStatusResult,
+} from '@onekeyhq/shared/types/customRpc';
 import type {
   IArgument,
   IInvokeArguments,
@@ -41,6 +49,7 @@ import { KeyringWatching } from './KeyringWatching';
 import type { IDBWalletType } from '../../../dbs/local/types';
 import type { KeyringBase } from '../../base/KeyringBase';
 import type {
+  IBroadcastTransactionByCustomRpcParams,
   IBuildAccountAddressDetailParams,
   IBuildDecodedTxParams,
   IBuildEncodedTxParams,
@@ -488,5 +497,46 @@ export default class Vault extends VaultBase {
     });
 
     return transaction.toJson();
+  }
+
+  override async getCustomRpcEndpointStatus(
+    params: IMeasureRpcStatusParams,
+  ): Promise<IMeasureRpcStatusResult> {
+    const rpcClient = new rpc.RPCClient(params.rpcUrl);
+    const start = performance.now();
+    const latestBlock = await rpcClient.getBlockCount();
+    return {
+      responseTime: Math.floor(performance.now() - start),
+      bestBlockNumber: Number(latestBlock),
+    };
+  }
+
+  override async broadcastTransactionFromCustomRpc(
+    params: IBroadcastTransactionByCustomRpcParams,
+  ): Promise<ISignedTxPro> {
+    const { customRpcInfo, signedTx } = params;
+    const { signature, publicKey, rawTx, encodedTx } = signedTx;
+
+    const rpcUrl = customRpcInfo.rpc;
+    if (!rpcUrl) {
+      throw new OneKeyInternalError('Invalid rpc url');
+    }
+    if (!rawTx) {
+      throw new Error('rawTx is empty');
+    }
+
+    const rpcClient = new rpc.RPCClient(rpcUrl);
+    const client = new rpc.RPCClient(rpcUrl);
+    const txid = await client.sendRawTransaction(rawTx);
+
+    console.log('broadcastTransaction Done:', {
+      txid,
+      rawTx,
+    });
+
+    return {
+      ...params.signedTx,
+      txid,
+    };
   }
 }
