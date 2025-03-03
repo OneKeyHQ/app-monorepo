@@ -36,11 +36,11 @@ module.exports = {
   },
   'extraResources': [
     {
-      'from': 'build/static/images/icons/512x512.png',
+      'from': 'app/build/static/images/icons/512x512.png',
       'to': 'static/images/icons/512x512.png',
     },
     {
-      'from': 'build/static/preload.js',
+      'from': 'app/build/static/preload.js',
       'to': 'static/preload.js',
     },
   ],
@@ -64,23 +64,23 @@ module.exports = {
         'type': 'file',
       },
     ],
-    'icon': 'build/static/images/icons/dmg.icns',
-    'background': 'build/static/images/icons/background.tiff',
+    'icon': 'app/build/static/images/icons/dmg.icns',
+    'background': 'app/build/static/images/icons/background.tiff',
   },
   'nsis': {
     'oneClick': false,
     'installerSidebar': 
-      'build/static/images/icons/installerSidebar.bmp',
+      'app/build/static/images/icons/installerSidebar.bmp',
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
     'extraResources': [
       {
-        'from': 'build/static/bin/bridge/mac-${arch}',
+        'from': 'app/build/static/bin/bridge/mac-${arch}',
         'to': 'bin/bridge',
       },
     ],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
     'gatekeeperAssess': false,
@@ -98,12 +98,12 @@ module.exports = {
   'win': {
     'extraResources': [
       {
-        'from': 'build/static/bin/bridge/win-${arch}',
+        'from': 'app/build/static/bin/bridge/win-${arch}',
         'to': 'bin/bridge',
       },
     ],
     'extraFiles': [...DLLs],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
@@ -111,11 +111,11 @@ module.exports = {
   'linux': {
     'extraResources': [
       {
-        'from': 'build/static/bin/bridge/linux-${arch}',
+        'from': 'app/build/static/bin/bridge/linux-${arch}',
         'to': 'bin/bridge',
       },
     ],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
