@@ -5,6 +5,8 @@ const { getPath } = require('./scripts/utils');
 
 module.exports = {
   ...baseElectronBuilderConfig,
+  'appId': 'so.onekey.wallet',
+  'buildVersion': `${process.env.BUILD_NUMBER}0`,
   'dmg': {
     'sign': false,
   },
@@ -16,7 +18,7 @@ module.exports = {
     'darkModeSupport': false,
     'category': 'public.app-category.finance',
     'target': [{ target: 'mas', arch: 'universal' }],
-    'entitlements': 'entitlements.mac.plist',
+    'entitlements': getPath('entitlements.mac.plist'),
     'extendInfo': {
       'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
     },
