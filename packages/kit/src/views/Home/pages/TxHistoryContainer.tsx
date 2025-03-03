@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
+  HISTORY_PAGE_SIZE,
   POLLING_DEBOUNCE_INTERVAL,
   POLLING_INTERVAL_FOR_HISTORY,
 } from '@onekeyhq/shared/src/consts/walletConsts';
@@ -151,11 +152,13 @@ function TxHistoryListContainer(props: ITabPageProps) {
           ];
         });
 
-        r.txs = r.txs.sort(
-          (b, a) =>
-            (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
-            (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-        );
+        r.txs = r.txs
+          .sort(
+            (b, a) =>
+              (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
+              (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
+          )
+          .slice(0, HISTORY_PAGE_SIZE);
       } else {
         r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
           accountId: account.id,
@@ -236,7 +239,8 @@ function TxHistoryListContainer(props: ITabPageProps) {
             (b, a) =>
               (a.decodedTx.updatedAt ?? a.decodedTx.createdAt ?? 0) -
               (b.decodedTx.updatedAt ?? b.decodedTx.createdAt ?? 0),
-          );
+          )
+          .slice(0, HISTORY_PAGE_SIZE);
       } else {
         accountHistoryTxs =
           await backgroundApiProxy.serviceHistory.getAccountsLocalHistoryTxs({

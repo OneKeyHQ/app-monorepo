@@ -72,8 +72,6 @@ function TokenDetailsHeader(props: IProps) {
     accountId,
     networkId,
     walletId,
-    deriveInfo,
-    deriveType,
   });
 
   const { isFocused } = useTabIsRefreshingFocused();

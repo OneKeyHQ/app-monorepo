@@ -135,8 +135,6 @@ function TokenListContainer(props: ITabPageProps) {
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
     walletId: wallet?.id ?? '',
-    deriveInfo,
-    deriveType,
   });
 
   const { handleOnManageToken, manageTokenEnabled } = useManageToken({
