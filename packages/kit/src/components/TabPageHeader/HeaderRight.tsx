@@ -257,7 +257,6 @@ export function HeaderRight({
     devSettings?.settings?.showPrimeTest,
     firstTimeGuideOpened,
     intl,
-    isIpadLandscape,
     media.gtMd,
     onScanButtonPressed,
     openNotificationsModal,
