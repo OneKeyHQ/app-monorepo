@@ -39,7 +39,7 @@ exports.default = async function fileOperation(context) {
     console.log('remove file finish..');
   }
 
-  if (electronPlatformName === 'mas' || electronPlatformName === 'darwin') {
+  if (electronPlatformName === 'darwin') {
     await context.packager.addElectronFuses(context, {
       version: FuseVersion.V1,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,

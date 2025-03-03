@@ -47,7 +47,7 @@ const baseElectronBuilderConfig = {
     'repo': 'app-monorepo',
     'owner': 'OneKeyHQ',
   },
-  'afterSign': getPath('scripts/notarize.js'),
-  'afterPack': getPath('scripts/fileOperation.js'),
+  'afterSign': getPath('scripts/afterSign.js'),
+  'afterPack': getPath('scripts/afterPack.js'),
 };
 module.exports = baseElectronBuilderConfig;
