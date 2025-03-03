@@ -12,7 +12,7 @@ exports.default = async function fileOperation(context) {
     const destDir = path.join(appPath, 'Contents/Resources/bin/bridge');
     const originPath = path.join(
       __dirname,
-      '../build/static/bin/bridge/mac-x64',
+      '../app/build/static/bin/bridge/mac-x64',
     );
     console.log('copy file start..', originPath);
     fs.mkdirSync(destDir, { recursive: true });
