@@ -526,7 +526,6 @@ export function ApproveBaseStake({
                 setTimeout(checkAllowance, pollInterval);
               } else {
                 setApproving(false);
-                return;
               }
             };
 
