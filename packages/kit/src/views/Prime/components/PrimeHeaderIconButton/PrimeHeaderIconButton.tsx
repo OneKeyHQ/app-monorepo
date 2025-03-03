@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { HeaderIconButton, Toast } from '@onekeyhq/components';
+import { HeaderIconButton, Stack, Toast } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -38,16 +38,17 @@ export function PrimeHeaderIconButton() {
   }, [navigation, isReady]);
 
   return (
-    <HeaderIconButton
-      onPointerEnter={() => setIsHover(true)}
-      onPointerLeave={() => setIsHover(false)}
-      key="header-prime-button"
-      title="Prime"
-      icon={user?.id || isHover ? icon : 'PrimeOutline'}
-      tooltipProps={{
-        open: isHover,
-      }}
-      onPress={onPrimeButtonPressed}
-    />
+    <Stack testID="headerRightPrimeButton">
+      <HeaderIconButton
+        onPointerEnter={() => setIsHover(true)}
+        onPointerLeave={() => setIsHover(false)}
+        title="Prime"
+        icon={user?.id || isHover ? icon : 'PrimeOutline'}
+        tooltipProps={{
+          open: isHover,
+        }}
+        onPress={onPrimeButtonPressed}
+      />
+    </Stack>
   );
 }
