@@ -72,8 +72,6 @@ function TokenDetailsHeader(props: IProps) {
     accountId,
     networkId,
     walletId,
-    deriveInfo,
-    deriveType,
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
@@ -289,12 +287,17 @@ function TokenDetailsHeader(props: IProps) {
           py="$3"
           {...listItemPressStyle}
         >
-          <XStack alignItems="center" justifyContent="space-between">
-            <YStack gap="$1">
+          <XStack alignItems="center" justifyContent="space-between" gap="$4">
+            <YStack gap="$1" flex={1}>
               <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({ id: ETranslations.global_my_address })}
               </SizableText>
-              <SizableText size="$bodyMd" color="$text">
+              <SizableText
+                size="$bodyMd"
+                color="$text"
+                flex={1}
+                flexWrap="wrap"
+              >
                 {accountUtils.isHwWallet({ walletId }) ||
                 accountUtils.isQrWallet({ walletId })
                   ? accountUtils.shortenAddress({
@@ -303,7 +306,9 @@ function TokenDetailsHeader(props: IProps) {
                   : account?.address}
               </SizableText>
             </YStack>
-            <Icon name="Copy3Outline" />
+            <Stack width="24" height="24">
+              <Icon name="Copy3Outline" size="$6" />
+            </Stack>
           </XStack>
         </YStack>
         {/* History */}

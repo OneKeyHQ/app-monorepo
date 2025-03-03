@@ -4,10 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -25,8 +21,6 @@ function useReceiveToken({
   accountId,
   networkId,
   walletId,
-  deriveInfo,
-  deriveType,
   tokens,
   tokenListState,
   isMultipleDerive,
@@ -34,8 +28,6 @@ function useReceiveToken({
   accountId: string;
   networkId: string;
   walletId: string;
-  deriveInfo: IAccountDeriveInfo | undefined;
-  deriveType: IAccountDeriveTypes;
   isAllNetworks?: boolean;
   tokens?: ITokenData;
   tokenListState?: {
@@ -64,8 +56,6 @@ function useReceiveToken({
         });
         return;
       }
-
-      if (!deriveInfo) return;
 
       if (vaultSettings?.isSingleToken || token) {
         if (
@@ -180,7 +170,6 @@ function useReceiveToken({
     [
       account?.indexedAccountId,
       accountId,
-      deriveInfo,
       intl,
       isMultipleDerive,
       navigation,
