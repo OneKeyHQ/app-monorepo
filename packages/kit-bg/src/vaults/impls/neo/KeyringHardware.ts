@@ -33,7 +33,7 @@ import type {
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
 
 export class KeyringHardware extends KeyringHardwareBase {
-  override coreApi = coreChainApi.evm.hd;
+  override coreApi = coreChainApi.neo.hd;
 
   override hwSdkNetwork: IHwSdkNetwork = 'neo';
 

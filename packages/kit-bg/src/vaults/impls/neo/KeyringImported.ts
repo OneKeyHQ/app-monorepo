@@ -15,7 +15,7 @@ import type {
 } from '../../types';
 
 export class KeyringImported extends KeyringImportedBase {
-  override coreApi = coreChainApi.evm.imported;
+  override coreApi = coreChainApi.neo.imported;
 
   override async getPrivateKeys(
     _: IGetPrivateKeysParams,
