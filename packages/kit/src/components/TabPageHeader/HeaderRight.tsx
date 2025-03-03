@@ -40,6 +40,16 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { MoreActionButton } from './MoreActionButton';
 import { UniversalSearchInput } from './UniversalSearchInput';
 
+const ReactMoreActionButton = platformEnv.isNativeIOSPad
+  ? () => {
+      const isIpadLandscape = useIsIpadLandscape();
+      return isIpadLandscape ? null : <MoreActionButton key="more-action" />;
+    }
+  : () => {
+      const media = useMedia();
+      return media.gtMd ? null : <MoreActionButton key="more-action" />;
+    };
+
 export function HeaderRight({
   sceneName,
 }: {
@@ -205,10 +215,7 @@ export function HeaderRight({
       </Stack>
     );
 
-    const moreActionButton =
-      isIpadLandscape || (!platformEnv.isNativeIpad && !media.gtMd) ? (
-        <MoreActionButton key="more-action" />
-      ) : null;
+    const moreActionButton = <ReactMoreActionButton />;
 
     const searchInput = media.gtMd ? (
       <UniversalSearchInput key="searchInput" />
@@ -250,6 +257,7 @@ export function HeaderRight({
     devSettings?.settings?.showPrimeTest,
     firstTimeGuideOpened,
     intl,
+    isIpadLandscape,
     media.gtMd,
     onScanButtonPressed,
     openNotificationsModal,
