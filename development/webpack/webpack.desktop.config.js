@@ -25,7 +25,6 @@ module.exports = ({
         {
           output: {
             crossOriginLoading: 'anonymous',
-            path: path.join(basePath, 'app/dist'),
           },
           plugins: [new SubresourceIntegrityPlugin()],
         },
