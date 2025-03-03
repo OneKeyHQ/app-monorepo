@@ -56,7 +56,7 @@ function DappSideDisplay({
 
 export function Welcome({ banner }: { banner: React.ReactNode }) {
   const media = useMedia();
-  
+
   // Fetch discovery data
   const { result: discoveryData, isLoading } = usePromiseResult(
     async () =>
@@ -154,7 +154,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
         }}
       >
         {/* Show banner if provided, otherwise show DefaultTitle on non-native platforms */}
-        {banner || ((media.gtSm) && <DefaultTitle />)}
+        {banner || (media.gtSm && <DefaultTitle />)}
         <SearchInput />
       </Stack>
 
