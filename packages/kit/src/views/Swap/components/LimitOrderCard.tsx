@@ -32,6 +32,7 @@ const LimitOrderCard = ({
   hiddenCancelIcon = false,
   onCancel,
   hiddenHoverBg = false,
+  cancelLoading = false,
 }: {
   item: IFetchLimitOrderRes;
   hiddenCreateTime?: boolean;
@@ -89,7 +90,6 @@ const LimitOrderCard = ({
     const toAmountFormatted = new BigNumber(toAmount).shiftedBy(
       -(toTokenInfo?.decimals ?? 0),
     );
-
     return (
       <XStack gap="$2" alignItems="center">
         <XStack gap="$1" alignItems="center">
@@ -268,7 +268,7 @@ const LimitOrderCard = ({
             bg="$bgSubdued"
             borderRadius="$2.5"
             borderWidth={1}
-            borderColor="$borderSubdued"
+            borderColor={cancelLoading ? '$borderActive' : '$borderSubdued'}
             onPress={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -282,7 +282,11 @@ const LimitOrderCard = ({
               bg: '$bgStrongActive',
             }}
           >
-            {intl.formatMessage({ id: ETranslations.Limit_order_cancel })}
+            {cancelLoading
+              ? intl.formatMessage({
+                  id: ETranslations.Limit_order_history_status_canceling,
+                })
+              : intl.formatMessage({ id: ETranslations.Limit_order_cancel })}
           </Badge>
         ) : null}
       </XStack>

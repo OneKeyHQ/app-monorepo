@@ -17,6 +17,7 @@ const LimitOrderListItem = ({
   item,
   onClickCell,
   onCancel,
+  cancelLoading,
 }: ILimitOrderListItemProps) => {
   const { gtMd } = useMedia();
   return (
@@ -28,6 +29,7 @@ const LimitOrderListItem = ({
         progressWidth={gtMd ? 100 : 200}
         onCancel={() => onCancel(item)}
         hiddenCancelIcon={item.status !== ESwapLimitOrderStatus.OPEN}
+        cancelLoading={cancelLoading}
       />
     </XStack>
   );
