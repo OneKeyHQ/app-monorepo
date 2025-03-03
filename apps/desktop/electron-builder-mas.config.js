@@ -33,7 +33,4 @@ module.exports = {
       'ITSAppUsesNonExemptEncryption': false,
     },
   },
-  'afterSign': 'scripts/notarize.js',
-  'afterPack': 'scripts/fileOperation.js',
-  'asarUnpack': ['**/*.node'],
 };

@@ -20,7 +20,5 @@ module.exports = {
     'artifactName': 'OneKey-Wallet-${version}-win-store-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
-  },
-  'afterSign': 'scripts/notarize.js',
-  'afterPack': 'scripts/fileOperation.js',
+  }
 };

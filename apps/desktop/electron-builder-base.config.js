@@ -3,10 +3,7 @@ const path = require('path');
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
 
-const getPath = (...paths) => {
-  console.log(path.join(__dirname, ...paths));
-  return path.join(__dirname, ...paths);
-};
+const getPath = (...paths) => path.join(__dirname, ...paths);
 
 const baseElectronBuilderConfig = {
   'extraMetadata': {
