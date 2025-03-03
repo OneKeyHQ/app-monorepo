@@ -1,12 +1,52 @@
 /* eslint-disable no-template-curly-in-string */
+
+// WARNING: This configuration only works with electron-builder@23.6.0
+// Do not upgrade electron-builder version as it may break the build
 require('../../development/env');
-const baseElectronBuilderConfig = require('./electron-builder-base.config');
-const { getPath } = require('./scripts/utils');
 
 module.exports = {
-  ...baseElectronBuilderConfig,
+  'extraMetadata': {
+    'main': 'app/dist/app.js',
+    'version': process.env.VERSION,
+  },
   'appId': 'so.onekey.wallet',
+  'productName': 'OneKey',
+  'copyright': 'Copyright © ${author}',
+  'asar': true,
   'buildVersion': `${process.env.BUILD_NUMBER}0`,
+  'directories': {
+    'output': 'build-electron',
+  },
+  'files': [
+    'app/build/**/*',
+    '!app/build/static/bin/**/*',
+    'app/dist/**/*.js',
+    '!app/dist/__**',
+    'package.json',
+  ],
+  'protocols': {
+    'name': 'electron-deep-linking',
+    'schemes': ['onekey-wallet', 'wc', 'ethereum'],
+  },
+  'extraResources': [
+    {
+      'from': 'app/build/static/images/icons/512x512.png',
+      'to': 'static/images/icons/512x512.png',
+    },
+    {
+      'from': 'app/build/static/images/icons/icon.icns',
+      'to': 'static/images/icons/icon.icns',
+    },
+    {
+      'from': 'app/build/static/preload.js',
+      'to': 'static/preload.js',
+    },
+  ],
+  'publish': {
+    'provider': 'github',
+    'repo': 'app-monorepo',
+    'owner': 'OneKeyHQ',
+  },
   'dmg': {
     'sign': false,
   },
@@ -18,7 +58,7 @@ module.exports = {
     'darkModeSupport': false,
     'category': 'public.app-category.finance',
     'target': [{ target: 'mas', arch: 'universal' }],
-    'entitlements': getPath('entitlements.mac.plist'),
+    'entitlements': 'entitlements.mac.plist',
     'extendInfo': {
       'NSCameraUsageDescription': 'Use Camera to scan QR Code.',
     },
@@ -27,14 +67,16 @@ module.exports = {
     'hardenedRuntime': false,
     // 'mergeASARs': false,
     'gatekeeperAssess': true,
-    'entitlements': getPath('entitlements.mas.plist'),
-    'entitlementsInherit': getPath('entitlements.mas.inherit.plist'),
-    'entitlementsLoginHelper': getPath('entitlements.mas.loginhelper.plist'),
-    'provisioningProfile': getPath('OneKey_Mac_App.provisionprofile'),
+    'entitlements': 'entitlements.mas.plist',
+    'entitlementsInherit': 'entitlements.mas.inherit.plist',
+    'entitlementsLoginHelper': 'entitlements.mas.loginhelper.plist',
+    'provisioningProfile': 'OneKey_Mac_App.provisionprofile',
     'extendInfo': {
       'ElectronTeamID': 'BVJ3FU5H2K',
       'ITSAppUsesNonExemptEncryption': false,
     },
   },
+  'afterSign': 'scripts/afterSign.js',
+  'afterPack': 'scripts/afterPack.js',
   'asarUnpack': ['**/*.node'],
 };
