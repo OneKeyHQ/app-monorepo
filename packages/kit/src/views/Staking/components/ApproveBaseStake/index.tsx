@@ -428,10 +428,13 @@ export function ApproveBaseStake({
         return onNext();
       }
 
+      setApproving(true);
+
       const response = await fetchEstimateFeeResp(amountValue);
 
+      setApproving(false);
       if (!response) {
-        onNext();
+        return onNext();
       } else {
         const daySpent = Number(response?.coverFeeSeconds || 0) / 3600 / 24;
 
@@ -447,9 +450,6 @@ export function ApproveBaseStake({
           onConfirm: async (dialogInstance: IDialogInstance) => {
             await dialogInstance.close();
             await onNext();
-          },
-          onCancel: () => {
-            setApproving(false);
           },
         });
       }
