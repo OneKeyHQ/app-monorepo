@@ -88,7 +88,13 @@ function BalanceDetailsContent({
       showDeriveItems: s,
       networkAccounts: n,
     };
-  }, [networkId, accountId, indexedAccountId, deriveInfoItems]);
+  }, [
+    networkId,
+    indexedAccountId,
+    accountId,
+    mergeDeriveAssetsEnabled,
+    deriveInfoItems,
+  ]);
 
   const { inscriptionEnabled, showDeriveItems, networkAccounts } = result ?? {};
 
