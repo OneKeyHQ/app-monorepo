@@ -36,7 +36,11 @@ export function useSwapTxHistoryActions() {
       gasFeeFiatValue?: string;
       swapTxInfo: ISwapTxInfo;
     }) => {
-      if (swapTxInfo && swapTxInfo.protocol === EProtocolOfExchange.SWAP) {
+      if (
+        swapTxInfo &&
+        (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
+          swapTxInfo.swapBuildResData.result.isWrapped)
+      ) {
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo?.symbol,
