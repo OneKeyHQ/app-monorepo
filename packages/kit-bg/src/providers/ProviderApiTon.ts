@@ -149,9 +149,9 @@ class ProviderApiTon extends ProviderApiBase {
       address: account.addressDetail.baseAddress,
       network: ETonNetwork.Mainnet,
       publicKey: account.pub,
-      walletStateInit: Buffer.from(await deploy.stateInit.toBoc()).toString(
-        'base64',
-      ),
+      walletStateInit: Buffer.from(
+        await deploy.stateInit.toBoc(false, false),
+      ).toString('base64'),
     };
   }
 
