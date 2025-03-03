@@ -2832,9 +2832,11 @@ class ServiceAccount extends ServiceBase {
   async getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes({
     networkId,
     indexedAccountId,
+    excludeEmptyAccount,
   }: {
     networkId: string;
     indexedAccountId: string;
+    excludeEmptyAccount?: boolean;
   }) {
     const { serviceNetwork } = this.backgroundApi;
     const network = await serviceNetwork.getNetworkSafe({ networkId });
@@ -2849,7 +2851,7 @@ class ServiceAccount extends ServiceBase {
       deriveType: deriveType as IAccountDeriveTypes,
       deriveInfo,
     }));
-    const networkAccounts = await Promise.all(
+    let networkAccounts = await Promise.all(
       accountDeriveTypes.map(async (item) => {
         let resp: { accounts: INetworkAccount[] } | undefined;
         try {
@@ -2868,6 +2870,11 @@ class ServiceAccount extends ServiceBase {
         };
       }),
     );
+
+    if (excludeEmptyAccount) {
+      networkAccounts = networkAccounts.filter((item) => item.account);
+    }
+
     return { networkAccounts, network };
   }
 
