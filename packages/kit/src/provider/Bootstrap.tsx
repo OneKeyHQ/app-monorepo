@@ -11,7 +11,7 @@ import {
   rootNavigationRef,
   useShortcuts,
 } from '@onekeyhq/components';
-import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 import {
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,
