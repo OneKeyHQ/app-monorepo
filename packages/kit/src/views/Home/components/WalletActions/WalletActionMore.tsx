@@ -54,8 +54,6 @@ export function WalletActionMore() {
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
     walletId: wallet?.id ?? '',
-    deriveInfo,
-    deriveType,
     tokens: {
       data: allTokens.tokens,
       keys: allTokens.keys,
