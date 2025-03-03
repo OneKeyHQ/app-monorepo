@@ -71,7 +71,6 @@ module.exports = {
     'oneClick': false,
     'installerSidebar': 
       'build/static/images/icons/installerSidebar.bmp',
-    ,
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
