@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapLimitOrderStatus,
@@ -239,6 +240,11 @@ const LimitOrderCard = ({
     );
   }, [item, intl, fromAmount, fromTokenInfo?.decimals, progressWidth]);
 
+  const networkName = useMemo(() => {
+    const networkInfo = networkUtils.getLocalNetworkInfo(item?.networkId);
+    return networkInfo?.name;
+  }, [item]);
+
   return (
     <YStack
       flex={1}
@@ -261,6 +267,12 @@ const LimitOrderCard = ({
         <YStack gap="$2">
           {createdAtFormat}
           {tokenInfo()}
+          <XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_network })}
+            </SizableText>
+            <SizableText size="$bodySm">{`:${networkName ?? '-'}`}</SizableText>
+          </XStack>
         </YStack>
         {!hiddenCancelIcon ? (
           <Badge

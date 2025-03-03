@@ -55,11 +55,6 @@ const LimitOrderList = ({
       try {
         setCancelLoading(true);
         await cancelLimitOrder(item);
-        Toast.success({
-          title: intl.formatMessage({
-            id: ETranslations.global_success,
-          }),
-        });
       } catch (error) {
         console.error(error);
         Toast.error({
