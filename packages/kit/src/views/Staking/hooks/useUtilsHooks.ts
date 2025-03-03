@@ -83,6 +83,19 @@ export function useTrackTokenAllowance({
     networkId,
     trackTxId,
   });
+  const fetchAllowanceResponse = useCallback(
+    async () =>
+      backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+        networkId,
+        accountId,
+        tokenAddress,
+        spenderAddress:
+          approveType === EApproveType.Permit
+            ? MorphoBundlerContract
+            : spenderAddress,
+      }),
+    [accountId, approveType, networkId, spenderAddress, tokenAddress],
+  );
   useEffect(() => {
     async function fetchAllowance() {
       if (!txDetails) {
@@ -90,16 +103,7 @@ export function useTrackTokenAllowance({
         return;
       }
       try {
-        const allowanceInfo =
-          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-            networkId,
-            accountId,
-            tokenAddress,
-            spenderAddress:
-              approveType === EApproveType.Permit
-                ? MorphoBundlerContract
-                : spenderAddress,
-          });
+        const allowanceInfo = await fetchAllowanceResponse();
         if (allowanceInfo) {
           setAllowance(allowanceInfo.allowanceParsed);
         }
@@ -115,6 +119,7 @@ export function useTrackTokenAllowance({
     spenderAddress,
     tokenAddress,
     approveType,
+    fetchAllowanceResponse,
   ]);
   const trackAllowance = useCallback(
     (txid: string) => {
@@ -123,5 +128,5 @@ export function useTrackTokenAllowance({
     },
     [setTrackTxId],
   );
-  return { allowance, trackAllowance, loading };
+  return { allowance, trackAllowance, loading, fetchAllowanceResponse };
 }

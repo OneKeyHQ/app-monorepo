@@ -27,6 +27,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEO,
   IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
@@ -154,6 +155,7 @@ export async function createVaultInstance(options: IVaultOptions) {
     [IMPL_SCDO]: () => import('./impls/scdo/Vault') as any,
     [IMPL_ALPH]: () => import('./impls/alph/Vault') as any,
     [IMPL_BFC]: () => import('./impls/bfc/Vault') as any,
+    [IMPL_NEO]: () => import('./impls/neo/Vault') as any,
   };
   const loader = vaultsLoader[impl];
   if (!loader) {

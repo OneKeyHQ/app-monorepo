@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapLimitOrderStatus,
@@ -32,6 +33,7 @@ const LimitOrderCard = ({
   hiddenCancelIcon = false,
   onCancel,
   hiddenHoverBg = false,
+  cancelLoading = false,
 }: {
   item: IFetchLimitOrderRes;
   hiddenCreateTime?: boolean;
@@ -89,7 +91,6 @@ const LimitOrderCard = ({
     const toAmountFormatted = new BigNumber(toAmount).shiftedBy(
       -(toTokenInfo?.decimals ?? 0),
     );
-
     return (
       <XStack gap="$2" alignItems="center">
         <XStack gap="$1" alignItems="center">
@@ -239,6 +240,11 @@ const LimitOrderCard = ({
     );
   }, [item, intl, fromAmount, fromTokenInfo?.decimals, progressWidth]);
 
+  const networkName = useMemo(() => {
+    const networkInfo = networkUtils.getLocalNetworkInfo(item?.networkId);
+    return networkInfo?.name;
+  }, [item]);
+
   return (
     <YStack
       flex={1}
@@ -261,6 +267,12 @@ const LimitOrderCard = ({
         <YStack gap="$2">
           {createdAtFormat}
           {tokenInfo()}
+          <XStack>
+            <SizableText size="$bodySm" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.global_network })}
+            </SizableText>
+            <SizableText size="$bodySm">{`:${networkName ?? '-'}`}</SizableText>
+          </XStack>
         </YStack>
         {!hiddenCancelIcon ? (
           <Badge
@@ -268,7 +280,7 @@ const LimitOrderCard = ({
             bg="$bgSubdued"
             borderRadius="$2.5"
             borderWidth={1}
-            borderColor="$borderSubdued"
+            borderColor={cancelLoading ? '$borderActive' : '$borderSubdued'}
             onPress={(e) => {
               e.stopPropagation();
               e.preventDefault();
@@ -282,7 +294,11 @@ const LimitOrderCard = ({
               bg: '$bgStrongActive',
             }}
           >
-            {intl.formatMessage({ id: ETranslations.Limit_order_cancel })}
+            {cancelLoading
+              ? intl.formatMessage({
+                  id: ETranslations.Limit_order_history_status_canceling,
+                })
+              : intl.formatMessage({ id: ETranslations.Limit_order_cancel })}
           </Badge>
         ) : null}
       </XStack>

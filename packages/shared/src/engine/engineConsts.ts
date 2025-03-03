@@ -111,6 +111,9 @@ const COINTYPE_ALPH = '1234';
 const IMPL_BFC = 'bfc';
 const COINTYPE_BFC = '728';
 
+const IMPL_NEO = 'neo';
+const COINTYPE_NEO = '888';
+
 const IMPL_ALLNETWORKS = 'onekeyall';
 const COINTYPE_ALLNETWORKS = '0000';
 
@@ -144,6 +147,7 @@ const SUPPORTED_IMPLS = new Set([
   IMPL_DNX,
   IMPL_CKB,
   IMPL_ALPH,
+  IMPL_NEO,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -177,6 +181,7 @@ const PRODUCTION_IMPLS = new Set([
   IMPL_DNX,
   IMPL_CKB,
   IMPL_ALPH,
+  IMPL_NEO,
   IMPL_ALLNETWORKS,
 ]);
 
@@ -254,6 +259,7 @@ export {
   COINTYPE_SCDO,
   COINTYPE_ALPH,
   COINTYPE_BFC,
+  COINTYPE_NEO,
   IMPL_ADA,
   IMPL_ALGO,
   IMPL_ALLNETWORKS,
@@ -287,6 +293,7 @@ export {
   IMPL_SCDO,
   IMPL_ALPH,
   IMPL_BFC,
+  IMPL_NEO,
   INDEX_PLACEHOLDER,
   SEPERATOR,
   getSupportedImpls,

@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
 
-import { Skeleton, Stack, XStack } from '@onekeyhq/components';
+import { Skeleton, Stack, XStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DefaultTitle } from './DefaultTitle';
 import { SearchInput } from './SearchInput';
@@ -54,6 +55,8 @@ function DappSideDisplay({
 }
 
 export function Welcome({ banner }: { banner: React.ReactNode }) {
+  const media = useMedia();
+
   // Fetch discovery data
   const { result: discoveryData, isLoading } = usePromiseResult(
     async () =>
@@ -143,12 +146,15 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
         gap="$5"
         px="$5"
         py="$6"
-        minHeight="$48"
+        $gtMd={{
+          minHeight: '$52',
+        }}
         $sm={{
           width: '100%',
         }}
       >
-        {banner || <DefaultTitle />}
+        {/* Show banner if provided, otherwise show DefaultTitle on non-native platforms */}
+        {banner || (media.gtSm && <DefaultTitle />)}
         <SearchInput />
       </Stack>
 

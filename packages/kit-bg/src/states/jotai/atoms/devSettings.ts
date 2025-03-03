@@ -54,7 +54,7 @@ export const {
       webviewDebuggingEnabled: false,
       showPrimeTest: true,
       autoNavigation: {
-        enabled: true,
+        enabled: false,
         selectedTab: ETabRoutes.Discovery,
       },
     },
