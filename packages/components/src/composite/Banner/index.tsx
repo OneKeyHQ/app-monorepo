@@ -201,7 +201,7 @@ export function Banner<T extends IBannerData>({
         {showCloseButton ? (
           <CloseButton
             onPress={() => {
-              onBannerClose?.(data[currentIndex].bannerId ?? '');
+              onBannerClose?.(data[currentIndex]?.bannerId ?? '');
             }}
           />
         ) : null}

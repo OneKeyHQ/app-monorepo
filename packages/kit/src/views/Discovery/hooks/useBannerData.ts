@@ -38,5 +38,13 @@ export function useBannerData(banners: IDiscoveryBanner[]) {
         ids: [...bannerClose.ids, id],
       });
     },
+    closeAllBanners: () => {
+      const allBannerIds = banners
+        .map((banner) => banner.bannerId)
+        .filter(Boolean);
+      setBannerClose({
+        ids: [...new Set([...bannerClose.ids, ...allBannerIds])],
+      });
+    },
   };
 }

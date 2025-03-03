@@ -1,5 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { isEmpty } from 'lodash';
@@ -44,8 +44,11 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
+import { TokenDetailsContext } from './TokenDetailsContext';
+import TokenDetailsFooter from './TokenDetailsFooter';
 import TokenDetailsViews from './TokenDetailsView';
 
+import type { ITokenDetailsContextValue } from './TokenDetailsContext';
 import type { RouteProp } from '@react-navigation/core';
 
 const num = 0;
@@ -65,7 +68,6 @@ export type IProps = {
   indexedAccountId?: string;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
 };
-
 function TokenDetailsView() {
   const intl = useIntl();
 
@@ -274,13 +276,14 @@ function TokenDetailsView() {
   ]);
 
   return (
-    <Page safeAreaEnabled={false}>
+    <Page safeAreaEnabled>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}
         headerRight={headerRight}
       />
       <Page.Body>{renderTokenDetailsView()}</Page.Body>
+      <TokenDetailsFooter />
     </Page>
   );
 }
@@ -288,6 +291,29 @@ function TokenDetailsView() {
 const TokenDetails = memo(TokenDetailsView);
 
 export default function TokenDetailsModal() {
+  // Context state
+  const [tokenMetadata, setTokenMetadata] =
+    useState<ITokenDetailsContextValue['tokenMetadata']>();
+
+  // Update function for the context
+  const updateTokenMetadata = useCallback(
+    (data: Partial<ITokenDetailsContextValue['tokenMetadata']>) => {
+      setTokenMetadata((prev) => ({
+        ...prev,
+        ...data,
+      }));
+    },
+    [],
+  );
+
+  // Context value
+  const contextValue = useMemo(
+    () => ({
+      tokenMetadata,
+      updateTokenMetadata,
+    }),
+    [tokenMetadata, updateTokenMetadata],
+  );
   return (
     <AccountSelectorProviderMirror
       config={{
@@ -295,7 +321,9 @@ export default function TokenDetailsModal() {
       }}
       enabledNum={[num]}
     >
-      <TokenDetails />
+      <TokenDetailsContext.Provider value={contextValue}>
+        <TokenDetails />
+      </TokenDetailsContext.Provider>
     </AccountSelectorProviderMirror>
   );
 }

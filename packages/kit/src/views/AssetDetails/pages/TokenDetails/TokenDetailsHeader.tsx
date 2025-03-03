@@ -1,10 +1,14 @@
-import type { PropsWithChildren } from 'react';
-import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 
-import type { IXStackProps } from '@onekeyhq/components';
+import { type IProps } from '.';
+
+import { useIntl } from 'react-intl';
+
 import {
   DebugRenderTracker,
   Divider,
+  Icon,
+  SizableText,
   Skeleton,
   Stack,
   XStack,
@@ -17,38 +21,27 @@ import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useCopyAccountAddress } from '@onekeyhq/kit/src/hooks/useCopyAccountAddress';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
-import { TokenDetailStakingEntry } from '@onekeyhq/kit/src/views/Staking/components/TokenDetailStakingEntry';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EModalRoutes,
-  EModalSendRoutes,
   EModalSignatureConfirmRoutes,
   EModalSwapRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
 
+import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
+
 import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
-
-import type { IProps } from '.';
-
-function ActionsRowContainer(props: PropsWithChildren<IXStackProps>) {
-  return (
-    <XStack
-      justifyContent="space-between"
-      $gtSm={{
-        gap: '$2',
-        justifyContent: 'flex-start',
-      }}
-      {...props}
-    />
-  );
-}
+import { useTokenDetailsContext } from './TokenDetailsContext';
 
 function TokenDetailsHeader(props: IProps) {
   const {
@@ -63,10 +56,13 @@ function TokenDetailsHeader(props: IProps) {
     isTabView,
   } = props;
   const navigation = useAppNavigation();
+  const intl = useIntl();
+  const copyAccountAddress = useCopyAccountAddress();
+  const { updateTokenMetadata } = useTokenDetailsContext();
 
   const [settings] = useSettingsPersistAtom();
 
-  const { network, wallet } = useAccountData({
+  const { network, wallet, account } = useAccountData({
     accountId,
     networkId,
     walletId,
@@ -91,9 +87,14 @@ function TokenDetailsHeader(props: IProps) {
             networkId,
             contractList: [tokenInfo.address],
           });
+        updateTokenMetadata({
+          price: tokensDetails[0].price,
+          priceChange24h: tokensDetails[0].price24h,
+          coingeckoId: tokensDetails[0].info.coingeckoId,
+        });
         return tokensDetails[0];
       },
-      [accountId, networkId, tokenInfo.address],
+      [accountId, networkId, tokenInfo.address, updateTokenMetadata],
       {
         watchLoading: true,
         overrideIsFocused: (isPageFocused) =>
@@ -236,61 +237,75 @@ function TokenDetailsHeader(props: IProps) {
             </Stack>
           </XStack>
           {/* Actions */}
-          <RawActions flexDirection="column" gap="$5">
-            <ActionsRowContainer>
-              <ReviewControl>
-                <ActionBuy
-                  networkId={networkId}
-                  accountId={accountId}
-                  walletType={wallet?.type}
-                  tokenAddress={tokenInfo.address}
-                />
-              </ReviewControl>
+          <RawActions gap="$8" flexWrap="wrap" flexDirection="row">
+            <ReviewControl>
+              <ActionBuy
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
+              />
+            </ReviewControl>
 
-              <RawActions.Swap
-                onPress={handleOnSwap}
-                disabled={disableSwapAction}
+            <RawActions.Swap
+              onPress={handleOnSwap}
+              disabled={disableSwapAction}
+            />
+            <RawActions.Bridge
+              onPress={handleOnBridge}
+              disabled={disableSwapAction}
+            />
+            <ReviewControl>
+              <ActionSell
+                networkId={networkId}
+                accountId={accountId}
+                walletType={wallet?.type}
+                tokenAddress={tokenInfo.address}
               />
-              <RawActions.Bridge
-                onPress={handleOnBridge}
-                disabled={disableSwapAction}
-              />
-              <ReviewControl>
-                <ActionSell
-                  networkId={networkId}
-                  accountId={accountId}
-                  walletType={wallet?.type}
-                  tokenAddress={tokenInfo.address}
-                />
-              </ReviewControl>
-            </ActionsRowContainer>
-            <ActionsRowContainer>
-              <RawActions.Send onPress={handleSendPress} />
-              <RawActions.Receive
-                disabled={isReceiveDisabled}
-                onPress={() => handleOnReceive(tokenInfo)}
-              />
-              <Stack
-                w={50}
-                $gtSm={{
-                  display: 'none',
-                }}
-              />
-              <Stack
-                w={50}
-                $gtSm={{
-                  display: 'none',
-                }}
-              />
-            </ActionsRowContainer>
+            </ReviewControl>
+            <RawActions.Send onPress={handleSendPress} />
+            <RawActions.Receive
+              disabled={isReceiveDisabled}
+              onPress={() => handleOnReceive(tokenInfo)}
+            />
+            <WalletActionEarn
+              accountId={accountId}
+              tokenAddress={tokenInfo.address}
+              networkId={networkId}
+              indexedAccountId={indexedAccountId}
+            />
+            <Stack w={50} />
           </RawActions>
         </Stack>
-        <TokenDetailStakingEntry
-          networkId={networkId}
-          accountId={accountId}
-          indexedAccountId={indexedAccountId}
-          tokenAddress={tokenInfo.address}
-        />
+        <Divider />
+        <YStack
+          onPress={() =>
+            copyAccountAddress({
+              accountId,
+              networkId,
+            })
+          }
+          px="$5"
+          py="$3"
+          {...listItemPressStyle}
+        >
+          <XStack alignItems="center" justifyContent="space-between">
+            <YStack gap="$1">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {intl.formatMessage({ id: ETranslations.global_my_address })}
+              </SizableText>
+              <SizableText size="$bodyMd" color="$text">
+                {accountUtils.isHwWallet({ walletId }) ||
+                accountUtils.isQrWallet({ walletId })
+                  ? accountUtils.shortenAddress({
+                      address: account?.address ?? '',
+                    })
+                  : account?.address}
+              </SizableText>
+            </YStack>
+            <Icon name="Copy3Outline" />
+          </XStack>
+        </YStack>
         {/* History */}
         <Divider mb="$3" />
       </>
