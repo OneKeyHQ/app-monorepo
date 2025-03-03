@@ -57,6 +57,7 @@ function BalanceDetailsContent({
         {
           networkId,
           indexedAccountId: indexedAccountId ?? '',
+          excludeEmptyAccount: true,
         },
       ),
     ]);

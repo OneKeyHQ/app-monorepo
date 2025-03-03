@@ -220,6 +220,7 @@ function TokenListContainer(props: ITabPageProps) {
               {
                 networkId: network.id,
                 indexedAccountId: indexedAccount?.id ?? '',
+                excludeEmptyAccount: true,
               },
             );
 
@@ -1175,6 +1176,7 @@ function TokenListContainer(props: ITabPageProps) {
             {
               networkId,
               indexedAccountId: indexedAccount?.id ?? '',
+              excludeEmptyAccount: true,
             },
           );
 

@@ -127,6 +127,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
             {
               networkId: network.id,
               indexedAccountId: account.indexedAccountId ?? '',
+              excludeEmptyAccount: true,
             },
           );
 
@@ -216,6 +217,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
             {
               networkId,
               indexedAccountId: indexedAccountId ?? '',
+              excludeEmptyAccount: true,
             },
           );
 
