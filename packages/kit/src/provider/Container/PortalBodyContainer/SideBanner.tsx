@@ -197,7 +197,7 @@ export const SidebarBanner = () => {
   const { gtMd } = useMedia();
 
   const isIpadLandscape = useIsIpadLandscape();
-  return isIpadLandscape && gtMd ? (
+  return isIpadLandscape || gtMd ? (
     <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
       <BottomMenu />
     </Portal.Body>

@@ -13,7 +13,10 @@ import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
-import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   swapApprovingStateFetchInterval,
   swapBridgeDefaultTokenConfigs,
@@ -46,6 +49,7 @@ import {
   ESwapApproveTransactionStatus,
   ESwapDirectionType,
   ESwapFetchCancelCause,
+  ESwapLimitOrderMarketPriceUpdateInterval,
   ESwapQuoteKind,
   ESwapRateDifferenceUnit,
   ESwapSlippageSegmentKey,
@@ -57,6 +61,7 @@ import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
   contextAtomMethod,
+  limitOrderMarketPriceAtom,
   rateDifferenceAtom,
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
@@ -94,6 +99,10 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
   private quoteInterval: ReturnType<typeof setTimeout> | undefined;
 
   private approvingInterval: ReturnType<typeof setTimeout> | undefined;
+
+  private limitOrderMarketPriceInterval:
+    | ReturnType<typeof setTimeout>
+    | undefined;
 
   private approvingIntervalCount = 0;
 
@@ -902,6 +911,13 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
     }
   };
 
+  cleanLimitOrderMarketPriceInterval = () => {
+    if (this.limitOrderMarketPriceInterval) {
+      clearInterval(this.limitOrderMarketPriceInterval);
+      this.limitOrderMarketPriceInterval = undefined;
+    }
+  };
+
   checkAddressNeedCreate = (
     swapSupportAllNetworks: ISwapNetwork[],
     fromToken: ISwapToken,
@@ -1094,7 +1110,6 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           let instantRate = quoteResult?.instantRate;
           if (
             quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
-            limitPriceUseRate.provider === quoteResult.info.provider &&
             limitPriceUseRate.rate
           ) {
             instantRate = limitPriceUseRate.rate;
@@ -1808,6 +1823,56 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
     },
   );
+
+  limitMarketPriceRun = contextAtomMethod(
+    async (get, set, fromToken?: ISwapToken, toToken?: ISwapToken) => {
+      try {
+        if (fromToken && toToken) {
+          const { fromTokenPrice, toTokenPrice } =
+            await backgroundApiProxy.serviceSwap.fetchLimitMarketPrice({
+              fromToken,
+              toToken,
+            });
+          const fromTokenPriceInfo = {
+            tokenInfo: fromToken,
+            price: fromTokenPrice,
+          };
+          const toTokenPriceInfo = {
+            tokenInfo: toToken,
+            price: toTokenPrice,
+          };
+          set(limitOrderMarketPriceAtom(), (v) => ({
+            ...v,
+            fromTokenPriceInfo,
+            toTokenPriceInfo,
+          }));
+        }
+      } catch (error) {
+        console.error(error);
+      }
+      this.limitOrderMarketPriceInterval = setTimeout(() => {
+        void this.limitOrderMarketPriceIntervalAction.call(set);
+      }, ESwapLimitOrderMarketPriceUpdateInterval);
+    },
+  );
+
+  limitOrderMarketPriceIntervalAction = contextAtomMethod(async (get, set) => {
+    if (this.limitOrderMarketPriceInterval) {
+      clearInterval(this.limitOrderMarketPriceInterval);
+    }
+    const type = get(swapTypeSwitchAtom());
+    if (type !== ESwapTabSwitchType.LIMIT) {
+      set(limitOrderMarketPriceAtom(), {});
+      return;
+    }
+    const fromToken = get(swapSelectFromTokenAtom());
+    const toToken = get(swapSelectToTokenAtom());
+    if (checkWrappedTokenPair({ fromToken, toToken })) {
+      set(limitOrderMarketPriceAtom(), {});
+      return;
+    }
+    await this.limitMarketPriceRun.call(set, fromToken, toToken);
+  });
 }
 
 const createActions = memoFn(() => new ContentJotaiActionsSwap());
@@ -1828,11 +1893,14 @@ export const useSwapActions = () => {
   const loadSwapSelectTokenDetail = actions.loadSwapSelectTokenDetail.use();
   const swapLoadAllNetworkTokenList = actions.swapLoadAllNetworkTokenList.use();
   const swapTypeSwitchAction = actions.swapTypeSwitchAction.use();
+  const limitOrderMarketPriceIntervalAction =
+    actions.limitOrderMarketPriceIntervalAction.use();
   const {
     cleanQuoteInterval,
     cleanApprovingInterval,
     closeQuoteEvent,
     needChangeToken,
+    cleanLimitOrderMarketPriceInterval,
   } = actions;
 
   return useRef({
@@ -1854,5 +1922,7 @@ export const useSwapActions = () => {
     closeQuoteEvent,
     swapTypeSwitchAction,
     needChangeToken,
+    limitOrderMarketPriceIntervalAction,
+    cleanLimitOrderMarketPriceInterval,
   });
 };
