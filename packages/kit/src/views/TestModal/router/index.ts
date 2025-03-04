@@ -1,6 +1,6 @@
 import type { IModalFlowNavigatorConfig } from '@onekeyhq/components';
-import type { ITestModalPagesParam } from '@onekeyhq/shared/src/routes';
 import { ETestModalPages } from '@onekeyhq/shared/src/routes';
+import type { ITestModalPagesParam } from '@onekeyhq/shared/src/routes/testModal';
 
 import { TestSimpleModal } from '../pages/TestSimpleModal';
 
