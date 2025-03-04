@@ -193,13 +193,13 @@ function BottomMenu() {
   );
 }
 
-export const SidebarBanner = () => {
+export function SidebarBanner() {
   const { gtMd } = useMedia();
-
   const isIpadLandscape = useIsIpadLandscape();
-  return isIpadLandscape || gtMd ? (
+  const isShowBottomMenu = platformEnv.isNativeIOSPad ? isIpadLandscape : gtMd;
+  return isShowBottomMenu ? (
     <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
       <BottomMenu />
     </Portal.Body>
   ) : null;
-};
+}
