@@ -30,21 +30,7 @@ function enableCodeSplitChunks({ config }) {
 
     hidePathInfo: true, // ._m => d0ae3f07    .. => 493df0b3
     automaticNameDelimiter: `.`, // ~ => .
-    // automaticNameMaxLength: 15, // limit max length of auto-gen chunk file name
-    // maxAsyncRequests: 5, // for each additional load no more than 5 files at a time
-    // maxInitialRequests: 3, // each entrypoint should not request more then 3 js files
-    // cacheGroups: {
-    //   vendors: {
-    //     test: /[\\/]node_modules[\\/]/,
-    //     priority: -10,
-    //     enforce: true, // separate vendor from our code
-    //   },
-    //   default: {
-    //     minChunks: 2,
-    //     priority: -20,
-    //     reuseExistingChunk: true,
-    //   },
-    // },
+
   };
   if (isChrome) {
     // memory leak issue
@@ -68,10 +54,7 @@ function disabledDynamicImportChunks(config) {
     devUtils.addBabelLoaderPlugin({
       config,
       isPrepend: true,
-      plugins: [
-        // 'babel-plugin-dynamic-import-webpack' ,// TODO not working
-        // 'babel-plugin-transform-dynamic-imports-to-static-imports',
-      ],
+      plugins: [],
     });
   }
 }

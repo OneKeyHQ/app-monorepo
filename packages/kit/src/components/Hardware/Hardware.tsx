@@ -297,7 +297,6 @@ export function EnterPin({
           ))}
         </XStack>
       </Stack>
-      {/* TODO: add loading state while waiting for result */}
       <Button
         mt="$5"
         $md={
@@ -464,7 +463,6 @@ export function EnterPhase({
           </Form.Field>
         ) : null}
       </Form>
-      {/* TODO: add loading state while waiting for result */}
       <Button
         mt="$5"
         $md={
@@ -572,7 +570,6 @@ export function ConfirmPassphrase({
           id: ETranslations.global_enter_passphrase,
         })}
       />
-      {/* TODO: add loading state while waiting for result */}
       <Button
         mt="$5"
         $md={

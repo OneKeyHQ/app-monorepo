@@ -76,15 +76,7 @@ export function makeModalStackNavigatorOptions({
     };
   }
 
-  // Android Pad
-  // if (platformEnv.isNativeAndroid && !isVerticalLayout) {
-  //   options = {
-  //     headerShown: true,
-  //     animation: 'none',
-  //     presentation: 'transparentModal',
-  //     contentStyle: { backgroundColor: 'transparent' },
-  //   };
-  // }
+
 
   if (platformEnv.isNativeIOS) {
     options = {
