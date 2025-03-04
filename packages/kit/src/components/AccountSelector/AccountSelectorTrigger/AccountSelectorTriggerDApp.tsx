@@ -225,9 +225,7 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       beforeShowTrigger,
       loadingDuration,
       ...rest
-    },
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _: any,
+    }
   ) => {
     const { isLoading: mockIsLoading } =
       useMockAccountSelectorLoading(loadingDuration);
@@ -245,10 +243,6 @@ export const AccountSelectorTriggerDappConnection = XStack.styleable<{
       await beforeShowTrigger?.();
       showAccountSelector();
     }, [beforeShowTrigger, showAccountSelector]);
-
-    useEffect(() => {
-      console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
-    }, []);
 
     return (
       <AccountSelectorTriggerDappConnectionCmp
