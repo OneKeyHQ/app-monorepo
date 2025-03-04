@@ -14,7 +14,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
+import {
+  formatDate,
+  formatDistanceStrict,
+} from '@onekeyhq/shared/src/utils/dateUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
@@ -66,9 +69,16 @@ const LimitOrderCard = ({
 
   const expirationTitle = useMemo(() => {
     const date = new BigNumber(item.expiredAt).shiftedBy(3).toNumber();
-    const dateStr = formatDate(new Date(date), {
+    let dateStr = formatDate(new Date(date), {
       hideSeconds: true,
     });
+    if (
+      item.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING ||
+      item.status === ESwapLimitOrderStatus.OPEN
+    ) {
+      const now = new Date();
+      dateStr = formatDistanceStrict(new Date(date), now);
+    }
     return (
       <YStack
         gap="$1.5"
@@ -81,7 +91,7 @@ const LimitOrderCard = ({
         <SizableText size="$bodySm">{dateStr}</SizableText>
       </YStack>
     );
-  }, [intl, item.expiredAt, gtMd]);
+  }, [item.expiredAt, item.status, gtMd, intl]);
 
   const tokenInfo = useCallback(() => {
     const fromAmountFormatted = new BigNumber(fromAmount).shiftedBy(

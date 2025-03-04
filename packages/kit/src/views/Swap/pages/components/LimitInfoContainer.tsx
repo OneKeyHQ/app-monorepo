@@ -11,7 +11,6 @@ import {
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
-  ESwapRateDifferenceUnit,
   ESwapTabSwitchType,
   LimitMarketUpPercentages,
 } from '@onekeyhq/shared/types/swap/types';
@@ -46,10 +45,10 @@ const LimitInfoContainer = () => {
   const valueMoreComponent = useMemo(() => {
     if (rateDifference && swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
       let color = '$textSubdued';
-      if (rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE) {
+      if (rateDifference.value.startsWith('-')) {
         color = '$textCritical';
       }
-      if (rateDifference.unit === ESwapRateDifferenceUnit.POSITIVE) {
+      if (rateDifference.value.startsWith('+')) {
         color = '$textSuccess';
       }
       return (
@@ -57,13 +56,7 @@ const LimitInfoContainer = () => {
           <SizableText size="$bodyMd" color={color}>
             (
           </SizableText>
-          <SizableText
-            size="$bodyMd"
-            color={color}
-            {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
-              textDecorationLine: 'underline',
-            })}
-          >
+          <SizableText size="$bodyMd" color={color}>
             {rateDifference.value}
           </SizableText>
           <SizableText size="$bodyMd" color={color}>

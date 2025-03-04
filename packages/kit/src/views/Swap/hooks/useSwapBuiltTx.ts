@@ -26,7 +26,6 @@ import type {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
-  formatBalance,
   numberFormat,
   toBigIntHex,
 } from '@onekeyhq/shared/src/utils/numberUtils';
@@ -60,6 +59,7 @@ import {
   useSwapLimitPartiallyFillAtom,
   useSwapLimitPriceFromAmountAtom,
   useSwapLimitPriceToAmountAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapManualSelectQuoteProvidersAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -100,6 +100,7 @@ export function useSwapBuildTx() {
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
   const [swapLimitPartiallyFillObj] = useSwapLimitPartiallyFillAtom();
+  const [swapUseInstantRate] = useSwapLimitPriceUseRateAtom();
   const [{ isFirstTimeSwap }, setPersistSettings] = useSettingsPersistAtom();
   const [, setSettings] = useSettingsAtom();
   const { navigationToTxConfirm, navigationToMessageConfirm } =
@@ -514,6 +515,33 @@ export function useSwapBuildTx() {
               );
             }
             if (dataMessage) {
+              const swapInfo: ISwapTxInfo = {
+                protocol: selectQuoteRes.protocol ?? EProtocolOfExchange.SWAP,
+                sender: {
+                  amount: unSignedOrder.sellAmount,
+                  token: fromToken,
+                  accountInfo: {
+                    accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                    networkId: fromToken.networkId,
+                  },
+                },
+                receiver: {
+                  amount: unSignedOrder.buyAmount,
+                  token: toToken,
+                  accountInfo: {
+                    accountId: swapToAddressInfo.accountInfo?.account?.id,
+                    networkId: toToken.networkId,
+                  },
+                },
+                accountAddress: swapFromAddressInfo.address,
+                receivingAddress: swapToAddressInfo.address,
+                swapBuildResData: {
+                  result: {
+                    ...selectQuoteRes,
+                    instantRate: swapUseInstantRate.rate,
+                  },
+                },
+              };
               const signHash = await new Promise<string>((resolve, reject) => {
                 if (
                   dataMessage &&
@@ -524,6 +552,7 @@ export function useSwapBuildTx() {
                     accountId:
                       swapFromAddressInfo.accountInfo?.account?.id ?? '',
                     networkId: swapFromAddressInfo.networkId,
+                    swapInfo,
                     unsignedMessage: {
                       type:
                         unSignedInfo.signedType ??
@@ -668,31 +697,10 @@ export function useSwapBuildTx() {
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
           } else if (res?.ctx.cowSwapOrderId) {
             skipSendTransAction = true;
-            const fromAmountBN = new BigNumber(
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              res.ctx?.cowSwapUnSignedOrder?.sellAmount ?? '0',
-            ).shiftedBy(-(fromToken.decimals ?? 0));
-            const formattedFromAmount = formatBalance(fromAmountBN.toFixed());
-            const toAmountBN = new BigNumber(
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              res.ctx?.cowSwapUnSignedOrder?.buyAmount ?? '0',
-            ).shiftedBy(-(toToken.decimals ?? 0));
-            const formattedToAmount = formatBalance(toAmountBN.toFixed());
             void Toast.success({
               title: intl.formatMessage({
                 id: ETranslations.limit_toast_order_submitted,
               }),
-              message: intl.formatMessage(
-                {
-                  id: ETranslations.limit_toast_order_content,
-                },
-                {
-                  num1: formattedFromAmount.formattedValue,
-                  num2: formattedToAmount.formattedValue,
-                  token1: fromToken.symbol,
-                  token2: toToken.symbol,
-                },
-              ),
             });
           }
           // check gasLimit
@@ -762,6 +770,7 @@ export function useSwapBuildTx() {
     swapLimitPriceFromAmount,
     swapLimitPriceToAmount,
     swapLimitPartiallyFillObj.value,
+    swapUseInstantRate.rate,
     navigationToMessageConfirm,
     swapTypeSwitch,
     intl,
