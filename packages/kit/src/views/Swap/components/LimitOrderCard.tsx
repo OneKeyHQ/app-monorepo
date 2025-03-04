@@ -71,10 +71,9 @@ const LimitOrderCard = ({
     });
     return (
       <YStack
-        flex={1}
         gap="$1.5"
         justifyContent="flex-start"
-        minWidth={gtMd ? 100 : 150}
+        minWidth={gtMd ? 150 : 180}
       >
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status_expired })}
@@ -154,9 +153,8 @@ const LimitOrderCard = ({
   const renderLimitOrderPrice = useCallback(
     () => (
       <YStack
-        flex={1}
         gap="$1.5"
-        minWidth={gtMd ? 180 : 160}
+        minWidth={gtMd ? 200 : 180}
         justifyContent="flex-start"
       >
         <SizableText size="$bodySm" color="$textSubdued">
@@ -218,11 +216,11 @@ const LimitOrderCard = ({
       .multipliedBy(100)
       .toFixed(2);
     return (
-      <YStack gap="$1.5" flex={1}>
+      <YStack gap="$1.5" justifyContent="flex-start">
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.Limit_order_status })}
         </SizableText>
-        <XStack gap="$2" alignItems="center" flex={1}>
+        <XStack gap="$2" alignItems="center">
           <SizableText size="$bodySm" color={color}>
             {label}
           </SizableText>
@@ -269,9 +267,11 @@ const LimitOrderCard = ({
           {tokenInfo()}
           <XStack>
             <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({ id: ETranslations.global_network })}
+              {intl.formatMessage({
+                id: ETranslations.limit_order_card_network,
+              })}
             </SizableText>
-            <SizableText size="$bodySm">{`:${networkName ?? '-'}`}</SizableText>
+            <SizableText size="$bodySm">{` ${networkName ?? '-'}`}</SizableText>
           </XStack>
         </YStack>
         {!hiddenCancelIcon ? (
@@ -303,7 +303,7 @@ const LimitOrderCard = ({
         ) : null}
       </XStack>
       <Divider />
-      <XStack flexWrap="wrap" justifyContent="flex-start" gap="$3">
+      <XStack gap="$3" flexWrap="wrap" justifyContent="flex-start">
         {renderLimitOrderPrice()}
         {expirationTitle}
         {renderLimitOrderStatus()}
