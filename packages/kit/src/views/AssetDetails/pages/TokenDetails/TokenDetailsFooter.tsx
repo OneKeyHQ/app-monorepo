@@ -39,6 +39,13 @@ function TokenDetailsFooter() {
     return '$textSubdued';
   }, [tokenMetadata?.priceChange24h]);
 
+  if (
+    new BigNumber(tokenMetadata?.priceChange24h ?? 0).isZero() &&
+    new BigNumber(tokenMetadata?.price ?? 0).isZero()
+  ) {
+    return null;
+  }
+
   return (
     <Page.Footer>
       <XStack
