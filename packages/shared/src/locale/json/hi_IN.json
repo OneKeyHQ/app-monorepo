@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "लिमिट ऑर्डर में कोई स्लिपेज नहीं है, लेकिन नेटवर्क लागतों पर विचार करें। यह वर्तमान लिमिट दर पर भरा जाने की संभावना नहीं है।",
   "limit.order_card_network": "नेटवर्क:",
   "limit.place_order": "सीमा आदेश की समीक्षा करें",
+  "limit.relative_to_market": "बाजार मूल्य के सापेक्ष:",
   "limit.toast_order_cancelled": "आदेश रद्द कर दिया गया",
   "limit.toast_order_content": "{num1} {token1} को {num2} {token2} में बेचें",
   "limit.toast_order_filled": "ऑर्डर पूरा हुआ",

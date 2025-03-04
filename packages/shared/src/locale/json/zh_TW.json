@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "限價單沒有滑點。但考慮網路成本，當前的訂單可能無法在該掛單價成交",
   "limit.order_card_network": "網路:",
   "limit.place_order": "檢查限價單",
+  "limit.relative_to_market": "相對於市價:",
   "limit.toast_order_cancelled": "訂單已取消",
   "limit.toast_order_content": "賣出 {num1} {token1} 買入 {num2} {token2}",
   "limit.toast_order_filled": "訂單已成交",

@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "L'ordre à cours limité n'a pas de glissement, mais prenez en compte les coûts du réseau. Il est peu probable qu'il soit exécuté au taux limite actuel.",
   "limit.order_card_network": "Réseau:",
   "limit.place_order": "Vérifier l'ordre à cours limité",
+  "limit.relative_to_market": "Relatif au prix du marché :",
   "limit.toast_order_cancelled": "Commande annulée",
   "limit.toast_order_content": "Vendre {num1} {token1} pour {num2} {token2}",
   "limit.toast_order_filled": "Commande exécutée",

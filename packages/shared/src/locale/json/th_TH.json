@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "คำสั่งจำกัดไม่มีการเลื่อนหลุด แต่ควรพิจารณาค่าใช้จ่ายของเครือข่าย มีโอกาสน้อยที่จะถูกเติมเต็มในอัตราจำกัดปัจจุบัน",
   "limit.order_card_network": "เครือข่าย:",
   "limit.place_order": "ตรวจสอบคำสั่งจำกัด",
+  "limit.relative_to_market": "เมื่อเทียบกับราคาตลาด:",
   "limit.toast_order_cancelled": "คำสั่งซื้อถูกยกเลิก",
   "limit.toast_order_content": "ขาย {num1} {token1} ในราคา {num2} {token2}",
   "limit.toast_order_filled": "คำสั่งซื้อเสร็จสมบูรณ์",
