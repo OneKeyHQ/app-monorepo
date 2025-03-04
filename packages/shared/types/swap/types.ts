@@ -288,6 +288,10 @@ export interface IQuoteTip {
   link?: string;
 }
 
+export interface IFetchLimitMarketPrice {
+  price: string;
+}
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
@@ -325,10 +329,6 @@ export interface IFetchQuoteResult {
     };
     cost: string;
     exceedPercent: string;
-  };
-  limitPriceOrderMarketPrice?: {
-    fromTokenPrice?: number;
-    toTokenPrice?: number;
   };
   swapShouldSignedData?: {
     unSignedData?: {
@@ -716,7 +716,7 @@ export enum ESwapLimitOrderExpiryStep {
   ONE_MONTH = 30 * 24 * 60 * 60,
 }
 
-export const LimitMarketUpPercentages = [0, 20, 50, 100];
+export const LimitMarketUpPercentages = [0];
 
 export const defaultLimitExpirationTime = ESwapLimitOrderExpiryStep.ONE_WEEK;
 
@@ -727,11 +727,12 @@ export interface ISwapLimitPriceInfo {
   toTokenMarketPrice?: number;
   rate?: string;
   reverseRate?: string;
-  provider?: string;
   inputRate?: string;
 }
 
 export const ESwapLimitOrderUpdateInterval = 10_000;
+
+export const ESwapLimitOrderMarketPriceUpdateInterval = 15_000;
 
 // component -----------------
 

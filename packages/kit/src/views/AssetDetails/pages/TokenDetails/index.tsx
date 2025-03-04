@@ -10,6 +10,7 @@ import type {
   IActionListSection,
   IListViewProps,
   ISectionListProps,
+  IStackProps,
 } from '@onekeyhq/components';
 import {
   ActionList,
@@ -67,7 +68,7 @@ export type IProps = {
   listViewContentContainerStyle?: IListViewProps<IAccountHistoryTx>['contentContainerStyle'];
   indexedAccountId?: string;
   ListHeaderComponent?: ISectionListProps<any>['ListHeaderComponent'];
-};
+} & IStackProps;
 function TokenDetailsView() {
   const intl = useIntl();
 
@@ -276,7 +277,7 @@ function TokenDetailsView() {
   ]);
 
   return (
-    <Page safeAreaEnabled>
+    <Page safeAreaEnabled={false}>
       <Page.Header
         headerTitle={tokenInfo.name}
         headerTitleStyle={headerTitleStyle}

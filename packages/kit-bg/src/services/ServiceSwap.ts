@@ -41,6 +41,7 @@ import type {
   ESwapQuoteKind,
   IFetchBuildTxParams,
   IFetchBuildTxResponse,
+  IFetchLimitMarketPrice,
   IFetchLimitOrderRes,
   IFetchQuoteResult,
   IFetchQuotesParams,
@@ -1445,7 +1446,7 @@ export default class ServiceSwap extends ServiceBase {
       ) {
         let toastTitle = '';
         let toastMessage = '';
-        let method: 'success' | 'error' | 'message' = 'success';
+        const method: 'success' | 'error' | 'message' = 'success';
         if (ESwapLimitOrderStatus.FULFILLED === newStatus) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
             fromToken: openOrder.fromTokenInfo,
@@ -1480,31 +1481,11 @@ export default class ServiceSwap extends ServiceBase {
           );
         }
         if (ESwapLimitOrderStatus.CANCELLED === newStatus) {
-          const fromAmountBN = new BigNumber(
-            openOrder.fromAmount ?? '0',
-          ).shiftedBy(-(openOrder.fromTokenInfo?.decimals ?? 0));
-          const formattedFromAmount = formatBalance(fromAmountBN.toFixed());
-          const toAmountBN = new BigNumber(openOrder.toAmount ?? '0').shiftedBy(
-            -(openOrder.toTokenInfo?.decimals ?? 0),
-          );
-          const formattedToAmount = formatBalance(toAmountBN.toFixed());
-          method = 'error';
           toastTitle = appLocale.intl.formatMessage({
             id: ETranslations.limit_toast_order_cancelled,
           });
-          toastMessage = appLocale.intl.formatMessage(
-            {
-              id: ETranslations.limit_toast_order_content,
-            },
-            {
-              num1: formattedFromAmount.formattedValue,
-              num2: formattedToAmount.formattedValue,
-              token1: openOrder.fromTokenInfo.symbol,
-              token2: openOrder.toTokenInfo.symbol,
-            },
-          );
         }
-        if (toastTitle && toastMessage) {
+        if (toastTitle || toastMessage) {
           void this.backgroundApi.serviceApp.showToast({
             method,
             title: toastTitle,
@@ -1566,7 +1547,7 @@ export default class ServiceSwap extends ServiceBase {
             userAddress: account.apiAddress,
             networkId: account.networkId,
           }));
-          if (openLimitOrders.length > 0) {
+          if (openLimitOrders.length > 0 && !isFetchNewOrder) {
             const needUpdateAccounts = accounts.filter((account) =>
               openLimitOrders.find(
                 (item) =>
@@ -1643,13 +1624,18 @@ export default class ServiceSwap extends ServiceBase {
       offset?: number;
     }[],
   ) {
-    const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const res = await client.post<{
-      data: IFetchLimitOrderRes[];
-    }>(`/swap/v1/limit-orders`, {
-      accounts,
-    });
-    return res.data.data;
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const res = await client.post<{
+        data: IFetchLimitOrderRes[];
+      }>(`/swap/v1/limit-orders`, {
+        accounts,
+      });
+      return res.data.data;
+    } catch (error) {
+      console.error(error);
+      return [];
+    }
   }
 
   @backgroundMethod()
@@ -1661,18 +1647,65 @@ export default class ServiceSwap extends ServiceBase {
     provider: string;
     userAddress: string;
   }) {
+    try {
+      const client = await this.getClient(EServiceEndpointEnum.Swap);
+      const resp = await client.post<{ success: boolean }>(
+        `/swap/v1/cancel-limit-orders`,
+        {
+          networkId: params.networkId,
+          orderIds: params.orderIds.join(','),
+          userAddress: params.userAddress,
+          provider: params.provider,
+          signature: params.signature,
+          signingScheme: params.signingScheme,
+        },
+      );
+      return resp.data.success;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  }
+
+  @backgroundMethod()
+  async fetchLimitMarketPrice(params: {
+    fromToken: ISwapTokenBase;
+    toToken: ISwapTokenBase;
+  }) {
     const client = await this.getClient(EServiceEndpointEnum.Swap);
-    const resp = await client.post<{ success: boolean }>(
-      `/swap/v1/cancel-limit-orders`,
+    const fromTokenFetchPromise = client.get<{ data: IFetchLimitMarketPrice }>(
+      `/swap/v1/limit-market-price`,
       {
-        networkId: params.networkId,
-        orderIds: params.orderIds.join(','),
-        userAddress: params.userAddress,
-        provider: params.provider,
-        signature: params.signature,
-        signingScheme: params.signingScheme,
+        params: {
+          tokenAddress: params.fromToken.contractAddress,
+          networkId: params.fromToken.networkId,
+        },
       },
     );
-    return resp.data.success;
+    const toTokenFetchPromise = client.get<{ data: IFetchLimitMarketPrice }>(
+      `/swap/v1/limit-market-price`,
+      {
+        params: {
+          tokenAddress: params.toToken.contractAddress,
+          networkId: params.toToken.networkId,
+        },
+      },
+    );
+    try {
+      const [{ data: fromTokenRes }, { data: toTokenRes }] = await Promise.all([
+        fromTokenFetchPromise,
+        toTokenFetchPromise,
+      ]);
+      return {
+        fromTokenPrice: fromTokenRes.data?.price,
+        toTokenPrice: toTokenRes.data?.price,
+      };
+    } catch (error) {
+      console.error(error);
+      return {
+        fromTokenPrice: '',
+        toTokenPrice: '',
+      };
+    }
   }
 }

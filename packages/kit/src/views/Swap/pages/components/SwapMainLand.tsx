@@ -12,6 +12,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteIntervalCountAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -24,6 +25,7 @@ import {
   EModalSwapRoutes,
   type IModalSwapParamList,
 } from '@onekeyhq/shared/src/routes/swap';
+import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   ISwapInitParams,
@@ -80,6 +82,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     useSwapActions().current;
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [fromSelectToken] = useSwapSelectFromTokenAtom();
+  const [toSelectToken] = useSwapSelectToTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const swapSlippageRef = useRef(slippageItem);
   if (swapSlippageRef.current !== slippageItem) {
@@ -212,7 +215,14 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
     },
     [fromTokenBalance, fromSelectToken?.decimals, setFromInputAmount],
   );
-
+  const isWrapped = useMemo(
+    () =>
+      checkWrappedTokenPair({
+        fromToken: fromSelectToken,
+        toToken: toSelectToken,
+      }),
+    [fromSelectToken, toSelectToken],
+  );
   return (
     <ScrollView>
       <YStack
@@ -243,8 +253,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
             selectLoading={fetchLoading}
             onSelectPercentageStage={onSelectPercentageStage}
           />
-          {swapTypeSwitch === ESwapTabSwitchType.LIMIT &&
-          !quoteResult?.isWrapped ? (
+          {swapTypeSwitch === ESwapTabSwitchType.LIMIT && !isWrapped ? (
             <LimitInfoContainer />
           ) : null}
           <SwapActionsState
