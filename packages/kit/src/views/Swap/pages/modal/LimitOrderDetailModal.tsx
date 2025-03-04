@@ -36,6 +36,7 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import { defaultSupportUrl } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 import { ESwapLimitOrderStatus } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
@@ -546,6 +547,18 @@ const LimitOrderDetailModal = () => {
         })}
       />
       <Page.Body>{renderLimitOrderDetails()}</Page.Body>
+      <Page.Footer
+        onConfirmText={intl.formatMessage({
+          id: ETranslations.global_support,
+        })}
+        confirmButtonProps={{
+          icon: 'BubbleAnnotationOutline',
+          variant: 'secondary',
+        }}
+        onConfirm={() => {
+          openUrlExternal(defaultSupportUrl);
+        }}
+      />
     </Page>
   );
 };

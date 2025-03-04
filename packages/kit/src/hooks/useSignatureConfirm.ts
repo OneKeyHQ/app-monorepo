@@ -259,6 +259,7 @@ function useSignatureConfirm(params: IParams) {
       networkId: string;
       walletInternalSign?: boolean;
       sameModal?: boolean;
+      swapInfo?: ISwapTxInfo;
       onSuccess?: (result: string) => void;
       onFail?: (error: Error) => void;
       onCancel?: () => void;
@@ -269,6 +270,7 @@ function useSignatureConfirm(params: IParams) {
         networkId,
         sameModal,
         walletInternalSign,
+        swapInfo,
         onSuccess,
         onFail,
         onCancel,
