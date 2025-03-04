@@ -41,7 +41,7 @@ export function TrendingSection({
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading selected>
           {intl.formatMessage({
-            id: ETranslations.discovery_trending,
+            id: ETranslations.market_trending,
           })}
         </DashboardSectionHeader.Heading>
       </DashboardSectionHeader>
