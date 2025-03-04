@@ -1,4 +1,4 @@
-import type { ComponentProps } from 'react';
+import { type ComponentProps, useCallback } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { isUndefined } from 'lodash';
@@ -18,6 +18,10 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
+import {
+  isTaprootAddress,
+  isTaprootPath,
+} from '@onekeyhq/core/src/chains/btc/sdkBtc';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -26,6 +30,7 @@ import type { IAccountDeriveInfoItems } from '@onekeyhq/kit-bg/src/vaults/types'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IFetchAccountDetailsResp } from '@onekeyhq/shared/types/address';
 
@@ -99,7 +104,11 @@ function BalanceDetailsContent({
   const { inscriptionEnabled, showDeriveItems, networkAccounts } = result ?? {};
 
   const {
-    result: { overview, network } = { overview: undefined, network: undefined },
+    result: { overview, network, account } = {
+      overview: undefined,
+      network: undefined,
+      account: undefined,
+    },
     isLoading,
   } = usePromiseResult(
     async () => {
@@ -113,6 +122,10 @@ function BalanceDetailsContent({
         return;
       const n = await backgroundApiProxy.serviceNetwork.getNetwork({
         networkId,
+      });
+      const a = await backgroundApiProxy.serviceAccount.getAccount({
+        networkId,
+        accountId,
       });
       const withCheckInscription =
         inscriptionEnabled && settings.inscriptionProtection;
@@ -178,6 +191,7 @@ function BalanceDetailsContent({
       }
       return {
         overview: r,
+        account: a,
         network: n,
       };
     },
@@ -201,6 +215,139 @@ function BalanceDetailsContent({
   const howToTransferOrdinalsAssetsUrl = useHelpLink({
     path: 'articles/10072721909903',
   });
+
+  const renderFrozenBalance = useCallback(() => {
+    if (!deriveInfoItems && networkUtils.isBTCNetwork(networkId)) {
+      if (
+        !(
+          isTaprootAddress(account?.address ?? '') ||
+          isTaprootPath(account?.path ?? '')
+        )
+      ) {
+        return null;
+      }
+    }
+    return (
+      <YStack {...detailsBlockStyles}>
+        <XStack justifyContent="space-between" alignItems="center">
+          <XStack>
+            <Button
+              variant="tertiary"
+              iconAfter="QuestionmarkOutline"
+              color="$textSubdued"
+              onPress={() => {
+                openUrlExternal(whatIsFrozenBalanceUrl);
+              }}
+            >
+              {appLocale.intl.formatMessage({
+                id: ETranslations.balance_detail_frozen,
+              })}
+            </Button>
+          </XStack>
+          {isLoading ? (
+            <Skeleton.BodyLg />
+          ) : (
+            <SizableText textAlign="right" size="$bodyLgMedium" minWidth={125}>
+              {`${overview?.frozenBalanceParsed ?? '-'} ${
+                network?.symbol ?? ''
+              }`}
+            </SizableText>
+          )}
+        </XStack>
+        {showDeriveItems && networkAccounts ? (
+          <YStack gap="$2" mt="$3">
+            {networkAccounts.map((item, index) => {
+              if (item.deriveType === 'BIP86') {
+                return (
+                  <XStack
+                    justifyContent="space-between"
+                    alignItems="center"
+                    key={item.deriveType}
+                  >
+                    <SizableText size="$bodyMd" color="$textSubdued">
+                      {item.deriveInfo.label ?? ''}
+                    </SizableText>
+                    {isLoading ? (
+                      <Skeleton.BodyMd />
+                    ) : (
+                      <SizableText
+                        textAlign="right"
+                        size="$bodyMd"
+                        color="$textSubdued"
+                      >
+                        {`${
+                          overview?.deriveItems?.[index]?.frozenBalanceParsed ??
+                          '-'
+                        } ${network?.symbol ?? ''}`}
+                      </SizableText>
+                    )}
+                  </XStack>
+                );
+              }
+              return null;
+            })}
+          </YStack>
+        ) : null}
+        {inscriptionEnabled ? (
+          <>
+            <Divider my="$3" />
+            <XStack justifyContent="space-between" alignItems="center">
+              <Stack>
+                <SizableText size="$bodyLgMedium" color="$textSubdued">
+                  {appLocale.intl.formatMessage({
+                    id: ETranslations.balance_detail_frozen_by_inscription,
+                  })}
+                </SizableText>
+                <XStack
+                  alignItems="center"
+                  userSelect="none"
+                  onPress={() => {
+                    openUrlExternal(howToTransferOrdinalsAssetsUrl);
+                  }}
+                  hoverStyle={{
+                    opacity: 0.75,
+                  }}
+                >
+                  <SizableText size="$bodyMd" color="$textSubdued" mr="$1.5">
+                    {appLocale.intl.formatMessage({
+                      id: ETranslations.open_ordinals_transfer_tutorial_url_message,
+                    })}
+                  </SizableText>
+                  <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
+                </XStack>
+              </Stack>
+              <Switch
+                size={ESwitchSize.small}
+                value={settings.inscriptionProtection}
+                onChange={(value) => {
+                  setSettings((v) => ({
+                    ...v,
+                    inscriptionProtection: value,
+                  }));
+                }}
+              />
+            </XStack>
+          </>
+        ) : null}
+      </YStack>
+    );
+  }, [
+    account?.address,
+    account?.path,
+    deriveInfoItems,
+    howToTransferOrdinalsAssetsUrl,
+    inscriptionEnabled,
+    isLoading,
+    network?.symbol,
+    networkAccounts,
+    networkId,
+    overview?.deriveItems,
+    overview?.frozenBalanceParsed,
+    setSettings,
+    settings.inscriptionProtection,
+    showDeriveItems,
+    whatIsFrozenBalanceUrl,
+  ]);
 
   return (
     <>
@@ -268,112 +415,7 @@ function BalanceDetailsContent({
             </YStack>
           ) : null}
         </YStack>
-        <YStack {...detailsBlockStyles}>
-          <XStack justifyContent="space-between" alignItems="center">
-            <XStack>
-              <Button
-                variant="tertiary"
-                iconAfter="QuestionmarkOutline"
-                color="$textSubdued"
-                onPress={() => {
-                  openUrlExternal(whatIsFrozenBalanceUrl);
-                }}
-              >
-                {appLocale.intl.formatMessage({
-                  id: ETranslations.balance_detail_frozen,
-                })}
-              </Button>
-            </XStack>
-            {isLoading ? (
-              <Skeleton.BodyLg />
-            ) : (
-              <SizableText
-                textAlign="right"
-                size="$bodyLgMedium"
-                minWidth={125}
-              >
-                {`${overview?.frozenBalanceParsed ?? '-'} ${
-                  network?.symbol ?? ''
-                }`}
-              </SizableText>
-            )}
-          </XStack>
-          {showDeriveItems && networkAccounts ? (
-            <YStack gap="$2" mt="$3">
-              {networkAccounts.map((item, index) => {
-                if (item.deriveType === 'BIP86') {
-                  return (
-                    <XStack
-                      justifyContent="space-between"
-                      alignItems="center"
-                      key={item.deriveType}
-                    >
-                      <SizableText size="$bodyMd" color="$textSubdued">
-                        {item.deriveInfo.label ?? ''}
-                      </SizableText>
-                      {isLoading ? (
-                        <Skeleton.BodyMd />
-                      ) : (
-                        <SizableText
-                          textAlign="right"
-                          size="$bodyMd"
-                          color="$textSubdued"
-                        >
-                          {`${
-                            overview?.deriveItems?.[index]
-                              ?.frozenBalanceParsed ?? '-'
-                          } ${network?.symbol ?? ''}`}
-                        </SizableText>
-                      )}
-                    </XStack>
-                  );
-                }
-                return null;
-              })}
-            </YStack>
-          ) : null}
-          {inscriptionEnabled ? (
-            <>
-              <Divider my="$3" />
-              <XStack justifyContent="space-between" alignItems="center">
-                <Stack>
-                  <SizableText size="$bodyLgMedium" color="$textSubdued">
-                    {appLocale.intl.formatMessage({
-                      id: ETranslations.balance_detail_frozen_by_inscription,
-                    })}
-                  </SizableText>
-                  <XStack
-                    alignItems="center"
-                    userSelect="none"
-                    onPress={() => {
-                      openUrlExternal(howToTransferOrdinalsAssetsUrl);
-                    }}
-                    hoverStyle={{
-                      opacity: 0.75,
-                    }}
-                  >
-                    <SizableText size="$bodyMd" color="$textSubdued" mr="$1.5">
-                      {appLocale.intl.formatMessage({
-                        id: ETranslations.open_ordinals_transfer_tutorial_url_message,
-                      })}
-                    </SizableText>
-                    <Icon name="OpenOutline" size="$4" color="$iconSubdued" />
-                  </XStack>
-                </Stack>
-                <Switch
-                  size={ESwitchSize.small}
-                  value={settings.inscriptionProtection}
-                  onChange={(value) => {
-                    setSettings((v) => ({
-                      ...v,
-                      inscriptionProtection: value,
-                    }));
-                  }}
-                />
-              </XStack>
-            </>
-          ) : null}
-        </YStack>
+        {renderFrozenBalance()}
       </YStack>
     </>
   );
