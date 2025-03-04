@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 import { forEach, isNil, uniqBy } from 'lodash';
 
+import { wrappedTokens } from '../../types/swap/SwapProvider.constants';
 import { SEARCH_KEY_MIN_LENGTH } from '../consts/walletConsts';
 
 import networkUtils from './networkUtils';
@@ -286,6 +287,41 @@ export function equalTokenNoCaseSensitive({
     token2?.contractAddress?.toLowerCase()
   );
 }
+
+export const checkWrappedTokenPair = ({
+  fromToken,
+  toToken,
+}: {
+  fromToken?: {
+    networkId: string;
+    contractAddress: string;
+    isNative?: boolean;
+  };
+  toToken?: { networkId: string; contractAddress: string; isNative?: boolean };
+}) => {
+  if (
+    !fromToken ||
+    !toToken ||
+    fromToken.networkId !== toToken.networkId ||
+    fromToken.contractAddress === toToken.contractAddress
+  ) {
+    return false;
+  }
+
+  const fromTokenIsWrapped = wrappedTokens.find(
+    ({ networkId, address }) =>
+      networkId === fromToken.networkId &&
+      (address.toLowerCase() === fromToken.contractAddress.toLowerCase() ||
+        fromToken.isNative),
+  );
+  const toTokenIsWrapped = wrappedTokens.find(
+    ({ networkId, address }) =>
+      networkId === toToken.networkId &&
+      (address.toLowerCase() === toToken.contractAddress.toLowerCase() ||
+        toToken.isNative),
+  );
+  return !!fromTokenIsWrapped && !!toTokenIsWrapped;
+};
 
 export function getMergedDeriveTokenData(params: {
   data: IFetchAccountTokensResp[];
