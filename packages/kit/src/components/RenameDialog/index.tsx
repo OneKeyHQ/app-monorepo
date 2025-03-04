@@ -10,8 +10,10 @@ import {
   Form,
   Input,
   Select,
+  SizableText,
   Stack,
   Toast,
+  YStack,
   useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
@@ -20,9 +22,14 @@ import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { v4CoinTypeToNetworkId } from '@onekeyhq/kit-bg/src/migrations/v4ToV5Migration/v4CoinTypeToNetworkId';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import type {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { buildChangeHistoryInputAddon } from '../ChangeHistoryDialog/ChangeHistoryDialog';
 import { NetworkAvatar } from '../NetworkAvatar';
 
 import { MAX_LENGTH_ACCOUNT_NAME } from './renameConsts';
@@ -92,18 +99,26 @@ function V4AccountNameSelector({
   );
 }
 
-function RenameInputWithNameSelector({
+export function RenameInputWithNameSelector({
   value,
   onChange,
-  maxLength = MAX_LENGTH_ACCOUNT_NAME,
+  maxLength = 8000,
+  description,
   indexedAccount,
   disabledMaxLengthLabel = false,
+  nameHistoryInfo,
 }: {
   maxLength?: number;
   value?: string;
   onChange?: (val: string) => void;
+  description?: string;
   indexedAccount?: IDBIndexedAccount;
   disabledMaxLengthLabel: boolean;
+  nameHistoryInfo?: {
+    entityId: string;
+    entityType: EChangeHistoryEntityType;
+    contentType: EChangeHistoryContentType.Name;
+  };
 }) {
   const { result: shouldShowV4AccountNameSelector } =
     usePromiseResult(async () => {
@@ -116,6 +131,8 @@ function RenameInputWithNameSelector({
       }
       return false;
     }, [indexedAccount]);
+  const intl = useIntl();
+
   return (
     <>
       <Stack>
@@ -126,6 +143,17 @@ function RenameInputWithNameSelector({
           autoFocus
           value={value}
           onChangeText={onChange}
+          flex={1}
+          addOns={
+            nameHistoryInfo?.entityId
+              ? [
+                  buildChangeHistoryInputAddon({
+                    changeHistoryInfo: nameHistoryInfo,
+                    onChange,
+                  }),
+                ]
+              : undefined
+          }
         />
         {shouldShowV4AccountNameSelector && indexedAccount ? (
           <V4AccountNameSelector
@@ -135,10 +163,13 @@ function RenameInputWithNameSelector({
         ) : null}
       </Stack>
       {disabledMaxLengthLabel ? null : (
-        <Form.FieldDescription textAlign="right">{`${
-          value?.length || 0
-        }/${maxLength}`}</Form.FieldDescription>
+        <Form.FieldDescription textAlign="right">{`${value?.length || 0}/${
+          maxLength ?? ''
+        }`}</Form.FieldDescription>
       )}
+      {description ? (
+        <Form.FieldDescription>{description}</Form.FieldDescription>
+      ) : null}
     </>
   );
 }
@@ -147,15 +178,21 @@ export const showRenameDialog = (
   name: string,
   {
     onSubmit,
-    maxLength = 80,
+    maxLength = MAX_LENGTH_ACCOUNT_NAME,
     indexedAccount,
     disabledMaxLengthLabel = false,
+    nameHistoryInfo,
     ...dialogProps
   }: IDialogShowProps & {
     indexedAccount?: IDBIndexedAccount;
     maxLength?: number;
     onSubmit: (name: string) => Promise<void>;
     disabledMaxLengthLabel?: boolean;
+    nameHistoryInfo?: {
+      entityId: string;
+      entityType: EChangeHistoryEntityType;
+      contentType: EChangeHistoryContentType.Name;
+    };
   },
 ) =>
   Dialog.show({
@@ -177,6 +214,7 @@ export const showRenameDialog = (
             maxLength={maxLength}
             indexedAccount={indexedAccount}
             disabledMaxLengthLabel={disabledMaxLengthLabel}
+            nameHistoryInfo={nameHistoryInfo}
           />
         </Dialog.FormField>
       </Dialog.Form>

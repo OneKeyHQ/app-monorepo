@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "Die Limit-Order hat keinen Slippage, aber berücksichtigen Sie die Netzwerkkosten. Es ist unwahrscheinlich, dass sie zum aktuellen Limitkurs ausgeführt wird.",
   "limit.order_card_network": "Netzwerk:",
   "limit.place_order": "Limit-Order überprüfen",
+  "limit.relative_to_market": "Relativ zum Marktpreis:",
   "limit.toast_order_cancelled": "Bestellung storniert",
   "limit.toast_order_content": "Verkaufe {num1} {token1} für {num2} {token2}",
   "limit.toast_order_filled": "Bestellung ausgeführt",

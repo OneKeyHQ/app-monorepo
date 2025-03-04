@@ -279,6 +279,7 @@ function TxActionCommonListView(
       flexDirection="column"
       alignItems="flex-start"
       userSelect="none"
+      opacity={riskyLevel && riskyLevel > TX_RISKY_LEVEL_SPAM ? 0.5 : 1}
       {...rest}
     >
       {/* Content */}

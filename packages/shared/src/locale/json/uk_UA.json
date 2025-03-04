@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "Лімітний ордер не має прослизання, але врахуйте витрати на мережу. Малоймовірно, що він буде виконаний за поточним лімітним курсом.",
   "limit.order_card_network": "Мережа:",
   "limit.place_order": "Переглянути лімітний ордер",
+  "limit.relative_to_market": "Відносно ринкової ціни:",
   "limit.toast_order_cancelled": "Замовлення скасовано",
   "limit.toast_order_content": "Продати {num1} {token1} за {num2} {token2}",
   "limit.toast_order_filled": "Замовлення виконано",

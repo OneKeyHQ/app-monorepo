@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "The limit order has no slippage, but consider the network costs. It is unlikely to be filled at the current limit rate.",
   "limit.order_card_network": "Network:",
   "limit.place_order": "Review limit order",
+  "limit.relative_to_market": "Relative to market price:",
   "limit.toast_order_cancelled": "Order cancelled",
   "limit.toast_order_content": "Sell {num1} {token1} for {num2} {token2}",
   "limit.toast_order_filled": "Order filled",
