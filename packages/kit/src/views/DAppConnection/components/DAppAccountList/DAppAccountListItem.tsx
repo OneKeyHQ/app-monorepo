@@ -89,21 +89,7 @@ function DAppAccountListInitFromHome({
   return null;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const getLoadingDuration = ({
-  skeletonRenderDuration,
-  shouldSyncFromHome,
-}: {
-  skeletonRenderDuration?: number;
-  shouldSyncFromHome?: boolean;
-}) => {
-  if (skeletonRenderDuration) {
-    return skeletonRenderDuration;
-  }
-  const syncFromHomeDuration = platformEnv.isNative ? 1200 : 1000;
-  const normalLoadingDuration = platformEnv.isNative ? 800 : 500;
-  return shouldSyncFromHome ? syncFromHomeDuration : normalLoadingDuration;
-};
+
 
 function DAppAccountListItem({
   num,
