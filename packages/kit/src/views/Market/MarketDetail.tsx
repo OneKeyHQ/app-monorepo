@@ -67,10 +67,6 @@ function TokenDetailHeader({
     symbol,
     stats: {
       performance,
-      volume24h,
-      marketCap,
-      marketCapRank,
-      fdv,
       currentPrice,
       lastUpdated,
     },
