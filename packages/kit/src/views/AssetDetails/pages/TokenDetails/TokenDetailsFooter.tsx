@@ -2,6 +2,7 @@ import { memo, useMemo } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Divider,
@@ -40,14 +41,13 @@ function TokenDetailsFooter() {
 
   return (
     <Page.Footer>
-      <Divider />
       <XStack
+        alignItems="center"
         px="$5"
         py="$3"
-        justifyContent="space-between"
-        alignItems="center"
-        {...(tokenMetadata?.coingeckoId ? listItemPressStyle : null)}
         backgroundColor="$bgSubdued"
+        borderTopWidth={StyleSheet.hairlineWidth}
+        borderTopColor="$borderSubdued"
         onPress={() => {
           if (tokenMetadata?.coingeckoId) {
             void marketNavigation.pushDetailPageFromDeeplink(navigation, {
@@ -55,8 +55,9 @@ function TokenDetailsFooter() {
             });
           }
         }}
+        {...(tokenMetadata?.coingeckoId ? listItemPressStyle : null)}
       >
-        <SizableText size="$bodyMd">
+        <SizableText flex={1} size="$bodyMd">
           {intl.formatMessage({ id: ETranslations.global_market })}
         </SizableText>
         {tokenMetadata ? (

@@ -76,7 +76,7 @@ function TokenDetailsViews(props: IProps) {
       {...props}
       accountId={currentAccountId}
       ListHeaderComponent={
-        <TokenDetailsHeader {...props} accountId={currentAccountId} />
+        <TokenDetailsHeader pt="$5" {...props} accountId={currentAccountId} />
       }
     />
   ) : (
