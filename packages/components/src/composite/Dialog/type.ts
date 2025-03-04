@@ -8,7 +8,12 @@ import type {
 } from 'react';
 
 import type { EPortalContainerConstantName, IPortalManager } from '../../hocs';
-import type { IButtonProps, IKeyOfIcons, IStackProps } from '../../primitives';
+import type {
+  IButtonProps,
+  IKeyOfIcons,
+  IStackProps,
+  IStackStyle,
+} from '../../primitives';
 import type { UseFormProps, useForm } from 'react-hook-form';
 import type {
   DialogContentProps as TMDialogContentProps,
@@ -76,6 +81,7 @@ interface IBasicDialogProps extends TMDialogProps {
   renderContent?: ReactNode;
   dismissOnOverlayPress?: TMSheetProps['dismissOnOverlayPress'];
   sheetProps?: Omit<TMSheetProps, 'dismissOnOverlayPress'>;
+  sheetOverlayProps?: IStackStyle;
   floatingPanelProps?: TMDialogContentProps;
   contextValue?: IDialogContextType;
   disableDrag?: boolean;
