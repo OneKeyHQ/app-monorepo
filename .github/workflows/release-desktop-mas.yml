@@ -75,6 +75,37 @@ jobs:
         run: |
           cd ./apps/desktop && yarn add electron-builder@23.6.0
 
+      - name: Update package.json for MAS build
+        run: |
+          cd ./apps/desktop
+          # Add workspaces and installConfig to package.json
+          node -e '
+            const fs = require("fs");
+            const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+            
+            // Add workspaces configuration if not already present
+            if (!pkg.workspaces) {
+              pkg.workspaces = {
+                "nohoist": [
+                  "**electron**"
+                ]
+              };
+            }
+            
+            // Add installConfig if not already present
+            if (!pkg.installConfig) {
+              pkg.installConfig = {
+                "hoistingLimits": "workspaces"
+              };
+            }
+            
+            fs.writeFileSync("package.json", JSON.stringify(pkg, null, 2));
+            console.log("Updated package.json with workspaces and installConfig");
+          '
+          
+          # Run yarn again to apply the changes
+          yarn
+
       # - name: Setup Code Signing file
       #   run: |
       #     echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12
