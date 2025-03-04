@@ -6,7 +6,6 @@ import { Button, Divider, Input, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
-
 } from '@onekeyhq/kit/src/components/AccountSelector';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
