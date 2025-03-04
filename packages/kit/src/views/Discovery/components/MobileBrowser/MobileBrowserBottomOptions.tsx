@@ -112,7 +112,6 @@ function MobileBrowserBottomOptions({
           },
         ].filter(Boolean) as IActionListItemProps[],
       },
-
       {
         items: [
           displayDisconnectOption && {
@@ -131,7 +130,7 @@ function MobileBrowserBottomOptions({
             onPress: onCloseTab,
             testID: 'action-list-item-close-tab-in-browser',
           },
-          {
+          platformEnv.isNativeIOSPad && {
             label: intl.formatMessage({
               id: ETranslations.explore_back_to_home,
             }),
