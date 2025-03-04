@@ -6,7 +6,7 @@ require('../../development/env');
 
 module.exports = {
   'extraMetadata': {
-    'main': 'dist/app.js',
+    'main': 'app/dist/app.js',
     'version': process.env.VERSION,
   },
   'appId': 'so.onekey.wallet',
@@ -17,12 +17,11 @@ module.exports = {
   'directories': {
     'output': 'build-electron',
   },
-  'npmRebuild': false,
   'files': [
-    'build/**/*',
-    '!build/static/bin/**/*',
-    'dist/**/*.js',
-    '!dist/__**',
+    'app/build/**/*',
+    '!app/build/static/bin/**/*',
+    'app/dist/**/*.js',
+    '!app/dist/__**',
     'package.json',
   ],
   'protocols': {

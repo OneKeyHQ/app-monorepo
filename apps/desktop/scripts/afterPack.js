@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { FuseVersion, FuseV1Options } = require('@electron/fuses');
 
 exports.default = async function fileOperation(context) {
   // https://www.electron.build/app-builder-lib.typealias.electronplatformname
@@ -39,7 +40,6 @@ exports.default = async function fileOperation(context) {
   }
 
   if (electronPlatformName === 'darwin') {
-    const { FuseVersion, FuseV1Options } = require('@electron/fuses');
     await context.packager.addElectronFuses(context, {
       version: FuseVersion.V1,
       [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,

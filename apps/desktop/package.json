@@ -60,13 +60,5 @@
     "glob": "^7.2.0",
     "rimraf": "^3",
     "webpack": "5.90.3"
-  },
-  "workspaces": {
-    "nohoist": [
-      "**electron**"
-    ]
-  },
-  "installConfig": {
-    "hoistingLimits": "workspaces"
   }
 }
