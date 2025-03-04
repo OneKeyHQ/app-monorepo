@@ -54,6 +54,7 @@ function TokenDetailsHeader(props: IProps) {
     isAllNetworks,
     indexedAccountId,
     isTabView,
+    ...rest
   } = props;
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -195,20 +196,16 @@ function TokenDetailsHeader(props: IProps) {
     <DebugRenderTracker timesBadgePosition="top-right">
       <>
         {/* Overview */}
-        <Stack px="$5" py="$5">
+        <Stack px="$5" pb="$5" {...rest}>
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
             {renderTokenIcon()}
             <Stack ml="$3" flex={1}>
               {isLoadingTokenDetails ? (
-                <YStack>
-                  <Stack py="$1.5">
-                    <Skeleton h="$6" w="$40" />
-                  </Stack>
-                  <Stack py="$1">
-                    <Skeleton h="$4" w="$28" />
-                  </Stack>
-                </YStack>
+                <Skeleton.Group show>
+                  <Skeleton.Heading3Xl />
+                  <Skeleton.BodyLg />
+                </Skeleton.Group>
               ) : (
                 <>
                   <NumberSizeableTextWrapper
@@ -306,9 +303,7 @@ function TokenDetailsHeader(props: IProps) {
                   : account?.address}
               </SizableText>
             </YStack>
-            <Stack width="24" height="24">
-              <Icon name="Copy3Outline" size="$6" />
-            </Stack>
+            <Icon name="Copy3Outline" color="$iconSubdued" />
           </XStack>
         </YStack>
         {/* History */}
