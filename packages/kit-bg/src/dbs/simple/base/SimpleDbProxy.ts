@@ -14,6 +14,7 @@ import type { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBr
 import type { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import type { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import type { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import type { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
 import type { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import type { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import type { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
@@ -196,4 +197,8 @@ export class SimpleDbProxy
   allNetworks = this._createProxyService(
     'allNetworks',
   ) as SimpleDbEntityAllNetworks;
+
+  changeHistory = this._createProxyService(
+    'changeHistory',
+  ) as SimpleDbEntityChangeHistory;
 }

@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "지정가 주문은 슬리피지가 없지만 네트워크 비용을 고려해야 합니다. 현재의 지정가로 체결될 가능성은 낮습니다.",
   "limit.order_card_network": "회로망:",
   "limit.place_order": "지정가 주문 검토",
+  "limit.relative_to_market": "시장 가격에 비례하여:",
   "limit.toast_order_cancelled": "주문 취소됨",
   "limit.toast_order_content": "{num1} {token1}을(를) {num2} {token2}에 판매",
   "limit.toast_order_filled": "주문 완료",

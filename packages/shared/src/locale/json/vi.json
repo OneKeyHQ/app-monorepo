@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "Lệnh giới hạn không có trượt giá, nhưng hãy cân nhắc chi phí mạng. Khả năng được thực hiện ở mức giới hạn hiện tại là không cao.",
   "limit.order_card_network": "Mạng:",
   "limit.place_order": "Xem xét lệnh giới hạn",
+  "limit.relative_to_market": "So với giá thị trường:",
   "limit.toast_order_cancelled": "Đơn hàng đã bị hủy",
   "limit.toast_order_content": "Bán {num1} {token1} để lấy {num2} {token2}",
   "limit.toast_order_filled": "Đơn hàng đã được thực hiện",

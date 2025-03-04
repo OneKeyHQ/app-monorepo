@@ -19,6 +19,7 @@ module.exports = [
   'fs',
   'hdk',
   'cbc',
+  'scrollable',
   'Captcha',
   'Resending',
   'yml',

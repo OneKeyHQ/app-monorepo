@@ -54,6 +54,10 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
@@ -209,10 +213,12 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   async getWalletSafe({
     walletId,
+    withoutRefill,
   }: {
     walletId: string;
+    withoutRefill?: boolean;
   }): Promise<IDBWallet | undefined> {
-    return localDb.getWalletSafe({ walletId });
+    return localDb.getWalletSafe({ walletId, withoutRefill });
   }
 
   // TODO move to serviceHardware
@@ -2025,10 +2031,48 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setAccountName(params: IDBSetAccountNameParams): Promise<void> {
+    const { accountId, indexedAccountId, name } = params;
+
+    // Get the old name before updating
+    let oldName = '';
+    if (name) {
+      if (accountId) {
+        const account = await this.getDBAccountSafe({ accountId });
+        oldName = account?.name || '';
+      } else if (indexedAccountId) {
+        const indexedAccount = await this.getIndexedAccountSafe({
+          id: indexedAccountId,
+        });
+        oldName = indexedAccount?.name || '';
+      }
+    }
+
     const r = await localDb.setAccountName(params);
     if (!params.skipEventEmit) {
       appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
     }
+
+    // Only proceed if the name is actually changing
+    if (oldName && name && oldName !== name) {
+      const entityType: EChangeHistoryEntityType = accountId
+        ? EChangeHistoryEntityType.Account
+        : EChangeHistoryEntityType.IndexedAccount;
+
+      const entityId = accountId || indexedAccountId || '';
+      // Record the name change history
+      await simpleDb.changeHistory.addChangeHistory({
+        items: [
+          {
+            entityType,
+            entityId,
+            contentType: EChangeHistoryContentType.Name,
+            oldValue: oldName,
+            value: name,
+          },
+        ],
+      });
+    }
+
     return r;
   }
 
@@ -2327,11 +2371,40 @@ class ServiceAccount extends ServiceBase {
   @backgroundMethod()
   @toastIfError()
   async setWalletNameAndAvatar(params: IDBSetWalletNameAndAvatarParams) {
+    const { walletId, name } = params;
+
+    let oldName = '';
+    // Get the old name before updating
+    if (name) {
+      const wallet = await this.getWalletSafe({
+        walletId,
+        withoutRefill: true,
+      });
+      oldName = wallet?.name || '';
+    }
+
     const result = await localDb.setWalletNameAndAvatar(params);
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     appEventBus.emit(EAppEventBusNames.WalletRename, {
       walletId: params.walletId,
     });
+
+    // Only proceed if the name is actually changing
+    if (name && oldName && oldName !== name) {
+      // Record the name change history
+      await simpleDb.changeHistory.addChangeHistory({
+        items: [
+          {
+            entityType: EChangeHistoryEntityType.Wallet,
+            entityId: walletId,
+            contentType: EChangeHistoryContentType.Name,
+            oldValue: oldName,
+            value: name,
+          },
+        ],
+      });
+    }
+
     return result;
   }
 

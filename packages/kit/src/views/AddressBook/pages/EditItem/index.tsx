@@ -13,6 +13,10 @@ import type {
   EModalAddressBookRoutes,
   IModalAddressBookParamList,
 } from '@onekeyhq/shared/src/routes/addressBook';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 
 import { CreateOrEditContent } from '../../components/CreateOrEditContent';
 
@@ -136,6 +140,15 @@ function EditItemPage() {
       item={item}
       onSubmit={onSubmit}
       onRemove={isCreateMode ? undefined : onRemove}
+      nameHistoryInfo={
+        !isCreateMode && item?.id
+          ? {
+              entityId: item.id,
+              entityType: EChangeHistoryEntityType.AddressBook,
+              contentType: EChangeHistoryContentType.Name,
+            }
+          : undefined
+      }
     />
   ) : null;
 }

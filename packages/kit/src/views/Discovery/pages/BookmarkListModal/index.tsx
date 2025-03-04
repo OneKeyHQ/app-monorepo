@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -24,6 +25,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
@@ -76,7 +81,15 @@ function BookmarkListModal() {
                 },
               }}
             >
-              <Input autoFocus flex={1} />
+              {/* <Input autoFocus flex={1} /> */}
+              <RenameInputWithNameSelector
+                disabledMaxLengthLabel
+                nameHistoryInfo={{
+                  entityId: item.url,
+                  entityType: EChangeHistoryEntityType.BrowserBookmark,
+                  contentType: EChangeHistoryContentType.Name,
+                }}
+              />
             </Dialog.FormField>
           </Dialog.Form>
         ),
