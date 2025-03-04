@@ -96,7 +96,6 @@ function useReplaceTx({
       const { accountId, networkId } = decodedTx;
 
       if (!canReplaceTx) {
-        console.log('Cannot replace tx');
         return;
       }
 

@@ -41,7 +41,6 @@ async function processDeepLinkUrlAccount({
       scheme === ONEKEY_APP_DEEP_LINK ||
       scheme === ONEKEY_APP_DEEP_LINK_NAME
     ) {
-      console.log('processDeepLinkUrlAccount: >>>>> ', parsedUrl);
       const navigation = appGlobals.$rootAppNavigation;
       switch (hostname) {
         case EOneKeyDeepLinkPath.url_account: {
@@ -155,8 +154,6 @@ async function processDeepLinkWalletConnect({
     }
 
     if (wcUri) {
-      console.log('Create walletConnect connection by DeepLink: ', wcUri);
-
       await backgroundApiProxy.walletConnect.connectToDapp(wcUri);
       return {
         type: 'walletConnect',
@@ -165,7 +162,7 @@ async function processDeepLinkWalletConnect({
       };
     }
   } catch (error) {
-    console.error('connectToWalletConnectByDeepLink ERROR: ', error);
+    // Error handling for wallet connect
   }
 }
 
@@ -178,22 +175,12 @@ const processDeepLinkUrl = memoizee(
     if (!url) return;
 
     try {
-      console.log('processDeepLinkUrl: >>>>> ', url);
       const parsedUrl = Linking.parse(url);
       const { hostname, path, queryParams, scheme } = parsedUrl;
-      if (process.env.NODE_ENV !== 'production') {
-        console.log('processDeepLinkUrl details >>>> ', {
-          url,
-          hostname,
-          path,
-          queryParams,
-          scheme,
-        });
-      }
       await processDeepLinkUrlAccount({ url, parsedUrl });
       await processDeepLinkWalletConnect({ url, parsedUrl });
     } catch (e) {
-      console.error('processDeepLinkUrl ERROR: ', e);
+      // Error handling for deep link URL processing
     }
   },
   {
@@ -208,7 +195,6 @@ export const handleDeepLinkUrl = (data: IDesktopOpenUrlEventData) => {
     (item) => !!item && isString(item),
   );
   urls.forEach((url) => {
-    console.log('processDeepLinkUrl >>>>>> ', url);
     void processDeepLinkUrl(url);
   });
 };
