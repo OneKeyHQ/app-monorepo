@@ -12,6 +12,7 @@ export enum EModalAssetDetailRoutes {
   NFTDetails = 'NFTDetails',
   HistoryDetails = 'HistoryDetails',
   UTXODetails = 'UTXODetails',
+  MarketDetail = 'MarketDetail',
 }
 
 export type IModalAssetDetailsParamList = {
@@ -25,6 +26,9 @@ export type IModalAssetDetailsParamList = {
     isBlocked?: boolean;
     riskyTokens?: string[];
     isAllNetworks?: boolean;
+  };
+  [EModalAssetDetailRoutes.MarketDetail]: {
+    token: string;
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;

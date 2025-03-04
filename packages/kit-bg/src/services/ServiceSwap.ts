@@ -1446,7 +1446,7 @@ export default class ServiceSwap extends ServiceBase {
       ) {
         let toastTitle = '';
         let toastMessage = '';
-        let method: 'success' | 'error' | 'message' = 'success';
+        const method: 'success' | 'error' | 'message' = 'success';
         if (ESwapLimitOrderStatus.FULFILLED === newStatus) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
             fromToken: openOrder.fromTokenInfo,
@@ -1481,31 +1481,11 @@ export default class ServiceSwap extends ServiceBase {
           );
         }
         if (ESwapLimitOrderStatus.CANCELLED === newStatus) {
-          const fromAmountBN = new BigNumber(
-            openOrder.fromAmount ?? '0',
-          ).shiftedBy(-(openOrder.fromTokenInfo?.decimals ?? 0));
-          const formattedFromAmount = formatBalance(fromAmountBN.toFixed());
-          const toAmountBN = new BigNumber(openOrder.toAmount ?? '0').shiftedBy(
-            -(openOrder.toTokenInfo?.decimals ?? 0),
-          );
-          const formattedToAmount = formatBalance(toAmountBN.toFixed());
-          method = 'error';
           toastTitle = appLocale.intl.formatMessage({
             id: ETranslations.limit_toast_order_cancelled,
           });
-          toastMessage = appLocale.intl.formatMessage(
-            {
-              id: ETranslations.limit_toast_order_content,
-            },
-            {
-              num1: formattedFromAmount.formattedValue,
-              num2: formattedToAmount.formattedValue,
-              token1: openOrder.fromTokenInfo.symbol,
-              token2: openOrder.toTokenInfo.symbol,
-            },
-          );
         }
-        if (toastTitle && toastMessage) {
+        if (toastTitle || toastMessage) {
           void this.backgroundApi.serviceApp.showToast({
             method,
             title: toastTitle,

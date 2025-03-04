@@ -67,6 +67,8 @@ export const maxRecentTokenPairs = 10;
 
 export const swapProviderRecommendApprovedWeights = 1.1;
 
+export const defaultSupportUrl = 'https://help.onekey.so/hc/zh-cn/requests/new';
+
 export const otherWalletFeeData = [
   {
     maxFee: 0.875,

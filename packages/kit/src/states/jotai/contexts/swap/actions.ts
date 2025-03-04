@@ -1835,11 +1835,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
             });
           const fromTokenPriceInfo = {
             tokenInfo: fromToken,
-            price: fromTokenPrice,
+            price: fromTokenPrice ?? fromToken.price,
           };
           const toTokenPriceInfo = {
             tokenInfo: toToken,
-            price: toTokenPrice,
+            price: toTokenPrice ?? toToken.price,
           };
           set(limitOrderMarketPriceAtom(), (v) => ({
             ...v,
