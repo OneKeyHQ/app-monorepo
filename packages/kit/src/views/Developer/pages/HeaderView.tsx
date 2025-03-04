@@ -14,14 +14,14 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import {
   AccountSelectorProviderMirror,
-  AccountSelectorTriggerLegacy,
+  AccountSelectorTriggerHome,
 } from '../../../components/AccountSelector';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 
 function HomeAccountSelectorInfoDemo() {
   return (
     <YStack mx="$2" my="$4">
-      <AccountSelectorTriggerLegacy num={0} />
+      <AccountSelectorTriggerHome num={0} />
       <Button
         onPress={() => {
           // void backgroundApiProxy.serviceHardware.showEnterPinOnDeviceDialog();
