@@ -67,10 +67,6 @@ function TokenDetailHeader({
     symbol,
     stats: {
       performance,
-      volume24h,
-      marketCap,
-      marketCapRank,
-      fdv,
       currentPrice,
       lastUpdated,
     },
@@ -210,7 +206,6 @@ function MarketDetail({
 
   const popPage = useCallback(() => {
     navigation.dispatch((state) => {
-      console.log(state);
       if (state.routes.length > 1) {
         return StackActions.pop(state.routes.length);
       }
