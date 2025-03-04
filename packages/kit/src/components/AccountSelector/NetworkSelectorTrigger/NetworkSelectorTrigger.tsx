@@ -46,42 +46,7 @@ function useNetworkSelectorItems() {
   return items;
 }
 
-export function NetworkSelectorTriggerLegacyCmp({ num }: { num: number }) {
-  const items = useNetworkSelectorItems();
 
-  const { selectedAccount } = useSelectedAccount({ num });
-  const actions = useAccountSelectorActions();
-  const [isReady] = useAccountSelectorStorageReadyAtom();
-
-  useDebugComponentRemountLog({ name: 'NetworkSelectorTriggerLegacy' });
-
-  if (!isReady) {
-    return null;
-  }
-
-  return (
-    <>
-      <SizableText size="$headingXl">
-        网络选择器 {selectedAccount.networkId}
-      </SizableText>
-      <Select
-        items={items}
-        value={selectedAccount.networkId}
-        onChange={(id) =>
-          actions.current.updateSelectedAccountNetwork({
-            num,
-            networkId: id,
-          })
-        }
-        title="网络"
-      />
-    </>
-  );
-}
-
-export const NetworkSelectorTriggerLegacy = memo(
-  NetworkSelectorTriggerLegacyCmp,
-);
 
 function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   const {
