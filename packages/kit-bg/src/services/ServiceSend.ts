@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil } from 'lodash';
+import pRetry from 'p-retry';
 
 import type {
   IEncodedTx,
@@ -17,10 +18,12 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { getValidUnsignedMessage } from '@onekeyhq/shared/src/utils/messageUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IFeeInfoUnit,
@@ -675,14 +678,58 @@ class ServiceSend extends ServiceBase {
     txids: string[];
   }) {
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const resp = await client.post<{
-      data: { transactionMap: Record<string, { rawTx: string }> };
-    }>('/wallet/v1/network/raw-transaction/list', {
-      networkId,
-      hashList: txids,
+
+    // Split txids into chunks to avoid timeout due to large data volume
+    const chunkSize = 10;
+    const txidsChunks = [];
+    for (let i = 0; i < txids.length; i += chunkSize) {
+      txidsChunks.push(txids.slice(i, i + chunkSize));
+    }
+
+    // Process each chunk concurrently with retry mechanism
+    const fetchChunk = async (chunk: string[]) => {
+      const run = async () => {
+        const resp = await client.post<{
+          data: { transactionMap: Record<string, { rawTx: string }> };
+        }>(
+          '/wallet/v1/network/raw-transaction/list',
+          {
+            networkId,
+            hashList: chunk,
+          },
+          {
+            timeout: timerUtils.getTimeDurationMs({ minute: 1 }),
+          },
+        );
+        return resp.data.data.transactionMap;
+      };
+
+      // Retry configuration: 5 retries with 3s interval
+      return pRetry(run, {
+        retries: 5,
+        minTimeout: timerUtils.getTimeDurationMs({ seconds: 3 }),
+        onFailedAttempt: (error) => {
+          defaultLogger.transaction.send.rawTxFetchFailed({
+            network: networkId,
+            txids: chunk,
+            error: error.message,
+            attemptNumber: error.attemptNumber,
+            retriesLeft: error.retriesLeft,
+          });
+        },
+      });
+    };
+
+    const results = await Promise.all(
+      txidsChunks.map((chunk) => fetchChunk(chunk)),
+    );
+
+    const transactionMap: Record<string, { rawTx: string }> = {};
+    results.forEach((result) => {
+      Object.assign(transactionMap, result);
     });
 
-    return resp.data.data.transactionMap;
+    return transactionMap;
   }
 
   @backgroundMethod()
