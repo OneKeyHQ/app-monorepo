@@ -1,7 +1,7 @@
 /* eslint-disable camelcase */
 import { useMemo } from 'react';
 
-import { isObject } from 'lodash';
+import { isNil, isObject } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IImageProps, IKeyOfIcons } from '@onekeyhq/components';
@@ -77,7 +77,7 @@ function CommonAssetContent(props: IProps) {
           onPress: () => copyText(nft.collectionAddress),
           iconAfter: 'Copy3Outline' as IKeyOfIcons,
         },
-      ].filter((item) => item.value != null),
+      ].filter((item) => !isNil(item.value)),
     [
       copyText,
       intl,
