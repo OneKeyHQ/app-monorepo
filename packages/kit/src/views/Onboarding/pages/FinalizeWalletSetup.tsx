@@ -162,7 +162,6 @@ function FinalizeWalletSetupPage({
       setTimeout(() => {
         navigation.navigate(ERootRoutes.Main);
         if (isFirstCreateWallet.current) {
-          // void useBackupToggleDialog().maybeShow(true);
         }
       }, 1000);
     }
@@ -235,7 +234,6 @@ function FinalizeWalletSetupPage({
       {onboardingError ? (
         <Page.Footer
           onCancel={() => {
-            //
             navigation.pop();
           }}
         />

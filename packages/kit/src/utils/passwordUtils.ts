@@ -12,7 +12,6 @@ export const withPromptPasswordVerify = async <T>({
       options,
     );
     const result = await run();
-    // Do something with the result if needed
     return result;
   } finally {
     await backgroundApiProxy.servicePassword.closePasswordSecuritySession();

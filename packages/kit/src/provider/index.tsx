@@ -28,12 +28,6 @@ import { SplashProvider } from './SplashProvider';
 import { ThemeProvider } from './ThemeProvider';
 import { WebViewWebEmbedProvider } from './WebViewWebEmbedProvider';
 
-if (platformEnv.isRuntimeBrowser) {
-  // FIXME need reanimated update, see https://github.com/software-mansion/react-native-reanimated/issues/3355
-  // @ts-ignore
-  globalThis._frameTimestamp = null;
-}
-
 appGlobals.$Toast = Toast;
 
 const LastActivityTracker = LazyLoad(
