@@ -7,7 +7,7 @@ import {
   useSelectedAccount,
 } from '../../../states/jotai/contexts/accountSelector';
 import { DeriveTypeSelectorTrigger } from '../DeriveTypeSelectorTrigger';
-import { NetworkSelectorTriggerLegacy } from '../NetworkSelectorTrigger';
+import { NetworkSelectorTriggerHome } from '../NetworkSelectorTrigger';
 
 export function AccountSelectorTriggerLegacy({
   num,
@@ -32,7 +32,7 @@ export function AccountSelectorTriggerLegacy({
 
       {!onlyAccountSelector ? (
         <>
-          <NetworkSelectorTriggerLegacy
+          <NetworkSelectorTriggerHome
             key={`NetworkSelectorTrigger-${networkId || ''}-${num}-${
               config?.sceneName || ''
             }`}

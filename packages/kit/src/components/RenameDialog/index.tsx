@@ -68,8 +68,7 @@ function V4AccountNameSelector({
         floatingPanelProps={{
           maxHeight: 272,
         }}
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        renderTrigger={({ value, label, placeholder }) => (
+        renderTrigger={() => (
           <Button
             size="small"
             alignSelf="flex-start"

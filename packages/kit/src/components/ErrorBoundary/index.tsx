@@ -14,7 +14,6 @@ class ErrorBoundaryBase extends PureComponent<
   IErrorBoundaryProps,
   IErrorBoundaryState
 > {
-  // eslint-disable-next-line react/no-unused-state
   override state: { error: Error | null } = { error: null };
 
   override componentDidCatch(
@@ -24,7 +23,6 @@ class ErrorBoundaryBase extends PureComponent<
     errorInfo?: { componentStack?: string | null },
   ) {
     this.props?.onError?.(error, errorInfo?.componentStack || null);
-    // eslint-disable-next-line react/no-unused-state
     this.setState({ error });
   }
 
