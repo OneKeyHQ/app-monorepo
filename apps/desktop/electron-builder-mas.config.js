@@ -1,52 +1,9 @@
-/* eslint-disable no-template-curly-in-string */
-
-// WARNING: This configuration only works with electron-builder@23.6.0
-// Do not upgrade electron-builder version as it may break the build
-require('../../development/env');
+const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
 module.exports = {
-  'extraMetadata': {
-    'main': 'dist/app.js',
-    'version': process.env.VERSION,
-  },
+  ...baseElectronBuilderConfig,
   'appId': 'so.onekey.wallet',
-  'productName': 'OneKey',
-  'copyright': 'Copyright © ${author}',
-  'asar': true,
   'buildVersion': `${process.env.BUILD_NUMBER}0`,
-  'directories': {
-    'output': 'build-electron',
-  },
-  'files': [
-    'build/**/*',
-    '!build/static/bin/**/*',
-    'dist/**/*.js',
-    '!dist/__**',
-    'package.json',
-  ],
-  'protocols': {
-    'name': 'electron-deep-linking',
-    'schemes': ['onekey-wallet', 'wc', 'ethereum'],
-  },
-  'extraResources': [
-    {
-      'from': 'app/build/static/images/icons/512x512.png',
-      'to': 'static/images/icons/512x512.png',
-    },
-    {
-      'from': 'app/build/static/images/icons/icon.icns',
-      'to': 'static/images/icons/icon.icns',
-    },
-    {
-      'from': 'app/build/static/preload.js',
-      'to': 'static/preload.js',
-    },
-  ],
-  'publish': {
-    'provider': 'github',
-    'repo': 'app-monorepo',
-    'owner': 'OneKeyHQ',
-  },
   'dmg': {
     'sign': false,
   },
@@ -76,7 +33,5 @@ module.exports = {
       'ITSAppUsesNonExemptEncryption': false,
     },
   },
-  'afterSign': 'scripts/afterSign.js',
-  'afterPack': 'scripts/afterPack.js',
   'asarUnpack': ['**/*.node'],
 };
