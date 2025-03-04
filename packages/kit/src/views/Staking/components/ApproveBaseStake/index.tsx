@@ -115,7 +115,6 @@ export function ApproveBaseStake({
   onConfirm,
   approveTarget,
 
-  providerLabel,
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
@@ -224,52 +223,64 @@ export function ApproveBaseStake({
     approveTarget.networkId,
   ]);
 
-  const fetchEstimateFeeResp = useCallback(async (amount?: string) => {
-    if (!amount) {
-      return undefined;
-    }
-    const amountNumber = BigNumber(amount);
-    if (amountNumber.isZero() || amountNumber.isNaN()) {
-      return;
-    }
-
-    const permitParams: {
-      approveType?: 'permit';
-      permitSignature?: string;
-    } = {};
-
-    if (usePermit2Approve) {
-      if (shouldApprove) {
+  const fetchEstimateFeeResp = useCallback(
+    async (amount?: string) => {
+      if (!amount) {
         return undefined;
       }
+      const amountNumber = BigNumber(amount);
+      if (amountNumber.isZero() || amountNumber.isNaN()) {
+        return;
+      }
 
-      permitParams.approveType = 'permit';
+      const permitParams: {
+        approveType?: 'permit';
+        permitSignature?: string;
+      } = {};
 
-      if (permitSignatureRef.current) {
-        const amountBN = BigNumber(amount);
-        const allowanceBN = BigNumber(allowance);
-        if (amountBN.gt(allowanceBN)) {
-          permitParams.permitSignature = permitSignatureRef.current;
+      if (usePermit2Approve) {
+        if (shouldApprove) {
+          return undefined;
+        }
+
+        permitParams.approveType = 'permit';
+
+        if (permitSignatureRef.current) {
+          const amountBN = BigNumber(amount);
+          const allowanceBN = BigNumber(allowance);
+          if (amountBN.gt(allowanceBN)) {
+            permitParams.permitSignature = permitSignatureRef.current;
+          }
         }
       }
-    }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId: approveTarget.networkId,
-      provider: details.provider.name,
-      symbol: details.token.info.symbol,
-      action: 'stake',
-      amount: amountNumber.toFixed(),
-      morphoVault: details.provider.vault,
-      accountAddress: account?.address,
-      ...permitParams,
-    });
-    return resp;
-  }, []);
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+      });
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId: approveTarget.networkId,
+        provider: details.provider.name,
+        symbol: details.token.info.symbol,
+        action: 'stake',
+        amount: amountNumber.toFixed(),
+        morphoVault: details.provider.vault,
+        accountAddress: account?.address,
+        ...permitParams,
+      });
+      return resp;
+    },
+    [
+      allowance,
+      approveTarget.accountId,
+      approveTarget.networkId,
+      details.provider.name,
+      details.provider.vault,
+      details.token.info.symbol,
+      shouldApprove,
+      usePermit2Approve,
+    ],
+  );
 
   const debouncedFetchEstimateFeeResp = useDebouncedCallback(
     async (amount?: string) => {
@@ -435,29 +446,29 @@ export function ApproveBaseStake({
       setApproving(false);
       if (!response) {
         return onNext();
-      } else {
-        const daySpent = Number(response?.coverFeeSeconds || 0) / 3600 / 24;
-
-        if (!daySpent || daySpent <= 5) {
-          return onNext();
-        }
-
-        showEstimateGasAlert({
-          daysConsumed: formatStakingDistanceToNowStrict(
-            response.coverFeeSeconds,
-          ),
-          estFiatValue: response.feeFiatValue,
-          onConfirm: async (dialogInstance: IDialogInstance) => {
-            await dialogInstance.close();
-            await onNext();
-          },
-        });
       }
+      const daySpent = Number(response?.coverFeeSeconds || 0) / 3600 / 24;
+
+      if (!daySpent || daySpent <= 5) {
+        return onNext();
+      }
+
+      showEstimateGasAlert({
+        daysConsumed: formatStakingDistanceToNowStrict(
+          response.coverFeeSeconds,
+        ),
+        estFiatValue: response.feeFiatValue,
+        onConfirm: async (dialogInstance: IDialogInstance) => {
+          await dialogInstance.close();
+          await onNext();
+        },
+      });
     },
     [
       totalAnnualRewardsFiatValue,
-      estimateFeeResp,
       usePermit2Approve,
+      fetchEstimateFeeResp,
+      amountValue,
       showEstimateGasAlert,
     ],
   );
