@@ -1,5 +1,6 @@
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
+import semver from 'semver';
 
 import {
   backgroundClass,
@@ -34,6 +35,7 @@ import type {
   IBleFirmwareReleasePayload,
   IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
+  IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -68,6 +70,7 @@ import type {
 } from './HardwareVerifyManager';
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { IServiceBaseProps } from '../ServiceBase';
+import type { IUpdateFirmwareWorkflowParams } from '../ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import type {
   CommonParams,
   CoreApi,
@@ -752,10 +755,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAboutDeviceFeatures(params: {
-    connectId: string;
-    retryCount?: number;
-  }) {
+  async getAboutDeviceFeatures(params: { connectId: string }) {
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.connectId,
     });
@@ -766,7 +766,7 @@ class ServiceHardware extends ServiceBase {
       () =>
         this.getFeaturesWithoutCache({
           connectId: params.connectId,
-          params: { retryCount: params.retryCount || 1 },
+          params: { retryCount: 1 },
         }),
       {
         deviceParams: {
@@ -982,6 +982,47 @@ class ServiceHardware extends ServiceBase {
         ) as unknown as Response<OnekeyFeatures>;
       }
       return hardwareSDK?.getOnekeyFeatures(connectId);
+    });
+  }
+
+  @backgroundMethod()
+  async updateDeviceVersionAfterFirmwareUpdate(
+    params: IUpdateFirmwareWorkflowParams,
+  ) {
+    const dbDevice = await localDb.getDeviceByQuery({
+      connectId: params.releaseResult.originalConnectId,
+    });
+    if (!dbDevice) {
+      return;
+    }
+    const versionInfo: IDeviceVersionCacheInfo = {
+      onekey_firmware_version: undefined,
+      onekey_ble_version: undefined,
+      onekey_boot_version: undefined,
+    };
+    if (params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade) {
+      versionInfo.onekey_boot_version =
+        params.releaseResult.updateInfos.bootloader?.toVersion;
+    }
+    if (params?.releaseResult?.updateInfos?.firmware?.hasUpgrade) {
+      versionInfo.onekey_firmware_version =
+        params.releaseResult.updateInfos.firmware?.toVersion;
+    }
+    if (params?.releaseResult?.updateInfos?.ble?.hasUpgrade) {
+      versionInfo.onekey_ble_version =
+        params.releaseResult.updateInfos.ble?.toVersion;
+    }
+
+    const filteredVersionInfo: Partial<IDeviceVersionCacheInfo> = {};
+    Object.entries(versionInfo).forEach(([key, value]) => {
+      if (value !== undefined && semver.valid(value)) {
+        filteredVersionInfo[key as keyof IDeviceVersionCacheInfo] = value;
+      }
+    });
+
+    await localDb.updateDeviceVersionInfo({
+      dbDeviceId: dbDevice.id,
+      versionCacheInfo: filteredVersionInfo as IDeviceVersionCacheInfo,
     });
   }
 }
