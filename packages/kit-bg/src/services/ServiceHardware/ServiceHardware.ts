@@ -752,7 +752,10 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAboutDeviceFeatures(params: { connectId: string }) {
+  async getAboutDeviceFeatures(params: {
+    connectId: string;
+    retryCount?: number;
+  }) {
     const dbDevice = await localDb.getDeviceByQuery({
       connectId: params.connectId,
     });
@@ -763,7 +766,7 @@ class ServiceHardware extends ServiceBase {
       () =>
         this.getFeaturesWithoutCache({
           connectId: params.connectId,
-          params: { retryCount: 1 },
+          params: { retryCount: params.retryCount || 1 },
         }),
       {
         deviceParams: {

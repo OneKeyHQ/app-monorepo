@@ -54,24 +54,34 @@ function DeviceDetailsModalCmp() {
     result,
     isLoading,
     run: refreshData,
-  } = usePromiseResult<IHwQrWalletWithDevice | undefined>(async () => {
-    const r =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+  } = usePromiseResult<IHwQrWalletWithDevice | undefined>(
+    async () => {
+      const r =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
 
-    const device = r?.[walletId]?.device;
-    setPassphraseEnabled(Boolean(device?.featuresInfo?.passphrase_protection));
-    setPinOnAppEnabled(Boolean(device?.settings?.inputPinOnSoftware));
+      const device = r?.[walletId]?.device;
+      setPassphraseEnabled(
+        Boolean(device?.featuresInfo?.passphrase_protection),
+      );
+      setPinOnAppEnabled(Boolean(device?.settings?.inputPinOnSoftware));
 
-    return r?.[walletId] ?? undefined;
-  }, [walletId]);
+      return r?.[walletId] ?? undefined;
+    },
+    [walletId],
+    {
+      checkIsFocused: false,
+    },
+  );
 
   useEffect(() => {
     const fn = () => {
       void refreshData();
     };
     appEventBus.on(EAppEventBusNames.WalletUpdate, fn);
+    appEventBus.on(EAppEventBusNames.FinishFirmwareUpdate, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.WalletUpdate, fn);
+      appEventBus.off(EAppEventBusNames.FinishFirmwareUpdate, fn);
     };
   }, [refreshData]);
 

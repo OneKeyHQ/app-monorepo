@@ -1313,6 +1313,19 @@ class ServiceFirmwareUpdate extends ServiceBase {
           await this.detectMap.deleteUpdateInfo({
             connectId: params.releaseResult.originalConnectId,
           });
+          serviceHardwareUtils.hardwareLog(
+            'startUpdateWorkflow Refresh Device Features',
+            params,
+          );
+          await this.backgroundApi.serviceHardware.getAboutDeviceFeatures({
+            connectId: params.releaseResult.originalConnectId,
+            retryCount: 5,
+          });
+          serviceHardwareUtils.hardwareLog(
+            'startUpdateWorkflow Refresh Device Features DONE',
+            params,
+          );
+          appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
         }
       },
       {
