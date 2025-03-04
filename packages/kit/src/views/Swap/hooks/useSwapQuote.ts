@@ -307,6 +307,9 @@ export function useSwapQuote() {
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
       return;
     }
+    if (!toAmountDebounce.isInput) {
+      return;
+    }
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
@@ -346,9 +349,6 @@ export function useSwapQuote() {
         activeAccountRef.current?.accountInfo?.account?.id &&
       swapQuoteActionLockRef.current?.address === swapAddressInfo.address
     ) {
-      return;
-    }
-    if (toAmountDebounce.value && !toAmountDebounce.isInput) {
       return;
     }
     alignmentToDecimal();

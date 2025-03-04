@@ -17,7 +17,11 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { AddressInfo } from '@onekeyhq/kit/src/components/AddressInfo';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { AssetItem } from '@onekeyhq/kit/src/views/AssetDetails/pages/HistoryDetails';
 import {
   useInAppNotificationAtom,
   useSettingsPersistAtom,
@@ -36,7 +40,6 @@ import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
 import { ESwapLimitOrderStatus } from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
-import { AssetItem } from '../../../AssetDetails/pages/HistoryDetails';
 import {
   InfoItem,
   InfoItemGroup,
@@ -390,6 +393,40 @@ const LimitOrderDetailModal = () => {
     );
   }, [orderItemState, gtMd, intl]);
 
+  const getPayAddressAccountInfos = usePromiseResult(
+    async () => {
+      if (orderItemState?.networkId && orderItemState?.payAddress) {
+        const res =
+          await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
+            networkId: orderItemState.networkId,
+            address: orderItemState.payAddress,
+          });
+        if (res.length > 0) {
+          return res[0];
+        }
+      }
+    },
+    [orderItemState?.networkId, orderItemState?.payAddress],
+    {},
+  );
+
+  const getReceiveAddressAccountInfos = usePromiseResult(
+    async () => {
+      if (orderItemState?.networkId && orderItemState?.receiveAddress) {
+        const res =
+          await backgroundApiProxy.serviceAccount.getAccountNameFromAddress({
+            networkId: orderItemState.networkId,
+            address: orderItemState.receiveAddress,
+          });
+        if (res.length > 0) {
+          return res[0];
+        }
+      }
+    },
+    [orderItemState?.networkId, orderItemState?.receiveAddress],
+    {},
+  );
+
   const renderLimitOrderDetails = useCallback(() => {
     if (!orderItemState) {
       return null;
@@ -460,6 +497,13 @@ const LimitOrderDetailModal = () => {
                 id: ETranslations.swap_history_detail_pay_address,
               })}
               renderContent={orderItemState.payAddress}
+              description={
+                <AddressInfo
+                  address={orderItemState.payAddress}
+                  networkId={orderItemState.networkId}
+                  accountId={getPayAddressAccountInfos.result?.accountId}
+                />
+              }
               showCopy
             />
             <InfoItem
@@ -467,6 +511,13 @@ const LimitOrderDetailModal = () => {
                 id: ETranslations.swap_history_detail_received_address,
               })}
               renderContent={orderItemState.receiveAddress}
+              description={
+                <AddressInfo
+                  address={orderItemState.receiveAddress}
+                  networkId={orderItemState.networkId}
+                  accountId={getReceiveAddressAccountInfos.result?.accountId}
+                />
+              }
               showCopy
             />
           </InfoItemGroup>
@@ -474,15 +525,17 @@ const LimitOrderDetailModal = () => {
       </>
     );
   }, [
-    intl,
     orderItemState,
     renderLimitOrderAssets,
-    renderLimitOrderExpiry,
-    renderLimitOrderFilledStatus,
-    renderLimitOrderPrice,
+    intl,
     renderLimitOrderStatus,
+    renderLimitOrderExpiry,
     gtMd,
+    renderLimitOrderPrice,
+    renderLimitOrderFilledStatus,
     surplus,
+    getPayAddressAccountInfos.result?.accountId,
+    getReceiveAddressAccountInfos.result?.accountId,
   ]);
 
   return (

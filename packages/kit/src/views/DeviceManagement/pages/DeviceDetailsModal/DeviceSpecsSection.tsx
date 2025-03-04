@@ -1,12 +1,30 @@
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
+import semver from 'semver';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+
+const VERSION_PLACEHOLDER = '--';
+
+function isValidVersion(version?: string) {
+  if (!version) return false;
+
+  if (version === '0.0.0') return false;
+
+  const cleanVersion = semver.clean(version);
+  return Boolean(cleanVersion && semver.valid(cleanVersion));
+}
+
+function getDisplayVersion(version?: string) {
+  return isValidVersion(version)
+    ? version ?? VERSION_PLACEHOLDER
+    : VERSION_PLACEHOLDER;
+}
 
 type ISpecItemProps = {
   title: string;
@@ -31,12 +49,12 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
   const { device } = data;
   const defaultDeviceInfo = useMemo(
     () => ({
-      model: '-',
-      bleName: '-',
-      bleVersion: '-',
-      bootloaderVersion: '-',
-      firmwareVersion: '-',
-      serialNumber: '-',
+      model: VERSION_PLACEHOLDER,
+      bleName: VERSION_PLACEHOLDER,
+      bleVersion: VERSION_PLACEHOLDER,
+      bootloaderVersion: VERSION_PLACEHOLDER,
+      firmwareVersion: VERSION_PLACEHOLDER,
+      serialNumber: VERSION_PLACEHOLDER,
     }),
     [],
   );
@@ -57,15 +75,15 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
       });
 
       return {
-        model,
-        bleName: device.featuresInfo.ble_name ?? '-',
-        bleVersion: versions?.bleVersion ?? '-',
-        bootloaderVersion: versions?.bootloaderVersion ?? '-',
-        firmwareVersion: versions?.firmwareVersion ?? '-',
+        model: model ?? VERSION_PLACEHOLDER,
+        bleName: device.featuresInfo.ble_name ?? VERSION_PLACEHOLDER,
+        bleVersion: getDisplayVersion(versions?.bleVersion),
+        bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
+        firmwareVersion: getDisplayVersion(versions?.firmwareVersion),
         serialNumber:
           device.featuresInfo.onekey_serial ??
           device.featuresInfo.serial_no ??
-          '-',
+          VERSION_PLACEHOLDER,
       };
     },
     [device, defaultDeviceInfo],

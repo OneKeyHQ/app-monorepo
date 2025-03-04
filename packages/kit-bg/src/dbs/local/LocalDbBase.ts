@@ -68,7 +68,10 @@ import type {
   INetworkAccount,
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceVersionCacheInfo,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 import type {
   ICreateConnectedSiteParams,
   ICreateSignedMessageParams,
@@ -1396,6 +1399,54 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           item.features = JSON.stringify({
             ...device.featuresInfo,
             label,
+          });
+          return item;
+        },
+      });
+    });
+  }
+
+  async updateDeviceFeaturesPassphraseProtection({
+    dbDeviceId,
+    passphraseProtection,
+  }: {
+    dbDeviceId: string;
+    passphraseProtection: boolean;
+  }) {
+    const device = await this.getDevice(dbDeviceId);
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.features = JSON.stringify({
+            ...device.featuresInfo,
+            passphrase_protection: passphraseProtection,
+          });
+          return item;
+        },
+      });
+    });
+  }
+
+  async updateDeviceVersionInfo({
+    dbDeviceId,
+    versionCacheInfo,
+  }: {
+    dbDeviceId: string;
+    versionCacheInfo: IDeviceVersionCacheInfo;
+  }) {
+    const device = await this.getDevice(dbDeviceId);
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.features = JSON.stringify({
+            ...device.featuresInfo,
+            ...versionCacheInfo,
           });
           return item;
         },
