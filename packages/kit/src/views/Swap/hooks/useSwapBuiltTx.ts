@@ -461,7 +461,7 @@ export function useSwapBuildTx() {
               let finalBuyAmount = unSignedOrder.buyAmount;
               let finalSellAmount = unSignedOrder.sellAmount;
               if (
-                selectQuote?.limitPriceOrderMarketPrice &&
+                selectQuote?.protocol === EProtocolOfExchange.LIMIT &&
                 (swapLimitPriceFromAmount || swapLimitPriceToAmount)
               ) {
                 const decimals =
