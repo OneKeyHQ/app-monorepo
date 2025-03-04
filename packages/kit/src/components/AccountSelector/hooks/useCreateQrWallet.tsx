@@ -28,10 +28,7 @@ type ICreateQrWalletByScanParams = {
   onFinalizeWalletSetupError?: () => void;
 };
 export function useCreateQrWallet() {
-  const {
-    start: startScan,
-    // close,
-  } = useScanQrCode();
+  const { start: startScan } = useScanQrCode();
   const actions = useAccountSelectorActions();
   const navigation = useAppNavigation();
 
@@ -98,13 +95,6 @@ export function useCreateQrWallet() {
     [createQrWalletByUr, startScan],
   );
 
-  // const createQrWalletByTwoWayScan = useCallback(
-  //   async (params: ICreateQrWalletByScanParams) => {
-  //     backgroundApiProxy.serviceQrWallet.startTwoWayAirGapScan()
-  //   },
-  //   [],
-  // );
-
   const createQrWalletByAccount = useCallback(
     async ({
       walletId,
@@ -124,12 +114,6 @@ export function useCreateQrWallet() {
           dbDeviceId: byWallet.associatedDevice,
         });
       }
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      // const { wallet: walletCreated } = await createQrWallet({
-      //   isOnboarding: false,
-      //   byDevice,
-      //   byWallet,
-      // });
       const urJson =
         await backgroundApiProxy.serviceQrWallet.prepareQrcodeWalletAddressCreate(
           {

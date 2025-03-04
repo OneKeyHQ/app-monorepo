@@ -32,7 +32,6 @@ import type {
   DidFailLoadEvent,
   DidStartNavigationEvent,
   Event,
-  LoadURLOptions,
   PageFaviconUpdatedEvent,
   PageTitleUpdatedEvent,
 } from 'electron';
@@ -218,8 +217,7 @@ const DesktopWebView = forwardRef(
         innerRef: webviewRef.current,
         jsBridge: jsBridgeHost,
         reload: () => webviewRef.current?.reload(),
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        loadURL: (url: string, options?: LoadURLOptions) => {
+        loadURL: (url: string) => {
           if (onSrcChange) {
             onSrcChange(url);
           } else {

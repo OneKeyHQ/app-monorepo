@@ -2,8 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 
 import { updateInterceptorRequestHelper } from '@onekeyhq/kit-bg/src/init/updateInterceptorRequestHelper';
 
-// import '../background/instance/backgroundApiProxy';
-
 // TODO why not use lazy feature?
 export function createLazyKitProviderLegacy({
   displayName,
@@ -39,12 +37,7 @@ export function createLazyKitProviderLegacy({
 }
 
 updateInterceptorRequestHelper();
-export function createLazyKitProvider({
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  displayName,
-}: {
-  displayName?: string;
-} = {}) {
+export function createLazyKitProvider({}: { displayName?: string; } = {}) {
   const { KitProvider } = require('.');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-return,@typescript-eslint/no-unsafe-member-access
   return KitProvider;

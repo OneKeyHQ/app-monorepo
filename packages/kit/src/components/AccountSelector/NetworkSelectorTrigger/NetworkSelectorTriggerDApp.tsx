@@ -112,7 +112,7 @@ export const NetworkSelectorTriggerDappConnection = XStack.styleable<{
   beforeShowTrigger?: () => Promise<void>;
   loadingDuration?: number;
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-}>(({ num, disabled, beforeShowTrigger, loadingDuration, ...rest }, _: any) => {
+}>(({ num, disabled, beforeShowTrigger, loadingDuration, ...rest }) => {
   const { isLoading: mockIsLoading } =
     useMockAccountSelectorLoading(loadingDuration);
   const [syncLoading] = useAccountSelectorSyncLoadingAtom();

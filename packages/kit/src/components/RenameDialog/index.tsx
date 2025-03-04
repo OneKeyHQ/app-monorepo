@@ -12,7 +12,6 @@ import {
   Select,
   Stack,
   Toast,
-  useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
@@ -68,8 +67,7 @@ function V4AccountNameSelector({
         floatingPanelProps={{
           maxHeight: 272,
         }}
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        renderTrigger={({ value, label, placeholder }) => (
+        renderTrigger={() => (
           <Button
             size="small"
             alignSelf="flex-start"
