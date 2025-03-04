@@ -179,8 +179,7 @@ function BookmarkListModal() {
               my="$4"
               icon="BookmarkOutline"
               title={intl.formatMessage({
-                // eslint-disable-next-line spellcheck/spell-checker
-                id: ETranslations.explore_no_boomark,
+                id: ETranslations.explore_no_bookmark,
               })}
             />
           }

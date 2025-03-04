@@ -241,7 +241,6 @@ const SwapQuoteResult = ({
           providerIcon={quoteResult?.info.providerLogo ?? ''}
           providerName={quoteResult?.info.providerName ?? ''}
           isLoading={swapQuoteLoading}
-          isBest={quoteResult.isBest}
           fromToken={fromToken}
           onekeyFee={quoteResult?.fee?.percentageFee}
           toToken={toToken}

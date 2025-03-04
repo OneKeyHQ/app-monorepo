@@ -12,6 +12,7 @@ import {
   useSwapFromTokenAmountAtom,
   useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
@@ -19,6 +20,7 @@ import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms'
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
@@ -83,6 +85,7 @@ const SwapInputContainer = ({
   }, [amountValue, token?.price]);
 
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
@@ -138,7 +141,11 @@ const SwapInputContainer = ({
     });
   }, [intl]);
   const valueMoreComponent = useMemo(() => {
-    if (rateDifference && direction === ESwapDirectionType.TO) {
+    if (
+      rateDifference &&
+      direction === ESwapDirectionType.TO &&
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+    ) {
       let color = '$textSubdued';
       if (inputLoading) {
         color = '$textPlaceholder';
@@ -172,7 +179,13 @@ const SwapInputContainer = ({
       );
     }
     return null;
-  }, [direction, inputLoading, onRateDifferencePress, rateDifference]);
+  }, [
+    direction,
+    inputLoading,
+    onRateDifferencePress,
+    rateDifference,
+    swapTypeSwitch,
+  ]);
 
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);
@@ -221,6 +234,19 @@ const SwapInputContainer = ({
       fromInputHasError.hasBalanceError,
     [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
   );
+
+  const readOnly = useMemo(() => {
+    if (direction === ESwapDirectionType.TO) {
+      return (
+        checkWrappedTokenPair({
+          fromToken,
+          toToken,
+        }) || swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+      );
+    }
+    return false;
+  }, [direction, swapTypeSwitch, fromToken, toToken]);
+
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
@@ -262,15 +288,10 @@ const SwapInputContainer = ({
         }}
         inputProps={{
           placeholder: '0.0',
-          readOnly:
-            (direction === ESwapDirectionType.TO &&
-              swapTypeSwitch !== ESwapTabSwitchType.LIMIT) ||
-            inputIsLoading,
+          readOnly: readOnly || inputIsLoading,
           color: inputIsLoading ? '$textPlaceholder' : undefined,
           style:
-            !platformEnv.isNative &&
-            direction === ESwapDirectionType.TO &&
-            swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+            !platformEnv.isNative && readOnly
               ? ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)

@@ -125,7 +125,7 @@ export function BookmarksSection({
               textAlign="center"
             >
               {intl.formatMessage({
-                id: ETranslations.explore_no_boomark,
+                id: ETranslations.explore_no_bookmark,
               })}
             </SizableText>
           )}

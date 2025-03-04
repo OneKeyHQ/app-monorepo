@@ -15,11 +15,13 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
   useSwapToTokenAmountAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
-  EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -58,6 +60,7 @@ const SwapQuoteInput = ({
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
   const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
   const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
+  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
   useSwapApproving();
@@ -73,8 +76,7 @@ const SwapQuoteInput = ({
 
   useEffect(() => {
     if (
-      swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
-      !swapQuoteCurrentSelect?.isWrapped &&
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
       swapLimitPriceFromAmount
     ) {
       setFromInputAmount({
@@ -82,17 +84,11 @@ const SwapQuoteInput = ({
         isInput: false,
       });
     }
-  }, [
-    setFromInputAmount,
-    swapLimitPriceFromAmount,
-    swapQuoteCurrentSelect?.isWrapped,
-    swapQuoteCurrentSelect?.protocol,
-  ]);
+  }, [setFromInputAmount, swapLimitPriceFromAmount, swapTypeSwitchValue]);
 
   useEffect(() => {
     if (
-      swapQuoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
-      !swapQuoteCurrentSelect?.isWrapped &&
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
       swapLimitPriceToAmount
     ) {
       setToInputAmount({
@@ -100,24 +96,41 @@ const SwapQuoteInput = ({
         isInput: false,
       });
     }
-  }, [
-    setToInputAmount,
-    swapLimitPriceToAmount,
-    swapQuoteCurrentSelect?.isWrapped,
-    swapQuoteCurrentSelect?.protocol,
-  ]);
+  }, [setToInputAmount, swapLimitPriceToAmount, swapTypeSwitchValue]);
 
   useEffect(() => {
     if (
-      swapQuoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT ||
-      swapQuoteCurrentSelect?.isWrapped
+      swapTypeSwitchValue !== ESwapTabSwitchType.LIMIT ||
+      checkWrappedTokenPair({
+        fromToken,
+        toToken,
+      })
     ) {
+      let toAmount = swapQuoteCurrentSelect?.toAmount ?? '';
+      if (
+        checkWrappedTokenPair({
+          fromToken,
+          toToken,
+        })
+      ) {
+        toAmount = swapQuoteCurrentSelect?.isWrapped
+          ? swapQuoteCurrentSelect?.toAmount ?? ''
+          : '';
+      }
       setToInputAmount({
-        value: swapQuoteCurrentSelect?.toAmount ?? '',
+        value: toAmount,
         isInput: false,
       });
     }
-  }, [swapQuoteCurrentSelect, setToInputAmount, setFromInputAmount]);
+  }, [
+    swapQuoteCurrentSelect?.toAmount,
+    swapQuoteCurrentSelect?.isWrapped,
+    setToInputAmount,
+    setFromInputAmount,
+    swapTypeSwitchValue,
+    fromToken,
+    toToken,
+  ]);
 
   return (
     <YStack gap="$2">

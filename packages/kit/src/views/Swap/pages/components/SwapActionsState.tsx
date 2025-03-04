@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
@@ -25,6 +26,7 @@ import {
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapToTokenAmountAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -148,6 +150,7 @@ const SwapActionsState = ({
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const [swapToAmount] = useSwapToTokenAmountAtom();
   const swapSlippageRef = useRef(slippageItem);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
@@ -269,6 +272,25 @@ const SwapActionsState = ({
       currentQuoteRes?.networkCostExceedInfo &&
       !currentQuoteRes.allowanceResult
     ) {
+      let percentage = currentQuoteRes.networkCostExceedInfo?.exceedPercent;
+      const netCost = new BigNumber(
+        currentQuoteRes.networkCostExceedInfo?.cost ?? '0',
+      );
+      if (
+        currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+        netCost.gt(0)
+      ) {
+        const toRealAmount = new BigNumber(swapToAmount.value);
+        const calculateNetworkCostExceedPercent =
+          netCost.dividedBy(toRealAmount);
+        if (calculateNetworkCostExceedPercent.lte(new BigNumber(0.1))) {
+          onActionHandler();
+          return;
+        }
+        percentage = calculateNetworkCostExceedPercent
+          .multipliedBy(100)
+          .toFixed(2);
+      }
       Dialog.confirm({
         title: intl.formatMessage({
           id: ETranslations.swap_network_cost_dialog_title,
@@ -277,7 +299,10 @@ const SwapActionsState = ({
         renderContent: (
           <TransactionLossNetworkFeeExceedDialog
             protocol={currentQuoteRes.protocol ?? EProtocolOfExchange.SWAP}
-            networkCostExceedInfo={currentQuoteRes.networkCostExceedInfo}
+            networkCostExceedInfo={{
+              ...currentQuoteRes.networkCostExceedInfo,
+              exceedPercent: percentage,
+            }}
           />
         ),
         onConfirmText: intl.formatMessage({
@@ -298,6 +323,7 @@ const SwapActionsState = ({
     intl,
     onActionHandler,
     swapActionState.isRefreshQuote,
+    swapToAmount.value,
   ]);
 
   const shouldShowRecipient = useMemo(

@@ -1313,6 +1313,10 @@ class ServiceFirmwareUpdate extends ServiceBase {
           await this.detectMap.deleteUpdateInfo({
             connectId: params.releaseResult.originalConnectId,
           });
+          await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+            params,
+          );
+          appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
         }
       },
       {
