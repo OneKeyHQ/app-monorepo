@@ -5,13 +5,13 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
-  Divider,
   Icon,
   NumberSizeableText,
   Page,
   SizableText,
   Skeleton,
   XStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -24,6 +24,7 @@ import { useTokenDetailsContext } from './TokenDetailsContext';
 
 function TokenDetailsFooter() {
   const intl = useIntl();
+  const { bottom } = useSafeAreaInsets();
   const { tokenMetadata } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
   const navigation = useAppNavigation();
@@ -51,10 +52,12 @@ function TokenDetailsFooter() {
       <XStack
         alignItems="center"
         px="$5"
-        py="$3"
+        pt="$3"
+        pb={bottom || '$3'}
         backgroundColor="$bgSubdued"
         borderTopWidth={StyleSheet.hairlineWidth}
         borderTopColor="$borderSubdued"
+        userSelect="none"
         onPress={() => {
           if (tokenMetadata?.coingeckoId) {
             void marketNavigation.pushDetailPageFromDeeplink(navigation, {

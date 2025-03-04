@@ -25,7 +25,6 @@ function HomeHeaderContainer() {
           <HomeOverviewContainer />
         </Stack>
         <WalletActions
-          pt="$5"
           $gtLg={{
             pt: 0,
           }}
