@@ -159,7 +159,6 @@ function DAppAccountListItem({
         <YGroup.Item>
           <AccountSelectorTriggerDappConnection
             num={num}
-            compressionUiMode={compressionUiMode}
             beforeShowTrigger={beforeShowTrigger}
             loadingDuration={loadingDuration}
           />

@@ -357,11 +357,9 @@ export function DeriveTypeSelectorTriggerGlobalStandAlone({
   );
   const { result: deriveType = undefined } = usePromiseResult(async () => {
     noopObject(deriveTypeChangedTs);
-    const globalDeriveType =
-      await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
-        networkId,
-      });
-    return globalDeriveType;
+    return backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+      networkId,
+    });
   }, [networkId, deriveTypeChangedTs]);
   return (
     <DeriveTypeSelectorTriggerBaseView

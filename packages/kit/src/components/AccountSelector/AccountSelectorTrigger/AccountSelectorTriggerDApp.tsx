@@ -213,56 +213,41 @@ export const AccountSelectorTriggerDappConnectionCmp = ({
 
 export const AccountSelectorTriggerDappConnection = XStack.styleable<{
   num: number;
-  compressionUiMode?: boolean;
   beforeShowTrigger?: () => Promise<void>;
   loadingDuration?: number;
-}>(
-  (
-    {
-      num,
-      compressionUiMode,
-      disabled,
-      beforeShowTrigger,
-      loadingDuration,
-      ...rest
-    },
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _: any,
-  ) => {
-    const { isLoading: mockIsLoading } =
-      useMockAccountSelectorLoading(loadingDuration);
-    const [syncLoading] = useAccountSelectorSyncLoadingAtom();
-    const isLoading = syncLoading?.[num]?.isLoading || mockIsLoading;
+}>(({ num, disabled, beforeShowTrigger, loadingDuration, ...rest }) => {
+  const { isLoading: mockIsLoading } =
+    useMockAccountSelectorLoading(loadingDuration);
+  const [syncLoading] = useAccountSelectorSyncLoadingAtom();
+  const isLoading = syncLoading?.[num]?.isLoading || mockIsLoading;
 
-    const {
-      activeAccount: { account, wallet, indexedAccount },
-      showAccountSelector,
-    } = useAccountSelectorTrigger({ num, linkNetwork: true });
+  const {
+    activeAccount: { account, wallet, indexedAccount },
+    showAccountSelector,
+  } = useAccountSelectorTrigger({ num, linkNetwork: true });
 
-    const triggerDisabled = isLoading || disabled;
+  const triggerDisabled = isLoading || disabled;
 
-    const handlePress = useCallback(async () => {
-      await beforeShowTrigger?.();
-      showAccountSelector();
-    }, [beforeShowTrigger, showAccountSelector]);
+  const handlePress = useCallback(async () => {
+    await beforeShowTrigger?.();
+    showAccountSelector();
+  }, [beforeShowTrigger, showAccountSelector]);
 
-    useEffect(() => {
-      console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
-    }, []);
+  // Keep console.log as per requirements
+  console.log('AccountSelectorTriggerDappConnection', ':renderer=====>');
 
-    return (
-      <AccountSelectorTriggerDappConnectionCmp
-        account={account}
-        wallet={wallet}
-        indexedAccount={indexedAccount}
-        isLoading={isLoading}
-        triggerDisabled={triggerDisabled}
-        handlePress={handlePress}
-        {...rest}
-      />
-    );
-  },
-);
+  return (
+    <AccountSelectorTriggerDappConnectionCmp
+      account={account}
+      wallet={wallet}
+      indexedAccount={indexedAccount}
+      isLoading={isLoading}
+      triggerDisabled={triggerDisabled}
+      handlePress={handlePress}
+      {...rest}
+    />
+  );
+});
 
 export function AccountSelectorTriggerBrowserSingle({ num }: { num: number }) {
   const {
