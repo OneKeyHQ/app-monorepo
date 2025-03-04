@@ -7,6 +7,7 @@ import { useToOnBoardingPage } from '@onekeyhq/kit/src/views/Onboarding/hooks/us
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { ITabMeParamList } from '@onekeyhq/shared/src/routes';
 import {
+  EDAppConnectionModal,
   EModalRoutes,
   EModalSettingRoutes,
   ETabRoutes,
