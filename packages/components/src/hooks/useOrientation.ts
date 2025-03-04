@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import * as ScreenOrientation from 'expo-screen-orientation';
 import { Dimensions } from 'react-native';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 export const useOrientation = () => {
   const [isLandscape, setIsLandscape] = useState(
     Dimensions.get('window').width > Dimensions.get('window').height,
@@ -30,3 +32,10 @@ export const useOrientation = () => {
 
   return isLandscape;
 };
+
+export const useIsIpadLandscape = platformEnv.isNativeIOSPad
+  ? () => {
+      const isLandscape = useOrientation();
+      return isLandscape;
+    }
+  : () => false;

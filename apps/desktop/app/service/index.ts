@@ -1,6 +1,6 @@
 import path from 'path';
 
-import { utilityProcess } from 'electron/main';
+import { utilityProcess } from 'electron';
 import Logger from 'electron-log/main';
 
 import {
@@ -8,7 +8,7 @@ import {
   EWindowHelloEventType,
 } from './enum';
 
-import type { UtilityProcess } from 'electron/main';
+import type { UtilityProcess } from 'electron';
 
 enum EServiceName {
   WindowsHello = 'windowsHello',

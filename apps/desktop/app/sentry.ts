@@ -1,4 +1,4 @@
-import Sentry from '@sentry/electron/main';
+import * as Sentry from '@sentry/electron/main';
 import isDev from 'electron-is-dev';
 
 import { basicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
