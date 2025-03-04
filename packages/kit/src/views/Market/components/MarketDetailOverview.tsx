@@ -429,7 +429,6 @@ export function MarketDetailOverview({
           circulatingSupply={circulatingSupply}
           detailPlatforms={detailPlatforms}
         />
-        {/* <GoPlus /> */}
         <MarketAbout>{about}</MarketAbout>
       </YStack>
     </NestedScrollView>

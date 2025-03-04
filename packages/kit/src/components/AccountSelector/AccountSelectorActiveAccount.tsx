@@ -161,33 +161,8 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
           <Skeleton h="$5" w="$10" />
         )}
       </XStack>
-      {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
     </Spotlight>
   );
-
-  // const visible = isFirstVisit && isFocus;
-  // console.log('AllNetworkAccountSelector____visible', visible);
-  // return (
-  //   <SpotlightView
-  //     visible={visible}
-  //     content={
-  //       <SizableText size="$bodyMd">
-  //         {intl.formatMessage({
-  //           id: ETranslations.spotlight_enable_network_message,
-  //         })}
-  //       </SizableText>
-  //     }
-  //     onConfirm={tourVisited}
-  //   >
-  //     <IconButton
-  //       title={intl.formatMessage({ id: ETranslations.global_copy_address })}
-  //       variant="tertiary"
-  //       icon="Copy3Outline"
-  //       size="small"
-  //       onPress={handleWalletAddress}
-  //     />
-  //   </SpotlightView>
-  // );
 };
 
 export function AccountSelectorActiveAccountHome({ num }: { num: number }) {
