@@ -10,10 +10,7 @@ import {
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
-import {
-  NotImplemented,
-  OneKeyInternalError,
-} from '@onekeyhq/shared/src/errors';
+import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -59,11 +56,15 @@ class ProviderApiNeoN3 extends ProviderApiBase {
   public override notifyDappAccountsChanged(
     info: IProviderBaseBackgroundNotifyInfo,
   ): void {
-    const data = () => {
+    const data = async ({ origin }: { origin: string }) => {
+      const params = await this.neo_accounts({
+        origin,
+        scope: this.providerName,
+      });
       const result = {
         method: 'wallet_events_accountChanged',
         params: {
-          accounts: { address: '' },
+          accounts: { address: params?.address ?? '' },
         },
       };
       return result;
@@ -133,7 +134,7 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     return Promise.resolve({
       name: 'OneKey',
       website: 'https://onekey.so/',
-      version: '5.7.0',
+      version: process.env.VERSION,
       compatibility: [],
     });
   }
