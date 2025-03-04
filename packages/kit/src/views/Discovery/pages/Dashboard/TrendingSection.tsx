@@ -1,10 +1,12 @@
 import { useMemo } from 'react';
 
 import { isNil } from 'lodash';
+import { useIntl } from 'react-intl';
 
 import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
@@ -28,7 +30,7 @@ export function TrendingSection({
       watchLoading: true,
     },
   );
-
+  const intl = useIntl();
   const dataSource = useMemo<IDApp[]>(() => trendingData ?? [], [trendingData]);
 
   const isLoadingTrending = isNil(trendingData);
@@ -38,7 +40,9 @@ export function TrendingSection({
     <Stack minHeight="$40">
       <DashboardSectionHeader>
         <DashboardSectionHeader.Heading selected>
-          Trending
+          {intl.formatMessage({
+            id: ETranslations.discovery_trending,
+          })}
         </DashboardSectionHeader.Heading>
       </DashboardSectionHeader>
 

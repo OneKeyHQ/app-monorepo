@@ -2511,4 +2511,5 @@
   wallet_unsupported_network_title = 'wallet.unsupported_network_title',
   wallet_you_need_str_accounts_on_any_network_to_create = 'wallet.you_need_str_accounts_on_any_network_to_create',
   word = 'word',
+  discovery_trending = 'discovery.trending',
 }
