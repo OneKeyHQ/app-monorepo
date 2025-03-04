@@ -813,7 +813,20 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async setPassphraseEnabled(p: ISetPassphraseEnabledParams) {
-    return this.deviceSettingsManager.setPassphraseEnabled(p);
+    const result = await this.deviceSettingsManager.setPassphraseEnabled(p);
+    if (result.message) {
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId: p.walletId,
+      });
+      const dbDeviceId = wallet?.associatedDevice;
+      if (dbDeviceId) {
+        await localDb.updateDeviceFeaturesPassphraseProtection({
+          dbDeviceId,
+          passphraseProtection: p.passphraseEnabled,
+        });
+      }
+    }
+    return result;
   }
 
   @backgroundMethod()

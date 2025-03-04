@@ -1403,6 +1403,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateDeviceFeaturesPassphraseProtection({
+    dbDeviceId,
+    passphraseProtection,
+  }: {
+    dbDeviceId: string;
+    passphraseProtection: boolean;
+  }) {
+    const device = await this.getDevice(dbDeviceId);
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.features = JSON.stringify({
+            ...device.featuresInfo,
+            passphrase_protection: passphraseProtection,
+          });
+          return item;
+        },
+      });
+    });
+  }
+
   async fixHiddenWalletName({
     dbDeviceId,
     dbWalletId,
