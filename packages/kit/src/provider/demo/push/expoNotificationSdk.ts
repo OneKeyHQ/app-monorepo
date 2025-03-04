@@ -8,13 +8,7 @@ import {
 import type { IDemoNotificationSdk } from './types';
 import type { NotificationContentInput } from 'expo-notifications';
 
-addNotificationResponseReceivedListener(async (event, ...others) => {
-  console.log(
-    'EXPO: addNotificationResponseReceivedListener ',
-    event,
-    ...others,
-  );
-});
+addNotificationResponseReceivedListener(async () => {});
 
 setNotificationHandler({
   handleNotification: async ({ request }) => ({
@@ -52,7 +46,6 @@ const sdk: IDemoNotificationSdk = {
       },
       sound: true,
     };
-    console.log('EXPO: scheduleNotificationAsync', payload);
     await scheduleNotificationAsync({
       identifier: uuid,
       content: payload,

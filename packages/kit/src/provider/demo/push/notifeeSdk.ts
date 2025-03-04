@@ -5,14 +5,11 @@ import { ONEKEY_LOGO_ICON_URL } from '@onekeyhq/shared/src/consts';
 import type { IDemoNotificationSdk } from './types';
 import type { EventType } from '@notifee/react-native';
 
-notifee.onForegroundEvent((event, ...others) => {
+notifee.onForegroundEvent((event) => {
   const type: EventType = event.type;
-  console.log('notifee.onForegroundEvent >>> ', event, ...others);
 });
 
-notifee.onBackgroundEvent(async (event, ...others) => {
-  console.log('notifee.onBackgroundEvent >>> ', event, ...others);
-});
+notifee.onBackgroundEvent(async () => {});
 
 const sdk: IDemoNotificationSdk = {
   async init() {
@@ -20,7 +17,6 @@ const sdk: IDemoNotificationSdk = {
   },
   async showNotification(params) {
     const { title, content, uuid } = params;
-    console.log('notifee.displayNotification >>> ', params);
     await notifee.displayNotification({
       id: uuid,
       title,

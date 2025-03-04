@@ -2,19 +2,11 @@ import JPush from 'jpush-react-native';
 
 import type { IDemoNotificationSdk } from './types';
 
-JPush.addNotificationListener((event, ...others) => {
-  console.log('JPUSH: addNotificationListener', event, ...others);
-});
-JPush.addLocalNotificationListener((event, ...others) => {
-  console.log('JPUSH: addLocalNotificationListener', event, ...others);
-});
+JPush.addNotificationListener(() => {});
+JPush.addLocalNotificationListener(() => {});
 
 const sdk: IDemoNotificationSdk = {
-  init: async () => {
-    // await JPush.init();
-  },
-  showNotification: async (params) => {
-    // await JPush.showNotification(params);
-  },
+  init: async () => {},
+  showNotification: async () => {},
 };
 export default sdk;
