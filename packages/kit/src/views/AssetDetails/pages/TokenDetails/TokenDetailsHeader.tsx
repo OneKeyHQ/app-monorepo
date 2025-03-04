@@ -301,19 +301,18 @@ function TokenDetailsHeader(props: IProps) {
                       id: ETranslations.global_my_address,
                     })}
                   </SizableText>
-                  <SizableText
-                    size="$bodyMd"
-                    color="$text"
-                    flex={1}
-                    flexWrap="wrap"
-                  >
-                    {accountUtils.isHwWallet({ walletId }) ||
-                    accountUtils.isQrWallet({ walletId })
-                      ? accountUtils.shortenAddress({
-                          address: account?.address ?? '',
-                        })
-                      : account?.address}
-                  </SizableText>
+                  {isLoadingTokenDetails ? (
+                    <Skeleton.BodyMd />
+                  ) : (
+                    <SizableText size="$bodyMd" color="$text" flexWrap="wrap">
+                      {accountUtils.isHwWallet({ walletId }) ||
+                      accountUtils.isQrWallet({ walletId })
+                        ? accountUtils.shortenAddress({
+                            address: account?.address ?? '',
+                          })
+                        : account?.address}
+                    </SizableText>
+                  )}
                 </YStack>
                 <Stack width="24" height="24">
                   <Icon name="Copy3Outline" size="$6" />
