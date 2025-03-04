@@ -11,6 +11,7 @@ import {
   Portal,
   SizableText,
   Stack,
+  useIsIpadLandscape,
   useMedia,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
@@ -194,7 +195,9 @@ function BottomMenu() {
 
 export const SidebarBanner = () => {
   const { gtMd } = useMedia();
-  return gtMd ? (
+
+  const isIpadLandscape = useIsIpadLandscape();
+  return isIpadLandscape && gtMd ? (
     <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
       <BottomMenu />
     </Portal.Body>

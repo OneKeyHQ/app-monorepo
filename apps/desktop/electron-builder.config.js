@@ -1,5 +1,6 @@
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 const DLLs = require('./electron-dll.config');
+const { getPath } = require('./scripts/utils');
 
 module.exports = {
   ...baseElectronBuilderConfig,
@@ -43,7 +44,7 @@ module.exports = {
       { target: 'dmg', arch: ['x64', 'arm64'] },
       { target: 'zip', arch: ['x64', 'arm64'] },
     ],
-    'entitlements': 'entitlements.mac.plist',
+    'entitlements': getPath('entitlements.mac.plist'),
     'extendInfo': {
       'NSCameraUsageDescription': 'Please allow OneKey to use your camera',
     },

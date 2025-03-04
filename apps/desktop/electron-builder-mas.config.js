@@ -1,9 +1,9 @@
-/* eslint-disable no-template-curly-in-string */
-require('../../development/env');
 const baseElectronBuilderConfig = require('./electron-builder-base.config');
 
 module.exports = {
   ...baseElectronBuilderConfig,
+  'appId': 'so.onekey.wallet',
+  'buildVersion': `${process.env.BUILD_NUMBER}0`,
   'dmg': {
     'sign': false,
   },

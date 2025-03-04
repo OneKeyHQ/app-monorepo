@@ -1,9 +1,7 @@
-const path = require('path');
+const { getPath } = require('./scripts/utils');
 
 /* eslint-disable no-template-curly-in-string */
 require('../../development/env');
-
-const getPath = (...paths) => path.join(__dirname, ...paths);
 
 const baseElectronBuilderConfig = {
   'extraMetadata': {
@@ -49,7 +47,7 @@ const baseElectronBuilderConfig = {
     'repo': 'app-monorepo',
     'owner': 'OneKeyHQ',
   },
-  'afterSign': getPath('scripts/notarize.js'),
-  'afterPack': getPath('scripts/fileOperation.js'),
+  'afterSign': getPath('scripts/afterSign.js'),
+  'afterPack': getPath('scripts/afterPack.js'),
 };
 module.exports = baseElectronBuilderConfig;

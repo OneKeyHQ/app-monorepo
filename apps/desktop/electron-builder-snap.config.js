@@ -16,5 +16,5 @@ module.exports = {
     'executableName': 'onekey-wallet',
     'category': 'Utility',
     'target': ['snap'],
-  }
+  },
 };
