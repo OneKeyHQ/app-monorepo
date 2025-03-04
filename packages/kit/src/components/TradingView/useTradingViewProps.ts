@@ -13,7 +13,6 @@ import { useThemeVariant } from '../../hooks/useThemeVariant';
 const localeMap: Record<ILocaleJSONSymbol, string> = {
   bn: 'en',
   de: 'de',
-  en: 'en',
   'en-US': 'en',
   es: 'es',
   'fr-FR': 'fr',
@@ -68,7 +67,7 @@ export const useTradingViewProps = ({
   const systemLocale = useLocaleVariant();
   const calendars = useCalendars();
   return useMemo(() => {
-    const locale = localeMap[systemLocale as ILocaleJSONSymbol] || 'en';
+    const locale = localeMap[systemLocale as ILocaleJSONSymbol] || 'en-US';
     const timezone = calendars[0].timeZone || 'Etc/UTC';
     const params: Record<string, string> = {
       'show_popup_button': 'false',

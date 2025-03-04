@@ -3,7 +3,13 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
+import {
+  ActionList,
+  SizableText,
+  Stack,
+  useIsIpadLandscape,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -34,6 +40,16 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { MoreActionButton } from './MoreActionButton';
 import { UniversalSearchInput } from './UniversalSearchInput';
 
+const ReactMoreActionButton = platformEnv.isNativeIOSPad
+  ? () => {
+      const isIpadLandscape = useIsIpadLandscape();
+      return isIpadLandscape ? null : <MoreActionButton key="more-action" />;
+    }
+  : () => {
+      const media = useMedia();
+      return media.gtMd ? null : <MoreActionButton key="more-action" />;
+    };
+
 export function HeaderRight({
   sceneName,
 }: {
@@ -41,6 +57,7 @@ export function HeaderRight({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const isIpadLandscape = useIsIpadLandscape();
   const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -198,9 +215,7 @@ export function HeaderRight({
       </Stack>
     );
 
-    const moreActionButton = media.gtMd ? null : (
-      <MoreActionButton key="more-action" />
-    );
+    const moreActionButton = <ReactMoreActionButton />;
 
     const searchInput = media.gtMd ? (
       <UniversalSearchInput key="searchInput" />
