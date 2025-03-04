@@ -21,6 +21,7 @@ import { marketNavigation } from '../../../Market/marketUtils';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 
 function TokenDetailsFooter(props: { networkId: string }) {
   const { networkId } = props;
@@ -56,8 +57,8 @@ function TokenDetailsFooter(props: { networkId: string }) {
         backgroundColor="$bgSubdued"
         onPress={() => {
           if (tokenMetadata?.coingeckoId) {
-            void marketNavigation.pushDetailPageFromDeeplink(navigation, {
-              coinGeckoId: tokenMetadata.coingeckoId,
+            navigation.push(EModalAssetDetailRoutes.MarketDetail, {
+              token: tokenMetadata.coingeckoId,
             });
           }
         }}
