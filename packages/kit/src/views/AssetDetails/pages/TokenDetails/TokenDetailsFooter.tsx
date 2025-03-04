@@ -16,13 +16,16 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalAssetDetailRoutes } from '@onekeyhq/shared/src/routes';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 import { marketNavigation } from '../../../Market/marketUtils';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
 
-function TokenDetailsFooter() {
+function TokenDetailsFooter(props: { networkId: string }) {
+  const { networkId } = props;
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
   const { tokenMetadata } = useTokenDetailsContext();
@@ -39,6 +42,10 @@ function TokenDetailsFooter() {
     }
     return '$textSubdued';
   }, [tokenMetadata?.priceChange24h]);
+
+  if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+    return null;
+  }
 
   if (
     new BigNumber(tokenMetadata?.priceChange24h ?? 0).isZero() &&
@@ -60,8 +67,8 @@ function TokenDetailsFooter() {
         userSelect="none"
         onPress={() => {
           if (tokenMetadata?.coingeckoId) {
-            void marketNavigation.pushDetailPageFromDeeplink(navigation, {
-              coinGeckoId: tokenMetadata.coingeckoId,
+            navigation.push(EModalAssetDetailRoutes.MarketDetail, {
+              token: tokenMetadata.coingeckoId,
             });
           }
         }}

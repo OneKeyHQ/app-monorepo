@@ -16,14 +16,8 @@ import type { IProps } from '.';
 const num = 0;
 
 function TokenDetailsViews(props: IProps) {
-  const {
-    accountId,
-    networkId,
-    walletId,
-    deriveType,
-    indexedAccountId,
-    isTabView,
-  } = props;
+  const { accountId, networkId, walletId, deriveType, indexedAccountId } =
+    props;
 
   const depsChecker =
     debugUtils.useDebugHooksDepsChangedChecker('TokenDetailsViews');
@@ -71,7 +65,7 @@ function TokenDetailsViews(props: IProps) {
       </Stack>
     );
   }
-  return isTabView ? (
+  return (
     <TokenDetailsHistory
       {...props}
       accountId={currentAccountId}
@@ -79,11 +73,6 @@ function TokenDetailsViews(props: IProps) {
         <TokenDetailsHeader pt="$5" {...props} accountId={currentAccountId} />
       }
     />
-  ) : (
-    <>
-      <TokenDetailsHeader {...props} accountId={currentAccountId} />
-      <TokenDetailsHistory {...props} accountId={currentAccountId} />
-    </>
   );
 }
 
