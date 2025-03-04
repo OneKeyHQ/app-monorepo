@@ -9,7 +9,6 @@ import type { ICurveName } from '../types';
 export interface IVerifier {
   getPubkey: (compressed?: boolean) => Promise<Buffer>;
   getPubkeyHex: (compressed?: boolean) => Promise<string>;
-  verify: (digest: Buffer, signature: Buffer) => Promise<Buffer>;
 }
 
 export interface IVerifierPro extends IVerifier {
@@ -66,12 +65,7 @@ export class Verifier implements IVerifierPro {
     return bufferUtils.bytesToHex(await this.getPubkey(compressed));
   }
 
-  async verify() {
-    await this.initialized;
-    // verify(_digest: Buffer, _signature: Buffer) {
-    // Not used.
-    return Promise.resolve(Buffer.from([]));
-  }
+
 
   async verifySignature({
     publicKey,

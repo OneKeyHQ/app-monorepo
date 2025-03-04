@@ -34,10 +34,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     chrome.notifications.onClicked.addListener(this.handleNotificationClick);
     chrome.notifications.onClosed.addListener(this.handleNotificationClosed);
 
-    // Deprecated since Chrome 65
-    chrome.notifications.onShowSettings.addListener(
-      this.handleNotificationShowSettings,
-    );
+
     // not working for clicking settings Button
     // chrome.notifications.onButtonClicked.addListener(
     //   this.handleNotificationShowSettings,
@@ -93,10 +90,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     this.notificationCache.delete(notificationId);
   };
 
-  handleNotificationShowSettings = async () => {
-    console.log(`通知 设置被点击了`);
-    await this.openPermissionSettings();
-  };
+
 
   async checkPermissionDefinedInManifest() {
     const isNotificationsPermissionDefined: boolean =

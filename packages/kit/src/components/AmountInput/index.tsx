@@ -338,11 +338,7 @@ export function AmountInput({
               {balanceProps.value ?? 0}
             </NumberSizeableText>
           </SizableText>
-          {/* {enableMaxAmount ? (
-            <SizableText pl="$1" size="$bodyMdMedium" color="$textInteractive">
-              {intl.formatMessage({ id: ETranslations.send_max })}
-            </SizableText>
-          ) : null} */}
+
         </XStack>
       );
     }
