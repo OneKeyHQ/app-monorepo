@@ -36,7 +36,7 @@ const baseElectronBuilderConfig = {
       'to': 'static/images/icons/512x512.png',
     },
     {
-      'from': 'build/static/images/icons/icon.icns',
+      'from': 'app/build/static/images/icons/icon.icns',
       'to': 'static/images/icons/icon.icns',
     },
     {
