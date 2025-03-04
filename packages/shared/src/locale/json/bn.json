@@ -1,4 +1,8 @@
 {
+  "change_history.title": "পরিবর্তনের ইতিহাস",
+  "change_history.no_history": "কোন ইতিহাস নেই",
+  "change_history.view_history": "ইতিহাস দেখুন",
+  "change_history.current": "বর্তমান",
   "Limit.expire_day": "দিন",
   "Limit.expire_days": "দিন",
   "Limit.expire_hour": "ঘণ্টা",

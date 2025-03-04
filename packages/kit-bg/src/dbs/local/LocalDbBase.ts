@@ -622,30 +622,41 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async getWallet({
     refilledWalletsCache,
     walletId,
+    withoutRefill,
   }: {
     refilledWalletsCache?: {
       [walletId: string]: IDBWallet;
     };
     walletId: string;
+    withoutRefill?: boolean;
   }): Promise<IDBWallet> {
     const wallet = await this.getRecordById({
       name: ELocalDBStoreNames.Wallet,
       id: walletId,
     });
+    if (withoutRefill) {
+      return wallet;
+    }
     return this.refillWalletInfo({ wallet, refilledWalletsCache });
   }
 
   async getWalletSafe({
     refilledWalletsCache,
     walletId,
+    withoutRefill,
   }: {
     refilledWalletsCache?: {
       [walletId: string]: IDBWallet;
     };
     walletId: string;
+    withoutRefill?: boolean;
   }): Promise<IDBWallet | undefined> {
     try {
-      return await this.getWallet({ walletId, refilledWalletsCache });
+      return await this.getWallet({
+        walletId,
+        refilledWalletsCache,
+        withoutRefill,
+      });
     } catch (error) {
       return undefined;
     }
@@ -2129,13 +2140,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     if (params.shouldCheckDuplicate && params.name) {
       const { wallets } = await this.getAllWallets();
-      const duplicateWallet = wallets.find(
-        (item) =>
+      const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
+      const duplicateWallets = wallets.filter((item) => {
+        let r =
           !accountUtils.isOthersWallet({ walletId: item.id }) &&
           item.id !== walletId &&
-          item.name === params.name,
-      );
-      if (duplicateWallet) {
+          !item.isTemp &&
+          item.name === params.name;
+
+        if (isHiddenWallet) {
+          r =
+            r &&
+            item.associatedDevice === wallet.associatedDevice &&
+            item.type === wallet.type;
+        }
+
+        return r;
+      });
+      if (duplicateWallets.length) {
         throw new RenameDuplicateNameError();
       }
     }
