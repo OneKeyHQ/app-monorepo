@@ -1,5 +1,5 @@
 {
-  "name": "OneKeyDesktop",
+  "name": "@onekeyhq/desktop",
   "version": "1.0.0",
   "main": "dist/app.js",
   "description": "Multi-chain support for BTC/ETH/BNB/NEAR/Polygon/Solana/Avalanche/Fantom and others",
