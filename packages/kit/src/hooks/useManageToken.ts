@@ -7,10 +7,6 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-// import backgroundApiProxy from '../background/instance/backgroundApiProxy';
-
-// import { usePromiseResult } from './usePromiseResult';
-
 function useManageToken({
   accountId,
   networkId,
@@ -27,14 +23,6 @@ function useManageToken({
   deriveType: IAccountDeriveTypes;
 }) {
   const navigation = useAppNavigation();
-
-  // const { result: vaultSettings } = usePromiseResult(
-  //   () =>
-  //     backgroundApiProxy.serviceNetwork.getVaultSettings({
-  //       networkId,
-  //     }),
-  //   [networkId],
-  // );
 
   const handleOnManageToken = useCallback(() => {
     navigation.pushModal(EModalRoutes.MainModal, {
