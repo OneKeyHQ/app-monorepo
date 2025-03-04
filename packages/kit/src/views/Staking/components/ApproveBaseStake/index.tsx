@@ -115,7 +115,6 @@ export function ApproveBaseStake({
   onConfirm,
   approveTarget,
 
-  providerLabel,
   showEstReceive,
   estReceiveToken,
   estReceiveTokenRate = '1',
@@ -224,54 +223,72 @@ export function ApproveBaseStake({
     approveTarget.networkId,
   ]);
 
-  const fetchEstimateFeeResp = useDebouncedCallback(async (amount?: string) => {
-    if (!amount) {
-      setEstimateFeeResp(undefined);
-      return;
-    }
-    const amountNumber = BigNumber(amount);
-    if (amountNumber.isZero() || amountNumber.isNaN()) {
-      return;
-    }
-
-    const permitParams: {
-      approveType?: 'permit';
-      permitSignature?: string;
-    } = {};
-
-    if (usePermit2Approve) {
-      if (shouldApprove) {
-        setEstimateFeeResp(undefined);
+  const fetchEstimateFeeResp = useCallback(
+    async (amount?: string) => {
+      if (!amount) {
+        return undefined;
+      }
+      const amountNumber = BigNumber(amount);
+      if (amountNumber.isZero() || amountNumber.isNaN()) {
         return;
       }
 
-      permitParams.approveType = 'permit';
+      const permitParams: {
+        approveType?: 'permit';
+        permitSignature?: string;
+      } = {};
 
-      if (permitSignatureRef.current) {
-        const amountBN = BigNumber(amount);
-        const allowanceBN = BigNumber(allowance);
-        if (amountBN.gt(allowanceBN)) {
-          permitParams.permitSignature = permitSignatureRef.current;
+      if (usePermit2Approve) {
+        if (shouldApprove) {
+          return undefined;
+        }
+
+        permitParams.approveType = 'permit';
+
+        if (permitSignatureRef.current) {
+          const amountBN = BigNumber(amount);
+          const allowanceBN = BigNumber(allowance);
+          if (amountBN.gt(allowanceBN)) {
+            permitParams.permitSignature = permitSignatureRef.current;
+          }
         }
       }
-    }
 
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId: approveTarget.accountId,
-      networkId: approveTarget.networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId: approveTarget.networkId,
-      provider: details.provider.name,
-      symbol: details.token.info.symbol,
-      action: 'stake',
-      amount: amountNumber.toFixed(),
-      morphoVault: details.provider.vault,
-      accountAddress: account?.address,
-      ...permitParams,
-    });
-    setEstimateFeeResp(resp);
-  }, 350);
+      const account = await backgroundApiProxy.serviceAccount.getAccount({
+        accountId: approveTarget.accountId,
+        networkId: approveTarget.networkId,
+      });
+      const resp = await backgroundApiProxy.serviceStaking.estimateFee({
+        networkId: approveTarget.networkId,
+        provider: details.provider.name,
+        symbol: details.token.info.symbol,
+        action: 'stake',
+        amount: amountNumber.toFixed(),
+        morphoVault: details.provider.vault,
+        accountAddress: account?.address,
+        ...permitParams,
+      });
+      return resp;
+    },
+    [
+      allowance,
+      approveTarget.accountId,
+      approveTarget.networkId,
+      details.provider.name,
+      details.provider.vault,
+      details.token.info.symbol,
+      shouldApprove,
+      usePermit2Approve,
+    ],
+  );
+
+  const debouncedFetchEstimateFeeResp = useDebouncedCallback(
+    async (amount?: string) => {
+      const resp = await fetchEstimateFeeResp(amount);
+      setEstimateFeeResp(resp);
+    },
+    350,
+  );
 
   const onChangeAmountValue = useCallback(
     (value: string) => {
@@ -282,7 +299,7 @@ export function ApproveBaseStake({
       if (valueBN.isNaN()) {
         if (value === '') {
           setAmountValue('');
-          void fetchEstimateFeeResp();
+          void debouncedFetchEstimateFeeResp();
         }
         return;
       }
@@ -295,10 +312,10 @@ export function ApproveBaseStake({
         setAmountValue((oldValue) => oldValue);
       } else {
         setAmountValue(value);
-        void fetchEstimateFeeResp(value);
+        void debouncedFetchEstimateFeeResp(value);
       }
     },
-    [decimals, fetchEstimateFeeResp],
+    [decimals, debouncedFetchEstimateFeeResp],
   );
 
   const currentValue = useMemo<string | undefined>(() => {
@@ -418,35 +435,40 @@ export function ApproveBaseStake({
 
   const checkEstimateGasAlert = useCallback(
     async (onNext: () => Promise<void>) => {
-      if (!totalAnnualRewardsFiatValue || !estimateFeeResp) {
+      if (!totalAnnualRewardsFiatValue || usePermit2Approve) {
         return onNext();
       }
 
-      const daySpent =
-        Number(estimateFeeResp?.coverFeeSeconds || 0) / 3600 / 24;
+      setApproving(true);
 
-      if (usePermit2Approve || !daySpent || daySpent <= 5) {
+      const response = await fetchEstimateFeeResp(amountValue);
+
+      setApproving(false);
+      if (!response) {
+        return onNext();
+      }
+      const daySpent = Number(response?.coverFeeSeconds || 0) / 3600 / 24;
+
+      if (!daySpent || daySpent <= 5) {
         return onNext();
       }
 
       showEstimateGasAlert({
         daysConsumed: formatStakingDistanceToNowStrict(
-          estimateFeeResp.coverFeeSeconds,
+          response.coverFeeSeconds,
         ),
-        estFiatValue: estimateFeeResp.feeFiatValue,
+        estFiatValue: response.feeFiatValue,
         onConfirm: async (dialogInstance: IDialogInstance) => {
           await dialogInstance.close();
           await onNext();
-        },
-        onCancel: () => {
-          setApproving(false);
         },
       });
     },
     [
       totalAnnualRewardsFiatValue,
-      estimateFeeResp,
       usePermit2Approve,
+      fetchEstimateFeeResp,
+      amountValue,
       showEstimateGasAlert,
     ],
   );
@@ -557,17 +579,18 @@ export function ApproveBaseStake({
   ]);
 
   const showResetUSDTApproveValueDialog = useCallback(() => {
-    Dialog.confirm({
+    Dialog.show({
       onConfirmText: intl.formatMessage({
         id: ETranslations.global_continue,
       }),
-      onClose: () => {
+      showExitButton: false,
+      dismissOnOverlayPress: false,
+      onCancel: () => {
         setApproving(false);
       },
       onConfirm: () => {
         void resetUSDTApproveValue();
       },
-      showCancelButton: true,
       title: intl.formatMessage({
         id: ETranslations.swap_page_provider_approve_usdt_dialog_title,
       }),
@@ -631,7 +654,7 @@ export function ApproveBaseStake({
           });
 
           setTimeout(() => {
-            void fetchEstimateFeeResp(amountValue);
+            void debouncedFetchEstimateFeeResp(amountValue);
           }, 200);
 
           void onSubmit();
@@ -667,7 +690,7 @@ export function ApproveBaseStake({
         trackAllowance(data[0].decodedTx.txid);
         setApproving(false);
         setTimeout(() => {
-          void fetchEstimateFeeResp(amountValue);
+          void debouncedFetchEstimateFeeResp(amountValue);
         }, 200);
       },
       onFail() {
@@ -695,7 +718,7 @@ export function ApproveBaseStake({
     updatePermitCache,
     onSubmit,
     trackAllowance,
-    fetchEstimateFeeResp,
+    debouncedFetchEstimateFeeResp,
   ]);
 
   const placeholderTokens = useMemo(
