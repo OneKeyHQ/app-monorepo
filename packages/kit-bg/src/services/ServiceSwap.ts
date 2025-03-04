@@ -23,7 +23,10 @@ import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { getRequestHeaders } from '@onekeyhq/shared/src/request/Interceptor';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  formatBalance,
+  numberFormat,
+} from '@onekeyhq/shared/src/utils/numberUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -1430,7 +1433,6 @@ export default class ServiceSwap extends ServiceBase {
         order.status === ESwapLimitOrderStatus.OPEN ||
         order.status === ESwapLimitOrderStatus.PRESIGNATURE_PENDING,
     );
-
     openOrders.forEach((openOrder) => {
       const updatedOrder = fetchResult.find(
         (order) => order.orderId === openOrder.orderId,
@@ -1450,6 +1452,18 @@ export default class ServiceSwap extends ServiceBase {
             toToken: openOrder.toTokenInfo,
             status: ESwapTxHistoryStatus.SUCCESS,
           });
+          const executedBuyAmountBN = new BigNumber(
+            openOrder.executedBuyAmount ?? '0',
+          ).shiftedBy(-(openOrder.toTokenInfo?.decimals ?? 0));
+          const formattedExecutedBuyAmount = formatBalance(
+            executedBuyAmountBN.toFixed(),
+          );
+          const executedSellAmountBN = new BigNumber(
+            openOrder.executedSellAmount ?? '0',
+          ).shiftedBy(-(openOrder.fromTokenInfo?.decimals ?? 0));
+          const formattedExecutedSellAmount = formatBalance(
+            executedSellAmountBN.toFixed(),
+          );
           toastTitle = appLocale.intl.formatMessage({
             id: ETranslations.limit_toast_order_filled,
           });
@@ -1458,18 +1472,23 @@ export default class ServiceSwap extends ServiceBase {
               id: ETranslations.limit_toast_order_content,
             },
             {
-              num1: openOrder.executedSellAmount,
-              num2: openOrder.executedBuyAmount,
+              num1: formattedExecutedSellAmount.formattedValue,
+              num2: formattedExecutedBuyAmount.formattedValue,
               token1: openOrder.fromTokenInfo.symbol,
               token2: openOrder.toTokenInfo.symbol,
             },
           );
         }
         if (ESwapLimitOrderStatus.CANCELLED === newStatus) {
+          const fromAmountBN = new BigNumber(
+            openOrder.fromAmount ?? '0',
+          ).shiftedBy(-(openOrder.fromTokenInfo?.decimals ?? 0));
+          const formattedFromAmount = formatBalance(fromAmountBN.toFixed());
+          const toAmountBN = new BigNumber(openOrder.toAmount ?? '0').shiftedBy(
+            -(openOrder.toTokenInfo?.decimals ?? 0),
+          );
+          const formattedToAmount = formatBalance(toAmountBN.toFixed());
           method = 'error';
-          toastTitle = appLocale.intl.formatMessage({
-            id: ETranslations.swap_page_toast_swap_failed,
-          });
           toastTitle = appLocale.intl.formatMessage({
             id: ETranslations.limit_toast_order_cancelled,
           });
@@ -1478,8 +1497,8 @@ export default class ServiceSwap extends ServiceBase {
               id: ETranslations.limit_toast_order_content,
             },
             {
-              num1: openOrder.fromAmount,
-              num2: openOrder.toAmount,
+              num1: formattedFromAmount.formattedValue,
+              num2: formattedToAmount.formattedValue,
               token1: openOrder.fromTokenInfo.symbol,
               token2: openOrder.toTokenInfo.symbol,
             },
@@ -1500,6 +1519,7 @@ export default class ServiceSwap extends ServiceBase {
   async swapLimitOrdersFetchLoop(
     indexedAccountId?: string,
     otherWalletTypeAccountId?: string,
+    isFetchNewOrder?: boolean,
   ) {
     if (this.limitOrderStateInterval) {
       clearTimeout(this.limitOrderStateInterval);
@@ -1537,7 +1557,11 @@ export default class ServiceSwap extends ServiceBase {
       );
       let res: IFetchLimitOrderRes[] = [];
       try {
-        if (!swapLimitOrders.length || openLimitOrders.length > 0) {
+        if (
+          !swapLimitOrders.length ||
+          openLimitOrders.length > 0 ||
+          isFetchNewOrder
+        ) {
           const accounts = swapSupportAccounts.map((account) => ({
             userAddress: account.apiAddress,
             networkId: account.networkId,
@@ -1599,54 +1623,12 @@ export default class ServiceSwap extends ServiceBase {
           }
         }
       } catch (error) {
-        console.error('swap__swapLimitOrdersFetchLoop', error);
         this.limitOrderStateInterval = setTimeout(() => {
           void this.swapLimitOrdersFetchLoop(
             indexedAccountId,
             otherWalletTypeAccountId,
           );
         }, ESwapLimitOrderUpdateInterval);
-      }
-    }
-  }
-
-  @backgroundMethod()
-  async swapLimitOrderFetchNewOrder(
-    indexedAccountId?: string,
-    otherWalletTypeAccountId?: string,
-  ) {
-    const swapSupportNetworks = await this.getCacheSwapSupportNetworks();
-    const swapLimitSupportNetworks = swapSupportNetworks.filter(
-      (item) => item.supportLimit,
-    );
-    const { swapSupportAccounts } = await this.getSupportSwapAllAccounts({
-      indexedAccountId,
-      otherWalletTypeAccountId,
-      swapSupportNetworks: swapLimitSupportNetworks,
-    });
-    if (swapSupportAccounts.length > 0) {
-      let res: IFetchLimitOrderRes[] = [];
-      const accounts = swapSupportAccounts.map((account) => ({
-        userAddress: account.apiAddress,
-        networkId: account.networkId,
-      }));
-      res = await this.fetchLimitOrders(accounts);
-      if (res.length) {
-        await inAppNotificationAtom.set((pre) => {
-          let newList = [...pre.swapLimitOrders];
-          res.forEach((item) => {
-            const index = newList.findIndex((i) => i.orderId === item.orderId);
-            if (index !== -1) {
-              newList[index] = item;
-            } else {
-              newList = [item, ...newList];
-            }
-          });
-          return {
-            ...pre,
-            swapLimitOrders: [...newList],
-          };
-        });
       }
     }
   }

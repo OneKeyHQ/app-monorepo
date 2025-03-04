@@ -163,6 +163,9 @@ function MobileBrowser() {
             position="relative"
             justifyContent="center"
             alignItems="center"
+            $gtSm={{
+              justifyContent: 'space-between',
+            }}
           >
             <BrowserTitle />
 

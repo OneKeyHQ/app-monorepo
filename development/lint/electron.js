@@ -15,7 +15,7 @@ try {
 } catch (error) {
   console.error(error.stdout.toString('utf-8'));
   console.warn(
-    'Need to check if src-electron has imported libraries such as react-native through @onekeyhq/shared or @onekeyhq/kit',
+    'Need to check if app has imported libraries such as react-native through @onekeyhq/shared or @onekeyhq/kit',
   );
   exit(1);
 }

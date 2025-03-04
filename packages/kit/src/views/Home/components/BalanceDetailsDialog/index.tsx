@@ -41,11 +41,13 @@ function BalanceDetailsContent({
   networkId,
   deriveInfoItems,
   indexedAccountId,
+  mergeDeriveAssetsEnabled,
 }: {
   accountId: string;
   networkId: string;
   deriveInfoItems?: IAccountDeriveInfoItems[];
   indexedAccountId?: string;
+  mergeDeriveAssetsEnabled?: boolean;
 }) {
   const [settings, setSettings] = useSettingsPersistAtom();
   const { result } = usePromiseResult(async () => {
@@ -57,6 +59,7 @@ function BalanceDetailsContent({
         {
           networkId,
           indexedAccountId: indexedAccountId ?? '',
+          excludeEmptyAccount: true,
         },
       ),
     ]);
@@ -66,7 +69,8 @@ function BalanceDetailsContent({
         {
           networkId,
           accountId,
-          mergeDeriveAssetsEnabled: vaultSettings?.mergeDeriveAssetsEnabled,
+          mergeDeriveAssetsEnabled:
+            mergeDeriveAssetsEnabled ?? vaultSettings?.mergeDeriveAssetsEnabled,
         },
       );
 
@@ -84,7 +88,13 @@ function BalanceDetailsContent({
       showDeriveItems: s,
       networkAccounts: n,
     };
-  }, [networkId, accountId, indexedAccountId, deriveInfoItems]);
+  }, [
+    networkId,
+    indexedAccountId,
+    accountId,
+    mergeDeriveAssetsEnabled,
+    deriveInfoItems,
+  ]);
 
   const { inscriptionEnabled, showDeriveItems, networkAccounts } = result ?? {};
 
@@ -374,12 +384,14 @@ export const showBalanceDetailsDialog = ({
   networkId,
   indexedAccountId,
   deriveInfoItems,
+  mergeDeriveAssetsEnabled,
   ...dialogProps
 }: IDialogShowProps & {
   accountId: string;
   networkId: string;
   indexedAccountId?: string;
   deriveInfoItems?: IAccountDeriveInfoItems[];
+  mergeDeriveAssetsEnabled?: boolean;
 }) =>
   Dialog.show({
     icon: 'CryptoCoinOutline',
@@ -389,6 +401,7 @@ export const showBalanceDetailsDialog = ({
         networkId={networkId}
         deriveInfoItems={deriveInfoItems}
         indexedAccountId={indexedAccountId}
+        mergeDeriveAssetsEnabled={mergeDeriveAssetsEnabled}
       />
     ),
     showCancelButton: false,

@@ -1,47 +1,8 @@
+const baseElectronBuilderConfig = require('./electron-builder-base.config');
 const DLLs = require('./electron-dll.config');
 
-/* eslint-disable no-template-curly-in-string */
-require('../../development/env');
-
 module.exports = {
-  'extraMetadata': {
-    'main': 'dist/app.js',
-    'version': process.env.VERSION,
-  },
-  'appId': 'so.onekey.wallet.desktop',
-  'productName': 'OneKey',
-  'copyright': 'Copyright © ${author}',
-  'asar': true,
-  'buildVersion': process.env.BUILD_NUMBER,
-  'directories': {
-    'output': 'build-electron',
-  },
-  'files': [
-    'build/**/*',
-    '!build/static/bin/**/*',
-    'dist/**/*.js',
-    '!dist/__**',
-    'package.json',
-  ],
-  'protocols': {
-    'name': 'electron-deep-linking',
-    'schemes': ['onekey-wallet', 'wc', 'ethereum'],
-  },
-  'extraResources': [
-    {
-      'from': 'build/static/images/icons/512x512.png',
-      'to': 'static/images/icons/512x512.png',
-    },
-    {
-      'from': 'build/static/preload.js',
-      'to': 'static/preload.js',
-    },
-  ],
-  'publish': {
-    'provider': 'github',
-    'repo': 'app-monorepo',
-    'owner': 'OneKeyHQ',
-  },
+  ...baseElectronBuilderConfig,
   'dmg': {
     'sign': false,
     'contents': [
@@ -57,22 +18,22 @@ module.exports = {
         'type': 'file',
       },
     ],
-    'icon': 'build/static/images/icons/dmg.icns',
-    'background': 'build/static/images/icons/background.tiff',
+    'icon': 'app/build/static/images/icons/dmg.icns',
+    'background': 'app/build/static/images/icons/background.tiff',
   },
   'nsis': {
     'oneClick': false,
-    'installerSidebar': 'build/static/images/icons/installerSidebar.bmp',
+    'installerSidebar': 'app/build/static/images/icons/installerSidebar.bmp',
     'deleteAppDataOnUninstall': true,
   },
   'mac': {
     'extraResources': [
       {
-        'from': 'build/static/bin/bridge/mac-${arch}',
+        'from': 'app/build/static/bin/bridge/mac-${arch}',
         'to': 'bin/bridge',
       },
     ],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-mac-${arch}.${ext}',
     'hardenedRuntime': true,
     'gatekeeperAssess': false,
@@ -90,12 +51,12 @@ module.exports = {
   'win': {
     'extraResources': [
       {
-        'from': 'build/static/bin/bridge/win-${arch}',
+        'from': 'app/build/static/bin/bridge/win-${arch}',
         'to': 'bin/bridge',
       },
     ],
     'extraFiles': [...DLLs],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-win-${arch}.${ext}',
     'verifyUpdateCodeSignature': false,
     'target': [{ target: 'nsis', arch: ['x64', 'arm64'] }],
@@ -103,15 +64,14 @@ module.exports = {
   'linux': {
     'extraResources': [
       {
-        'from': 'build/static/bin/bridge/linux-${arch}',
+        'from': 'app/build/static/bin/bridge/linux-${arch}',
         'to': 'bin/bridge',
       },
     ],
-    'icon': 'build/static/images/icons/512x512.png',
+    'icon': 'app/build/static/images/icons/512x512.png',
     'artifactName': 'OneKey-Wallet-${version}-linux-${arch}.${ext}',
     'executableName': 'onekey-wallet',
     'category': 'Utility',
     'target': [{ target: 'AppImage', arch: ['x64', 'arm64'] }],
   },
-  'afterSign': 'scripts/notarize.js',
 };
