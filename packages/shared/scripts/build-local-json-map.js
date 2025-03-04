@@ -19,7 +19,6 @@ fs.writeFileSync(
 import enUS from './json/${defaultLocaleJsonFile}';
 
 export const LOCALES = {
-  'en': enUS,
 ${jsonFiles
   .map((file) =>
     file !== defaultLocaleJsonFile
