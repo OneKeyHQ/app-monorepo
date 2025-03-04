@@ -283,7 +283,7 @@ function TokenDetailsView() {
         headerRight={headerRight}
       />
       <Page.Body>{renderTokenDetailsView()}</Page.Body>
-      <TokenDetailsFooter />
+      <TokenDetailsFooter networkId={networkId} />
     </Page>
   );
 }

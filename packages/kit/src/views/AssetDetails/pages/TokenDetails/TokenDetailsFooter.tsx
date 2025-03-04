@@ -20,8 +20,10 @@ import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import { marketNavigation } from '../../../Market/marketUtils';
 
 import { useTokenDetailsContext } from './TokenDetailsContext';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
-function TokenDetailsFooter() {
+function TokenDetailsFooter(props: { networkId: string }) {
+  const { networkId } = props;
   const intl = useIntl();
   const { tokenMetadata } = useTokenDetailsContext();
   const [settings] = useSettingsPersistAtom();
@@ -37,6 +39,10 @@ function TokenDetailsFooter() {
     }
     return '$textSubdued';
   }, [tokenMetadata?.priceChange24h]);
+
+  if (networkUtils.isLightningNetworkByNetworkId(networkId)) {
+    return null;
+  }
 
   return (
     <Page.Footer>

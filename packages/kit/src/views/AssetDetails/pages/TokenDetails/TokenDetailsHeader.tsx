@@ -42,6 +42,7 @@ import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletA
 import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
 import { useTokenDetailsContext } from './TokenDetailsContext';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 function TokenDetailsHeader(props: IProps) {
   const {
@@ -275,42 +276,52 @@ function TokenDetailsHeader(props: IProps) {
             <Stack w={50} />
           </RawActions>
         </Stack>
-        <Divider />
-        <YStack
-          onPress={() =>
-            copyAccountAddress({
-              accountId,
-              networkId,
-            })
-          }
-          px="$5"
-          py="$3"
-          {...listItemPressStyle}
-        >
-          <XStack alignItems="center" justifyContent="space-between" gap="$4">
-            <YStack gap="$1" flex={1}>
-              <SizableText size="$bodyMd" color="$textSubdued">
-                {intl.formatMessage({ id: ETranslations.global_my_address })}
-              </SizableText>
-              <SizableText
-                size="$bodyMd"
-                color="$text"
-                flex={1}
-                flexWrap="wrap"
+        {!networkUtils.isLightningNetworkByNetworkId(networkId) ? (
+          <>
+            <Divider />
+            <YStack
+              onPress={() =>
+                copyAccountAddress({
+                  accountId,
+                  networkId,
+                })
+              }
+              px="$5"
+              py="$3"
+              {...listItemPressStyle}
+            >
+              <XStack
+                alignItems="center"
+                justifyContent="space-between"
+                gap="$4"
               >
-                {accountUtils.isHwWallet({ walletId }) ||
-                accountUtils.isQrWallet({ walletId })
-                  ? accountUtils.shortenAddress({
-                      address: account?.address ?? '',
-                    })
-                  : account?.address}
-              </SizableText>
+                <YStack gap="$1" flex={1}>
+                  <SizableText size="$bodyMd" color="$textSubdued">
+                    {intl.formatMessage({
+                      id: ETranslations.global_my_address,
+                    })}
+                  </SizableText>
+                  <SizableText
+                    size="$bodyMd"
+                    color="$text"
+                    flex={1}
+                    flexWrap="wrap"
+                  >
+                    {accountUtils.isHwWallet({ walletId }) ||
+                    accountUtils.isQrWallet({ walletId })
+                      ? accountUtils.shortenAddress({
+                          address: account?.address ?? '',
+                        })
+                      : account?.address}
+                  </SizableText>
+                </YStack>
+                <Stack width="24" height="24">
+                  <Icon name="Copy3Outline" size="$6" />
+                </Stack>
+              </XStack>
             </YStack>
-            <Stack width="24" height="24">
-              <Icon name="Copy3Outline" size="$6" />
-            </Stack>
-          </XStack>
-        </YStack>
+          </>
+        ) : null}
         {/* History */}
         <Divider mb="$3" />
       </>
