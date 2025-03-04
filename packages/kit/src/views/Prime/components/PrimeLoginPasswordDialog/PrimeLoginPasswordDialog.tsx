@@ -27,8 +27,6 @@ export function PrimeLoginPasswordDialog({
   const isRegister = data?.isRegister;
   const email = data?.email || '';
 
-  // console.log({ isRegister, email });
-
   const form = useForm<{ password: string; confirmPassword: string }>({
     // mode: 'onSubmit',
     reValidateMode: 'onChange',

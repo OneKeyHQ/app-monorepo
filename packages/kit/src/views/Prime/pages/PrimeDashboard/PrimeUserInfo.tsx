@@ -33,10 +33,7 @@ export function PrimeUserInfo({
     >
       <Icon name="PeopleOutline" color="$iconSubdued" size="$5" />
       <SizableText
-        onPress={() => {
-          // console.log(privy?.web?.user);
-          // console.log(privy?.native?.user);
-        }}
+        onPress={() => {}}
         flex={1}
         size="$bodyMdMedium"
         ellipsizeMode="middle"

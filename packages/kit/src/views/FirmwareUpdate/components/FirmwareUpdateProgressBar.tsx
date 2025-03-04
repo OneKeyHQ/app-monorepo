@@ -386,11 +386,7 @@ export function FirmwareUpdateProgressBar({
   const updateProgressRef = useRef(updateProgress);
   updateProgressRef.current = updateProgress;
 
-  // console.log(
-  //   'progressRef.current >>>',
-  //   progressRef.current,
-  //   lastFirmwareTipMessage,
-  // );
+
 
   useEffect(() => {
     console.log('firmwareType>>>>', { firmwareType, prevFirmwareType });
