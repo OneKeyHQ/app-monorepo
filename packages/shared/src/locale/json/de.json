@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "Bestellnummer",
   "Limit.order_history_status_cancel": "Abbrechen",
   "Limit.order_history_status_canceling": "Abbrechen ...",
+  "Limit.order_history_status_partially_filled": "Teilweise gefüllt",
   "Limit.order_history_title": "Bestelldetails",
   "Limit.order_pair": "Paar",
   "Limit.order_status": "Status",

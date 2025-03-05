@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "Mã đơn hàng",
   "Limit.order_history_status_cancel": "Hủy",
   "Limit.order_history_status_canceling": "Đang hủy ...",
+  "Limit.order_history_status_partially_filled": "Đã điền một phần",
   "Limit.order_history_title": "Chi tiết đơn hàng",
   "Limit.order_pair": "Cặp",
   "Limit.order_status": "Trạng thái",

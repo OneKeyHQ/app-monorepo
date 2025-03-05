@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "অর্ডার আইডি",
   "Limit.order_history_status_cancel": "বাতিল করুন",
   "Limit.order_history_status_canceling": "বাতিল করা হচ্ছে ...",
+  "Limit.order_history_status_partially_filled": "আংশিকভাবে ভরা",
   "Limit.order_history_title": "অর্ডারের বিস্তারিত",
   "Limit.order_pair": "জোড়া",
   "Limit.order_status": "অবস্থা",

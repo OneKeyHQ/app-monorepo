@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "注文ID",
   "Limit.order_history_status_cancel": "キャンセル",
   "Limit.order_history_status_canceling": "キャンセル中...",
+  "Limit.order_history_status_partially_filled": "部分的に埋められた",
   "Limit.order_history_title": "注文の詳細",
   "Limit.order_pair": "ペア",
   "Limit.order_status": "ステータス",
