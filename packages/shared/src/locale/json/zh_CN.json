@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "限价单没有滑点。但考虑网络成本，当前的订单可能无法在该挂单价成交",
   "limit.order_card_network": "网络:",
   "limit.place_order": "查看限价单",
+  "limit.relative_to_market": "相对于市价:",
   "limit.toast_order_cancelled": "订单已取消",
   "limit.toast_order_content": "卖出 {num1} {token1} 买入 {num2} {token2}",
   "limit.toast_order_filled": "订单已成交",

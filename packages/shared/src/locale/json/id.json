@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "Pesanan limit tidak memiliki slippage, tetapi pertimbangkan biaya jaringan. Kemungkinan besar tidak akan terpenuhi pada batasan harga saat ini.",
   "limit.order_card_network": "Jaringan:",
   "limit.place_order": "Tinjau batas pesanan",
+  "limit.relative_to_market": "Relatif terhadap harga pasar:",
   "limit.toast_order_cancelled": "Pesanan dibatalkan",
   "limit.toast_order_content": "Jual {num1} {token1} untuk {num2} {token2}",
   "limit.toast_order_filled": "Pesanan terpenuhi",

@@ -1398,6 +1398,7 @@
   limit_network_cost_dialog_content = 'limit.network_cost_dialog_content',
   limit_order_card_network = 'limit.order_card_network',
   limit_place_order = 'limit.place_order',
+  limit_relative_to_market = 'limit.relative_to_market',
   limit_toast_order_cancelled = 'limit.toast_order_cancelled',
   limit_toast_order_content = 'limit.toast_order_content',
   limit_toast_order_filled = 'limit.toast_order_filled',

@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "指値注文にはスリッページがありませんが、ネットワークコストを考慮してください。現在の指値レートで埋まる可能性は低いです。",
   "limit.order_card_network": "ネットワーク：",
   "limit.place_order": "指値注文を確認",
+  "limit.relative_to_market": "市場価格に対して：",
   "limit.toast_order_cancelled": "注文がキャンセルされました",
   "limit.toast_order_content": "{num1} {token1}を{num2} {token2}で売る",
   "limit.toast_order_filled": "注文が完了しました",

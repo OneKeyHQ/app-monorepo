@@ -13,47 +13,16 @@ import {
   Toast,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
+import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
-
-function RenameInputWithNameSelector({
-  value,
-  onChange,
-  maxLength,
-}: {
-  maxLength?: number;
-  value?: string;
-  onChange?: (val: string) => void;
-}) {
-  const intl = useIntl();
-
-  return (
-    <>
-      <Stack>
-        <Input
-          size="large"
-          $gtMd={{ size: 'medium' }}
-          maxLength={maxLength}
-          autoFocus
-          value={value}
-          onChangeText={onChange}
-        />
-      </Stack>
-      {/* {disabledMaxLengthLabel ? null : (
-        <Form.FieldDescription textAlign="right">{`${
-          value?.length || 0
-        }/${maxLength}`}</Form.FieldDescription>
-      )} */}
-      <Form.FieldDescription>
-        {intl.formatMessage({
-          id: ETranslations.global_hardware_label_desc,
-        })}
-      </Form.FieldDescription>
-    </>
-  );
-}
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 
 function DeviceLabelDialogContent(props: {
   wallet: IDBWallet | undefined;
@@ -88,7 +57,7 @@ function DeviceLabelDialogContent(props: {
     );
   }
 
-  const maxLength = 32;
+  const maxLength = MAX_LENGTH_HW_LABEL_NAME;
 
   return (
     <>
@@ -130,7 +99,18 @@ function DeviceLabelDialogContent(props: {
             },
           }}
         >
-          <RenameInputWithNameSelector maxLength={maxLength} />
+          <RenameInputWithNameSelector
+            disabledMaxLengthLabel
+            maxLength={maxLength}
+            description={intl.formatMessage({
+              id: ETranslations.global_hardware_label_desc,
+            })}
+            nameHistoryInfo={{
+              entityId: wallet?.id || '',
+              entityType: EChangeHistoryEntityType.Wallet,
+              contentType: EChangeHistoryContentType.Name,
+            }}
+          />
         </Dialog.FormField>
       </Dialog.Form>
       <Dialog.Footer

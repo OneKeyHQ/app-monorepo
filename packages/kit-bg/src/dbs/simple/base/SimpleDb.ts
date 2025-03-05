@@ -10,6 +10,7 @@ import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowser
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
 import { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
@@ -113,4 +114,6 @@ export class SimpleDb {
   appStatus = new SimpleDbEntityAppStatus();
 
   allNetworks = new SimpleDbEntityAllNetworks();
+
+  changeHistory = new SimpleDbEntityChangeHistory();
 }
