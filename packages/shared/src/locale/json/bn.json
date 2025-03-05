@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "লিমিট অর্ডারে কোনো স্লিপেজ নেই, তবে নেটওয়ার্ক খরচ বিবেচনা করুন। বর্তমান লিমিট রেটে এটি পূরণ হওয়ার সম্ভাবনা কম।",
   "limit.order_card_network": "নেটওয়ার্ক:",
   "limit.place_order": "সীমা আদেশ পর্যালোচনা করুন",
+  "limit.relative_to_market": "বাজার মূল্যের তুলনায়:",
   "limit.toast_order_cancelled": "অর্ডার বাতিল করা হয়েছে",
   "limit.toast_order_content": "{num1} {token1} বিক্রি করুন {num2} {token2} এর জন্য",
   "limit.toast_order_filled": "অর্ডার পূর্ণ হয়েছে",

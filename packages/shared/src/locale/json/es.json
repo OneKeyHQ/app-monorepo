@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "La orden limitada no tiene deslizamiento, pero considere los costos de la red. Es poco probable que se ejecute al tipo de límite actual.",
   "limit.order_card_network": "Red:",
   "limit.place_order": "Revisar orden límite",
+  "limit.relative_to_market": "Relativo al precio de mercado:",
   "limit.toast_order_cancelled": "Pedido cancelado",
   "limit.toast_order_content": "Vender {num1} {token1} por {num2} {token2}",
   "limit.toast_order_filled": "Pedido completado",

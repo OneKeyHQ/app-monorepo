@@ -1393,6 +1393,7 @@
   "limit.network_cost_dialog_content": "L'ordine limite non ha slippage, ma considera i costi di rete. È improbabile che venga eseguito al tasso limite attuale.",
   "limit.order_card_network": "Rete:",
   "limit.place_order": "Rivedi ordine limite",
+  "limit.relative_to_market": "Rispetto al prezzo di mercato:",
   "limit.toast_order_cancelled": "Ordine annullato",
   "limit.toast_order_content": "Vendi {num1} {token1} per {num2} {token2}",
   "limit.toast_order_filled": "Ordine evaso",

@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
@@ -8,6 +9,12 @@ import type {
   IDBIndexedAccount,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
+
+import type { CompositeNavigationProp } from '@react-navigation/native';
 
 export function AccountRenameButton({
   name,
@@ -21,6 +28,7 @@ export function AccountRenameButton({
   onClose: () => void;
 }) {
   const intl = useIntl();
+  const navigation = useNavigation<CompositeNavigationProp<any, any>>();
   const { serviceAccount } = backgroundApiProxy;
 
   return (
@@ -31,6 +39,13 @@ export function AccountRenameButton({
       onPress={async () => {
         showRenameDialog(name, {
           indexedAccount,
+          nameHistoryInfo: {
+            entityId: indexedAccount?.id || account?.id || '',
+            entityType: indexedAccount?.id
+              ? EChangeHistoryEntityType.IndexedAccount
+              : EChangeHistoryEntityType.Account,
+            contentType: EChangeHistoryContentType.Name,
+          },
           onSubmit: async (newName) => {
             if (indexedAccount?.id && newName) {
               await serviceAccount.setAccountName({

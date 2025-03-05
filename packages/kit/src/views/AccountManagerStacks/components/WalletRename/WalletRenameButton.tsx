@@ -1,13 +1,33 @@
-import { Icon, SizableText, XStack } from '@onekeyhq/components';
+import { useNavigation } from '@react-navigation/native';
+import { useIntl } from 'react-intl';
+
+import {
+  Button,
+  Icon,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { showLabelSetDialog as showHardwareLabelSetDialog } from './HardwareLabelSetDialog';
 
+import type { CompositeNavigationProp } from '@react-navigation/native';
+
 export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
   const { serviceAccount } = backgroundApiProxy;
+  const navigation = useNavigation<CompositeNavigationProp<any, any>>();
+  const intl = useIntl();
+
   return (
     <XStack
       flex={1}
@@ -53,6 +73,11 @@ export function WalletRenameButton({ wallet }: { wallet: IDBWallet }) {
           );
         } else {
           showRenameDialog(wallet.name, {
+            nameHistoryInfo: {
+              entityId: wallet.id,
+              entityType: EChangeHistoryEntityType.Wallet,
+              contentType: EChangeHistoryContentType.Name,
+            },
             disabledMaxLengthLabel: true,
             onSubmit: async (name) => {
               if (wallet?.id && name) {

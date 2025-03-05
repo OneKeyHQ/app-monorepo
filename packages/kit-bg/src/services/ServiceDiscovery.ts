@@ -16,6 +16,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  IChangeHistoryItem,
+  IChangeHistoryUpdateItem,
+} from '@onekeyhq/shared/src/types/changeHistory';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
@@ -358,8 +366,41 @@ class ServiceDiscovery extends ServiceBase {
 
   @backgroundMethod()
   async setBrowserBookmarks(bookmarks: IBrowserBookmark[]) {
+    // Get current bookmarks to compare for changes
+    const currentData =
+      await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
+
+    // Save the updated bookmarks
     await this.backgroundApi.simpleDb.browserBookmarks.setRawData({
       data: bookmarks,
+    });
+
+    const currentBookmarks = currentData?.data || [];
+    const currentBookmarksMap = new Map(
+      currentBookmarks.map((i) => [i.url, i]),
+    );
+
+    const items: IChangeHistoryUpdateItem[] = [];
+    // Check for title changes and record history
+    for (const newBookmark of bookmarks) {
+      const oldBookmark = currentBookmarksMap.get(newBookmark.url);
+      if (oldBookmark && oldBookmark.title !== newBookmark.title) {
+        // Generate a stable ID based on URL for the bookmark
+        const bookmarkId = newBookmark.url;
+
+        items.push({
+          entityType: EChangeHistoryEntityType.BrowserBookmark,
+          entityId: bookmarkId,
+          contentType: EChangeHistoryContentType.Name,
+          oldValue: oldBookmark.title,
+          value: newBookmark.title,
+        });
+      }
+    }
+
+    // Record history for title change
+    await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+      items,
     });
   }
 
