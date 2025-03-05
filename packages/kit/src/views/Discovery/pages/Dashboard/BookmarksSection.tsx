@@ -58,9 +58,7 @@ export function BookmarksSection({
   // Set up listener for bookmark list refresh event
   useEffect(() => {
     const refreshBookmarkHandler = () => {
-      setInterval(() => {
-        void refreshLocalData();
-      }, 1000);
+      void refreshLocalData();
     };
 
     appEventBus.on(
