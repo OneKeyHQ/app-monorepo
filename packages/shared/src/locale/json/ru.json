@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "Идентификатор заказа",
   "Limit.order_history_status_cancel": "Отмена",
   "Limit.order_history_status_canceling": "Отмена ...",
+  "Limit.order_history_status_partially_filled": "Частично заполнено",
   "Limit.order_history_title": "Подробности заказа",
   "Limit.order_pair": "Пара",
   "Limit.order_status": "Статус",

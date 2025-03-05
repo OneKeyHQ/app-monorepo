@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "आदेश कामतत्व",
   "Limit.order_history_status_cancel": "रद्द करें",
   "Limit.order_history_status_canceling": "रद्द कर रहा है ...",
+  "Limit.order_history_status_partially_filled": "आंशिक रूप से भरा हुआ",
   "Limit.order_history_title": "ऑर्डर विवरण",
   "Limit.order_pair": "जोड़ी",
   "Limit.order_status": "स्थिति",

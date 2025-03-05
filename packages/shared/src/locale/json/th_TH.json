@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "หมายเลขคำสั่งซื้อ",
   "Limit.order_history_status_cancel": "ยกเลิก",
   "Limit.order_history_status_canceling": "กำลังยกเลิก ...",
+  "Limit.order_history_status_partially_filled": "เติมเพียงบางส่วน",
   "Limit.order_history_title": "รายละเอียดการสั่งซื้อ",
   "Limit.order_pair": "คู่",
   "Limit.order_status": "สถานะ",

@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "ID Pesanan",
   "Limit.order_history_status_cancel": "Batalkan",
   "Limit.order_history_status_canceling": "Membatalkan ...",
+  "Limit.order_history_status_partially_filled": "Terisi sebagian",
   "Limit.order_history_title": "Detail pesanan",
   "Limit.order_pair": "Pasangan",
   "Limit.order_status": "Status",

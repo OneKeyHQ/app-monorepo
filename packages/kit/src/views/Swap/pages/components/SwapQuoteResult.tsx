@@ -22,6 +22,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenMetadataAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   useSettingsAtom,
@@ -31,6 +32,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EProtocolOfExchange,
   ESwapLimitOrderExpiryStep,
+  ESwapTabSwitchType,
   type IFetchQuoteResult,
   type ISwapToken,
   type ISwapTokenMetadata,
@@ -76,6 +78,7 @@ const SwapQuoteResult = ({
     useSwapLimitPartiallyFillAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
 
@@ -235,7 +238,9 @@ const SwapQuoteResult = ({
     quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
     !quoteResult?.isWrapped
   ) {
-    return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
+    return !quoteResult?.shouldWrappedToken &&
+      quoteResult?.info.provider &&
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
       <YStack gap="$3">
         <SwapProviderInfoItem
           providerIcon={quoteResult?.info.providerLogo ?? ''}
@@ -253,6 +258,35 @@ const SwapQuoteResult = ({
               : undefined
           }
         />
+        {quoteResult?.fee?.estimatedFeeFiatValue &&
+        quoteResult?.networkCostBuyAmount ? (
+          <SwapCommonInfoItem
+            title={intl.formatMessage({
+              id: ETranslations.swap_page_provider_est_network_fee,
+            })}
+            isLoading={swapQuoteLoading}
+            valueComponent={
+              <>
+                <NumberSizeableText size="$bodyMdMedium" formatter="value">
+                  {quoteResult.networkCostBuyAmount}
+                </NumberSizeableText>
+                <SizableText mr="$1" size="$bodyMdMedium">
+                  {quoteResult.toTokenInfo.symbol}
+                </SizableText>
+                <SizableText size="$bodyMdMedium">(</SizableText>
+                <NumberSizeableText
+                  formatter="value"
+                  formatterOptions={{
+                    currency: settingsPersistAtom.currencyInfo.symbol,
+                  }}
+                >
+                  {quoteResult.fee?.estimatedFeeFiatValue}
+                </NumberSizeableText>
+                <SizableText size="$bodyMdMedium">)</SizableText>
+              </>
+            }
+          />
+        ) : null}
         <LimitExpirySelect
           currentSelectExpiryValue={swapLimitExpirySelect}
           onSelectExpiryValue={setSwapLimitExpirySelect}
@@ -267,6 +301,7 @@ const SwapQuoteResult = ({
     ) : null;
   }
   if (
+    swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
     fromToken &&
     toToken &&
     !new BigNumber(fromAmountDebounce.value).isZero() &&
