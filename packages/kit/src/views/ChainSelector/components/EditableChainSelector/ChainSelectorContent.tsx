@@ -406,13 +406,7 @@ export const EditableChainSelectorContent = ({
               ListHeaderComponent={ListHeaderComponent}
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={
-                function FooterComponent() {
-                  return (
-                    <>
-                      {isEditMode ? <Stack h="$2" /> : <Stack h={bottom || '$2'} />}
-                    </>
-                  );
-                }
+                <Stack h={isEditMode ? "$2" : bottom || "$2"} />
               } // Act as padding bottom
             />
           ) : (
