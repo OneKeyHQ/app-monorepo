@@ -160,6 +160,8 @@ export function Banner<T extends IBannerData>({
             width="100%"
             jc="center"
             bottom="$2"
+            opacity={isHovering ? 1 : 0.7}
+            animation="quick"
             {...indicatorContainerStyle}
           >
             {data.map((_, index) => (
@@ -203,6 +205,7 @@ export function Banner<T extends IBannerData>({
             onPress={() => {
               onBannerClose?.(data[currentIndex]?.bannerId ?? '');
             }}
+            isHovering={isHovering}
           />
         ) : null}
       </>

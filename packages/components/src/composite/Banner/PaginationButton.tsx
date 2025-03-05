@@ -12,10 +12,12 @@ export function PaginationButton({
   direction,
   onPress,
   isVisible,
+  isHovering,
 }: {
   direction: 'previous' | 'next';
   onPress: () => void;
   isVisible: boolean;
+  isHovering?: boolean;
 }) {
   const icon =
     direction === 'previous' ? 'ChevronLeftOutline' : 'ChevronRightOutline';
@@ -42,6 +44,7 @@ export function PaginationButton({
           justifyContent: 'center',
           alignItems: 'center',
           ...positionStyle,
+          opacity: isHovering ? 1 : 0.7,
         },
       ]}
     >
@@ -50,6 +53,7 @@ export function PaginationButton({
         variant="primary"
         icon={icon}
         onPress={onPress}
+        animation="quick"
       />
     </Animated.View>
   );

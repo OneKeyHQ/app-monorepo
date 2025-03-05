@@ -2,7 +2,10 @@ import * as React from 'react';
 
 import { IconButton } from '@onekeyhq/components';
 
-const CloseButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
+const CloseButton: React.FC<{ onPress: () => void; isHovering?: boolean }> = ({
+  onPress,
+  isHovering,
+}) => (
   <IconButton
     size="small"
     variant="tertiary"
@@ -14,6 +17,8 @@ const CloseButton: React.FC<{ onPress: () => void }> = ({ onPress }) => (
     aria-label="Close"
     iconProps={{
       color: '$whiteA10',
+      opacity: isHovering ? 1 : 0.7,
+      animation: 'quick',
     }}
   />
 );
