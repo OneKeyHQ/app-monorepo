@@ -7,6 +7,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { IconButton } from '../../actions';
+import { useHoverOpacity } from '../../hooks/useHoverOpacity';
 
 export function PaginationButton({
   direction,
@@ -22,6 +23,7 @@ export function PaginationButton({
   const icon =
     direction === 'previous' ? 'ChevronLeftOutline' : 'ChevronRightOutline';
   const positionStyle = direction === 'previous' ? { left: 8 } : { right: 8 };
+  const hoverOpacity = useHoverOpacity(isHovering);
 
   const opacity = useSharedValue(isVisible ? 1 : 0);
 
@@ -44,7 +46,6 @@ export function PaginationButton({
           justifyContent: 'center',
           alignItems: 'center',
           ...positionStyle,
-          opacity: isHovering ? 1 : 0.7,
         },
       ]}
     >
@@ -53,7 +54,7 @@ export function PaginationButton({
         variant="primary"
         icon={icon}
         onPress={onPress}
-        animation="quick"
+        iconProps={hoverOpacity}
       />
     </Animated.View>
   );
