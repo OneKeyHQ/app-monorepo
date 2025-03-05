@@ -405,11 +405,11 @@ export const EditableChainSelectorContent = ({
               }}
               ListHeaderComponent={ListHeaderComponent}
               renderSectionHeader={renderSectionHeader}
-              ListFooterComponent={
+              ListFooterComponent={() => (
                 <>
                   {isEditMode ? <Stack h="$2" /> : <Stack h={bottom || '$2'} />}
                 </>
-              } // Act as padding bottom
+              )} // Act as padding bottom
             />
           ) : (
             <ListEmptyComponent />
