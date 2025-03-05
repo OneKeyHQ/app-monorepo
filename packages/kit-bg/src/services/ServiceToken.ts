@@ -34,6 +34,7 @@ import ServiceBase from './ServiceBase';
 
 import type { IDBAccount } from '../dbs/local/types';
 import type { ISimpleDBLocalTokens } from '../dbs/simple/entity/SimpleDbEntityLocalTokens';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 @backgroundClass()
 class ServiceToken extends ServiceBase {
@@ -392,6 +393,22 @@ class ServiceToken extends ServiceBase {
     return vault.fillTokensDetails({
       tokensDetails: resp.data.data,
     });
+  }
+
+  @backgroundMethod()
+  public async fetchTokenInfoOnly(
+    params: Pick<IFetchTokenDetailParams, 'networkId' | 'contractList'>,
+  ) {
+    const { networkId, contractList } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+      '/wallet/v1/account/token/search',
+      {
+        networkId,
+        contractList,
+      },
+    );
+    return resp.data.data;
   }
 
   @backgroundMethod()
