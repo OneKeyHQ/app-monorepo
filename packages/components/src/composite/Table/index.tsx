@@ -2,7 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
+import { globalRef } from './globalRef';
 import { getTokenValue, useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';

@@ -234,7 +234,7 @@ function BaseSortableSectionList<T>(
           });
         }
         default: {
-          break;
+          return null;
         }
       }
     },
