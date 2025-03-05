@@ -415,7 +415,7 @@ class ServiceHistory extends ServiceBase {
       const localHistoryPendingTxs =
         await this.getAccountsLocalHistoryPendingTxs(allNetworksParams);
 
-      const result = unionBy(
+      let result = unionBy(
         [
           ...localHistoryPendingTxs,
           ...localHistoryConfirmedTxs.sort(
@@ -433,6 +433,14 @@ class ServiceHistory extends ServiceBase {
           networkId: tx.decodedTx.networkId,
         });
         tx.decodedTx.networkLogoURI = network.logoURI;
+      }
+
+      if (filterScam) {
+        result = result.filter(
+          (tx) =>
+            !tx.decodedTx.riskyLevel ||
+            tx.decodedTx.riskyLevel <= TX_RISKY_LEVEL_SPAM,
+        );
       }
 
       return result;

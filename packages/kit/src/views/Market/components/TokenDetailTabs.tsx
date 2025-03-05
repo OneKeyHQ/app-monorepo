@@ -3,7 +3,14 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { RefreshControl, Stack, Tab, useMedia } from '@onekeyhq/components';
+import {
+  EPageType,
+  RefreshControl,
+  Stack,
+  Tab,
+  useMedia,
+  usePageType,
+} from '@onekeyhq/components';
 import type { IDeferredPromise, ITabPageProps } from '@onekeyhq/components';
 import type { ITabInstance } from '@onekeyhq/components/src/layouts/TabView/StickyTabComponent/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -32,7 +39,9 @@ function BasicTokenDetailTabs({
   coinGeckoId: string;
 }) {
   const intl = useIntl();
-  const { md } = useMedia();
+  const pageType = usePageType();
+  const { md: mdMedia } = useMedia();
+  const md = pageType === EPageType.modal ? true : mdMedia;
 
   useEffect(() => {
     setTimeout(() => {
@@ -149,12 +158,20 @@ function BasicTokenDetailTabs({
       refreshControl={
         <RefreshControl refreshing={!!isRefreshing} onRefresh={onRefresh} />
       }
-      $gtMd={{ pr: '$5' }}
+      $gtMd={{ pr: pageType === EPageType.modal ? 0 : '$5' }}
       $md={{ mt: '$5' }}
+      {...(pageType === EPageType.modal ? { mt: '$5' } : null)}
       data={tabConfig}
       disableRefresh
       ListHeaderComponent={
-        <Stack mb="$5" onLayout={handleMount} h={150} $gtMd={{ h: 450 }}>
+        <Stack
+          mb="$5"
+          onLayout={handleMount}
+          h={150}
+          $gtMd={{
+            ...(pageType === EPageType.modal ? null : { h: 450 }),
+          }}
+        >
           {listHeaderComponent}
           {/* {pools ? null : (
             <YStack $gtMd={{ px: '$5' }}>{renderPoolSkeleton}</YStack>

@@ -1,7 +1,7 @@
 import * as Linking from 'expo-linking';
 import { isString } from 'lodash';
 
-import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/app';
+import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import type { IEOneKeyDeepLinkParams } from '@onekeyhq/shared/src/consts/deeplinkConsts';
 import {

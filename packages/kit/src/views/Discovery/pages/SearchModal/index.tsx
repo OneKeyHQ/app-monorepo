@@ -65,11 +65,11 @@ function SearchModal() {
     usePromiseResult(async () => {
       const bookmarkData = await serviceDiscovery.getBookmarkData({
         generateIcon: true,
-        sliceCount: 8,
+        sliceCount: 6,
       });
       const historyData = await serviceDiscovery.getHistoryData({
         generateIcon: true,
-        sliceCount: 8,
+        sliceCount: 6,
         keyword: searchValue ?? undefined,
       });
       return {

@@ -68,7 +68,10 @@ import type {
   INetworkAccount,
   IQrWalletAirGapAccountsInfo,
 } from '@onekeyhq/shared/types/account';
-import type { IOneKeyDeviceFeatures } from '@onekeyhq/shared/types/device';
+import type {
+  IDeviceVersionCacheInfo,
+  IOneKeyDeviceFeatures,
+} from '@onekeyhq/shared/types/device';
 import type {
   ICreateConnectedSiteParams,
   ICreateSignedMessageParams,
@@ -619,30 +622,41 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async getWallet({
     refilledWalletsCache,
     walletId,
+    withoutRefill,
   }: {
     refilledWalletsCache?: {
       [walletId: string]: IDBWallet;
     };
     walletId: string;
+    withoutRefill?: boolean;
   }): Promise<IDBWallet> {
     const wallet = await this.getRecordById({
       name: ELocalDBStoreNames.Wallet,
       id: walletId,
     });
+    if (withoutRefill) {
+      return wallet;
+    }
     return this.refillWalletInfo({ wallet, refilledWalletsCache });
   }
 
   async getWalletSafe({
     refilledWalletsCache,
     walletId,
+    withoutRefill,
   }: {
     refilledWalletsCache?: {
       [walletId: string]: IDBWallet;
     };
     walletId: string;
+    withoutRefill?: boolean;
   }): Promise<IDBWallet | undefined> {
     try {
-      return await this.getWallet({ walletId, refilledWalletsCache });
+      return await this.getWallet({
+        walletId,
+        refilledWalletsCache,
+        withoutRefill,
+      });
     } catch (error) {
       return undefined;
     }
@@ -1403,6 +1417,54 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
+  async updateDeviceFeaturesPassphraseProtection({
+    dbDeviceId,
+    passphraseProtection,
+  }: {
+    dbDeviceId: string;
+    passphraseProtection: boolean;
+  }) {
+    const device = await this.getDevice(dbDeviceId);
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.features = JSON.stringify({
+            ...device.featuresInfo,
+            passphrase_protection: passphraseProtection,
+          });
+          return item;
+        },
+      });
+    });
+  }
+
+  async updateDeviceVersionInfo({
+    dbDeviceId,
+    versionCacheInfo,
+  }: {
+    dbDeviceId: string;
+    versionCacheInfo: IDeviceVersionCacheInfo;
+  }) {
+    const device = await this.getDevice(dbDeviceId);
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Device,
+        ids: [dbDeviceId],
+        updater: async (item) => {
+          item.features = JSON.stringify({
+            ...device.featuresInfo,
+            ...versionCacheInfo,
+          });
+          return item;
+        },
+      });
+    });
+  }
+
   async fixHiddenWalletName({
     dbDeviceId,
     dbWalletId,
@@ -2078,13 +2140,24 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     if (params.shouldCheckDuplicate && params.name) {
       const { wallets } = await this.getAllWallets();
-      const duplicateWallet = wallets.find(
-        (item) =>
+      const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
+      const duplicateWallets = wallets.filter((item) => {
+        let r =
           !accountUtils.isOthersWallet({ walletId: item.id }) &&
           item.id !== walletId &&
-          item.name === params.name,
-      );
-      if (duplicateWallet) {
+          !item.isTemp &&
+          item.name === params.name;
+
+        if (isHiddenWallet) {
+          r =
+            r &&
+            item.associatedDevice === wallet.associatedDevice &&
+            item.type === wallet.type;
+        }
+
+        return r;
+      });
+      if (duplicateWallets.length) {
         throw new RenameDuplicateNameError();
       }
     }

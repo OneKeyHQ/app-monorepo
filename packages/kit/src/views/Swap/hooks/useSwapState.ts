@@ -25,6 +25,7 @@ import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapSlippageSegmentKey,
+  ESwapTabSwitchType,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -61,7 +62,6 @@ function useSwapWarningCheck() {
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
-  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const refContainer = useRef<ISwapCheckWarningDef>({
     swapFromAddressInfo: {
       address: undefined,
@@ -168,6 +168,8 @@ export function useSwapActionState() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
+  const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
+  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
@@ -207,7 +209,10 @@ export function useSwapActionState() {
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
-      label: intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
+      label:
+        swapTypeSwitchValue === ESwapTabSwitchType.LIMIT
+          ? intl.formatMessage({ id: ETranslations.limit_place_order })
+          : intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
     };
     if (
       !swapFromAddressInfo.address ||
@@ -249,7 +254,15 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-
+      if (
+        quoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
+        !quoteCurrentSelect.isWrapped &&
+        !quoteCurrentSelect.allowanceResult
+      ) {
+        if (!swapUseLimitPrice.rate) {
+          infoRes.disable = true;
+        }
+      }
       if (
         quoteCurrentSelect &&
         quoteCurrentSelect.toAmount &&
@@ -295,21 +308,23 @@ export function useSwapActionState() {
     }
     return infoRes;
   }, [
-    fromToken,
-    fromTokenAmount,
     hasError,
-    intl,
-    isCrossChain,
-    isRefreshQuote,
     quoteCurrentSelect,
-    quoteEventFetching,
-    quoteLoading,
-    quoteResultNoMatchDebounce,
-    selectedFromTokenBalance,
-    isBatchTransfer,
+    swapTypeSwitchValue,
+    intl,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
+    fromTokenAmount,
+    quoteLoading,
+    quoteEventFetching,
+    isCrossChain,
+    fromToken,
     toToken,
+    selectedFromTokenBalance,
+    isRefreshQuote,
+    quoteResultNoMatchDebounce,
+    isBatchTransfer,
+    swapUseLimitPrice.rate,
   ]);
 
   const stepState: ISwapState = {

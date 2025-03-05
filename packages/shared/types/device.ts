@@ -339,3 +339,9 @@ export interface IDeviceVerifyVersionCompareResult {
     releaseUrl?: string;
   };
 }
+
+export type IDeviceVersionCacheInfo = {
+  onekey_firmware_version: string | undefined;
+  onekey_ble_version: string | undefined;
+  onekey_boot_version: string | undefined;
+};

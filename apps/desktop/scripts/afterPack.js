@@ -1,7 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { FuseVersion, FuseV1Options } = require('@electron/fuses');
 
 exports.default = async function fileOperation(context) {
+  // https://www.electron.build/app-builder-lib.typealias.electronplatformname
+  // ElectronPlatformName: "darwin" | "linux" | "win32" | "mas"
   const { electronPlatformName, appOutDir } = context;
   const appName = context.packager.appInfo.productFilename;
   if (electronPlatformName === 'mas' && appOutDir.endsWith('universal')) {
@@ -9,7 +12,7 @@ exports.default = async function fileOperation(context) {
     const destDir = path.join(appPath, 'Contents/Resources/bin/bridge');
     const originPath = path.join(
       __dirname,
-      '../build/static/bin/bridge/mac-x64',
+      '../app/build/static/bin/bridge/mac-x64',
     );
     console.log('copy file start..', originPath);
     fs.mkdirSync(destDir, { recursive: true });
@@ -34,5 +37,12 @@ exports.default = async function fileOperation(context) {
       fs.rmSync(keccakFilePath, { recursive: true });
     }
     console.log('remove file finish..');
+  }
+
+  if (electronPlatformName === 'darwin') {
+    await context.packager.addElectronFuses(context, {
+      version: FuseVersion.V1,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+    });
   }
 };

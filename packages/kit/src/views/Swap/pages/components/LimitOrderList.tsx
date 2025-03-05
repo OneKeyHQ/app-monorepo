@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import {
   Dialog,
   Empty,
-  Heading,
   SectionList,
   SizableText,
   Skeleton,
@@ -47,13 +46,18 @@ const LimitOrderList = ({
 }: ILimitOrderListProps) => {
   const { gtMd } = useMedia();
   const intl = useIntl();
-  const [cancelLoading, setCancelLoading] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState<Record<string, boolean>>(
+    {},
+  );
   const { cancelLimitOrder } = useSwapBuildTx();
   const [{ swapLimitOrders }] = useInAppNotificationAtom();
   const runCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {
       try {
-        setCancelLoading(true);
+        setCancelLoading((prev) => ({
+          ...prev,
+          [item.orderId]: true,
+        }));
         await cancelLimitOrder(item);
       } catch (error) {
         console.error(error);
@@ -63,7 +67,10 @@ const LimitOrderList = ({
           }),
         });
       } finally {
-        setCancelLoading(false);
+        setCancelLoading((prev) => ({
+          ...prev,
+          [item.orderId]: false,
+        }));
       }
     },
     [cancelLimitOrder, intl],
@@ -97,7 +104,7 @@ const LimitOrderList = ({
     ({ item }: { item: IFetchLimitOrderRes }) => (
       <LimitOrderListItem
         item={item}
-        cancelLoading={cancelLoading}
+        cancelLoading={cancelLoading[item.orderId]}
         onClickCell={onClickCell}
         onCancel={onCancel}
       />

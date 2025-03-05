@@ -845,6 +845,7 @@ function SendDataInputContainer() {
                   showBalanceDetailsDialog({
                     accountId: currentAccount.accountId,
                     networkId: currentAccount.networkId,
+                    mergeDeriveAssetsEnabled: false,
                   });
                 },
               },
