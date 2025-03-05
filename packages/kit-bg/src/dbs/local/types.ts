@@ -150,6 +150,7 @@ export type IDBWallet = IDBBaseObjectWithName & {
   xfp?: string; // qr wallet only
   airGapAccountsInfoRaw?: string;
   airGapAccountsInfo?: IQrWalletAirGapAccountsInfo;
+  deprecated?: boolean; // hw wallet only
 };
 export type IDBCreateHDWalletParams = {
   password: string;

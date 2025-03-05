@@ -565,6 +565,20 @@ function ConnectByUSBOrBLE({
             }),
           });
         }
+        // TODO: 判断是否有 connectId 相同，deviceId 不同的设备或钱包
+        // 如果有的话，给钱包或设备打上 Tag
+        const r = await actions.current.checkHwWalletExistWithSameDevice({
+          connectId: device.connectId ?? '',
+          deviceId: device.deviceId ?? '',
+        });
+        console.log(
+          '=====>>>>> checkHwWalletExistWithSameDevice>>>>> result: ===> ',
+          r,
+        );
+        await actions.current.updateWalletsDeprecated({
+          walletIds: r.walletsWithSameConnectId.map((w) => w.wallet.id),
+          isDeprecated: true,
+        });
       } catch (error) {
         errorToastUtils.toastIfError(error);
         navigation.pop();

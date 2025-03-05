@@ -279,7 +279,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllHwQrWalletWithDevice() {
+  async getAllHwQrWalletWithDevice(params?: { filterQrWallet?: boolean }) {
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
     });
@@ -293,7 +293,8 @@ class ServiceAccount extends ServiceBase {
       if (
         !accountUtils.isHwHiddenWallet({ wallet }) &&
         (accountUtils.isHwWallet({ walletId: wallet.id }) ||
-          accountUtils.isQrWallet({ walletId: wallet.id }))
+          (accountUtils.isQrWallet({ walletId: wallet.id }) &&
+            !params?.filterQrWallet))
       ) {
         const device = (allDevices ?? []).find(
           (d) => d.id === wallet.associatedDevice,
@@ -3098,6 +3099,34 @@ class ServiceAccount extends ServiceBase {
       ...v,
       hdWalletHashGenerated: true,
     }));
+  }
+
+  @backgroundMethod()
+  async updateWalletsDeprecatedState(params: {
+    walletIds: string[];
+    isDeprecated: boolean;
+  }) {
+    const { walletIds, isDeprecated } = params;
+
+    if (!walletIds || !walletIds.length) {
+      return true;
+    }
+
+    try {
+      for (const walletId of walletIds) {
+        await localDb.setWalletDeprecated({
+          walletId,
+          isDeprecated,
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        `updateWalletsDeprecatedState failed: `,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    return false;
   }
 }
 

@@ -179,6 +179,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         'accountGlobalNum': 1,
         'accountHdIndex': 0,
       },
+      deprecated: false,
     };
     return record;
   }
@@ -1297,6 +1298,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             },
             accounts: [],
             walletNo: context.nextWalletNo,
+            deprecated: false,
           },
         ],
       });
@@ -1618,6 +1620,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             accounts: [],
             walletNo: context.nextWalletNo,
             xfp,
+            deprecated: false,
           },
         ],
       });
@@ -1920,6 +1923,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             },
             accounts: [],
             walletNo: context.nextWalletNo,
+            deprecated: false,
           },
         ],
       });
@@ -2202,6 +2206,31 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId === WALLET_TYPE_EXTERNAL ||
       walletId === WALLET_TYPE_IMPORTED
     );
+  }
+
+  async setWalletDeprecated({
+    walletId,
+    isDeprecated,
+  }: {
+    walletId: IDBWalletId;
+    isDeprecated: boolean;
+  }) {
+    const wallet = await this.getWalletSafe({ walletId });
+    if (!wallet || wallet.deprecated === isDeprecated) {
+      return;
+    }
+    return this.withTransaction(async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater(w) {
+          return {
+            ...w,
+            deprecated: isDeprecated,
+          };
+        },
+      });
+    });
   }
 
   validateAccountsFields(accounts: IDBAccount[]) {

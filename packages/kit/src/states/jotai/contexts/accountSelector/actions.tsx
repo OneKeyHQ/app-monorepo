@@ -1019,6 +1019,45 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  // TODO: 判断是否有 connectId 相同，deviceId 不同的设备或钱包
+  checkHwWalletExistWithSameDevice = contextAtomMethod(
+    async (
+      get,
+      set,
+      { connectId, deviceId }: { connectId: string; deviceId: string },
+    ) => {
+      const allHwWallets =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterQrWallet: true,
+        });
+
+      const walletsWithSameConnectId = Object.values(allHwWallets).filter(
+        (wallet) =>
+          wallet.device?.connectId === connectId &&
+          wallet.device?.deviceId !== deviceId,
+      );
+      return {
+        walletsWithSameConnectId,
+      };
+    },
+  );
+
+  updateWalletsDeprecated = contextAtomMethod(
+    async (
+      get,
+      set,
+      {
+        walletIds,
+        isDeprecated,
+      }: { walletIds: string[]; isDeprecated: boolean },
+    ) => {
+      await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+        walletIds,
+        isDeprecated,
+      });
+    },
+  );
+
   removeAccount = contextAtomMethod(
     async (
       get,
@@ -1911,6 +1950,9 @@ export function useAccountSelectorActions() {
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
+  const checkHwWalletExistWithSameDevice =
+    actions.checkHwWalletExistWithSameDevice.use();
+  const updateWalletsDeprecated = actions.updateWalletsDeprecated.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
   const autoSelectNetworkOfOthersWalletAccount =
     actions.autoSelectNetworkOfOthersWalletAccount.use();
@@ -1946,6 +1988,8 @@ export function useAccountSelectorActions() {
     createHWWalletWithHidden,
     createQrWallet,
     createTonImportedWallet,
+    checkHwWalletExistWithSameDevice,
+    updateWalletsDeprecated,
     autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,

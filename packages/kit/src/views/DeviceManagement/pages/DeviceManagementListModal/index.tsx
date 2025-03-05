@@ -39,8 +39,9 @@ function DeviceManagementListModal() {
       async () => {
         const r =
           await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
-        return Object.values(r).filter((item): item is IHwQrWalletWithDevice =>
-          Boolean(item.device),
+        return Object.values(r).filter(
+          (item): item is IHwQrWalletWithDevice =>
+            Boolean(item.device) && !item.wallet.deprecated,
         );
       },
       [],
