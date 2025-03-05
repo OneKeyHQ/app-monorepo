@@ -130,14 +130,16 @@ function MobileBrowserBottomOptions({
             onPress: onCloseTab,
             testID: 'action-list-item-close-tab-in-browser',
           },
-          platformEnv.isNativeIOSPad && {
-            label: intl.formatMessage({
-              id: ETranslations.explore_back_to_home,
-            }),
-            icon: 'HomeOpenOutline',
-            onPress: onGoBackHomePage,
-            testID: 'action-list-item-back-to-home',
-          },
+          platformEnv.isNativeIOSPad && onGoBackHomePage
+            ? {
+                label: intl.formatMessage({
+                  id: ETranslations.explore_back_to_home,
+                }),
+                icon: 'HomeOpenOutline',
+                onPress: onGoBackHomePage,
+                testID: 'action-list-item-back-to-home',
+              }
+            : undefined,
         ].filter(Boolean) as IActionListItemProps[],
       },
     ],

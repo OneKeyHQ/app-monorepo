@@ -170,13 +170,7 @@ function MobileBrowser() {
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
       >
         {!displayHomePage ? (
-          <Stack
-            onPress={
-              isNativeMobile
-                ? handleGoBackHome
-                : onCloseCurrentWebTabAndGoHomePage
-            }
-          >
+          <Stack onPress={handleGoBackHome}>
             <Icon
               name={isNativeMobile ? 'MinimizeOutline' : 'CrossedLargeOutline'}
               mr="$4"

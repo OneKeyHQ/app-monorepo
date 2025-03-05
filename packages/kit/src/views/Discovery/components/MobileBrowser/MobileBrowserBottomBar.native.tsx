@@ -56,7 +56,7 @@ import type WebView from 'react-native-webview';
 
 export interface IMobileBrowserBottomBarProps extends IStackProps {
   id: string;
-  onGoBackHomePage: () => void;
+  onGoBackHomePage?: () => void;
 }
 
 export const useTakeScreenshot = (id?: string | null) => {
