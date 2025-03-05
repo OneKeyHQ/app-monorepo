@@ -8,3 +8,6 @@ export type IPropsWithTestId<T = unknown> = T & {
 
 export type IElement = TamaguiElement;
 export type IColorTokens = ColorTokens;
+
+// Import type declarations
+import './react-native-draggable-flatlist.d';
