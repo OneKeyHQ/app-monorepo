@@ -2,7 +2,11 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { globalRef } from 'react-native-draggable-flatlist/src/context/globalRef';
+import {
+  OpacityDecorator,
+  ScaleDecorator,
+  ShadowDecorator,
+} from 'react-native-draggable-flatlist';
 import { getTokenValue, useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -169,11 +173,9 @@ function TableRow<T>({
       if (draggable) {
         drag?.();
         setTimeout(() => {
-          if (globalRef.translationY === 0) {
-            Haptics.impact(ImpactFeedbackStyle.Medium);
-            globalRef.reset();
-            onRowEvents?.onLongPress?.();
-          }
+          // Removed globalRef check as it's not accessible
+          Haptics.impact(ImpactFeedbackStyle.Medium);
+          onRowEvents?.onLongPress?.();
         }, 650);
       } else {
         onRowEvents?.onLongPress?.();
