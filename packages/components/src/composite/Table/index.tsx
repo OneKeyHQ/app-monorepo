@@ -2,11 +2,7 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import {
-  OpacityDecorator,
-  ScaleDecorator,
-  ShadowDecorator,
-} from 'react-native-draggable-flatlist';
+import { DraggableFlatList } from 'react-native-draggable-flatlist';
 import { getTokenValue, useMedia, withStaticProperties } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
