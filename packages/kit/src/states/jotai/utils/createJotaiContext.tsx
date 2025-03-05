@@ -88,8 +88,7 @@ export function createJotaiContext<TContextConfig = undefined>() {
     });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  function contextAtomMethod<Value, Args extends unknown[], Result>(
+  function contextAtomMethod<Args extends unknown[], Result>(
     fn: IJotaiWrite<Args, Result>,
   ) {
     return contextAtomMethodBase({
