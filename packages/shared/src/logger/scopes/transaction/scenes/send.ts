@@ -75,4 +75,27 @@ export class SendScene extends BaseScene {
       tokenAddress,
     };
   }
+
+  @LogToLocal()
+  public rawTxFetchFailed({
+    network,
+    txids,
+    error,
+    attemptNumber,
+    retriesLeft,
+  }: {
+    network: string | undefined;
+    txids: string[];
+    error: string;
+    attemptNumber: number;
+    retriesLeft: number;
+  }) {
+    return {
+      network,
+      txids,
+      error,
+      attemptNumber,
+      retriesLeft,
+    };
+  }
 }
