@@ -44,6 +44,7 @@ import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoadin
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 
 import type { RouteProp } from '@react-navigation/core';
+import SwapInfo from '../../components/SwapInfo';
 
 export function useDappCloseHandler(
   dappApprove: ReturnType<typeof useDappApproveAction>,
@@ -78,6 +79,7 @@ function MessageConfirm() {
     sourceInfo,
     unsignedMessage,
     walletInternalSign,
+    swapInfo,
     onSuccess,
     onFail,
     onCancel,
@@ -266,6 +268,7 @@ function MessageConfirm() {
           displayComponents={parsedMessage.components}
         />
         <MessageDataViewer unsignedMessage={unsignedMessage} />
+        {swapInfo ? <SwapInfo data={swapInfo} /> : null}
         <MessageAdvancedSettings unsignedMessage={unsignedMessage} />
       </YStack>
     );
@@ -274,14 +277,15 @@ function MessageConfirm() {
     parsedMessage,
     showMessageHeaderInfo,
     showDAppRiskyAlert,
-    showMessageAlerts,
-    showDAppSiteMark,
     sourceInfo?.origin,
     urlSecurityInfo,
+    showMessageAlerts,
     unsignedMessage,
     isRiskSignMethod,
+    showDAppSiteMark,
     accountId,
     networkId,
+    swapInfo,
   ]);
 
   const handleOnClose = useCallback(
