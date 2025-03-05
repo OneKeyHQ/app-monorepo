@@ -1025,6 +1025,30 @@ class ServiceHardware extends ServiceBase {
       versionCacheInfo: filteredVersionInfo as IDeviceVersionCacheInfo,
     });
   }
+
+  @backgroundMethod()
+  async getEvmAddress(params: {
+    connectId: string;
+    deviceId: string;
+    path: string;
+  }): Promise<string | null> {
+    try {
+      const hardwareSDK = await this.getSDKInstance();
+      const evmAddressResponse = await convertDeviceResponse(() =>
+        hardwareSDK?.evmGetAddress(params.connectId, params.deviceId, {
+          path: params.path,
+          showOnOneKey: false,
+        }),
+      );
+      if (evmAddressResponse.address && evmAddressResponse.address.length > 0) {
+        return evmAddressResponse.address;
+      }
+      return null;
+    } catch (error) {
+      console.error('getEvmAddress error', error);
+      return null;
+    }
+  }
 }
 
 export default ServiceHardware;

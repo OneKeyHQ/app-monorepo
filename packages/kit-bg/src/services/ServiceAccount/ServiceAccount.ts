@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_ALLNETWORKS,
+  FIRST_EVM_ADDRESS_PATH,
   IMPL_ALLNETWORKS,
   IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -2190,6 +2191,12 @@ class ServiceAccount extends ServiceBase {
     const result = await localDb.createHwWallet({
       ...params,
       passphraseState: passphraseState || '',
+      getFirstEvmAddressFn: () =>
+        this.backgroundApi.serviceHardware.getEvmAddress({
+          connectId: params.device.connectId ?? '',
+          deviceId: params.device.deviceId ?? '',
+          path: FIRST_EVM_ADDRESS_PATH,
+        }),
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;

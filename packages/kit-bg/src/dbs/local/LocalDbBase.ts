@@ -1762,6 +1762,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
+      getFirstEvmAddressFn: params.getFirstEvmAddressFn,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
     const dbWalletId = accountUtils.buildHwWalletId({
@@ -3241,21 +3242,50 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     //      use the getSameDeviceByUUIDEvenIfReset() method if you want to find the same device even if it is reset.
     rawDeviceId,
     uuid,
+    getFirstEvmAddressFn,
   }: {
     rawDeviceId: string;
     uuid: string;
+    getFirstEvmAddressFn?: () => Promise<string | null>;
   }): Promise<IDBDevice | undefined> {
     if (!rawDeviceId) {
       return undefined;
     }
     const { devices } = await this.getAllDevices();
-    return devices.find((item) => {
+    const sameDeviceIdAndUuidDevice = devices.find((item) => {
       let deviceIdMatched = rawDeviceId && item.deviceId === rawDeviceId;
       if (uuid && item.uuid) {
         deviceIdMatched = deviceIdMatched && item.uuid === uuid;
       }
       return deviceIdMatched;
     });
+    if (sameDeviceIdAndUuidDevice) {
+      return sameDeviceIdAndUuidDevice;
+    }
+
+    // find same uuid device by first evm address
+    if (!getFirstEvmAddressFn || !uuid) {
+      return undefined;
+    }
+
+    const sameUuidDevice = devices.findLast((item) => item.uuid === uuid);
+    if (!sameUuidDevice) {
+      return undefined;
+    }
+
+    const firstEvmAddress = await getFirstEvmAddressFn();
+    if (!firstEvmAddress) {
+      return undefined;
+    }
+    const { wallets } = await this.getAllWallets();
+    const associatedWallet = wallets.find(
+      (item) => item.associatedDevice === sameUuidDevice.id,
+    );
+    return associatedWallet &&
+      (associatedWallet.firstEvmAddress ?? '').toLowerCase() ===
+        firstEvmAddress.toLowerCase()
+      ? sameUuidDevice
+      : undefined;
   }
 
   async getWalletDeviceSafe({

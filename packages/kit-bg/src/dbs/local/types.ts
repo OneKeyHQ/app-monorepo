@@ -171,7 +171,9 @@ export type IDBCreateHwWalletParamsBase = {
 };
 export type IDBCreateHwWalletParams = IDBCreateHwWalletParamsBase & {
   passphraseState?: string;
+  getFirstEvmAddressFn?: () => Promise<string | null>;
 };
+
 export type IDBCreateQRWalletParams = {
   qrDevice: IQrWalletDevice;
   airGapAccounts: IQrWalletAirGapAccount[];
