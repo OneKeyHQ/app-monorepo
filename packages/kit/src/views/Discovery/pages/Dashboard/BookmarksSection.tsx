@@ -45,6 +45,8 @@ export function BookmarksSection({
     [],
     {
       watchLoading: true,
+      checkIsMounted: false,
+      checkIsFocused: false,
     },
   );
 
