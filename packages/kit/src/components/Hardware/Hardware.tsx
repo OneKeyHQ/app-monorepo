@@ -61,8 +61,8 @@ export function ConfirmOnDeviceToastContent({
           '@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'
         );
       default:
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        // Exhaustiveness check for TypeScript
+        const _exhaustiveCheck: never = deviceType;
     }
   }, [deviceType]);
 
@@ -157,8 +157,8 @@ export function EnterPinOnDevice({
           '@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json'
         );
       default:
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        // Exhaustiveness check for TypeScript
+        const _exhaustiveCheck: never = deviceType;
     }
   }, [deviceType]);
 
@@ -526,8 +526,8 @@ export function EnterPassphraseOnDevice({
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-pro-dark.json'
         );
       default:
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        // Exhaustiveness check for TypeScript
+        const _exhaustiveCheck: never = deviceType;
     }
   }, [deviceType]);
 
