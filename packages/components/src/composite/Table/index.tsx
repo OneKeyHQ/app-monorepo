@@ -2,8 +2,9 @@ import type { PropsWithChildren, ReactElement } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
-import { globalRef } from './globalRef';
 import { getTokenValue, useMedia, withStaticProperties } from 'tamagui';
+
+import { globalRef } from './globalRef';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
