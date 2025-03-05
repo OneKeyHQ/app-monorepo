@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "주문 ID",
   "Limit.order_history_status_cancel": "취소",
   "Limit.order_history_status_canceling": "취소 중 ...",
+  "Limit.order_history_status_partially_filled": "부분적으로 채워짐",
   "Limit.order_history_title": "주문 세부 정보",
   "Limit.order_pair": "페어",
   "Limit.order_status": "상태",

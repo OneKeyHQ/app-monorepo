@@ -27,6 +27,7 @@
   "Limit.order_history_order_id": "ID замовлення",
   "Limit.order_history_status_cancel": "Скасувати",
   "Limit.order_history_status_canceling": "Скасування ...",
+  "Limit.order_history_status_partially_filled": "Частково заповнений",
   "Limit.order_history_title": "Деталі замовлення",
   "Limit.order_pair": "Пара",
   "Limit.order_status": "Статус",

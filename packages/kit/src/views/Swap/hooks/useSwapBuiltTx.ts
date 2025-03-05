@@ -67,6 +67,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapShouldRefreshQuoteAtom,
+  useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
@@ -89,6 +90,7 @@ export function useSwapBuildTx() {
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
   const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
+  const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -136,8 +138,12 @@ export function useSwapBuildTx() {
   const clearQuoteData = useCallback(() => {
     setSwapFromTokenAmount({
       value: '',
-      isInput: true,
+      isInput: false,
     }); // send success, clear from token amount
+    setSwapToTokenAmount({
+      value: '',
+      isInput: false,
+    }); // send success, clear to token amount
     setSwapQuoteResultList([]);
     setSwapQuoteEventTotalCount({
       count: 0,
@@ -152,6 +158,7 @@ export function useSwapBuildTx() {
     setSwapFromTokenAmount,
     setSwapQuoteEventTotalCount,
     setSwapQuoteResultList,
+    setSwapToTokenAmount,
   ]);
 
   const handleBuildTxSuccess = useCallback(
@@ -538,7 +545,12 @@ export function useSwapBuildTx() {
                 swapBuildResData: {
                   result: {
                     ...selectQuoteRes,
-                    instantRate: swapUseInstantRate.rate,
+                    ...(swapUseInstantRate.rate &&
+                    selectQuoteRes.protocol === EProtocolOfExchange.LIMIT
+                      ? {
+                          instantRate: swapUseInstantRate.rate,
+                        }
+                      : {}),
                   },
                 },
               };
@@ -770,7 +782,7 @@ export function useSwapBuildTx() {
     swapLimitPriceFromAmount,
     swapLimitPriceToAmount,
     swapLimitPartiallyFillObj.value,
-    swapUseInstantRate.rate,
+    swapUseInstantRate,
     navigationToMessageConfirm,
     swapTypeSwitch,
     intl,

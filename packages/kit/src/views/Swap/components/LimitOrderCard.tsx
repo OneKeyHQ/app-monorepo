@@ -205,6 +205,12 @@ const LimitOrderCard = ({
           });
           color = '$textCaution';
           break;
+        case ESwapLimitOrderStatus.PARTIALLY_FILLED:
+          label = intl.formatMessage({
+            id: ETranslations.Limit_order_history_status_partially_filled,
+          });
+          color = '$textSuccess';
+          break;
         case ESwapLimitOrderStatus.PRESIGNATURE_PENDING:
           label = intl.formatMessage({
             id: ETranslations.Limit_order_status_open,
