@@ -1,5 +1,6 @@
 import BigNumber from 'bignumber.js';
 import { cloneDeep, isNil } from 'lodash';
+import pLimit from 'p-limit';
 import pRetry from 'p-retry';
 
 import type {
@@ -686,6 +687,9 @@ class ServiceSend extends ServiceBase {
       txidsChunks.push(txids.slice(i, i + chunkSize));
     }
 
+    const concurrencyLimit = 5;
+    const limit = pLimit(concurrencyLimit);
+
     // Process each chunk concurrently with retry mechanism
     const fetchChunk = async (chunk: string[]) => {
       const run = async () => {
@@ -720,9 +724,11 @@ class ServiceSend extends ServiceBase {
       });
     };
 
-    const results = await Promise.all(
-      txidsChunks.map((chunk) => fetchChunk(chunk)),
+    const limitedFetchTasks = txidsChunks.map((chunk) =>
+      limit(() => fetchChunk(chunk)),
     );
+
+    const results = await Promise.all(limitedFetchTasks);
 
     const transactionMap: Record<string, { rawTx: string }> = {};
     results.forEach((result) => {
