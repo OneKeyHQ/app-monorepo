@@ -71,6 +71,8 @@ export type ISortableSectionListProps<T> = Omit<
   }) => void;
   initialScrollIndex?: { sectionIndex: number; itemIndex?: number };
   allowCrossSection?: boolean;
+  ListHeaderComponent?: ReactNode;
+  keyExtractor: (item: T, index: number) => string;
 };
 
 type IScrollToLocationParams = {
