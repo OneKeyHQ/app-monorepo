@@ -6,8 +6,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import {
-  ActionList,
-  Alert,
   Divider,
   Empty,
   ListView,
@@ -20,6 +18,8 @@ import {
   useClipboard,
   useMedia,
   useSafeAreaInsets,
+  ActionList,
+  Alert,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
