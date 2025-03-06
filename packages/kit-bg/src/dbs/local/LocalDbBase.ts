@@ -1938,6 +1938,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           } else if (item.isTemp) {
             item.isTemp = defaultIsTemp ?? false;
           }
+          item.deprecated = false;
           return item;
         },
       });
@@ -3268,8 +3269,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return undefined;
     }
 
-    const sameUuidDevice = devices.findLast((item) => item.uuid === uuid);
-    if (!sameUuidDevice) {
+    const sameUuidDevices = devices.filter((item) => item.uuid === uuid);
+    if (sameUuidDevices.length === 0) {
       return undefined;
     }
 
@@ -3278,7 +3279,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return undefined;
     }
     const { wallets } = await this.getAllWallets();
-    const associatedWallet = wallets.find(
+    const matchedWallets = wallets.filter(
       (item) =>
         accountUtils.isHwWallet({
           walletId: item.id,
@@ -3286,13 +3287,20 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         !accountUtils.isHwHiddenWallet({
           wallet: item,
         }) &&
-        item.associatedDevice === sameUuidDevice.id,
+        sameUuidDevices.some((device) => device.id === item.associatedDevice) &&
+        (item.firstEvmAddress ?? '').toLowerCase() ===
+          firstEvmAddress.toLowerCase(),
     );
-    return associatedWallet &&
-      (associatedWallet.firstEvmAddress ?? '').toLowerCase() ===
-        firstEvmAddress.toLowerCase()
-      ? sameUuidDevice
-      : undefined;
+    if (matchedWallets.length === 0) {
+      return undefined;
+    }
+
+    // sort by walletNo
+    matchedWallets.sort((a, b) => (b.walletNo ?? 0) - (a.walletNo ?? 0));
+    const associatedWallet = matchedWallets[0];
+    return sameUuidDevices.find(
+      (device) => device.id === associatedWallet.associatedDevice,
+    );
   }
 
   async getWalletDeviceSafe({
