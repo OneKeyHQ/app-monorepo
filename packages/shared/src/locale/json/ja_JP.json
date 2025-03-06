@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "デバイスが接続されているので、カードを固定し、動かさないようにしてください。",
   "hardware.device_contains_backup": "このデバイスにはバックアップが含まれています",
   "hardware.device_contains_backup_desc": "このままでは、以前のバックアップが完全に上書きされ、永遠に失われることになります。",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "デバイス情報が一貫していません。これはデバイスのリセットによるものかもしれません。この問題を解決するために、デバイスを再度追加することができます。",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "デバイス接続ステータスが更新されました。「ウォレットを追加」>「ハードウェアウォレットを接続」を選択して再設定してください。元のリカバリーフレーズを使用すると現在のウォレットが復元され、新しいリカバリーフレーズを使用すると新しいウォレットが作成されます。",
   "hardware.device_need_restart": "ハードウェアの通信に失敗しました、デバイスを再起動して再度お試しください",
   "hardware.device_not_find_error": "デバイスが見つかりません。デバイスを再接続してみてください（USBを抜いて再度接続するか、Bluetoothをオフにしてからオンにする）、その後、再度試してみてください。",
   "hardware.device_passphrase_state_error": "Passphraseが現在のウォレットと一致しません、もう一度お試しください",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "左上でネットワークを切り替えるか、対応するアカウントを使用してください",
   "wallet.unsupported_network_desc_alt": "前のページでネットワークを切り替えるか、対応するアカウントを使用してください",
   "wallet.unsupported_network_title": "このアカウントは{network}をサポートしていません",
+  "wallet.wallet_device_has_been_reset_alert_desc": "このデバイスは新しいウォレットを作成し、元のウォレットと通信できません。",
+  "wallet.wallet_device_has_been_reset_alert_title": "ウォレットデバイスがリセットされました",
   "wallet.you_need_str_accounts_on_any_network_to_create": "作成するには、任意の単一ネットワーク上に少なくとも{0}のアカウントが必要です。",
   "word": "ワード"
 }
