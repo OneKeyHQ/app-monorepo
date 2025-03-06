@@ -9,5 +9,6 @@ export type IAppUpdatePagesParamList = {
     isForceUpdate?: boolean;
     autoClose?: boolean;
   };
+  [EAppUpdateRoutes.DownloadVerify]: undefined;
   [EAppUpdateRoutes.WhatsNew]: undefined;
 };
