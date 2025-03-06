@@ -33,6 +33,11 @@ export const buildBleSettingsDialogProps = (
       await openBLESettings();
     },
     showCancelButton: false,
+    sheetOverlayProps: platformEnv.isNative
+      ? {
+          zIndex: undefined,
+        }
+      : undefined,
   } as const);
 
 function OpenBleSettingDialogContainer(
@@ -71,6 +76,11 @@ export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
       await openBLESettings();
     },
     showCancelButton: false,
+    sheetOverlayProps: platformEnv.isNative
+      ? {
+          zIndex: undefined,
+        }
+      : undefined,
   } as const);
 
 function OpenBleNotifyChangeErrorDialogContainer(

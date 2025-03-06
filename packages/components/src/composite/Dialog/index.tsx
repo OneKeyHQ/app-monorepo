@@ -94,6 +94,7 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
+  sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
   showConfirmButton = true,
@@ -206,6 +207,7 @@ function DialogFrame({
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
           zIndex={sheetProps?.zIndex || zIndex}
+          {...sheetOverlayProps}
         />
         <Sheet.Frame
           unstyled
