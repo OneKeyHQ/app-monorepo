@@ -1027,7 +1027,7 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getEvmAddress(params: {
+  async getEvmAddressByStandardWallet(params: {
     connectId: string;
     deviceId: string;
     path: string;
@@ -1038,6 +1038,7 @@ class ServiceHardware extends ServiceBase {
         hardwareSDK?.evmGetAddress(params.connectId, params.deviceId, {
           path: params.path,
           showOnOneKey: false,
+          useEmptyPassphrase: true,
         }),
       );
       if (evmAddressResponse.address && evmAddressResponse.address.length > 0) {

@@ -2192,7 +2192,7 @@ class ServiceAccount extends ServiceBase {
       ...params,
       passphraseState: passphraseState || '',
       getFirstEvmAddressFn: () =>
-        this.backgroundApi.serviceHardware.getEvmAddress({
+        this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet({
           connectId: params.device.connectId ?? '',
           deviceId: params.device.deviceId ?? '',
           path: FIRST_EVM_ADDRESS_PATH,

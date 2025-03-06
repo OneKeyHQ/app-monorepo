@@ -3279,7 +3279,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
     const { wallets } = await this.getAllWallets();
     const associatedWallet = wallets.find(
-      (item) => item.associatedDevice === sameUuidDevice.id,
+      (item) =>
+        accountUtils.isHwWallet({
+          walletId: item.id,
+        }) &&
+        !accountUtils.isHwHiddenWallet({
+          wallet: item,
+        }) &&
+        item.associatedDevice === sameUuidDevice.id,
     );
     return associatedWallet &&
       (associatedWallet.firstEvmAddress ?? '').toLowerCase() ===
