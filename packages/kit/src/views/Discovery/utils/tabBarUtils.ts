@@ -12,7 +12,7 @@ const isNative = platformEnv.isNative && !platformEnv.isNativeIOSPad;
 export const showTabBar = () => {
   setTimeout(() => {
     appEventBus.emit(EAppEventBusNames.HideTabBar, false);
-  }, 50);
+  }, 100);
 };
 
 export const useNotifyTabBarDisplay = isNative
