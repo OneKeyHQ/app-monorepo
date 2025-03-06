@@ -352,7 +352,7 @@ const PasswordVerify = ({
           </Form.Field>
           {alertText ? (
             <XStack alignSelf="center" w="$45" h="$10" borderRadius="$2.5">
-              <SizableText size="$bodyMd" color="$textOnBrightColor">
+              <SizableText size="$bodyMd" color="$textDisabled">
                 {alertText}
               </SizableText>
             </XStack>
