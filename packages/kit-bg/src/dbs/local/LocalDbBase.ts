@@ -36,6 +36,7 @@ import {
 import {
   COINTYPE_DNX,
   COINTYPE_ETH,
+  FIRST_EVM_ADDRESS_PATH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
@@ -2521,7 +2522,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         firstAccount?.pathIndex === 0 &&
         firstAccount?.address &&
         firstAccount?.coinType === COINTYPE_ETH &&
-        firstAccount?.indexedAccountId
+        firstAccount?.indexedAccountId &&
+        firstAccount?.path === FIRST_EVM_ADDRESS_PATH
       ) {
         const firstEvmAddress = firstAccount.address.toLowerCase();
         await this.txUpdateWallet({
