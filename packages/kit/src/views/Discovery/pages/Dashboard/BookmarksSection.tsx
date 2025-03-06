@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
+import { Skeleton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
