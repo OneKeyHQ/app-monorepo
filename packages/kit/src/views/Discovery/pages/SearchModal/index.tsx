@@ -30,6 +30,7 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
@@ -101,18 +102,49 @@ function SearchModal() {
         setSearchList([]);
         return;
       }
+      
+      // Check if the search input is a valid URL
+      const validatedUrl = uriUtils.validateUrl(searchValue);
+      const isValidUrl = validatedUrl !== `https://www.google.com/search?q=${searchValue}`;
+      
       const logo = 'https://uni.onekey-asset.com/static/logo/google.png';
-      setSearchList([
-        {
-          dappId: SEARCH_ITEM_ID,
-          name: `${intl.formatMessage({
-            id: ETranslations.explore_search_placeholder,
-          })} "${searchValue}"`,
-          url: '',
-          logo,
-        } as IDApp,
-        ...(searchResult ?? []),
-      ]);
+      const globusLogo = 'https://uni.onekey-asset.com/static/logo/onekey.png';
+      
+      if (isValidUrl) {
+        // If it's a valid URL, prioritize direct URL access
+        setSearchList([
+          {
+            dappId: SEARCH_ITEM_ID,
+            name: intl.formatMessage({
+              id: ETranslations.global_visit_website,
+            }),
+            url: validatedUrl,
+            logo: globusLogo,
+          } as IDApp,
+          {
+            dappId: 'GOOGLE_SEARCH_ITEM_ID',
+            name: `${intl.formatMessage({
+              id: ETranslations.explore_search_placeholder,
+            })} "${searchValue}"`,
+            url: '',
+            logo,
+          } as IDApp,
+          ...(searchResult ?? []),
+        ]);
+      } else {
+        // If it's not a valid URL, keep Google search as the first option
+        setSearchList([
+          {
+            dappId: SEARCH_ITEM_ID,
+            name: `${intl.formatMessage({
+              id: ETranslations.explore_search_placeholder,
+            })} "${searchValue}"`,
+            url: '',
+            logo,
+          } as IDApp,
+          ...(searchResult ?? []),
+        ]);
+      }
     })();
   }, [searchValue, searchResult, intl]);
 
@@ -158,6 +190,24 @@ function SearchModal() {
           }}
           onPress={() => {
             if (item.dappId === SEARCH_ITEM_ID) {
+              // For direct URL access or Google search
+              handleOpenWebSite({
+                switchToMultiTabBrowser: gtMd,
+                navigation,
+                useCurrentWindow,
+                tabId,
+                webSite: {
+                  url: item.url || searchValue,
+                  title: item.url || searchValue,
+                },
+              });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: item.url || searchValue,
+                dappName: item.url || searchValue,
+                enterMethod: EEnterMethod.search,
+              });
+            } else if (item.dappId === 'GOOGLE_SEARCH_ITEM_ID') {
+              // For Google search when it's the second option
               handleOpenWebSite({
                 switchToMultiTabBrowser: gtMd,
                 navigation,
@@ -174,6 +224,7 @@ function SearchModal() {
                 enterMethod: EEnterMethod.search,
               });
             } else {
+              // For DApp search results
               handleOpenWebSite({
                 switchToMultiTabBrowser: gtMd,
                 navigation,
