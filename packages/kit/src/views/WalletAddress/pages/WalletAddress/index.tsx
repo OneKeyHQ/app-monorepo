@@ -54,9 +54,7 @@ import {
   type IModalWalletAddressParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
-import debugUtils, {
-  useDebugHooksDepsChangedChecker,
-} from '@onekeyhq/shared/src/utils/debug/debugUtils';
+import debugUtils from '@onekeyhq/shared/src/utils/debug/debugUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
 } from '@onekeyhq/shared/src/utils/debug/perfUtils';
@@ -937,10 +935,7 @@ function WalletAddressPageMainView({
     result.networksAccount,
   ]);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { checkDeps } = useDebugHooksDepsChangedChecker(
-    'WalletAddressContextCalculate',
-  );
+  // Removed unused debug hook
 
   const context = useMemo(() => {
     log('contextCalculate');
