@@ -3,8 +3,7 @@ import { useMemo } from 'react';
 import { Skeleton, Stack, XStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-
-import { useBannerData } from '../../../hooks/useBannerData';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DefaultTitle } from './DefaultTitle';
 import { SearchInput } from './SearchInput';
@@ -69,10 +68,6 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
     },
   );
 
-  // Get banner data using useBannerData hook
-  const { data: bannerData } = useBannerData(discoveryData?.banners || []);
-  const hasBannerData = bannerData && bannerData.length > 0;
-
   // Find the "Onekey hot" category and extract its dapps
   const dapps = useMemo(() => {
     const onekeyHotCategory = discoveryData?.categories?.find(
@@ -108,17 +103,6 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
     width: '$50',
     height: '100%',
   };
-
-  // Memoize the banner display logic
-  const bannerContent = useMemo(() => {
-    if (hasBannerData && banner) {
-      return banner;
-    }
-    if (media.gtSm) {
-      return <DefaultTitle />;
-    }
-    return null;
-  }, [hasBannerData, banner, media.gtSm]);
 
   // If loading, show a loading state
   if (isLoading) {
@@ -169,8 +153,8 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
           width: '100%',
         }}
       >
-        {/* Show banner if has banner data, otherwise show DefaultTitle on non-native platforms */}
-        {bannerContent}
+        {/* Show banner if provided, otherwise show DefaultTitle on non-native platforms */}
+        {banner || (media.gtSm && <DefaultTitle />)}
         <SearchInput />
       </Stack>
 

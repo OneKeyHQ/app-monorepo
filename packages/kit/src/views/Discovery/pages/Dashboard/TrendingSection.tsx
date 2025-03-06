@@ -10,7 +10,6 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
-import { DiveInContent } from './DiveInContent';
 import { TrendingSectionItems } from './TrendingSectionItems';
 
 import type { IMatchDAppItemType } from '../../types';
@@ -36,10 +35,6 @@ export function TrendingSection({
 
   const isLoadingTrending = isNil(trendingData);
   const hasTrendingItems = dataSource.length > 0;
-
-  if (!hasTrendingItems && !isLoadingTrending) {
-    return <DiveInContent />;
-  }
 
   return (
     <Stack minHeight="$40">

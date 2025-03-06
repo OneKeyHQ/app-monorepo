@@ -16,8 +16,11 @@ import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scene
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { useBannerData } from '../../hooks/useBannerData';
+
 import { DashboardBanner } from './Banner';
 import { BookmarksSection } from './BookmarksSection';
+import { DiveInContent } from './DiveInContent';
 import { TrendingSection } from './TrendingSection';
 import { Welcome } from './Welcome';
 
@@ -59,80 +62,134 @@ function DashboardContent({
     void run();
   }, [run]);
 
+  // Use the useBannerData hook to get processed banner data
+  const { data: bannerData } = useBannerData(homePageData?.banners || []);
+  const hasBannerData = bannerData && bannerData.length > 0;
+
+  // Add usePromiseResult hooks to get bookmark and trending data
+  const { result: bookmarksData } = usePromiseResult(
+    async () => {
+      const bookmarks =
+        await backgroundApiProxy.serviceDiscovery.getBookmarkData({
+          generateIcon: true,
+          sliceCount: 14,
+        });
+
+      return bookmarks;
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
+
+  const { result: trendingData } = usePromiseResult<any[]>(
+    async () => {
+      const data =
+        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
+      return data.trending || [];
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
+
+  // Check if both bookmarks and trending have no data
+  const hasBookmarks = (bookmarksData && bookmarksData.length > 0) || false;
+  const hasTrending = (trendingData && trendingData.length > 0) || false;
+  const showDiveInDescription = !hasBookmarks && !hasTrending;
+
   const content = useMemo(
     () => (
       <>
         <Welcome
           banner={
-            <DashboardBanner
-              key="Banner"
-              banners={homePageData?.banners || []}
-              handleOpenWebSite={({ webSite, useSystemBrowser }) => {
-                if (useSystemBrowser && webSite?.url) {
-                  openUrlExternal(webSite.url);
-                } else if (webSite?.url) {
-                  handleOpenWebSite({
-                    switchToMultiTabBrowser: gtMd,
-                    webSite,
-                    navigation,
-                    shouldPopNavigation: false,
+            hasBannerData ? (
+              <DashboardBanner
+                key="Banner"
+                banners={homePageData?.banners || []}
+                handleOpenWebSite={({ webSite, useSystemBrowser }) => {
+                  if (useSystemBrowser && webSite?.url) {
+                    openUrlExternal(webSite.url);
+                  } else if (webSite?.url) {
+                    handleOpenWebSite({
+                      switchToMultiTabBrowser: gtMd,
+                      webSite,
+                      navigation,
+                      shouldPopNavigation: false,
+                    });
+                  }
+                  defaultLogger.discovery.dapp.enterDapp({
+                    dappDomain: webSite?.url || '',
+                    dappName: webSite?.title || '',
+                    enterMethod: EEnterMethod.banner,
                   });
-                }
-                defaultLogger.discovery.dapp.enterDapp({
-                  dappDomain: webSite?.url || '',
-                  dappName: webSite?.title || '',
-                  enterMethod: EEnterMethod.banner,
-                });
-              }}
-              isLoading={isLoading}
-            />
+                }}
+                isLoading={isLoading}
+              />
+            ) : null
           }
         />
 
         {platformEnv.isExtension || platformEnv.isWeb ? null : (
           <Stack alignItems="center">
-            <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
-              <BookmarksSection
-                key="BookmarksSection"
-                handleOpenWebSite={({ webSite }) => {
-                  handleOpenWebSite({
-                    switchToMultiTabBrowser: gtMd,
-                    webSite,
-                    navigation,
-                    shouldPopNavigation: false,
-                  });
-                  defaultLogger.discovery.dapp.enterDapp({
-                    dappDomain: webSite?.url || '',
-                    dappName: webSite?.title || '',
-                    enterMethod: EEnterMethod.dashboard,
-                  });
-                }}
-              />
-            </Stack>
+            {showDiveInDescription ? (
+              <DiveInContent />
+            ) : (
+              <>
+                <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+                  <BookmarksSection
+                    key="BookmarksSection"
+                    handleOpenWebSite={({ webSite }) => {
+                      handleOpenWebSite({
+                        switchToMultiTabBrowser: gtMd,
+                        webSite,
+                        navigation,
+                        shouldPopNavigation: false,
+                      });
+                      defaultLogger.discovery.dapp.enterDapp({
+                        dappDomain: webSite?.url || '',
+                        dappName: webSite?.title || '',
+                        enterMethod: EEnterMethod.dashboard,
+                      });
+                    }}
+                  />
+                </Stack>
 
-            {/* here is trending */}
-            <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
-              <TrendingSection
-                handleOpenWebSite={({ webSite }) => {
-                  handleOpenWebSite({
-                    switchToMultiTabBrowser: gtMd,
-                    webSite,
-                    navigation,
-                    shouldPopNavigation: false,
-                  });
-                  defaultLogger.discovery.dapp.enterDapp({
-                    dappDomain: webSite?.url || '',
-                    dappName: webSite?.title || '',
-                    enterMethod: EEnterMethod.dashboard,
-                  });
-                }}
-              />
-            </Stack>
+                {/* here is trending */}
+                <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+                  <TrendingSection
+                    handleOpenWebSite={({ webSite }) => {
+                      handleOpenWebSite({
+                        switchToMultiTabBrowser: gtMd,
+                        webSite,
+                        navigation,
+                        shouldPopNavigation: false,
+                      });
+                      defaultLogger.discovery.dapp.enterDapp({
+                        dappDomain: webSite?.url || '',
+                        dappName: webSite?.title || '',
+                        enterMethod: EEnterMethod.dashboard,
+                      });
+                    }}
+                  />
+                </Stack>
+              </>
+            )}
           </Stack>
         )}
       </>
     ),
-    [homePageData?.banners, isLoading, handleOpenWebSite, gtMd, navigation],
+    [
+      homePageData?.banners,
+      hasBannerData,
+      isLoading,
+      handleOpenWebSite,
+      gtMd,
+      navigation,
+      showDiveInDescription,
+    ],
   );
 
   if (platformEnv.isNative) {

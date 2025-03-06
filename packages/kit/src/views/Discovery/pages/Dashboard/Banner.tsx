@@ -20,8 +20,7 @@ export function DashboardBanner({
   }: IMatchDAppItemType & { useSystemBrowser: boolean }) => void;
   isLoading: boolean | undefined;
 }) {
-  const { data: bannerData, closeAllBanners } = useBannerData(banners);
-  const hasBannerData = bannerData && bannerData.length > 0;
+  const { data, closeAllBanners } = useBannerData(banners);
 
   const emptyComponent = useMemo(
     () =>
@@ -36,10 +35,6 @@ export function DashboardBanner({
       ) : undefined,
     [isLoading],
   );
-
-  if (!hasBannerData) {
-    return null;
-  }
 
   return (
     <Stack
@@ -62,7 +57,7 @@ export function DashboardBanner({
         $gtSm={{
           w: 360,
         }}
-        data={bannerData}
+        data={data}
         isLoading={isLoading}
         itemTitleContainerStyle={{ display: 'none' }}
         emptyComponent={emptyComponent}
