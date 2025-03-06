@@ -17,6 +17,9 @@ const InAppNotification = () => {
   const { activeAccount } = useActiveAccount({ num: 0 });
 
   useEffect(() => {
+    if (!activeAccount?.ready) {
+      return;
+    }
     void backgroundApiProxy.serviceSwap.swapLimitOrdersFetchLoop(
       activeAccount?.indexedAccount?.id,
       !activeAccount?.indexedAccount?.id
@@ -27,6 +30,7 @@ const InAppNotification = () => {
     activeAccount?.indexedAccount?.id,
     activeAccount?.account?.id,
     activeAccount?.dbAccount?.id,
+    activeAccount?.ready,
   ]);
 
   return null;
