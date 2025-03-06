@@ -10,10 +10,10 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
-  IUpdateDownloadedEvent,
   downloadPackage as NativeDownloadPackage,
-  verifyPackage,
+  verifyPackage as NativeVerifyPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -36,31 +36,71 @@ export const useAppChangeLog = (version?: string) => {
 
 export const useDownloadPackage = () => {
   const intl = useIntl();
-  return useCallback(
+
+  const verifyPackage = useCallback(async () => {
+    try {
+      const params =
+        await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+      if (!params) {
+        await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
+        return;
+      }
+      await backgroundApiProxy.serviceAppUpdate.verifyPackage();
+      await NativeVerifyPackage();
+    } catch (e) {
+      await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
+    }
+    await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+  }, []);
+
+  const verifyASC = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceAppUpdate.verifyASC();
+    } catch (e) {
+      await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
+    }
+    await verifyPackage();
+  }, [verifyPackage]);
+
+  const downloadASC = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceAppUpdate.downloadASC();
+    } catch (e) {
+      await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
+    }
+    await verifyASC();
+  }, [verifyASC]);
+
+  const downloadPackage = useCallback(
     async (params: { downloadUrl?: string; latestVersion?: string }) => {
       try {
         await backgroundApiProxy.serviceAppUpdate.downloadPackage();
         const result = await NativeDownloadPackage(params);
-        await backgroundApiProxy.serviceAppUpdate.verifyPackage(result);
-        // The UI verification must display for at least 3 seconds.
-        await Promise.all([
-          verifyPackage({
-            ...params,
-            ...result,
-          }),
-          timerUtils.wait(4500),
-        ]);
-        await backgroundApiProxy.serviceAppUpdate.readyToInstall();
+        await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
+          ...params,
+          ...result,
+        });
       } catch (e) {
+        await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed();
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_update_failed,
           }),
         });
-        void backgroundApiProxy.serviceAppUpdate.notifyFailed(e as any);
       }
+      await downloadASC();
     },
-    [intl],
+    [downloadASC, intl],
+  );
+
+  return useMemo(
+    () => ({
+      downloadPackage,
+      verifyPackage,
+      verifyASC,
+      downloadASC,
+    }),
+    [downloadASC, downloadPackage, verifyASC, verifyPackage],
   );
 };
 

@@ -106,7 +106,7 @@ class ServiceAppUpdate extends ServiceBase {
         })
       );
     }
-    return ![EAppUpdateStatus.downloading, EAppUpdateStatus.ready].includes(
+    return ![EAppUpdateStatus.downloadPackage, EAppUpdateStatus.ready].includes(
       status,
     );
   }
@@ -134,11 +134,24 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async verifyPackage(downloadedEvent: IUpdateDownloadedEvent) {
-    clearTimeout(downloadTimeoutId);
+  public async updateDownloadedEvent(downloadedEvent: IUpdateDownloadedEvent) {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       downloadedEvent,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getDownloadEvent() {
+    const appInfo = await appUpdatePersistAtom.get();
+    return appInfo.downloadedEvent;
+  }
+
+  @backgroundMethod()
+  public async verifyPackage() {
+    clearTimeout(downloadTimeoutId);
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
       status: EAppUpdateStatus.verifyPackage,
     }));
   }
