@@ -32,7 +32,11 @@ export function BookmarksSection({
   const intl = useIntl();
   const navigation = useAppNavigation();
 
-  const { result: bookmarksData, run: refreshLocalData } = usePromiseResult(
+  const {
+    result: bookmarksData,
+    run: refreshLocalData,
+    isLoading: isLoadingBookmarks,
+  } = usePromiseResult(
     async () => {
       const bookmarks =
         await backgroundApiProxy.serviceDiscovery.getBookmarkData({
@@ -86,9 +90,15 @@ export function BookmarksSection({
     () => bookmarksData ?? [],
     [bookmarksData],
   );
-
-  const isLoadingBookmarks = isNil(bookmarksData);
   const hasBookmarks = dataSource.length > 0;
+
+  if (isLoadingBookmarks) {
+    return <Skeleton w="100%" h="$40" />;
+  }
+
+  if (!hasBookmarks) {
+    return null;
+  }
 
   return (
     <Stack minHeight="$40">
@@ -104,35 +114,10 @@ export function BookmarksSection({
         ) : null}
       </DashboardSectionHeader>
 
-      {hasBookmarks ? (
-        <BookmarksSectionItems
-          dataSource={dataSource}
-          handleOpenWebSite={handleOpenWebSite}
-        />
-      ) : (
-        <Stack
-          bg="$bgSubdued"
-          py="$6"
-          flex={1}
-          borderRadius="$3"
-          borderCurve="continuous"
-          justifyContent="center"
-        >
-          {isLoadingBookmarks ? (
-            <Skeleton w="100%" />
-          ) : (
-            <SizableText
-              size="$bodyLg"
-              color="$textDisabled"
-              textAlign="center"
-            >
-              {intl.formatMessage({
-                id: ETranslations.explore_no_bookmark,
-              })}
-            </SizableText>
-          )}
-        </Stack>
-      )}
+      <BookmarksSectionItems
+        dataSource={dataSource}
+        handleOpenWebSite={handleOpenWebSite}
+      />
     </Stack>
   );
 }
