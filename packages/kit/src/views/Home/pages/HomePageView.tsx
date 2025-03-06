@@ -67,6 +67,7 @@ export function HomePageView({
       wallet,
       ready,
       device,
+      indexedAccount,
     },
   } = useActiveAccount({ num: 0 });
 
@@ -80,15 +81,26 @@ export function HomePageView({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [isHide, setIsHide] = useState(false);
 
-  const vaultSettings = usePromiseResult(
-    async () =>
-      network
-        ? backgroundApiProxy.serviceNetwork.getVaultSettings({
-            networkId: network?.id ?? '',
-          })
-        : Promise.resolve(undefined),
-    [network],
-  ).result;
+  const result = usePromiseResult(async () => {
+    const [v, a] = await Promise.all([
+      backgroundApiProxy.serviceNetwork.getVaultSettings({
+        networkId: network?.id ?? '',
+      }),
+      backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+        {
+          networkId: network?.id ?? '',
+          indexedAccountId: indexedAccount?.id ?? '',
+          excludeEmptyAccount: true,
+        },
+      ),
+    ]);
+    return {
+      vaultSettings: v,
+      networkAccounts: a,
+    };
+  }, [network, indexedAccount]);
+
+  const { vaultSettings, networkAccounts } = result.result ?? {};
 
   const isNFTEnabled =
     vaultSettings?.NFTEnabled &&
@@ -203,7 +215,15 @@ export function HomePageView({
       );
     }
 
-    if (!account) {
+    if (
+      !account &&
+      !(
+        vaultSettings?.mergeDeriveAssetsEnabled &&
+        networkAccounts &&
+        networkAccounts.networkAccounts &&
+        networkAccounts.networkAccounts.length > 0
+      )
+    ) {
       return (
         <YStack height="100%">
           <HomeSelector padding="$5" />
@@ -231,6 +251,8 @@ export function HomePageView({
     supportedDeviceTypes,
     device?.deviceType,
     account,
+    vaultSettings?.mergeDeriveAssetsEnabled,
+    networkAccounts,
     isRequiredValidation,
     renderTabs,
     watchingAccountEnabled,

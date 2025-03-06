@@ -119,6 +119,7 @@
     "natsort": "^2.0.3",
     "node-gyp": "^10.2.0",
     "openpgp": "^5.11.2",
+    "p-limit": "^6.2.0",
     "p-retry": "^6.2.1",
     "prettier": "^2.8.1",
     "punycode": "^2.3.1",

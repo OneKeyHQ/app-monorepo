@@ -998,19 +998,24 @@ class ServiceHardware extends ServiceBase {
     const versionInfo: IDeviceVersionCacheInfo = {
       onekey_firmware_version: undefined,
       onekey_ble_version: undefined,
+      ble_ver: undefined,
       onekey_boot_version: undefined,
+      bootloader_version: undefined,
     };
     if (params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade) {
-      versionInfo.onekey_boot_version =
+      const bootVersion =
         params.releaseResult.updateInfos.bootloader?.toVersion;
+      versionInfo.onekey_boot_version = bootVersion;
+      versionInfo.bootloader_version = bootVersion;
     }
     if (params?.releaseResult?.updateInfos?.firmware?.hasUpgrade) {
       versionInfo.onekey_firmware_version =
         params.releaseResult.updateInfos.firmware?.toVersion;
     }
     if (params?.releaseResult?.updateInfos?.ble?.hasUpgrade) {
-      versionInfo.onekey_ble_version =
-        params.releaseResult.updateInfos.ble?.toVersion;
+      const bleVersion = params.releaseResult.updateInfos.ble?.toVersion;
+      versionInfo.onekey_ble_version = bleVersion;
+      versionInfo.ble_ver = bleVersion;
     }
 
     const filteredVersionInfo: Partial<IDeviceVersionCacheInfo> = {};
