@@ -82,7 +82,7 @@ export function ShortcutsActionButton() {
             {
               shortcutKeys: EShortcutEvents.ViewHistory,
               label: intl.formatMessage({
-                id: ETranslations.explore_history,
+                id: ETranslations.browser_recently_closed,
               }),
               icon: 'ClockTimeHistoryOutline',
               onPress: () => {
