@@ -371,7 +371,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           title: tab.title,
         });
       }
-      delete webviewRefs[tab.id];
     });
 
     // Process queue sequentially
@@ -382,6 +381,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
       this.setCurrentWebTab.call(set, null);
+    }
+
+    for (const id of Object.getOwnPropertyNames(webviewRefs)) {
+      if (!pinnedTabs.find((tab) => tab.id === id)) {
+        delete webviewRefs[id];
+      }
     }
 
     loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
