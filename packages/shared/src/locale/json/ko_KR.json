@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "장치가 연결되었습니다. 카드를 제자리에 보관하고 이동하지 마십시오.",
   "hardware.device_contains_backup": "이 장치에는 백업이 포함되어 있습니다",
   "hardware.device_contains_backup_desc": "계속하면 이전 백업을 완전히 덮어쓰고 영원히 잃게 됩니다.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "장치 정보가 일치하지 않습니다. 이는 장치가 초기화되었기 때문일 수 있습니다. 이 문제를 해결하려면 장치를 다시 추가할 수 있습니다.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "장치 연결 상태가 업데이트되었습니다. \"지갑 추가\" > \"하드웨어 지갑 연결\"을 선택하여 재구성하십시오. 원래 복구 구문을 사용하면 현재 지갑이 복원되고, 새로운 복구 구문을 사용하면 새 지갑이 생성됩니다.",
   "hardware.device_need_restart": "하드웨어 통신에 실패했습니다, 장치를 다시 시작하고 시도해 주세요",
   "hardware.device_not_find_error": "장치를 찾을 수 없습니다. 장치를 다시 연결해 보십시오(USB를 분리하고 다시 연결하거나 블루투스를 껐다 켜십시오), 그런 다음 다시 시도하십시오.",
   "hardware.device_passphrase_state_error": "Passphrase가 현재 지갑과 일치하지 않습니다, 다시 시도해 주세요",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "왼쪽 상단에서 네트워크를 전환하거나 지원되는 계정을 사용하세요",
   "wallet.unsupported_network_desc_alt": "이전 페이지에서 네트워크를 전환하거나 지원되는 계정을 사용하세요",
   "wallet.unsupported_network_title": "이 계정은 {network}를 지원하지 않습니다.",
+  "wallet.wallet_device_has_been_reset_alert_desc": "이 장치는 새로운 지갑을 생성했으며 원래 지갑과 통신할 수 없습니다.",
+  "wallet.wallet_device_has_been_reset_alert_title": "지갑 장치가 초기화되었습니다",
   "wallet.you_need_str_accounts_on_any_network_to_create": "생성하려면 최소한 {0}개의 계정이 하나의 네트워크에 필요합니다.",
   "word": "워드"
 }

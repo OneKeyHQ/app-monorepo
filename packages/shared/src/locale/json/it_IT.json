@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "Il dispositivo è collegato, si prega di tenere la scheda in posizione e non spostarla.",
   "hardware.device_contains_backup": "Questo dispositivo contiene un backup",
   "hardware.device_contains_backup_desc": "Se continuate, il vostro precedente backup sarà completamente sovrascritto e sarà perso per sempre.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Le informazioni del dispositivo non sono coerenti. Questo potrebbe essere causato da un ripristino del dispositivo. Puoi risolvere questo problema riaggiungendo il tuo dispositivo.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Lo stato della connessione del dispositivo è stato aggiornato. Seleziona \"Aggiungi Portafoglio\" > \"Connetti Portafoglio Hardware\" per riconfigurare. Utilizzando la tua frase di recupero originale ripristinerai il tuo portafoglio attuale, mentre utilizzando una nuova frase di recupero creerai un nuovo portafoglio.",
   "hardware.device_need_restart": "La comunicazione hardware è fallita, si prega di riavviare il dispositivo e riprovare",
   "hardware.device_not_find_error": "Dispositivo non trovato. Si prega di provare a riconnettere il dispositivo (scollegare e collegare l'USB o spegnere e riaccendere il Bluetooth), poi riprovare.",
   "hardware.device_passphrase_state_error": "La Passphrase non corrisponde all'attuale portafoglio, per favore prova ancora",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "Cambia rete nell'angolo in alto a sinistra o utilizza un account supportato",
   "wallet.unsupported_network_desc_alt": "Cambia rete nella pagina precedente o utilizza un account supportato",
   "wallet.unsupported_network_title": "Questo account non supporta {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "Questo dispositivo ha creato nuovi portafogli e non può comunicare con il portafoglio originale.",
+  "wallet.wallet_device_has_been_reset_alert_title": "Il dispositivo del portafoglio è stato reimpostato",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Hai bisogno di almeno {0} account su una singola rete per creare.",
   "word": "Parola"
 }

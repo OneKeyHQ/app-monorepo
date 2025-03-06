@@ -314,3 +314,5 @@ export const CHAINS_DISPLAYED_IN_DEV: string[] = [];
 export const UNIQUE_TOKEN_SYMBOLS: Record<string, Array<string>> = {
   [IMPL_EVM]: ['USDC', 'USDT'],
 };
+
+export const FIRST_EVM_ADDRESS_PATH = "m/44'/60'/0'/0/0";
