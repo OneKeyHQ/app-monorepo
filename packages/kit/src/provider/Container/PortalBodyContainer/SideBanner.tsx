@@ -139,7 +139,9 @@ function BottomMenu() {
 
   const openDeviceManagementPage = useCallback(async () => {
     const allHwQrWallet =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: true,
+      });
     if (Object.keys(allHwQrWallet).length > 0) {
       appNavigation.pushModal(EModalRoutes.DeviceManagementModal, {
         screen: EModalDeviceManagementRoutes.DeviceListModal,

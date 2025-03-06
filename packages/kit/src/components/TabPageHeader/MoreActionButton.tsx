@@ -68,7 +68,9 @@ export function MoreActionButton() {
       close();
       try {
         const allHwQrWallet =
-          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: true,
+          });
         if (Object.keys(allHwQrWallet).length > 0) {
           navigation.pushModal(EModalRoutes.DeviceManagementModal, {
             screen: EModalDeviceManagementRoutes.DeviceListModal,

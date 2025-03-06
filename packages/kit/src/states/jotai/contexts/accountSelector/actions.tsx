@@ -1019,41 +1019,47 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
-  // TODO: 判断是否有 connectId 相同，deviceId 不同的设备或钱包
-  checkHwWalletExistWithSameDevice = contextAtomMethod(
+  updateHwWalletsDeprecatedStatus = contextAtomMethod(
     async (
       get,
       set,
       { connectId, deviceId }: { connectId: string; deviceId: string },
     ) => {
+      if (!connectId || !deviceId) {
+        return;
+      }
+
       const allHwWallets =
         await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: false,
           filterQrWallet: true,
         });
 
-      const walletsWithSameConnectId = Object.values(allHwWallets).filter(
-        (wallet) =>
-          wallet.device?.connectId === connectId &&
-          wallet.device?.deviceId !== deviceId,
-      );
-      return {
-        walletsWithSameConnectId,
-      };
-    },
-  );
+      const willUpdateDeprecateMap: Record<string, boolean> = {};
 
-  updateWalletsDeprecated = contextAtomMethod(
-    async (
-      get,
-      set,
-      {
-        walletIds,
-        isDeprecated,
-      }: { walletIds: string[]; isDeprecated: boolean },
-    ) => {
+      for (const walletWithDevice of Object.values(allHwWallets)) {
+        const wallet = walletWithDevice.wallet;
+        const device = walletWithDevice.device;
+
+        if (wallet?.id && device?.connectId) {
+          const isSameConnectId = device.connectId === connectId;
+          const isSameDevice = device.deviceId === deviceId;
+
+          // only handle wallet with same connectId
+          if (isSameConnectId) {
+            // if connectId is same, deviceId is different, the wallet should be deprecated
+            // if connectId is same, deviceId is same, the wallet should be not deprecated
+            const newDeprecatedStatus = !isSameDevice;
+            willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
+          }
+        }
+      }
+
+      console.log('updateHwWalletsDeprecatedStatus >>>> ', {
+        willUpdateDeprecateMap,
+      });
       await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
-        walletIds,
-        isDeprecated,
+        willUpdateDeprecateMap,
       });
     },
   );
@@ -1950,10 +1956,9 @@ export function useAccountSelectorActions() {
   const createHWWalletWithHidden = actions.createHWWalletWithHidden.use();
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
-  const checkHwWalletExistWithSameDevice =
-    actions.checkHwWalletExistWithSameDevice.use();
-  const updateWalletsDeprecated = actions.updateWalletsDeprecated.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
+  const updateHwWalletsDeprecatedStatus =
+    actions.updateHwWalletsDeprecatedStatus.use();
   const autoSelectNetworkOfOthersWalletAccount =
     actions.autoSelectNetworkOfOthersWalletAccount.use();
   const syncFromScene = actions.syncFromScene.use();
@@ -1988,8 +1993,7 @@ export function useAccountSelectorActions() {
     createHWWalletWithHidden,
     createQrWallet,
     createTonImportedWallet,
-    checkHwWalletExistWithSameDevice,
-    updateWalletsDeprecated,
+    updateHwWalletsDeprecatedStatus,
     autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,

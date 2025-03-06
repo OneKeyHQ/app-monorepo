@@ -38,7 +38,9 @@ function DeviceManagementListModal() {
     usePromiseResult<Array<IHwQrWalletWithDevice>>(
       async () => {
         const r =
-          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: true,
+          });
         return Object.values(r).filter(
           (item): item is IHwQrWalletWithDevice =>
             Boolean(item.device) && !item.wallet.deprecated,

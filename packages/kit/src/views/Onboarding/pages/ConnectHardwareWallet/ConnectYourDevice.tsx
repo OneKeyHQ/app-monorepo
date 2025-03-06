@@ -29,7 +29,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -565,19 +564,9 @@ function ConnectByUSBOrBLE({
             }),
           });
         }
-        // TODO: 判断是否有 connectId 相同，deviceId 不同的设备或钱包
-        // 如果有的话，给钱包或设备打上 Tag
-        const r = await actions.current.checkHwWalletExistWithSameDevice({
+        await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
           deviceId: device.deviceId ?? '',
-        });
-        console.log(
-          '=====>>>>> checkHwWalletExistWithSameDevice>>>>> result: ===> ',
-          r,
-        );
-        await actions.current.updateWalletsDeprecated({
-          walletIds: r.walletsWithSameConnectId.map((w) => w.wallet.id),
-          isDeprecated: true,
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);

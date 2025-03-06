@@ -280,23 +280,29 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllHwQrWalletWithDevice(params?: { filterQrWallet?: boolean }) {
+  async getAllHwQrWalletWithDevice(params?: {
+    filterQrWallet?: boolean;
+    filterHiddenWallet?: boolean;
+  }) {
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
     });
-    // const { devices } = await this.getAllDevices();
+
+    const filterQrWallet = params?.filterQrWallet ?? false;
+    const filterHiddenWallet = params?.filterHiddenWallet ?? false;
 
     const result: {
       [walletId: string]: IHwQrWalletWithDevice;
     } = {};
 
     for (const wallet of wallets) {
-      if (
-        !accountUtils.isHwHiddenWallet({ wallet }) &&
-        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
-          (accountUtils.isQrWallet({ walletId: wallet.id }) &&
-            !params?.filterQrWallet))
-      ) {
+      const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+      const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+
+      const shouldIncludeHiddenWallet = !filterHiddenWallet || !isHiddenWallet;
+      const shouldIncludeQrWallet = isQrWallet && !filterQrWallet;
+      if (shouldIncludeHiddenWallet && (isHwWallet || shouldIncludeQrWallet)) {
         const device = (allDevices ?? []).find(
           (d) => d.id === wallet.associatedDevice,
         );
@@ -3110,17 +3116,21 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async updateWalletsDeprecatedState(params: {
-    walletIds: string[];
-    isDeprecated: boolean;
+    willUpdateDeprecateMap: Record<string, boolean>;
   }) {
-    const { walletIds, isDeprecated } = params;
+    const { willUpdateDeprecateMap } = params;
 
-    if (!walletIds || !walletIds.length) {
+    if (
+      !willUpdateDeprecateMap ||
+      Object.keys(willUpdateDeprecateMap).length === 0
+    ) {
       return true;
     }
 
     try {
-      for (const walletId of walletIds) {
+      for (const [walletId, isDeprecated] of Object.entries(
+        willUpdateDeprecateMap,
+      )) {
         await localDb.setWalletDeprecated({
           walletId,
           isDeprecated,
