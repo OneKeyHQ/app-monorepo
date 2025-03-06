@@ -84,10 +84,16 @@ function HeaderBackButton({
     return null;
   };
 
-  const renderCollapseButton = () =>
-    showCollapseButton ? (
+  const renderCollapseButton = () => {
+    // Don't render the collapse button in the account selector context
+    // to prevent accidental clicks when switching wallets
+    const navigation = props.navigation;
+    const routeName = navigation?.getState?.()?.routes?.[navigation?.getState?.()?.index]?.name;
+    const isAccountSelector = isRootScreen && routeName?.includes?.('AccountSelector');
+    return showCollapseButton && !isAccountSelector ? (
       <HeaderCollapseButton isRootScreen={isRootScreen} />
     ) : null;
+  };
 
   // If neither button should be shown, return null early.
   if (!showCollapseButton && !showBackButton && !renderLeft) {

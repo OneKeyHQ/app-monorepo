@@ -11,6 +11,7 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
+import HeaderCollapseButton from '@onekeyhq/components/src/layouts/Navigation/Header/HeaderCollapseButton';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
@@ -175,19 +176,21 @@ export function AccountSelectorWalletListSideBar({ num }: IWalletListProps) {
       borderRightWidth={StyleSheet.hairlineWidth}
       borderRightColor="$neutral3"
     >
-      {/* Close action */}
-      {isShowCloseButton ? (
-        <XStack
-          py="$4"
-          justifyContent="center"
-          borderBottomWidth={StyleSheet.hairlineWidth}
-          borderBottomColor="$neutral3"
-        >
+      {/* Close action and Sidebar Toggle */}
+      <XStack
+        py="$4"
+        justifyContent="space-between"
+        px="$4"
+        borderBottomWidth={StyleSheet.hairlineWidth}
+        borderBottomColor="$neutral3"
+      >
+        <HeaderCollapseButton isRootScreen={true} />
+        {isShowCloseButton ? (
           <Page.Close>
             <HeaderIconButton icon="CrossedLargeOutline" />
           </Page.Close>
-        </XStack>
-      ) : null}
+        ) : null}
+      </XStack>
       {/* Primary wallets */}
       <SortableListView
         px="$2"
