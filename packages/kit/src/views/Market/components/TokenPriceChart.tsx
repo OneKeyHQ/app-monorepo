@@ -264,7 +264,10 @@ function BasicTokenPriceChart({
 }) {
   const [showLoading, changeShowLoading] = useState(true);
   const onLoadEnd = useCallback(() => {
-    changeShowLoading(false);
+    // Add a small delay before hiding the loading spinner to prevent flickering
+    setTimeout(() => {
+      changeShowLoading(false);
+    }, 100);
   }, []);
   const ticker = useMemo(() => {
     if (

@@ -66,10 +66,19 @@ export const useTradingViewProps = ({
   );
   const systemLocale = useLocaleVariant();
   const calendars = useCalendars();
-  return useMemo(() => {
-    const locale = localeMap[systemLocale as ILocaleJSONSymbol] || 'en-US';
-    const timezone = calendars[0].timeZone || 'Etc/UTC';
-    const params: Record<string, string> = {
+  // Memoize locale and timezone to prevent recalculation on every render
+  const locale = useMemo(
+    () => localeMap[systemLocale as ILocaleJSONSymbol] || 'en-US',
+    [systemLocale],
+  );
+  const timezone = useMemo(
+    () => calendars[0]?.timeZone || 'Etc/UTC',
+    [calendars],
+  );
+
+  // Memoize params to prevent recreation on every render
+  const params = useMemo(
+    () => ({
       'show_popup_button': 'false',
       'autosize': 'true',
       'symbol': `${identifier.toUpperCase()}:${baseToken.toUpperCase()}${targetToken.toUpperCase()}`,
@@ -90,85 +99,100 @@ export const useTradingViewProps = ({
       'adaptive_logo': 'false',
       'isTransparent': 'true',
       'backgroundColor': bgAppColor,
-    };
+    }),
+    [identifier, baseToken, targetToken, timezone, theme, locale, bgAppColor],
+  );
 
-    const hash = `#${JSON.stringify(params)}`;
-    const query = `?t=${Date.now()}&locale=${locale}`;
-    const uri = `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`;
+  // Memoize hash to prevent recreation on every render
+  const hash = useMemo(() => `#${JSON.stringify(params)}`, [params]);
+
+  // Use a fixed timestamp for the query to prevent unnecessary re-renders
+  // Only update the timestamp when locale changes
+  const query = useMemo(() => `?t=${Date.now()}&locale=${locale}`, [locale]);
+
+  // Memoize URI to prevent recreation on every render
+  const uri = useMemo(
+    () =>
+      `https://www.tradingview-widget.com/embed-widget/advanced-chart/${query}${hash}`,
+    [query, hash],
+  );
+
+  // Memoize style to prevent recreation on every render
+  const style = useMemo(
+    () => `
+      :root {
+        --tv-color-toolbar-button-text-active: ${textColor} !important;
+        --tv-color-toolbar-button-text-active-hover: ${textColor} !important;
+        --tv-color-pane-background: ${bgAppColor} !important;
+        --tv-color-platform-background: ${bgAppColor} !important;
+        --tv-color-toolbar-button-text: ${textDisabled} !important;
+        --tv-spinner-color: ${iconColor} !important;
+        --tv-color-popup-background: ${bgSubduedColor} !important;
+        --tv-color-popup-element-background-hover: ${bgHoverColor} !important;
+      }
+      html .chart-page .chart-container-border {
+        background-color: ${bgAppColor} !important;
+      }  
+      body {
+        border-width: 0px !important;
+      }  
+        ${
+          md
+            ? `
+        .layout__area--top>div {
+          padding: 0 10px;
+        }`
+            : ''
+        }
+
+      div:has(>#header-toolbar-compare) {
+        display: none;
+      } 
+      div:has(>#header-toolbar-chart-styles) + div {
+        display: none;
+      }
+      html.theme-dark .chart-page {
+        background: ${bgAppColor} !important;
+      }
+      html [data-name="indicators-dialog"] {
+        background: ${bgAppColor} !important;
+      }
+      html [id*="indicators_dialog_item"]:hover {
+        background-color: ${bgHoverColor} !important;
+      }
+      html [id*="indicators_dialog_item"]:focus {
+        background-color: ${bgHoverColor} !important;
+      }
+      #overlap-manager-root [class*="backdrop-"] {
+        background-color: ${bgBackdropColor} !important;
+      }
+    `,
+    [
+      textColor,
+      bgAppColor,
+      textDisabled,
+      iconColor,
+      bgSubduedColor,
+      bgHoverColor,
+      md,
+      bgBackdropColor,
+    ],
+  );
+
+  // Memoize injectedJavaScript to prevent recreation on every render
+  const injectedJavaScript = useMemo(
+    () => ` const styleNode = document.createElement('style'); 
+    styleNode.type = 'text/css'; 
+    styleNode.textContent = \`${style}\`;
+    document.documentElement.appendChild(styleNode);`,
+    [style],
+  );
+
+  // Return the final result based on platform
+  return useMemo(() => {
     if (platformEnv.isWeb || platformEnv.isExtension) {
-      return {
-        uri,
-      };
+      return { uri };
     }
-    const style = `
-            :root {
-              --tv-color-toolbar-button-text-active: ${textColor} !important;
-              --tv-color-toolbar-button-text-active-hover: ${textColor} !important;
-              --tv-color-pane-background: ${bgAppColor} !important;
-              --tv-color-platform-background: ${bgAppColor} !important;
-              --tv-color-toolbar-button-text: ${textDisabled} !important;
-              --tv-spinner-color: ${iconColor} !important;
-              --tv-color-popup-background: ${bgSubduedColor} !important;
-              --tv-color-popup-element-background-hover: ${bgHoverColor} !important;
-            }
-            html .chart-page .chart-container-border {
-              background-color: ${bgAppColor} !important;
-            }  
-            body {
-              border-width: 0px !important;
-            }  
-              ${
-                md
-                  ? `
-              .layout__area--top>div {
-                padding: 0 10px;
-              }`
-                  : ''
-              }
-
-            div:has(>#header-toolbar-compare) {
-              display: none;
-            } 
-            div:has(>#header-toolbar-chart-styles) + div {
-              display: none;
-            }
-            html.theme-dark .chart-page {
-              background: ${bgAppColor} !important;
-            }
-            html [data-name="indicators-dialog"] {
-              background: ${bgAppColor} !important;
-            }
-            html [id*="indicators_dialog_item"]:hover {
-              background-color: ${bgHoverColor} !important;
-            }
-            html [id*="indicators_dialog_item"]:focus {
-              background-color: ${bgHoverColor} !important;
-            }
-            #overlap-manager-root [class*="backdrop-"] {
-              background-color: ${bgBackdropColor} !important;
-            }
-    `;
-    return {
-      uri,
-      injectedJavaScript: ` const styleNode = document.createElement('style'); 
-      styleNode.type = 'text/css'; 
-      styleNode.textContent = \`${style}\`;
-      document.documentElement.appendChild(styleNode);`,
-    };
-  }, [
-    systemLocale,
-    calendars,
-    identifier,
-    baseToken,
-    targetToken,
-    theme,
-    bgAppColor,
-    textColor,
-    textDisabled,
-    iconColor,
-    bgSubduedColor,
-    bgHoverColor,
-    md,
-    bgBackdropColor,
-  ]);
+    return { uri, injectedJavaScript };
+  }, [uri, injectedJavaScript]);
 };

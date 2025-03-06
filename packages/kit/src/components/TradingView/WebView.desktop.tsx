@@ -35,7 +35,7 @@ export function WebView({
       webview.addEventListener('did-finish-load', () => {
         setTimeout(() => {
           onLoadEnd();
-        }, 100);
+        }, 500);
       });
       webview.addEventListener('will-navigate', (event) => {
         event.preventDefault();

@@ -44,13 +44,10 @@ export function WebView({
       frame.onload = () => {
         setTimeout(() => {
           onLoadEnd();
-        }, 800);
+        }, 500);
       };
     }
-    // Fallback to dismiss loading screen
-    setTimeout(() => {
-      onLoadEnd();
-    }, 3500);
+    // No fallback timeout needed as the onload event should always fire
   }, [iframeId, onLoadEnd, tradingViewProps.uri]);
   const { gtMd } = useMedia();
   return (
