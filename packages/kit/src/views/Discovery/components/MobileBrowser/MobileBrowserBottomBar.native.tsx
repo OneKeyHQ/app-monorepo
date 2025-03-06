@@ -56,9 +56,57 @@ import type WebView from 'react-native-webview';
 
 export interface IMobileBrowserBottomBarProps extends IStackProps {
   id: string;
+  onGoBackHomePage?: () => void;
 }
 
-function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
+export const useTakeScreenshot = (id?: string | null) => {
+  const actionsRef = useBrowserTabActions();
+  const takeScreenshot = useCallback(
+    () =>
+      new Promise<boolean>((resolve, reject) => {
+        if (!id) {
+          reject(new Error('capture view id is null'));
+          return;
+        }
+        captureRef(captureViewRefs[id ?? ''], {
+          format: 'jpg',
+          quality: 0.2,
+        })
+          .then(async (imageUri) => {
+            const manipulateValue = await manipulateAsync(imageUri, [
+              {
+                crop: {
+                  originX: 0,
+                  originY: 0,
+                  width: THUMB_CROP_SIZE,
+                  height: THUMB_CROP_SIZE,
+                },
+              },
+            ]);
+            const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
+            actionsRef.current.setWebTabData({
+              id,
+              thumbnail: path,
+            });
+            void saveScreenshot(manipulateValue.uri, path);
+            resolve(true);
+          })
+          .catch((e) => {
+            console.log('capture error e: ', e);
+            reject(e);
+          });
+      }),
+    [actionsRef, id],
+  );
+
+  return takeScreenshot;
+};
+
+function MobileBrowserBottomBar({
+  id,
+  onGoBackHomePage,
+  ...rest
+}: IMobileBrowserBottomBarProps) {
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
@@ -104,43 +152,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
   const tabCount = useMemo(() => tabs.length, [tabs]);
 
-  const takeScreenshot = useCallback(
-    () =>
-      new Promise<boolean>((resolve, reject) => {
-        if (!id) {
-          reject(new Error('capture view id is null'));
-          return;
-        }
-        captureRef(captureViewRefs[id ?? ''], {
-          format: 'jpg',
-          quality: 0.2,
-        })
-          .then(async (imageUri) => {
-            const manipulateValue = await manipulateAsync(imageUri, [
-              {
-                crop: {
-                  originX: 0,
-                  originY: 0,
-                  width: THUMB_CROP_SIZE,
-                  height: THUMB_CROP_SIZE,
-                },
-              },
-            ]);
-            const path = getScreenshotPath(`${id}-${Date.now()}.jpg`);
-            setWebTabData({
-              id,
-              thumbnail: path,
-            });
-            void saveScreenshot(manipulateValue.uri, path);
-            resolve(true);
-          })
-          .catch((e) => {
-            console.log('capture error e: ', e);
-            reject(e);
-          });
-      }),
-    [id, setWebTabData],
-  );
+  const takeScreenshot = useTakeScreenshot(id);
 
   const handleShowTabList = useCallback(async () => {
     try {
@@ -221,20 +233,6 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
 
     showTabBar();
   }, [closeWebTab, setCurrentWebTab, id]);
-
-  const handleGoBackHome = useCallback(async () => {
-    try {
-      await takeScreenshot();
-    } catch (e) {
-      console.error('takeScreenshot error: ', e);
-    }
-    setTimeout(() => {
-      setCurrentWebTab(null);
-      if (platformEnv.isNativeIOSPad) {
-        navigation.switchTab(ETabRoutes.Discovery);
-      }
-    });
-  }, [takeScreenshot, setCurrentWebTab, navigation]);
 
   const onShare = useCallback(() => {
     handleShareUrl(tab?.url ?? '');
@@ -370,7 +368,7 @@ function MobileBrowserBottomBar({ id, ...rest }: IMobileBrowserBottomBarProps) {
               openUrlExternal(tab.url);
             }
           }}
-          onGoBackHomePage={handleGoBackHome}
+          onGoBackHomePage={onGoBackHomePage}
           onCloseTab={handleCloseTab}
           displayDisconnectOption={!!hasConnectedAccount}
           onDisconnect={handleDisconnect}
