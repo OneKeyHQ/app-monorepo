@@ -133,7 +133,6 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
             id: ETranslations.global_enable,
           }),
           onConfirm: () => {
-            console.log('password------ setup confirm');
             setPasswordPersist((v) => ({
               ...v,
               enablePasswordErrorProtection: true,
@@ -141,7 +140,6 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
             onSetupRes(setUpPasswordRes);
           },
           onCancel: () => {
-            console.log('password------ setup cancel');
             onSetupRes(setUpPasswordRes);
           },
         });
