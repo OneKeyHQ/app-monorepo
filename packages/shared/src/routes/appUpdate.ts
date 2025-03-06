@@ -1,6 +1,7 @@
 export enum EAppUpdateRoutes {
   UpdatePreview = 'UpdatePreview',
   WhatsNew = 'WhatsNew',
+  DownloadVerify = 'DownloadVerify',
 }
 
 export type IAppUpdatePagesParamList = {
