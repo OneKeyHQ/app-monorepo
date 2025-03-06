@@ -57,7 +57,9 @@ function DeviceDetailsModalCmp() {
   } = usePromiseResult<IHwQrWalletWithDevice | undefined>(
     async () => {
       const r =
-        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: true,
+        });
 
       const device = r?.[walletId]?.device;
       setPassphraseEnabled(

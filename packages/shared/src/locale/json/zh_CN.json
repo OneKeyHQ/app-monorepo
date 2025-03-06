@@ -32,7 +32,7 @@
   "Limit.order_pair": "交易对",
   "Limit.order_status": "状态",
   "Limit.order_status_cancelled": "已取消",
-  "Limit.order_status_expired": "过期时间",
+  "Limit.order_status_expired": "有效期",
   "Limit.order_status_failed": "失败",
   "Limit.order_status_filled": "已成交",
   "Limit.order_status_open": "进行中",
@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "设备已连接，请保持卡片贴紧不要移动",
   "hardware.device_contains_backup": "此设备已经包含备份",
   "hardware.device_contains_backup_desc": "如果继续，您之前的备份将被完全覆盖并永远丢失",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "设备信息不一致，这可能是由设备重置引起的，您可以重新添加您的设备以解决此问题。",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "设备连接状态已更新。请选择「添加钱包」>「连接硬件钱包」来重新设置。使用原助记词将恢复当前钱包，使用新助记词将创建新钱包。",
   "hardware.device_need_restart": "硬件通信失败，请重启设备后再试",
   "hardware.device_not_find_error": "设备未找到，请先尝试重新连接设备（插拔 USB 或关闭开启蓝牙），然后再试一次。",
   "hardware.device_passphrase_state_error": "Passphrase 与当前钱包不匹配，请再试一次",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "在左上角切换网络或使用支持的账户",
   "wallet.unsupported_network_desc_alt": "在上一页切换网络或使用支持的账户",
   "wallet.unsupported_network_title": "此账户不支持 {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "该设备已创建新钱包，无法与原始钱包通信。",
+  "wallet.wallet_device_has_been_reset_alert_title": "钱包设备已重置",
   "wallet.you_need_str_accounts_on_any_network_to_create": "您需要在任何单个网络上至少有 {0} 个账户才能创建",
   "word": "Word"
 }

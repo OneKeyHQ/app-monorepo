@@ -139,7 +139,9 @@ function BottomMenu() {
 
   const openDeviceManagementPage = useCallback(async () => {
     const allHwQrWallet =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
+      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: true,
+      });
     if (Object.keys(allHwQrWallet).length > 0) {
       appNavigation.pushModal(EModalRoutes.DeviceManagementModal, {
         screen: EModalDeviceManagementRoutes.DeviceListModal,
@@ -193,13 +195,13 @@ function BottomMenu() {
   );
 }
 
-export const SidebarBanner = () => {
+export function SidebarBanner() {
   const { gtMd } = useMedia();
-
   const isIpadLandscape = useIsIpadLandscape();
-  return isIpadLandscape || gtMd ? (
+  const isShowBottomMenu = platformEnv.isNativeIOSPad ? isIpadLandscape : gtMd;
+  return isShowBottomMenu ? (
     <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
       <BottomMenu />
     </Portal.Body>
   ) : null;
-};
+}

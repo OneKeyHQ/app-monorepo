@@ -6,6 +6,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
+  Alert,
   InputUnControlled,
   SectionList,
   Stack,
@@ -160,6 +161,11 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
   const focusedWalletInfo = useMemo(
     () => listDataResult?.focusedWalletInfo,
     [listDataResult?.focusedWalletInfo],
+  );
+
+  const isDeprecatedWallet = useMemo(
+    () => focusedWalletInfo?.wallet?.deprecated,
+    [focusedWalletInfo?.wallet?.deprecated],
   );
 
   useEffect(() => {
@@ -405,6 +411,22 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
                     />
                   </Stack>
                 )}
+                {isDeprecatedWallet ? (
+                  <Alert
+                    type="warning"
+                    title={intl.formatMessage({
+                      id: ETranslations.wallet_wallet_device_has_been_reset_alert_title,
+                    })}
+                    description={intl.formatMessage({
+                      id: ETranslations.wallet_wallet_device_has_been_reset_alert_desc,
+                    })}
+                    icon="InfoCircleOutline"
+                    borderRadius={0}
+                    borderLeftWidth={0}
+                    borderRightWidth={0}
+                    px={20}
+                  />
+                ) : null}
                 {accountsCount && accountsCount > 0 ? (
                   <Stack px="$5" py="$2">
                     <InputUnControlled
@@ -500,6 +522,7 @@ function WalletDetailsView({ num }: IWalletDetailsProps) {
       searchText,
       sectionData,
       selectedAccount,
+      isDeprecatedWallet,
     ],
   );
 

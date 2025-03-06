@@ -36,6 +36,7 @@ import {
 import {
   COINTYPE_DNX,
   COINTYPE_ETH,
+  FIRST_EVM_ADDRESS_PATH,
 } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   NotImplemented,
@@ -179,6 +180,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         'accountGlobalNum': 1,
         'accountHdIndex': 0,
       },
+      deprecated: false,
     };
     return record;
   }
@@ -1297,6 +1299,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             },
             accounts: [],
             walletNo: context.nextWalletNo,
+            deprecated: false,
           },
         ],
       });
@@ -1618,6 +1621,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             accounts: [],
             walletNo: context.nextWalletNo,
             xfp,
+            deprecated: false,
           },
         ],
       });
@@ -1759,6 +1763,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
+      getFirstEvmAddressFn: params.getFirstEvmAddressFn,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
     const dbWalletId = accountUtils.buildHwWalletId({
@@ -1821,6 +1826,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingWallet = await this.getWalletSafe({
       walletId: dbWalletId,
     });
+
     const isExistingHiddenWallet = accountUtils.isHwHiddenWallet({
       wallet: existingWallet,
     });
@@ -1920,6 +1926,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             },
             accounts: [],
             walletNo: context.nextWalletNo,
+            deprecated: false,
           },
         ],
       });
@@ -1933,6 +1940,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           } else if (item.isTemp) {
             item.isTemp = defaultIsTemp ?? false;
           }
+          item.deprecated = false;
           return item;
         },
       });
@@ -2202,6 +2210,29 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId === WALLET_TYPE_EXTERNAL ||
       walletId === WALLET_TYPE_IMPORTED
     );
+  }
+
+  async setWalletDeprecated({
+    walletId,
+    isDeprecated,
+  }: {
+    walletId: IDBWalletId;
+    isDeprecated: boolean;
+  }) {
+    const wallet = await this.getWalletSafe({ walletId });
+    if (!wallet || wallet.deprecated === isDeprecated) {
+      return;
+    }
+    return this.withTransaction(async (tx) => {
+      await this.txUpdateWallet({
+        tx,
+        walletId,
+        updater(w) {
+          w.deprecated = isDeprecated;
+          return w;
+        },
+      });
+    });
   }
 
   validateAccountsFields(accounts: IDBAccount[]) {
@@ -2491,7 +2522,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         firstAccount?.pathIndex === 0 &&
         firstAccount?.address &&
         firstAccount?.coinType === COINTYPE_ETH &&
-        firstAccount?.indexedAccountId
+        firstAccount?.indexedAccountId &&
+        firstAccount?.path === FIRST_EVM_ADDRESS_PATH
       ) {
         const firstEvmAddress = firstAccount.address.toLowerCase();
         await this.txUpdateWallet({
@@ -3212,21 +3244,64 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     //      use the getSameDeviceByUUIDEvenIfReset() method if you want to find the same device even if it is reset.
     rawDeviceId,
     uuid,
+    getFirstEvmAddressFn,
   }: {
     rawDeviceId: string;
     uuid: string;
+    getFirstEvmAddressFn?: () => Promise<string | null>;
   }): Promise<IDBDevice | undefined> {
     if (!rawDeviceId) {
       return undefined;
     }
     const { devices } = await this.getAllDevices();
-    return devices.find((item) => {
+    const sameDeviceIdAndUuidDevice = devices.find((item) => {
       let deviceIdMatched = rawDeviceId && item.deviceId === rawDeviceId;
       if (uuid && item.uuid) {
         deviceIdMatched = deviceIdMatched && item.uuid === uuid;
       }
       return deviceIdMatched;
     });
+    if (sameDeviceIdAndUuidDevice) {
+      return sameDeviceIdAndUuidDevice;
+    }
+
+    // find same uuid device by first evm address
+    if (!getFirstEvmAddressFn || !uuid) {
+      return undefined;
+    }
+
+    const sameUuidDevices = devices.filter((item) => item.uuid === uuid);
+    if (sameUuidDevices.length === 0) {
+      return undefined;
+    }
+
+    const firstEvmAddress = await getFirstEvmAddressFn();
+    if (!firstEvmAddress) {
+      return undefined;
+    }
+    const { wallets } = await this.getAllWallets();
+    const matchedWallets = wallets.filter(
+      (item) =>
+        accountUtils.isHwWallet({
+          walletId: item.id,
+        }) &&
+        !accountUtils.isHwHiddenWallet({
+          wallet: item,
+        }) &&
+        sameUuidDevices.some((device) => device.id === item.associatedDevice) &&
+        (item.firstEvmAddress ?? '').toLowerCase() ===
+          firstEvmAddress.toLowerCase(),
+    );
+    if (matchedWallets.length === 0) {
+      return undefined;
+    }
+
+    // sort by walletNo
+    matchedWallets.sort((a, b) => (b.walletNo ?? 0) - (a.walletNo ?? 0));
+    const associatedWallet = matchedWallets[0];
+    return sameUuidDevices.find(
+      (device) => device.id === associatedWallet.associatedDevice,
+    );
   }
 
   async getWalletDeviceSafe({

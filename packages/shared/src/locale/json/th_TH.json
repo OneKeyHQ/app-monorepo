@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "อุปกรณ์เชื่อมต่ออยู่ โปรดเก็บการ์ดให้เข้าที่และห้ามเคลื่อนย้าย",
   "hardware.device_contains_backup": "อุปกรณ์นี้มีการสำรองข้อมูล",
   "hardware.device_contains_backup_desc": "หากคุณดำเนินการต่อ ข้อมูลสำรองก่อนหน้าของคุณจะถูกเขียนทับโดยสมบูรณ์และจะสูญหายไปตลอดกาล",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "ข้อมูลอุปกรณ์ไม่สอดคล้องกัน สาเหตุอาจเกิดจากการรีเซ็ตอุปกรณ์ คุณสามารถเพิ่มอุปกรณ์ของคุณใหม่เพื่อแก้ไขปัญหานี้",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "สถานะการเชื่อมต่ออุปกรณ์ได้รับการอัปเดตแล้ว กรุณาเลือก \"เพิ่มกระเป๋าเงิน\" > \"เชื่อมต่อกระเป๋าเงินฮาร์ดแวร์\" เพื่อกำหนดค่าใหม่ การใช้วลีการกู้คืนเดิมของคุณจะกู้คืนกระเป๋าเงินปัจจุบันของคุณ ในขณะที่การใช้วลีการกู้คืนใหม่จะสร้างกระเป๋าเงินใหม่",
   "hardware.device_need_restart": "การสื่อสารฮาร์ดแวร์ล้มเหลว กรุณาเริ่มต้นอุปกรณ์ใหม่และลองอีกครั้ง",
   "hardware.device_not_find_error": "ไม่พบอุปกรณ์ โปรดลองเชื่อมต่ออุปกรณ์ใหม่ (ถอดและเสียบ USB หรือปิดและเปิด Bluetooth) แล้วลองอีกครั้ง",
   "hardware.device_passphrase_state_error": "Passphrase ไม่ตรงกับกระเป๋าสตางค์ปัจจุบัน โปรดลองอีกครั้ง",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "เปลี่ยนเครือข่ายที่มุมบนซ้ายหรือใช้บัญชีที่ได้รับการสนับสนุน",
   "wallet.unsupported_network_desc_alt": "เปลี่ยนเครือข่ายในหน้าก่อนหน้าหรือใช้บัญชีที่ได้รับการสนับสนุน",
   "wallet.unsupported_network_title": "บัญชีนี้ไม่รองรับ {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "อุปกรณ์นี้ได้สร้างกระเป๋าเงินใหม่และไม่สามารถสื่อสารกับกระเป๋าเงินเดิมได้",
+  "wallet.wallet_device_has_been_reset_alert_title": "อุปกรณ์กระเป๋าเงินถูกรีเซ็ต",
   "wallet.you_need_str_accounts_on_any_network_to_create": "คุณต้องมีบัญชีอย่างน้อย {0} บัญชีในเครือข่ายใดๆ เพื่อสร้าง",
   "word": "คำ"
 }

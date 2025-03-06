@@ -32,7 +32,7 @@
   "Limit.order_pair": "交易對",
   "Limit.order_status": "狀態",
   "Limit.order_status_cancelled": "已取消",
-  "Limit.order_status_expired": "到期時間",
+  "Limit.order_status_expired": "有效期",
   "Limit.order_status_failed": "失敗",
   "Limit.order_status_filled": "已成交",
   "Limit.order_status_open": "進行中",
@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "裝置已連接，請保持卡片貼緊不要移動",
   "hardware.device_contains_backup": "此裝置已經包含備份",
   "hardware.device_contains_backup_desc": "如果繼續，您之前的備份將被完全覆蓋並永遠丟失",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "裝置資訊不一致，可能是由於裝置重設所導致的，您可以重新添加您的裝置以解決此問題。",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "設備連接狀態已更新。請選擇「添加錢包」>「連接硬件錢包」來重新設置。使用原助記詞將恢復當前錢包，使用新助記詞將創建新錢包。",
   "hardware.device_need_restart": "硬體通訊失敗，請重新啟動裝置並再試一次",
   "hardware.device_not_find_error": "找不到裝置，請嘗試重新連接裝置（拔插 USB 或關閉開啟藍牙），然後再試一次。",
   "hardware.device_passphrase_state_error": "Passphrase 與當前的錢包不符，請再試一次",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "在左上角切換網路或使用支援的帳戶",
   "wallet.unsupported_network_desc_alt": "在上一頁切換網路或使用支援的帳戶",
   "wallet.unsupported_network_title": "此帳戶不支援 {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "此設備已創建新錢包，無法與原始錢包通信。",
+  "wallet.wallet_device_has_been_reset_alert_title": "錢包裝置已重置",
   "wallet.you_need_str_accounts_on_any_network_to_create": "您需要在任何單一網絡上至少有 {0} 個帳戶才能創建",
   "word": "文字"
 }
