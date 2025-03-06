@@ -323,6 +323,7 @@ export default function TokenDetailsModal() {
     ITokenDetailsContextValue['isLoadingTokenDetails']
   >({});
 
+  // Memoized update functions to prevent unnecessary re-renders
   const updateTokenMetadata = useCallback(
     (data: Partial<ITokenDetailsContextValue['tokenMetadata']>) => {
       setTokenMetadata((prev) => ({
@@ -361,7 +362,7 @@ export default function TokenDetailsModal() {
     [],
   );
 
-  // Context value
+  // Context value - optimized to prevent unnecessary re-renders
   const contextValue = useMemo(
     () => ({
       tokenMetadata,

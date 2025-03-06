@@ -39,14 +39,24 @@ function TokenDetailsHistory(props: IProps) {
     run,
   } = usePromiseResult(
     async () => {
-      const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-        accountId,
-        networkId,
-        tokenIdOnNetwork: tokenInfo.address,
-        filterScam: settings.isFilterScamHistoryEnabled,
-      });
-      setHistoryInit(true);
-      return r.txs;
+      try {
+        const r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
+          accountId,
+          networkId,
+          tokenIdOnNetwork: tokenInfo.address,
+          filterScam: settings.isFilterScamHistoryEnabled,
+        });
+        
+        // Add a small delay before setting historyInit to true to ensure smooth transition
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        setHistoryInit(true);
+        return r.txs;
+      } catch (error) {
+        // Ensure historyInit is set to true even if there's an error
+        setHistoryInit(true);
+        throw error;
+      }
     },
     [
       accountId,

@@ -86,31 +86,50 @@ function TokenDetailsHeader(props: IProps) {
 
   const { result: tokenDetailsResult } = usePromiseResult(
     async () => {
+      // Set loading state first
       updateIsLoadingTokenDetails({
         accountId,
         isLoading: true,
       });
-      const tokensDetails =
-        await backgroundApiProxy.serviceToken.fetchTokensDetails({
-          accountId,
-          networkId,
-          contractList: [tokenInfo.address],
+      
+      try {
+        const tokensDetails =
+          await backgroundApiProxy.serviceToken.fetchTokensDetails({
+            accountId,
+            networkId,
+            contractList: [tokenInfo.address],
+          });
+        
+        // Batch state updates to reduce re-renders
+        updateTokenMetadata({
+          price: tokensDetails[0].price,
+          priceChange24h: tokensDetails[0].price24h,
+          coingeckoId: tokensDetails[0].info.coingeckoId,
         });
-      updateTokenMetadata({
-        price: tokensDetails[0].price,
-        priceChange24h: tokensDetails[0].price24h,
-        coingeckoId: tokensDetails[0].info.coingeckoId,
-      });
-      updateTokenDetails({
-        accountId,
-        isInit: true,
-        data: tokensDetails[0],
-      });
-      updateIsLoadingTokenDetails({
-        accountId,
-        isLoading: false,
-      });
-      return tokensDetails[0];
+        
+        updateTokenDetails({
+          accountId,
+          isInit: true,
+          data: tokensDetails[0],
+        });
+        
+        // Add a small delay before setting loading to false to prevent flickering
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        updateIsLoadingTokenDetails({
+          accountId,
+          isLoading: false,
+        });
+        
+        return tokensDetails[0];
+      } catch (error) {
+        // Ensure loading state is set to false even if there's an error
+        updateIsLoadingTokenDetails({
+          accountId,
+          isLoading: false,
+        });
+        throw error;
+      }
     },
     [
       accountId,
@@ -130,10 +149,12 @@ function TokenDetailsHeader(props: IProps) {
     tokenDetailsResult ?? tokenDetailsContext[accountId]?.data;
 
   const showLoadingState = useMemo(() => {
-    if (tokenDetailsContext[accountId]?.init) {
+    // If we already have initialized data, don't show loading state
+    if (tokenDetailsContext[accountId]?.init && tokenDetailsContext[accountId]?.data) {
       return false;
     }
-    return isLoadingTokenDetails?.[accountId];
+    // Otherwise, respect the loading state from context
+    return isLoadingTokenDetails?.[accountId] ?? true;
   }, [isLoadingTokenDetails, tokenDetailsContext, accountId]);
 
   const createSwapActionHandler = useCallback(
