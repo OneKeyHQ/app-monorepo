@@ -37,7 +37,7 @@ const ExtPluginText = platformEnv.isExtension
     }
   : () => null;
 
-function UpdatePreview({
+function DownloadVerify({
   route,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
   const intl = useIntl();
@@ -51,7 +51,7 @@ function UpdatePreview({
   return (
     <Page>
       <Page.Header
-        title={intl.formatMessage({ id: ETranslations.update_app_update })}
+        title={intl.formatMessage({ id: ETranslations.update_download_and_verify_text })}
       />
       <Page.Body m="$5">
         <YStack gap="$3">
