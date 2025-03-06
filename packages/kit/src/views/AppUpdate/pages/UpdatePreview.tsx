@@ -80,7 +80,10 @@ function UpdatePreview({
           </ScrollView>
         ) : null}
       </Page.Body>
-      <UpdatePreviewActionButton autoClose={autoClose} />
+      <UpdatePreviewActionButton
+        autoClose={autoClose}
+        isForceUpdate={isForceUpdate}
+      />
     </Page>
   );
 }

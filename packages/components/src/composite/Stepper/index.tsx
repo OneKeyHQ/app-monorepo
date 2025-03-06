@@ -1,4 +1,4 @@
-import type { PropsWithChildren } from 'react';
+import type { PropsWithChildren, ReactElement } from 'react';
 import { Children, createContext, useContext, useMemo } from 'react';
 
 import { withStaticProperties } from 'tamagui';
@@ -71,9 +71,17 @@ export function StepItemProvider({
   );
 }
 
+interface IStepperItemRenderProps {
+  stepIndex: number;
+  index?: number;
+  status: EStepItemStatus;
+}
+
 export interface IStepItemProps {
   title: string;
-  description: string;
+  description?: string;
+  renderDescription?: (props: IStepperItemRenderProps) => ReactElement | null;
+  renderAction?: (props: IStepperItemRenderProps) => ReactElement | null;
   badgeText?: string;
 }
 
@@ -95,7 +103,13 @@ export function useStepperContext() {
   return context;
 }
 
-export function StepItem({ title, description, badgeText }: IStepItemProps) {
+export function StepItem({
+  title,
+  description,
+  badgeText,
+  renderDescription,
+  renderAction,
+}: IStepItemProps) {
   const { stepIndex, isError, stepsCount } = useStepperContext();
   const { index } = useStepperItemContext() || {};
   const status = useMemo(() => {
@@ -113,6 +127,14 @@ export function StepItem({ title, description, badgeText }: IStepItemProps) {
     }
     return EStepItemStatus.Pending;
   }, [index, isError, stepIndex]);
+  const renderProps = useMemo(
+    () => ({
+      status,
+      stepIndex,
+      index,
+    }),
+    [index, status, stepIndex],
+  );
   return (
     <XStack gap="$3">
       <YStack ai="center">
@@ -125,7 +147,11 @@ export function StepItem({ title, description, badgeText }: IStepItemProps) {
       </YStack>
       <YStack gap="$2">
         <XStack h="$6" gap="$2" ai="center">
-          <SizableText size="$bodyLg">{title}</SizableText>
+          <SizableText
+            size={status === EStepItemStatus.Pending ? '$headingMd' : '$bodyLg'}
+          >
+            {title}
+          </SizableText>
           {badgeText ? (
             <Badge badgeSize="lg" badgeType="success">
               <Badge.Text>{badgeText}</Badge.Text>
@@ -133,14 +159,19 @@ export function StepItem({ title, description, badgeText }: IStepItemProps) {
           ) : null}
         </XStack>
         <SizableText size="$bodyLg" color="$textSubdued">
-          {description}
+          {renderDescription ? renderDescription(renderProps) : description}
         </SizableText>
+        {renderAction ? (
+          <Stack mt="$2">{renderAction(renderProps)}</Stack>
+        ) : null}
       </YStack>
     </XStack>
   );
 }
 
-export type IStepperProps = PropsWithChildren<IStepperContextProps>;
+export type IStepperProps = PropsWithChildren<
+  Omit<IStepperContextProps, 'stepsCount'>
+>;
 
 function StepProvider({ children, stepIndex, isError }: IStepperProps) {
   const stepsCount = useMemo(() => Children.count(children), [children]);

@@ -11,8 +11,8 @@ import {
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
+  IUpdateDownloadedEvent,
   downloadPackage as NativeDownloadPackage,
-  installPackage,
   verifyPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -34,12 +34,13 @@ export const useAppChangeLog = (version?: string) => {
   return useMemo(() => response.result, [response.result]);
 };
 
+
 export const useDownloadPackage = () => {
   const intl = useIntl();
   return useCallback(
     async (params: { downloadUrl?: string; latestVersion?: string }) => {
       try {
-        await backgroundApiProxy.serviceAppUpdate.startDownloading();
+        await backgroundApiProxy.serviceAppUpdate.downloadPackage();
         const result = await NativeDownloadPackage(params);
         await backgroundApiProxy.serviceAppUpdate.verifyPackage(result);
         // The UI verification must display for at least 3 seconds.
@@ -65,7 +66,6 @@ export const useDownloadPackage = () => {
 };
 
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
-  const intl = useIntl();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
   const downloadPackage = useDownloadPackage();
@@ -112,6 +112,12 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     ],
   );
 
+  const toDownloadAndVerifyPage = useCallback(() => {
+    navigation.push(EAppUpdateRoutes.DownloadVerify, {
+      isForceUpdate: appUpdateInfo.isForceUpdate,
+    });
+  }, [appUpdateInfo.isForceUpdate, navigation]);
+
   const checkForUpdates = useCallback(async () => {
     const response =
       await backgroundApiProxy.serviceAppUpdate.fetchAppUpdateInfo(true);
@@ -130,7 +136,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
-    if (appUpdateInfo.status === EAppUpdateStatus.downloading) {
+    if (appUpdateInfo.status === EAppUpdateStatus.downloadPackage) {
       void downloadPackage(appUpdateInfo);
     }
     void checkForUpdates().then(
@@ -146,27 +152,18 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const onUpdateAction = useCallback(() => {
     switch (appUpdateInfo.status) {
       case EAppUpdateStatus.notify:
-      case EAppUpdateStatus.downloading:
-      case EAppUpdateStatus.verifying:
         toUpdatePreviewPage(isFullModal);
         break;
-      case EAppUpdateStatus.ready:
-        void installPackage(appUpdateInfo).catch((e) => {
-          Toast.error({
-            title: intl.formatMessage({
-              id: ETranslations.global_update_failed,
-            }),
-          });
-          void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
-        });
-        break;
-      case EAppUpdateStatus.failed:
-        void downloadPackage(appUpdateInfo);
-        break;
       default:
+        toDownloadAndVerifyPage();
         break;
     }
-  }, [appUpdateInfo, downloadPackage, intl, isFullModal, toUpdatePreviewPage]);
+  }, [
+    appUpdateInfo,
+    isFullModal,
+    toDownloadAndVerifyPage,
+    toUpdatePreviewPage,
+  ]);
 
   return useMemo(
     () => ({

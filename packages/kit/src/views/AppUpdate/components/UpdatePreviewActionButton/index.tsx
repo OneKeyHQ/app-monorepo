@@ -13,7 +13,11 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import type { IUpdatePreviewActionButton } from './type';
 
-export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
+export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
+  isForceUpdate,
+}: {
+  isForceUpdate?: boolean;
+}) => {
   const intl = useIntl();
   const appUpdateInfo = useAppUpdateInfo();
 
@@ -25,10 +29,12 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = () => {
         openUrlExternal(appUpdateInfo.data.storeUrl);
       } else if (appUpdateInfo.data.downloadUrl) {
         void downloadPackage(appUpdateInfo.data);
-        navigation.push(EAppUpdateRoutes.DownloadVerify);
+        navigation.push(EAppUpdateRoutes.DownloadVerify, {
+          isForceUpdate,
+        });
       }
     }
-  }, [appUpdateInfo.data, navigation]);
+  }, [appUpdateInfo.data, isForceUpdate, navigation]);
   return (
     <Page.Footer>
       <YStack>

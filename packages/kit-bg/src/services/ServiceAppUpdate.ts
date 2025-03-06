@@ -112,7 +112,7 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async startDownloading() {
+  public async downloadPackage() {
     clearTimeout(downloadTimeoutId);
     downloadTimeoutId = setTimeout(async () => {
       await this.notifyFailed({
@@ -121,7 +121,15 @@ class ServiceAppUpdate extends ServiceBase {
     }, timerUtils.getTimeDurationMs({ minute: 30 }));
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      status: EAppUpdateStatus.downloading,
+      status: EAppUpdateStatus.downloadPackage,
+    }));
+  }
+
+  @backgroundMethod()
+  public async downloadPackageFailed() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.downloadPackageFailed,
     }));
   }
 
@@ -131,7 +139,47 @@ class ServiceAppUpdate extends ServiceBase {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       downloadedEvent,
-      status: EAppUpdateStatus.verifying,
+      status: EAppUpdateStatus.verifyPackage,
+    }));
+  }
+
+  @backgroundMethod()
+  public async verifyASC() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.verifyASC,
+    }));
+  }
+
+  @backgroundMethod()
+  public async downloadASC() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.downloadASC,
+    }));
+  }
+
+  @backgroundMethod()
+  public async verifyASCFailed() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.verifyASCFailed,
+    }));
+  }
+
+  @backgroundMethod()
+  public async verifyPackageFailed() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.verifyPackageFailed,
+    }));
+  }
+
+  @backgroundMethod()
+  public async downloadASCFailed() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      status: EAppUpdateStatus.downloadASCFailed,
     }));
   }
 

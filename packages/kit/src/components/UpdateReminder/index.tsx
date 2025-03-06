@@ -1,13 +1,8 @@
-import { useCallback, useMemo } from 'react';
-import type { ReactElement } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IButtonProps,
-  IIconProps,
-  IStackProps,
-} from '@onekeyhq/components';
+import type { IIconProps, IStackProps } from '@onekeyhq/components';
 import {
   Button,
   Icon,
@@ -45,18 +40,80 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             );
           },
         },
-        [EAppUpdateStatus.downloading]: {
+        [EAppUpdateStatus.downloadPackage]: {
           iconName: 'RefreshCcwSolid',
           iconColor: '$iconInfo',
           renderText: DownloadProgress,
         },
-        [EAppUpdateStatus.verifying]: {
+        [EAppUpdateStatus.downloadASC]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_download_asc_label,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyASC]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_verify_asc_labe,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyPackage]: {
           iconName: 'RefreshCcwSolid',
           iconColor: '$iconInfo',
           renderText() {
             return intl.formatMessage({
               id: ETranslations.update_verify_file_signature,
             });
+          },
+        },
+        [EAppUpdateStatus.downloadPackageFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({ id: appUpdateInfo.errorText });
+          },
+        },
+        [EAppUpdateStatus.verifyASCFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({ id: appUpdateInfo.errorText });
+          },
+        },
+        [EAppUpdateStatus.verifyPackageFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({ id: appUpdateInfo.errorText });
+          },
+        },
+        [EAppUpdateStatus.downloadASCFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({ id: appUpdateInfo.errorText });
           },
         },
         [EAppUpdateStatus.ready]: {
@@ -151,62 +208,10 @@ function UpdateAction({
   onUpdateAction: () => void;
 }) {
   const intl = useIntl();
-  const styles = useMemo(
-    () =>
-      ({
-        [EAppUpdateStatus.notify]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.downloading]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.verifying]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.ready]: {
-          label: intl.formatMessage({
-            id: platformEnv.isNativeAndroid
-              ? ETranslations.global_install
-              : ETranslations.update_restart_to_update,
-          }),
-          icon: platformEnv.isNativeAndroid
-            ? undefined
-            : 'RestartToUpdateCustom',
-          variant: 'primary',
-        },
-        [EAppUpdateStatus.failed]: {
-          prefixElement: <OpenOnGithub />,
-          label: intl.formatMessage({ id: ETranslations.global_retry }),
-          variant: 'primary',
-        },
-        [EAppUpdateStatus.done]: undefined,
-      } as Record<
-        EAppUpdateStatus,
-        | {
-            label: string;
-            icon?: IIconProps['name'];
-            prefixElement?: ReactElement;
-            variant?: IButtonProps['variant'];
-          }
-        | undefined
-      >),
-    [intl],
-  );
-  const data = styles[updateInfo.status];
-  if (!data) {
-    return null;
-  }
-  const { icon, label, variant, prefixElement } = data;
   return (
     <XStack gap="$4" justifyContent="space-between" alignItems="center">
-      {prefixElement}
-      <Button
-        size="small"
-        icon={icon}
-        variant={variant}
-        onPress={onUpdateAction}
-      >
-        {label}
+      <Button size="small" variant="primary" onPress={onUpdateAction}>
+        {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>
     </XStack>
   );
@@ -220,17 +225,41 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
-  [EAppUpdateStatus.downloading]: {
+  [EAppUpdateStatus.downloadPackage]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
-  [EAppUpdateStatus.verifying]: {
+  [EAppUpdateStatus.downloadASC]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifyASC]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifyPackage]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
   [EAppUpdateStatus.ready]: {
     bg: '$bgSuccessSubdued',
     borderColor: '$borderSuccessSubdued',
+  },
+  [EAppUpdateStatus.downloadPackageFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.downloadASCFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.verifyASCFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.verifyPackageFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
   },
   [EAppUpdateStatus.failed]: {
     bg: '$bgCriticalSubdued',
