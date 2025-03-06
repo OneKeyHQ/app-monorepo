@@ -12,7 +12,7 @@ export enum EModalAssetDetailRoutes {
   NFTDetails = 'NFTDetails',
   HistoryDetails = 'HistoryDetails',
   UTXODetails = 'UTXODetails',
-  MarketDetail = 'MarketDetail',
+  MarketDetail = 'AssetModalMarketDetail',
 }
 
 export type IModalAssetDetailsParamList = {
