@@ -173,6 +173,7 @@ export type IFetchAccountHistoryParams = {
   isAllNetworks?: boolean;
   isManualRefresh?: boolean;
   filterScam?: boolean;
+  excludeTestNetwork?: boolean;
 };
 
 export type IOnChainHistoryTxToken = {

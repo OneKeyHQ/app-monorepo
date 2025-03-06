@@ -179,6 +179,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           networkId: network.id,
           isManualRefresh: isManualRefresh.current,
           filterScam: settings.isFilterScamHistoryEnabled,
+          excludeTestNetwork: true,
         });
       }
 
@@ -262,6 +263,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
             accountId,
             networkId,
             filterScam: settings.isFilterScamHistoryEnabled,
+            excludeTestNetwork: true,
           });
       }
 
