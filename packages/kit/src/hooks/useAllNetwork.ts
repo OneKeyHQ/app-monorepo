@@ -303,11 +303,7 @@ function useAllNetworkRequests<T>(params: {
         });
 
         try {
-          resp = (
-            await promiseAllSettledEnhanced(requests, {
-              continueOnError: true,
-            })
-          ).filter(Boolean);
+          resp = (await promiseAllSettledEnhanced(requests)).filter(Boolean);
         } catch (e) {
           console.error(e);
           resp = null;
