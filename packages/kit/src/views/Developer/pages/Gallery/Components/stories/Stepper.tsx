@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { Stepper } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
@@ -5,20 +7,29 @@ import { Layout } from './utils/Layout';
 export default function StepperGallery() {
   return (
     <Layout
-      componentName="Spotlight"
-      description="Spotlight 组件"
-      suggestions={[
-        '如果需要重复测试需用 backgroundApiProxy.serviceSpotlight.reset(); 重置',
-        '需要定义唯一 ESpotlightTour 值',
-      ]}
+      componentName="Stepper"
+      description="Stepper 步骤组件"
+      suggestions={['用于引导用户按照流程完成任务', '展示当前步骤和状态']}
       elements={[
         {
           title: 'Default',
-          element: <Stepper>
-                      <Stepper.item>
-                        
-                      </Stepper.item>
-                    </Stepper>,
+          element: (
+            <Stepper stepIndex={2} isError={false}>
+              <Stepper.Item
+                title="Step 1"
+                description="Description for step 1"
+              />
+              <Stepper.Item
+                title="Step 2"
+                description="Description for step 2"
+              />
+              <Stepper.Item
+                title="Step 3"
+                description="Description for step 3"
+                badgeText="50%"
+              />
+            </Stepper>
+          ),
         },
       ]}
     />
