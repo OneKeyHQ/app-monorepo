@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import { useWindowDimensions } from 'react-native';
+
 import {
   RefreshControl,
   ScrollView,
@@ -34,6 +36,7 @@ function DashboardContent({
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
   const { gtMd } = useMedia();
+  const { height: screenHeight } = useWindowDimensions();
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -201,7 +204,7 @@ function DashboardContent({
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }
       >
-        {content}
+        <Stack minHeight={screenHeight}>{content}</Stack>
       </ScrollView>
     );
   }
