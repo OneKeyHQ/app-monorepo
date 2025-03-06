@@ -141,7 +141,38 @@ function SkeletonHeaderOverItemItem() {
 function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
-  const { token: coinGeckoId } = route.params;
+  // Extract token from URL path if route.params is undefined (happens during page refresh)
+  const getTokenFromUrl = (): string => {
+    if (platformEnv.isWeb) {
+      try {
+        // Check for hash routing first (e.g., /#/market/tokens/bitcoin)
+        const hash = globalThis.location.hash;
+        if (hash) {
+          const hashPath = hash.substring(1); // Remove the # character
+          const hashParts = hashPath.split('/');
+          if (hashParts.length >= 4 && hashParts[1] === 'market' && hashParts[2] === 'tokens' && hashParts[3]) {
+            return hashParts[3];
+          }
+        }
+        
+        // Check regular path routing (e.g., /market/tokens/bitcoin)
+        const pathParts = globalThis.location.pathname.split('/');
+        if (pathParts.length >= 4 && pathParts[1] === 'market' && pathParts[2] === 'tokens' && pathParts[3]) {
+          return pathParts[3];
+        }
+        
+        // If we get here, we couldn't extract the token from the URL
+        console.warn('Could not extract token from URL, falling back to default token');
+      } catch (error) {
+        console.error('Error extracting token from URL:', error);
+      }
+    }
+    // Fallback to a default value to prevent undefined errors
+    return 'bitcoin';
+  };
+
+  // Use route.params.token if available, otherwise extract from URL
+  const coinGeckoId = route.params?.token || getTokenFromUrl();
   const { gtMd: gtMdMedia } = useMedia();
 
   const pageType = usePageType();
