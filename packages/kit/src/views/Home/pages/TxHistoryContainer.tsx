@@ -54,7 +54,14 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const media = useMedia();
   const navigation = useAppNavigation();
   const {
-    activeAccount: { account, network, wallet, deriveInfoItems, vaultSettings },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      deriveInfoItems,
+      vaultSettings,
+      indexedAccount,
+    },
   } = useActiveAccount({ num: 0 });
 
   const [settings] = useSettingsPersistAtom();
@@ -101,11 +108,18 @@ function TxHistoryListContainer(props: ITabPageProps) {
   const isManualRefresh = useRef(false);
   const { run } = usePromiseResult(
     async () => {
-      if (!account || !network) return;
+      if (!network) return;
+
+      let accountId = account?.id ?? '';
+
+      if (mergeDeriveAddressData) {
+        accountId = indexedAccount?.id ?? '';
+      } else if (!account) return;
+
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: true,
         type: EHomeTab.HISTORY,
-        accountId: account.id,
+        accountId,
         networkId: network.id,
       });
 
@@ -127,7 +141,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
             {
               networkId: network.id,
-              indexedAccountId: account.indexedAccountId ?? '',
+              indexedAccountId: indexedAccount?.id ?? '',
               excludeEmptyAccount: true,
             },
           );
@@ -161,7 +175,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
           .slice(0, HISTORY_PAGE_SIZE);
       } else {
         r = await backgroundApiProxy.serviceHistory.fetchAccountHistory({
-          accountId: account.id,
+          accountId,
           networkId: network.id,
           isManualRefresh: isManualRefresh.current,
           filterScam: settings.isFilterScamHistoryEnabled,
@@ -181,7 +195,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
       appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
         isRefreshing: false,
         type: EHomeTab.HISTORY,
-        accountId: account.id,
+        accountId,
         networkId: network.id,
       });
       if (r.accountsWithChangedPendingTxs.length > 0) {
@@ -193,6 +207,7 @@ function TxHistoryListContainer(props: ITabPageProps) {
     },
     [
       account,
+      indexedAccount?.id,
       mergeDeriveAddressData,
       network,
       setIsHeaderRefreshing,
@@ -266,12 +281,16 @@ function TxHistoryListContainer(props: ITabPageProps) {
       updateSearchKey('');
       refreshAllNetworksHistory.current = false;
     };
-    if (account?.id && network?.id && wallet?.id) {
-      void initHistoryState(account.id, network.id, account.indexedAccountId);
+    if ((account?.id || mergeDeriveAddressData) && network?.id && wallet?.id) {
+      void initHistoryState(
+        account?.id ?? '',
+        network.id,
+        indexedAccount?.id ?? '',
+      );
     }
   }, [
     account?.id,
-    account?.indexedAccountId,
+    indexedAccount?.id,
     mergeDeriveAddressData,
     network?.id,
     settings.isFilterScamHistoryEnabled,
