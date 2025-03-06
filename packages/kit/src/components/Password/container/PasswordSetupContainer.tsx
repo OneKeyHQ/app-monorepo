@@ -105,7 +105,6 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
         Toast.success({
           title: intl.formatMessage({ id: ETranslations.auth_passcode_set }),
         });
-        onSetupRes(setUpPasswordRes);
         Dialog.show({
           title: intl.formatMessage({
             id: ETranslations.auth_Passcode_protection,
@@ -134,10 +133,16 @@ const PasswordSetupContainer = ({ onSetupRes }: IPasswordSetupProps) => {
             id: ETranslations.global_enable,
           }),
           onConfirm: () => {
+            console.log('password------ setup confirm');
             setPasswordPersist((v) => ({
               ...v,
               enablePasswordErrorProtection: true,
             }));
+            onSetupRes(setUpPasswordRes);
+          },
+          onCancel: () => {
+            console.log('password------ setup cancel');
+            onSetupRes(setUpPasswordRes);
           },
         });
       } catch (e) {
