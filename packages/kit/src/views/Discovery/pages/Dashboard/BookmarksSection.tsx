@@ -91,10 +91,6 @@ export function BookmarksSection({
   );
   const hasBookmarks = dataSource.length > 0;
 
-  if (isLoadingBookmarks) {
-    return <Skeleton w="100%" h="$40" />;
-  }
-
   if (!hasBookmarks) {
     return null;
   }
