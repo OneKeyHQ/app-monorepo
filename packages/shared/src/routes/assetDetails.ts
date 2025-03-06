@@ -26,6 +26,7 @@ export type IModalAssetDetailsParamList = {
     isBlocked?: boolean;
     riskyTokens?: string[];
     isAllNetworks?: boolean;
+    indexedAccountId: string;
   };
   [EModalAssetDetailRoutes.MarketDetail]: {
     token: string;

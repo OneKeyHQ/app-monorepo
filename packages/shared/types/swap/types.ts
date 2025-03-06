@@ -322,6 +322,7 @@ export interface IFetchQuoteResult {
   quoteResultCtx?: any;
   cowSwapQuoteResult?: any;
   kind?: ESwapQuoteKind;
+  networkCostBuyAmount?: string;
   networkCostExceedInfo?: {
     tokenInfo: {
       symbol: string;
@@ -704,6 +705,7 @@ export enum ESwapLimitOrderStatus {
   FULFILLED = 'fulfilled',
   CANCELLED = 'cancelled',
   EXPIRED = 'expired',
+  PARTIALLY_FILLED = 'partially_filled',
 }
 
 export enum ESwapLimitOrderExpiryStep {

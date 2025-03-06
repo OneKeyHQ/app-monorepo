@@ -61,7 +61,6 @@ import type {
 import { EmptyAccount } from '../../../components/Empty';
 import { TokenListView } from '../../../components/TokenListView';
 import { perfTokenListView } from '../../../components/TokenListView/perfTokenListView';
-import { useAccountData } from '../../../hooks/useAccountData';
 import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useManageToken } from '../../../hooks/useManageToken';
@@ -196,15 +195,23 @@ function TokenListContainer(props: ITabPageProps) {
 
   const { run } = usePromiseResult(
     async () => {
+      let accountId = account?.id ?? '';
+
       try {
-        if (!account || !network) return;
+        if (!network) return;
+
+        if (!mergeDeriveAddressData) {
+          if (!account) return;
+        } else {
+          accountId = indexedAccount?.id ?? '';
+        }
 
         if (network.isAllNetworks) return;
 
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: true,
           type: EHomeTab.TOKENS,
-          accountId: account.id,
+          accountId,
           networkId: network.id,
         });
 
@@ -274,7 +281,7 @@ function TokenListContainer(props: ITabPageProps) {
           };
         } else {
           r = await backgroundApiProxy.serviceToken.fetchAccountTokens({
-            accountId: account.id,
+            accountId,
             mergeTokens: true,
             networkId: network.id,
             flag: 'home-token-list',
@@ -294,11 +301,11 @@ function TokenListContainer(props: ITabPageProps) {
         });
 
         updateAccountWorth({
-          accountId: account.id,
+          accountId,
           initialized: true,
           worth: {
             [accountUtils.buildAccountValueKey({
-              accountId: account.id,
+              accountId,
               networkId: network.id,
             })]: accountWorth.toFixed(),
           },
@@ -360,7 +367,7 @@ function TokenListContainer(props: ITabPageProps) {
           appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
             isRefreshing: false,
             type: EHomeTab.TOKENS,
-            accountId: account.id,
+            accountId,
             networkId: network.id,
           });
         }
@@ -368,7 +375,7 @@ function TokenListContainer(props: ITabPageProps) {
         appEventBus.emit(EAppEventBusNames.TabListStateUpdate, {
           isRefreshing: false,
           type: EHomeTab.TOKENS,
-          accountId: account?.id ?? '',
+          accountId,
           networkId: network?.id ?? '',
         });
         if (e instanceof CanceledError) {
@@ -1324,13 +1331,13 @@ function TokenListContainer(props: ITabPageProps) {
       }
     };
 
-    if (account?.id && network?.id && wallet?.id) {
+    if ((account?.id || mergeDeriveAddressData) && network?.id && wallet?.id) {
       void initTokenListData({
-        accountId: account.id,
+        accountId: account?.id ?? '',
         networkId: network.id,
-        accountAddress: account.address,
+        accountAddress: account?.address ?? '',
         // @ts-expect-error
-        xpub: account.xpubSegwit || account.xpub,
+        xpub: account?.xpubSegwit || account?.xpub,
       });
     }
   }, [
@@ -1361,21 +1368,31 @@ function TokenListContainer(props: ITabPageProps) {
 
   const handleOnPressToken = useCallback(
     (token: IToken) => {
-      if (!account || !network || !wallet || !deriveInfo) return;
+      if (!network || !wallet || !deriveInfo) return;
+
       navigation.pushModal(EModalRoutes.MainModal, {
         screen: EModalAssetDetailRoutes.TokenDetails,
         params: {
-          accountId: token.accountId ?? account.id,
+          accountId: token.accountId ?? account?.id ?? '',
           networkId: token.networkId ?? network.id,
           walletId: wallet.id,
           deriveInfo,
           deriveType,
           tokenInfo: token,
           isAllNetworks: network.isAllNetworks,
+          indexedAccountId: indexedAccount?.id ?? '',
         },
       });
     },
-    [account, deriveInfo, deriveType, navigation, network, wallet],
+    [
+      account,
+      deriveInfo,
+      deriveType,
+      indexedAccount?.id,
+      navigation,
+      network,
+      wallet,
+    ],
   );
 
   const isBuyAndReceiveEnabled = useMemo(
