@@ -102,14 +102,14 @@ function SearchModal() {
         setSearchList([]);
         return;
       }
-      
+
       // Check if the search input is a valid URL
       const validatedUrl = uriUtils.validateUrl(searchValue);
       const isValidUrl = validatedUrl !== `https://www.google.com/search?q=${searchValue}`;
-      
+
       const logo = 'https://uni.onekey-asset.com/static/logo/google.png';
       const globusLogo = 'https://uni.onekey-asset.com/static/logo/onekey.png';
-      
+
       if (isValidUrl) {
         // If it's a valid URL, prioritize direct URL access
         setSearchList([
@@ -214,12 +214,12 @@ function SearchModal() {
                 useCurrentWindow,
                 tabId,
                 webSite: {
-                  url: searchValue,
+                  url: `https://www.google.com/search?q=${searchValue}`,
                   title: searchValue,
                 },
               });
               defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: searchValue,
+                dappDomain: `https://www.google.com/search?q=${searchValue}`,
                 dappName: searchValue,
                 enterMethod: EEnterMethod.search,
               });
