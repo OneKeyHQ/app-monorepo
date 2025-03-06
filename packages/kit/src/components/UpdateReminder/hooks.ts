@@ -34,7 +34,6 @@ export const useAppChangeLog = (version?: string) => {
   return useMemo(() => response.result, [response.result]);
 };
 
-
 export const useDownloadPackage = () => {
   const intl = useIntl();
   return useCallback(
