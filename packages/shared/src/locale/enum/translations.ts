@@ -1398,6 +1398,7 @@
   limit_history_fill_sold = 'limit.history_fill_sold',
   limit_network_cost_dialog_content = 'limit.network_cost_dialog_content',
   limit_order_card_network = 'limit.order_card_network',
+  limit_order_info_network_cost = 'limit.order_info_network_cost',
   limit_place_order = 'limit.place_order',
   limit_relative_to_market = 'limit.relative_to_market',
   limit_toast_order_cancelled = 'limit.toast_order_cancelled',
