@@ -105,32 +105,65 @@ function SearchModal() {
 
       // Check if the search input is a valid URL
       const validatedUrl = uriUtils.validateUrl(searchValue);
-      const isValidUrl = validatedUrl !== `https://www.google.com/search?q=${searchValue}`;
+      const isValidUrl =
+        validatedUrl !== `https://www.google.com/search?q=${searchValue}`;
 
       const logo = 'https://uni.onekey-asset.com/static/logo/google.png';
       const globusLogo = 'https://uni.onekey-asset.com/static/logo/onekey.png';
 
+      // Check if server-returned search results already contain a "Visit Website" option
+      const visitWebsiteText = intl.formatMessage({
+        id: ETranslations.global_visit_website,
+      });
+
+      const hasVisitWebsiteOption = searchResult?.some(
+        (item) => item.name === visitWebsiteText,
+      );
+
       if (isValidUrl) {
-        // If it's a valid URL, prioritize direct URL access
-        setSearchList([
-          {
-            dappId: SEARCH_ITEM_ID,
-            name: intl.formatMessage({
-              id: ETranslations.global_visit_website,
-            }),
-            url: validatedUrl,
-            logo: globusLogo,
-          } as IDApp,
-          {
-            dappId: 'GOOGLE_SEARCH_ITEM_ID',
-            name: `${intl.formatMessage({
-              id: ETranslations.explore_search_placeholder,
-            })} "${searchValue}"`,
-            url: '',
-            logo,
-          } as IDApp,
-          ...(searchResult ?? []),
-        ]);
+        // If it's a valid URL
+        if (hasVisitWebsiteOption) {
+          // If server already returned a "Visit Website" option, ensure it's the first option
+          const visitWebsiteOption = searchResult?.find(
+            (item) => item.name === visitWebsiteText,
+          );
+
+          const filteredSearchResult = searchResult?.filter(
+            (item) => item.name !== visitWebsiteText,
+          );
+
+          setSearchList([
+            visitWebsiteOption as IDApp,
+            {
+              dappId: 'GOOGLE_SEARCH_ITEM_ID',
+              name: `${intl.formatMessage({
+                id: ETranslations.explore_search_placeholder,
+              })} "${searchValue}"`,
+              url: '',
+              logo,
+            } as IDApp,
+            ...(filteredSearchResult ?? []),
+          ]);
+        } else {
+          // If server didn't return a "Visit Website" option, add one at the top
+          setSearchList([
+            {
+              dappId: SEARCH_ITEM_ID,
+              name: visitWebsiteText,
+              url: validatedUrl,
+              logo: globusLogo,
+            } as IDApp,
+            {
+              dappId: 'GOOGLE_SEARCH_ITEM_ID',
+              name: `${intl.formatMessage({
+                id: ETranslations.explore_search_placeholder,
+              })} "${searchValue}"`,
+              url: '',
+              logo,
+            } as IDApp,
+            ...(searchResult ?? []),
+          ]);
+        }
       } else {
         // If it's not a valid URL, keep Google search as the first option
         setSearchList([
