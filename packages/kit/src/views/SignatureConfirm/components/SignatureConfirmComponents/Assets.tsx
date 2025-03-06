@@ -117,7 +117,7 @@ function SignatureAssetDetailItem({
     return (
       <>
         <SizableText
-          flex={1}
+          maxWidth={editable ? '80%' : '100%'}
           alignItems="center"
           style={{
             wordBreak: 'break-all',
