@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { MaximumNumberOfTabs } from '@onekeyhq/kit/src/views/Discovery/config/Discovery.constants';
 import type {
   ESiteMode,
   IBrowserBookmark,
@@ -757,7 +758,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             Toast.message({
               title: appLocale.intl.formatMessage(
                 { id: ETranslations.explore_toast_tab_limit_reached },
-                { number: '20' },
+                { number: MaximumNumberOfTabs },
               ),
             });
             return;
