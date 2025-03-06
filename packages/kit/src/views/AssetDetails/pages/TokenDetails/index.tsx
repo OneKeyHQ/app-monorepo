@@ -43,9 +43,15 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { waitAsync } from '@onekeyhq/shared/src/utils/promiseUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IAccountHistoryTx } from '@onekeyhq/shared/types/history';
-import type { IToken } from '@onekeyhq/shared/types/token';
+import type {
+  IFetchTokenDetailItem,
+  IToken,
+} from '@onekeyhq/shared/types/token';
 
-import { TokenDetailsContext } from './TokenDetailsContext';
+import {
+  TokenDetailsContext,
+  useTokenDetailsContext,
+} from './TokenDetailsContext';
 import TokenDetailsFooter from './TokenDetailsFooter';
 import TokenDetailsViews from './TokenDetailsView';
 
@@ -81,6 +87,7 @@ function TokenDetailsView() {
     >();
 
   const { copyText } = useClipboard();
+  const { updateTokenMetadata } = useTokenDetailsContext();
 
   const {
     accountId,
@@ -90,9 +97,10 @@ function TokenDetailsView() {
     deriveType,
     tokenInfo,
     isAllNetworks,
+    indexedAccountId,
   } = route.params;
 
-  const { account, network, vaultSettings } = useAccountData({
+  const { network, vaultSettings } = useAccountData({
     accountId,
     networkId,
     walletId,
@@ -144,17 +152,29 @@ function TokenDetailsView() {
         await backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
           {
             networkId,
-            indexedAccountId: account?.indexedAccountId ?? '',
+            indexedAccountId,
           },
         );
       await waitAsync(600);
       return r;
     },
-    [networkId, account?.indexedAccountId],
+    [networkId, indexedAccountId],
     {
       watchLoading: true,
     },
   );
+
+  usePromiseResult(async () => {
+    const resp = await backgroundApiProxy.serviceToken.fetchTokenInfoOnly({
+      networkId,
+      contractList: [tokenInfo.address],
+    });
+    updateTokenMetadata({
+      price: resp[0].price,
+      priceChange24h: resp[0].price24h,
+      coingeckoId: resp[0].info.coingeckoId,
+    });
+  }, [networkId, tokenInfo.address, updateTokenMetadata]);
 
   const fontColor = useThemeValue('text');
 
@@ -182,7 +202,7 @@ function TokenDetailsView() {
 
   const listViewContentContainerStyle = useMemo(() => ({ pt: '$5' }), []);
   const tabs = useMemo(() => {
-    if (accountId && networkId && walletId) {
+    if (networkId && walletId) {
       return result?.networkAccounts.map((item) => ({
         title: item.deriveInfo.labelKey
           ? intl.formatMessage({ id: item.deriveInfo.labelKey })
@@ -197,7 +217,7 @@ function TokenDetailsView() {
             tokenInfo={tokenInfo}
             isAllNetworks={isAllNetworks}
             listViewContentContainerStyle={listViewContentContainerStyle}
-            indexedAccountId={account?.indexedAccountId}
+            indexedAccountId={indexedAccountId}
             isTabView
           />
         ),
@@ -206,7 +226,6 @@ function TokenDetailsView() {
 
     return [];
   }, [
-    accountId,
     networkId,
     walletId,
     result?.networkAccounts,
@@ -214,7 +233,7 @@ function TokenDetailsView() {
     tokenInfo,
     isAllNetworks,
     listViewContentContainerStyle,
-    account?.indexedAccountId,
+    indexedAccountId,
   ]);
 
   const renderTokenDetailsView = useCallback(() => {
@@ -256,21 +275,21 @@ function TokenDetailsView() {
         deriveType={deriveType}
         tokenInfo={tokenInfo}
         isAllNetworks={isAllNetworks}
-        indexedAccountId={account?.indexedAccountId}
+        indexedAccountId={indexedAccountId}
         listViewContentContainerStyle={listViewContentContainerStyle}
       />
     );
   }, [
     isLoading,
     vaultSettings?.mergeDeriveAssetsEnabled,
-    isAllNetworks,
     walletId,
     accountId,
     networkId,
     deriveInfo,
     deriveType,
     tokenInfo,
-    account?.indexedAccountId,
+    isAllNetworks,
+    indexedAccountId,
     listViewContentContainerStyle,
     tabs,
     contentItemWidth,
@@ -296,7 +315,14 @@ export default function TokenDetailsModal() {
   const [tokenMetadata, setTokenMetadata] =
     useState<ITokenDetailsContextValue['tokenMetadata']>();
 
-  // Update function for the context
+  const [tokenDetails, setTokenDetails] = useState<
+    ITokenDetailsContextValue['tokenDetails']
+  >({});
+
+  const [isLoadingTokenDetails, setIsLoadingTokenDetails] = useState<
+    ITokenDetailsContextValue['isLoadingTokenDetails']
+  >({});
+
   const updateTokenMetadata = useCallback(
     (data: Partial<ITokenDetailsContextValue['tokenMetadata']>) => {
       setTokenMetadata((prev) => ({
@@ -307,13 +333,52 @@ export default function TokenDetailsModal() {
     [],
   );
 
+  const updateIsLoadingTokenDetails = useCallback(
+    ({ accountId, isLoading }: { accountId: string; isLoading: boolean }) => {
+      setIsLoadingTokenDetails((prev) => ({
+        ...prev,
+        [accountId]: isLoading,
+      }));
+    },
+    [],
+  );
+
+  const updateTokenDetails = useCallback(
+    ({
+      accountId,
+      isInit,
+      data,
+    }: {
+      accountId: string;
+      isInit: boolean;
+      data: IFetchTokenDetailItem;
+    }) => {
+      setTokenDetails((prev) => ({
+        ...prev,
+        [accountId]: { init: isInit, data },
+      }));
+    },
+    [],
+  );
+
   // Context value
   const contextValue = useMemo(
     () => ({
       tokenMetadata,
       updateTokenMetadata,
+      isLoadingTokenDetails,
+      updateIsLoadingTokenDetails,
+      tokenDetails,
+      updateTokenDetails,
     }),
-    [tokenMetadata, updateTokenMetadata],
+    [
+      tokenMetadata,
+      updateTokenMetadata,
+      isLoadingTokenDetails,
+      updateIsLoadingTokenDetails,
+      tokenDetails,
+      updateTokenDetails,
+    ],
   );
   return (
     <AccountSelectorProviderMirror

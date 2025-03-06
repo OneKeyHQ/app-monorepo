@@ -1449,19 +1449,19 @@ export default class ServiceSwap extends ServiceBase {
         const method: 'success' | 'error' | 'message' = 'success';
         if (ESwapLimitOrderStatus.FULFILLED === newStatus) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
-            fromToken: openOrder.fromTokenInfo,
-            toToken: openOrder.toTokenInfo,
+            fromToken: updatedOrder.fromTokenInfo,
+            toToken: updatedOrder.toTokenInfo,
             status: ESwapTxHistoryStatus.SUCCESS,
           });
           const executedBuyAmountBN = new BigNumber(
-            openOrder.executedBuyAmount ?? '0',
-          ).shiftedBy(-(openOrder.toTokenInfo?.decimals ?? 0));
+            updatedOrder.executedBuyAmount ?? '0',
+          ).shiftedBy(-(updatedOrder.toTokenInfo?.decimals ?? 0));
           const formattedExecutedBuyAmount = formatBalance(
             executedBuyAmountBN.toFixed(),
           );
           const executedSellAmountBN = new BigNumber(
-            openOrder.executedSellAmount ?? '0',
-          ).shiftedBy(-(openOrder.fromTokenInfo?.decimals ?? 0));
+            updatedOrder.executedSellAmount ?? '0',
+          ).shiftedBy(-(updatedOrder.fromTokenInfo?.decimals ?? 0));
           const formattedExecutedSellAmount = formatBalance(
             executedSellAmountBN.toFixed(),
           );
@@ -1475,8 +1475,8 @@ export default class ServiceSwap extends ServiceBase {
             {
               num1: formattedExecutedSellAmount.formattedValue,
               num2: formattedExecutedBuyAmount.formattedValue,
-              token1: openOrder.fromTokenInfo.symbol,
-              token2: openOrder.toTokenInfo.symbol,
+              token1: updatedOrder.fromTokenInfo.symbol,
+              token2: updatedOrder.toTokenInfo.symbol,
             },
           );
         }
@@ -1506,6 +1506,7 @@ export default class ServiceSwap extends ServiceBase {
       clearTimeout(this.limitOrderStateInterval);
       this.limitOrderStateInterval = null;
     }
+    let sameAccount = true;
     const swapSupportNetworks = await this.getCacheSwapSupportNetworks();
     const swapLimitSupportNetworks = swapSupportNetworks.filter(
       (item) => item.supportLimit,
@@ -1528,10 +1529,7 @@ export default class ServiceSwap extends ServiceBase {
             ),
         )
       ) {
-        await inAppNotificationAtom.set((pre) => ({
-          ...pre,
-          swapLimitOrders: [],
-        }));
+        sameAccount = false;
       }
       const openLimitOrders = swapLimitOrders.filter(
         (item) => item.status === ESwapLimitOrderStatus.OPEN,
@@ -1541,13 +1539,18 @@ export default class ServiceSwap extends ServiceBase {
         if (
           !swapLimitOrders.length ||
           openLimitOrders.length > 0 ||
-          isFetchNewOrder
+          isFetchNewOrder ||
+          !sameAccount
         ) {
           const accounts = swapSupportAccounts.map((account) => ({
             userAddress: account.apiAddress,
             networkId: account.networkId,
           }));
-          if (openLimitOrders.length > 0 && !isFetchNewOrder) {
+          await inAppNotificationAtom.set((pre) => ({
+            ...pre,
+            swapLimitOrdersLoading: true,
+          }));
+          if (openLimitOrders.length > 0 && !isFetchNewOrder && sameAccount) {
             const needUpdateAccounts = accounts.filter((account) =>
               openLimitOrders.find(
                 (item) =>
@@ -1575,20 +1578,28 @@ export default class ServiceSwap extends ServiceBase {
           if (res.length) {
             await this.checkLimitOrderStatus(res, swapLimitOrders);
             await inAppNotificationAtom.set((pre) => {
-              let newList = [...pre.swapLimitOrders];
-              res.forEach((item) => {
-                const index = newList.findIndex(
-                  (i) => i.orderId === item.orderId,
-                );
-                if (index !== -1) {
-                  newList[index] = item;
-                } else {
-                  newList = [item, ...newList];
-                }
-              });
+              if (sameAccount) {
+                let newList = [...pre.swapLimitOrders];
+                res.forEach((item) => {
+                  const index = newList.findIndex(
+                    (i) => i.orderId === item.orderId,
+                  );
+                  if (index !== -1) {
+                    newList[index] = item;
+                  } else {
+                    newList = [item, ...newList];
+                  }
+                });
+                return {
+                  ...pre,
+                  swapLimitOrders: [...newList],
+                  swapLimitOrdersLoading: false,
+                };
+              }
               return {
                 ...pre,
-                swapLimitOrders: [...newList],
+                swapLimitOrdersLoading: false,
+                swapLimitOrders: [...res],
               };
             });
             if (
@@ -1604,6 +1615,10 @@ export default class ServiceSwap extends ServiceBase {
           }
         }
       } catch (error) {
+        await inAppNotificationAtom.set((pre) => ({
+          ...pre,
+          swapLimitOrdersLoading: false,
+        }));
         this.limitOrderStateInterval = setTimeout(() => {
           void this.swapLimitOrdersFetchLoop(
             indexedAccountId,

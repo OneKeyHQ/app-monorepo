@@ -26,7 +26,7 @@ const LimitOrderListItem = ({
         item={item}
         hiddenCreateTime
         onPress={() => onClickCell(item)}
-        progressWidth={gtMd ? 100 : 200}
+        progressWidth={gtMd ? 90 : 200}
         onCancel={() => onCancel(item)}
         hiddenCancelIcon={item.status !== ESwapLimitOrderStatus.OPEN}
         cancelLoading={cancelLoading}
