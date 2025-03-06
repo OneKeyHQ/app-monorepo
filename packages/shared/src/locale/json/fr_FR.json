@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "L'appareil est connecté, veuillez maintenir la carte en place et ne pas la déplacer.",
   "hardware.device_contains_backup": "Cet appareil contient une sauvegarde",
   "hardware.device_contains_backup_desc": "Si vous continuez, votre sauvegarde précédente sera entièrement écrasée et sera perdue à jamais.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Les informations de l'appareil sont incohérentes. Cela peut être dû à une réinitialisation de l'appareil. Vous pouvez ajouter à nouveau votre appareil pour résoudre ce problème.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Le statut de connexion de l'appareil a été mis à jour. Veuillez sélectionner \"Ajouter un portefeuille\" > \"Connecter un portefeuille matériel\" pour reconfigurer. Utiliser votre phrase de récupération originale restaurera votre portefeuille actuel, tandis que l'utilisation d'une nouvelle phrase de récupération créera un nouveau portefeuille.",
   "hardware.device_need_restart": "La communication matérielle a échoué, veuillez redémarrer l'appareil et réessayer",
   "hardware.device_not_find_error": "Appareil non trouvé. Veuillez essayer de reconnecter l'appareil (débranchez et rebranchez le USB ou éteignez et rallumez le Bluetooth), puis réessayez.",
   "hardware.device_passphrase_state_error": "La Passphrase ne correspond pas à celle du portefeuille actuel, veuillez réessayer",

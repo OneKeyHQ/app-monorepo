@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "The device is connected, please keep the card in place and do not move it.",
   "hardware.device_contains_backup": "This device contains backup",
   "hardware.device_contains_backup_desc": "If you continue, your previous backup will be fully overwritten and will be lost forever.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Device information is inconsistent. This may be caused by a device reset. You can re-add your device to resolve this issue.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Device connection status has been updated. Please select \"Add Wallet\" > \"Connect Hardware Wallet\" to reconfigure. Using your original recovery phrase will restore your current wallet, while using a new recovery phrase will create a new wallet.",
   "hardware.device_need_restart": "Hardware communication failed, please restart the device and try again",
   "hardware.device_not_find_error": "Device not found. Please try reconnecting the device (unplug and plug the USB or turn Bluetooth off and on), then try again.",
   "hardware.device_passphrase_state_error": "Passphrase does not match the current wallet, please try again",

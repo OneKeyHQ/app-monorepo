@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "设备已连接，请保持卡片贴紧不要移动",
   "hardware.device_contains_backup": "此设备已经包含备份",
   "hardware.device_contains_backup_desc": "如果继续，您之前的备份将被完全覆盖并永远丢失",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "设备信息不一致，这可能是由设备重置引起的，您可以重新添加您的设备以解决此问题。",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "设备连接状态已更新。请选择「添加钱包」>「连接硬件钱包」来重新设置。使用原助记词将恢复当前钱包，使用新助记词将创建新钱包。",
   "hardware.device_need_restart": "硬件通信失败，请重启设备后再试",
   "hardware.device_not_find_error": "设备未找到，请先尝试重新连接设备（插拔 USB 或关闭开启蓝牙），然后再试一次。",
   "hardware.device_passphrase_state_error": "Passphrase 与当前钱包不匹配，请再试一次",
