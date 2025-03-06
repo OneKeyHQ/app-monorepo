@@ -106,10 +106,10 @@ function SearchModal() {
       // Check if the search input is a valid URL
       const validatedUrl = uriUtils.validateUrl(searchValue);
       const isValidUrl = validatedUrl !== `https://www.google.com/search?q=${searchValue}`;
-
+      
       const logo = 'https://uni.onekey-asset.com/static/logo/google.png';
       const globusLogo = 'https://uni.onekey-asset.com/static/logo/onekey.png';
-
+      
       if (isValidUrl) {
         // If it's a valid URL, prioritize direct URL access
         setSearchList([
