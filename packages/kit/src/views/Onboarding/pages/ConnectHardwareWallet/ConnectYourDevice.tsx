@@ -566,7 +566,7 @@ function ConnectByUSBOrBLE({
         }
         await actions.current.updateHwWalletsDeprecatedStatus({
           connectId: device.connectId ?? '',
-          deviceId: device.deviceId ?? '',
+          deviceId: features.device_id || device.deviceId || '',
         });
       } catch (error) {
         errorToastUtils.toastIfError(error);

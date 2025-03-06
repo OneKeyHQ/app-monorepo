@@ -1825,6 +1825,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const existingWallet = await this.getWalletSafe({
       walletId: dbWalletId,
     });
+
     const isExistingHiddenWallet = accountUtils.isHwHiddenWallet({
       wallet: existingWallet,
     });
@@ -2226,10 +2227,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         tx,
         walletId,
         updater(w) {
-          return {
-            ...w,
-            deprecated: isDeprecated,
-          };
+          w.deprecated = isDeprecated;
+          return w;
         },
       });
     });
