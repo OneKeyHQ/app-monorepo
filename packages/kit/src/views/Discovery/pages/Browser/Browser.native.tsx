@@ -14,6 +14,7 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useTakeScreenshot } from '@onekeyhq/kit/src/views/Discovery/components/MobileBrowser/MobileBrowserBottomBar';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -23,6 +24,7 @@ import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
@@ -45,6 +47,8 @@ import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
+
+const isNativeMobile = platformEnv.isNative && !platformEnv.isNativeIOSPad;
 
 function MobileBrowser() {
   const { tabs } = useWebTabs();
@@ -137,6 +141,22 @@ function MobileBrowser() {
   );
 
   const { top, bottom } = useSafeAreaInsets();
+  const takeScreenshot = useTakeScreenshot(activeTabId);
+
+  const handleGoBackHome = useCallback(async () => {
+    try {
+      await takeScreenshot();
+    } catch (e) {
+      console.error('takeScreenshot error: ', e);
+    }
+    setTimeout(() => {
+      setCurrentWebTab(null);
+      showTabBar();
+      if (platformEnv.isNativeIOSPad) {
+        navigation.switchTab(ETabRoutes.Discovery);
+      }
+    });
+  }, [takeScreenshot, setCurrentWebTab, navigation]);
 
   return (
     <Page fullPage>
@@ -150,8 +170,17 @@ function MobileBrowser() {
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
       >
         {!displayHomePage ? (
-          <Stack onPress={onCloseCurrentWebTabAndGoHomePage}>
-            <Icon name="CrossedLargeOutline" mr="$4" />
+          <Stack
+            onPress={
+              isNativeMobile
+                ? handleGoBackHome
+                : onCloseCurrentWebTabAndGoHomePage
+            }
+          >
+            <Icon
+              name={isNativeMobile ? 'MinimizeOutline' : 'CrossedLargeOutline'}
+              mr="$4"
+            />
           </Stack>
         ) : null}
 
@@ -199,7 +228,10 @@ function MobileBrowser() {
                 },
               ]}
             >
-              <MobileBrowserBottomBar id={activeTabId ?? ''} />
+              <MobileBrowserBottomBar
+                id={activeTabId ?? ''}
+                onGoBackHomePage={handleGoBackHome}
+              />
             </Animated.View>
           </Freeze>
         </Stack>

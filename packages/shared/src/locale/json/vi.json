@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "Thiết bị đã được kết nối, vui lòng giữ thẻ ở đúng vị trí và không di chuyển thẻ.",
   "hardware.device_contains_backup": "Thiết bị này chứa dữ liệu sao lưu",
   "hardware.device_contains_backup_desc": "Nếu bạn tiếp tục, bản sao lưu trước đó của bạn sẽ bị ghi đè hoàn toàn và sẽ bị mất vĩnh viễn.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Thông tin thiết bị không nhất quán. Điều này có thể do thiết bị đã được khởi động lại. Bạn có thể thêm lại thiết bị của mình để giải quyết vấn đề này.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Trạng thái kết nối thiết bị đã được cập nhật. Vui lòng chọn \"Thêm Ví\" > \"Kết Nối Ví Phần Cứng\" để cấu hình lại. Sử dụng cụm từ khôi phục gốc của bạn sẽ khôi phục ví hiện tại của bạn, trong khi sử dụng cụm từ khôi phục mới sẽ tạo một ví mới.",
   "hardware.device_need_restart": "Giao tiếp phần cứng thất bại, vui lòng khởi động lại thiết bị và thử lại",
   "hardware.device_not_find_error": "Không tìm thấy thiết bị. Vui lòng thử kết nối lại thiết bị (tháo và cắm lại USB hoặc tắt và mở Bluetooth), sau đó thử lại.",
   "hardware.device_passphrase_state_error": "Passphrase không khớp với ví hiện tại, vui lòng thử lại",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "Chuyển mạng ở góc trên bên trái hoặc sử dụng một tài khoản được hỗ trợ",
   "wallet.unsupported_network_desc_alt": "Chuyển mạng trên trang trước hoặc sử dụng một tài khoản được hỗ trợ",
   "wallet.unsupported_network_title": "Tài khoản này không hỗ trợ {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "Thiết bị này đã tạo ví mới và không thể giao tiếp với ví gốc.",
+  "wallet.wallet_device_has_been_reset_alert_title": "Thiết bị ví đã được đặt lại",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Bạn cần ít nhất {0} tài khoản trên bất kỳ mạng lưới nào để tạo.",
   "word": "Từ"
 }

@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "O dispositivo está conectado, mantenha o cartão no lugar e não o mova.",
   "hardware.device_contains_backup": "Este dispositivo contém backup",
   "hardware.device_contains_backup_desc": "Se você continuar, seu backup anterior será totalmente substituído e perdido para sempre.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "As informações do dispositivo estão inconsistentes. Isso pode ser causado por uma reinicialização do dispositivo. Você pode readicionar seu dispositivo para resolver este problema.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "O status de conexão do dispositivo foi atualizado. Por favor, selecione \"Adicionar Carteira\" > \"Conectar Carteira de Hardware\" para reconfigurar. Usar sua frase de recuperação original restaurará sua carteira atual, enquanto usar uma nova frase de recuperação criará uma nova carteira.",
   "hardware.device_need_restart": "Falha na comunicação do hardware, por favor reinicie o dispositivo e tente novamente",
   "hardware.device_not_find_error": "Dispositivo não encontrado. Por favor, tente reconectar o dispositivo (desconecte e conecte o USB ou desligue e ligue o Bluetooth), e tente novamente.",
   "hardware.device_passphrase_state_error": "A Passphrase não corresponde à carteira atual, por favor tente novamente",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "Mude de redes no canto superior esquerdo ou use uma conta suportada",
   "wallet.unsupported_network_desc_alt": "Mude de rede na página anterior ou use uma conta suportada",
   "wallet.unsupported_network_title": "Esta conta não suporta {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "Este dispositivo criou novas carteiras e não pode se comunicar com a carteira original.",
+  "wallet.wallet_device_has_been_reset_alert_title": "O dispositivo da carteira foi reiniciado",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Você precisa de pelo menos {0} contas em qualquer rede única para criar.",
   "word": "Palavra"
 }

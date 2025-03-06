@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "L'appareil est connecté, veuillez maintenir la carte en place et ne pas la déplacer.",
   "hardware.device_contains_backup": "Cet appareil contient une sauvegarde",
   "hardware.device_contains_backup_desc": "Si vous continuez, votre sauvegarde précédente sera entièrement écrasée et sera perdue à jamais.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Les informations de l'appareil sont incohérentes. Cela peut être dû à une réinitialisation de l'appareil. Vous pouvez ajouter à nouveau votre appareil pour résoudre ce problème.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Le statut de connexion de l'appareil a été mis à jour. Veuillez sélectionner \"Ajouter un portefeuille\" > \"Connecter un portefeuille matériel\" pour reconfigurer. Utiliser votre phrase de récupération originale restaurera votre portefeuille actuel, tandis que l'utilisation d'une nouvelle phrase de récupération créera un nouveau portefeuille.",
   "hardware.device_need_restart": "La communication matérielle a échoué, veuillez redémarrer l'appareil et réessayer",
   "hardware.device_not_find_error": "Appareil non trouvé. Veuillez essayer de reconnecter l'appareil (débranchez et rebranchez le USB ou éteignez et rallumez le Bluetooth), puis réessayez.",
   "hardware.device_passphrase_state_error": "La Passphrase ne correspond pas à celle du portefeuille actuel, veuillez réessayer",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "Changez de réseau dans le coin supérieur gauche ou utilisez un compte pris en charge",
   "wallet.unsupported_network_desc_alt": "Changez de réseau sur la page précédente ou utilisez un compte pris en charge",
   "wallet.unsupported_network_title": "Ce compte ne prend pas en charge {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "Cet appareil a créé de nouveaux portefeuilles et ne peut pas communiquer avec le portefeuille original.",
+  "wallet.wallet_device_has_been_reset_alert_title": "L'appareil de portefeuille a été réinitialisé",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Vous avez besoin d'au moins {0} comptes sur un seul réseau pour créer.",
   "word": "Mot"
 }

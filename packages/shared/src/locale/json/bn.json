@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "ডিভাইসটি কানেক্ট করা আছে, অনুগ্রহ করে কার্ডটি জায়গায় রাখুন এবং এটিকে সরিয়ে দেবেন না।",
   "hardware.device_contains_backup": "এই যন্ত্রটিতে ব্যাকআপ রয়েছে",
   "hardware.device_contains_backup_desc": "আপনি যদি চালিয়ে যান, আপনার আগের ব্যাকআপ সম্পূর্ণরূপে ওভাররাইট হয়ে যাবে এবং চিরতরে হারিয়ে যাবে।",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "ডিভাইসের তথ্য অসঙ্গত। এটি হতে পারে ডিভাইস রিসেট করার ফলে। আপনি এই সমস্যা সমাধান করতে আপনার ডিভাইসটি পুনরায় যোগ করতে পারেন।",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "ডিভাইস সংযোগের অবস্থা আপডেট করা হয়েছে। দয়া করে \"Add Wallet\" > \"Connect Hardware Wallet\" নির্বাচন করুন পুনরায় কনফিগার করার জন্য। আপনার মূল পুনরুদ্ধার বাক্যাংশ ব্যবহার করলে আপনার বর্তমান ওয়ালেট পুনরুদ্ধার হবে, যখন একটি নতুন পুনরুদ্ধার বাক্যাংশ ব্যবহার করলে একটি নতুন ওয়ালেট তৈরি হবে।",
   "hardware.device_need_restart": "হার্ডওয়্যার যোগাযোগ ব্যর্থ হয়েছে, দয়া করে ডিভাইসটি পুনরায় চালু করুন এবং আবার চেষ্টা করুন",
   "hardware.device_not_find_error": "ডিভাইস পাওয়া যাচ্ছে না। দয়া করে ডিভাইসটি পুনরায় সংযোগ করার চেষ্টা করুন (USB আনপ্লাগ করুন এবং প্লাগ করুন অথবা ব্লুটুথ বন্ধ এবং চালু করুন), তারপর আবার চেষ্টা করুন।",
   "hardware.device_passphrase_state_error": "Passphrase বর্তমান ওয়ালেটের সাথে মিলছে না, দয়া করে আবার চেষ্টা করুন",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "উপরের বাম দিকে নেটওয়ার্ক পরিবর্তন করুন বা সমর্থিত অ্যাকাউন্ট ব্যবহার করুন",
   "wallet.unsupported_network_desc_alt": "পূর্ববর্তী পৃষ্ঠায় নেটওয়ার্ক পরিবর্তন করুন বা সমর্থিত অ্যাকাউন্ট ব্যবহার করুন",
   "wallet.unsupported_network_title": "এই অ্যাকাউন্টটি {network} সমর্থন করে না",
+  "wallet.wallet_device_has_been_reset_alert_desc": "এই ডিভাইসটি নতুন ওয়ালেট তৈরি করেছে এবং মূল ওয়ালেটের সাথে যোগাযোগ করতে পারছে না।",
+  "wallet.wallet_device_has_been_reset_alert_title": "ওয়ালেট ডিভাইসটি রিসেট করা হয়েছে",
   "wallet.you_need_str_accounts_on_any_network_to_create": "আপনার কোন একটি নেটওয়ার্কে কমপক্ষে {0} টি অ্যাকাউন্ট থাকা প্রয়োজন তৈরি করার জন্য।",
   "word": "শব্দ"
 }
