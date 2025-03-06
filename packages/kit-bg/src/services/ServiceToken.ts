@@ -15,6 +15,7 @@ import {
   getEmptyTokenData,
   getMergedTokenData,
 } from '@onekeyhq/shared/src/utils/tokenUtils';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IAccountToken,
   IFetchAccountTokensParams,
@@ -392,6 +393,22 @@ class ServiceToken extends ServiceBase {
     return vault.fillTokensDetails({
       tokensDetails: resp.data.data,
     });
+  }
+
+  @backgroundMethod()
+  public async fetchTokenInfoOnly(
+    params: Pick<IFetchTokenDetailParams, 'networkId' | 'contractList'>,
+  ) {
+    const { networkId, contractList } = params;
+    const client = await this.getClient(EServiceEndpointEnum.Wallet);
+    const resp = await client.post<{ data: IFetchTokenDetailItem[] }>(
+      '/wallet/v1/account/token/search',
+      {
+        networkId,
+        contractList,
+      },
+    );
+    return resp.data.data;
   }
 
   @backgroundMethod()
