@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "El dispositivo está conectado, mantenga la tarjeta en su lugar y no la mueva.",
   "hardware.device_contains_backup": "Este dispositivo contiene una copia de seguridad",
   "hardware.device_contains_backup_desc": "Si continúa, su copia de seguridad anterior se sobrescribirá por completo y se perderá para siempre.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "La información del dispositivo es inconsistente. Esto puede ser causado por un reinicio del dispositivo. Puedes volver a agregar tu dispositivo para resolver este problema.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "El estado de conexión del dispositivo ha sido actualizado. Por favor, seleccione \"Agregar Billetera\" > \"Conectar Billetera de Hardware\" para reconfigurar. Usar su frase de recuperación original restaurará su billetera actual, mientras que usar una nueva frase de recuperación creará una nueva billetera.",
   "hardware.device_need_restart": "Falló la comunicación del hardware, por favor reinicie el dispositivo e intente de nuevo",
   "hardware.device_not_find_error": "Dispositivo no encontrado. Por favor, intenta reconectar el dispositivo (desconecta y conecta el USB o apaga y enciende el Bluetooth), luego intenta de nuevo.",
   "hardware.device_passphrase_state_error": "La Passphrase no coincide con la cartera actual, por favor intenta de nuevo",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "Cambia de red en la esquina superior izquierda o usa una cuenta compatible",
   "wallet.unsupported_network_desc_alt": "Cambia de red en la página anterior o usa una cuenta compatible",
   "wallet.unsupported_network_title": "Esta cuenta no admite {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "Este dispositivo ha creado nuevas billeteras y no puede comunicarse con la billetera original.",
+  "wallet.wallet_device_has_been_reset_alert_title": "El dispositivo de la billetera ha sido restablecido",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Necesitas al menos {0} cuentas en cualquier red única para crear.",
   "word": "Palabra"
 }
