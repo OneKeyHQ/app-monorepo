@@ -9,10 +9,7 @@ import type {
   ITransferInfo,
   ITransferPayload,
 } from '@onekeyhq/kit-bg/src/vaults/types';
-import type {
-  EAccountSelectorSceneName,
-  IDappSourceInfo,
-} from '@onekeyhq/shared/types';
+import type { IDappSourceInfo } from '@onekeyhq/shared/types';
 
 import type { ITokenSelectorParamList } from './assetSelector';
 import type { INetworkAccount } from '../../types/account';
@@ -24,6 +21,7 @@ import type {
   ILNURLWithdrawServiceResponse,
 } from '../../types/lightning';
 import type { IAccountNFT } from '../../types/nft';
+import type { ISwapTxInfo } from '../../types/swap/types';
 import type { IToken, ITokenFiat } from '../../types/token';
 import type { EReplaceTxType, ISendTxOnSuccessData } from '../../types/tx';
 
@@ -81,6 +79,7 @@ export type IModalSignatureConfirmParamList = {
     unsignedMessage: IUnsignedMessage;
     walletInternalSign?: boolean;
     sourceInfo?: IDappSourceInfo;
+    swapInfo?: ISwapTxInfo | undefined;
     onSuccess?: (result: string) => void;
     onFail?: (error: Error) => void;
     onCancel?: () => void;
