@@ -41,5 +41,8 @@ export const DeviceManagementStacks: IModalFlowNavigatorConfig<
   {
     name: EModalDeviceManagementRoutes.BuyOneKeyHardwareWallet,
     component: BuyOneKeyHardwareWallet,
+    options: {
+      headerShown: false,
+    },
   },
 ];
