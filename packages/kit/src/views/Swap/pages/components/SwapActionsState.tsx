@@ -295,7 +295,14 @@ const SwapActionsState = ({
         title: intl.formatMessage({
           id: ETranslations.swap_network_cost_dialog_title,
         }),
-        icon: 'ErrorSolid',
+        description: intl.formatMessage(
+          {
+            id: ETranslations.swap_network_cost_dialog_description,
+          },
+          {
+            number: ` ${percentage}%`,
+          },
+        ),
         renderContent: (
           <TransactionLossNetworkFeeExceedDialog
             protocol={currentQuoteRes.protocol ?? EProtocolOfExchange.SWAP}

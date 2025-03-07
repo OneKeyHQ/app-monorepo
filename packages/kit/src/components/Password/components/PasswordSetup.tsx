@@ -102,7 +102,17 @@ const PasswordSetup = ({
             </Heading>
           </Dialog.Title>
         </Dialog.Header>
-      ) : null}
+      ) : (
+        <Dialog.Header>
+          <Dialog.Title>
+            <Heading size="$headingXl" py="$px">
+              {intl.formatMessage({
+                id: ETranslations.global_set_passcode,
+              })}
+            </Heading>
+          </Dialog.Title>
+        </Dialog.Header>
+      )}
       <Form form={form}>
         {currentPasswordMode === EPasswordMode.PASSWORD ? (
           <>
@@ -270,6 +280,7 @@ const PasswordSetup = ({
                 }}
                 editable
                 autoFocus
+                onComplete={form.handleSubmit(onPassCodeNext)}
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 testId="pass-code"
               />
@@ -307,6 +318,7 @@ const PasswordSetup = ({
                 }}
                 editable
                 autoFocus={passCodeConfirm}
+                onComplete={form.handleSubmit(onSetupPassword)}
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 testId="confirm-pass-code"
               />
@@ -317,22 +329,24 @@ const PasswordSetup = ({
         {!passCodeFirstStep ? (
           <Unspaced>{biologyAuthSwitchContainer}</Unspaced>
         ) : null}
-        <Button
-          size="large"
-          $gtMd={
-            {
-              size: 'medium',
-            } as any
-          }
-          variant="primary"
-          loading={loading}
-          onPress={form.handleSubmit(
-            passCodeFirstStep ? onPassCodeNext : onSetupPassword,
-          )}
-          testID="set-password"
-        >
-          {confirmBtnTextMemo}
-        </Button>
+        {currentPasswordMode === EPasswordMode.PASSWORD ? (
+          <Button
+            size="large"
+            $gtMd={
+              {
+                size: 'medium',
+              } as any
+            }
+            variant="primary"
+            loading={loading}
+            onPress={form.handleSubmit(
+              passCodeFirstStep ? onPassCodeNext : onSetupPassword,
+            )}
+            testID="set-password"
+          >
+            {confirmBtnTextMemo}
+          </Button>
+        ) : null}
         {platformEnv.isNative &&
         (passCodeFirstStep ||
           currentPasswordMode === EPasswordMode.PASSWORD) ? (

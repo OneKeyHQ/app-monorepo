@@ -26,7 +26,7 @@ import {
   LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
 
-import { Token } from '../../../components/Token';
+import { SwapTxHistoryAvatar } from './SwapTxHistoryListCell';
 
 const LimitOrderCard = ({
   item,
@@ -93,6 +93,11 @@ const LimitOrderCard = ({
     );
   }, [item.expiredAt, item.status, gtMd, intl]);
 
+  const networkName = useMemo(() => {
+    const networkInfo = networkUtils.getLocalNetworkInfo(item?.networkId);
+    return networkInfo?.name;
+  }, [item]);
+
   const tokenInfo = useCallback(() => {
     const fromAmountFormatted = new BigNumber(fromAmount).shiftedBy(
       -(fromTokenInfo?.decimals ?? 0),
@@ -102,23 +107,34 @@ const LimitOrderCard = ({
     );
     return (
       <XStack gap="$2" alignItems="center">
-        <XStack gap="$1" alignItems="center">
-          <Token size="xs" tokenImageUri={fromTokenInfo?.logoURI} />
-          <NumberSizeableText size="$bodyMd" formatter="balance">
-            {fromAmountFormatted.toFixed()}
-          </NumberSizeableText>
-          <SizableText size="$bodyMd">
-            {fromTokenInfo?.symbol ?? '-'}
+        <SwapTxHistoryAvatar
+          fromUri={fromTokenInfo?.logoURI ?? ''}
+          toUri={toTokenInfo?.logoURI ?? ''}
+        />
+        <YStack>
+          <XStack alignItems="center" gap="$1" flex={1}>
+            {gtMd ? (
+              <NumberSizeableText size="$bodyMd" formatter="balance">
+                {fromAmountFormatted.toFixed()}
+              </NumberSizeableText>
+            ) : null}
+            <SizableText size="$bodyMd" numberOfLines={1}>
+              {fromTokenInfo?.symbol ?? '-'}
+            </SizableText>
+            <SizableText size="$bodyMd">→</SizableText>
+            {gtMd ? (
+              <NumberSizeableText size="$bodyMd" formatter="balance">
+                {toAmountFormatted.toFixed()}
+              </NumberSizeableText>
+            ) : null}
+            <SizableText size="$bodyMd" numberOfLines={1}>
+              {toTokenInfo?.symbol ?? '-'}
+            </SizableText>
+          </XStack>
+          <SizableText size="$bodySm" color="$textSubdued">
+            {` ${networkName ?? '-'}`}
           </SizableText>
-        </XStack>
-        <SizableText size="$bodyMd">→</SizableText>
-        <XStack gap="$1" alignItems="center">
-          <Token size="xs" tokenImageUri={toTokenInfo?.logoURI} />
-          <NumberSizeableText size="$bodyMd" formatter="balance">
-            {toAmountFormatted.toFixed()}
-          </NumberSizeableText>
-          <SizableText size="$bodyMd">{toTokenInfo?.symbol ?? '-'}</SizableText>
-        </XStack>
+        </YStack>
       </XStack>
     );
   }, [
@@ -130,6 +146,8 @@ const LimitOrderCard = ({
     toTokenInfo?.decimals,
     toTokenInfo?.logoURI,
     toTokenInfo?.symbol,
+    networkName,
+    gtMd,
   ]);
   const decimalsAmount = useMemo(
     () => ({
@@ -254,11 +272,6 @@ const LimitOrderCard = ({
     );
   }, [item, intl, fromAmount, fromTokenInfo?.decimals, progressWidth]);
 
-  const networkName = useMemo(() => {
-    const networkInfo = networkUtils.getLocalNetworkInfo(item?.networkId);
-    return networkInfo?.name;
-  }, [item]);
-
   return (
     <YStack
       flex={1}
@@ -281,14 +294,6 @@ const LimitOrderCard = ({
         <YStack gap="$2">
           {createdAtFormat}
           {tokenInfo()}
-          <XStack>
-            <SizableText size="$bodySm" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.limit_order_card_network,
-              })}
-            </SizableText>
-            <SizableText size="$bodySm">{` ${networkName ?? '-'}`}</SizableText>
-          </XStack>
         </YStack>
         {!hiddenCancelIcon ? (
           <Badge

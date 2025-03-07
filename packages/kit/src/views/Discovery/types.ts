@@ -107,7 +107,7 @@ export interface IMobileBottomOptionsProps {
   isPinned: boolean;
   onPinnedPress: (pinned: boolean) => void;
   onBrowserOpen: () => void;
-  onGoBackHomePage: () => void;
+  onGoBackHomePage?: () => void;
   onCloseTab: () => void;
   displayDisconnectOption: boolean;
   onDisconnect: () => void;

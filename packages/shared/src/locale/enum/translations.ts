@@ -1398,6 +1398,7 @@
   limit_history_fill_sold = 'limit.history_fill_sold',
   limit_network_cost_dialog_content = 'limit.network_cost_dialog_content',
   limit_order_card_network = 'limit.order_card_network',
+  limit_order_info_network_cost = 'limit.order_info_network_cost',
   limit_place_order = 'limit.place_order',
   limit_relative_to_market = 'limit.relative_to_market',
   limit_toast_order_cancelled = 'limit.toast_order_cancelled',
@@ -2526,6 +2527,8 @@
   wallet_unsupported_network_desc = 'wallet.unsupported_network_desc',
   wallet_unsupported_network_desc_alt = 'wallet.unsupported_network_desc_alt',
   wallet_unsupported_network_title = 'wallet.unsupported_network_title',
+  wallet_wallet_device_has_been_reset_alert_desc = 'wallet.wallet_device_has_been_reset_alert_desc',
+  wallet_wallet_device_has_been_reset_alert_title = 'wallet.wallet_device_has_been_reset_alert_title',
   wallet_you_need_str_accounts_on_any_network_to_create = 'wallet.you_need_str_accounts_on_any_network_to_create',
   word = 'word',
 }
