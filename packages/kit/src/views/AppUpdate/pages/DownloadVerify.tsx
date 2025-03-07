@@ -230,6 +230,9 @@ function DownloadVerify({
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_install,
         })}
+        confirmButtonProps={{
+          disabled: data.status !== EAppUpdateStatus.ready,
+        }}
         onConfirm={handleToUpdate}
       />
     </Page>
