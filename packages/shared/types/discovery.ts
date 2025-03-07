@@ -63,6 +63,7 @@ export interface IDApp {
   order?: number;
   origins?: string[];
   _id?: string;
+  isExactUrl?: boolean;
 }
 
 export interface IDAppTag {
