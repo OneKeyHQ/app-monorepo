@@ -131,7 +131,7 @@ function ApproveEditor(props: IProps) {
       isUnlimited: false,
     },
     mode: 'onChange',
-    reValidateMode: 'onBlur',
+    reValidateMode: 'onChange',
   });
 
   const watchAllFields = form.watch();
@@ -181,12 +181,14 @@ function ApproveEditor(props: IProps) {
                   'allowance',
                   isNaN(formattedValue) ? '' : String(formattedValue),
                 );
+                void form.trigger('allowance');
                 return;
               }
 
               if (valueBN.isGreaterThanOrEqualTo(ALLOWANCE_MAX)) {
                 form.setValue('allowance', unlimitedText);
                 form.setValue('isUnlimited', true);
+                void form.trigger('allowance');
                 return;
               }
 
@@ -196,6 +198,7 @@ function ApproveEditor(props: IProps) {
                   'allowance',
                   valueBN.toFixed(tokenDecimals, BigNumber.ROUND_FLOOR),
                 );
+                void form.trigger('allowance');
               }
             },
           }}
@@ -213,6 +216,7 @@ function ApproveEditor(props: IProps) {
                     !watchAllFields.isUnlimited
                   ) {
                     form.setValue('allowance', tokenBalanceParsed);
+                    void form.trigger('allowance');
                   }
                 }}
               >

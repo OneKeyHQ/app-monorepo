@@ -59,7 +59,13 @@ class ServiceHistory extends ServiceBase {
 
   @backgroundMethod()
   public async fetchAccountHistory(params: IFetchAccountHistoryParams) {
-    const { accountId, networkId, tokenIdOnNetwork, filterScam } = params;
+    const {
+      accountId,
+      networkId,
+      tokenIdOnNetwork,
+      filterScam,
+      excludeTestNetwork,
+    } = params;
     let dbAccount;
     try {
       dbAccount = await this.backgroundApi.serviceAccount.getDBAccount({
@@ -95,6 +101,7 @@ class ServiceHistory extends ServiceBase {
           {
             accountId,
             networkId,
+            excludeTestNetwork,
           },
         );
       accounts = resp.accountsInfo;
@@ -390,10 +397,12 @@ class ServiceHistory extends ServiceBase {
     accountId,
     networkId,
     filterScam,
+    excludeTestNetwork,
   }: {
     accountId: string;
     networkId: string;
     filterScam?: boolean;
+    excludeTestNetwork?: boolean;
   }) {
     if (networkUtils.isAllNetwork({ networkId })) {
       const accounts = (
@@ -401,6 +410,7 @@ class ServiceHistory extends ServiceBase {
           {
             accountId,
             networkId,
+            excludeTestNetwork,
           },
         )
       ).accountsInfo;
