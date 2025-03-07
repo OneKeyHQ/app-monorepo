@@ -152,8 +152,26 @@ const init = ({ mainWindow, store }: IDependencies) => {
     }
     try {
       const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
-      const ascFile = await fetch(ascFileUrl);
-      const ascFileMessage = await ascFile.text();
+      const ascFileResponse = await fetch(ascFileUrl);
+
+      if (!ascFileResponse.ok) {
+        logger.error(
+          'auto-updater',
+          `Failed to fetch ASC file: ${ascFileResponse.status} ${ascFileResponse.statusText}`,
+        );
+        sendUpdateError({
+          message: '',
+        });
+        return false;
+      }
+
+      const ascFileMessage = await ascFileResponse.text();
+      if (ascFileMessage.length === 0) {
+        sendUpdateError({
+          message: '',
+        });
+        return false;
+      }
       setASCFile(ascFileMessage);
     } catch (error) {
       sendUpdateError({
