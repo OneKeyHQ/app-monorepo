@@ -70,6 +70,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
     store.setUpdateSettings(updateSettings);
   };
 
+  const sendUpdateError = (error: { message: string }) => {
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+      err: error,
+      isNetworkError: false,
+    });
+  };
+
   const getSha256 = async () => {
     try {
       const ascFileMessage = getASCFile();
@@ -95,6 +102,20 @@ const init = ({ mainWindow, store }: IDependencies) => {
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         `getSha256 Error: ${(error as any).toString()}`,
       );
+      const { message } = error as { message: string };
+
+      const lowerCaseMessage = message.toLowerCase();
+      const isInValid =
+        lowerCaseMessage.includes('signed digest did not match') ||
+        lowerCaseMessage.includes('misformed armored text') ||
+        lowerCaseMessage.includes('ascii armor integrity check failed');
+      if (isInValid) {
+        sendUpdateError({
+          message: isInValid
+            ? ETranslations.update_signature_verification_failed_alert_text
+            : ETranslations.update_installation_package_possibly_compromised,
+        });
+      }
       return undefined;
     }
   };
@@ -109,13 +130,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
     return fileSha256 === sha256;
   };
 
-  const sendUpdateError = (error: { message: string }) => {
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-      err: error,
-      isNetworkError: false,
-    });
-  };
-
   const sendValidError = () => {
     sendUpdateError({
       message: ETranslations.update_installation_not_safe_alert_text,
@@ -124,13 +138,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   const verifyASC = async () => {
     const sha256 = await getSha256();
-    if (!sha256) {
-      sendUpdateError({
-        message: ETranslations.update_signature_verification_failed_alert_text,
-      });
-      return false;
-    }
-    return true;
+    return !!sha256;
   };
 
   const downloadASC = async ({
@@ -196,9 +204,17 @@ const init = ({ mainWindow, store }: IDependencies) => {
       return false;
     }
 
-    const verified = verifySha256(downloadedFile, sha256);
-    if (!verified) {
-      sendValidError();
+    try {
+      const verified = verifySha256(downloadedFile, sha256);
+      if (!verified) {
+        sendValidError();
+        return false;
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'verifyFile error', error);
+      sendUpdateError({
+        message: ETranslations.update_installation_package_possibly_compromised,
+      });
       return false;
     }
 

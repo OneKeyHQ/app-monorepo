@@ -95,7 +95,8 @@ function DownloadVerify({
   const stepIndex = STEP_INDEX_MAP[data.status];
   const isError = checkIsError(data.status);
 
-  const { downloadPackage, downloadASC } = useDownloadPackage();
+  const { downloadPackage, downloadASC, verifyASC, verifyPackage } =
+    useDownloadPackage();
   const percent = useDownloadProgress(noop, noop);
 
   const renderDownloadError = useCallback(
@@ -234,9 +235,18 @@ function DownloadVerify({
                 </SizableText>
               );
             }}
-            renderAction={({ status }) =>
-              status === EStepItemStatus.Failed ? <ContactUsButton /> : null
-            }
+            renderAction={({ status }) => {
+              if (status === EStepItemStatus.Failed) {
+                if (
+                  data.errorText ===
+                  ETranslations.update_installation_package_possibly_compromised
+                ) {
+                  return <RetryButton onPress={verifyASC} />;
+                }
+                return <ContactUsButton />;
+              }
+              return null;
+            }}
           />
           <Stepper.Item
             title={intl.formatMessage({
@@ -253,6 +263,29 @@ function DownloadVerify({
                 );
               }
               if (status === EStepItemStatus.Failed) {
+                if (
+                  data.errorText ===
+                  ETranslations.update_installation_package_possibly_compromised
+                ) {
+                  return (
+                    <SizableText size="$bodyLg" color="$textSubdued">
+                      {intl.formatMessage(
+                        {
+                          id: ETranslations.update_retrying_fails_help_text,
+                        },
+                        {
+                          reason: (
+                            <SizableText size="$bodyLg" color="$textSubdued">
+                              {intl.formatMessage({
+                                id: ETranslations.update_installation_package_possibly_compromised,
+                              })}
+                            </SizableText>
+                          ),
+                        },
+                      )}
+                    </SizableText>
+                  );
+                }
                 return (
                   <SizableText size="$bodyLg" color="$textCritical">
                     {intl.formatMessage({
@@ -269,9 +302,18 @@ function DownloadVerify({
                 </SizableText>
               );
             }}
-            renderAction={({ status }) =>
-              status === EStepItemStatus.Failed ? <ContactUsButton /> : null
-            }
+            renderAction={({ status }) => {
+              if (status === EStepItemStatus.Failed) {
+                if (
+                  data.errorText ===
+                  ETranslations.update_installation_package_possibly_compromised
+                ) {
+                  return <RetryButton onPress={verifyPackage} />;
+                }
+                return <ContactUsButton />;
+              }
+              return null;
+            }}
           />
         </Stepper>
       </Page.Body>
