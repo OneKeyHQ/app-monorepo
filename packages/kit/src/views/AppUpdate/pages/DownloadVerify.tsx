@@ -76,7 +76,6 @@ function DownloadVerify({
   const handleToUpdate = useCallback(async () => {
     await installPackage(data);
   }, [data]);
-  console.log('---data', data);
   const stepIndex = STEP_INDEX_MAP[data.status];
   const isError = checkIsError(data.status);
 
