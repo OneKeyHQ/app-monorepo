@@ -123,7 +123,8 @@ export const useDownloadPackage = () => {
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
-  const { downloadPackage } = useDownloadPackage();
+  const { downloadPackage, verifyPackage, verifyASC, downloadASC } =
+    useDownloadPackage();
   const onViewReleaseInfo = useCallback(() => {
     if (platformEnv.isE2E) {
       return;
@@ -196,14 +197,21 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     }
     if (appUpdateInfo.status === EAppUpdateStatus.downloadPackage) {
       void downloadPackage(appUpdateInfo);
+    } else if (appUpdateInfo.status === EAppUpdateStatus.downloadASC) {
+      void downloadASC();
+    } else if (appUpdateInfo.status === EAppUpdateStatus.verifyASC) {
+      void verifyASC();
+    } else if (appUpdateInfo.status === EAppUpdateStatus.verifyPackage) {
+      void verifyPackage();
+    } else {
+      void checkForUpdates().then(
+        ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
+          if (isForceUpdate && needUpdate) {
+            toUpdatePreviewPage(true, response);
+          }
+        },
+      );
     }
-    void checkForUpdates().then(
-      ({ isNeedUpdate: needUpdate, isForceUpdate, response }) => {
-        if (isForceUpdate && needUpdate) {
-          toUpdatePreviewPage(true, response);
-        }
-      },
-    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
