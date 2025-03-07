@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
 import noop from 'lodash/noop';
 import { useIntl } from 'react-intl';
+import { SizableStack } from 'tamagui';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -27,6 +28,7 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
+import { HyperlinkText } from '../../../components/HyperlinkText';
 import {
   useAppUpdateInfo,
   useDownloadPackage,
@@ -104,11 +106,22 @@ function DownloadVerify({
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Failed) {
                 return (
-                  <SizableText size="$bodyLg" color="$textSubdued">
-                    Server error. If retrying fails, download the installation
-                    package from OneKey's official GitHub releases page—it will
-                    automatically replace the current version.
-                  </SizableText>
+                  <HyperlinkText
+                    size="$bodyLg"
+                    color="$textSubdued"
+                    translationId={
+                      ETranslations.update_retrying_fails_help_text
+                    }
+                    values={{
+                      reason: intl.formatMessage({ id: data.errorText }) || '',
+                      link: () => '',
+                    }}
+                    onAction={() => {
+                      openUrlExternal(
+                        'https://github.com/OneKeyHQ/app-monorepo/releases',
+                      );
+                    }}
+                  />
                 );
               }
 

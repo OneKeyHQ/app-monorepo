@@ -126,7 +126,23 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async downloadPackageFailed() {
+  public async downloadPackageFailed(e?: { message: string }) {
+    clearTimeout(downloadTimeoutId);
+    // TODO: need replace by error code.
+    let errorText: ETranslations | string =
+      e?.message || ETranslations.update_network_exception_check_connection;
+    if (errorText.includes('Server not responding')) {
+      errorText = ETranslations.update_server_not_responding_try_later;
+    } else if (errorText.includes('Cannot download')) {
+      errorText = ETranslations.update_server_not_responding_try_later;
+    } else if (errorText.includes('Software caused connection abort')) {
+      errorText = ETranslations.update_network_instability_check_connection;
+    }
+    void appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      errorText: errorText as ETranslations,
+      status: EAppUpdateStatus.failed,
+    }));
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.downloadPackageFailed,
@@ -232,6 +248,8 @@ class ServiceAppUpdate extends ServiceBase {
     let errorText: ETranslations | string =
       e?.message || ETranslations.update_network_exception_check_connection;
     if (errorText.includes('Server not responding')) {
+      errorText = ETranslations.update_server_not_responding_try_later;
+    } else if (errorText.includes('Cannot download')) {
       errorText = ETranslations.update_server_not_responding_try_later;
     } else if (errorText.includes('Software caused connection abort')) {
       errorText = ETranslations.update_network_instability_check_connection;
