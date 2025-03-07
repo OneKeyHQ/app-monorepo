@@ -53,7 +53,6 @@ export const useDownloadPackage = () => {
     } catch (e: { message: string }) {
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e);
     }
-    await backgroundApiProxy.serviceAppUpdate.readyToInstall();
   }, []);
 
   const verifyASC = useCallback(async () => {

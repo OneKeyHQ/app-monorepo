@@ -30,6 +30,7 @@ import {
   useAppUpdateInfo,
   useDownloadPackage,
 } from '../../../components/UpdateReminder/hooks';
+import { useHelpLink } from '../../../hooks/useHelpLink';
 
 const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
   [EAppUpdateStatus.failed]: -2,
@@ -66,6 +67,21 @@ function RetryButton({ onPress }: IButtonProps) {
   );
 }
 
+function ContactUsButton() {
+  const intl = useIntl();
+  const requestsUrl = useHelpLink({ path: 'requests/new' });
+  const onPress = useCallback(() => {
+    openUrlExternal(requestsUrl);
+  }, [requestsUrl]);
+  return (
+    <XStack>
+      <Button onPress={onPress}>
+        {intl.formatMessage({ id: ETranslations.global_contact_us })}
+      </Button>
+    </XStack>
+  );
+}
+
 function DownloadVerify({
   route,
 }: IPageScreenProps<IAppUpdatePagesParamList, EAppUpdateRoutes.UpdatePreview>) {
@@ -79,8 +95,7 @@ function DownloadVerify({
   const stepIndex = STEP_INDEX_MAP[data.status];
   const isError = checkIsError(data.status);
 
-  const { downloadPackage, downloadASC, verifyASC, verifyPackage } =
-    useDownloadPackage();
+  const { downloadPackage, downloadASC } = useDownloadPackage();
   const percent = useDownloadProgress(noop, noop);
 
   const renderDownloadError = useCallback(
@@ -192,50 +207,70 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_verify_asc_labe,
             })}
-            renderDescription={({ status }) =>
-              status === EStepItemStatus.Done ? (
-                <SizableText size="$bodyLg" color="$textSuccess">
-                  {intl.formatMessage({
-                    id: ETranslations.update_verify_asc_success_desc,
-                  })}
-                </SizableText>
-              ) : (
+            renderDescription={({ status }) => {
+              if (status === EStepItemStatus.Done) {
+                return (
+                  <SizableText size="$bodyLg" color="$textSuccess">
+                    {intl.formatMessage({
+                      id: ETranslations.update_verify_asc_success_desc,
+                    })}
+                  </SizableText>
+                );
+              }
+              if (status === EStepItemStatus.Failed) {
+                return (
+                  <SizableText size="$bodyLg" color="$textCritical">
+                    {intl.formatMessage({
+                      id: ETranslations.update_signature_verification_failed_alert_text,
+                    })}
+                  </SizableText>
+                );
+              }
+              return (
                 <SizableText size="$bodyLg" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.update_verify_asc_desc,
                   })}
                 </SizableText>
-              )
-            }
+              );
+            }}
             renderAction={({ status }) =>
-              status === EStepItemStatus.Failed ? (
-                <RetryButton onPress={verifyASC} />
-              ) : null
+              status === EStepItemStatus.Failed ? <ContactUsButton /> : null
             }
           />
           <Stepper.Item
             title={intl.formatMessage({
               id: ETranslations.update_verify_package_label,
             })}
-            renderDescription={({ status }) =>
-              status === EStepItemStatus.Done ? (
-                <SizableText size="$bodyLg" color="$textSuccess">
-                  {intl.formatMessage({
-                    id: ETranslations.update_verify_package_success_desc,
-                  })}
-                </SizableText>
-              ) : (
+            renderDescription={({ status }) => {
+              if (status === EStepItemStatus.Done) {
+                return (
+                  <SizableText size="$bodyLg" color="$textSuccess">
+                    {intl.formatMessage({
+                      id: ETranslations.update_verify_package_success_desc,
+                    })}
+                  </SizableText>
+                );
+              }
+              if (status === EStepItemStatus.Failed) {
+                return (
+                  <SizableText size="$bodyLg" color="$textCritical">
+                    {intl.formatMessage({
+                      id: ETranslations.update_installation_not_safe_alert_text,
+                    })}
+                  </SizableText>
+                );
+              }
+              return (
                 <SizableText size="$bodyLg" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.update_verify_package_desc,
                   })}
                 </SizableText>
-              )
-            }
+              );
+            }}
             renderAction={({ status }) =>
-              status === EStepItemStatus.Failed ? (
-                <RetryButton onPress={verifyPackage} />
-              ) : null
+              status === EStepItemStatus.Failed ? <ContactUsButton /> : null
             }
           />
         </Stepper>

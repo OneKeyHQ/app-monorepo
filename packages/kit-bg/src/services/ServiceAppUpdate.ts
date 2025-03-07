@@ -193,6 +193,9 @@ class ServiceAppUpdate extends ServiceBase {
   public async verifyASCFailed(e?: { message: string }) {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
+      errorText:
+        (e?.message as ETranslations) ||
+        ETranslations.update_signature_verification_failed_alert_text,
       status: EAppUpdateStatus.verifyASCFailed,
     }));
   }
@@ -201,6 +204,9 @@ class ServiceAppUpdate extends ServiceBase {
   public async verifyPackageFailed(e?: { message: string }) {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
+      errorText:
+        (e?.message as ETranslations) ||
+        ETranslations.update_installation_not_safe_alert_text,
       status: EAppUpdateStatus.verifyPackageFailed,
     }));
   }
