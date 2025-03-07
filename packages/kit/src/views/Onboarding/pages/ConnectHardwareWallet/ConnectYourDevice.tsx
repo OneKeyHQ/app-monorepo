@@ -44,6 +44,7 @@ import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsL
 import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   HARDWARE_BRIDGE_DOWNLOAD_URL,
@@ -248,6 +249,7 @@ function ConnectByUSBOrBLE({
   toOneKeyHardwareWalletPage: () => void;
 }) {
   const intl = useIntl();
+  const isFocused = useIsFocused();
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
 
@@ -407,7 +409,7 @@ function ConnectByUSBOrBLE({
     }
   }, []);
 
-  const [isSearching, setIsSearching] = useState(false);
+  const isSearchingRef = useRef(false);
   const [isChecking, setIsChecking] = useState(false);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [showHelper, setShowHelper] = useState(false);
@@ -422,6 +424,10 @@ function ConnectByUSBOrBLE({
   );
 
   const scanDevice = useCallback(() => {
+    if (isSearchingRef.current) {
+      return;
+    }
+    isSearchingRef.current = true;
     deviceScanner.startDeviceScan(
       (response) => {
         if (!response.success) {
@@ -499,8 +505,6 @@ function ConnectByUSBOrBLE({
 
             deviceScanner.stopScan();
           }
-
-          setIsSearching(false);
           return;
         }
 
@@ -521,9 +525,19 @@ function ConnectByUSBOrBLE({
 
   const stopScan = useCallback(() => {
     console.log('=====>>>>> stopDeviceScan>>>>>');
+    isSearchingRef.current = false;
     deviceScanner.stopScan();
-    setIsSearching(false);
   }, [deviceScanner]);
+
+  useEffect(() => {
+    if (isFocused) {
+      if (connectStatus === EConnectionStatus.listing) {
+        scanDevice();
+      }
+    } else if (!isFocused) {
+      stopScan();
+    }
+  }, [connectStatus, isFocused, scanDevice, stopScan]);
 
   const createHwWallet = useCallback(
     async ({
@@ -843,16 +857,6 @@ function ConnectByUSBOrBLE({
       listingDevice();
     }
   }, [listingDevice]);
-
-  useEffect(() => {
-    const handler = () => {
-      navigation.pop();
-    };
-    appEventBus.on(EAppEventBusNames.BeginFirmwareUpdate, handler);
-    return () => {
-      appEventBus.off(EAppEventBusNames.BeginFirmwareUpdate, handler);
-    };
-  }, [navigation]);
 
   useEffect(
     () =>
