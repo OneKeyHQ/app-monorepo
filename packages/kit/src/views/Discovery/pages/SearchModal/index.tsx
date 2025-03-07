@@ -102,7 +102,12 @@ function SearchModal() {
         return;
       }
       const logo = 'https://uni.onekey-asset.com/static/logo/google.png';
+      const exactUrlResults =
+        searchResult?.filter((item) => item.isExactUrl) || [];
+      const otherResults =
+        searchResult?.filter((item) => !item.isExactUrl) || [];
       setSearchList([
+        ...exactUrlResults,
         {
           dappId: SEARCH_ITEM_ID,
           name: `${intl.formatMessage({
@@ -111,7 +116,7 @@ function SearchModal() {
           url: '',
           logo,
         } as IDApp,
-        ...(searchResult ?? []),
+        ...otherResults,
       ]);
     })();
   }, [searchValue, searchResult, intl]);
