@@ -25,6 +25,7 @@ import type {
 import {
   useAppChangeLog,
   useAppUpdateInfo,
+  useDownloadPackage,
 } from '../../../components/UpdateReminder/hooks';
 import { UpdatePreviewActionButton } from '../components/UpdatePreviewActionButton';
 import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
@@ -76,6 +77,9 @@ function DownloadVerify({
   const stepIndex = STEP_INDEX_MAP[data.status];
   const isError = checkIsError(data.status);
 
+  const { downloadPackage, downloadASC, verifyASC, verifyPackage } =
+    useDownloadPackage();
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -110,7 +114,9 @@ function DownloadVerify({
               )
             }
             renderAction={({ status }) =>
-              status === EStepItemStatus.Failed ? <RetryButton /> : null
+              status === EStepItemStatus.Failed ? (
+                <RetryButton onPress={downloadPackage} />
+              ) : null
             }
           />
           <Stepper.Item
@@ -119,7 +125,9 @@ function DownloadVerify({
             })}
             description="Digital signature file for verification"
             renderAction={({ status }) =>
-              status === EStepItemStatus.Failed ? <RetryButton /> : null
+              status === EStepItemStatus.Failed ? (
+                <RetryButton onPress={downloadASC} />
+              ) : null
             }
           />
           <Stepper.Item
@@ -138,7 +146,9 @@ function DownloadVerify({
               )
             }
             renderAction={({ status }) =>
-              status === EStepItemStatus.Failed ? <RetryButton /> : null
+              status === EStepItemStatus.Failed ? (
+                <RetryButton onPress={verifyASC} />
+              ) : null
             }
           />
           <Stepper.Item
@@ -160,7 +170,9 @@ function DownloadVerify({
               )
             }
             renderAction={({ status }) =>
-              status === EStepItemStatus.Failed ? <RetryButton /> : null
+              status === EStepItemStatus.Failed ? (
+                <RetryButton onPress={verifyPackage} />
+              ) : null
             }
           />
         </Stepper>

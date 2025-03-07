@@ -145,7 +145,7 @@ export function StepItem({
           <Stack bg="$iconDisabled" w="$0.5" minHeight="$16" my="$2" />
         ) : null}
       </YStack>
-      <YStack gap="$2">
+      <YStack gap="$2" flex={1}>
         <XStack h="$6" gap="$2" ai="center">
           <SizableText
             size={status === EStepItemStatus.Pending ? '$headingMd' : '$bodyLg'}

@@ -107,7 +107,7 @@ export const useDownloadPackage = () => {
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
-  const downloadPackage = useDownloadPackage();
+  const { downloadPackage } = useDownloadPackage();
   const onViewReleaseInfo = useCallback(() => {
     if (platformEnv.isE2E) {
       return;
