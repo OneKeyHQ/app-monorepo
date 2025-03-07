@@ -676,12 +676,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       blockNumber?: number,
       unResetCount?: boolean,
       kind?: ESwapQuoteKind,
+      reQuote?: boolean,
     ) => {
       const fromToken = get(swapSelectFromTokenAtom());
       const toToken = get(swapSelectToTokenAtom());
       const fromTokenAmount = get(swapFromTokenAmountAtom());
       const swapTabSwitchType = get(swapTypeSwitchAtom());
       const toTokenAmount = get(swapToTokenAmountAtom());
+      // check limit zero
       set(swapQuoteActionLockAtom(), (v) => ({
         ...v,
         type: swapTabSwitchType,
@@ -703,13 +705,31 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       set(swapShouldRefreshQuoteAtom(), false);
       const fromTokenAmountNumber = Number(fromTokenAmount.value);
       const toTokenAmountNumber = Number(toTokenAmount.value);
+      let quoteKind = kind;
+      if (reQuote) {
+        if (
+          kind === ESwapQuoteKind.SELL &&
+          !Number.isNaN(toTokenAmountNumber) &&
+          toTokenAmountNumber > 0 &&
+          (fromTokenAmountNumber === 0 || Number.isNaN(fromTokenAmountNumber))
+        ) {
+          quoteKind = ESwapQuoteKind.BUY;
+        } else if (
+          kind === ESwapQuoteKind.BUY &&
+          !Number.isNaN(fromTokenAmountNumber) &&
+          fromTokenAmountNumber > 0 &&
+          (toTokenAmountNumber === 0 || Number.isNaN(toTokenAmountNumber))
+        ) {
+          quoteKind = ESwapQuoteKind.SELL;
+        }
+      }
       if (
         fromToken &&
         toToken &&
-        ((kind === ESwapQuoteKind.SELL &&
+        ((quoteKind === ESwapQuoteKind.SELL &&
           !Number.isNaN(fromTokenAmountNumber) &&
           fromTokenAmountNumber > 0) ||
-          (kind === ESwapQuoteKind.BUY &&
+          (quoteKind === ESwapQuoteKind.BUY &&
             !Number.isNaN(toTokenAmountNumber) &&
             toTokenAmountNumber > 0))
       ) {
@@ -722,11 +742,14 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           address,
           accountId,
           blockNumber,
-          kind,
+          quoteKind,
           fromTokenAmount.value,
           toTokenAmount.value,
         );
-      } else {
+      } else if (
+        swapTabSwitchType !== ESwapTabSwitchType.LIMIT ||
+        checkWrappedTokenPair({ fromToken, toToken })
+      ) {
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteEventTotalCountAtom(), {
           count: 0,

@@ -90,9 +90,6 @@ export function useSwapApproving() {
         swapApprovingTransaction: undefined,
       }));
     }
-    return () => {
-      cleanApprovingInterval();
-    };
   }, [
     approvingStateAction,
     cleanApprovingInterval,
@@ -103,6 +100,13 @@ export function useSwapApproving() {
     swapApprovingTransaction?.status,
     swapApprovingTransaction?.txId,
   ]);
+
+  useEffect(
+    () => () => {
+      cleanApprovingInterval();
+    },
+    [cleanApprovingInterval],
+  );
 
   const pageType = usePageType();
   useListenTabFocusState(
