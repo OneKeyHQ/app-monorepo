@@ -7,12 +7,8 @@ import {
   EModalStakingRoutes,
   ERootRoutes,
   ETabDeveloperRoutes,
-  ETabDiscoveryRoutes,
-  ETabHomeRoutes,
   ETabMarketRoutes,
-  ETabMeRoutes,
   ETabRoutes,
-  ETabSwapRoutes,
   ETestModalPages,
 } from '@onekeyhq/shared/src/routes';
 
