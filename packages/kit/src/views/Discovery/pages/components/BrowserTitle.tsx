@@ -25,10 +25,7 @@ export function BrowserTitle() {
     },
   );
 
-  const { data: bannerData } = useBannerData(homePageData?.banners || []);
-
-  // Check if there are any active banners (not closed by user)
-  const hasActiveBanners = bannerData && bannerData.length > 0;
+  const { hasActiveBanners } = useBannerData(homePageData?.banners || []);
 
   const memoizedText = useMemo(
     () =>

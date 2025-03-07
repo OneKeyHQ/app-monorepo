@@ -66,8 +66,7 @@ function DashboardContent({
   }, [run]);
 
   // Use the useBannerData hook to get processed banner data
-  const { data: bannerData } = useBannerData(homePageData?.banners || []);
-  const hasBannerData = bannerData && bannerData.length > 0;
+  const { hasActiveBanners } = useBannerData(homePageData?.banners || []);
 
   // Add usePromiseResult hooks to get bookmark and trending data
   const { result: bookmarksData } = usePromiseResult(
@@ -108,7 +107,7 @@ function DashboardContent({
       <>
         <Welcome
           banner={
-            hasBannerData ? (
+            hasActiveBanners ? (
               <DashboardBanner
                 key="Banner"
                 banners={homePageData?.banners || []}
@@ -186,7 +185,7 @@ function DashboardContent({
     ),
     [
       homePageData?.banners,
-      hasBannerData,
+      hasActiveBanners,
       isLoading,
       handleOpenWebSite,
       gtMd,
