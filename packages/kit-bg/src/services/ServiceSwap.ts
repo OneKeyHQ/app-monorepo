@@ -1531,17 +1531,9 @@ export default class ServiceSwap extends ServiceBase {
       ) {
         sameAccount = false;
       }
-      const openLimitOrders = swapLimitOrders.filter(
-        (item) => item.status === ESwapLimitOrderStatus.OPEN,
-      );
       let res: IFetchLimitOrderRes[] = [];
       try {
-        if (
-          !swapLimitOrders.length ||
-          openLimitOrders.length > 0 ||
-          isFetchNewOrder ||
-          !sameAccount
-        ) {
+        if (!swapLimitOrders.length || isFetchNewOrder || !sameAccount) {
           const accounts = swapSupportAccounts.map((account) => ({
             userAddress: account.apiAddress,
             networkId: account.networkId,
@@ -1550,31 +1542,7 @@ export default class ServiceSwap extends ServiceBase {
             ...pre,
             swapLimitOrdersLoading: true,
           }));
-          if (openLimitOrders.length > 0 && !isFetchNewOrder && sameAccount) {
-            const needUpdateAccounts = accounts.filter((account) =>
-              openLimitOrders.find(
-                (item) =>
-                  equalsIgnoreCase(item.userAddress, account.userAddress) &&
-                  item.networkId === account.networkId,
-              ),
-            );
-            res = await this.fetchLimitOrders(
-              needUpdateAccounts.map((account) => ({
-                userAddress: account.userAddress,
-                networkId: account.networkId,
-                orderIds: openLimitOrders
-                  ?.filter(
-                    (item) =>
-                      equalsIgnoreCase(item.userAddress, account.userAddress) &&
-                      item.networkId === account.networkId,
-                  )
-                  ?.map((item) => item.orderId)
-                  ?.join(','),
-              })),
-            );
-          } else {
-            res = await this.fetchLimitOrders(accounts);
-          }
+          res = await this.fetchLimitOrders(accounts);
           if (res.length) {
             await this.checkLimitOrderStatus(res, swapLimitOrders);
             await inAppNotificationAtom.set((pre) => {
@@ -1615,16 +1583,17 @@ export default class ServiceSwap extends ServiceBase {
           }
         }
       } catch (error) {
-        await inAppNotificationAtom.set((pre) => ({
-          ...pre,
-          swapLimitOrdersLoading: false,
-        }));
         this.limitOrderStateInterval = setTimeout(() => {
           void this.swapLimitOrdersFetchLoop(
             indexedAccountId,
             otherWalletTypeAccountId,
           );
         }, ESwapLimitOrderUpdateInterval);
+      } finally {
+        await inAppNotificationAtom.set((pre) => ({
+          ...pre,
+          swapLimitOrdersLoading: false,
+        }));
       }
     }
   }

@@ -27,6 +27,7 @@ import {
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapToTokenAmountAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -35,6 +36,7 @@ import {
   EProtocolOfExchange,
   ESwapDirectionType,
   ESwapQuoteKind,
+  ESwapTabSwitchType,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -151,6 +153,7 @@ const SwapActionsState = ({
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToAmount] = useSwapToTokenAmountAtom();
+  const [swapType] = useSwapTypeSwitchAtom();
   const swapSlippageRef = useRef(slippageItem);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
@@ -206,6 +209,7 @@ const SwapActionsState = ({
         undefined,
         undefined,
         currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
+        true,
       );
     } else {
       cleanQuoteInterval();
@@ -398,7 +402,10 @@ const SwapActionsState = ({
           <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.swap_page_swap_steps_2,
+              id:
+                swapType === ESwapTabSwitchType.LIMIT
+                  ? ETranslations.limit_place_order
+                  : ETranslations.swap_page_swap_steps_2,
             })}
           </SizableText>
         </XStack>
@@ -406,12 +413,13 @@ const SwapActionsState = ({
     }
     return null;
   }, [
-    fromToken?.symbol,
-    intl,
-    md,
-    pageType,
     swapActionState.isApprove,
     isBatchTransfer,
+    pageType,
+    md,
+    intl,
+    fromToken?.symbol,
+    swapType,
   ]);
 
   const recipientComponent = useMemo(() => {
