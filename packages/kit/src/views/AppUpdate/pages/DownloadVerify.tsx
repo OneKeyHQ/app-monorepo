@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react';
 
 import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
+import noop from 'lodash/noop';
 import { useIntl } from 'react-intl';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
@@ -15,20 +16,21 @@ import {
 } from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { installPackage } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import {
+  installPackage,
+  useDownloadProgress,
+} from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAppUpdateRoutes,
   IAppUpdatePagesParamList,
 } from '@onekeyhq/shared/src/routes';
+import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import {
-  useAppChangeLog,
   useAppUpdateInfo,
   useDownloadPackage,
 } from '../../../components/UpdateReminder/hooks';
-import { UpdatePreviewActionButton } from '../components/UpdatePreviewActionButton';
-import { ViewUpdateHistory } from '../components/ViewUpdateHistory';
 
 const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
   [EAppUpdateStatus.failed]: -2,
@@ -79,6 +81,7 @@ function DownloadVerify({
 
   const { downloadPackage, downloadASC, verifyASC, verifyPackage } =
     useDownloadPackage();
+  const percent = useDownloadProgress(noop, noop);
 
   return (
     <Page scrollEnabled>
@@ -93,6 +96,11 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_download_package_label,
             })}
+            badgeText={
+              Number(percent) !== 100 && Number(percent) !== 0
+                ? `${percent}%`
+                : undefined
+            }
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Failed) {
                 return (
@@ -107,14 +115,29 @@ function DownloadVerify({
               if (data.downloadedEvent?.downloadUrl) {
                 return (
                   <SizableText size="$bodyLg" color="$textSubdued">
-                    {intl.formatMessage({ id: ETranslations.global_from })}
-                    <SizableText
-                      size="$bodyLg"
-                      color="$textSubdued"
-                      textDecorationLine="underline"
-                    >
-                      {data.downloadedEvent?.downloadUrl}
-                    </SizableText>
+                    {intl.formatMessage(
+                      { id: ETranslations.global_from_provider },
+                      {
+                        provider: (
+                          <SizableText
+                            size="$bodyLg"
+                            color="$textSubdued"
+                            textDecorationLine="underline"
+                            cursor="pointer"
+                            onPress={
+                              data.downloadedEvent?.downloadUrl
+                                ? () =>
+                                    openUrlExternal(
+                                      data.downloadedEvent?.downloadUrl || '',
+                                    )
+                                : undefined
+                            }
+                          >
+                            {data.downloadedEvent?.downloadUrl}
+                          </SizableText>
+                        ),
+                      },
+                    )}
                   </SizableText>
                 );
               }
