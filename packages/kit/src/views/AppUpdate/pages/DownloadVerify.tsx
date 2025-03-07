@@ -93,26 +93,34 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_download_package_label,
             })}
-            renderDescription={({ status }) =>
-              status === EStepItemStatus.Failed ? (
-                <SizableText size="$bodyLg" color="$textSubdued">
-                  Server error. If retrying fails, download the installation
-                  package from OneKey's official GitHub releases page—it will
-                  automatically replace the current version.
-                </SizableText>
-              ) : (
-                <SizableText size="$bodyLg" color="$textSubdued">
-                  From
-                  <SizableText
-                    size="$bodyLg"
-                    color="$textSubdued"
-                    textDecorationLine="underline"
-                  >
-                    https://web.onekey-asset.com/app-monorepo/vx.x.x/OneKey-Wallet-5.7.0-desktop.zip
+            renderDescription={({ status }) => {
+              if (status === EStepItemStatus.Failed) {
+                return (
+                  <SizableText size="$bodyLg" color="$textSubdued">
+                    Server error. If retrying fails, download the installation
+                    package from OneKey's official GitHub releases page—it will
+                    automatically replace the current version.
                   </SizableText>
-                </SizableText>
-              )
-            }
+                );
+              }
+
+              if (data.downloadedEvent?.downloadUrl) {
+                return (
+                  <SizableText size="$bodyLg" color="$textSubdued">
+                    {intl.formatMessage({ id: ETranslations.global_from })}
+                    <SizableText
+                      size="$bodyLg"
+                      color="$textSubdued"
+                      textDecorationLine="underline"
+                    >
+                      {data.downloadedEvent?.downloadUrl}
+                    </SizableText>
+                  </SizableText>
+                );
+              }
+
+              return null;
+            }}
             renderAction={({ status }) =>
               status === EStepItemStatus.Failed ? (
                 <RetryButton onPress={() => downloadPackage(data)} />
@@ -123,7 +131,9 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_download_asc_label,
             })}
-            description="Digital signature file for verification"
+            description={intl.formatMessage({
+              id: ETranslations.update_download_asc_desc,
+            })}
             renderAction={({ status }) =>
               status === EStepItemStatus.Failed ? (
                 <RetryButton onPress={downloadASC} />
@@ -137,11 +147,15 @@ function DownloadVerify({
             renderDescription={({ status }) =>
               status === EStepItemStatus.Done ? (
                 <SizableText size="$bodyLg" color="$textSuccess">
-                  From
+                  {intl.formatMessage({
+                    id: ETranslations.update_verify_asc_success_desc,
+                  })}
                 </SizableText>
               ) : (
                 <SizableText size="$bodyLg" color="$textSubdued">
-                  Confirm signature is from OneKey
+                  {intl.formatMessage({
+                    id: ETranslations.update_verify_asc_desc,
+                  })}
                 </SizableText>
               )
             }
@@ -155,7 +169,6 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_verify_package_label,
             })}
-            description="Check package integrity via SHA256"
             renderDescription={({ status }) =>
               status === EStepItemStatus.Done ? (
                 <SizableText size="$bodyLg" color="$textSuccess">
@@ -165,7 +178,9 @@ function DownloadVerify({
                 </SizableText>
               ) : (
                 <SizableText size="$bodyLg" color="$textSubdued">
-                  Check package integrity via SHA256
+                  {intl.formatMessage({
+                    id: ETranslations.update_verify_package_desc,
+                  })}
                 </SizableText>
               )
             }

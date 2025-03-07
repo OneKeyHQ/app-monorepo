@@ -36,9 +36,9 @@ export function StepItemStatus({ status }: { status: EStepItemStatus }) {
     return <Spinner size="small" />;
   }
   if (status === EStepItemStatus.Done) {
-    return <Icon name="CheckRadioOutline" color="$iconSuccess" size="$6" />;
+    return <Icon name="CheckRadioSolid" color="$iconSuccess" size="$6" />;
   }
-  return <Icon name="XCircleOutline" color="$iconCritical" size="$6" />;
+  return <Icon name="XCircleSolid" color="$iconCritical" size="$6" />;
 }
 export interface IStepItemProviderProps {
   index: number;

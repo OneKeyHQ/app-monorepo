@@ -48,7 +48,8 @@ export const useDownloadPackage = () => {
         return;
       }
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
-      await NativeVerifyPackage();
+      await NativeVerifyPackage(params);
+      await backgroundApiProxy.serviceAppUpdate.readyToInstall();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
     }
@@ -57,7 +58,14 @@ export const useDownloadPackage = () => {
 
   const verifyASC = useCallback(async () => {
     try {
+      const params =
+        await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+      if (!params) {
+        await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
+        return;
+      }
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
+      await NativeVerifyASC(params);
       await verifyPackage();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
@@ -68,6 +76,10 @@ export const useDownloadPackage = () => {
     try {
       const params =
         await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+      if (!params) {
+        await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
+        return;
+      }
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await NativeDownloadASC(params);
       await verifyASC();
