@@ -160,7 +160,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
           `Failed to fetch ASC file: ${ascFileResponse.status} ${ascFileResponse.statusText}`,
         );
         sendUpdateError({
-          message: '',
+          message: String(ascFileResponse.status),
         });
         return false;
       }

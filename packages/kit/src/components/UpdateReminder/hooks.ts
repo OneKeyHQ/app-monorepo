@@ -50,8 +50,8 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await NativeVerifyPackage(params);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
-    } catch (e) {
-      await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed();
+    } catch (e: { message: string }) {
+      await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e);
     }
     await backgroundApiProxy.serviceAppUpdate.readyToInstall();
   }, []);
@@ -67,8 +67,8 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await NativeVerifyASC(params);
       await verifyPackage();
-    } catch (e) {
-      await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
+    } catch (e: { message: string }) {
+      await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e);
     }
   }, [verifyPackage]);
 
@@ -83,8 +83,8 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await NativeDownloadASC(params);
       await verifyASC();
-    } catch (e) {
-      await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
+    } catch (e: { message: string }) {
+      await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e);
     }
   }, [verifyASC]);
 
@@ -98,7 +98,7 @@ export const useDownloadPackage = () => {
           ...result,
         });
         await downloadASC();
-      } catch (e) {
+      } catch (e: { message: string }) {
         await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(e);
         Toast.error({
           title: intl.formatMessage({

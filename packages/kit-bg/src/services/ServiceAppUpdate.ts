@@ -126,6 +126,15 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  updateErrorText(status: EAppUpdateStatus, errorText: string) {
+    void appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      errorText: errorText as ETranslations,
+      status,
+    }));
+  }
+
+  @backgroundMethod()
   public async downloadPackageFailed(e?: { message: string }) {
     clearTimeout(downloadTimeoutId);
     // TODO: need replace by error code.
@@ -138,11 +147,7 @@ class ServiceAppUpdate extends ServiceBase {
     } else if (errorText.includes('Software caused connection abort')) {
       errorText = ETranslations.update_network_instability_check_connection;
     }
-    void appUpdatePersistAtom.set((prev) => ({
-      ...prev,
-      errorText: errorText as ETranslations,
-      status: EAppUpdateStatus.downloadPackageFailed,
-    }));
+    this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, errorText);
   }
 
   @backgroundMethod()
@@ -185,7 +190,7 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async verifyASCFailed() {
+  public async verifyASCFailed(e?: { message: string }) {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.verifyASCFailed,
@@ -193,7 +198,7 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async verifyPackageFailed() {
+  public async verifyPackageFailed(e?: { message: string }) {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       status: EAppUpdateStatus.verifyPackageFailed,
@@ -201,11 +206,17 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async downloadASCFailed() {
-    await appUpdatePersistAtom.set((prev) => ({
-      ...prev,
-      status: EAppUpdateStatus.downloadASCFailed,
-    }));
+  public async downloadASCFailed(e?: { message: string }) {
+    const statusNumber = e?.message ? Number(e.message) : undefined;
+    let errorText = '';
+    if (statusNumber === 500) {
+      errorText = ETranslations.update_server_not_responding_try_later;
+    } else if (statusNumber === 404 || statusNumber === 403) {
+      errorText = ETranslations.update_server_not_responding_try_later;
+    } else {
+      errorText = ETranslations.update_network_instability_check_connection;
+    }
+    this.updateErrorText(EAppUpdateStatus.downloadASCFailed, errorText);
   }
 
   @backgroundMethod()
