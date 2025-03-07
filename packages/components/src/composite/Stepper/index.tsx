@@ -142,7 +142,7 @@ export function StepItem({
           <StepItemStatus status={status} />
         </Stack>
         {index !== stepsCount - 1 ? (
-          <Stack bg="$iconDisabled" w="$0.5" minHeight="$16" my="$2" />
+          <Stack bg="$iconDisabled" w="$0.5" minHeight="$16" my="$2" flex={1} />
         ) : null}
       </YStack>
       <YStack gap="$2" flex={1}>
@@ -162,7 +162,9 @@ export function StepItem({
           {renderDescription ? renderDescription(renderProps) : description}
         </SizableText>
         {renderAction ? (
-          <Stack mt="$2">{renderAction(renderProps)}</Stack>
+          <Stack mt="$2" mb="$8">
+            {renderAction(renderProps)}
+          </Stack>
         ) : null}
       </YStack>
     </XStack>

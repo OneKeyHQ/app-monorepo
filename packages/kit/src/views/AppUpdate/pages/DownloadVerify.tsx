@@ -1,9 +1,8 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
 import noop from 'lodash/noop';
 import { useIntl } from 'react-intl';
-import { SizableStack } from 'tamagui';
 
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
@@ -13,7 +12,6 @@ import {
   SizableText,
   Stepper,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -21,7 +19,6 @@ import {
   installPackage,
   useDownloadProgress,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAppUpdateRoutes,
   IAppUpdatePagesParamList,
@@ -61,9 +58,11 @@ const checkIsError = (status: EAppUpdateStatus) =>
 function RetryButton({ onPress }: IButtonProps) {
   const intl = useIntl();
   return (
-    <Button onPress={onPress}>
-      {intl.formatMessage({ id: ETranslations.global_retry })}
-    </Button>
+    <XStack>
+      <Button onPress={onPress}>
+        {intl.formatMessage({ id: ETranslations.global_retry })}
+      </Button>
+    </XStack>
   );
 }
 
@@ -114,7 +113,6 @@ function DownloadVerify({
                     }
                     values={{
                       reason: intl.formatMessage({ id: data.errorText }) || '',
-                      link: () => '',
                     }}
                     onAction={() => {
                       openUrlExternal(
