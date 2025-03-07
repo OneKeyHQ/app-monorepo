@@ -357,31 +357,38 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  closeAllWebTabs = contextAtomMethod((get, set) => {
+  closeAllWebTabs = contextAtomMethod(async (get, set) => {
     const { tabs } = get(webTabsAtom());
     const activeTabId = get(activeTabIdAtom());
     const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
     const tabsToClose = tabs.filter((tab) => !tab.isPinned);
 
-    // Add all closed tabs to browser history
-    tabsToClose.forEach((tab) => {
-      if (tab.url && tab.title && tab.url !== homeTab.url) {
-        void this.addBrowserHistory.call(set, {
+    // Create a queue for closing tabs
+    const closeQueue = tabsToClose.map((tab) => async () => {
+      if (tab.url && tab.title) {
+        await this.addBrowserHistory.call(set, {
           url: tab.url,
           title: tab.title,
         });
       }
     });
 
+    // Process queue sequentially
+    for (const closeOperation of closeQueue) {
+      await closeOperation();
+    }
+
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
       this.setCurrentWebTab.call(set, null);
     }
+
     for (const id of Object.getOwnPropertyNames(webviewRefs)) {
       if (!pinnedTabs.find((tab) => tab.id === id)) {
         delete webviewRefs[id];
       }
     }
+
     loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
     this.buildWebTabs.call(set, { data: pinnedTabs });
 
