@@ -11,7 +11,6 @@ import {
   Alert,
   Divider,
   Icon,
-  IconButton,
   Image,
   NumberSizeableText,
   Page,
@@ -34,11 +33,9 @@ import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
 
 import { validateAmountInput } from '../../../Swap/utils/utils';
 import { capitalizeString, countDecimalPlaces } from '../../utils/utils';
-import { CalculationList, CalculationListItem } from '../CalculationList';
 import { EstimateNetworkFee } from '../EstimateNetworkFee';
 import { StakingAmountInput } from '../StakingAmountInput';
 import StakingFormWrapper from '../StakingFormWrapper';
-import { ValuePriceListItem } from '../ValuePriceListItem';
 
 type IUniversalWithdrawProps = {
   balance: string;
