@@ -306,7 +306,6 @@ function DesktopCustomTabBar() {
         renderItem={({
           item: t,
           dragProps,
-          index,
         }: {
           item: IWebTab;
           dragProps?: Record<string, any>;

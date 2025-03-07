@@ -64,7 +64,6 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
     [],
     {
       watchLoading: true,
-      revalidateOnFocus: true,
     },
   );
 

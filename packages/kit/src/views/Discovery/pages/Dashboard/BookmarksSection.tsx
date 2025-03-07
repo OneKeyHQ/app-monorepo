@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
-import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
+import { Skeleton, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -32,7 +31,11 @@ export function BookmarksSection({
   const intl = useIntl();
   const navigation = useAppNavigation();
 
-  const { result: bookmarksData, run: refreshLocalData } = usePromiseResult(
+  const {
+    result: bookmarksData,
+    run: refreshLocalData,
+    isLoading: isLoadingBookmarks,
+  } = usePromiseResult(
     async () => {
       const bookmarks =
         await backgroundApiProxy.serviceDiscovery.getBookmarkData({
@@ -45,6 +48,8 @@ export function BookmarksSection({
     [],
     {
       watchLoading: true,
+      checkIsMounted: false,
+      checkIsFocused: false,
     },
   );
 
@@ -84,9 +89,11 @@ export function BookmarksSection({
     () => bookmarksData ?? [],
     [bookmarksData],
   );
-
-  const isLoadingBookmarks = isNil(bookmarksData);
   const hasBookmarks = dataSource.length > 0;
+
+  if (!hasBookmarks) {
+    return null;
+  }
 
   return (
     <Stack minHeight="$40">
@@ -102,35 +109,10 @@ export function BookmarksSection({
         ) : null}
       </DashboardSectionHeader>
 
-      {hasBookmarks ? (
-        <BookmarksSectionItems
-          dataSource={dataSource}
-          handleOpenWebSite={handleOpenWebSite}
-        />
-      ) : (
-        <Stack
-          bg="$bgSubdued"
-          py="$6"
-          flex={1}
-          borderRadius="$3"
-          borderCurve="continuous"
-          justifyContent="center"
-        >
-          {isLoadingBookmarks ? (
-            <Skeleton w="100%" />
-          ) : (
-            <SizableText
-              size="$bodyLg"
-              color="$textDisabled"
-              textAlign="center"
-            >
-              {intl.formatMessage({
-                id: ETranslations.explore_no_bookmark,
-              })}
-            </SizableText>
-          )}
-        </Stack>
-      )}
+      <BookmarksSectionItems
+        dataSource={dataSource}
+        handleOpenWebSite={handleOpenWebSite}
+      />
     </Stack>
   );
 }
