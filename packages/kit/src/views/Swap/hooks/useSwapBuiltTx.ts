@@ -545,6 +545,10 @@ export function useSwapBuildTx() {
                 swapBuildResData: {
                   result: {
                     ...selectQuoteRes,
+                    slippage:
+                      selectQuoteRes.slippage ??
+                      selectQuoteRes.autoSuggestedSlippage ??
+                      slippageItem.value,
                     ...(swapUseInstantRate.rate &&
                     selectQuoteRes.protocol === EProtocolOfExchange.LIMIT
                       ? {
@@ -753,7 +757,16 @@ export function useSwapBuildTx() {
             },
             accountAddress: swapFromAddressInfo.address,
             receivingAddress: swapToAddressInfo.address,
-            swapBuildResData: res,
+            swapBuildResData: {
+              ...res,
+              result: {
+                ...res.result,
+                slippage:
+                  selectQuoteRes.slippage ??
+                  selectQuoteRes.autoSuggestedSlippage ??
+                  slippageItem.value,
+              },
+            },
           };
           return {
             swapInfo,

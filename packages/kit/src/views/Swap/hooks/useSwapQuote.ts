@@ -285,9 +285,6 @@ export function useSwapQuote() {
       undefined,
       ESwapQuoteKind.SELL,
     );
-    return () => {
-      cleanQuoteInterval();
-    };
   }, [
     cleanQuoteInterval,
     quoteAction,
@@ -301,6 +298,13 @@ export function useSwapQuote() {
     fromAmountDebounce,
     swapTabSwitchType,
   ]);
+
+  useEffect(
+    () => () => {
+      cleanQuoteInterval();
+    },
+    [cleanQuoteInterval],
+  );
 
   useEffect(() => {
     if (!isFocusRef.current) return;
@@ -360,9 +364,6 @@ export function useSwapQuote() {
       undefined,
       ESwapQuoteKind.BUY,
     );
-    return () => {
-      cleanQuoteInterval();
-    };
   }, [
     cleanQuoteInterval,
     quoteAction,
@@ -404,9 +405,6 @@ export function useSwapQuote() {
       undefined,
       ESwapQuoteKind.SELL,
     );
-    return () => {
-      cleanQuoteInterval();
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swapAddressInfo.accountInfo?.deriveType]);
 

@@ -296,10 +296,9 @@ const SwapInputContainer = ({
                   caretColor: 'transparent',
                 } as unknown as StyleProp<TextStyle>)
               : undefined,
-          inputAccessoryViewID:
-            direction === ESwapDirectionType.FROM && platformEnv.isNativeIOS
-              ? SwapAmountInputAccessoryViewID
-              : undefined,
+          inputAccessoryViewID: platformEnv.isNativeIOS
+            ? SwapAmountInputAccessoryViewID
+            : undefined,
           autoCorrect: false,
           spellCheck: false,
           autoComplete: 'off',
