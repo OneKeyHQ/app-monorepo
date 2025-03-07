@@ -109,13 +109,11 @@ const init = ({ mainWindow, store }: IDependencies) => {
         lowerCaseMessage.includes('signed digest did not match') ||
         lowerCaseMessage.includes('misformed armored text') ||
         lowerCaseMessage.includes('ascii armor integrity check failed');
-      if (isInValid) {
-        sendUpdateError({
-          message: isInValid
-            ? ETranslations.update_signature_verification_failed_alert_text
-            : ETranslations.update_installation_package_possibly_compromised,
-        });
-      }
+      sendUpdateError({
+        message: isInValid
+          ? ETranslations.update_signature_verification_failed_alert_text
+          : ETranslations.update_installation_package_possibly_compromised,
+      });
       return undefined;
     }
   };
