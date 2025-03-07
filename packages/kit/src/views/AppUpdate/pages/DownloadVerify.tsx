@@ -120,7 +120,6 @@ function DownloadVerify({
     ),
     [data.errorText, intl],
   );
-
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -219,6 +218,29 @@ function DownloadVerify({
                 );
               }
               if (status === EStepItemStatus.Failed) {
+                if (
+                  data.errorText ===
+                  ETranslations.update_installation_package_possibly_compromised
+                ) {
+                  return (
+                    <SizableText size="$bodyLg" color="$textSubdued">
+                      {intl.formatMessage(
+                        {
+                          id: ETranslations.update_retrying_fails_help_text,
+                        },
+                        {
+                          reason: (
+                            <SizableText size="$bodyLg" color="$textSubdued">
+                              {intl.formatMessage({
+                                id: ETranslations.update_installation_package_possibly_compromised,
+                              })}
+                            </SizableText>
+                          ),
+                        },
+                      )}
+                    </SizableText>
+                  );
+                }
                 return (
                   <SizableText size="$bodyLg" color="$textCritical">
                     {intl.formatMessage({
