@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "Perangkat terhubung, harap simpan kartu di tempatnya dan jangan dipindahkan.",
   "hardware.device_contains_backup": "Perangkat ini berisi cadangan",
   "hardware.device_contains_backup_desc": "Jika Anda melanjutkan, cadangan Anda sebelumnya akan ditimpa sepenuhnya dan akan hilang selamanya.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Informasi perangkat tidak konsisten. Ini mungkin disebabkan oleh reset perangkat. Anda dapat menambahkan kembali perangkat Anda untuk mengatasi masalah ini.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Status koneksi perangkat telah diperbarui. Silakan pilih \"Tambah Dompet\" > \"Hubungkan Dompet Perangkat Keras\" untuk mengonfigurasi ulang. Menggunakan frasa pemulihan asli Anda akan memulihkan dompet Anda saat ini, sementara menggunakan frasa pemulihan baru akan membuat dompet baru.",
   "hardware.device_need_restart": "Komunikasi perangkat keras gagal, silakan restart perangkat dan coba lagi",
   "hardware.device_not_find_error": "Perangkat tidak ditemukan. Silakan coba sambungkan kembali perangkat (cabut dan pasang kembali USB atau matikan dan hidupkan Bluetooth), lalu coba lagi.",
   "hardware.device_passphrase_state_error": "Passphrase tidak cocok dengan dompet saat ini, silakan coba lagi",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "Ganti jaringan di kiri atas atau gunakan akun yang didukung",
   "wallet.unsupported_network_desc_alt": "Ganti jaringan di halaman sebelumnya atau gunakan akun yang didukung",
   "wallet.unsupported_network_title": "Akun ini tidak mendukung {network}",
+  "wallet.wallet_device_has_been_reset_alert_desc": "Perangkat ini telah membuat dompet baru dan tidak dapat berkomunikasi dengan dompet asli.",
+  "wallet.wallet_device_has_been_reset_alert_title": "Perangkat dompet telah diatur ulang",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Anda membutuhkan setidaknya {0} akun di jaringan mana pun untuk membuat.",
   "word": "Kata"
 }

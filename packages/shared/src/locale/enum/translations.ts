@@ -2527,6 +2527,8 @@
   wallet_unsupported_network_desc = 'wallet.unsupported_network_desc',
   wallet_unsupported_network_desc_alt = 'wallet.unsupported_network_desc_alt',
   wallet_unsupported_network_title = 'wallet.unsupported_network_title',
+  wallet_wallet_device_has_been_reset_alert_desc = 'wallet.wallet_device_has_been_reset_alert_desc',
+  wallet_wallet_device_has_been_reset_alert_title = 'wallet.wallet_device_has_been_reset_alert_title',
   wallet_you_need_str_accounts_on_any_network_to_create = 'wallet.you_need_str_accounts_on_any_network_to_create',
   word = 'word',
 }

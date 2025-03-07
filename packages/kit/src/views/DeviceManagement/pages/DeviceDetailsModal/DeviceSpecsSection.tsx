@@ -55,6 +55,7 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
       bootloaderVersion: VERSION_PLACEHOLDER,
       firmwareVersion: VERSION_PLACEHOLDER,
       serialNumber: VERSION_PLACEHOLDER,
+      certifications: null,
     }),
     [],
   );
@@ -81,9 +82,13 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
         firmwareVersion: getDisplayVersion(versions?.firmwareVersion),
         serialNumber:
+          device.featuresInfo.onekey_serial_no ??
           device.featuresInfo.onekey_serial ??
           device.featuresInfo.serial_no ??
           VERSION_PLACEHOLDER,
+        certifications: ['pro', 'classic1s'].includes(device.deviceType)
+          ? 'EAL 6+'
+          : null,
       };
     },
     [device, defaultDeviceInfo],
@@ -132,6 +137,14 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
           })}
           value={deviceInfo.bootloaderVersion}
         />
+        {deviceInfo.certifications ? (
+          <SpecItem
+            title={intl.formatMessage({
+              id: ETranslations.global_certifications,
+            })}
+            value={deviceInfo.certifications}
+          />
+        ) : null}
       </YStack>
     </YStack>
   );

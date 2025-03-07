@@ -1,1 +1,1 @@
-export const MaximumNumberOfTabs = 20;
+export const MaximumNumberOfTabs = 99;

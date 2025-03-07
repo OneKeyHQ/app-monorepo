@@ -1311,7 +1311,7 @@
   "hardware.device_connected_keep_card_in_place": "Das Gerät ist angeschlossen. Bitte lassen Sie die Karte an Ort und Stelle und bewegen Sie sie nicht.",
   "hardware.device_contains_backup": "Dieses Gerät enthält eine Sicherung",
   "hardware.device_contains_backup_desc": "Wenn Sie fortfahren, wird Ihr vorheriges Backup vollständig überschrieben und geht für immer verloren.",
-  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Die Geräteinformationen sind inkonsistent. Dies könnte durch einen Geräte-Reset verursacht worden sein. Sie können Ihr Gerät erneut hinzufügen, um dieses Problem zu beheben.",
+  "hardware.device_information_is_inconsistent_it_may_caused_by_device_reset": "Der Verbindungsstatus des Geräts wurde aktualisiert. Bitte wählen Sie \"Wallet hinzufügen\" > \"Hardware-Wallet verbinden\", um die Konfiguration zu ändern. Die Verwendung Ihrer ursprünglichen Wiederherstellungsphrase wird Ihr aktuelles Wallet wiederherstellen, während die Verwendung einer neuen Wiederherstellungsphrase ein neues Wallet erstellt.",
   "hardware.device_need_restart": "Die Hardware-Kommunikation ist fehlgeschlagen, bitte starten Sie das Gerät neu und versuchen Sie es erneut",
   "hardware.device_not_find_error": "Gerät nicht gefunden. Bitte versuchen Sie, das Gerät erneut zu verbinden (USB aus- und einstecken oder Bluetooth aus- und einschalten), und versuchen Sie es erneut.",
   "hardware.device_passphrase_state_error": "Die Passphrase stimmt nicht mit der aktuellen Wallet überein, bitte versuchen Sie es erneut",
@@ -2522,6 +2522,8 @@
   "wallet.unsupported_network_desc": "Wechseln Sie in der oberen linken Ecke das Netzwerk oder verwenden Sie ein unterstütztes Konto",
   "wallet.unsupported_network_desc_alt": "Wechseln Sie auf der vorherigen Seite das Netzwerk oder verwenden Sie ein unterstütztes Konto",
   "wallet.unsupported_network_title": "Dieses Konto unterstützt {network} nicht",
+  "wallet.wallet_device_has_been_reset_alert_desc": "Dieses Gerät hat neue Wallets erstellt und kann nicht mit dem ursprünglichen Wallet kommunizieren.",
+  "wallet.wallet_device_has_been_reset_alert_title": "Das Wallet-Gerät wurde zurückgesetzt",
   "wallet.you_need_str_accounts_on_any_network_to_create": "Sie benötigen mindestens {0} Konten in einem einzigen Netzwerk, um zu erstellen.",
   "word": "Wort"
 }

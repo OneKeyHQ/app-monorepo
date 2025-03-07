@@ -1,5 +1,6 @@
 import { Semaphore, withTimeout } from 'async-mutex';
 import { isNumber } from 'lodash';
+import Realm from 'realm';
 
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
@@ -35,7 +36,6 @@ import type {
   ILocalDBWithTransactionTask,
   IRealmDBSchemaMap,
 } from '../types';
-import type Realm from 'realm';
 
 export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   constructor(realm: Realm) {
@@ -233,7 +233,10 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       pairs.map(async (oldRecord) => {
         // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
         const newRecord = await updater(oldRecord[1]!);
-        return newRecord;
+        if (newRecord instanceof Realm.Object) {
+          return newRecord;
+        }
+        throw new Error('newRecord is not a Relam.Object');
       }),
     );
     return Promise.resolve(undefined);

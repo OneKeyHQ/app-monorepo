@@ -51,6 +51,7 @@ export function DashboardBanner({
           closeAllBanners();
         }}
         showCloseButton
+        showPaginationButton={false}
         height={120}
         w="100%"
         $gtSm={{
