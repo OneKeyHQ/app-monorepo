@@ -1,11 +1,15 @@
+import { useIntl } from 'react-intl';
+
 import {
   Button,
   Dialog,
+  ScrollView,
   SizableText,
   Stack,
   YStack,
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -13,6 +17,7 @@ import type {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 function ChangeHistoryDialogContent({
   changeHistoryInfo,
@@ -33,24 +38,30 @@ function ChangeHistoryDialogContent({
     return historyItems;
   }, [changeHistoryInfo]);
 
-  // TODO scrollable
+  const intl = useIntl();
+
   return (
-    <YStack gap="$2">
-      {!items?.length ? (
-        <SizableText>No history found</SizableText>
-      ) : (
-        items?.map((item) => (
-          <Button
-            key={item.value}
-            onPress={() => {
-              onChange?.(item.value);
-            }}
-          >
-            {item.value}
-          </Button>
-        ))
-      )}
-    </YStack>
+    <ScrollView h={250}>
+      <YStack gap="$2">
+        {!items?.length ? (
+          <SizableText>
+            {intl.formatMessage({ id: ETranslations.explore_no_history })}
+          </SizableText>
+        ) : (
+          items?.map((item) => (
+            <Button
+              key={item.value}
+              onPress={() => {
+                onChange?.(item.value);
+              }}
+              textEllipsis
+            >
+              {item.value}
+            </Button>
+          ))
+        )}
+      </YStack>
+    </ScrollView>
   );
 }
 
@@ -69,9 +80,12 @@ export function buildChangeHistoryInputAddon({
     iconName: 'ClockTimeHistoryOutline',
     onPress: () => {
       const d = Dialog.show({
-        title: 'Name history on this device',
+        title: appLocale.intl.formatMessage({
+          id: ETranslations.global_name_history,
+        }),
         showConfirmButton: false,
         showCancelButton: false,
+        disableDrag: true,
         renderContent: (
           <Stack>
             <ChangeHistoryDialogContent
