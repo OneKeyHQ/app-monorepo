@@ -13,6 +13,7 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
 import { PUBLIC_KEY } from '../constant/gpg';
+import { ETranslations } from '../i18n';
 import {
   clearASCFile,
   clearUpdateSettings,
@@ -117,14 +118,16 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   const sendValidError = () => {
     sendUpdateError({
-      message: 'Installation package possibly compromised',
+      message: ETranslations.update_installation_not_safe_alert_text,
     });
   };
 
   const verifyASC = async () => {
     const sha256 = await getSha256();
     if (!sha256) {
-      sendValidError();
+      sendUpdateError({
+        message: ETranslations.update_signature_verification_failed_alert_text,
+      });
       return false;
     }
     return true;
@@ -141,13 +144,12 @@ const init = ({ mainWindow, store }: IDependencies) => {
       downloadedFile,
       downloadUrl,
     );
-    if (!downloadedFile || !downloadUrl) {
-      sendValidError();
-      return false;
-    }
+
     if (!fs.existsSync(downloadedFile)) {
       logger.info('auto-updater', 'no such file');
-      sendValidError();
+      sendUpdateError({
+        message: 'NOT_FOUND_FILE',
+      });
       return false;
     }
     try {
@@ -245,12 +247,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
   autoUpdater.on('error', (err) => {
     logger.error('auto-updater', `An error happened: ${err.toString()}`);
     const isNetwork = isNetworkError(err);
-    let message = isNetwork
+    const message = isNetwork
       ? 'Network exception, please check your internet connection.'
       : err.message;
-    if (err.message.includes('sha512 checksum mismatch')) {
-      message = 'Installation package possibly compromised';
-    }
 
     if (mainWindow.isDestroyed()) {
       void dialog
