@@ -12,7 +12,9 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
+  downloadASC as NativeDownloadASC,
   downloadPackage as NativeDownloadPackage,
+  verifyASC as NativeVerifyASC,
   verifyPackage as NativeVerifyPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -56,19 +58,22 @@ export const useDownloadPackage = () => {
   const verifyASC = useCallback(async () => {
     try {
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
+      await verifyPackage();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed();
     }
-    await verifyPackage();
   }, [verifyPackage]);
 
   const downloadASC = useCallback(async () => {
     try {
+      const params =
+        await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
+      await NativeDownloadASC(params);
+      await verifyASC();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed();
     }
-    await verifyASC();
   }, [verifyASC]);
 
   const downloadPackage = useCallback(
@@ -80,6 +85,7 @@ export const useDownloadPackage = () => {
           ...params,
           ...result,
         });
+        await downloadASC();
       } catch (e) {
         await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed();
         Toast.error({
@@ -88,7 +94,6 @@ export const useDownloadPackage = () => {
           }),
         });
       }
-      await downloadASC();
     },
     [downloadASC, intl],
   );
@@ -152,8 +157,11 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   );
 
   const toDownloadAndVerifyPage = useCallback(() => {
-    navigation.push(EAppUpdateRoutes.DownloadVerify, {
-      isForceUpdate: appUpdateInfo.isForceUpdate,
+    navigation.pushModal(EModalRoutes.AppUpdateModal, {
+      screen: EAppUpdateRoutes.DownloadVerify,
+      params: {
+        isForceUpdate: appUpdateInfo.isForceUpdate,
+      },
     });
   }, [appUpdateInfo.isForceUpdate, navigation]);
 

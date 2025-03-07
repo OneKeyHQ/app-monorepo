@@ -31,6 +31,10 @@ export const ipcMessageKeys = {
   CHECK_FOR_UPDATES: 'update/checkForUpdates',
   TOUCH_UPDATE_RES_SUCCESS: 'touch/update-res-success',
   TOUCH_UPDATE_PROGRESS: 'touch/update-progress',
+  UPDATE_DOWNLOAD_ASC: 'update/download-asc',
+  UPDATE_VERIFY_ASC: 'update/verify-asc',
+  UPDATE_DOWNLOAD_ASC_DONE: 'update/download-asc-done',
+  UPDATE_VERIFY_ASC_DONE: 'update/verify-asc-done',
 
   // App
   APP_VERSION: 'app/version',

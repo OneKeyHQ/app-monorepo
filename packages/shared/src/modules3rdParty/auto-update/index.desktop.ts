@@ -10,10 +10,12 @@ import { defaultLogger } from '../../logger/logger';
 
 import type {
   IClearPackage,
+  IDownloadASC,
   IDownloadPackage,
   IInstallPackage,
   IUpdateDownloadedEvent,
   IUseDownloadProgress,
+  IVerifyASC,
   IVerifyPackage,
 } from './type';
 
@@ -47,6 +49,22 @@ globalThis.desktopApi.on(ipcMessageKeys.UPDATE_VERIFIED, () => {
   defaultLogger.update.app.log('update/verified');
   while (updateVerifyTasks.length) {
     updateVerifyTasks.pop()?.();
+  }
+});
+
+const updateDownloadASCTasks: (() => void)[] = [];
+globalThis.desktopApi.on(ipcMessageKeys.UPDATE_DOWNLOAD_ASC_DONE, () => {
+  defaultLogger.update.app.log('update/download-asc');
+  while (updateDownloadASCTasks.length) {
+    updateDownloadASCTasks.pop()?.();
+  }
+});
+
+const updateVerifyASCTasks: (() => void)[] = [];
+globalThis.desktopApi.on(ipcMessageKeys.UPDATE_VERIFY_ASC_DONE, () => {
+  defaultLogger.update.app.log('update/verify-asc');
+  while (updateVerifyASCTasks.length) {
+    updateVerifyASCTasks.pop()?.();
   }
 });
 
@@ -115,6 +133,20 @@ export const downloadPackage: IDownloadPackage = () =>
     });
     updateErrorTasks.push(reject);
     globalThis.desktopApi.checkForUpdates();
+  });
+
+export const downloadASC: IDownloadASC = async (params) =>
+  new Promise((resolve, reject) => {
+    updateDownloadASCTasks.push(resolve);
+    updateErrorTasks.push(reject);
+    globalThis.desktopApi.downloadASC(params);
+  });
+
+export const verifyASC: IVerifyASC = async (params) =>
+  new Promise((resolve, reject) => {
+    updateVerifyASCTasks.push(resolve);
+    updateErrorTasks.push(reject);
+    globalThis.desktopApi.verifyASC(params);
   });
 
 export const verifyPackage: IVerifyPackage = async (params) =>

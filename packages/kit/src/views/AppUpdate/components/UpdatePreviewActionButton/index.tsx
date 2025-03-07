@@ -4,10 +4,12 @@ import { useIntl } from 'react-intl';
 
 import type { IPageFooterProps } from '@onekeyhq/components';
 import { Page, YStack } from '@onekeyhq/components';
-import { useAppUpdateInfo } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
+import {
+  useAppUpdateInfo,
+  useDownloadPackage,
+} from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { downloadPackage } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -23,6 +25,8 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
 
   const navigation = useAppNavigation();
 
+  const { downloadPackage } = useDownloadPackage();
+
   const handleToUpdate: IPageFooterProps['onConfirm'] = useCallback(() => {
     if (appUpdateInfo.data) {
       if (appUpdateInfo.data.storeUrl) {
@@ -34,7 +38,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
         });
       }
     }
-  }, [appUpdateInfo.data, isForceUpdate, navigation]);
+  }, [appUpdateInfo.data, downloadPackage, isForceUpdate, navigation]);
   return (
     <Page.Footer>
       <YStack>

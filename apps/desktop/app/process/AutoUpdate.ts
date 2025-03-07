@@ -5,7 +5,6 @@ import path from 'path';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
-import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 import { readCleartextMessage, readKey } from 'openpgp';
 
@@ -14,13 +13,17 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
 import { PUBLIC_KEY } from '../constant/gpg';
+import {
+  clearASCFile,
+  clearUpdateSettings,
+  getASCFile,
+  setASCFile,
+} from '../libs/store';
 import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
 import type { IUpdateSettings } from '../libs/store';
 import type { IInstallUpdateParams, IVerifyUpdateParams } from '../preload';
-
-const isLinux = process.platform === 'linux';
 
 interface ILatestVersion {
   version: string;
@@ -66,11 +69,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
     store.setUpdateSettings(updateSettings);
   };
 
-  const getSha256 = async (downloadUrl: string) => {
+  const getSha256 = async () => {
     try {
-      const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
-      const ascFile = await fetch(ascFileUrl);
-      const ascFileMessage = await ascFile.text();
+      const ascFileMessage = getASCFile();
       logger.info('auto-updater', `signatureFileContent: ${ascFileMessage}`);
 
       const signedMessage = await readCleartextMessage({
@@ -116,11 +117,26 @@ const init = ({ mainWindow, store }: IDependencies) => {
     });
   };
 
-  const verifyFile = async ({
+  const verifyASC = async () => {
+    const sha256 = await getSha256();
+    if (!sha256) {
+      sendValidError();
+      return false;
+    }
+    return true;
+  };
+
+  const downloadASC = async ({
     downloadedFile = '',
     downloadUrl = '',
-  }: IVerifyUpdateParams) => {
-    logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
+  }: IInstallUpdateParams) => {
+    clearASCFile();
+    logger.info(
+      'auto-updater',
+      'Download ASC requested',
+      downloadedFile,
+      downloadUrl,
+    );
     if (!downloadedFile || !downloadUrl) {
       sendValidError();
       return false;
@@ -130,7 +146,25 @@ const init = ({ mainWindow, store }: IDependencies) => {
       sendValidError();
       return false;
     }
-    const sha256 = await getSha256(downloadUrl);
+    try {
+      const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
+      const ascFile = await fetch(ascFileUrl);
+      const ascFileMessage = await ascFile.text();
+      setASCFile(ascFileMessage);
+    } catch (error) {
+      sendValidError();
+      return false;
+    }
+    return true;
+  };
+
+  const verifyFile = async ({
+    downloadedFile = '',
+    downloadUrl = '',
+  }: IVerifyUpdateParams) => {
+    logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
+
+    const sha256 = await getSha256();
     if (!sha256) {
       sendValidError();
       return false;
@@ -282,10 +316,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `Update checking request (manual: ${b2t(isManualCheck)})`,
     );
 
-    const feedUrl = `${buildServiceEndpoint({
-      serviceName: EServiceEndpointEnum.Utility,
-      env: updateSettings.useTestFeedUrl ? 'test' : 'prod',
-    })}/utility/v1/app-update/electron-feed-url`;
+    const feedUrl = `http://127.0.0.1:8080`;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
@@ -365,6 +396,28 @@ const init = ({ mainWindow, store }: IDependencies) => {
   );
 
   ipcMain.on(
+    ipcMessageKeys.UPDATE_DOWNLOAD_ASC,
+    async (_, params: IInstallUpdateParams) => {
+      logger.info('auto-updater', 'Download ASC requested', params);
+      const valid = await downloadASC(params);
+      if (valid) {
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOAD_ASC_DONE);
+      }
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_VERIFY_ASC,
+    async (_, params: IInstallUpdateParams) => {
+      logger.info('auto-updater', 'Verify ASC requested', params);
+      const valid = await verifyASC();
+      if (valid) {
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_VERIFY_ASC_DONE);
+      }
+    },
+  );
+
+  ipcMain.on(
     ipcMessageKeys.UPDATE_INSTALL,
     async (
       _,
@@ -413,7 +466,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   ipcMain.on(ipcMessageKeys.UPDATE_CLEAR_SETTINGS, () => {
     logger.info('auto-update', 'clear update settings');
-    store.clear();
+    clearUpdateSettings();
   });
 };
 

@@ -77,6 +77,8 @@ export type IDesktopAPI = {
   checkForUpdates: (isManual?: boolean) => void;
   disableShortcuts: (params: { disableAllShortcuts?: boolean }) => void;
   downloadUpdate: () => void;
+  downloadASC: (event: IVerifyUpdateParams) => void;
+  verifyASC: (event: IVerifyUpdateParams) => void;
   verifyUpdate: (event: IVerifyUpdateParams) => void;
   installUpdate: (event: IInstallUpdateParams) => void;
   clearUpdate: () => void;
@@ -165,6 +167,10 @@ const validChannels = [
   ipcMessageKeys.UPDATE_ERROR,
   ipcMessageKeys.UPDATE_DOWNLOADING,
   ipcMessageKeys.UPDATE_DOWNLOADED,
+  ipcMessageKeys.UPDATE_DOWNLOAD_ASC,
+  ipcMessageKeys.UPDATE_DOWNLOAD_ASC_DONE,
+  ipcMessageKeys.UPDATE_VERIFY_ASC_DONE,
+  ipcMessageKeys.UPDATE_VERIFY_ASC,
   ipcMessageKeys.CHECK_FOR_UPDATES,
   ipcMessageKeys.APP_OPEN_SETTINGS,
   ipcMessageKeys.APP_LOCK_NOW,
@@ -312,8 +318,12 @@ const desktopApi = Object.freeze({
   disableShortcuts: (params: { disableAllShortcuts?: boolean }) =>
     ipcRenderer.send(ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS, params),
   downloadUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD),
+  downloadASC: (params: IVerifyUpdateParams) =>
+    ipcRenderer.send(ipcMessageKeys.UPDATE_DOWNLOAD_ASC, params),
   verifyUpdate: (params: IVerifyUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY, params),
+  verifyASC: (params: IVerifyUpdateParams) =>
+    ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY_ASC, params),
   installUpdate: (params: IInstallUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
   clearUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR),
