@@ -54,6 +54,42 @@ export const getAllowPathFromScreenNames = (screenNames: string[]) =>
   allowListMap.get(buildAllowListMapKey(screenNames)) || '/';
 
 export const buildAllowList = (screens: IScreenPathConfig) => {
+  // if (platformEnv.isDev) {
+  //   // Check for duplicate screen names in the screens configuration
+  //   const screenNameMap = new Map<string, string[]>();
+  //   const checkDuplicateScreenNames = (
+  //     config: IScreenPathConfig,
+  //     parentPath: string[] = [],
+  //   ) => {
+  //     Object.entries(config).forEach(([name, screen]) => {
+  //       const path = [...parentPath, name];
+  //       const pathStr = path.join(' > ');
+
+  //       if (screenNameMap.has(name)) {
+  //         const existingPaths = screenNameMap.get(name) || [];
+  //         existingPaths.push(pathStr);
+  //         screenNameMap.set(name, existingPaths);
+  //         console.warn(
+  //           `Duplicate screen name found: "${name}" at paths:`,
+  //           existingPaths.join(', '),
+  //         );
+  //         throw new Error(
+  //           `Duplicate screen name "${name}" found at: ${existingPaths.join(
+  //             ', ',
+  //           )}`,
+  //         );
+  //       } else {
+  //         screenNameMap.set(name, [pathStr]);
+  //       }
+
+  //       if (screen.screens) {
+  //         checkDuplicateScreenNames(screen.screens, path);
+  //       }
+  //     });
+  //   };
+
+  //   checkDuplicateScreenNames(screens);
+  // }
   function pagePath(_: TemplateStringsArray, ...screenNames: string[]): string {
     let screenConfig = screens;
     const path = screenNames.reduce((prev, screenName) => {
