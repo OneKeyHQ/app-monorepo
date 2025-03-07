@@ -12,6 +12,7 @@ import {
   useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import { useInAppNotificationAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   checkWrappedTokenPair,
   equalTokenNoCaseSensitive,
@@ -29,6 +30,7 @@ export const useSwapLimitRate = () => {
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   const [fromSelectToken] = useSwapSelectFromTokenAtom();
   const [toSelectToken] = useSwapSelectToTokenAtom();
+  const [, setInAppNotification] = useInAppNotificationAtom();
   const {
     limitOrderMarketPriceIntervalAction,
     cleanLimitOrderMarketPriceInterval,
@@ -44,12 +46,12 @@ export const useSwapLimitRate = () => {
       if (isValidate) {
         const inputRate = new BigNumber(text);
         if (text === '' || inputRate.isNaN() || inputRate.isZero()) {
-          setLimitPriceUseRate({
-            ...limitPriceUseRate,
+          setLimitPriceUseRate((v) => ({
+            ...v,
             rate: '0',
             reverseRate: '0',
             inputRate: text,
-          });
+          }));
         } else {
           const inputBN = new BigNumber(inputRate);
           const newRate = limitPriceSetReverse
@@ -70,12 +72,12 @@ export const useSwapLimitRate = () => {
               BigNumber.ROUND_HALF_UP,
             )
             .toFixed();
-          setLimitPriceUseRate({
-            ...limitPriceUseRate,
+          setLimitPriceUseRate((v) => ({
+            ...v,
             rate: newRateValue,
             reverseRate: newReverseRateValue,
             inputRate: text,
-          });
+          }));
         }
       }
     },
@@ -83,7 +85,6 @@ export const useSwapLimitRate = () => {
       limitPriceMarketPrice.fromToken?.decimals,
       limitPriceMarketPrice.toToken?.decimals,
       limitPriceSetReverse,
-      limitPriceUseRate,
       setLimitPriceUseRate,
     ],
   );
@@ -98,11 +99,7 @@ export const useSwapLimitRate = () => {
 
   useEffect(() => {
     void limitOrderMarketPriceIntervalDeb();
-    return () => {
-      cleanLimitOrderMarketPriceInterval();
-    };
   }, [
-    cleanLimitOrderMarketPriceInterval,
     swapTypeSwitchValue,
     fromSelectToken,
     toSelectToken,
@@ -164,14 +161,14 @@ export const useSwapLimitRate = () => {
         limitPriceMarketPrice.fromToken?.decimals ?? 0,
         BigNumber.ROUND_HALF_UP,
       );
-      setLimitPriceUseRate({
-        ...limitPriceMarketPrice,
+      setLimitPriceUseRate((v) => ({
+        ...v,
         rate: formatRate.toFixed(),
         reverseRate: formatReverseRate.toFixed(),
         inputRate: limitPriceSetReverse
           ? formatReverseRate.toFixed()
           : formatRate.toFixed(),
-      });
+      }));
     },
     [setLimitPriceUseRate, limitPriceMarketPrice, limitPriceSetReverse],
   );
@@ -179,12 +176,12 @@ export const useSwapLimitRate = () => {
   const onChangeReverse = useCallback(
     (reverse: boolean) => {
       setLimitPriceSetReverse(reverse);
-      setLimitPriceUseRate({
-        ...limitPriceUseRate,
+      setLimitPriceUseRate((v) => ({
+        ...v,
         inputRate: reverse
           ? limitPriceUseRate.reverseRate
           : limitPriceUseRate.rate,
-      });
+      }));
     },
     [setLimitPriceSetReverse, setLimitPriceUseRate, limitPriceUseRate],
   );
@@ -235,10 +232,6 @@ export const useSwapLimitRate = () => {
       setLimitPriceUseRate({});
       setLimitPriceSetReverse(false);
     }
-    return () => {
-      setLimitPriceUseRate({});
-      setLimitPriceSetReverse(false);
-    };
   }, [
     fromSelectToken,
     limitPriceMarketPrice.rate,
@@ -246,6 +239,21 @@ export const useSwapLimitRate = () => {
     setLimitPriceUseRate,
     toSelectToken,
   ]);
+
+  useEffect(
+    () => () => {
+      cleanLimitOrderMarketPriceInterval();
+      setLimitPriceUseRate({});
+      setLimitPriceSetReverse(false);
+      setInAppNotification((v) => ({ ...v, swapLimitOrdersLoading: false }));
+    },
+    [
+      setLimitPriceSetReverse,
+      setLimitPriceUseRate,
+      cleanLimitOrderMarketPriceInterval,
+      setInAppNotification,
+    ],
+  );
 
   return {
     onLimitRateChange,

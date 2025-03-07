@@ -248,7 +248,7 @@ const LimitOrderDetailModal = () => {
           break;
         case ESwapLimitOrderStatus.EXPIRED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_status_expired,
+            id: ETranslations.limit_order_expired,
           });
           color = '$textCaution';
           break;
