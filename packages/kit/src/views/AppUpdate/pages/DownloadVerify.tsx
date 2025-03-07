@@ -84,6 +84,28 @@ function DownloadVerify({
     useDownloadPackage();
   const percent = useDownloadProgress(noop, noop);
 
+  const renderDownloadError = useCallback(
+    () => (
+      <HyperlinkText
+        size="$bodyLg"
+        color="$textSubdued"
+        translationId={
+          data.errorText ===
+          ETranslations.update_network_instability_check_connection
+            ? data.errorText
+            : ETranslations.update_retrying_fails_help_text
+        }
+        values={{
+          reason: intl.formatMessage({ id: data.errorText }) || '',
+        }}
+        onAction={() => {
+          openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
+        }}
+      />
+    ),
+    [data.errorText, intl],
+  );
+
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -104,23 +126,7 @@ function DownloadVerify({
             }
             renderDescription={({ status }) => {
               if (status === EStepItemStatus.Failed) {
-                return (
-                  <HyperlinkText
-                    size="$bodyLg"
-                    color="$textSubdued"
-                    translationId={
-                      ETranslations.update_retrying_fails_help_text
-                    }
-                    values={{
-                      reason: intl.formatMessage({ id: data.errorText }) || '',
-                    }}
-                    onAction={() => {
-                      openUrlExternal(
-                        'https://github.com/OneKeyHQ/app-monorepo/releases',
-                      );
-                    }}
-                  />
-                );
+                return renderDownloadError();
               }
 
               if (data.downloadedEvent?.downloadUrl) {
@@ -165,9 +171,18 @@ function DownloadVerify({
             title={intl.formatMessage({
               id: ETranslations.update_download_asc_label,
             })}
-            description={intl.formatMessage({
-              id: ETranslations.update_download_asc_desc,
-            })}
+            renderDescription={({ status }) => {
+              if (status === EStepItemStatus.Failed) {
+                return renderDownloadError();
+              }
+              return (
+                <SizableText size="$bodyLg" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.update_download_asc_desc,
+                  })}
+                </SizableText>
+              );
+            }}
             renderAction={({ status }) =>
               status === EStepItemStatus.Failed ? (
                 <RetryButton onPress={downloadASC} />
