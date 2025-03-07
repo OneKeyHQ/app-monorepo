@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { Page, Stack, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,10 +12,17 @@ import DashboardContent from './DashboardContent';
 
 function Dashboard() {
   const { top } = useSafeAreaInsets();
+  const historyButton = useMemo(
+    () =>
+      !platformEnv.isExtension && !platformEnv.isWeb
+        ? () => <HistoryIconButton />
+        : undefined,
+    [],
+  );
 
   return (
     <Page>
-      <Page.Header headerRight={HistoryIconButton} />
+      <Page.Header headerRight={historyButton} />
       {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
       {platformEnv.isNativeIOS ? (
         <XStack pt={top} px="$5" width="100%" justifyContent="flex-end">
