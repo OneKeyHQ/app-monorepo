@@ -108,12 +108,16 @@ const init = ({ mainWindow, store }: IDependencies) => {
     return fileSha256 === sha256;
   };
 
-  const sendValidError = () => {
+  const sendUpdateError = (error: { message: string }) => {
     mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-      err: {
-        message: 'Installation package possibly compromised',
-      },
+      err: error,
       isNetworkError: false,
+    });
+  };
+
+  const sendValidError = () => {
+    sendUpdateError({
+      message: 'Installation package possibly compromised',
     });
   };
 
@@ -152,7 +156,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
       const ascFileMessage = await ascFile.text();
       setASCFile(ascFileMessage);
     } catch (error) {
-      sendValidError();
+      sendUpdateError({
+        message: error instanceof Error ? error.message : '',
+      });
       return false;
     }
     return true;
