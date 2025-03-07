@@ -82,6 +82,7 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
         bootloaderVersion: getDisplayVersion(versions?.bootloaderVersion),
         firmwareVersion: getDisplayVersion(versions?.firmwareVersion),
         serialNumber:
+          device.featuresInfo.onekey_serial_no ??
           device.featuresInfo.onekey_serial ??
           device.featuresInfo.serial_no ??
           VERSION_PLACEHOLDER,
