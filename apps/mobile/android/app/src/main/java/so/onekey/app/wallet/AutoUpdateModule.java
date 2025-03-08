@@ -208,7 +208,8 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
          try {
              Response response = client.newCall(request).execute();
              if (!response.isSuccessful()) {
-                throw new IOException(String.valueOf(response.code()));
+                 promise.reject(new IOException(String.valueOf(response.code())));
+                 return;
              }
              
              StringBuilder ascFileContent = new StringBuilder();
