@@ -183,13 +183,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         try {
             String extractedSha256 = getSha256(filePath);
             if (extractedSha256.isEmpty()) {
-                promise.reject(new Exception("update.installation_package_possibly_compromised"));
+                promise.reject(new Exception("update.signature_verification_failed_alert_text"));
                 return;
             }
             promise.resolve(null);
         } catch (Exception e) {
             Log.e("AutoUpdateModule", "Error verifying ASC file: " + e.getMessage());
-            promise.reject(new Exception("update.installation_package_possibly_compromised"));
+            promise.reject(new Exception("update.signature_verification_failed_alert_text"));
         }
     }
 
