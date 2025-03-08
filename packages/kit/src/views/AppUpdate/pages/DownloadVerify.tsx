@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
 import noop from 'lodash/noop';
@@ -19,6 +19,7 @@ import {
   installPackage,
   useDownloadProgress,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EAppUpdateRoutes,
   IAppUpdatePagesParamList,
@@ -120,6 +121,12 @@ function DownloadVerify({
     ),
     [data.errorText, intl],
   );
+  const fileUrl = useMemo(() => {
+    if (platformEnv.isNativeAndroid) {
+      return data.downloadUrl;
+    }
+    return data.downloadedEvent?.downloadUrl || '';
+  }, [data.downloadUrl, data.downloadedEvent?.downloadUrl]);
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -156,11 +163,8 @@ function DownloadVerify({
                             textDecorationLine="underline"
                             cursor="pointer"
                             onPress={
-                              data.downloadedEvent?.downloadUrl
-                                ? () =>
-                                    openUrlExternal(
-                                      data.downloadedEvent?.downloadUrl || '',
-                                    )
+                              fileUrl
+                                ? () => openUrlExternal(fileUrl)
                                 : undefined
                             }
                           >
