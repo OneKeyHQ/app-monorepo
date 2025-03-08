@@ -164,8 +164,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             Log.e("AutoUpdateModule", "Error reading ASC file: " + e.getMessage());
             return "";
         }
-        String extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
-        Log.d("extractedSha256", extractedSha256);
+        String extractedSha256 = "";
+        try {
+            extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
+            Log.d("extractedSha256", extractedSha256);
+        } catch (Exception e) {
+            Log.e("AutoUpdateModule", "Error extracting SHA256: " + e.getMessage());
+        }
         return extractedSha256;
     }
 
