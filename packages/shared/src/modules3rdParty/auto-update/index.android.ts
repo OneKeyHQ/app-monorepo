@@ -8,6 +8,7 @@ import RNFS from '../react-native-fs';
 
 import type {
   IClearPackage,
+  IDownloadASC,
   IDownloadPackage,
   IInstallPackage,
   IUseDownloadProgress,
@@ -17,24 +18,25 @@ import type {
 const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
+interface IFileParams {
+  url: string;
+  filePath: string;
+}
+
 const { AutoUpdateModule } = NativeModules as {
   AutoUpdateModule: {
     clearCache: () => Promise<void>;
-    downloadAPK: (params: {
-      url: string;
-      filePath: string;
-      notificationTitle: string;
-    }) => Promise<void>;
+    downloadAPK: (
+      params: IFileParams & {
+        notificationTitle: string;
+      },
+    ) => Promise<void>;
+    downloadASC: (params: IFileParams) => Promise<void>;
+    verifyASC: (params: IFileParams) => Promise<void>;
     // an exception will be thrown when validation fails.
-    verifyAPK: (params: {
-      filePath: string;
-      downloadUrl: string;
-    }) => Promise<void>;
+    verifyAPK: (params: IFileParams) => Promise<void>;
     // verifyAPK will be called by default in the native module when calling to install the APK
-    installAPK: (params: {
-      filePath: string;
-      downloadUrl: string;
-    }) => Promise<void>;
+    installAPK: (params: IFileParams) => Promise<void>;
   };
 };
 
@@ -74,6 +76,20 @@ export const downloadPackage: IDownloadPackage = async ({
   return {
     downloadedFile: filePath,
   };
+};
+
+export const downloadASC: IDownloadASC = async (params) => {
+  if (!AutoUpdateModule) {
+    return;
+  }
+  await AutoUpdateModule.downloadASC(params);
+};
+
+export const verifyASC: IVerifyASC = async (params) => {
+  if (!AutoUpdateModule) {
+    return;
+  }
+  await AutoUpdateModule.verifyASC(params);
 };
 
 export const verifyPackage: IVerifyPackage = async (params) => {
