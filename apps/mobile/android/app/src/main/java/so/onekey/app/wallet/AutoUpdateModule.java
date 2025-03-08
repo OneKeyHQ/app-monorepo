@@ -316,7 +316,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 }
 
                 if (!response.isSuccessful()) {
-                    sendDownloadError(new Exception("Server not responding, please try again later."), promise);
+                    sendDownloadError(new Exception(response.code()), promise);
                     return;
                 }
 
