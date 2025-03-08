@@ -116,7 +116,7 @@ class ServiceAppUpdate extends ServiceBase {
     clearTimeout(downloadTimeoutId);
     downloadTimeoutId = setTimeout(async () => {
       await this.downloadPackageFailed({
-        message: 'Download timed out, please check your internet connection.',
+        message: ETranslations.update_download_timed_out_check_connection,
       });
     }, timerUtils.getTimeDurationMs({ minute: 30 }));
     await appUpdatePersistAtom.set((prev) => ({
@@ -146,6 +146,12 @@ class ServiceAppUpdate extends ServiceBase {
       errorText = ETranslations.update_server_not_responding_try_later;
     } else if (errorText.includes('Software caused connection abort')) {
       errorText = ETranslations.update_network_instability_check_connection;
+    }
+    const statusNumber = e?.message ? Number(e.message) : undefined;
+    if (statusNumber === 500) {
+      errorText = ETranslations.update_server_not_responding_try_later;
+    } else if (statusNumber === 404 || statusNumber === 403) {
+      errorText = ETranslations.update_server_not_responding_try_later;
     }
     this.updateErrorText(EAppUpdateStatus.downloadPackageFailed, errorText);
   }
