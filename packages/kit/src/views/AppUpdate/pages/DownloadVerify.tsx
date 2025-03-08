@@ -150,7 +150,7 @@ function DownloadVerify({
                 return renderDownloadError();
               }
 
-              if (data.downloadedEvent?.downloadUrl) {
+              if (fileUrl) {
                 return (
                   <SizableText size="$bodyLg" color="$textSubdued">
                     {intl.formatMessage(
@@ -168,7 +168,7 @@ function DownloadVerify({
                                 : undefined
                             }
                           >
-                            {data.downloadedEvent?.downloadUrl}
+                            {fileUrl}
                           </SizableText>
                         ),
                       },
