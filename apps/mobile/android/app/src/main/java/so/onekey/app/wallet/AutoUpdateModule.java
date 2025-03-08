@@ -208,7 +208,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
          try {
              Response response = client.newCall(request).execute();
              if (!response.isSuccessful()) {
-                throw new IOException("Unexpected code " + response.code());
+                throw new IOException(String.valueOf(response.code()));
              }
              
              StringBuilder ascFileContent = new StringBuilder();
