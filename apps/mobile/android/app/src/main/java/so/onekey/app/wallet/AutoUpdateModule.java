@@ -30,6 +30,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.File;
 import java.io.InputStreamReader;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.net.URL;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -112,48 +114,9 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             }
         }
 
-        // Verify SHA256 and GPG signature
+        // Verify SHA256
         try {
-            // Fetch the signature file
-            String ascFileUrl = downloadUrl + ".SHA256SUMS.asc";
-            OkHttpClient client = new OkHttpClient();
-            Request request = new Request.Builder()
-                .url(ascFileUrl)
-                .build();
-            Response response = client.newCall(request).execute();
-            if (!response.isSuccessful()) throw new IOException("Unexpected code " + response);
-            
-            StringBuilder ascFileContent = new StringBuilder();
-            String line = "";
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()))) {
-                while ((line = reader.readLine()) != null) {
-                    ascFileContent.append(line).append("\n");
-                }
-            }
-
-            String ascFileContentString = ascFileContent.toString();
-            if (ascFileContentString.isEmpty()) {
-                promise.reject(new Exception("Installation package possibly compromised"));
-                return false;
-            }
-            Log.d("ascFileContent", ascFileContentString);
-
-            // Verify GPG signature
-            // Extract SHA256 from the verified content
-            String cacheFilePath = getReactApplicationContext().getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
-            File cacheFile = new File(cacheFilePath);
-            if (cacheFile.exists()) {
-                cacheFile.delete();
-            }
-            String extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
-            Log.d("extractedSha256", extractedSha256);
-
-            if (extractedSha256.isEmpty()) {
-                promise.reject(new Exception("Installation package possibly compromised"));
-                return false;
-            }
-            
-            // Verify SHA256
+            String extractedSha256 = getSha256(file.getAbsolutePath());
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             try (BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file))) {
                 byte[] buffer = new byte[8192];
@@ -175,6 +138,103 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             promise.reject(e);
             return false;
         }
+    }
+
+    public String getSha256(final String filePath) {
+        File ascFile = buildFile(filePath + ".SHA256SUMS.asc");
+        if (!ascFile.exists()) {
+            return "";
+        }
+        String cacheFilePath = getReactApplicationContext().getCacheDir().getAbsolutePath() + "/gpg-verification-temp";
+        File cacheFile = new File(cacheFilePath);
+        if (cacheFile.exists()) {
+            cacheFile.delete();
+        }
+        String ascFileContentString = "";
+        try {
+            BufferedReader reader = new BufferedReader(new FileReader(ascFile));
+            StringBuilder content = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                content.append(line).append("\n");
+            }
+            reader.close();
+            ascFileContentString = content.toString();
+        } catch (IOException e) {
+            Log.e("AutoUpdateModule", "Error reading ASC file: " + e.getMessage());
+            return "";
+        }
+        String extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
+        Log.d("extractedSha256", extractedSha256);
+        return extractedSha256;
+    }
+
+    @ReactMethod
+    public void verifyASC(final ReadableMap map, final Promise promise) {
+        String filePath = map.getString("filePath");
+        String downloadUrl = map.getString("downloadUrl");
+        // Verify GPG signature
+        // Extract SHA256 from the verified content
+        try {
+            String extractedSha256 = getSha256(filePath);
+            if (extractedSha256.isEmpty()) {
+                promise.reject(new Exception("update.installation_package_possibly_compromised"));
+                return;
+            }
+            promise.resolve(null);
+        } catch (Exception e) {
+            Log.e("AutoUpdateModule", "Error verifying ASC file: " + e.getMessage());
+            promise.reject(new Exception("update.installation_package_possibly_compromised"));
+        }
+    }
+
+    @ReactMethod
+    public void downloadASC(final ReadableMap map, final Promise promise) {
+        String url = map.getString("url");
+        String filePath = map.getString("filePath");
+         // Fetch the signature file
+         String ascFileUrl = url + ".SHA256SUMS.asc";
+         String ascFilePath = filePath + ".SHA256SUMS.asc";
+         OkHttpClient client = new OkHttpClient();
+         Request request = new Request.Builder()
+             .url(ascFileUrl)
+             .build();
+         
+         try {
+             Response response = client.newCall(request).execute();
+             if (!response.isSuccessful()) {
+                throw new IOException("Unexpected code " + response.code());
+             }
+             
+             StringBuilder ascFileContent = new StringBuilder();
+             String line = "";
+             try (BufferedReader reader = new BufferedReader(new InputStreamReader(response.body().byteStream()))) {
+                 while ((line = reader.readLine()) != null) {
+                     ascFileContent.append(line).append("\n");
+                 }
+             }
+
+             String ascFileContentString = ascFileContent.toString();
+             if (ascFileContentString.isEmpty()) {
+                 promise.reject(new Exception(""));
+                 return;
+             }
+             Log.d("ascFileContent", ascFileContentString);
+            // Write the ASC file content to the specified path
+            File ascFile = buildFile(ascFilePath);
+            if (ascFile.exists()) {
+                ascFile.delete();
+            }
+            
+            try (FileOutputStream fos = new FileOutputStream(ascFile)) {
+                fos.write(ascFileContentString.getBytes());
+            }
+            
+            promise.resolve(null);
+         } catch (Exception e) {
+            Log.e("AutoUpdateModule", "Error writing ASC file: " + e.getMessage());
+            promise.reject(e);
+         }
     }
 
     @ReactMethod void verifyAPK(final ReadableMap map, final Promise promise) {
@@ -227,7 +287,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
                 mBuilder = new NotificationCompat.Builder(rContext.getApplicationContext(), CHANNEL_ID)
                         .setContentTitle(notificationTitle)
-                        .setContentText("Download in progress")
+                        .setContentText("")
                         .setOngoing(true)
                         .setPriority(NotificationCompat.PRIORITY_LOW)
                         .setSmallIcon(R.drawable.ic_notification);
@@ -320,21 +380,21 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                 }
                 isDownloading = false;
 
-                Intent installIntent = new Intent(Intent.ACTION_VIEW);
+                // Intent installIntent = new Intent(Intent.ACTION_VIEW);
 
-                boolean isValidAPK = checkFilePackage(downloadedFile, url, promise);
-                Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
-                installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
-                installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-                PendingIntent pendingIntent = isValidAPK ? PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
-                        : null;
+                // boolean isValidAPK = checkFilePackage(downloadedFile, url, promise);
+                // Uri apkUri = OnekeyFileProvider.getUriForFile(rContext, downloadedFile);
+                // installIntent.setDataAndType(apkUri, "application/vnd.android.package-archive");
+                // installIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                // installIntent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                // PendingIntent pendingIntent = isValidAPK ? PendingIntent.getActivity(rContext, 0, installIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE)
+                //         : null;
 
                 mNotifyManager.cancel(NOTIFICATION_ID);
-                mBuilder.setContentText("Download completed, click to install")
+                mBuilder.setContentText("")
                         .setProgress(0, 0, false)
                         .setOngoing(false)
-                        .setContentIntent(pendingIntent)
+                        // .setContentIntent(pendingIntent)
                         .setAutoCancel(true);
 
                 notifyNotification(NOTIFICATION_ID, mBuilder);
