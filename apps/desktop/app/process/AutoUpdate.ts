@@ -353,7 +353,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
       `Update checking request (manual: ${b2t(isManualCheck)})`,
     );
 
-    const feedUrl = `http://127.0.0.1:8080`;
+    const feedUrl = `${buildServiceEndpoint({
+      serviceName: EServiceEndpointEnum.Utility,
+      env: updateSettings.useTestFeedUrl ? 'test' : 'prod',
+    })}/utility/v1/app-update/electron-feed-url`;
     autoUpdater.setFeedURL(feedUrl);
     logger.info('current feed url: ', feedUrl);
     if (isDev) {
