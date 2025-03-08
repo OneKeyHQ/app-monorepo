@@ -12,6 +12,7 @@ import type {
   IDownloadPackage,
   IInstallPackage,
   IUseDownloadProgress,
+  IVerifyASC,
   IVerifyPackage,
 } from './type';
 
@@ -78,18 +79,27 @@ export const downloadPackage: IDownloadPackage = async ({
   };
 };
 
-export const downloadASC: IDownloadASC = async (params) => {
-  if (!AutoUpdateModule) {
+export const downloadASC: IDownloadASC = async ({
+  downloadUrl,
+  latestVersion,
+}) => {
+  if (!AutoUpdateModule || !downloadUrl || !latestVersion) {
     return;
   }
-  await AutoUpdateModule.downloadASC(params);
+  await AutoUpdateModule.downloadASC({
+    url: downloadUrl,
+    filePath: buildFilePath(latestVersion),
+  });
 };
 
-export const verifyASC: IVerifyASC = async (params) => {
-  if (!AutoUpdateModule) {
+export const verifyASC: IVerifyASC = async ({ downloadUrl, latestVersion }) => {
+  if (!AutoUpdateModule || !downloadUrl || !latestVersion) {
     return;
   }
-  await AutoUpdateModule.verifyASC(params);
+  await AutoUpdateModule.verifyASC({
+    url: downloadUrl,
+    filePath: buildFilePath(latestVersion),
+  });
 };
 
 export const verifyPackage: IVerifyPackage = async (params) => {
