@@ -4,6 +4,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.icu.text.SimpleDateFormat;
 import android.os.Build;
 import android.content.Intent;
 import android.net.Uri;
@@ -24,6 +25,7 @@ import java.io.InputStreamReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.security.MessageDigest;
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 import com.betomorrow.rnfilelogger.FileLoggerModule;
@@ -125,7 +127,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             }
             String calculatedSha256 = bytesToHex(digest.digest());
 
-            log("cal-sha256: " + calculatedSha256 + " " + extractedSha256 + " " + String.valueOf(calculatedSha256.equals(extractedSha256)));
+            log("calSha256 ", calculatedSha256 + " " + extractedSha256 + " " + String.valueOf(calculatedSha256.equals(extractedSha256)));
             if (!calculatedSha256.equals(extractedSha256)) {
                 promise.reject(new Exception("Installation package possibly compromised"));
                 return false;
