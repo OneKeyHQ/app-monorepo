@@ -543,7 +543,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
   ipcMain.on(
     ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
     (event) => {
-      event.returnValue = getUpdateBuildNumber();
+      const builderNumber = getUpdateBuildNumber();
+      logger.info('auto-updater', `builderNumber: ${builderNumber}`);
+      event.returnValue = builderNumber;
     },
   );
 };
