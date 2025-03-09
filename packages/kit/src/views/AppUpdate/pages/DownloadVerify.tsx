@@ -107,8 +107,9 @@ function DownloadVerify({
       title: intl.formatMessage({
         id: ETranslations.update_update_incomplete_text,
       }),
+      icon: 'InfoCircleOutline',
       description: intl.formatMessage({
-        id: ETranslations.update_update_incomplete_text,
+        id: ETranslations.update_update_incomplete_package_missing_desc,
       }),
       onConfirmText: intl.formatMessage({
         id: ETranslations.update_update_now,
