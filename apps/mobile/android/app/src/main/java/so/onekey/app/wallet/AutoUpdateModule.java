@@ -79,7 +79,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     public void log(String name, String msg) {
         SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
         String currentTime = sdf.format(new Date());
-        fileLogger.write(1, currentTime + " | INFO : app => native => " + name + " : " + msg);
+        fileLogger.write(1, currentTime + " | INFO : app => native => AutoUpdate:" + name + ": " + msg);
     }
 
     private void sendDownloadError(Exception e, Promise promise) {
