@@ -197,22 +197,35 @@ class ServiceAppUpdate extends ServiceBase {
 
   @backgroundMethod()
   public async verifyASCFailed(e?: { message: string }) {
+    let errorText =
+      e?.message ||
+      ETranslations.update_signature_verification_failed_alert_text;
+    if (platformEnv.isNativeAndroid) {
+      if (errorText === 'UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT')
+        errorText =
+          ETranslations.update_signature_verification_failed_alert_text;
+    }
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      errorText:
-        (e?.message as ETranslations) ||
-        ETranslations.update_signature_verification_failed_alert_text,
+      errorText: errorText as ETranslations,
       status: EAppUpdateStatus.verifyASCFailed,
     }));
   }
 
   @backgroundMethod()
   public async verifyPackageFailed(e?: { message: string }) {
+    let errorText =
+      e?.message || ETranslations.update_installation_not_safe_alert_text;
+    if (platformEnv.isNativeAndroid) {
+      if (errorText === 'PACKAGE_NAME_MISMATCH') {
+        errorText = ETranslations.update_package_name_mismatch;
+      } else if (errorText === 'UPDATE_INSTALLATION_NOT_SAFE_ALERT_TEXT') {
+        errorText = ETranslations.update_installation_not_safe_alert_text;
+      }
+    }
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
-      errorText:
-        (e?.message as ETranslations) ||
-        ETranslations.update_installation_not_safe_alert_text,
+      errorText: errorText as ETranslations,
       status: EAppUpdateStatus.verifyPackageFailed,
     }));
   }
