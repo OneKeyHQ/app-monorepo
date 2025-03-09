@@ -7,6 +7,7 @@ import { useIntl } from 'react-intl';
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
+  Dialog,
   EStepItemStatus,
   Page,
   SizableText,
@@ -90,14 +91,49 @@ function DownloadVerify({
   const { isForceUpdate } = route.params || {};
   usePreventRemove(!!isForceUpdate, () => {});
   const { data } = useAppUpdateInfo();
+  const {
+    downloadPackage,
+    downloadASC,
+    verifyASC,
+    verifyPackage,
+    resetToNotify,
+  } = useDownloadPackage();
+
+  const showUpdateInCompleteDialog = useCallback(() => {
+    Dialog.show({
+      title: intl.formatMessage({
+        id: ETranslations.update_update_incomplete_text,
+      }),
+      description: intl.formatMessage({
+        id: ETranslations.update_update_incomplete_text,
+      }),
+      onConfirmText: intl.formatMessage({
+        id: ETranslations.update_update_now,
+      }),
+      onConfirm: () => {
+        void downloadPackage(data);
+      },
+      onCancelText: intl.formatMessage({
+        id: ETranslations.global_later,
+      }),
+      onCancel: () => {
+        void resetToNotify();
+      },
+    });
+  }, [data, downloadPackage, intl, resetToNotify]);
+
   const handleToUpdate = useCallback(async () => {
-    await installPackage(data);
-  }, [data]);
+    try {
+      await installPackage(data);
+    } catch (e: unknown) {
+      if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
+        showUpdateInCompleteDialog();
+      }
+    }
+  }, [data, showUpdateInCompleteDialog]);
   const stepIndex = STEP_INDEX_MAP[data.status];
   const isError = checkIsError(data.status);
 
-  const { downloadPackage, downloadASC, verifyASC, verifyPackage } =
-    useDownloadPackage();
   const percent = useDownloadProgress(noop, noop);
 
   const renderDownloadError = useCallback(

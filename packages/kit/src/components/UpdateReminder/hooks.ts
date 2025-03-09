@@ -109,14 +109,19 @@ export const useDownloadPackage = () => {
     [downloadASC, intl],
   );
 
+  const resetToNotify = useCallback(async () => {
+    await backgroundApiProxy.serviceAppUpdate.resetToNotify();
+  }, []);
+
   return useMemo(
     () => ({
       downloadPackage,
       verifyPackage,
       verifyASC,
       downloadASC,
+      resetToNotify,
     }),
-    [downloadASC, downloadPackage, verifyASC, verifyPackage],
+    [downloadASC, downloadPackage, resetToNotify, verifyASC, verifyPackage],
   );
 };
 

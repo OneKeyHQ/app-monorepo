@@ -267,6 +267,16 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async resetToNotify() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      errorText: undefined,
+      downloadedEvent: undefined,
+      status: EAppUpdateStatus.notify,
+    }));
+  }
+
+  @backgroundMethod()
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
     await clearPackage();
@@ -292,6 +302,8 @@ class ServiceAppUpdate extends ServiceBase {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         ...releaseInfo,
+        errorText: undefined,
+        downloadedEvent: undefined,
         latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
         status:
