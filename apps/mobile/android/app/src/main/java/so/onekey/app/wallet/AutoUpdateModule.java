@@ -109,7 +109,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         if (info != null && info.packageName != null) {
             log("checkFilePackage", info.packageName + " " + appPackageName + " " + String.valueOf(info.packageName.equals(appPackageName)));
             if (!info.packageName.equals(appPackageName)) {
-                promise.reject(new Exception("Installation package name mismatch"));
+                promise.reject(new Exception("PACKAGE_NAME_MISMATCH"));
                 return false;
             }
         }
@@ -129,7 +129,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
             log("calSha256 ", calculatedSha256 + " " + extractedSha256 + " " + String.valueOf(calculatedSha256.equals(extractedSha256)));
             if (!calculatedSha256.equals(extractedSha256)) {
-                promise.reject(new Exception("Installation package possibly compromised"));
+                promise.reject(new Exception("UPDATE_INSTALLATION_NOT_SAFE_ALERT_TEXT"));
                 return false;
             }
             
@@ -183,13 +183,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         try {
             String extractedSha256 = getSha256(filePath);
             if (extractedSha256.isEmpty()) {
-                promise.reject(new Exception("update.signature_verification_failed_alert_text"));
+                promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
                 return;
             }
             promise.resolve(null);
         } catch (Exception e) {
             log("verifyASC", "Error verifying ASC file: " + e.getMessage());
-            promise.reject(new Exception("update.signature_verification_failed_alert_text"));
+            promise.reject(new Exception("UPDATE_SIGNATURE_VERIFICATION_FAILED_ALERT_TEXT"));
         }
     }
 
@@ -249,11 +249,13 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
         File downloadedFile = buildFile(filePath);
         if (!downloadedFile.exists()) {
-            promise.reject(new Exception("The APK file does not exist."));
+            promise.reject(new Exception("NOT_FOUND_PACKAGE"));
         }
         boolean isValidAPK = this.checkFilePackage(downloadedFile, downloadUrl, promise);
         if (isValidAPK) {
             promise.resolve(null);
+        } else {
+            promise.reject(new Exception("UPDATE_INSTALLATION_NOT_SAFE_ALERT_TEXT"));
         }
     }
 
@@ -430,6 +432,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         String downloadUrl = map.getString("downloadUrl");
         File file = buildFile(filePath);
         if (!this.checkFilePackage(file, downloadUrl, promise)) {
+            promise.reject("NOT_FOUND_PACKAGE");
             return;
         }
         try {
