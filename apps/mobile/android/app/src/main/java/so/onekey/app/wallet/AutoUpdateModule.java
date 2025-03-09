@@ -1,16 +1,7 @@
 package so.onekey.app.wallet;
 
-import org.bouncycastle.openpgp.PGPPublicKeyRing;
-import org.bouncycastle.openpgp.PGPSignature;
-import org.bouncycastle.openpgp.PGPSignatureList;
-import org.bouncycastle.openpgp.jcajce.JcaPGPObjectFactory;
-import org.bouncycastle.openpgp.operator.jcajce.JcaKeyFingerprintCalculator;
-import org.bouncycastle.openpgp.operator.jcajce.JcaPGPContentVerifierBuilderProvider;
-import java.util.Base64;
-import java.io.ByteArrayInputStream;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -32,11 +23,10 @@ import java.io.File;
 import java.io.InputStreamReader;
 import java.io.FileOutputStream;
 import java.io.FileReader;
-import java.net.URL;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.concurrent.TimeUnit;
 
+import com.betomorrow.rnfilelogger.FileLoggerModule;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -64,6 +54,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     private NotificationManagerCompat mNotifyManager;
     private NotificationCompat.Builder mBuilder;
     private ReactApplicationContext rContext;
+    private FileLoggerModule fileLogger;
     private Thread rThread;
     private boolean isDownloading = false;
 
@@ -71,6 +62,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         super(context);
         rContext = context;
         mNotifyManager = NotificationManagerCompat.from(this.rContext.getApplicationContext());
+        fileLogger = new FileLoggerModule(getReactApplicationContext());
     }
 
     @Override
@@ -80,6 +72,12 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
     private void sendEvent(String eventName, @Nullable WritableMap params) {
         rContext.getJSModule(DeviceEventManagerModule.RCTDeviceEventEmitter.class).emit(eventName, params);
+    }
+
+    public void log(String name, String msg) {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+        String currentTime = sdf.format(new Date());
+        fileLogger.write(1, currentTime + " | INFO : app => native => " + name + " : " + msg);
     }
 
     private void sendDownloadError(Exception e, Promise promise) {
@@ -107,7 +105,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         PackageInfo info = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
         String appPackageName = getReactApplicationContext().getPackageName();
         if (info != null && info.packageName != null) {
-            Log.d("check-packageName:", info.packageName + " " + appPackageName + " " + String.valueOf(info.packageName.equals(appPackageName)));
+            log("checkFilePackage", info.packageName + " " + appPackageName + " " + String.valueOf(info.packageName.equals(appPackageName)));
             if (!info.packageName.equals(appPackageName)) {
                 promise.reject(new Exception("Installation package name mismatch"));
                 return false;
@@ -127,7 +125,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             }
             String calculatedSha256 = bytesToHex(digest.digest());
 
-            Log.d("cal-sha256", calculatedSha256 + " " + extractedSha256 + " " + String.valueOf(calculatedSha256.equals(extractedSha256)));
+            log("cal-sha256: " + calculatedSha256 + " " + extractedSha256 + " " + String.valueOf(calculatedSha256.equals(extractedSha256)));
             if (!calculatedSha256.equals(extractedSha256)) {
                 promise.reject(new Exception("Installation package possibly compromised"));
                 return false;
@@ -161,15 +159,15 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             reader.close();
             ascFileContentString = content.toString();
         } catch (IOException e) {
-            Log.e("AutoUpdateModule", "Error reading ASC file: " + e.getMessage());
+            log("AutoUpdateModule", "Error reading ASC file: " + e.getMessage());
             return "";
         }
         String extractedSha256 = "";
         try {
             extractedSha256 = Verification.extractedSha256FromVerifyAscFile(ascFileContentString, cacheFilePath);
-            Log.d("extractedSha256", extractedSha256);
+            log("extractedSha256", extractedSha256);
         } catch (Exception e) {
-            Log.e("AutoUpdateModule", "Error extracting SHA256: " + e.getMessage());
+            log("AutoUpdateModule", "Error extracting SHA256: " + e.getMessage());
         }
         return extractedSha256;
     }
@@ -188,7 +186,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             }
             promise.resolve(null);
         } catch (Exception e) {
-            Log.e("AutoUpdateModule", "Error verifying ASC file: " + e.getMessage());
+            log("verifyASC", "Error verifying ASC file: " + e.getMessage());
             promise.reject(new Exception("update.signature_verification_failed_alert_text"));
         }
     }
@@ -225,7 +223,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                  promise.reject(new Exception(""));
                  return;
              }
-             Log.d("ascFileContent", ascFileContentString);
+             log("ascFileContent", ascFileContentString);
             // Write the ASC file content to the specified path
             File ascFile = buildFile(ascFilePath);
             if (ascFile.exists()) {
@@ -238,7 +236,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             
             promise.resolve(null);
          } catch (Exception e) {
-            Log.e("AutoUpdateModule", "Error writing ASC file: " + e.getMessage());
+            log("downloadASC", "Error writing ASC file: " + e.getMessage());
             promise.reject(e);
          }
     }
@@ -353,7 +351,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                                 WritableMap params = Arguments.createMap();
                                 params.putInt("progress", progress);
                                 sendEvent("update/downloading", params);
-                                Log.i("update/progress", progress + "");
+                                log("update/progress", progress + "");
                             } catch (Exception e) {
                                 sendDownloadError(e, promise);
                                 return;
@@ -378,7 +376,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                     sendDownloadError(e, promise);
                     return;
                 }
-                Log.d("UPDATE APP", "downloadPackage: Download completed");
+                log("downloadAPK", "downloadPackage: Download completed");
                 sendEvent("update/downloaded", null);
 
                 if (this.checkInterrupt()) {
@@ -404,7 +402,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
                         .setAutoCancel(true);
 
                 notifyNotification(NOTIFICATION_ID, mBuilder);
-                Log.d("UPDATE APP", "downloadPackage: notifyNotification done");
+                log("downloadAPKFailed", "downloadPackage: notifyNotification done");
                 promise.resolve(null);
             }
         });
@@ -420,7 +418,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
             }
             mNotifyManager.notify(notificationId, builder.build());
         } catch (Exception e) {
-            Log.d("notification", e.getMessage());
+            log("notifyNotification", e.getMessage());
         }
     }
 
