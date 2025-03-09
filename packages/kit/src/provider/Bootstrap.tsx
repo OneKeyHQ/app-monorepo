@@ -12,7 +12,6 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,
@@ -336,7 +335,7 @@ export const useCheckUpdateFailedOnDesktop =
               globalThis.desktopApi.getPreviousUpdateBuildNumber();
             if (
               previousBuildNumber &&
-              getBuilderNumber(previousBuildNumber) >=
+              getBuilderNumber(previousBuildNumber) <=
                 getBuilderNumber(platformEnv.buildNumber)
             ) {
               Dialog.confirm({
