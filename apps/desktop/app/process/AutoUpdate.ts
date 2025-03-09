@@ -472,7 +472,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
       if (verifyParams.downloadedFile) {
         try {
           const { shell } = require('electron');
-          await shell.openPath(verifyParams.downloadedFile);
+          await shell.openPath(path.dirname(verifyParams.downloadedFile));
           logger.info(
             'auto-updater',
             'Opening downloaded file',
