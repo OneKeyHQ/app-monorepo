@@ -345,8 +345,15 @@ export const useCheckUpdateFailedOnDesktop =
                 description: intl.formatMessage({
                   id: ETranslations.update_update_incomplete_desc,
                 }),
-                renderContent: <Image w="100%" h="100%" source={require('')} />,
-                onConfirmText: ETranslations.update_update_incomplete_desc,
+                renderContent: (
+                  <Image
+                    h={226}
+                    source={require('@onekeyhq/kit/assets/manual_install.jpg')}
+                  />
+                ),
+                onConfirmText: intl.formatMessage({
+                  id: ETranslations.update_manual_update,
+                }),
                 onConfirm: async () => {
                   const updateData =
                     await backgroundApiProxy.serviceAppUpdate.getUpdateData();
