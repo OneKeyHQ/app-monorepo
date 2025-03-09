@@ -335,7 +335,7 @@ export const useCheckUpdateFailedOnDesktop =
               globalThis.desktopApi.getPreviousUpdateBuildNumber();
             if (
               previousBuildNumber &&
-              getBuilderNumber(previousBuildNumber) <=
+              getBuilderNumber(previousBuildNumber) >=
                 getBuilderNumber(platformEnv.buildNumber)
             ) {
               Dialog.confirm({
@@ -355,10 +355,10 @@ export const useCheckUpdateFailedOnDesktop =
                   id: ETranslations.update_manual_update,
                 }),
                 onConfirm: async () => {
-                  const updateData =
-                    await backgroundApiProxy.serviceAppUpdate.getUpdateData();
+                  const params =
+                    await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
                   globalThis.desktopApi.manualInstallUpdate({
-                    ...updateData,
+                    ...params,
                     buildNumber: String(platformEnv.buildNumber || 1),
                   });
                 },
