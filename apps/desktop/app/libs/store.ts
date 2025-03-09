@@ -25,6 +25,7 @@ const configKeys = {
   Language: 'language',
   DisableKeyboardShortcuts: 'disableKeyboardShortcuts',
   ASCFile: 'ascFile',
+  UpdateBuildNumber: 'updateBuildNumber',
 };
 
 export const getUpdateSettings = (): IUpdateSettings =>
@@ -134,4 +135,15 @@ export const getASCFile = () => store.get(configKeys.ASCFile, '') as string;
 
 export const clearASCFile = () => {
   store.delete(configKeys.ASCFile);
+};
+
+export const setUpdateBuildNumber = (buildNumber: string) => {
+  store.set(configKeys.UpdateBuildNumber, buildNumber);
+};
+
+export const getUpdateBuildNumber = () =>
+  store.get(configKeys.UpdateBuildNumber, '') as string;
+
+export const clearUpdateBuildNumber = () => {
+  store.delete(configKeys.UpdateBuildNumber);
 };

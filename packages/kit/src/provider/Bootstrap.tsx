@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { debounce } from 'lodash';
+import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -12,6 +12,7 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,
@@ -179,48 +180,49 @@ const useDesktopEvents = platformEnv.isDesktop
     }
   : () => undefined;
 
-const useAboutVersion = () => {
-  const intl = useIntl();
-  useEffect(() => {
-    if (platformEnv.isDesktop && !platformEnv.isDesktopMac) {
-      desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
-        const versionString = intl.formatMessage(
-          {
-            id: ETranslations.settings_version_versionnum,
-          },
-          {
-            'versionNum': ` ${process.env.VERSION || 1}(${
-              platformEnv.buildNumber || 1
-            })`,
-          },
-        );
-        Dialog.show({
-          showFooter: false,
-          renderContent: (
-            <YStack gap={4} alignItems="center" pt="$4">
-              <Image
-                source={require('../../assets/logo.png')}
-                size={72}
-                borderRadius="$full"
-              />
-              <YStack gap="$2" pt="$4" alignItems="center">
-                <SizableText size="$heading2xl">OneKey</SizableText>
-                <SizableText size="$bodySm">
-                  {`${globalThis.desktopApi.platform}-${
-                    globalThis.desktopApi.arch || 'unknown'
-                  }`}
-                </SizableText>
-                <SizableText size="$bodySm">{versionString}</SizableText>
-                <SizableText size="$bodySm">Copyright © OneKey</SizableText>
-              </YStack>
-            </YStack>
-          ),
-        });
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-};
+const useAboutVersion =
+  platformEnv.isDesktop && !platformEnv.isDesktopMac
+    ? () => {
+        const intl = useIntl();
+        useEffect(() => {
+          desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
+            const versionString = intl.formatMessage(
+              {
+                id: ETranslations.settings_version_versionnum,
+              },
+              {
+                'versionNum': ` ${process.env.VERSION || 1}(${
+                  platformEnv.buildNumber || 1
+                })`,
+              },
+            );
+            Dialog.show({
+              showFooter: false,
+              renderContent: (
+                <YStack gap={4} alignItems="center" pt="$4">
+                  <Image
+                    source={require('../../assets/logo.png')}
+                    size={72}
+                    borderRadius="$full"
+                  />
+                  <YStack gap="$2" pt="$4" alignItems="center">
+                    <SizableText size="$heading2xl">OneKey</SizableText>
+                    <SizableText size="$bodySm">
+                      {`${globalThis.desktopApi.platform}-${
+                        globalThis.desktopApi.arch || 'unknown'
+                      }`}
+                    </SizableText>
+                    <SizableText size="$bodySm">{versionString}</SizableText>
+                    <SizableText size="$bodySm">Copyright © OneKey</SizableText>
+                  </YStack>
+                </YStack>
+              ),
+            });
+          });
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, []);
+      }
+    : noop;
 
 export const useFetchCurrencyList = () => {
   useEffect(() => {
@@ -319,6 +321,48 @@ export const useLaunchEvents = (): void => {
   }, [isLocked]);
 };
 
+const getBuilderNumber = (builderNumber?: string) =>
+  builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+export const useCheckUpdateFailedOnDesktop =
+  platformEnv.isDesktop &&
+  !platformEnv.isMas &&
+  !platformEnv.isDesktopLinuxSnap &&
+  !platformEnv.isDesktopWinMsStore
+    ? () => {
+        const intl = useIntl();
+        useEffect(() => {
+          setTimeout(() => {
+            const previousBuildNumber =
+              globalThis.desktopApi.getPreviousUpdateBuildNumber();
+            if (
+              previousBuildNumber &&
+              getBuilderNumber(previousBuildNumber) >=
+                getBuilderNumber(platformEnv.buildNumber)
+            ) {
+              Dialog.confirm({
+                title: intl.formatMessage({
+                  id: ETranslations.update_update_incomplete_title,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.update_update_incomplete_desc,
+                }),
+                renderContent: <Image w="100%" h="100%" source={require('')} />,
+                onConfirmText: ETranslations.update_update_incomplete_desc,
+                onConfirm: async () => {
+                  const updateData =
+                    await backgroundApiProxy.serviceAppUpdate.getUpdateData();
+                  globalThis.desktopApi.manualInstallUpdate({
+                    ...updateData,
+                    buildNumber: String(platformEnv.buildNumber || 1),
+                  });
+                },
+              });
+            }
+          }, 300);
+        }, [intl]);
+      }
+    : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -344,5 +388,6 @@ export function Bootstrap() {
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();
+  useCheckUpdateFailedOnDesktop();
   return null;
 }

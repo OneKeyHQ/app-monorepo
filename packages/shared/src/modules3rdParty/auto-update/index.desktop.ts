@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 
@@ -163,19 +164,7 @@ export const installPackage: IInstallPackage = async ({ downloadedEvent }) =>
     // verifyUpdate will be called by default in the electron module when calling to installUpdate
     globalThis.desktopApi.installUpdate({
       ...downloadedEvent,
-      dialog: {
-        message: appLocale.intl.formatMessage({
-          id: ETranslations.update_new_update_downloaded,
-        }),
-        buttons: [
-          appLocale.intl.formatMessage({
-            id: ETranslations.update_install_and_restart,
-          }),
-          appLocale.intl.formatMessage({
-            id: ETranslations.global_later,
-          }),
-        ],
-      },
+      buildNumber: String(platformEnv.buildNumber || 1),
     });
   });
 

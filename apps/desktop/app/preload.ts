@@ -29,10 +29,7 @@ export interface IVerifyUpdateParams {
 }
 
 export interface IInstallUpdateParams extends IVerifyUpdateParams {
-  dialog: {
-    message: string;
-    buttons: string[];
-  };
+  buildNumber: string;
 }
 
 export type IDesktopAPI = {
@@ -81,6 +78,8 @@ export type IDesktopAPI = {
   verifyASC: (event: IVerifyUpdateParams) => void;
   verifyUpdate: (event: IVerifyUpdateParams) => void;
   installUpdate: (event: IInstallUpdateParams) => void;
+  manualInstallUpdate: (event: IInstallUpdateParams) => void;
+  getPreviousUpdateBuildNumber: () => string;
   clearUpdate: () => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
   touchUpdateResource: (params: {
@@ -171,6 +170,7 @@ const validChannels = [
   ipcMessageKeys.UPDATE_DOWNLOAD_ASC_DONE,
   ipcMessageKeys.UPDATE_VERIFY_ASC_DONE,
   ipcMessageKeys.UPDATE_VERIFY_ASC,
+  ipcMessageKeys.UPDATE_MANUAL_INSTALLATION,
   ipcMessageKeys.CHECK_FOR_UPDATES,
   ipcMessageKeys.APP_OPEN_SETTINGS,
   ipcMessageKeys.APP_LOCK_NOW,
@@ -178,6 +178,7 @@ const validChannels = [
   ipcMessageKeys.TOUCH_UPDATE_PROGRESS,
   ipcMessageKeys.SHOW_ABOUT_WINDOW,
   ipcMessageKeys.APP_UPDATE_DISABLE_SHORTCUTS,
+  ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
 ];
 
 const getChannel = () => {
@@ -326,6 +327,12 @@ const desktopApi = Object.freeze({
     ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY_ASC, params),
   installUpdate: (params: IInstallUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
+  manualInstallUpdate: (params: IInstallUpdateParams) =>
+    ipcRenderer.send(ipcMessageKeys.UPDATE_MANUAL_INSTALLATION, params),
+  getPreviousUpdateBuildNumber: () =>
+    ipcRenderer.sendSync(
+      ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
+    ),
   clearUpdate: () => ipcRenderer.send(ipcMessageKeys.UPDATE_CLEAR),
   setAutoUpdateSettings: (settings: IUpdateSettings) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_SETTINGS, settings),

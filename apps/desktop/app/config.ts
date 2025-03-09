@@ -35,6 +35,9 @@ export const ipcMessageKeys = {
   UPDATE_VERIFY_ASC: 'update/verify-asc',
   UPDATE_DOWNLOAD_ASC_DONE: 'update/download-asc-done',
   UPDATE_VERIFY_ASC_DONE: 'update/verify-asc-done',
+  UPDATE_MANUAL_INSTALLATION: 'update/manual-installation',
+  UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER:
+    'update/getPreviousUpdateBuildNumber',
 
   // App
   APP_VERSION: 'app/version',

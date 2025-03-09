@@ -13,12 +13,15 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
 import { PUBLIC_KEY } from '../constant/gpg';
-import { ETranslations } from '../i18n';
+import { ETranslations, i18nText } from '../i18n';
 import {
   clearASCFile,
+  clearUpdateBuildNumber,
   clearUpdateSettings,
   getASCFile,
+  getUpdateBuildNumber,
   setASCFile,
+  setUpdateBuildNumber,
 } from '../libs/store';
 import { b2t, toHumanReadable } from '../libs/utils';
 
@@ -402,6 +405,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     if (updateCancellationToken) {
       updateCancellationToken.cancel();
     }
+    clearUpdateBuildNumber();
     await clearUpdateCache();
     updateCancellationToken = new CancellationToken();
     autoUpdater
@@ -458,25 +462,52 @@ const init = ({ mainWindow, store }: IDependencies) => {
   );
 
   ipcMain.on(
-    ipcMessageKeys.UPDATE_INSTALL,
-    async (
-      _,
-      { dialog: { message, buttons }, ...verifyParams }: IInstallUpdateParams,
-    ) => {
+    ipcMessageKeys.UPDATE_MANUAL_INSTALLATION,
+    async (_, { buildNumber, ...verifyParams }: IInstallUpdateParams) => {
       const verified = await verifyFile(verifyParams);
       if (!verified) {
         return;
       }
-      logger.info('auto-updater', 'Installation request');
+      logger.info('auto-updater', 'Manual installation request', buildNumber);
+      if (verifyParams.downloadedFile) {
+        try {
+          const { shell } = require('electron');
+          await shell.openPath(verifyParams.downloadedFile);
+          logger.info(
+            'auto-updater',
+            'Opening downloaded file',
+            verifyParams.downloadedFile,
+          );
+        } catch (error) {
+          logger.error('auto-updater', 'Failed to open downloaded file', error);
+        }
+      } else {
+        logger.warn('auto-updater', 'No downloaded file to open');
+      }
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_INSTALL,
+    async (_, { buildNumber, ...verifyParams }: IInstallUpdateParams) => {
+      const verified = await verifyFile(verifyParams);
+      if (!verified) {
+        return;
+      }
+      logger.info('auto-updater', 'Installation request', buildNumber);
       void dialog
         .showMessageBox({
           type: 'question',
-          buttons,
+          buttons: [
+            i18nText(ETranslations.update_install_and_restart),
+            i18nText(ETranslations.global_later),
+          ],
           defaultId: 0,
-          message,
+          message: i18nText(ETranslations.update_new_update_downloaded),
         })
         .then((selection) => {
           if (selection.response === 0) {
+            setUpdateBuildNumber(buildNumber);
             logger.info('auto-update', 'button[0] was clicked');
             app.removeAllListeners('window-all-closed');
             mainWindow.removeAllListeners('close');
@@ -508,6 +539,13 @@ const init = ({ mainWindow, store }: IDependencies) => {
     logger.info('auto-update', 'clear update settings');
     clearUpdateSettings();
   });
+
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
+    (event) => {
+      event.returnValue = getUpdateBuildNumber();
+    },
+  );
 };
 
 export default init;

@@ -171,6 +171,12 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getUpdateData() {
+    const appInfo = await appUpdatePersistAtom.get();
+    return appInfo;
+  }
+
+  @backgroundMethod()
   public async verifyPackage() {
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
