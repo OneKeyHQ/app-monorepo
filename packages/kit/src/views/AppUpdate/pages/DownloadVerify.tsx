@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
 import noop from 'lodash/noop';
@@ -12,8 +12,10 @@ import {
   Page,
   SizableText,
   Stepper,
+  Toast,
   XStack,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate/type';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -91,6 +93,7 @@ function DownloadVerify({
   const { isForceUpdate } = route.params || {};
   usePreventRemove(!!isForceUpdate, () => {});
   const { data } = useAppUpdateInfo();
+  const navigation = useAppNavigation();
   const {
     downloadPackage,
     downloadASC,
@@ -118,9 +121,10 @@ function DownloadVerify({
       }),
       onCancel: () => {
         void resetToNotify();
+        navigation.popStack();
       },
     });
-  }, [data, downloadPackage, intl, resetToNotify]);
+  }, [data, downloadPackage, intl, navigation, resetToNotify]);
 
   const handleToUpdate = useCallback(async () => {
     try {
@@ -128,6 +132,8 @@ function DownloadVerify({
     } catch (e: unknown) {
       if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
         showUpdateInCompleteDialog();
+      } else {
+        Toast.error({ title: (e as Error).message });
       }
     }
   }, [data, showUpdateInCompleteDialog]);
