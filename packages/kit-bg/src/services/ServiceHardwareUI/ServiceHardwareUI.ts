@@ -288,16 +288,16 @@ class ServiceHardwareUI extends ServiceBase {
         params,
       );
 
-      const waitForCancelDone = async () => {
-        if (
-          this.backgroundApi.serviceHardware.isLastCancelLessThanMsAgo(
-            connectId,
-            2000,
-          )
-        ) {
-          await timerUtils.wait(2000);
-        }
-      };
+      // const waitForCancelDone = async () => {
+      //   if (
+      //     this.backgroundApi.serviceHardware.isLastCancelLessThanMsAgo(
+      //       connectId,
+      //       2000,
+      //     )
+      //   ) {
+      //     await timerUtils.wait(2000);
+      //   }
+      // };
 
       if (connectId) {
         // The device update detection is postponed for two hours
@@ -319,7 +319,7 @@ class ServiceHardwareUI extends ServiceBase {
           });
         }
 
-        await waitForCancelDone();
+        // await waitForCancelDone();
 
         defaultLogger.account.accountCreatePerf.cancelDeviceBeforeProcessing({
           message: 'cancelableDelay',
@@ -338,7 +338,7 @@ class ServiceHardwareUI extends ServiceBase {
           },
         );
       } else {
-        await waitForCancelDone();
+        // await waitForCancelDone();
       }
 
       // test delay
