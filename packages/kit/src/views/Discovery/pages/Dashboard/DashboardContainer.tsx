@@ -1,6 +1,6 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
-import { Page, Stack, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
