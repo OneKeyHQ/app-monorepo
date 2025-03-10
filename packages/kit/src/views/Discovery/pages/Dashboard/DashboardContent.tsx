@@ -134,53 +134,51 @@ function DashboardContent({
           }
         />
 
-        {platformEnv.isExtension || platformEnv.isWeb ? null : (
-          <Stack alignItems="center">
-            {showDiveInDescription ? (
-              <DiveInContent />
-            ) : (
-              <>
-                <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
-                  <BookmarksSection
-                    key="BookmarksSection"
-                    handleOpenWebSite={({ webSite }) => {
-                      handleOpenWebSite({
-                        switchToMultiTabBrowser: gtMd,
-                        webSite,
-                        navigation,
-                        shouldPopNavigation: false,
-                      });
-                      defaultLogger.discovery.dapp.enterDapp({
-                        dappDomain: webSite?.url || '',
-                        dappName: webSite?.title || '',
-                        enterMethod: EEnterMethod.dashboard,
-                      });
-                    }}
-                  />
-                </Stack>
+        <Stack alignItems="center">
+          {showDiveInDescription ? (
+            <DiveInContent />
+          ) : (
+            <>
+              <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+                <BookmarksSection
+                  key="BookmarksSection"
+                  handleOpenWebSite={({ webSite }) => {
+                    handleOpenWebSite({
+                      switchToMultiTabBrowser: gtMd,
+                      webSite,
+                      navigation,
+                      shouldPopNavigation: false,
+                    });
+                    defaultLogger.discovery.dapp.enterDapp({
+                      dappDomain: webSite?.url || '',
+                      dappName: webSite?.title || '',
+                      enterMethod: EEnterMethod.dashboard,
+                    });
+                  }}
+                />
+              </Stack>
 
-                {/* here is trending */}
-                <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
-                  <TrendingSection
-                    handleOpenWebSite={({ webSite }) => {
-                      handleOpenWebSite({
-                        switchToMultiTabBrowser: gtMd,
-                        webSite,
-                        navigation,
-                        shouldPopNavigation: false,
-                      });
-                      defaultLogger.discovery.dapp.enterDapp({
-                        dappDomain: webSite?.url || '',
-                        dappName: webSite?.title || '',
-                        enterMethod: EEnterMethod.dashboard,
-                      });
-                    }}
-                  />
-                </Stack>
-              </>
-            )}
-          </Stack>
-        )}
+              {/* here is trending */}
+              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+                <TrendingSection
+                  handleOpenWebSite={({ webSite }) => {
+                    handleOpenWebSite({
+                      switchToMultiTabBrowser: gtMd,
+                      webSite,
+                      navigation,
+                      shouldPopNavigation: false,
+                    });
+                    defaultLogger.discovery.dapp.enterDapp({
+                      dappDomain: webSite?.url || '',
+                      dappName: webSite?.title || '',
+                      enterMethod: EEnterMethod.dashboard,
+                    });
+                  }}
+                />
+              </Stack>
+            </>
+          )}
+        </Stack>
       </>
     ),
     [
