@@ -1,10 +1,4 @@
-import {
-  Notification,
-  app,
-  ipcMain,
-  nativeImage,
-  systemPreferences,
-} from 'electron';
+import { Notification, app, ipcMain, systemPreferences } from 'electron';
 import logger from 'electron-log/main';
 import TaskBarBadgeWindows from 'electron-taskbar-badge';
 import { isNil } from 'lodash';

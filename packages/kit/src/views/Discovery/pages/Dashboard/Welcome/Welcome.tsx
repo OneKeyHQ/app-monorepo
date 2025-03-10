@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Skeleton, Stack, XStack, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -127,6 +127,10 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
     );
   }
 
+  // Extract both platform and media conditions into the showDefaultTitle variable
+  const showDefaultTitle =
+    media.gtSm || platformEnv.isExtension || platformEnv.isWeb;
+
   return (
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
       {/* Left side with logo items */}
@@ -146,14 +150,14 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
         px="$5"
         py="$6"
         $gtMd={{
-          minHeight: '$52',
+          minHeight: '$60',
         }}
         $sm={{
           width: '100%',
         }}
       >
-        {/* Show banner if provided, otherwise show DefaultTitle on non-native platforms */}
-        {banner || (media.gtSm && <DefaultTitle />)}
+        {/* Show banner if provided, otherwise show DefaultTitle based on conditions */}
+        {banner || (showDefaultTitle && <DefaultTitle />)}
         <SearchInput />
       </Stack>
 

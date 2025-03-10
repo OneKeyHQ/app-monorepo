@@ -2,16 +2,10 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useWindowDimensions } from 'react-native';
 
-import {
-  RefreshControl,
-  ScrollView,
-  Stack,
-  useMedia,
-} from '@onekeyhq/components';
+import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useBannerData } from '../../hooks/useBannerData';
@@ -110,24 +104,22 @@ function DashboardContent({
           }
         />
 
-        {platformEnv.isExtension || platformEnv.isWeb ? null : (
-          <Stack alignItems="center">
-            {showDiveInDescription ? (
-              <DiveInContent />
-            ) : (
-              <>
-                <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
-                  <BookmarksSection key="BookmarksSection" />
-                </Stack>
+        <Stack alignItems="center">
+          {showDiveInDescription ? (
+            <DiveInContent />
+          ) : (
+            <>
+              <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+                <BookmarksSection key="BookmarksSection" />
+              </Stack>
 
-                {/* here is trending */}
-                <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
-                  <TrendingSection />
-                </Stack>
-              </>
-            )}
-          </Stack>
-        )}
+              {/* here is trending */}
+              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+                <TrendingSection />
+              </Stack>
+            </>
+          )}
+        </Stack>
       </>
     ),
     [homePageData?.banners, hasActiveBanners, isLoading, showDiveInDescription],
