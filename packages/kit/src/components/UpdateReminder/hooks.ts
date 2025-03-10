@@ -10,7 +10,6 @@ import {
   isNeedUpdate,
 } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IUpdateDownloadedEvent } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import {
   downloadASC as NativeDownloadASC,
   downloadPackage as NativeDownloadPackage,
@@ -19,7 +18,6 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
-import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -50,8 +48,8 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
       await NativeVerifyPackage(params);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
-    } catch (e: { message: string }) {
-      await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e);
+    } catch (e) {
+      await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
     }
   }, []);
 
@@ -66,8 +64,8 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
       await NativeVerifyASC(params);
       await verifyPackage();
-    } catch (e: { message: string }) {
-      await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e);
+    } catch (e) {
+      await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
     }
   }, [verifyPackage]);
 
@@ -82,8 +80,8 @@ export const useDownloadPackage = () => {
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
       await NativeDownloadASC(params);
       await verifyASC();
-    } catch (e: { message: string }) {
-      await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e);
+    } catch (e) {
+      await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
     }
   }, [verifyASC]);
 
