@@ -9,14 +9,10 @@ import {
   useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useBannerData } from '../../hooks/useBannerData';
 
@@ -33,11 +29,8 @@ function DashboardContent({
 }: {
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
-  const navigation = useAppNavigation();
   const isFocused = useIsFocused();
-  const { gtMd } = useMedia();
   const { height: screenHeight } = useWindowDimensions();
-  const { handleOpenWebSite } = useBrowserAction().current;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -111,23 +104,6 @@ function DashboardContent({
               <DashboardBanner
                 key="Banner"
                 banners={homePageData?.banners || []}
-                handleOpenWebSite={({ webSite, useSystemBrowser }) => {
-                  if (useSystemBrowser && webSite?.url) {
-                    openUrlExternal(webSite.url);
-                  } else if (webSite?.url) {
-                    handleOpenWebSite({
-                      switchToMultiTabBrowser: gtMd,
-                      webSite,
-                      navigation,
-                      shouldPopNavigation: false,
-                    });
-                  }
-                  defaultLogger.discovery.dapp.enterDapp({
-                    dappDomain: webSite?.url || '',
-                    dappName: webSite?.title || '',
-                    enterMethod: EEnterMethod.banner,
-                  });
-                }}
                 isLoading={isLoading}
               />
             ) : null
@@ -141,41 +117,12 @@ function DashboardContent({
             ) : (
               <>
                 <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
-                  <BookmarksSection
-                    key="BookmarksSection"
-                    handleOpenWebSite={({ webSite }) => {
-                      handleOpenWebSite({
-                        switchToMultiTabBrowser: gtMd,
-                        webSite,
-                        navigation,
-                        shouldPopNavigation: false,
-                      });
-                      defaultLogger.discovery.dapp.enterDapp({
-                        dappDomain: webSite?.url || '',
-                        dappName: webSite?.title || '',
-                        enterMethod: EEnterMethod.dashboard,
-                      });
-                    }}
-                  />
+                  <BookmarksSection key="BookmarksSection" />
                 </Stack>
 
                 {/* here is trending */}
                 <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
-                  <TrendingSection
-                    handleOpenWebSite={({ webSite }) => {
-                      handleOpenWebSite({
-                        switchToMultiTabBrowser: gtMd,
-                        webSite,
-                        navigation,
-                        shouldPopNavigation: false,
-                      });
-                      defaultLogger.discovery.dapp.enterDapp({
-                        dappDomain: webSite?.url || '',
-                        dappName: webSite?.title || '',
-                        enterMethod: EEnterMethod.dashboard,
-                      });
-                    }}
-                  />
+                  <TrendingSection />
                 </Stack>
               </>
             )}
@@ -183,15 +130,7 @@ function DashboardContent({
         )}
       </>
     ),
-    [
-      homePageData?.banners,
-      hasActiveBanners,
-      isLoading,
-      handleOpenWebSite,
-      gtMd,
-      navigation,
-      showDiveInDescription,
-    ],
+    [homePageData?.banners, hasActiveBanners, isLoading, showDiveInDescription],
   );
 
   if (platformEnv.isNative) {

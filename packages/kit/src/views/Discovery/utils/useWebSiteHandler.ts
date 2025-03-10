@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
@@ -12,22 +13,19 @@ interface IHandleWebSiteParams {
   webSite?: IBrowserBookmark | IBrowserHistory;
   dApp?: IDApp;
   useSystemBrowser?: boolean;
-  switchToMultiTabBrowser?: boolean;
-  navigation?: any;
   shouldPopNavigation?: boolean;
   enterMethod: EEnterMethod;
 }
 
 export const useWebSiteHandler = () => {
   const { handleOpenWebSite } = useBrowserAction().current;
+  const navigation = useAppNavigation();
 
   return useCallback(
     async ({
       webSite,
       dApp,
       useSystemBrowser,
-      switchToMultiTabBrowser,
-      navigation,
       shouldPopNavigation = true,
       enterMethod,
     }: IHandleWebSiteParams) => {
@@ -41,7 +39,7 @@ export const useWebSiteHandler = () => {
         handleOpenWebSite({
           webSite,
           dApp,
-          switchToMultiTabBrowser,
+          switchToMultiTabBrowser: true,
           navigation,
           shouldPopNavigation,
         });
@@ -53,6 +51,6 @@ export const useWebSiteHandler = () => {
         enterMethod,
       });
     },
-    [handleOpenWebSite],
+    [handleOpenWebSite, navigation],
   );
 };
