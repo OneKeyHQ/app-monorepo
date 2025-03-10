@@ -195,7 +195,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void downloadASC(final ReadableMap map, final Promise promise) {
-         String url = map.getString("url");
+         String url = map.getString("downloadUrl");
          String filePath = map.getString("filePath");
          // Fetch the signature file
          String ascFileUrl = url + ".SHA256SUMS.asc";
@@ -270,7 +270,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void downloadAPK(final ReadableMap map, final Promise promise) {
-        String url = map.getString("url");
+        String url = map.getString("downloadUrl");
         String filePath = map.getString("filePath");
         String notificationTitle = map.getString("notificationTitle");
         if (this.isDownloading) {

@@ -132,6 +132,15 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             );
           },
         },
+        [EAppUpdateStatus.updateIncomplete]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_update_incomplete_text,
+            });
+          },
+        },
         [EAppUpdateStatus.failed]: {
           iconName: 'ErrorOutline',
           iconColor: '$iconCritical',
@@ -266,6 +275,10 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     borderColor: '$borderCriticalSubdued',
   },
   [EAppUpdateStatus.done]: undefined,
+  [EAppUpdateStatus.updateIncomplete]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
 };
 
 function BasicUpdateReminder() {

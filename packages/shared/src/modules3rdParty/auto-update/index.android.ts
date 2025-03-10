@@ -20,7 +20,7 @@ const DIR_PATH = `file://${RNFS?.CachesDirectoryPath || ''}/apk`;
 const buildFilePath = (version: string) => `${DIR_PATH}/${version}.apk`;
 
 interface IFileParams {
-  url: string;
+  downloadUrl: string;
   filePath: string;
 }
 
@@ -70,7 +70,7 @@ export const downloadPackage: IDownloadPackage = async ({
   }
   const filePath = buildFilePath(latestVersion);
   await AutoUpdateModule.downloadAPK({
-    url: downloadUrl,
+    downloadUrl,
     filePath,
     notificationTitle: 'Downloading',
   });
@@ -87,7 +87,7 @@ export const downloadASC: IDownloadASC = async ({
     return;
   }
   await AutoUpdateModule.downloadASC({
-    url: downloadUrl,
+    downloadUrl,
     filePath: buildFilePath(latestVersion),
   });
 };
