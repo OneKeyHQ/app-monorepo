@@ -67,11 +67,12 @@ function PrimeTerms() {
   const intl = useIntl();
   return (
     <RichSizeableText
+      size="$bodyMd"
       linkList={{
         link: {
           url: 'https://help.onekey.so/hc/articles/11967482818831',
           color: '$textLink',
-          size: '$bodyLg',
+          size: '$bodyMd',
         },
       }}
     >
@@ -87,6 +88,10 @@ export default function PrimeDashboard() {
   const { user, isLoggedIn, isPrimeSubscriptionActive } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
+  const { isNative, isWebMobile } = platformEnv;
+  const isMobile = isNative || isWebMobile;
+  const mobileTopValue = isMobile ? top + 25 : '$10';
+
   useEffect(() => {
     void fetchPrimeUserInfo();
   }, [fetchPrimeUserInfo]);
@@ -140,8 +145,8 @@ export default function PrimeDashboard() {
           <Page.Body>
             <Stack
               px="$5"
-              pt={top || '$10'}
-              pb="$5"
+              pt={mobileTopValue}
+              pb={isMobile ? '$10' : '$5'}
               gap="$5"
               overflow="hidden"
               borderBottomWidth={StyleSheet.hairlineWidth}
