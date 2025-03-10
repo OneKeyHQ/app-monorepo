@@ -164,6 +164,7 @@ export interface ISignatureConfirmDisplay {
   title: string;
   components: IDisplayComponent[];
   alerts: string[];
+  showMevProtection?: boolean;
 }
 
 export interface IParseTransactionParams {
