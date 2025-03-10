@@ -102,7 +102,7 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
         return result.toString();
     }
 
-    public boolean checkFilePackage(File file, @Nullable String downloadUrl,  Promise promise) {
+    public boolean checkFilePackage(File file, Promise promise) {
         PackageManager pm = getReactApplicationContext().getPackageManager();
         PackageInfo info = pm.getPackageArchiveInfo(file.getAbsolutePath(), 0);
         String appPackageName = getReactApplicationContext().getPackageName();
@@ -245,13 +245,12 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
 
     @ReactMethod void verifyAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
-        String downloadUrl = map.getString("downloadUrl");
 
         File downloadedFile = buildFile(filePath);
         if (!downloadedFile.exists()) {
             promise.reject(new Exception("NOT_FOUND_PACKAGE"));
         }
-        boolean isValidAPK = this.checkFilePackage(downloadedFile, downloadUrl, promise);
+        boolean isValidAPK = this.checkFilePackage(downloadedFile, promise);
         if (isValidAPK) {
             promise.resolve(null);
         } else {
@@ -429,9 +428,8 @@ public class AutoUpdateModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void installAPK(final ReadableMap map, final Promise promise) {
         String filePath = map.getString("filePath");
-        String downloadUrl = map.getString("downloadUrl");
         File file = buildFile(filePath);
-        if (!this.checkFilePackage(file, downloadUrl, promise)) {
+        if (!this.checkFilePackage(file, promise)) {
             promise.reject("NOT_FOUND_PACKAGE");
             return;
         }
