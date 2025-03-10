@@ -53,10 +53,8 @@ const useDesktopEvents = platformEnv.isDesktop
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
 
-      const { checkForUpdates, toUpdatePreviewPage } = useAppUpdateInfoCallback(
-        false,
-        false,
-      );
+      const { checkForUpdates, onUpdateAction } =
+        useAppUpdateInfoCallback(false, false);
       const isCheckingUpdate = useRef(false);
 
       const onCheckUpdate = useCallback(async () => {
@@ -67,7 +65,7 @@ const useDesktopEvents = platformEnv.isDesktop
         isCheckingUpdate.current = true;
         const { isNeedUpdate, response } = await checkForUpdates();
         if (isNeedUpdate || response === undefined) {
-          toUpdatePreviewPage(true, response);
+          onUpdateAction();
           isCheckingUpdate.current = false;
         } else {
           Dialog.confirm({
@@ -87,7 +85,7 @@ const useDesktopEvents = platformEnv.isDesktop
             }),
           });
         }
-      }, [checkForUpdates, intl, toUpdatePreviewPage]);
+      }, [checkForUpdates, intl, onUpdateAction]);
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;

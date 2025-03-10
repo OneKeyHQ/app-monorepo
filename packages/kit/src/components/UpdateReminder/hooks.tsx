@@ -179,7 +179,6 @@ export const useDownloadPackage = () => {
 };
 
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
-  const intl = useIntl();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
   const {
