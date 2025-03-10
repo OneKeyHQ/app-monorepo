@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Dialog,
@@ -14,6 +13,7 @@ import {
   Stack,
   Theme,
   YStack,
+  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -157,11 +157,11 @@ export default function PrimeDashboard() {
               {user?.isLoggedIn ? <PrimeUserInfo /> : null}
             </Stack>
 
-            {/* {platformEnv.isDev ? (
+            {platformEnv.isDev ? (
               <PrimeDebugPanel
                 shouldShowConfirmButton={shouldShowConfirmButton}
               />
-            ) : null} */}
+            ) : null}
             <PrimeBenefitsList />
           </Page.Body>
 
