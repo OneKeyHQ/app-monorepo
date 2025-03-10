@@ -545,10 +545,14 @@ export function useSwapBuildTx() {
                 swapBuildResData: {
                   result: {
                     ...selectQuoteRes,
-                    slippage:
-                      selectQuoteRes.slippage ??
-                      selectQuoteRes.autoSuggestedSlippage ??
-                      slippageItem.value,
+                    ...(selectQuoteRes.protocol !== EProtocolOfExchange.LIMIT
+                      ? {
+                          slippage:
+                            selectQuoteRes.slippage ??
+                            selectQuoteRes.autoSuggestedSlippage ??
+                            slippageItem.value,
+                        }
+                      : {}),
                     ...(swapUseInstantRate.rate &&
                     selectQuoteRes.protocol === EProtocolOfExchange.LIMIT
                       ? {
