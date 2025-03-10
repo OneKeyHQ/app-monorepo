@@ -316,6 +316,7 @@ function TokenDetailsHeader(props: IProps) {
                 copyAccountAddress({
                   accountId,
                   networkId,
+                  token: tokenInfo,
                 })
               }
               px="$5"
