@@ -80,7 +80,9 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           }: {
             updateInfo: IAppUpdateInfo;
           }) {
-            return intl.formatMessage({ id: appUpdateInfo.errorText });
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
           },
         },
         [EAppUpdateStatus.verifyASCFailed]: {
@@ -91,7 +93,9 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           }: {
             updateInfo: IAppUpdateInfo;
           }) {
-            return intl.formatMessage({ id: appUpdateInfo.errorText });
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
           },
         },
         [EAppUpdateStatus.verifyPackageFailed]: {
@@ -102,7 +106,9 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           }: {
             updateInfo: IAppUpdateInfo;
           }) {
-            return intl.formatMessage({ id: appUpdateInfo.errorText });
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
           },
         },
         [EAppUpdateStatus.downloadASCFailed]: {
@@ -113,7 +119,9 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           }: {
             updateInfo: IAppUpdateInfo;
           }) {
-            return intl.formatMessage({ id: appUpdateInfo.errorText });
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
           },
         },
         [EAppUpdateStatus.ready]: {
@@ -149,7 +157,9 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           }: {
             updateInfo: IAppUpdateInfo;
           }) {
-            return intl.formatMessage({ id: appUpdateInfo.errorText });
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
           },
         },
         [EAppUpdateStatus.done]: undefined,
