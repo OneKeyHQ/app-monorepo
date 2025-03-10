@@ -171,6 +171,12 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async getUpdateInfo() {
+    const appInfo = await appUpdatePersistAtom.get();
+    return appInfo;
+  }
+
+  @backgroundMethod()
   public async verifyPackage() {
     clearTimeout(downloadTimeoutId);
     await appUpdatePersistAtom.set((prev) => ({
@@ -273,6 +279,15 @@ class ServiceAppUpdate extends ServiceBase {
       errorText: undefined,
       downloadedEvent: undefined,
       status: EAppUpdateStatus.notify,
+    }));
+  }
+
+  @backgroundMethod()
+  public async resetToManualInstall() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      errorText: undefined,
+      status: EAppUpdateStatus.manualInstall,
     }));
   }
 
