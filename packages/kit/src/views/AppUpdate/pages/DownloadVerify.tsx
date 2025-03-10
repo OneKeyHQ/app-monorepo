@@ -261,22 +261,22 @@ function DownloadVerify({
                   ETranslations.update_installation_package_possibly_compromised
                 ) {
                   return (
-                    <SizableText size="$bodyLg" color="$textSubdued">
-                      {intl.formatMessage(
-                        {
-                          id: ETranslations.update_retrying_fails_help_text,
-                        },
-                        {
-                          reason: (
-                            <SizableText size="$bodyLg" color="$textSubdued">
-                              {intl.formatMessage({
-                                id: ETranslations.update_installation_package_possibly_compromised,
-                              })}
-                            </SizableText>
-                          ),
-                        },
-                      )}
-                    </SizableText>
+                    <HyperlinkText
+                      size="$bodyLg"
+                      color="$textSubdued"
+                      translationId={
+                        ETranslations.update_retrying_fails_help_text
+                      }
+                      values={{
+                        reason: (
+                          <SizableText size="$bodyLg" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.update_installation_package_possibly_compromised,
+                            })}
+                          </SizableText>
+                        ),
+                      }}
+                    />
                   );
                 }
                 return (
@@ -328,22 +328,22 @@ function DownloadVerify({
                   ETranslations.update_installation_package_possibly_compromised
                 ) {
                   return (
-                    <SizableText size="$bodyLg" color="$textSubdued">
-                      {intl.formatMessage(
-                        {
-                          id: ETranslations.update_retrying_fails_help_text,
-                        },
-                        {
-                          reason: (
-                            <SizableText size="$bodyLg" color="$textSubdued">
-                              {intl.formatMessage({
-                                id: ETranslations.update_installation_package_possibly_compromised,
-                              })}
-                            </SizableText>
-                          ),
-                        },
-                      )}
-                    </SizableText>
+                    <HyperlinkText
+                      size="$bodyLg"
+                      color="$textSubdued"
+                      translationId={
+                        ETranslations.update_retrying_fails_help_text
+                      }
+                      values={{
+                        reason: (
+                          <SizableText size="$bodyLg" color="$textSubdued">
+                            {intl.formatMessage({
+                              id: ETranslations.update_installation_package_possibly_compromised,
+                            })}
+                          </SizableText>
+                        ),
+                      }}
+                    />
                   );
                 }
                 return (
