@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { UNSTABLE_usePreventRemove as usePreventRemove } from '@react-navigation/core';
 import noop from 'lodash/noop';
@@ -127,6 +127,8 @@ function DownloadVerify({
     });
   }, [data, downloadPackage, intl, navigation, resetToNotify]);
 
+  const [installing, setIsInstalling] = useState(false);
+
   const handleToUpdate = useCallback(async () => {
     try {
       await installPackage(data);
@@ -155,7 +157,9 @@ function DownloadVerify({
             : ETranslations.update_retrying_fails_help_text
         }
         values={{
-          reason: intl.formatMessage({ id: data.errorText }) || '',
+          reason:
+            intl.formatMessage({ id: data.errorText }) ||
+            ETranslations.global_update_failed,
         }}
         onAction={() => {
           openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
