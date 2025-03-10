@@ -27,7 +27,7 @@ export default function ManualInstall() {
           />
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.update_update_incomplete_desc,
+              id: ETranslations.update_update_incomplete_footnote,
             })}
           </SizableText>
         </YStack>
