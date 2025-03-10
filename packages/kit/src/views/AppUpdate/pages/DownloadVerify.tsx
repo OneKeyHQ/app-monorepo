@@ -131,6 +131,10 @@ function DownloadVerify({
 
   const handleToUpdate = useCallback(async () => {
     try {
+      setIsInstalling(true);
+      setTimeout(() => {
+        setIsInstalling(false);
+      }, 3500);
       await installPackage(data);
     } catch (e: unknown) {
       if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
@@ -395,7 +399,7 @@ function DownloadVerify({
           id: ETranslations.global_install,
         })}
         confirmButtonProps={{
-          disabled: data.status !== EAppUpdateStatus.ready,
+          disabled: data.status !== EAppUpdateStatus.ready || installing,
         }}
         onConfirm={handleToUpdate}
       />
