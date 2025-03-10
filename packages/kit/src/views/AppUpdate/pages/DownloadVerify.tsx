@@ -157,9 +157,9 @@ function DownloadVerify({
             : ETranslations.update_retrying_fails_help_text
         }
         values={{
-          reason:
-            intl.formatMessage({ id: data.errorText }) ||
-            ETranslations.global_update_failed,
+          reason: intl.formatMessage({
+            id: data.errorText || ETranslations.global_update_failed,
+          }),
         }}
         onAction={() => {
           openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
