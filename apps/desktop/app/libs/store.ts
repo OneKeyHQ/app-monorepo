@@ -28,6 +28,10 @@ const configKeys = {
   UpdateBuildNumber: 'updateBuildNumber',
 };
 
+export const clear = () => {
+  store.clear();
+};
+
 export const getUpdateSettings = (): IUpdateSettings =>
   store.get(configKeys.UpdateSettings, {
     useTestFeedUrl: false,
