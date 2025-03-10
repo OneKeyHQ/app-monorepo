@@ -53,8 +53,10 @@ const useDesktopEvents = platformEnv.isDesktop
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
 
-      const { checkForUpdates, onUpdateAction } =
-        useAppUpdateInfoCallback(false, false);
+      const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
+        false,
+        false,
+      );
       const isCheckingUpdate = useRef(false);
 
       const onCheckUpdate = useCallback(async () => {
