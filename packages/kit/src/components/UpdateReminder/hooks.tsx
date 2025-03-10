@@ -182,8 +182,13 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
   const intl = useIntl();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
-  const { downloadPackage, verifyPackage, verifyASC, downloadASC } =
-    useDownloadPackage();
+  const {
+    downloadPackage,
+    verifyPackage,
+    verifyASC,
+    downloadASC,
+    showUpdateInCompleteDialog,
+  } = useDownloadPackage();
   const onViewReleaseInfo = useCallback(() => {
     if (platformEnv.isE2E) {
       return;
@@ -282,6 +287,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.updateIncomplete:
+        showUpdateInCompleteDialog();
+        break;
+      case EAppUpdateStatus.manualInstall:
         Dialog.confirm({
           title: intl.formatMessage({
             id: ETranslations.update_update_incomplete_title,
