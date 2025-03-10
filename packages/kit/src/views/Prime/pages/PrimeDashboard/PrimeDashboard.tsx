@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   Dialog,
@@ -13,7 +14,6 @@ import {
   Stack,
   Theme,
   YStack,
-  useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -67,11 +67,12 @@ function PrimeTerms() {
   const intl = useIntl();
   return (
     <RichSizeableText
+      size="$bodyMd"
       linkList={{
         link: {
           url: 'https://help.onekey.so/hc/articles/11967482818831',
           color: '$textLink',
-          size: '$bodyLg',
+          size: '$bodyMd',
         },
       }}
     >
@@ -87,6 +88,10 @@ export default function PrimeDashboard() {
   const { user, isLoggedIn, isPrimeSubscriptionActive } = usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
+  const { isNative, isWebMobile } = platformEnv;
+  const isMobile = isNative || isWebMobile;
+  const mobileTopValue = isMobile ? top + 25 : undefined;
+
   useEffect(() => {
     void fetchPrimeUserInfo();
   }, [fetchPrimeUserInfo]);
@@ -140,8 +145,8 @@ export default function PrimeDashboard() {
           <Page.Body>
             <Stack
               px="$5"
-              pt={top || '$10'}
-              pb="$5"
+              pt={isMobile ? mobileTopValue : '$10'}
+              pb={isMobile ? '$10' : '$5'}
               gap="$5"
               overflow="hidden"
               borderBottomWidth={StyleSheet.hairlineWidth}
@@ -152,11 +157,11 @@ export default function PrimeDashboard() {
               {user?.isLoggedIn ? <PrimeUserInfo /> : null}
             </Stack>
 
-            {platformEnv.isDev ? (
+            {/* {platformEnv.isDev ? (
               <PrimeDebugPanel
                 shouldShowConfirmButton={shouldShowConfirmButton}
               />
-            ) : null}
+            ) : null} */}
             <PrimeBenefitsList />
           </Page.Body>
 
