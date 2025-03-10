@@ -15,7 +15,10 @@ export type IHyperlinkTextProps = {
   translationId?: ETranslations;
   defaultMessage?: string;
   onAction?: (url: string) => void;
-  values?: Record<string, string | ((v: string) => ReactElement | string)>;
+  values?: Record<
+    string,
+    string | ReactElement | ((v: string) => ReactElement | string)
+  >;
   autoHandleResult?: boolean;
 } & ISizableTextProps;
 
