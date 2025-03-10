@@ -15,6 +15,10 @@ const DownloadVerify = LazyLoadPage(
   () => import('@onekeyhq/kit/src/views/AppUpdate/pages/DownloadVerify'),
 );
 
+const ManualInstall = LazyLoadPage(
+  () => import('@onekeyhq/kit/src/views/AppUpdate/pages/ManualInstall'),
+);
+
 export const AppUpdateRouter: IModalFlowNavigatorConfig<
   EAppUpdateRoutes,
   IAppUpdatePagesParamList
@@ -30,5 +34,9 @@ export const AppUpdateRouter: IModalFlowNavigatorConfig<
   {
     name: EAppUpdateRoutes.DownloadVerify,
     component: DownloadVerify,
+  },
+  {
+    name: EAppUpdateRoutes.ManualInstall,
+    component: ManualInstall,
   },
 ];

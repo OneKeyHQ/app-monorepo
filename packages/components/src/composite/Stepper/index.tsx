@@ -155,7 +155,7 @@ export function StepItem({
             </SizableText>
           ) : null}
         </YStack>
-        {renderAction ? <Stack>{renderAction(renderProps)}</Stack> : null}
+        {renderAction ? renderAction(renderProps) : null}
       </YStack>
       {index !== stepsCount - 1 ? (
         <Stack

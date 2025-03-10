@@ -464,6 +464,12 @@ const init = ({ mainWindow, store }: IDependencies) => {
   ipcMain.on(
     ipcMessageKeys.UPDATE_MANUAL_INSTALLATION,
     async (_, { buildNumber, ...verifyParams }: IInstallUpdateParams) => {
+      logger.info(
+        'auto-updater',
+        'Opening downloaded file',
+        buildNumber,
+        verifyParams,
+      );
       const verified = await verifyFile(verifyParams);
       if (!verified) {
         return;
@@ -473,11 +479,6 @@ const init = ({ mainWindow, store }: IDependencies) => {
         try {
           const { shell } = require('electron');
           await shell.openPath(path.dirname(verifyParams.downloadedFile));
-          logger.info(
-            'auto-updater',
-            'Opening downloaded file',
-            verifyParams.downloadedFile,
-          );
         } catch (error) {
           logger.error('auto-updater', 'Failed to open downloaded file', error);
         }

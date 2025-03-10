@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Dialog, Image, Toast } from '@onekeyhq/components';
+import { Dialog, Toast } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
@@ -119,8 +119,8 @@ export const useDownloadPackage = () => {
     }
   }, [downloadASC, intl]);
 
-  const resetToNotify = useCallback(async () => {
-    await backgroundApiProxy.serviceAppUpdate.resetToNotify();
+  const resetToInComplete = useCallback(async () => {
+    await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
   }, []);
 
   const showUpdateInCompleteDialog = useCallback(
@@ -150,12 +150,12 @@ export const useDownloadPackage = () => {
           id: ETranslations.global_later,
         }),
         onCancel: () => {
-          void resetToNotify();
+          void resetToInComplete();
           onCancel?.();
         },
       });
     },
-    [downloadPackage, intl, resetToNotify],
+    [downloadPackage, intl, resetToInComplete],
   );
 
   return useMemo(
@@ -164,13 +164,13 @@ export const useDownloadPackage = () => {
       verifyPackage,
       verifyASC,
       downloadASC,
-      resetToNotify,
+      resetToInComplete,
       showUpdateInCompleteDialog,
     }),
     [
       downloadASC,
       downloadPackage,
-      resetToNotify,
+      resetToInComplete,
       showUpdateInCompleteDialog,
       verifyASC,
       verifyPackage,
@@ -290,30 +290,8 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         showUpdateInCompleteDialog({});
         break;
       case EAppUpdateStatus.manualInstall:
-        Dialog.confirm({
-          title: intl.formatMessage({
-            id: ETranslations.update_update_incomplete_title,
-          }),
-          description: intl.formatMessage({
-            id: ETranslations.update_update_incomplete_desc,
-          }),
-          renderContent: (
-            <Image
-              h={226}
-              source={require('@onekeyhq/kit/assets/manual_install.jpg')}
-            />
-          ),
-          onConfirmText: intl.formatMessage({
-            id: ETranslations.update_manual_update,
-          }),
-          onConfirm: async () => {
-            const params =
-              await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
-            globalThis.desktopApi.manualInstallUpdate({
-              ...params,
-              buildNumber: String(platformEnv.buildNumber || 1),
-            });
-          },
+        navigation.pushModal(EModalRoutes.AppUpdateModal, {
+          screen: EAppUpdateRoutes.ManualInstall,
         });
         break;
       default:
@@ -322,8 +300,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     }
   }, [
     appUpdateInfo.status,
-    intl,
     isFullModal,
+    navigation,
+    showUpdateInCompleteDialog,
     toDownloadAndVerifyPage,
     toUpdatePreviewPage,
   ]);
