@@ -155,7 +155,6 @@ const SwapActionsState = ({
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToAmount] = useSwapToTokenAmountAtom();
-  const [swapFromAmount] = useSwapFromTokenAmountAtom();
   const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapType] = useSwapTypeSwitchAtom();
   const swapSlippageRef = useRef(slippageItem);
@@ -291,8 +290,8 @@ const SwapActionsState = ({
         let toRealAmount = new BigNumber(0);
         if (swapToAmount.value) {
           toRealAmount = new BigNumber(swapToAmount.value);
-        } else if (swapFromAmount.value && swapLimitUseRate.rate) {
-          const fromAmountBN = new BigNumber(swapFromAmount.value);
+        } else if (fromAmount.value && swapLimitUseRate.rate) {
+          const fromAmountBN = new BigNumber(fromAmount.value);
           const toAmountBN = new BigNumber(fromAmountBN).multipliedBy(
             new BigNumber(swapLimitUseRate.rate),
           );
@@ -350,8 +349,8 @@ const SwapActionsState = ({
     intl,
     onActionHandler,
     swapActionState.isRefreshQuote,
-    swapFromAmount.value,
     swapLimitUseRate.rate,
+    fromAmount.value,
     swapToAmount.value,
     toToken?.decimals,
   ]);
