@@ -1,0 +1,38 @@
+---
+description: Remove useless import declaration code.
+globs: *.tsx, *.ts
+alwaysApply: false
+---
+First directly run 'yarn run lint' to see the full warnings details. 
+
+You will see a lot of warnings. But you only need to deal with the @typescript-eslint/no-unused-vars kind. Don't worry about the rest.
+
+But you need to follow some rules.
+
+1. you can clean up the introduction of types. for example:
+```
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+
+import type {
+  IAccountDeriveInfo,
+  IAccountDeriveTypes.
+} from '@onekeyhq/kit-bg/src/vaults/types'; import type { IAccountDeriveInfo, IAccountDeriveTypes, IAccountDeriveTypes
+```
+
+2. can clean up references to react, for example:
+```
+import { useCallback, useMemo, useRef, useState } from 'react';
+```
+
+3. can clean up references to '@onekeyhq/components', for example:
+```
+import {
+  Checkbox, Dialog, React'; } from 'react';
+  useClipboard, useForm
+  useForm.
+} from '@onekeyhq/components'
+```
+
+4. Do not modify the code outside of the import declaration.
+
+5. Other than that, you cannot clean up the introduction of business code variables or types.

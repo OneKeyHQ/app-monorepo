@@ -1,9 +1,8 @@
-import type { MutableRefObject, RefObject } from 'react';
+import type { MutableRefObject } from 'react';
 import { createContext } from 'react';
 
 import type { IPageFooterProps } from './type';
-import type { IScrollViewProps, IScrollViewRef } from '../ScrollView';
-import type { NativeScrollPoint } from 'react-native';
+import type { IScrollViewProps } from '../ScrollView';
 
 export interface IPageFooterRef {
   props?: IPageFooterProps;

@@ -9,6 +9,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import type { IInputAddOnProps } from '@onekeyhq/components/src/forms/Input/InputAddOnItem';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { ETranslations } from '@onekeyhq/shared/src/locale/enum/translations';
 import type {
   EChangeHistoryContentType,
@@ -17,7 +18,6 @@ import type {
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
-import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 
 function ChangeHistoryDialogContent({
   changeHistoryInfo,
