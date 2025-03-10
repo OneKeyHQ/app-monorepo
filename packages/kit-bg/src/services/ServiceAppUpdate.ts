@@ -316,7 +316,6 @@ class ServiceAppUpdate extends ServiceBase {
       await appUpdatePersistAtom.set((prev) => ({
         ...prev,
         ...releaseInfo,
-        errorText: undefined,
         latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
         status:
