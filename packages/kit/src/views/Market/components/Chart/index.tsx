@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  EPageType,
   Empty,
   Skeleton,
   Spinner,
@@ -12,7 +13,6 @@ import {
   YStack,
   useMedia,
   usePageType,
-  EPageType,
 } from '@onekeyhq/components';
 import useFormatDate from '@onekeyhq/kit/src/hooks/useFormatDate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
