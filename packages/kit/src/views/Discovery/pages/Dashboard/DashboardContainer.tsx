@@ -1,12 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
-import { Page, Stack, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
-import { BrowserTitle } from '../components/BrowserTitle';
 import { HistoryIconButton } from '../components/HistoryIconButton';
 
 import DashboardContent from './DashboardContent';
