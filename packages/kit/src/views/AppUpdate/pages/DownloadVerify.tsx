@@ -7,7 +7,6 @@ import { useIntl } from 'react-intl';
 import type { IButtonProps, IPageScreenProps } from '@onekeyhq/components';
 import {
   Button,
-  Dialog,
   EStepItemStatus,
   Page,
   SizableText,
@@ -50,6 +49,7 @@ const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
   [EAppUpdateStatus.verifyPackageFailed]: 3,
   [EAppUpdateStatus.ready]: 4,
   [EAppUpdateStatus.updateIncomplete]: 6,
+  [EAppUpdateStatus.manualInstall]: 6,
 };
 
 const checkIsError = (status: EAppUpdateStatus) =>
@@ -99,33 +99,16 @@ function DownloadVerify({
     downloadASC,
     verifyASC,
     verifyPackage,
-    resetToNotify,
+    showUpdateInCompleteDialog,
   } = useDownloadPackage();
 
-  const showUpdateInCompleteDialog = useCallback(() => {
-    Dialog.show({
-      title: intl.formatMessage({
-        id: ETranslations.update_update_incomplete_text,
-      }),
-      icon: 'InfoCircleOutline',
-      description: intl.formatMessage({
-        id: ETranslations.update_update_incomplete_package_missing_desc,
-      }),
-      onConfirmText: intl.formatMessage({
-        id: ETranslations.update_update_now,
-      }),
-      onConfirm: () => {
-        void downloadPackage(data);
-      },
-      onCancelText: intl.formatMessage({
-        id: ETranslations.global_later,
-      }),
+  const showInCompleteDialog = useCallback(() => {
+    showUpdateInCompleteDialog({
       onCancel: () => {
-        void resetToNotify();
         navigation.popStack();
       },
     });
-  }, [data, downloadPackage, intl, navigation, resetToNotify]);
+  }, [navigation, showUpdateInCompleteDialog]);
 
   const [installing, setIsInstalling] = useState(false);
 
@@ -138,12 +121,12 @@ function DownloadVerify({
       await installPackage(data);
     } catch (e: unknown) {
       if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
-        showUpdateInCompleteDialog();
+        showInCompleteDialog();
       } else {
         Toast.error({ title: (e as Error).message });
       }
     }
-  }, [data, showUpdateInCompleteDialog]);
+  }, [data, showInCompleteDialog]);
   const stepIndex = STEP_INDEX_MAP[data.status];
   const isError = checkIsError(data.status);
 

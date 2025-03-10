@@ -3,18 +3,11 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IIconProps, IStackProps } from '@onekeyhq/components';
-import {
-  Button,
-  Icon,
-  SizableText,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DownloadProgress } from './DownloadProgress';
 import { useAppUpdateInfo } from './hooks';
@@ -149,6 +142,15 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             });
           },
         },
+        [EAppUpdateStatus.manualInstall]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCaution',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_update_incomplete_text,
+            });
+          },
+        },
         [EAppUpdateStatus.failed]: {
           iconName: 'ErrorOutline',
           iconColor: '$iconCritical',
@@ -254,6 +256,10 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
   },
   [EAppUpdateStatus.done]: undefined,
   [EAppUpdateStatus.updateIncomplete]: {
+    bg: '$bgCautionSubdued',
+    borderColor: '$borderCautionSubdued',
+  },
+  [EAppUpdateStatus.manualInstall]: {
     bg: '$bgCautionSubdued',
     borderColor: '$borderCautionSubdued',
   },

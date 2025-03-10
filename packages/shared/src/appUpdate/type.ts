@@ -44,5 +44,6 @@ export enum EAppUpdateStatus {
   ready = 'ready',
   failed = 'failed',
   done = 'done',
+  manualInstall = 'manualInstall',
   updateIncomplete = 'updateIncomplete',
 }

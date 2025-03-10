@@ -97,33 +97,66 @@ export const useDownloadPackage = () => {
     }
   }, [verifyASC]);
 
-  const downloadPackage = useCallback(
-    async (params: { downloadUrl?: string; latestVersion?: string }) => {
-      try {
-        await backgroundApiProxy.serviceAppUpdate.downloadPackage();
-        const result = await NativeDownloadPackage(params);
-        await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
-          ...params,
-          ...result,
-        });
-        await downloadASC();
-      } catch (e) {
-        await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(
-          e as Error,
-        );
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_update_failed,
-          }),
-        });
-      }
-    },
-    [downloadASC, intl],
-  );
+  const downloadPackage = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceAppUpdate.downloadPackage();
+      const params = await backgroundApiProxy.serviceAppUpdate.getUpdateInfo();
+      const result = await NativeDownloadPackage(params);
+      await backgroundApiProxy.serviceAppUpdate.updateDownloadedEvent({
+        ...params,
+        ...result,
+      });
+      await downloadASC();
+    } catch (e) {
+      await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(
+        e as Error,
+      );
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_update_failed,
+        }),
+      });
+    }
+  }, [downloadASC, intl]);
 
   const resetToNotify = useCallback(async () => {
     await backgroundApiProxy.serviceAppUpdate.resetToNotify();
   }, []);
+
+  const showUpdateInCompleteDialog = useCallback(
+    ({
+      onConfirm,
+      onCancel,
+    }: {
+      onConfirm?: () => void;
+      onCancel?: () => void;
+    }) => {
+      Dialog.show({
+        title: intl.formatMessage({
+          id: ETranslations.update_update_incomplete_text,
+        }),
+        icon: 'InfoCircleOutline',
+        description: intl.formatMessage({
+          id: ETranslations.update_update_incomplete_package_missing_desc,
+        }),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.update_update_now,
+        }),
+        onConfirm: () => {
+          void downloadPackage();
+          onConfirm?.();
+        },
+        onCancelText: intl.formatMessage({
+          id: ETranslations.global_later,
+        }),
+        onCancel: () => {
+          void resetToNotify();
+          onCancel?.();
+        },
+      });
+    },
+    [downloadPackage, intl, resetToNotify],
+  );
 
   return useMemo(
     () => ({
@@ -132,8 +165,16 @@ export const useDownloadPackage = () => {
       verifyASC,
       downloadASC,
       resetToNotify,
+      showUpdateInCompleteDialog,
     }),
-    [downloadASC, downloadPackage, resetToNotify, verifyASC, verifyPackage],
+    [
+      downloadASC,
+      downloadPackage,
+      resetToNotify,
+      showUpdateInCompleteDialog,
+      verifyASC,
+      verifyPackage,
+    ],
   );
 };
 
@@ -216,7 +257,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     if (appUpdateInfo.status === EAppUpdateStatus.updateIncomplete) {
       // do nothing
     } else if (appUpdateInfo.status === EAppUpdateStatus.downloadPackage) {
-      void downloadPackage(appUpdateInfo);
+      void downloadPackage();
     } else if (appUpdateInfo.status === EAppUpdateStatus.downloadASC) {
       void downloadASC();
     } else if (appUpdateInfo.status === EAppUpdateStatus.verifyASC) {

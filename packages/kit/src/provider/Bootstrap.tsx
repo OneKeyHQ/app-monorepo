@@ -337,7 +337,7 @@ export const useCheckUpdateFailedOnDesktop =
               getBuilderNumber(previousBuildNumber) >=
                 getBuilderNumber(platformEnv.buildNumber)
             ) {
-              void backgroundApiProxy.serviceAppUpdate.resetToInComplete();
+              void backgroundApiProxy.serviceAppUpdate.resetToManualInstall();
             }
           }, 0);
         }, []);
