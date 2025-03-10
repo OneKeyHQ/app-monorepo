@@ -215,7 +215,7 @@ function DownloadVerify({
             }}
             renderAction={({ status }) =>
               status === EStepItemStatus.Failed ? (
-                <RetryButton onPress={() => downloadPackage(data)} />
+                <RetryButton onPress={() => downloadPackage()} />
               ) : null
             }
           />

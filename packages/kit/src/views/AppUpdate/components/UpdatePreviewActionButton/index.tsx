@@ -32,7 +32,7 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
       if (appUpdateInfo.data.storeUrl) {
         openUrlExternal(appUpdateInfo.data.storeUrl);
       } else if (appUpdateInfo.data.downloadUrl) {
-        void downloadPackage(appUpdateInfo.data);
+        void downloadPackage();
         navigation.push(EAppUpdateRoutes.DownloadVerify, {
           isForceUpdate,
         });
