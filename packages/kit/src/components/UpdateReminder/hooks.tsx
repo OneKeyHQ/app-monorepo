@@ -18,10 +18,13 @@ import {
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAppUpdateRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+
+const MIN_EXECUTION_DURATION = 3000; // 3 seconds minimum execution time
 
 export const useAppChangeLog = (version?: string) => {
   const response = usePromiseResult(
@@ -46,7 +49,10 @@ export const useDownloadPackage = () => {
         return;
       }
       await backgroundApiProxy.serviceAppUpdate.verifyPackage();
-      await NativeVerifyPackage(params);
+      await Promise.all([
+        NativeVerifyPackage(params),
+        timerUtils.wait(MIN_EXECUTION_DURATION),
+      ]);
       await backgroundApiProxy.serviceAppUpdate.readyToInstall();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyPackageFailed(e as Error);
@@ -62,7 +68,10 @@ export const useDownloadPackage = () => {
         return;
       }
       await backgroundApiProxy.serviceAppUpdate.verifyASC();
-      await NativeVerifyASC(params);
+      await Promise.all([
+        NativeVerifyASC(params),
+        timerUtils.wait(MIN_EXECUTION_DURATION),
+      ]);
       await verifyPackage();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.verifyASCFailed(e as Error);
@@ -78,7 +87,10 @@ export const useDownloadPackage = () => {
         return;
       }
       await backgroundApiProxy.serviceAppUpdate.downloadASC();
-      await NativeDownloadASC(params);
+      await Promise.all([
+        NativeDownloadASC(params),
+        timerUtils.wait(MIN_EXECUTION_DURATION),
+      ]);
       await verifyASC();
     } catch (e) {
       await backgroundApiProxy.serviceAppUpdate.downloadASCFailed(e as Error);
