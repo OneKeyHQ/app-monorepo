@@ -281,7 +281,6 @@ class ServiceAppUpdate extends ServiceBase {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
       errorText: undefined,
-      downloadedEvent: undefined,
       status: EAppUpdateStatus.updateIncomplete,
     }));
   }
