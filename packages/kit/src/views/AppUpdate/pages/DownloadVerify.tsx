@@ -49,7 +49,7 @@ const STEP_INDEX_MAP: Record<EAppUpdateStatus, number> = {
   [EAppUpdateStatus.verifyPackage]: 3,
   [EAppUpdateStatus.verifyPackageFailed]: 3,
   [EAppUpdateStatus.ready]: 4,
-  [EAppUpdateStatus.updateIncomplete]: 4,
+  [EAppUpdateStatus.updateIncomplete]: 6,
 };
 
 const checkIsError = (status: EAppUpdateStatus) =>

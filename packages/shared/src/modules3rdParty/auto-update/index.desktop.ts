@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 
 import { useThrottledCallback } from 'use-debounce';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { ETranslations } from '../../locale';
 import { appLocale } from '../../locale/appLocale';

@@ -328,7 +328,6 @@ export const useCheckUpdateFailedOnDesktop =
   !platformEnv.isDesktopLinuxSnap &&
   !platformEnv.isDesktopWinMsStore
     ? () => {
-        const intl = useIntl();
         useEffect(() => {
           setTimeout(() => {
             const previousBuildNumber =
@@ -338,34 +337,10 @@ export const useCheckUpdateFailedOnDesktop =
               getBuilderNumber(previousBuildNumber) >=
                 getBuilderNumber(platformEnv.buildNumber)
             ) {
-              Dialog.confirm({
-                title: intl.formatMessage({
-                  id: ETranslations.update_update_incomplete_title,
-                }),
-                description: intl.formatMessage({
-                  id: ETranslations.update_update_incomplete_desc,
-                }),
-                renderContent: (
-                  <Image
-                    h={226}
-                    source={require('@onekeyhq/kit/assets/manual_install.jpg')}
-                  />
-                ),
-                onConfirmText: intl.formatMessage({
-                  id: ETranslations.update_manual_update,
-                }),
-                onConfirm: async () => {
-                  const params =
-                    await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
-                  globalThis.desktopApi.manualInstallUpdate({
-                    ...params,
-                    buildNumber: String(platformEnv.buildNumber || 1),
-                  });
-                },
-              });
+              void backgroundApiProxy.serviceAppUpdate.resetToInComplete();
             }
-          }, 300);
-        }, [intl]);
+          }, 0);
+        }, []);
       }
     : noop;
 

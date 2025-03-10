@@ -142,7 +142,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
         },
         [EAppUpdateStatus.updateIncomplete]: {
           iconName: 'ErrorOutline',
-          iconColor: '$iconCritical',
+          iconColor: '$iconCaution',
           renderText() {
             return intl.formatMessage({
               id: ETranslations.update_update_incomplete_text,
@@ -193,39 +193,7 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   ) : null;
 }
 
-function OpenOnGithub() {
-  const intl = useIntl();
-  const handlePress = useCallback(() => {
-    openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
-  }, []);
-  const { gtMd } = useMedia();
-  return (
-    <XStack
-      gap="$2"
-      justifyContent="space-between"
-      alignItems="center"
-      cursor="pointer"
-      onPress={handlePress}
-    >
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {intl.formatMessage({
-          id: gtMd
-            ? ETranslations.update_download_on_github
-            : ETranslations.global_github,
-        })}
-      </SizableText>
-      <Icon name="ArrowTopRightOutline" size="$4.5" />
-    </XStack>
-  );
-}
-
-function UpdateAction({
-  updateInfo,
-  onUpdateAction,
-}: {
-  updateInfo: IAppUpdateInfo;
-  onUpdateAction: () => void;
-}) {
+function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
   const intl = useIntl();
   return (
     <XStack gap="$4" justifyContent="space-between" alignItems="center">
@@ -286,8 +254,8 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
   },
   [EAppUpdateStatus.done]: undefined,
   [EAppUpdateStatus.updateIncomplete]: {
-    bg: '$bgCriticalSubdued',
-    borderColor: '$borderCriticalSubdued',
+    bg: '$bgCautionSubdued',
+    borderColor: '$borderCautionSubdued',
   },
 };
 
@@ -313,7 +281,7 @@ function BasicUpdateReminder() {
       {...style}
     >
       <UpdateStatusText updateInfo={data} />
-      <UpdateAction updateInfo={data} onUpdateAction={onUpdateAction} />
+      <UpdateAction onUpdateAction={onUpdateAction} />
     </XStack>
   );
 }
