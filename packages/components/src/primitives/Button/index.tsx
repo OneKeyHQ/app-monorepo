@@ -43,6 +43,7 @@ export interface IButtonProps extends ThemeableStackProps {
    * @default true
    */
   childrenAsText?: boolean;
+  textEllipsis?: boolean;
 }
 
 const BUTTON_VARIANTS: Record<
@@ -198,6 +199,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
     variant = 'secondary',
     textAlign,
     childrenAsText = true,
+    textEllipsis,
     ...rest
   } = useProps(props, {});
 
@@ -263,6 +265,7 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
           textBreakStrategy="simple"
           size={textVariant as FontSizeTokens}
           color={outerColor || color}
+          ellipse={textEllipsis}
         >
           {children}
         </SizableText>

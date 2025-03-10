@@ -55,7 +55,6 @@ function TokenDetailsHeader(props: IProps) {
     isAllNetworks,
     indexedAccountId,
     isTabView,
-    ...rest
   } = props;
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -232,7 +231,7 @@ function TokenDetailsHeader(props: IProps) {
     <DebugRenderTracker timesBadgePosition="top-right">
       <>
         {/* Overview */}
-        <Stack px="$5" pb="$5" {...rest}>
+        <Stack px="$5" pb="$5" pt={isTabView ? '$5' : '$0'}>
           {/* Balance */}
           <XStack alignItems="center" mb="$5">
             {renderTokenIcon()}
