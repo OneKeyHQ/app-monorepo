@@ -287,7 +287,7 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
         toUpdatePreviewPage(isFullModal);
         break;
       case EAppUpdateStatus.updateIncomplete:
-        showUpdateInCompleteDialog();
+        showUpdateInCompleteDialog({});
         break;
       case EAppUpdateStatus.manualInstall:
         Dialog.confirm({
