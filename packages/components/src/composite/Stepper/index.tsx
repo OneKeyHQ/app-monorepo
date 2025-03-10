@@ -22,23 +22,15 @@ export enum EStepItemStatus {
 
 export function StepItemStatus({ status }: { status: EStepItemStatus }) {
   if (status === EStepItemStatus.Inactive) {
-    return (
-      <Stack
-        borderRadius="$full"
-        w="$5"
-        h="$5"
-        borderColor="$iconDisabled"
-        borderWidth="$0.5"
-      />
-    );
+    return <Icon name="CirclePlaceholderOnOutline" color="$iconDisabled" />;
   }
   if (status === EStepItemStatus.Pending) {
     return <Spinner size="small" />;
   }
   if (status === EStepItemStatus.Done) {
-    return <Icon name="CheckRadioSolid" color="$iconSuccess" size="$6" />;
+    return <Icon name="CheckRadioSolid" color="$iconSuccess" />;
   }
-  return <Icon name="XCircleSolid" color="$iconCritical" size="$6" />;
+  return <Icon name="XCircleSolid" color="$iconCritical" />;
 }
 export interface IStepItemProviderProps {
   index: number;
@@ -136,37 +128,47 @@ export function StepItem({
     [index, status, stepIndex],
   );
   return (
-    <XStack gap="$3">
-      <YStack ai="center">
-        <Stack w="$6" h="$6" ai="center" jc="center">
-          <StepItemStatus status={status} />
-        </Stack>
-        {index !== stepsCount - 1 ? (
-          <Stack bg="$iconDisabled" w="$0.5" minHeight="$16" my="$2" flex={1} />
-        ) : null}
+    <XStack gap="$3" pb="$10">
+      <YStack w="$6" h="$6" ai="center" jc="center">
+        <StepItemStatus status={status} />
       </YStack>
-      <YStack gap="$2" flex={1}>
-        <XStack h="$6" gap="$2" ai="center">
-          <SizableText
-            size={status === EStepItemStatus.Pending ? '$headingMd' : '$bodyLg'}
-          >
-            {title}
-          </SizableText>
-          {badgeText ? (
-            <Badge badgeSize="lg" badgeType="success">
-              <Badge.Text>{badgeText}</Badge.Text>
-            </Badge>
+      <YStack gap="$4" flex={1}>
+        <YStack gap="$2">
+          <XStack gap="$2" ai="center">
+            <SizableText
+              size={
+                status === EStepItemStatus.Pending ? '$headingMd' : '$bodyLg'
+              }
+            >
+              {title}
+            </SizableText>
+            {badgeText ? (
+              <Badge badgeSize="lg" badgeType="success">
+                <Badge.Text>{badgeText}</Badge.Text>
+              </Badge>
+            ) : null}
+          </XStack>
+          {renderDescription ? renderDescription(renderProps) : null}
+          {description ? (
+            <SizableText size="$bodyLg" color="$textSubdued">
+              {description}
+            </SizableText>
           ) : null}
-        </XStack>
-        <SizableText size="$bodyLg" color="$textSubdued">
-          {renderDescription ? renderDescription(renderProps) : description}
-        </SizableText>
-        {renderAction ? (
-          <Stack mt="$2" mb="$8">
-            {renderAction(renderProps)}
-          </Stack>
-        ) : null}
+        </YStack>
+        {renderAction ? <Stack>{renderAction(renderProps)}</Stack> : null}
       </YStack>
+      {index !== stepsCount - 1 ? (
+        <Stack
+          flex={1}
+          position="absolute"
+          left={11}
+          top="$8"
+          bottom="$2"
+          w="$0.5"
+          bg="$iconDisabled"
+          borderRadius="$full"
+        />
+      ) : null}
     </XStack>
   );
 }
