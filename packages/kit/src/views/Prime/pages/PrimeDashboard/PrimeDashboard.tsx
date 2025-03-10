@@ -90,7 +90,7 @@ export default function PrimeDashboard() {
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
-  const mobileTopValue = isMobile ? top + 25 : undefined;
+  const mobileTopValue = isMobile ? top + 25 : '$10';
 
   useEffect(() => {
     void fetchPrimeUserInfo();
@@ -145,7 +145,7 @@ export default function PrimeDashboard() {
           <Page.Body>
             <Stack
               px="$5"
-              pt={isMobile ? mobileTopValue : '$10'}
+              pt={mobileTopValue}
               pb={isMobile ? '$10' : '$5'}
               gap="$5"
               overflow="hidden"
