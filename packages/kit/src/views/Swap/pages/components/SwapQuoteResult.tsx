@@ -230,13 +230,12 @@ const SwapQuoteResult = ({
       { formatter: 'balance' },
     );
     const estimatedFeeFiatValueFormat = numberFormat(
-      quoteResult?.fee?.estimatedFeeFiatValue?.toFixed() ?? '0',
+      quoteResult?.fee?.estimatedFeeFiatValue?.toString() ?? '0',
       {
         formatter: 'value',
         formatterOptions: { currency: settingsPersistAtom.currencyInfo.symbol },
       },
     );
-
     return `${networkCostBuyAmountFormat as string} ${
       quoteResult?.toTokenInfo?.symbol ?? ''
     } (${estimatedFeeFiatValueFormat as string})`;

@@ -370,7 +370,7 @@ const LimitOrderDetailModal = () => {
       .multipliedBy(100)
       .toFixed(2);
     return (
-      <YStack gap="$2">
+      <YStack gap="$0.5" flex={1}>
         <XStack alignItems="center" gap="$2" flex={1}>
           <Progress
             h="$1"
@@ -382,8 +382,7 @@ const LimitOrderDetailModal = () => {
             {`${sellPercentage}%`}
           </SizableText>
         </XStack>
-
-        <SizableText size="$bodySm" color="$textSubdued">
+        <SizableText size="$bodySm" color="$textSubdued" flex={1}>
           {intl.formatMessage(
             {
               id: ETranslations.limit_history_fill_sold,
