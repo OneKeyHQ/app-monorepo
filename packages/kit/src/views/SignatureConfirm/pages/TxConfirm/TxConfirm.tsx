@@ -42,6 +42,7 @@ import SwapInfo from '../../components/SwapInfo';
 import { usePreCheckNativeBalance } from '../../hooks/usePreCheckNativeBalance';
 
 import type { RouteProp } from '@react-navigation/core';
+import { TxConfirmHeaderRight } from '../../components/SignatureConfirmHeader';
 
 function TxConfirm() {
   const route =
@@ -275,9 +276,11 @@ function TxConfirm() {
     stakingInfo,
   ]);
 
+  const renderHeaderRight = useCallback(() => <TxConfirmHeaderRight />, []);
+
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
-      <Page.Header title={txConfirmTitle} />
+      <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
       <Page.Body testID="tx-confirmation-body" px="$5">
         {renderTxConfirmContent()}
       </Page.Body>

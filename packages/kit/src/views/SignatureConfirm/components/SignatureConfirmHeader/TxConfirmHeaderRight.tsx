@@ -1,41 +1,61 @@
 import { memo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import {
   HeaderButtonGroup,
   HeaderIconButton,
+  Image,
   Popover,
-  YStack,
-  XStack,
-  Stack,
   SizableText,
+  YStack,
+  useMedia,
 } from '@onekeyhq/components';
-import { useIntl } from 'react-intl';
+import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+
 function TxConfirmHeaderRight() {
   const intl = useIntl();
+  const { gtMd } = useMedia();
+
+  const [{ decodedTxs }] = useDecodedTxsAtom();
+
+  const decodedTx = decodedTxs?.[0];
+
+  const mevProtection = decodedTx?.txDisplay?.mevProtection;
+
+  if (!mevProtection) return null;
+
   return (
     <HeaderButtonGroup>
       <Popover
-        title={intl.formatMessage({ id: ETranslations.low_value_assets })}
+        title={intl.formatMessage({ id: ETranslations.mev_protection_label })}
         renderTrigger={<HeaderIconButton icon="ShieldCheckDoneOutline" />}
         renderContent={
-          <YStack p="$5" gap="$2">
-            {isString(helpText) ? (
-              <SizableText>{helpText}</SizableText>
-            ) : (
-              helpText.map((text, index) => (
-                <XStack key={index} gap="$2">
-                  <Stack
-                    w="$1.5"
-                    h="$1.5"
-                    bg="$textSubdued"
-                    borderRadius="$full"
-                    mt="$2"
-                  />
-                  <SizableText size="$bodyMd">{text}</SizableText>
-                </XStack>
-              ))
-            )}
+          <YStack p="$5" pt={gtMd ? '$5' : '$0'} gap="$5">
+            <SizableText size="$bodyLg">
+              {intl.formatMessage({ id: ETranslations.mev_protection_desc })}
+            </SizableText>
+            <YStack gap="$2">
+              <SizableText size="$bodyLg">
+                {intl.formatMessage({ id: ETranslations.global_power_by })}
+              </SizableText>
+              <Image maxWidth="$6" maxHeight="$6">
+                <Image.Source
+                  source={{
+                    uri: mevProtection.logoURI,
+                  }}
+                />
+                <Image.Fallback alignItems="center" justifyContent="center">
+                  <SizableText size="$headingLg">
+                    {mevProtection.name}
+                  </SizableText>
+                </Image.Fallback>
+              </Image>
+            </YStack>
+            <SizableText size="$bodyMd" fontStyle="italic" color="$textSubdued">
+              {intl.formatMessage({ id: ETranslations.mev_protection_note })}
+            </SizableText>
           </YStack>
         }
       />
