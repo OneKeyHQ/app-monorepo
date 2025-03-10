@@ -80,6 +80,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
     const { networkIds } =
       await backgroundApiProxy.serviceNetwork.getAllNetworkIds({
         clearCache: shouldClearAllNetworksCache.current,
+        excludeTestNetwork: true,
       });
     const { networkIdsCompatible } =
       await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
@@ -150,7 +151,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
           top: 8,
         }}
         userSelect="none"
-        onPress={handleAllNetworkCopyAddress}
+        onPress={() => handleAllNetworkCopyAddress(true)}
       >
         <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
         {overviewState.initialized ? (
@@ -158,7 +159,7 @@ const AllNetworkAccountSelector = ({ num }: { num: number }) => {
             {`${allNetworksState.visibleCount ?? 0} / ${allNetworksCount ?? 0}`}
           </SizableText>
         ) : (
-          <Skeleton h="$5" w="$10" />
+          <Skeleton.BodyMd />
         )}
       </XStack>
       {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}

@@ -29,6 +29,7 @@ import {
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EProtocolOfExchange,
   ESwapLimitOrderExpiryStep,
@@ -223,6 +224,29 @@ const SwapQuoteResult = ({
     [intl],
   );
 
+  const networkCostBuyAmountFormatValue = useMemo(() => {
+    const networkCostBuyAmountFormat = numberFormat(
+      quoteResult?.networkCostBuyAmount ?? '0',
+      { formatter: 'balance' },
+    );
+    const estimatedFeeFiatValueFormat = numberFormat(
+      quoteResult?.fee?.estimatedFeeFiatValue?.toFixed() ?? '0',
+      {
+        formatter: 'value',
+        formatterOptions: { currency: settingsPersistAtom.currencyInfo.symbol },
+      },
+    );
+
+    return `${networkCostBuyAmountFormat as string} ${
+      quoteResult?.toTokenInfo?.symbol ?? ''
+    } (${estimatedFeeFiatValueFormat as string})`;
+  }, [
+    quoteResult?.networkCostBuyAmount,
+    quoteResult?.fee?.estimatedFeeFiatValue,
+    quoteResult?.toTokenInfo?.symbol,
+    settingsPersistAtom.currencyInfo.symbol,
+  ]);
+
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
   });
@@ -245,7 +269,7 @@ const SwapQuoteResult = ({
         <SwapProviderInfoItem
           providerIcon={quoteResult?.info.providerLogo ?? ''}
           providerName={quoteResult?.info.providerName ?? ''}
-          isLoading={swapQuoteLoading}
+          // isLoading={swapQuoteLoading}
           fromToken={fromToken}
           onekeyFee={quoteResult?.fee?.percentageFee}
           toToken={toToken}
@@ -264,27 +288,8 @@ const SwapQuoteResult = ({
             title={intl.formatMessage({
               id: ETranslations.swap_page_provider_est_network_fee,
             })}
-            isLoading={swapQuoteLoading}
-            valueComponent={
-              <>
-                <NumberSizeableText size="$bodyMdMedium" formatter="value">
-                  {quoteResult.networkCostBuyAmount}
-                </NumberSizeableText>
-                <SizableText mr="$1" size="$bodyMdMedium">
-                  {quoteResult.toTokenInfo.symbol}
-                </SizableText>
-                <SizableText size="$bodyMdMedium">(</SizableText>
-                <NumberSizeableText
-                  formatter="value"
-                  formatterOptions={{
-                    currency: settingsPersistAtom.currencyInfo.symbol,
-                  }}
-                >
-                  {quoteResult.fee?.estimatedFeeFiatValue}
-                </NumberSizeableText>
-                <SizableText size="$bodyMdMedium">)</SizableText>
-              </>
-            }
+            // isLoading={swapQuoteLoading}
+            value={networkCostBuyAmountFormatValue}
           />
         ) : null}
         <LimitExpirySelect

@@ -35,6 +35,7 @@ import {
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import {
   COINTYPE_ALLNETWORKS,
+  FIRST_EVM_ADDRESS_PATH,
   IMPL_ALLNETWORKS,
   IMPL_EVM,
 } from '@onekeyhq/shared/src/engine/engineConsts';
@@ -279,22 +280,29 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async getAllHwQrWalletWithDevice() {
+  async getAllHwQrWalletWithDevice(params?: {
+    filterQrWallet?: boolean;
+    filterHiddenWallet?: boolean;
+  }) {
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
     });
-    // const { devices } = await this.getAllDevices();
+
+    const filterQrWallet = params?.filterQrWallet ?? false;
+    const filterHiddenWallet = params?.filterHiddenWallet ?? false;
 
     const result: {
       [walletId: string]: IHwQrWalletWithDevice;
     } = {};
 
     for (const wallet of wallets) {
-      if (
-        !accountUtils.isHwHiddenWallet({ wallet }) &&
-        (accountUtils.isHwWallet({ walletId: wallet.id }) ||
-          accountUtils.isQrWallet({ walletId: wallet.id }))
-      ) {
+      const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
+      const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+      const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
+
+      const shouldIncludeHiddenWallet = !filterHiddenWallet || !isHiddenWallet;
+      const shouldIncludeQrWallet = isQrWallet && !filterQrWallet;
+      if (shouldIncludeHiddenWallet && (isHwWallet || shouldIncludeQrWallet)) {
         const device = (allDevices ?? []).find(
           (d) => d.id === wallet.associatedDevice,
         );
@@ -2189,6 +2197,12 @@ class ServiceAccount extends ServiceBase {
     const result = await localDb.createHwWallet({
       ...params,
       passphraseState: passphraseState || '',
+      getFirstEvmAddressFn: () =>
+        this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet({
+          connectId: params.device.connectId ?? '',
+          deviceId: params.device.deviceId ?? '',
+          path: FIRST_EVM_ADDRESS_PATH,
+        }),
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
@@ -3098,6 +3112,38 @@ class ServiceAccount extends ServiceBase {
       ...v,
       hdWalletHashGenerated: true,
     }));
+  }
+
+  @backgroundMethod()
+  async updateWalletsDeprecatedState(params: {
+    willUpdateDeprecateMap: Record<string, boolean>;
+  }) {
+    const { willUpdateDeprecateMap } = params;
+
+    if (
+      !willUpdateDeprecateMap ||
+      Object.keys(willUpdateDeprecateMap).length === 0
+    ) {
+      return true;
+    }
+
+    try {
+      for (const [walletId, isDeprecated] of Object.entries(
+        willUpdateDeprecateMap,
+      )) {
+        await localDb.setWalletDeprecated({
+          walletId,
+          isDeprecated,
+        });
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        `updateWalletsDeprecatedState failed: `,
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    return false;
   }
 }
 

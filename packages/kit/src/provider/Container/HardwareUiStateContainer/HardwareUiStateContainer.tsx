@@ -263,6 +263,13 @@ function HardwareSingletonDialogCmp(
       renderContent={result.content}
       {...props} // pass down cloneElement props
       showExitButton={showCloseButton}
+      sheetOverlayProps={
+        platformEnv.isNative
+          ? {
+              zIndex: undefined,
+            }
+          : undefined
+      }
     />
   );
 }

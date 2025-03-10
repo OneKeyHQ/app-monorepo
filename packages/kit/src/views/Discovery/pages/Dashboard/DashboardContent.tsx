@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
-import { useIntl } from 'react-intl';
+import { useWindowDimensions } from 'react-native';
 
 import {
   RefreshControl,
@@ -36,6 +36,7 @@ function DashboardContent({
   const navigation = useAppNavigation();
   const isFocused = useIsFocused();
   const { gtMd } = useMedia();
+  const { height: screenHeight } = useWindowDimensions();
   const { handleOpenWebSite } = useBrowserAction().current;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -65,8 +66,7 @@ function DashboardContent({
   }, [run]);
 
   // Use the useBannerData hook to get processed banner data
-  const { data: bannerData } = useBannerData(homePageData?.banners || []);
-  const hasBannerData = bannerData && bannerData.length > 0;
+  const { hasActiveBanners } = useBannerData(homePageData?.banners || []);
 
   // Add usePromiseResult hooks to get bookmark and trending data
   const { result: bookmarksData } = usePromiseResult(
@@ -107,7 +107,7 @@ function DashboardContent({
       <>
         <Welcome
           banner={
-            hasBannerData ? (
+            hasActiveBanners ? (
               <DashboardBanner
                 key="Banner"
                 banners={homePageData?.banners || []}
@@ -185,7 +185,7 @@ function DashboardContent({
     ),
     [
       homePageData?.banners,
-      hasBannerData,
+      hasActiveBanners,
       isLoading,
       handleOpenWebSite,
       gtMd,
@@ -203,7 +203,7 @@ function DashboardContent({
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }
       >
-        {content}
+        <Stack minHeight={screenHeight}>{content}</Stack>
       </ScrollView>
     );
   }

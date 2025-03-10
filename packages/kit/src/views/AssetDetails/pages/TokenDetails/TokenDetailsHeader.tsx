@@ -60,7 +60,13 @@ function TokenDetailsHeader(props: IProps) {
   const navigation = useAppNavigation();
   const intl = useIntl();
   const copyAccountAddress = useCopyAccountAddress();
-  const { updateTokenMetadata } = useTokenDetailsContext();
+  const {
+    updateTokenMetadata,
+    isLoadingTokenDetails,
+    updateIsLoadingTokenDetails,
+    tokenDetails: tokenDetailsContext,
+    updateTokenDetails,
+  } = useTokenDetailsContext();
 
   const [settings] = useSettingsPersistAtom();
 
@@ -78,29 +84,57 @@ function TokenDetailsHeader(props: IProps) {
 
   const { isFocused } = useTabIsRefreshingFocused();
 
-  const { result: tokenDetails, isLoading: isLoadingTokenDetails } =
-    usePromiseResult(
-      async () => {
-        const tokensDetails =
-          await backgroundApiProxy.serviceToken.fetchTokensDetails({
-            accountId,
-            networkId,
-            contractList: [tokenInfo.address],
-          });
-        updateTokenMetadata({
-          price: tokensDetails[0].price,
-          priceChange24h: tokensDetails[0].price24h,
-          coingeckoId: tokensDetails[0].info.coingeckoId,
+  const { result: tokenDetailsResult } = usePromiseResult(
+    async () => {
+      updateIsLoadingTokenDetails({
+        accountId,
+        isLoading: true,
+      });
+      const tokensDetails =
+        await backgroundApiProxy.serviceToken.fetchTokensDetails({
+          accountId,
+          networkId,
+          contractList: [tokenInfo.address],
         });
-        return tokensDetails[0];
-      },
-      [accountId, networkId, tokenInfo.address, updateTokenMetadata],
-      {
-        watchLoading: true,
-        overrideIsFocused: (isPageFocused) =>
-          isPageFocused && (isTabView ? isFocused : true),
-      },
-    );
+      updateTokenMetadata({
+        price: tokensDetails[0].price,
+        priceChange24h: tokensDetails[0].price24h,
+        coingeckoId: tokensDetails[0].info.coingeckoId,
+      });
+      updateTokenDetails({
+        accountId,
+        isInit: true,
+        data: tokensDetails[0],
+      });
+      updateIsLoadingTokenDetails({
+        accountId,
+        isLoading: false,
+      });
+      return tokensDetails[0];
+    },
+    [
+      accountId,
+      updateIsLoadingTokenDetails,
+      networkId,
+      tokenInfo.address,
+      updateTokenMetadata,
+      updateTokenDetails,
+    ],
+    {
+      overrideIsFocused: (isPageFocused) =>
+        isPageFocused && (isTabView ? isFocused : true),
+    },
+  );
+
+  const tokenDetails =
+    tokenDetailsResult ?? tokenDetailsContext[accountId]?.data;
+
+  const showLoadingState = useMemo(() => {
+    if (tokenDetailsContext[accountId]?.init) {
+      return false;
+    }
+    return isLoadingTokenDetails?.[accountId];
+  }, [isLoadingTokenDetails, tokenDetailsContext, accountId]);
 
   const createSwapActionHandler = useCallback(
     (actionType?: ESwapTabSwitchType) => async () => {
@@ -173,8 +207,9 @@ function TokenDetailsHeader(props: IProps) {
   );
 
   const renderTokenIcon = useCallback(() => {
-    if (isLoadingTokenDetails)
+    if (showLoadingState) {
       return <Skeleton radius="round" h="$12" w="$12" />;
+    }
     return (
       <Token
         tokenImageUri={tokenInfo.logoURI ?? tokenDetails?.info.logoURI}
@@ -186,11 +221,11 @@ function TokenDetailsHeader(props: IProps) {
     );
   }, [
     isAllNetworks,
-    isLoadingTokenDetails,
     network?.logoURI,
     networkId,
     tokenDetails?.info.logoURI,
     tokenInfo.logoURI,
+    showLoadingState,
   ]);
 
   return (
@@ -202,7 +237,7 @@ function TokenDetailsHeader(props: IProps) {
           <XStack alignItems="center" mb="$5">
             {renderTokenIcon()}
             <Stack ml="$3" flex={1}>
-              {isLoadingTokenDetails ? (
+              {showLoadingState ? (
                 <Skeleton.Group show>
                   <Skeleton.Heading3Xl />
                   <Skeleton.BodyLg />
@@ -298,7 +333,7 @@ function TokenDetailsHeader(props: IProps) {
                       id: ETranslations.global_my_address,
                     })}
                   </SizableText>
-                  {isLoadingTokenDetails ? (
+                  {showLoadingState ? (
                     <Skeleton.BodyMd />
                   ) : (
                     <SizableText size="$bodyMd" color="$text" flexWrap="wrap">

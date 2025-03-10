@@ -7,6 +7,7 @@ import { useDebouncedCallback } from 'use-debounce';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
+import { useHoverOpacity } from '../../hooks/useHoverOpacity';
 import { type IRenderPaginationParams, Swiper } from '../../layouts';
 import { Image, SizableText, Stack, XStack } from '../../primitives';
 
@@ -130,6 +131,7 @@ export function Banner<T extends IBannerData>({
   const setIsHoveringThrottled = useDebouncedCallback((value: boolean) => {
     setIsHovering(value);
   }, 200);
+  const hoverOpacity = useHoverOpacity(isHovering);
 
   const renderItem = useCallback(
     ({ item }: { item: T }) => (
@@ -160,6 +162,7 @@ export function Banner<T extends IBannerData>({
             width="100%"
             jc="center"
             bottom="$2"
+            {...hoverOpacity}
             {...indicatorContainerStyle}
           >
             {data.map((_, index) => (
@@ -203,6 +206,7 @@ export function Banner<T extends IBannerData>({
             onPress={() => {
               onBannerClose?.(data[currentIndex]?.bannerId ?? '');
             }}
+            isHovering={isHovering}
           />
         ) : null}
       </>
@@ -214,6 +218,7 @@ export function Banner<T extends IBannerData>({
       onBannerClose,
       showCloseButton,
       showPaginationButton,
+      hoverOpacity,
     ],
   );
 

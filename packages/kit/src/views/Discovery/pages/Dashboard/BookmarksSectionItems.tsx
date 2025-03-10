@@ -30,9 +30,9 @@ export function BookmarksSectionItems({
 
   return (
     <YStack flexDirection="row" flexWrap="wrap" {...restProps}>
-      {dataSource.slice(0, numberOfItems).map(({ logo, title, url }, index) => (
+      {dataSource.slice(0, numberOfItems).map(({ logo, title, url }) => (
         <YStack
-          key={index}
+          key={title + url}
           width="25%"
           $gtSm={{ width: '20%' }}
           $gt2Md={{ width: '16.6%' }}
