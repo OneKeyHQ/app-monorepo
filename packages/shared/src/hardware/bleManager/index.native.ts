@@ -1,4 +1,4 @@
-import BleManager from 'react-native-ble-utils';
+import BleManager from '@onekeyfe/react-native-ble-utils';
 
 class BleManagerInstance {
   checkState(): Promise<'on' | 'off'> {

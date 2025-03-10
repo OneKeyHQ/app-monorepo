@@ -611,15 +611,6 @@ class ServiceHardware extends ServiceBase {
       //
     }
 
-    if (!connectId) {
-      return;
-    }
-
-    if (this.isLastCancelLessThanMsAgo(connectId, 3000)) {
-      console.log('sdk.cancel too frequent, skip');
-      return;
-    }
-
     const fn = async () => {
       const sdk = await this.getSDKInstance();
       // sdk.cancel() always cause device re-emit UI_EVENT:  ui-close_window
@@ -627,9 +618,6 @@ class ServiceHardware extends ServiceBase {
       // cancel the hardware process
       // (cancel not working on enter pin on device mode, use getFeatures() later)
       try {
-        if (connectId) {
-          this.lastCancelAt[connectId] = Date.now();
-        }
         sdk.cancel(connectId);
       } catch (e: any) {
         const { message } = e || {};
@@ -637,23 +625,6 @@ class ServiceHardware extends ServiceBase {
       }
 
       console.log('sdk.cancel device: ', connectId);
-
-      // mute getFeatures error
-      try {
-        // force hardware drop process
-        if (forceDeviceResetToHome) {
-          console.log('sdk.cancel device getFeatures: ', connectId);
-          await this.getFeaturesWithoutCache({
-            connectId,
-            params: {
-              retryCount: 0,
-              skipWebDevicePrompt: true,
-            },
-          }); // TODO move to sdk.cancel()
-        }
-      } catch (error) {
-        // ignore
-      }
     };
 
     clearTimeout(this.cancelTimer);
