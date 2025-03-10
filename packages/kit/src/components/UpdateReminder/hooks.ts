@@ -95,8 +95,8 @@ export const useDownloadPackage = () => {
           ...result,
         });
         await downloadASC();
-      } catch (e: { message: string }) {
-        await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(e);
+      } catch (e) {
+        await backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(e as Error);
         Toast.error({
           title: intl.formatMessage({
             id: ETranslations.global_update_failed,

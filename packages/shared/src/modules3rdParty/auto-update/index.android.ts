@@ -97,7 +97,7 @@ export const verifyASC: IVerifyASC = async ({ downloadUrl, latestVersion }) => {
     return;
   }
   await AutoUpdateModule.verifyASC({
-    url: downloadUrl,
+    downloadUrl,
     filePath: buildFilePath(latestVersion),
   });
 };
