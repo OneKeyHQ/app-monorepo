@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Toast } from '@onekeyhq/components';
+import { Dialog, Image, Toast } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EAppUpdateStatus,
@@ -126,6 +126,7 @@ export const useDownloadPackage = () => {
 };
 
 export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
+  const intl = useIntl();
   const [appUpdateInfo] = useAppUpdatePersistAtom();
   const navigation = useAppNavigation();
   const { downloadPackage, verifyPackage, verifyASC, downloadASC } =
@@ -200,7 +201,9 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
     if (isFirstLaunchAfterUpdated(appUpdateInfo)) {
       onViewReleaseInfo();
     }
-    if (appUpdateInfo.status === EAppUpdateStatus.downloadPackage) {
+    if (appUpdateInfo.status === EAppUpdateStatus.updateIncomplete) {
+      // do nothing
+    } else if (appUpdateInfo.status === EAppUpdateStatus.downloadPackage) {
       void downloadPackage(appUpdateInfo);
     } else if (appUpdateInfo.status === EAppUpdateStatus.downloadASC) {
       void downloadASC();
@@ -225,12 +228,40 @@ export const useAppUpdateInfo = (isFullModal = false, autoCheck = true) => {
       case EAppUpdateStatus.notify:
         toUpdatePreviewPage(isFullModal);
         break;
+      case EAppUpdateStatus.updateIncomplete:
+        Dialog.confirm({
+          title: intl.formatMessage({
+            id: ETranslations.update_update_incomplete_title,
+          }),
+          description: intl.formatMessage({
+            id: ETranslations.update_update_incomplete_desc,
+          }),
+          renderContent: (
+            <Image
+              h={226}
+              source={require('@onekeyhq/kit/assets/manual_install.jpg')}
+            />
+          ),
+          onConfirmText: intl.formatMessage({
+            id: ETranslations.update_manual_update,
+          }),
+          onConfirm: async () => {
+            const params =
+              await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+            globalThis.desktopApi.manualInstallUpdate({
+              ...params,
+              buildNumber: String(platformEnv.buildNumber || 1),
+            });
+          },
+        });
+        break;
       default:
         toDownloadAndVerifyPage();
         break;
     }
   }, [
-    appUpdateInfo,
+    appUpdateInfo.status,
+    intl,
     isFullModal,
     toDownloadAndVerifyPage,
     toUpdatePreviewPage,

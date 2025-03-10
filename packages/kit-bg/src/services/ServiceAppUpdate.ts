@@ -277,6 +277,16 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async resetToInComplete() {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      errorText: undefined,
+      downloadedEvent: undefined,
+      status: EAppUpdateStatus.updateIncomplete,
+    }));
+  }
+
+  @backgroundMethod()
   public async clearCache() {
     clearTimeout(downloadTimeoutId);
     await clearPackage();
