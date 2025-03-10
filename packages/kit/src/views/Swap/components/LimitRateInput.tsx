@@ -51,6 +51,7 @@ const LimitRateInput = ({
         keyboardType="decimal-pad"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
+        height="$14"
         size="large"
         focusVisibleStyle={undefined}
         containerProps={{

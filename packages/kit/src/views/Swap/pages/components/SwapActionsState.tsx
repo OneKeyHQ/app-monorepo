@@ -22,6 +22,7 @@ import {
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
@@ -37,6 +38,7 @@ import {
   ESwapDirectionType,
   ESwapQuoteKind,
   ESwapTabSwitchType,
+  LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -153,6 +155,7 @@ const SwapActionsState = ({
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [swapToAmount] = useSwapToTokenAmountAtom();
+  const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const [swapType] = useSwapTypeSwitchAtom();
   const swapSlippageRef = useRef(slippageItem);
   const [swapProviderSupportReceiveAddress] =
@@ -284,7 +287,19 @@ const SwapActionsState = ({
         currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
         netCost.gt(0)
       ) {
-        const toRealAmount = new BigNumber(swapToAmount.value);
+        let toRealAmount = new BigNumber(0);
+        if (swapToAmount.value) {
+          toRealAmount = new BigNumber(swapToAmount.value);
+        } else if (fromAmount.value && swapLimitUseRate.rate) {
+          const fromAmountBN = new BigNumber(fromAmount.value);
+          const toAmountBN = new BigNumber(fromAmountBN).multipliedBy(
+            new BigNumber(swapLimitUseRate.rate),
+          );
+          toRealAmount = toAmountBN.decimalPlaces(
+            toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            BigNumber.ROUND_HALF_UP,
+          );
+        }
         const calculateNetworkCostExceedPercent =
           netCost.dividedBy(toRealAmount);
         if (calculateNetworkCostExceedPercent.lte(new BigNumber(0.1))) {
@@ -334,7 +349,10 @@ const SwapActionsState = ({
     intl,
     onActionHandler,
     swapActionState.isRefreshQuote,
+    swapLimitUseRate.rate,
+    fromAmount.value,
     swapToAmount.value,
+    toToken?.decimals,
   ]);
 
   const shouldShowRecipient = useMemo(
