@@ -76,7 +76,6 @@ class ServiceAppUpdate extends ServiceBase {
         ...prev,
         isForceUpdate: false,
         errorText: undefined,
-        downloadedEvent: undefined,
         status: EAppUpdateStatus.done,
       }));
     }
@@ -121,6 +120,7 @@ class ServiceAppUpdate extends ServiceBase {
     }, timerUtils.getTimeDurationMs({ minute: 30 }));
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
+      downloadedEvent: undefined,
       status: EAppUpdateStatus.downloadPackage,
     }));
   }
@@ -273,16 +273,6 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async resetToNotify() {
-    await appUpdatePersistAtom.set((prev) => ({
-      ...prev,
-      errorText: undefined,
-      downloadedEvent: undefined,
-      status: EAppUpdateStatus.notify,
-    }));
-  }
-
-  @backgroundMethod()
   public async resetToManualInstall() {
     await appUpdatePersistAtom.set((prev) => ({
       ...prev,
@@ -327,7 +317,6 @@ class ServiceAppUpdate extends ServiceBase {
         ...prev,
         ...releaseInfo,
         errorText: undefined,
-        downloadedEvent: undefined,
         latestVersion: releaseInfo.version || prev.latestVersion,
         updateAt: Date.now(),
         status:
