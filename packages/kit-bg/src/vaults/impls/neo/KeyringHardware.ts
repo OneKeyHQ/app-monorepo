@@ -160,7 +160,7 @@ export class KeyringHardware extends KeyringHardwareBase {
         const concatenatedString = lengthHex + parameterHexString;
         const serializedTransaction = `000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000${concatenatedString}`;
 
-        const magicNumber = 860_833_102;
+        const magicNumber = 0;
         const response = await sdk.neoSignTransaction(connectId, deviceId, {
           path: dbAccount.path,
           rawTx: serializedTransaction,

@@ -34,6 +34,7 @@ import type {
 import { NeoDApiErrors } from '@onekeyhq/shared/types/ProviderApis/ProviderApiNeo.type';
 
 import { vaultFactory } from '../vaults/factory';
+import { NEO_GAS_TOKEN_ADDRESS } from '../vaults/impls/neo/sdkNeo/constant';
 import { verify } from '../vaults/impls/neo/sdkNeo/signMessage';
 
 import ProviderApiBase from './ProviderApiBase';
@@ -578,7 +579,8 @@ class ProviderApiNeoN3 extends ProviderApiBase {
       scriptHash,
       fromAccountAddress: params.fromAddress,
       toAccountAddress: params.toAddress,
-      tokenScriptHash: params.asset,
+      tokenScriptHash:
+        params.asset === 'GAS' ? NEO_GAS_TOKEN_ADDRESS : params.asset,
       amountToTransfer: params.amount,
       systemFee: '0',
       networkFee: '0',
@@ -800,6 +802,16 @@ class ProviderApiNeoN3 extends ProviderApiBase {
     }
 
     let finalTransaction: tx.Transaction;
+    if (
+      transaction.script &&
+      typeof transaction.script === 'string' &&
+      hexUtils.isHexString(transaction.script)
+    ) {
+      transaction.script = Buffer.from(transaction.script, 'hex').toString(
+        'base64',
+      );
+    }
+
     try {
       finalTransaction = tx.Transaction.fromJson(
         transaction as unknown as TransactionJson,
