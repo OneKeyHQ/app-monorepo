@@ -45,7 +45,7 @@ export function useResetApp(params?: { inAppStateLock: boolean }) {
   return useCallback(async () => {
     if (inAppStateLock) {
       const isLock = await backgroundApiProxy.serviceApp.isAppLocked();
-      if (isLock) {
+      if (!isLock) {
         return;
       }
     }
