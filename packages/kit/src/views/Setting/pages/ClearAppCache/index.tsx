@@ -1,5 +1,5 @@
 import type { FC } from 'react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useState } from 'react';
 
 import { useIntl } from 'react-intl';
 

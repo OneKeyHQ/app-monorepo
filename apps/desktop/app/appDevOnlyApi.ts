@@ -7,7 +7,7 @@ import type {
 
 import { ipcMessageKeys } from './config';
 
-function init(initParams: IDesktopSubModuleInitParams) {
+function init(_initParams: IDesktopSubModuleInitParams) {
   ipcMain.on(
     ipcMessageKeys.APP_DEV_ONLY_API,
     (event, apiParams: IDesktopMainProcessDevOnlyApiParams) => {

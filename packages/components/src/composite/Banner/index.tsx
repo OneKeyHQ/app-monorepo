@@ -106,8 +106,6 @@ export function Banner<T extends IBannerData>({
   itemContainerStyle,
   itemTitleContainerStyle,
   indicatorContainerStyle,
-  leftIconButtonStyle,
-  rightIconButtonStyle,
   showPaginationButton = !platformEnv.isNative,
   showCloseButton = false,
   onBannerClose,
@@ -115,10 +113,8 @@ export function Banner<T extends IBannerData>({
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
-  leftIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
-  rightIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
-  indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
+  indicatorContainerStyle?: IStackStyle;
   size?: 'small' | 'large';
   onItemPress: (item: T) => void;
   isLoading?: boolean;
