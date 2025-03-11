@@ -6923,8 +6923,8 @@ __metadata:
     "@types/react-dom": "npm:~18.3.0"
     "@types/validator": "npm:^13"
     "@types/web": "npm:0.0.151"
-    "@typescript-eslint/eslint-plugin": "npm:^5.46.1"
-    "@typescript-eslint/parser": "npm:^5.46.1"
+    "@typescript-eslint/eslint-plugin": "npm:5.62.0"
+    "@typescript-eslint/parser": "npm:5.62.0"
     "@ungap/structured-clone": "npm:^1.2.0"
     "@vespaiach/axios-fetch-adapter": "npm:^0.3.1"
     "@wagmi/core": "npm:2.6.9"
@@ -15399,7 +15399,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@typescript-eslint/eslint-plugin@npm:^5.46.1, @typescript-eslint/eslint-plugin@npm:^5.47.0":
+"@typescript-eslint/eslint-plugin@npm:5.62.0, @typescript-eslint/eslint-plugin@npm:^5.47.0":
   version: 5.62.0
   resolution: "@typescript-eslint/eslint-plugin@npm:5.62.0"
   dependencies:
@@ -15423,7 +15423,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@typescript-eslint/parser@npm:^5.46.1, @typescript-eslint/parser@npm:^5.47.0":
+"@typescript-eslint/parser@npm:5.62.0, @typescript-eslint/parser@npm:^5.47.0":
   version: 5.62.0
   resolution: "@typescript-eslint/parser@npm:5.62.0"
   dependencies:
