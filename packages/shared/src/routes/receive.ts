@@ -1,8 +1,3 @@
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
-
 import type { ITokenSelectorParamList } from './assetSelector';
 import type { IDeriveTypesAddressParams } from './walletAddress';
 import type { IToken } from '../../types/token';
