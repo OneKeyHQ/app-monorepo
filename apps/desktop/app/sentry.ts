@@ -5,9 +5,9 @@ import logger from 'electron-log/main';
 import { buildBasicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
 
 export const initSentry = () => {
-  // if (isDev) {
-  //   return;
-  // }
+  if (isDev) {
+    return;
+  }
   let dsn =
     'https://05ed77019985fb3c81f0bcbdbe1774cd@o4508208799809536.ingest.de.sentry.io/4508320047890512';
   if (process.mas) {
