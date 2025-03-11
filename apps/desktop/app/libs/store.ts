@@ -24,6 +24,12 @@ const configKeys = {
   EncryptedData: 'EncryptedData',
   Language: 'language',
   DisableKeyboardShortcuts: 'disableKeyboardShortcuts',
+  ASCFile: 'ascFile',
+  UpdateBuildNumber: 'updateBuildNumber',
+};
+
+export const clear = () => {
+  store.clear();
 };
 
 export const getUpdateSettings = (): IUpdateSettings =>
@@ -72,12 +78,8 @@ export const getWinBounds = (): Electron.Rectangle =>
 export const setWinBounds = (bounds: Electron.Rectangle) =>
   store.set(configKeys.WinBounds, bounds);
 
-export const clear = () => {
-  store.clear();
-};
-
 export const clearUpdateSettings = () => {
-  store.delete('updateSettings');
+  store.delete(configKeys.UpdateSettings);
 };
 
 export const getSecureItem = (key: string) => {
@@ -127,4 +129,25 @@ export const deleteSecureItem = (key: string) => {
   >;
   delete items[key];
   store.set(configKeys.EncryptedData, items);
+};
+
+export const setASCFile = (ascFile: string) => {
+  store.set(configKeys.ASCFile, ascFile);
+};
+
+export const getASCFile = () => store.get(configKeys.ASCFile, '') as string;
+
+export const clearASCFile = () => {
+  store.delete(configKeys.ASCFile);
+};
+
+export const setUpdateBuildNumber = (buildNumber: string) => {
+  store.set(configKeys.UpdateBuildNumber, buildNumber);
+};
+
+export const getUpdateBuildNumber = () =>
+  store.get(configKeys.UpdateBuildNumber, '') as string;
+
+export const clearUpdateBuildNumber = () => {
+  store.delete(configKeys.UpdateBuildNumber);
 };

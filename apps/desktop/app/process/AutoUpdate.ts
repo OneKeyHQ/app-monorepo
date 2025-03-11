@@ -5,7 +5,6 @@ import path from 'path';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import isDev from 'electron-is-dev';
 import logger from 'electron-log/main';
-import { rootPath } from 'electron-root-path';
 import { CancellationToken, autoUpdater } from 'electron-updater';
 import { readCleartextMessage, readKey } from 'openpgp';
 
@@ -14,13 +13,21 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { ipcMessageKeys } from '../config';
 import { PUBLIC_KEY } from '../constant/gpg';
+import { ETranslations, i18nText } from '../i18n';
+import {
+  clearASCFile,
+  clearUpdateBuildNumber,
+  clearUpdateSettings,
+  getASCFile,
+  getUpdateBuildNumber,
+  setASCFile,
+  setUpdateBuildNumber,
+} from '../libs/store';
 import { b2t, toHumanReadable } from '../libs/utils';
 
 import type { IDependencies } from '.';
 import type { IUpdateSettings } from '../libs/store';
 import type { IInstallUpdateParams, IVerifyUpdateParams } from '../preload';
-
-const isLinux = process.platform === 'linux';
 
 interface ILatestVersion {
   version: string;
@@ -66,11 +73,16 @@ const init = ({ mainWindow, store }: IDependencies) => {
     store.setUpdateSettings(updateSettings);
   };
 
-  const getSha256 = async (downloadUrl: string) => {
+  const sendUpdateError = (error: { message: string }) => {
+    mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
+      err: error,
+      isNetworkError: false,
+    });
+  };
+
+  const getSha256 = async () => {
     try {
-      const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
-      const ascFile = await fetch(ascFileUrl);
-      const ascFileMessage = await ascFile.text();
+      const ascFileMessage = getASCFile();
       logger.info('auto-updater', `signatureFileContent: ${ascFileMessage}`);
 
       const signedMessage = await readCleartextMessage({
@@ -93,6 +105,18 @@ const init = ({ mainWindow, store }: IDependencies) => {
         // eslint-disable-next-line @typescript-eslint/restrict-template-expressions, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
         `getSha256 Error: ${(error as any).toString()}`,
       );
+      const { message } = error as { message: string };
+
+      const lowerCaseMessage = message.toLowerCase();
+      const isInValid =
+        lowerCaseMessage.includes('signed digest did not match') ||
+        lowerCaseMessage.includes('misformed armored text') ||
+        lowerCaseMessage.includes('ascii armor integrity check failed');
+      sendUpdateError({
+        message: isInValid
+          ? ETranslations.update_signature_verification_failed_alert_text
+          : ETranslations.update_installation_package_possibly_compromised,
+      });
       return undefined;
     }
   };
@@ -108,12 +132,65 @@ const init = ({ mainWindow, store }: IDependencies) => {
   };
 
   const sendValidError = () => {
-    mainWindow.webContents.send(ipcMessageKeys.UPDATE_ERROR, {
-      err: {
-        message: 'Installation package possibly compromised',
-      },
-      isNetworkError: false,
+    sendUpdateError({
+      message: ETranslations.update_installation_not_safe_alert_text,
     });
+  };
+
+  const verifyASC = async () => {
+    const sha256 = await getSha256();
+    return !!sha256;
+  };
+
+  const downloadASC = async ({
+    downloadedFile = '',
+    downloadUrl = '',
+  }: IInstallUpdateParams) => {
+    clearASCFile();
+    logger.info(
+      'auto-updater',
+      'Download ASC requested',
+      downloadedFile,
+      downloadUrl,
+    );
+
+    if (!fs.existsSync(downloadedFile)) {
+      logger.info('auto-updater', 'no such file');
+      sendUpdateError({
+        message: 'NOT_FOUND_FILE',
+      });
+      return false;
+    }
+    try {
+      const ascFileUrl = `${downloadUrl}.SHA256SUMS.asc`;
+      const ascFileResponse = await fetch(ascFileUrl);
+
+      if (!ascFileResponse.ok) {
+        logger.error(
+          'auto-updater',
+          `Failed to fetch ASC file: ${ascFileResponse.status} ${ascFileResponse.statusText}`,
+        );
+        sendUpdateError({
+          message: String(ascFileResponse.status),
+        });
+        return false;
+      }
+
+      const ascFileMessage = await ascFileResponse.text();
+      if (ascFileMessage.length === 0) {
+        sendUpdateError({
+          message: '',
+        });
+        return false;
+      }
+      setASCFile(ascFileMessage);
+    } catch (error) {
+      sendUpdateError({
+        message: error instanceof Error ? error.message : '',
+      });
+      return false;
+    }
+    return true;
   };
 
   const verifyFile = async ({
@@ -121,24 +198,24 @@ const init = ({ mainWindow, store }: IDependencies) => {
     downloadUrl = '',
   }: IVerifyUpdateParams) => {
     logger.info('auto-updater', `verifyFile ${downloadedFile} ${downloadUrl}`);
-    if (!downloadedFile || !downloadUrl) {
-      sendValidError();
-      return false;
-    }
-    if (!fs.existsSync(downloadedFile)) {
-      logger.info('auto-updater', 'no such file');
-      sendValidError();
-      return false;
-    }
-    const sha256 = await getSha256(downloadUrl);
+
+    const sha256 = await getSha256();
     if (!sha256) {
       sendValidError();
       return false;
     }
 
-    const verified = verifySha256(downloadedFile, sha256);
-    if (!verified) {
-      sendValidError();
+    try {
+      const verified = verifySha256(downloadedFile, sha256);
+      if (!verified) {
+        sendValidError();
+        return false;
+      }
+    } catch (error) {
+      logger.info('auto-updater', 'verifyFile error', error);
+      sendUpdateError({
+        message: ETranslations.update_installation_package_possibly_compromised,
+      });
       return false;
     }
 
@@ -187,12 +264,9 @@ const init = ({ mainWindow, store }: IDependencies) => {
   autoUpdater.on('error', (err) => {
     logger.error('auto-updater', `An error happened: ${err.toString()}`);
     const isNetwork = isNetworkError(err);
-    let message = isNetwork
+    const message = isNetwork
       ? 'Network exception, please check your internet connection.'
       : err.message;
-    if (err.message.includes('sha512 checksum mismatch')) {
-      message = 'Installation package possibly compromised';
-    }
 
     if (mainWindow.isDestroyed()) {
       void dialog
@@ -331,6 +405,7 @@ const init = ({ mainWindow, store }: IDependencies) => {
     if (updateCancellationToken) {
       updateCancellationToken.cancel();
     }
+    clearUpdateBuildNumber();
     await clearUpdateCache();
     updateCancellationToken = new CancellationToken();
     autoUpdater
@@ -365,25 +440,75 @@ const init = ({ mainWindow, store }: IDependencies) => {
   );
 
   ipcMain.on(
-    ipcMessageKeys.UPDATE_INSTALL,
-    async (
-      _,
-      { dialog: { message, buttons }, ...verifyParams }: IInstallUpdateParams,
-    ) => {
+    ipcMessageKeys.UPDATE_DOWNLOAD_ASC,
+    async (_, params: IInstallUpdateParams) => {
+      logger.info('auto-updater', 'Download ASC requested', params);
+      const valid = await downloadASC(params);
+      if (valid) {
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_DOWNLOAD_ASC_DONE);
+      }
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_VERIFY_ASC,
+    async (_, params: IInstallUpdateParams) => {
+      logger.info('auto-updater', 'Verify ASC requested', params);
+      const valid = await verifyASC();
+      if (valid) {
+        mainWindow.webContents.send(ipcMessageKeys.UPDATE_VERIFY_ASC_DONE);
+      }
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_MANUAL_INSTALLATION,
+    async (_, { buildNumber, ...verifyParams }: IInstallUpdateParams) => {
+      logger.info(
+        'auto-updater',
+        'Opening downloaded file',
+        buildNumber,
+        verifyParams,
+      );
       const verified = await verifyFile(verifyParams);
       if (!verified) {
         return;
       }
-      logger.info('auto-updater', 'Installation request');
+      logger.info('auto-updater', 'Manual installation request', buildNumber);
+      if (verifyParams.downloadedFile) {
+        try {
+          const { shell } = require('electron');
+          await shell.openPath(path.dirname(verifyParams.downloadedFile));
+        } catch (error) {
+          logger.error('auto-updater', 'Failed to open downloaded file', error);
+        }
+      } else {
+        logger.warn('auto-updater', 'No downloaded file to open');
+      }
+    },
+  );
+
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_INSTALL,
+    async (_, { buildNumber, ...verifyParams }: IInstallUpdateParams) => {
+      const verified = await verifyFile(verifyParams);
+      if (!verified) {
+        return;
+      }
+      logger.info('auto-updater', 'Installation request', buildNumber);
       void dialog
         .showMessageBox({
           type: 'question',
-          buttons,
+          buttons: [
+            i18nText(ETranslations.update_install_and_restart),
+            i18nText(ETranslations.global_later),
+          ],
           defaultId: 0,
-          message,
+          message: i18nText(ETranslations.update_new_update_downloaded),
         })
         .then((selection) => {
           if (selection.response === 0) {
+            setUpdateBuildNumber(buildNumber);
             logger.info('auto-update', 'button[0] was clicked');
             app.removeAllListeners('window-all-closed');
             mainWindow.removeAllListeners('close');
@@ -413,8 +538,17 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   ipcMain.on(ipcMessageKeys.UPDATE_CLEAR_SETTINGS, () => {
     logger.info('auto-update', 'clear update settings');
-    store.clear();
+    clearUpdateSettings();
   });
+
+  ipcMain.on(
+    ipcMessageKeys.UPDATE_GET_PREVIOUS_UPDATE_BUILD_NUMBER,
+    (event) => {
+      const builderNumber = getUpdateBuildNumber();
+      logger.info('auto-updater', `builderNumber: ${builderNumber}`);
+      event.returnValue = builderNumber;
+    },
+  );
 };
 
 export default init;
