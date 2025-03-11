@@ -22,7 +22,7 @@ export default function ManualInstall() {
             })}
           </SizableText>
           <Image
-            h={226}
+            h="$96"
             source={require('@onekeyhq/kit/assets/manual_install.jpg')}
           />
           <SizableText size="$bodyMd" color="$textSubdued">
