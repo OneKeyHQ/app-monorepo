@@ -10,7 +10,7 @@ export interface IAnchorSizableTextProps extends ISizableTextProps {
 
 export function AnchorSizableText({
   anchorRegExp = /<url(?:\s+[^>]*?)?>(.*?)<\/url>/g,
-  hrefRegExp: _hrefRegExp = /href="(.*?)"/,
+  hrefRegExp = /href="(.*?)"/,
   children,
   anchorProps,
   ...props
