@@ -1,5 +1,3 @@
-import { useState } from 'react';
-
 import { Stepper } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
@@ -14,7 +12,7 @@ export default function StepperGallery() {
         {
           title: 'Default',
           element: (
-            <Stepper stepIndex={2} isError={false}>
+            <Stepper stepIndex={2} hasError={false}>
               <Stepper.Item
                 title="Step 1"
                 description="Description for step 1"

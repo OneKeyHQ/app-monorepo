@@ -80,7 +80,7 @@ export interface IStepItemProps {
 export interface IStepperContextProps {
   stepIndex: number;
   stepsCount: number;
-  isError?: boolean;
+  hasError?: boolean;
 }
 
 const StepperContext = createContext<IStepperContextProps | undefined>(
@@ -102,7 +102,7 @@ export function StepItem({
   renderDescription,
   renderAction,
 }: IStepItemProps) {
-  const { stepIndex, isError, stepsCount } = useStepperContext();
+  const { stepIndex, hasError, stepsCount } = useStepperContext();
   const { index } = useStepperItemContext() || {};
   const status = useMemo(() => {
     if (index === undefined) {
@@ -114,11 +114,11 @@ export function StepItem({
     if (stepIndex > index) {
       return EStepItemStatus.Done;
     }
-    if (isError) {
+    if (hasError) {
       return EStepItemStatus.Failed;
     }
     return EStepItemStatus.Pending;
-  }, [index, isError, stepIndex]);
+  }, [index, hasError, stepIndex]);
   const renderProps = useMemo(
     () => ({
       status,
@@ -177,11 +177,11 @@ export type IStepperProps = PropsWithChildren<
   Omit<IStepperContextProps, 'stepsCount'>
 >;
 
-function StepProvider({ children, stepIndex, isError }: IStepperProps) {
+function StepProvider({ children, stepIndex, hasError }: IStepperProps) {
   const stepsCount = useMemo(() => Children.count(children), [children]);
   const contextValue = useMemo(
-    () => ({ stepIndex, isError, stepsCount }),
-    [stepIndex, isError, stepsCount],
+    () => ({ stepIndex, hasError, stepsCount }),
+    [stepIndex, hasError, stepsCount],
   );
 
   return (

@@ -128,7 +128,7 @@ function DownloadVerify({
     }
   }, [data, showInCompleteDialog]);
   const stepIndex = STEP_INDEX_MAP[data.status];
-  const isError = checkIsError(data.status);
+  const hasError = checkIsError(data.status);
 
   const percent = useDownloadProgress(noop, noop);
 
@@ -166,7 +166,7 @@ function DownloadVerify({
         })}
       />
       <Page.Body px="$5" py="$2.5">
-        <Stepper stepIndex={stepIndex} isError={isError}>
+        <Stepper stepIndex={stepIndex} hasError={hasError}>
           <Stepper.Item
             title={intl.formatMessage({
               id: ETranslations.update_download_package_label,
