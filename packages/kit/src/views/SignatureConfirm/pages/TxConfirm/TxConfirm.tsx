@@ -276,7 +276,10 @@ function TxConfirm() {
     stakingInfo,
   ]);
 
-  const renderHeaderRight = useCallback(() => <TxConfirmHeaderRight />, []);
+  const renderHeaderRight = useCallback(
+    () => <TxConfirmHeaderRight decodedTxs={decodedTxs} />,
+    [decodedTxs],
+  );
 
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>

@@ -10,21 +10,21 @@ import {
   SizableText,
   YStack,
   useMedia,
+  Skeleton,
 } from '@onekeyhq/components';
-import { useDecodedTxsAtom } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
 
-function TxConfirmHeaderRight() {
+function TxConfirmHeaderRight(props: { decodedTxs: IDecodedTx[] | undefined }) {
+  const { decodedTxs } = props;
   const intl = useIntl();
   const { gtMd } = useMedia();
 
-  const [{ decodedTxs }] = useDecodedTxsAtom();
-
   const decodedTx = decodedTxs?.[0];
 
-  const mevProtection = decodedTx?.txDisplay?.mevProtection;
+  const mevProtectionProvider = decodedTx?.txDisplay?.mevProtectionProvider;
 
-  if (!mevProtection) return null;
+  if (!mevProtectionProvider) return null;
 
   return (
     <HeaderButtonGroup>
@@ -40,17 +40,15 @@ function TxConfirmHeaderRight() {
               <SizableText size="$bodyLg">
                 {intl.formatMessage({ id: ETranslations.global_power_by })}
               </SizableText>
-              <Image maxWidth="$6" maxHeight="$6">
+              <Image width={160} height={40}>
                 <Image.Source
                   source={{
-                    uri: mevProtection.logoURI,
+                    uri: mevProtectionProvider.logoURI,
                   }}
                 />
-                <Image.Fallback alignItems="center" justifyContent="center">
-                  <SizableText size="$headingLg">
-                    {mevProtection.name}
-                  </SizableText>
-                </Image.Fallback>
+                <Image.Loading>
+                  <Skeleton width="100%" height="100%" />
+                </Image.Loading>
               </Image>
             </YStack>
             <SizableText size="$bodyMd" fontStyle="italic" color="$textSubdued">
