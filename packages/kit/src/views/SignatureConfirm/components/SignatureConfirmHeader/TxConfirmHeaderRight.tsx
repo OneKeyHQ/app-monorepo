@@ -8,9 +8,9 @@ import {
   Image,
   Popover,
   SizableText,
+  Skeleton,
   YStack,
   useMedia,
-  Skeleton,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IDecodedTx } from '@onekeyhq/shared/types/tx';
