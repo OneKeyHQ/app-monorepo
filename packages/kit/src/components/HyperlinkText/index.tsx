@@ -1,4 +1,5 @@
 /* eslint-disable react/no-unstable-nested-components */
+import type { ReactElement } from 'react';
 import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -14,7 +15,10 @@ export type IHyperlinkTextProps = {
   translationId?: ETranslations;
   defaultMessage?: string;
   onAction?: (url: string) => void;
-  values?: Record<string, string>;
+  values?: Record<
+    string,
+    string | ReactElement | ((v: string) => ReactElement | string)
+  >;
   autoHandleResult?: boolean;
 } & ISizableTextProps;
 
