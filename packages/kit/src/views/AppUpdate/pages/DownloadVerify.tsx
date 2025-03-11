@@ -115,11 +115,13 @@ function DownloadVerify({
   const handleToUpdate = useCallback(async () => {
     try {
       setIsInstalling(true);
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         setIsInstalling(false);
       }, 3500);
       await installPackage(data);
+      return () => clearTimeout(timer);
     } catch (e: unknown) {
+      setIsInstalling(false);
       if ((e as { message?: string })?.message === 'NOT_FOUND_PACKAGE') {
         showInCompleteDialog();
       } else {
