@@ -42,7 +42,13 @@ export const inAppStateLockStyle: {
 export function useResetApp(params?: { inAppStateLock: boolean }) {
   const { inAppStateLock = false } = params || {};
   const intl = useIntl();
-  return useCallback(() => {
+  return useCallback(async () => {
+    if (inAppStateLock) {
+      const isLock = await backgroundApiProxy.serviceApp.isAppLocked();
+      if (isLock) {
+        return;
+      }
+    }
     Dialog.show({
       ...(inAppStateLock ? inAppStateLockStyle : undefined),
       title: intl.formatMessage({ id: ETranslations.global_reset }),
