@@ -148,9 +148,6 @@ function DownloadVerify({
             id: data.errorText || ETranslations.global_update_failed,
           }),
         }}
-        onAction={() => {
-          openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
-        }}
       />
     ),
     [data.errorText, intl],

@@ -93,6 +93,20 @@ export function AutoUpdateSection() {
                 >
                   verify package failed(update_installation_not_safe_alert_text)
                 </Button>
+                <Button
+                  onPress={() => {
+                    void backgroundApiProxy.serviceAppUpdate.resetToInComplete();
+                  }}
+                >
+                  install incomplete
+                </Button>
+                <Button
+                  onPress={() => {
+                    void backgroundApiProxy.serviceAppUpdate.resetToManualInstall();
+                  }}
+                >
+                  manual install
+                </Button>
               </YStack>
             ),
           });
