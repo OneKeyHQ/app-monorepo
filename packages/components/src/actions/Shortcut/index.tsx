@@ -1,13 +1,18 @@
-import type { IShortcutKeyProps, IShortcutProps } from './type';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+import type {
+  IShortcutContentProps,
+  IShortcutKeyProps,
+  IShortcutProps,
+} from './type';
 
-function ShortcutKey(_: IShortcutKeyProps) {
+function ShortcutKey(props: IShortcutKeyProps) {
   return null;
 }
 
-export function Shortcut(_: IShortcutProps) {
+function ShortcutContent({ shortcutKey }: IShortcutContentProps) {
   return null;
 }
 
-Shortcut.Key = ShortcutKey;
-
-export * from './type';
+export function Shortcut(props: IShortcutProps) {
+  return null;
+}
