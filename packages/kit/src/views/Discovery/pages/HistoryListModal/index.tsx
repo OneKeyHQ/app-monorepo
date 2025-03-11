@@ -184,7 +184,6 @@ function HistoryListModal() {
               {...(!isEditing && {
                 onPress: () => {
                   handleOpenWebSite({
-                    switchToMultiTabBrowser: gtMd,
                     navigation,
                     webSite: {
                       url: item.url,

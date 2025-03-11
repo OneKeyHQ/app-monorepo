@@ -14,7 +14,6 @@ export function useDesktopNewWindow() {
     (_: any, data: { url: string }) => {
       if (data.url) {
         handleOpenWebSite({
-          switchToMultiTabBrowser: gtMd,
           useCurrentWindow: false,
           webSite: {
             url: data.url,
@@ -24,7 +23,7 @@ export function useDesktopNewWindow() {
         });
       }
     },
-    [gtMd, handleOpenWebSite, navigation],
+    [handleOpenWebSite, navigation],
   );
   useEffect(() => {
     globalThis.desktopApi?.addIpcEventListener(

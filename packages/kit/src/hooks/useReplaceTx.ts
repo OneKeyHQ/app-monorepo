@@ -136,7 +136,6 @@ function useReplaceTx({
           onConfirm: async () => {
             // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
             handleOpenWebSite({
-              switchToMultiTabBrowser: gtMd,
               navigation,
               useCurrentWindow: false,
               webSite: {
@@ -160,15 +159,7 @@ function useReplaceTx({
         });
       }
     },
-    [
-      canReplaceTx,
-      historyTx,
-      intl,
-      navigation,
-      onSuccess,
-      handleOpenWebSite,
-      gtMd,
-    ],
+    [canReplaceTx, historyTx, intl, navigation, onSuccess, handleOpenWebSite],
   );
 
   const handleCheckSpeedUpState = useCallback(async () => {
@@ -180,7 +171,6 @@ function useReplaceTx({
     }
     // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
     handleOpenWebSite({
-      switchToMultiTabBrowser: gtMd,
       navigation,
       useCurrentWindow: false,
       webSite: {
@@ -188,7 +178,7 @@ function useReplaceTx({
         title: 'F2Pool',
       },
     });
-  }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation, gtMd]);
+  }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation]);
 
   return {
     canReplaceTx,

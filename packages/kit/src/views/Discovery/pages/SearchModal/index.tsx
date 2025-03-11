@@ -164,7 +164,6 @@ function SearchModal() {
           onPress={() => {
             if (item.dappId === SEARCH_ITEM_ID) {
               handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
                 navigation,
                 useCurrentWindow,
                 tabId,
@@ -180,7 +179,6 @@ function SearchModal() {
               });
             } else {
               handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
                 navigation,
                 useCurrentWindow,
                 tabId,
@@ -196,7 +194,7 @@ function SearchModal() {
           testID={`dapp-search${index}`}
         />
       )),
-    [gtMd, handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
+    [handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
   );
 
   return (
@@ -222,7 +220,6 @@ function SearchModal() {
                 navigation.pop();
               } else {
                 handleOpenWebSite({
-                  switchToMultiTabBrowser: gtMd,
                   navigation,
                   useCurrentWindow,
                   tabId,
@@ -275,7 +272,6 @@ function SearchModal() {
                     }}
                     onPress={() => {
                       handleOpenWebSite({
-                        switchToMultiTabBrowser: gtMd,
                         navigation,
                         useCurrentWindow,
                         tabId,
@@ -355,7 +351,6 @@ function SearchModal() {
                   testID={`search-modal-${item.title.toLowerCase()}`}
                   onPress={() => {
                     handleOpenWebSite({
-                      switchToMultiTabBrowser: gtMd,
                       navigation,
                       useCurrentWindow,
                       tabId,

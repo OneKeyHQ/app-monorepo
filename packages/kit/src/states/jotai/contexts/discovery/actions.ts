@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
-import { Toast } from '@onekeyhq/components';
+import { Toast, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
@@ -737,18 +737,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation,
         webSite,
         dApp,
-        switchToMultiTabBrowser = false,
         shouldPopNavigation = true,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
-        switchToMultiTabBrowser?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
         shouldPopNavigation?: boolean;
       },
     ) => {
+      const { gtMd } = useMedia();
+
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
@@ -758,6 +758,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
       setTimeout(() => {
         const isNewWindow = !useCurrentWindow;
+        const switchToMultiTabBrowser = gtMd;
 
         if (!useCurrentWindow) {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
@@ -778,12 +779,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           isNewWindow,
           tabId,
         });
+
+        if (switchToMultiTabBrowser || platformEnv.isDesktop) {
+          navigation.switchTab(ETabRoutes.MultiTabBrowser);
+        } else if (shouldPopNavigation) {
+          navigation.switchTab(ETabRoutes.Discovery);
+        }
       }, delayTime);
-      if (switchToMultiTabBrowser || platformEnv.isDesktop) {
-        navigation.switchTab(ETabRoutes.MultiTabBrowser);
-      } else if (shouldPopNavigation) {
-        navigation.switchTab(ETabRoutes.Discovery);
-      }
     },
   );
 

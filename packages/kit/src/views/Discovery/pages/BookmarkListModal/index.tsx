@@ -204,7 +204,6 @@ function BookmarkListModal() {
                 onPress: () => {
                   handleOpenWebSite({
                     navigation,
-                    switchToMultiTabBrowser: gtMd,
                     webSite: {
                       url: item.url,
                       title: item.title,

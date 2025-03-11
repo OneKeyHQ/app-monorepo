@@ -39,7 +39,6 @@ export const useWebSiteHandler = () => {
         handleOpenWebSite({
           webSite,
           dApp,
-          switchToMultiTabBrowser: true,
           navigation,
           shouldPopNavigation,
         });

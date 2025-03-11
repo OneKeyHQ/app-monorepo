@@ -217,7 +217,6 @@ export const WelcomeItem = memo(
     const handlePress = () => {
       if (url) {
         handleOpenWebSite({
-          switchToMultiTabBrowser: gtMd,
           webSite: {
             url,
             title: url,
