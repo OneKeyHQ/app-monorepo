@@ -21,16 +21,16 @@ export enum EStepItemStatus {
 }
 
 export function StepItemStatus({ status }: { status: EStepItemStatus }) {
-  if (status === EStepItemStatus.Inactive) {
-    return <Icon name="CirclePlaceholderOnOutline" color="$iconDisabled" />;
+  switch (status) {
+    case EStepItemStatus.Inactive:
+      return <Icon name="CirclePlaceholderOnOutline" color="$iconDisabled" />;
+    case EStepItemStatus.Pending:
+      return <Spinner size="small" />;
+    case EStepItemStatus.Done:
+      return <Icon name="CheckRadioSolid" color="$iconSuccess" />;
+    default:
+      return <Icon name="XCircleSolid" color="$iconCritical" />;
   }
-  if (status === EStepItemStatus.Pending) {
-    return <Spinner size="small" />;
-  }
-  if (status === EStepItemStatus.Done) {
-    return <Icon name="CheckRadioSolid" color="$iconSuccess" />;
-  }
-  return <Icon name="XCircleSolid" color="$iconCritical" />;
 }
 export interface IStepItemProviderProps {
   index: number;
