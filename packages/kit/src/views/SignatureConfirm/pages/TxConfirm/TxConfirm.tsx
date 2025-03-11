@@ -35,6 +35,7 @@ import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { TxConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
+import { TxConfirmHeaderRight } from '../../components/SignatureConfirmHeader';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
@@ -275,9 +276,14 @@ function TxConfirm() {
     stakingInfo,
   ]);
 
+  const renderHeaderRight = useCallback(
+    () => <TxConfirmHeaderRight decodedTxs={decodedTxs} />,
+    [decodedTxs],
+  );
+
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
-      <Page.Header title={txConfirmTitle} />
+      <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
       <Page.Body testID="tx-confirmation-body" px="$5">
         {renderTxConfirmContent()}
       </Page.Body>
