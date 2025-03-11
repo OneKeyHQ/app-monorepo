@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "Aucune donnée",
   "global.no_device_connected": "Aucun appareil connecté",
-  "global.no_device_connected_desc": "Connectez votre portefeuille matériel OneKey pour afficher les informations de l'appareil, vérifier l'authenticité, vérifier les mises à jour du micrologiciel et gérer les paramètres de sécurité.",
+  "global.no_device_connected_desc": "Gérez et visualisez vos appareils en un seul endroit",
   "global.no_network_address": "Aucune adresse {network}",
   "global.no_results": "Aucun résultat",
   "global.no_transactions_yet": "Aucune transaction pour l'instant",
