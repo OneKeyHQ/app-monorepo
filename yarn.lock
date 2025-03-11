@@ -6948,7 +6948,6 @@ __metadata:
     date-fns: "npm:^2.30.0"
     duplicate-package-checker-webpack-plugin: "npm:^3.0.0"
     ejs-loader: "npm:^0.5.0"
-    electron-root-path: "npm:^1.1.0"
     electron-taskbar-badge: "npm:1.1.2"
     eslint: "npm:^8.25.0"
     eslint-config-airbnb: "npm:^19.0.4"
@@ -22308,15 +22307,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-is-packaged@npm:^1.0.2":
-  version: 1.0.2
-  resolution: "electron-is-packaged@npm:1.0.2"
-  peerDependencies:
-    eslint: ^3.0.0 || ^4.0.0 || ^5.0.0
-  checksum: 10/518a6dc6a220cdc8c28bdb00eb6aeb69926c4def9d9c0e131450f0b36cfe08229dfe1f23cbc74cb156c7f6e5ed551f87a31459f3a95e505cad4cc606908454e8
-  languageName: node
-  linkType: hard
-
 "electron-log@npm:5.2.0":
   version: 5.2.0
   resolution: "electron-log@npm:5.2.0"
@@ -22337,17 +22327,6 @@ __metadata:
     lazy-val: "npm:^1.0.5"
     mime: "npm:^2.5.2"
   checksum: 10/7938b516f8f4a403eb12cb5469a2d35f48bc3133d290c15ad7c9d1a6a871142ce2244dbe6158d9cd6926ef97dc2a2036b199a57dc3f03050165c323b37c38335
-  languageName: node
-  linkType: hard
-
-"electron-root-path@npm:^1.1.0":
-  version: 1.1.0
-  resolution: "electron-root-path@npm:1.1.0"
-  dependencies:
-    electron-is-packaged: "npm:^1.0.2"
-  peerDependencies:
-    eslint: ^3.0.0 || ^4.0.0 || ^5.0.0
-  checksum: 10/9a94c9340699a8c90f78ebec226080f80bc62a5f1c2b0bbfc9d570e447b9265d5e483e73ea5537c2ae17ac46ae2ce00f431cf121eb09e704ff0883bc70b913f8
   languageName: node
   linkType: hard
 

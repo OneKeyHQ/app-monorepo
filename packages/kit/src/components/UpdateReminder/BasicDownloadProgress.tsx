@@ -16,7 +16,7 @@ export function DownloadProgress() {
       Toast.error({
         title: intl.formatMessage({ id: ETranslations.global_update_failed }),
       });
-      void backgroundApiProxy.serviceAppUpdate.notifyFailed(e);
+      void backgroundApiProxy.serviceAppUpdate.downloadPackageFailed(e);
     },
     [intl],
   );
