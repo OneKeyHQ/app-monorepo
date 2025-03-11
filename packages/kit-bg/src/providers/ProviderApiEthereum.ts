@@ -98,7 +98,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   private semaphore = new Semaphore(1);
 
-  private rpcSemaphore = new Semaphore(1);
+  private rpcSemaphore = new Semaphore(10);
 
   private _rpcCache?: RpcCache;
 

@@ -20,7 +20,7 @@ import {
   useKeyboardHeight,
   useSafeAreaInsets,
 } from '../../hooks';
-import { SizableText, Stack, XStack, YStack } from '../../primitives';
+import { SizableText, XStack, YStack } from '../../primitives';
 import { NATIVE_HIT_SLOP } from '../../utils';
 import { IconButton } from '../IconButton';
 import { Trigger } from '../Trigger';

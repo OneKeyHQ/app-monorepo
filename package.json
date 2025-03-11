@@ -33,6 +33,7 @@
     "app:split-bundle": "yarn workspace @onekeyhq/mobile split-bundle",
     "app:ios": "yarn workspace @onekeyhq/mobile ios",
     "app:ios:device": "yarn workspace @onekeyhq/mobile ios:device",
+    "app:ios:pod-install": "yarn workspace @onekeyhq/mobile ios:pod-install",
     "app:android": "yarn workspace @onekeyhq/mobile android",
     "app:android:device": "yarn workspace @onekeyhq/mobile android:device",
     "icon:build": "yarn workspace @onekeyhq/components icon:build",
