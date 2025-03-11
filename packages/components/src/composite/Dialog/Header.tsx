@@ -1,4 +1,3 @@
-import type { ReactElement } from 'react';
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 
 import { IconButton } from '../../actions/IconButton';

@@ -249,14 +249,12 @@ export default class Vault extends VaultBase {
       actions.push({
         type: EDecodedTxActionType.FUNCTION_CALL,
         functionCall: {
-          functionName: '',
+          functionName: tx.Transaction.fromJson(encodedTx).serialize(false),
           from: account.address,
           to: '',
-          functionHash: encodedTx.script,
           icon: network.logoURI ?? '',
-          args: [encodedTx.script],
+          args: [],
         },
-        data: encodedTx.script,
       });
     }
 
