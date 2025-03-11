@@ -10,10 +10,7 @@ import type {
 import { ipcMessageKeys } from './config';
 import { getMacAppId } from './libs/utils';
 
-function init({
-  APP_NAME: _APP_NAME,
-  getSafelyMainWindow: _getSafelyMainWindow,
-}: IDesktopSubModuleInitParams) {
+function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
   ipcMain.on(
     ipcMessageKeys.APP_OPEN_PREFERENCES,
     async (_event, prefType: IPrefType) => {
