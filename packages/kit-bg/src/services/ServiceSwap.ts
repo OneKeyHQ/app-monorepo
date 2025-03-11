@@ -1531,9 +1531,17 @@ export default class ServiceSwap extends ServiceBase {
       ) {
         sameAccount = false;
       }
+      const openOrders = swapLimitOrders.filter(
+        (or) => or.status === ESwapLimitOrderStatus.OPEN,
+      );
       let res: IFetchLimitOrderRes[] = [];
       try {
-        if (!swapLimitOrders.length || isFetchNewOrder || !sameAccount) {
+        if (
+          !swapLimitOrders.length ||
+          isFetchNewOrder ||
+          !sameAccount ||
+          openOrders.length
+        ) {
           const accounts = swapSupportAccounts.map((account) => ({
             userAddress: account.apiAddress,
             networkId: account.networkId,
