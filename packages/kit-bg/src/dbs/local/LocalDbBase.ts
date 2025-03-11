@@ -1506,11 +1506,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       (w) => w.type === WALLET_TYPE_QR && w.xfp && w.xfp === xfp,
     );
     if (existingQrWallet?.associatedDevice) {
-      const existingDevice = await this.getDeviceSafe(
+      const associatedDevice = await this.getDeviceSafe(
         existingQrWallet.associatedDevice,
       );
-      if (existingDevice) {
-        return existingDevice;
+      if (associatedDevice) {
+        return associatedDevice;
       }
     }
 
