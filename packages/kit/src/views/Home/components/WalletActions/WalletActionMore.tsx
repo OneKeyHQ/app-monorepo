@@ -41,7 +41,7 @@ import { RawActions } from './RawActions';
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
   const { activeAccount } = useActiveAccount({ num: 0 });
-  const { account, network, wallet, deriveInfo, deriveType, deriveInfoItems } =
+  const { account, network, wallet, deriveInfoItems, indexedAccount } =
     activeAccount;
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -54,6 +54,7 @@ export function WalletActionMore() {
     accountId: account?.id ?? '',
     networkId: network?.id ?? '',
     walletId: wallet?.id ?? '',
+    indexedAccountId: indexedAccount?.id ?? '',
     tokens: {
       data: allTokens.tokens,
       keys: allTokens.keys,
@@ -137,7 +138,6 @@ export function WalletActionMore() {
         accountId: account?.id ?? '',
       });
       if (
-        account &&
         network &&
         wallet &&
         nativeToken &&
@@ -149,8 +149,7 @@ export function WalletActionMore() {
           screen: EModalFiatCryptoRoutes.DeriveTypesAddress,
           params: {
             networkId: network.id,
-            indexedAccountId: account.indexedAccountId ?? '',
-            accountId: account.id,
+            indexedAccountId: indexedAccount?.id ?? '',
             actionType: EDeriveAddressActionType.Select,
             token: nativeToken,
             tokenMap: map,
@@ -178,8 +177,9 @@ export function WalletActionMore() {
 
     sellCrypto();
   }, [
-    account,
+    account?.id,
     deriveInfoItems.length,
+    indexedAccount?.id,
     map,
     navigation,
     network,
@@ -206,7 +206,6 @@ export function WalletActionMore() {
         accountId: account?.id ?? '',
       });
       if (
-        account &&
         network &&
         wallet &&
         nativeToken &&
@@ -218,8 +217,7 @@ export function WalletActionMore() {
           screen: EModalFiatCryptoRoutes.DeriveTypesAddress,
           params: {
             networkId: network.id,
-            indexedAccountId: account.indexedAccountId ?? '',
-            accountId: account.id,
+            indexedAccountId: indexedAccount?.id ?? '',
             actionType: EDeriveAddressActionType.Select,
             token: nativeToken,
             tokenMap: map,
@@ -246,8 +244,10 @@ export function WalletActionMore() {
       address: account?.address,
     });
   }, [
-    account,
+    account?.address,
+    account?.id,
     deriveInfoItems.length,
+    indexedAccount?.id,
     map,
     navigation,
     network,
