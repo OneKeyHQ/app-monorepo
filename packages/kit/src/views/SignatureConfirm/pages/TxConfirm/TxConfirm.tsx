@@ -277,8 +277,10 @@ function TxConfirm() {
   ]);
 
   const renderHeaderRight = useCallback(
-    () => <TxConfirmHeaderRight decodedTxs={decodedTxs} />,
-    [decodedTxs],
+    () => (
+      <TxConfirmHeaderRight decodedTxs={decodedTxs} unsignedTxs={unsignedTxs} />
+    ),
+    [decodedTxs, unsignedTxs],
   );
 
   return (
