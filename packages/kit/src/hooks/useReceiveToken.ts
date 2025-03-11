@@ -24,10 +24,12 @@ function useReceiveToken({
   tokens,
   tokenListState,
   isMultipleDerive,
+  indexedAccountId,
 }: {
   accountId: string;
   networkId: string;
   walletId: string;
+  indexedAccountId: string;
   isAllNetworks?: boolean;
   tokens?: ITokenData;
   tokenListState?: {
@@ -67,10 +69,9 @@ function useReceiveToken({
             screen: EModalReceiveRoutes.ReceiveSelectDeriveAddress,
             params: {
               networkId,
-              indexedAccountId: account?.indexedAccountId ?? '',
+              indexedAccountId,
               token: token ?? tokens?.data?.[0],
               tokenMap: tokens?.map,
-              accountId: token?.accountId ?? accountId,
               actionType: EDeriveAddressActionType.Select,
               onSelected: ({ account: a }: { account: INetworkAccount }) => {
                 navigation.push(EModalReceiveRoutes.ReceiveToken, {
@@ -170,6 +171,7 @@ function useReceiveToken({
     [
       account?.indexedAccountId,
       accountId,
+      indexedAccountId,
       intl,
       isMultipleDerive,
       navigation,

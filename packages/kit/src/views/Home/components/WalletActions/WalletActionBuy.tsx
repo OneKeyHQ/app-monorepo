@@ -20,7 +20,14 @@ import { RawActions } from './RawActions';
 
 export function WalletActionBuy() {
   const {
-    activeAccount: { network, account, wallet, deriveInfoItems, vaultSettings },
+    activeAccount: {
+      network,
+      account,
+      wallet,
+      deriveInfoItems,
+      vaultSettings,
+      indexedAccount,
+    },
   } = useActiveAccount({ num: 0 });
   const navigation = useAppNavigation();
   const { isSupported, handleFiatCrypto } = useFiatCrypto({
@@ -53,7 +60,6 @@ export function WalletActionBuy() {
       });
 
       if (
-        account &&
         network &&
         wallet &&
         nativeToken &&
@@ -65,8 +71,7 @@ export function WalletActionBuy() {
           screen: EModalFiatCryptoRoutes.DeriveTypesAddress,
           params: {
             networkId: network.id,
-            indexedAccountId: account.indexedAccountId ?? '',
-            accountId: account.id,
+            indexedAccountId: indexedAccount?.id ?? '',
             actionType: EDeriveAddressActionType.Select,
             token: nativeToken,
             tokenMap: map,
@@ -95,14 +100,15 @@ export function WalletActionBuy() {
     handleFiatCrypto();
   }, [
     isBuyDisabled,
-    network,
-    account,
     vaultSettings?.isSingleToken,
     vaultSettings?.mergeDeriveAssetsEnabled,
     handleFiatCrypto,
+    network,
+    account?.id,
     wallet,
     deriveInfoItems.length,
     navigation,
+    indexedAccount?.id,
     map,
   ]);
 
