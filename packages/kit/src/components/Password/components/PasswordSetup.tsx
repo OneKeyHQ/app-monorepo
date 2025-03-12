@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
@@ -70,6 +70,7 @@ const PasswordSetup = ({
   });
   const [secureEntry, setSecureEntry] = useState(true);
   const [secureReentry, setSecureReentry] = useState(true);
+  const [passCodeConfirmClear, setPassCodeConfirmClear] = useState(false);
   const passCodeFirstStep = useMemo(
     () => currentPasswordMode === EPasswordMode.PASSCODE && !passCodeConfirm,
     [currentPasswordMode, passCodeConfirm],
@@ -89,6 +90,14 @@ const PasswordSetup = ({
       form.setFocus('confirmPassCode');
     }, 150);
   };
+
+  const clearPasscodeTimeOut = useCallback(() => {
+    setPassCodeConfirmClear(false);
+    setTimeout(() => {
+      form.setValue('confirmPassCode', '');
+      setPassCodeConfirmClear(true);
+    }, 200);
+  }, [form]);
 
   return (
     <>
@@ -297,6 +306,9 @@ const PasswordSetup = ({
                     }
                     const state = form.getFieldState('passCode');
                     if (!state.error) {
+                      if (v !== values.passCode) {
+                        clearPasscodeTimeOut();
+                      }
                       return v !== values.passCode
                         ? intl.formatMessage({
                             id: ETranslations.auth_error_passcode_not_match,
@@ -318,6 +330,7 @@ const PasswordSetup = ({
                 }}
                 editable
                 autoFocus={passCodeConfirm}
+                clearCodeAndFocus={passCodeConfirmClear}
                 onComplete={form.handleSubmit(onSetupPassword)}
                 autoFocusDelayMs={AUTO_FOCUS_DELAY_MS}
                 testId="confirm-pass-code"

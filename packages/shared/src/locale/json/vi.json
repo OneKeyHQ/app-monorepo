@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "Không có dữ liệu",
   "global.no_device_connected": "Không có thiết bị nào được kết nối",
-  "global.no_device_connected_desc": "Kết nối ví phần cứng OneKey của bạn để xem thông tin thiết bị, xác minh tính xác thực, kiểm tra cập nhật firmware và quản lý cài đặt bảo mật.",
+  "global.no_device_connected_desc": "Quản lý và xem các thiết bị của bạn ở một nơi",
   "global.no_network_address": "Không có địa chỉ {network}",
   "global.no_results": "Ko có kết quả",
   "global.no_transactions_yet": "Chưa Có Giao Dịch Nào",

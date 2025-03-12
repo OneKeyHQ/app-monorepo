@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "ไม่มีข้อมูล",
   "global.no_device_connected": "ไม่มีอุปกรณ์เชื่อมต่อ",
-  "global.no_device_connected_desc": "เชื่อมต่อกระเป๋าเงินฮาร์ดแวร์ OneKey ของคุณเพื่อดูข้อมูลอุปกรณ์ ตรวจสอบความถูกต้อง ตรวจสอบการอัปเดตเฟิร์มแวร์ และจัดการการตั้งค่าความปลอดภัย",
+  "global.no_device_connected_desc": "จัดการและดูอุปกรณ์ของคุณในที่เดียว",
   "global.no_network_address": "ไม่มีที่อยู่ {network}",
   "global.no_results": "ไม่มีผลลัพธ์",
   "global.no_transactions_yet": "ยังไม่มีการทำธุรกรรม",

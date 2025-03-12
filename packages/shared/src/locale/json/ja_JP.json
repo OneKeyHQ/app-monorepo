@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "データなし",
   "global.no_device_connected": "デバイスが接続されていません",
-  "global.no_device_connected_desc": "OneKeyハードウェアウォレットを接続して、デバイス情報を表示し、正当性を確認し、ファームウェアの更新を確認し、セキュリティ設定を管理します。",
+  "global.no_device_connected_desc": "デバイスを一箇所で管理および表示",
   "global.no_network_address": "{network}アドレスがありません",
   "global.no_results": "結果なし",
   "global.no_transactions_yet": "まだ取引はありません",
