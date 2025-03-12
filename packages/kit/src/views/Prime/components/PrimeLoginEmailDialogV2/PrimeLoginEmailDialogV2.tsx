@@ -93,7 +93,6 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
             name="email"
             rules={{
               validate: (value) => {
-                console.log('isValidEmail', value);
                 if (!value) {
                   return false;
                 }
