@@ -93,6 +93,7 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
             name="email"
             rules={{
               validate: (value) => {
+                console.log('isValidEmail', value);
                 if (!value) {
                   return false;
                 }
@@ -113,7 +114,6 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
             }}
           >
             <Input
-              textContentType="emailAddress"
               autoFocus
               autoCapitalize="none"
               size="large"
