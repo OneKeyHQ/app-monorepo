@@ -1671,6 +1671,34 @@ const hsk: IServerNetwork = {
   'backendIndex': false,
 };
 
+const rsk: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '30',
+  'id': 'evm--30',
+  'name': 'Rootstock',
+  'symbol': 'RBTC',
+  'code': 'rsk',
+  'shortcode': 'rsk',
+  'shortname': 'rsk',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 9999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/rsk.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -2652,6 +2680,7 @@ export const presetNetworksMap = {
   dtc,
   sonic,
   hsk,
+  rsk,
 
   // cosmos
   celestia,
@@ -2834,6 +2863,7 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     dtc,
     sonic,
     hsk,
+    rsk,
 
     // cosmos
     celestia,
