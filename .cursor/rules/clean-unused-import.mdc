@@ -20,7 +20,7 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types' ;
 
 import type {
   IAccountDeriveInfo,
-  IAccountDeriveTypes.
+  IAccountDeriveTypes
 } from '@onekeyhq/kit-bg/src/vaults/types'; 
 ```
 
@@ -32,8 +32,8 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 ## You can only fix '@onekeyhq/components' related.
 ```ts
 import {
-  Checkbox, Dialog. 
-  useClipboard, useForm
+  Checkbox, Dialog,
+  useClipboard, useForm,
   useForm
 } from '@onekeyhq/components'
 ```
