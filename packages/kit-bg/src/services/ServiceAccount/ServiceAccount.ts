@@ -55,6 +55,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IChangeHistoryUpdateItem } from '@onekeyhq/shared/src/types/changeHistory';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
@@ -1172,19 +1173,28 @@ class ServiceAccount extends ServiceBase {
       };
     }
 
-    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
-      allAccountsBelongToNetworkId: networkId,
-      walletId,
-      accounts,
-      importedCredential: credentialEncrypt,
-      accountNameBuilder: ({ nextAccountId }) => {
-        if (fallbackName) {
-          return fallbackName;
-        }
-        return accountUtils.buildBaseAccountName({ nextAccountId });
-      },
-    });
+    const { isOverrideAccounts, existsAccounts } =
+      await localDb.addAccountsToWallet({
+        allAccountsBelongToNetworkId: networkId,
+        walletId,
+        accounts,
+        importedCredential: credentialEncrypt,
+        accountNameBuilder: ({ nextAccountId }) => {
+          if (fallbackName) {
+            return fallbackName;
+          }
+          return accountUtils.buildBaseAccountName({ nextAccountId });
+        },
+      });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+
+    if (isOverrideAccounts && existsAccounts.length) {
+      void this.addAccountNameChangeHistory({
+        accounts,
+        existsAccounts,
+      });
+    }
+
     return {
       networkId,
       walletId,
@@ -1422,27 +1432,66 @@ class ServiceAccount extends ServiceBase {
       };
     }
 
-    const { isOverrideAccounts } = await localDb.addAccountsToWallet({
-      allAccountsBelongToNetworkId: networkId,
-      walletId,
-      accounts,
-      accountNameBuilder: ({ nextAccountId }) => {
-        if (isUrlAccount) {
-          return `Url Account ${Date.now()}`;
-        }
-        if (fallbackName) {
-          return fallbackName;
-        }
-        return accountUtils.buildBaseAccountName({ nextAccountId });
-      },
-    });
+    const { isOverrideAccounts, existsAccounts } =
+      await localDb.addAccountsToWallet({
+        allAccountsBelongToNetworkId: networkId,
+        walletId,
+        accounts,
+        accountNameBuilder: ({ nextAccountId }) => {
+          if (isUrlAccount) {
+            return `Url Account ${Date.now()}`;
+          }
+          if (fallbackName) {
+            return fallbackName;
+          }
+          return accountUtils.buildBaseAccountName({ nextAccountId });
+        },
+      });
     appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+
+    if (isOverrideAccounts && existsAccounts.length) {
+      void this.addAccountNameChangeHistory({
+        accounts,
+        existsAccounts,
+      });
+    }
     return {
       networkId,
       walletId,
       accounts,
       isOverrideAccounts,
     };
+  }
+
+  async addAccountNameChangeHistory({
+    accounts,
+    existsAccounts,
+  }: {
+    accounts: IDBAccount[];
+    existsAccounts: IDBAccount[];
+  }) {
+    const items: IChangeHistoryUpdateItem[] = accounts
+      .map((account) => {
+        const oldName =
+          existsAccounts.find((item) => item.id === account.id)?.name || '';
+        const newName = account.name || '';
+        if (!newName || !oldName) {
+          return null;
+        }
+        return {
+          entityType: EChangeHistoryEntityType.Account,
+          entityId: account.id,
+          contentType: EChangeHistoryContentType.Name,
+          oldValue: oldName,
+          value: newName,
+        };
+      })
+      .filter(Boolean);
+
+    // Record the name change history
+    await simpleDb.changeHistory.addChangeHistory({
+      items,
+    });
   }
 
   @backgroundMethod()
