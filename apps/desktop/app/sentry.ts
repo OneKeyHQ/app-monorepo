@@ -1,7 +1,8 @@
 import * as Sentry from '@sentry/electron/main';
 import isDev from 'electron-is-dev';
+import logger from 'electron-log/main';
 
-import { basicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
+import { buildBasicOptions } from '@onekeyhq/shared/src/modules3rdParty/sentry/basicOptions';
 
 export const initSentry = () => {
   if (isDev) {
@@ -22,7 +23,15 @@ export const initSentry = () => {
   Sentry.init({
     dsn,
     enableRendererProfiling: true,
-    ...basicOptions,
+    ...buildBasicOptions({
+      onError: (errorMessage, stacktrace) => {
+        logger.info(
+          'error >>>> ',
+          errorMessage,
+          stacktrace ? JSON.stringify(stacktrace) : '',
+        );
+      },
+    }),
     transportOptions: {
       maxAgeDays: 30,
       maxQueueSize: 60,

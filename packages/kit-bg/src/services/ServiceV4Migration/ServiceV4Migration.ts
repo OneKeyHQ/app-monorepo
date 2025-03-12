@@ -258,7 +258,7 @@ class ServiceV4Migration extends ServiceBase {
     if (platformEnv.isWeb) {
       return false;
     }
-    
+
     const v4migrationPersistData = await v4migrationPersistAtom.get();
     if (v4migrationPersistData?.v4migrationAutoStartDisabled) {
       return false;
