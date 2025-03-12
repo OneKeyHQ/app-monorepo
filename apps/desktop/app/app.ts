@@ -51,10 +51,10 @@ import {
   startServices,
 } from './service';
 
-initSentry();
-
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
+
+initSentry();
 
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;

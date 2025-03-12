@@ -1,6 +1,3 @@
-// eslint-disable-next-line no-restricted-syntax
-// import React from 'react';
-
 import { useState } from 'react';
 
 import { Button } from '@onekeyhq/components';
