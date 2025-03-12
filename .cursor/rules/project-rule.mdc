@@ -1,5 +1,5 @@
 ---
-description: 
+description: project-level linting and code rules configuration
 globs: *.tsx, *.ts
 alwaysApply: true
 ---
