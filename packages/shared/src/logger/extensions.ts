@@ -1,7 +1,6 @@
 import { InteractionManager } from 'react-native';
 import { logger as RNLogger, consoleTransport } from 'react-native-logs';
 
-// import { stringifyFunc } from './stringifyFunc';
 import utils from './utils';
 
 import type { ILogLevel } from './types';
@@ -11,7 +10,6 @@ const dangerLogger = RNLogger.createLogger<ILogLevel>({
   // eslint-disable-next-line @typescript-eslint/unbound-method
   asyncFunc: InteractionManager.runAfterInteractions,
   dateFormat: 'time', // time, local, utc, iso
-  // stringifyFunc,
   transport: [consoleTransport],
   transportOptions: {
     consoleFunc: utils.consoleFunc,

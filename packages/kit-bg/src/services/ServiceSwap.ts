@@ -1551,43 +1551,39 @@ export default class ServiceSwap extends ServiceBase {
             swapLimitOrdersLoading: true,
           }));
           res = await this.fetchLimitOrders(accounts);
-          if (res.length) {
-            await this.checkLimitOrderStatus(res, swapLimitOrders);
-            await inAppNotificationAtom.set((pre) => {
-              if (sameAccount) {
-                let newList = [...pre.swapLimitOrders];
-                res.forEach((item) => {
-                  const index = newList.findIndex(
-                    (i) => i.orderId === item.orderId,
-                  );
-                  if (index !== -1) {
-                    newList[index] = item;
-                  } else {
-                    newList = [item, ...newList];
-                  }
-                });
-                return {
-                  ...pre,
-                  swapLimitOrders: [...newList],
-                  swapLimitOrdersLoading: false,
-                };
-              }
+          await this.checkLimitOrderStatus(res, swapLimitOrders);
+          await inAppNotificationAtom.set((pre) => {
+            if (sameAccount) {
+              let newList = [...pre.swapLimitOrders];
+              res.forEach((item) => {
+                const index = newList.findIndex(
+                  (i) => i.orderId === item.orderId,
+                );
+                if (index !== -1) {
+                  newList[index] = item;
+                } else {
+                  newList = [item, ...newList];
+                }
+              });
               return {
                 ...pre,
+                swapLimitOrders: [...newList],
                 swapLimitOrdersLoading: false,
-                swapLimitOrders: [...res],
               };
-            });
-            if (
-              res.find((item) => item.status === ESwapLimitOrderStatus.OPEN)
-            ) {
-              this.limitOrderStateInterval = setTimeout(() => {
-                void this.swapLimitOrdersFetchLoop(
-                  indexedAccountId,
-                  otherWalletTypeAccountId,
-                );
-              }, ESwapLimitOrderUpdateInterval);
             }
+            return {
+              ...pre,
+              swapLimitOrdersLoading: false,
+              swapLimitOrders: [...res],
+            };
+          });
+          if (res.find((item) => item.status === ESwapLimitOrderStatus.OPEN)) {
+            this.limitOrderStateInterval = setTimeout(() => {
+              void this.swapLimitOrdersFetchLoop(
+                indexedAccountId,
+                otherWalletTypeAccountId,
+              );
+            }, ESwapLimitOrderUpdateInterval);
           }
         }
       } catch (error) {

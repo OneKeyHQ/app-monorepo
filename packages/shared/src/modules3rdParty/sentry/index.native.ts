@@ -10,7 +10,9 @@ import {
   wrap,
 } from '@sentry/react-native';
 
-import { basicOptions, navigationIntegration } from './basicOptions';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
+import { buildBasicOptions, navigationIntegration } from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
 
@@ -24,7 +26,11 @@ export const initSentry = () => {
   }
   init({
     dsn: 'https://efa7cea7131f10dc294bd2c64bd636bf@o4508208799809536.ingest.de.sentry.io/4508208802627664',
-    ...basicOptions,
+    ...buildBasicOptions({
+      onError: (errorMessage, stacktrace) => {
+        defaultLogger.app.error.log(errorMessage, stacktrace);
+      },
+    }),
     maxCacheItems: 60,
     enableAppHangTracking: true,
     appHangTimeoutInterval: 5,
