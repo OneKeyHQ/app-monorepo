@@ -7,6 +7,7 @@ import {
   Badge,
   Icon,
   Image,
+  LottieView,
   NumberSizeableText,
   SizableText,
   Skeleton,
@@ -108,9 +109,11 @@ const SwapQuoteResultRate = ({
   return (
     <XStack alignItems="center" gap="$5">
       {isLoading ? (
-        <Stack py="$0.5">
-          <Skeleton h="$4" w="$32" />
-        </Stack>
+        <XStack gap="$2">
+          <SizableText size="$bodyMd" color="$text">
+            Fetching quote
+          </SizableText>
+        </XStack>
       ) : (
         <XStack gap="$1" alignItems="center">
           <SwapRefreshButton refreshAction={refreshAction} />
@@ -153,7 +156,19 @@ const SwapQuoteResultRate = ({
               size="$5"
             />
           </Stack>
-        ) : null}
+        ) : (
+          <XStack flex={1} justifyContent="flex-end">
+            <LottieView
+              source={require('@onekeyhq/kit/assets/animations/swap_provider_loading_lottie.json')}
+              autoPlay
+              loop
+              style={{
+                width: 40,
+                height: 20,
+              }}
+            />
+          </XStack>
+        )}
       </XStack>
     </XStack>
   );

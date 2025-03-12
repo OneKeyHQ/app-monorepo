@@ -1,6 +1,5 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
@@ -10,6 +9,7 @@ import {
   Dialog,
   EPageType,
   Icon,
+  LottieView,
   Page,
   Popover,
   SizableText,
@@ -22,13 +22,10 @@ import {
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
-  useSwapLimitPriceUseRateAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
-  useSwapToTokenAmountAtom,
-  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -37,8 +34,6 @@ import {
   EProtocolOfExchange,
   ESwapDirectionType,
   ESwapQuoteKind,
-  ESwapTabSwitchType,
-  LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -154,9 +149,6 @@ const SwapActionsState = ({
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
-  const [swapToAmount] = useSwapToTokenAmountAtom();
-  const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
-  const [swapType] = useSwapTypeSwitchAtom();
   const swapSlippageRef = useRef(slippageItem);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
@@ -212,7 +204,6 @@ const SwapActionsState = ({
         undefined,
         undefined,
         currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
-        true,
       );
     } else {
       cleanQuoteInterval();
@@ -242,11 +233,7 @@ const SwapActionsState = ({
   ]);
 
   const onActionHandlerBefore = useCallback(() => {
-    if (swapActionState.isRefreshQuote) {
-      onActionHandler();
-      return;
-    }
-    if (currentQuoteRes?.quoteShowTip) {
+    if (!swapActionState.isRefreshQuote && currentQuoteRes?.quoteShowTip) {
       Dialog.confirm({
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_continue,
@@ -279,56 +266,15 @@ const SwapActionsState = ({
       currentQuoteRes?.networkCostExceedInfo &&
       !currentQuoteRes.allowanceResult
     ) {
-      let percentage = currentQuoteRes.networkCostExceedInfo?.exceedPercent;
-      const netCost = new BigNumber(
-        currentQuoteRes.networkCostExceedInfo?.cost ?? '0',
-      );
-      if (
-        currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
-        netCost.gt(0)
-      ) {
-        let toRealAmount = new BigNumber(0);
-        if (swapToAmount.value) {
-          toRealAmount = new BigNumber(swapToAmount.value);
-        } else if (fromAmount.value && swapLimitUseRate.rate) {
-          const fromAmountBN = new BigNumber(fromAmount.value);
-          const toAmountBN = new BigNumber(fromAmountBN).multipliedBy(
-            new BigNumber(swapLimitUseRate.rate),
-          );
-          toRealAmount = toAmountBN.decimalPlaces(
-            toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
-            BigNumber.ROUND_HALF_UP,
-          );
-        }
-        const calculateNetworkCostExceedPercent =
-          netCost.dividedBy(toRealAmount);
-        if (calculateNetworkCostExceedPercent.lte(new BigNumber(0.1))) {
-          onActionHandler();
-          return;
-        }
-        percentage = calculateNetworkCostExceedPercent
-          .multipliedBy(100)
-          .toFixed(2);
-      }
       Dialog.confirm({
         title: intl.formatMessage({
           id: ETranslations.swap_network_cost_dialog_title,
         }),
-        description: intl.formatMessage(
-          {
-            id: ETranslations.swap_network_cost_dialog_description,
-          },
-          {
-            number: ` ${percentage}%`,
-          },
-        ),
+        icon: 'ErrorSolid',
         renderContent: (
           <TransactionLossNetworkFeeExceedDialog
             protocol={currentQuoteRes.protocol ?? EProtocolOfExchange.SWAP}
-            networkCostExceedInfo={{
-              ...currentQuoteRes.networkCostExceedInfo,
-              exceedPercent: percentage,
-            }}
+            networkCostExceedInfo={currentQuoteRes.networkCostExceedInfo}
           />
         ),
         onConfirmText: intl.formatMessage({
@@ -349,10 +295,6 @@ const SwapActionsState = ({
     intl,
     onActionHandler,
     swapActionState.isRefreshQuote,
-    swapLimitUseRate.rate,
-    fromAmount.value,
-    swapToAmount.value,
-    toToken?.decimals,
   ]);
 
   const shouldShowRecipient = useMemo(
@@ -420,10 +362,7 @@ const SwapActionsState = ({
           <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id:
-                swapType === ESwapTabSwitchType.LIMIT
-                  ? ETranslations.limit_place_order
-                  : ETranslations.swap_page_swap_steps_2,
+              id: ETranslations.swap_page_swap_steps_2,
             })}
           </SizableText>
         </XStack>
@@ -431,13 +370,12 @@ const SwapActionsState = ({
     }
     return null;
   }, [
+    fromToken?.symbol,
+    intl,
+    md,
+    pageType,
     swapActionState.isApprove,
     isBatchTransfer,
-    pageType,
-    md,
-    intl,
-    fromToken?.symbol,
-    swapType,
   ]);
 
   const recipientComponent = useMemo(() => {
