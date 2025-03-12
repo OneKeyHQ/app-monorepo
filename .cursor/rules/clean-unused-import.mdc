@@ -1,6 +1,6 @@
 ---
 description: Remove useless import declaration code.
-globs: *.tsx, *.ts
+globs: 
 alwaysApply: false
 ---
 # Remember
