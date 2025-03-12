@@ -793,6 +793,7 @@ function SendDataInputContainer() {
                 networkUtils.isLightningNetworkByNetworkId(networkId)
               ) {
                 form.setValue('amount', valueBN.toFixed(0));
+                return;
               }
 
               const dp = valueBN.decimalPlaces();
