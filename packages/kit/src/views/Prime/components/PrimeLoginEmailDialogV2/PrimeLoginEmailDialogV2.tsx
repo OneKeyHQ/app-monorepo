@@ -113,7 +113,7 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
             }}
           >
             <Input
-              keyboardType="email-address"
+              textContentType="emailAddress"
               autoFocus
               autoCapitalize="none"
               size="large"
