@@ -664,22 +664,24 @@ export function useSwapBuildTx() {
                   },
                 },
               };
-              const primaryTypes = { ...typedData.types };
-              delete primaryTypes.EIP712Domain;
-              const populated =
-                await ethers.utils._TypedDataEncoder.resolveNames(
-                  typedData.domain,
-                  primaryTypes,
-                  typedData.message,
-                  async (value: string) => value,
-                );
-              const dataMessage = JSON.stringify(
-                ethers.utils._TypedDataEncoder.getPayload(
-                  populated.domain,
-                  primaryTypes,
-                  populated.value,
-                ),
-              );
+              console.log('swap__typedData--', typedData);
+              const dataMessage = JSON.stringify(typedData);
+              // const primaryTypes = { ...typedData.types };
+              // delete primaryTypes.EIP712Domain;
+              // const populated =
+              //   await ethers.utils._TypedDataEncoder.resolveNames(
+              //     typedData.domain,
+              //     primaryTypes,
+              //     typedData.message,
+              //     async (value: string) => value,
+              //   );
+              // const dataMessage = JSON.stringify(
+              //   ethers.utils._TypedDataEncoder.getPayload(
+              //     populated.domain,
+              //     primaryTypes,
+              //     populated.value,
+              //   ),
+              // );
               const signHash = await new Promise<string>((resolve, reject) => {
                 if (
                   dataMessage &&
