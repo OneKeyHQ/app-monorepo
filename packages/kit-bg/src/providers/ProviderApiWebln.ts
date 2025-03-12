@@ -6,12 +6,10 @@ import {
   backgroundClass,
   providerApiMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import { NotImplemented } from '@onekeyhq/shared/src/errors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EDAppConnectionModal,
   EModalRoutes,
-  EModalSendRoutes,
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import type { ILNURLDetails } from '@onekeyhq/shared/types/lightning';
