@@ -774,7 +774,7 @@ function SendDataInputContainer() {
               const valueBN = new BigNumber(value ?? 0);
 
               if (valueBN.isNaN()) {
-                // Lightning Network only accepts integer values
+                // Lightning Network only accepts integer values on Token Mode
                 const formattedValue =
                   !isUseFiat &&
                   networkUtils.isLightningNetworkByNetworkId(networkId)
@@ -787,7 +787,7 @@ function SendDataInputContainer() {
                 return;
               }
 
-              // Lightning Network only accepts integer values
+              // Lightning Network only accepts integer values on Token Mode
               if (
                 !isUseFiat &&
                 networkUtils.isLightningNetworkByNetworkId(networkId)
