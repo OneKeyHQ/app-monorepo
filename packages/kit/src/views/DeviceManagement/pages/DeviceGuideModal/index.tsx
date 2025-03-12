@@ -23,8 +23,8 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
-import { WalletAvatar } from '../../../../components/WalletAvatar';
-import { useThemeVariant } from '../../../../hooks/useThemeVariant';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
 
 function DeviceItem({
