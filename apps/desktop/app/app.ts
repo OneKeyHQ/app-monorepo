@@ -51,10 +51,10 @@ import {
   startServices,
 } from './service';
 
-initSentry();
-
 logger.initialize();
 logger.transports.file.maxSize = 1024 * 1024 * 10;
+
+initSentry();
 
 // https://github.com/sindresorhus/electron-context-menu
 let disposeContextMenu: ReturnType<typeof contextMenu> | undefined;
@@ -394,6 +394,7 @@ const minHeight = 800;
 function createMainWindow() {
   // https://github.com/electron/electron/issues/16168
   const { screen } = require('electron');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   // eslint-disable-next-line @typescript-eslint/ban-types
