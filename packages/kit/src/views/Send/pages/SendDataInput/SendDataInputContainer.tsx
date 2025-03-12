@@ -772,14 +772,29 @@ function SendDataInputContainer() {
               setIsMaxSend(false);
               const value = e.target?.value;
               const valueBN = new BigNumber(value ?? 0);
+
               if (valueBN.isNaN()) {
-                const formattedValue = Number.parseFloat(value);
+                // Lightning Network only accepts integer values
+                const formattedValue =
+                  !isUseFiat &&
+                  networkUtils.isLightningNetworkByNetworkId(networkId)
+                    ? Number.parseInt(value, 10)
+                    : Number.parseFloat(value);
                 form.setValue(
                   'amount',
                   isNaN(formattedValue) ? '' : String(formattedValue),
                 );
                 return;
               }
+
+              // Lightning Network only accepts integer values
+              if (
+                !isUseFiat &&
+                networkUtils.isLightningNetworkByNetworkId(networkId)
+              ) {
+                form.setValue('amount', valueBN.toFixed(0));
+              }
+
               const dp = valueBN.decimalPlaces();
               if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
                 form.setValue(
@@ -879,6 +894,7 @@ function SendDataInputContainer() {
       network?.isCustomNetwork,
       network?.logoURI,
       network?.name,
+      networkId,
       nft?.metadata?.image,
       nft?.metadata?.name,
       tokenDetails?.info.decimals,
@@ -1189,7 +1205,7 @@ function SendDataInputContainer() {
     if (isNFT) {
       return renderNFTDataInputForm();
     }
-    if (displayAmountFormItem) {
+    if (true) {
       return (
         <>
           {renderTokenDataInputForm()}
