@@ -10,11 +10,8 @@ import {
   Form,
   Input,
   Select,
-  SizableText,
   Stack,
   Toast,
-  YStack,
-  useDialogInstance,
 } from '@onekeyhq/components';
 import type { IDialogShowProps } from '@onekeyhq/components/src/composite/Dialog/type';
 import type { IDBIndexedAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
