@@ -1,10 +1,11 @@
 import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
   EChangeHistoryContentType,
-  EChangeHistoryEntityType,
   IChangeHistoryItem,
   IChangeHistoryUpdateItem,
 } from '@onekeyhq/shared/src/types/changeHistory';
+import { EChangeHistoryEntityType } from '@onekeyhq/shared/src/types/changeHistory';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
@@ -142,13 +143,21 @@ export class SimpleDbEntityChangeHistory extends SimpleDbEntityBase<IChangeHisto
     items: IChangeHistoryUpdateItem[];
   }): Promise<void> {
     await this.setRawData((data) => {
-      const newData = data || ({} as IChangeHistoryData);
+      const newData = data ? { ...data } : ({} as IChangeHistoryData);
       const timestamp = Date.now();
 
       items.forEach((item) => {
         const { entityType, entityId, contentType, oldValue, value } = item;
 
         if (!entityId || !value || value === oldValue) {
+          return;
+        }
+        if (
+          entityType === EChangeHistoryEntityType.Account &&
+          accountUtils.isUrlAccountFn({
+            accountId: entityId,
+          })
+        ) {
           return;
         }
 
