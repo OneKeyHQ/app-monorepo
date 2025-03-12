@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "Tidak ada data",
   "global.no_device_connected": "Tidak ada perangkat yang terhubung",
-  "global.no_device_connected_desc": "Hubungkan dompet perangkat keras OneKey Anda untuk melihat info perangkat, memverifikasi keaslian, memeriksa pembaruan firmware, dan mengelola pengaturan keamanan.",
+  "global.no_device_connected_desc": "Kelola dan lihat perangkat Anda di satu tempat",
   "global.no_network_address": "Tidak ada alamat {network}",
   "global.no_results": "Tidak ada hasil",
   "global.no_transactions_yet": "Belum Ada Transaksi",

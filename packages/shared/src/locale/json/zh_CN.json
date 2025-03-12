@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "暂无数据",
   "global.no_device_connected": "没有设备连接",
-  "global.no_device_connected_desc": "连接您的OneKey硬件钱包以查看设备信息、验证真实性、检查固件更新以及管理安全设置。",
+  "global.no_device_connected_desc": "统一管理和查看您的设备",
   "global.no_network_address": "没有 {network} 地址",
   "global.no_results": "无结果",
   "global.no_transactions_yet": "暂无交易",
