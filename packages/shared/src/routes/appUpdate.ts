@@ -1,6 +1,8 @@
 export enum EAppUpdateRoutes {
   UpdatePreview = 'UpdatePreview',
   WhatsNew = 'WhatsNew',
+  DownloadVerify = 'DownloadVerify',
+  ManualInstall = 'ManualInstall',
 }
 
 export type IAppUpdatePagesParamList = {
@@ -9,5 +11,7 @@ export type IAppUpdatePagesParamList = {
     isForceUpdate?: boolean;
     autoClose?: boolean;
   };
+  [EAppUpdateRoutes.DownloadVerify]: undefined;
   [EAppUpdateRoutes.WhatsNew]: undefined;
+  [EAppUpdateRoutes.ManualInstall]: undefined;
 };

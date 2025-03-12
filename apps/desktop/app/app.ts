@@ -394,6 +394,7 @@ const minHeight = 800;
 function createMainWindow() {
   // https://github.com/electron/electron/issues/16168
   const { screen } = require('electron');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const display = screen.getPrimaryDisplay();
   const dimensions = display.workAreaSize;
   // eslint-disable-next-line @typescript-eslint/ban-types

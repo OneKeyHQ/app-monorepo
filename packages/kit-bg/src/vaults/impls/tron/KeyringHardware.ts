@@ -264,7 +264,7 @@ export class KeyringHardware extends KeyringHardwareBase {
           expiration,
           timestamp,
           feeLimit: feeLimit as number,
-          contract: contractCall as TronTransactionContract,
+          contract: contractCall,
         },
         ...deviceCommonParams,
       }),

@@ -831,4 +831,6 @@ module.exports = [
   'Pendle',
   'Cowswap',
   'Ethena',
+  'Mev',
+  'mev',
 ];

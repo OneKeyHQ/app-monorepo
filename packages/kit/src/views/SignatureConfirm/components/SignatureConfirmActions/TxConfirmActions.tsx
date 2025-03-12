@@ -122,7 +122,6 @@ function TxConfirmActions(props: IProps) {
     const { serviceSend } = backgroundApiProxy;
 
     updateSendTxStatus({ isSubmitting: true });
-    isSubmitted.current = true;
     // Pre-check before submit
 
     const accountAddress =
@@ -281,6 +280,8 @@ function TxConfirmActions(props: IProps) {
       });
 
       const signedTx = result[0].signedTx;
+
+      isSubmitted.current = true;
 
       void dappApprove.resolve({ result: signedTx });
 
