@@ -2,7 +2,10 @@ import BigNumber from 'bignumber.js';
 
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { dangerAllNetworkRepresent } from '@onekeyhq/shared/src/config/presetNetworks';
-import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapProviderSort,
   swapProviderRecommendApprovedWeights,
@@ -446,6 +449,14 @@ export const {
   if (
     fromTokenPriceInfo &&
     toTokenPriceInfo &&
+    equalTokenNoCaseSensitive({
+      token1: fromToken,
+      token2: fromTokenPriceInfo.tokenInfo,
+    }) &&
+    equalTokenNoCaseSensitive({
+      token1: toToken,
+      token2: toTokenPriceInfo.tokenInfo,
+    }) &&
     !checkWrappedTokenPair({
       fromToken,
       toToken,

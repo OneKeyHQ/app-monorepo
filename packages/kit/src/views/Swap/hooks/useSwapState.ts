@@ -297,12 +297,13 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-      if (!fromTokenAmount) {
+      if (fromTokenAmountBN.isNaN() || fromTokenAmountBN.isZero()) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_enter_amount,
         });
         infoRes.disable = true;
       }
+
       if (isRefreshQuote || quoteResultNoMatchDebounce) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
