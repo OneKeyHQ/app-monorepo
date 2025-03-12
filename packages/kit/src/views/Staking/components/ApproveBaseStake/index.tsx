@@ -603,10 +603,17 @@ export function ApproveBaseStake({
 
   const onApprove = useCallback(async () => {
     setApproving(true);
+    let approveAllowance = allowance;
+    try {
+      const allowanceInfo = await fetchAllowanceResponse();
+      approveAllowance = allowanceInfo.allowanceParsed;
+    } catch (e) {
+      console.error(e);
+    }
     permitSignatureRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
 
-    const allowanceBN = BigNumber(allowance);
+    const allowanceBN = BigNumber(approveAllowance);
     const amountBN = BigNumber(amountValue);
 
     if (earnUtils.isUSDTonETHNetwork(token)) {
@@ -701,8 +708,8 @@ export function ApproveBaseStake({
       },
     });
   }, [
-    amountValue,
     allowance,
+    amountValue,
     token,
     usePermit2Approve,
     approveTarget.accountId,
@@ -710,6 +717,7 @@ export function ApproveBaseStake({
     approveTarget.spenderAddress,
     approveTarget.token,
     navigationToTxConfirm,
+    fetchAllowanceResponse,
     showResetUSDTApproveValueDialog,
     checkEstimateGasAlert,
     getPermitCache,
@@ -717,8 +725,8 @@ export function ApproveBaseStake({
     details,
     updatePermitCache,
     onSubmit,
-    trackAllowance,
     debouncedFetchEstimateFeeResp,
+    trackAllowance,
   ]);
 
   const placeholderTokens = useMemo(
