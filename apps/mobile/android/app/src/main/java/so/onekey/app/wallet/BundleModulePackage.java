@@ -1,7 +1,5 @@
 package so.onekey.app.wallet;
 
-import android.os.Bundle;
-
 import com.facebook.react.ReactNativeHost;
 import com.facebook.react.ReactPackage;
         import com.facebook.react.bridge.NativeModule;

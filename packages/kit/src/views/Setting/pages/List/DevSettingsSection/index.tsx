@@ -4,6 +4,7 @@ import { useIntl } from 'react-intl';
 import { I18nManager } from 'react-native';
 
 import {
+  Button,
   Dialog,
   ESwitchSize,
   Input,
@@ -49,6 +50,7 @@ import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
 import { AddressBookDevSetting } from './AddressBookDevSetting';
 import { AsyncStorageDevSettings } from './AsyncStorageDevSettings';
 import { AutoJumpSetting } from './AutoJumpSetting';
+import { AutoUpdateSection } from './AutoUpdateSection';
 import { CrashDevSettings } from './CrashDevSettings';
 import { NetInfo } from './NetInfo';
 import { NotificationDevSettings } from './NotificationDevSettings';
@@ -344,7 +346,7 @@ export const DevSettingsSection = () => {
           }}
         />
       </ListItem>
-
+      <AutoUpdateSection />
       <SectionPressItem
         title="Export Accounts Data"
         onPress={() => {

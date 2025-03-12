@@ -1494,10 +1494,37 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
-  async createQrWallet({ qrDevice, airGapAccounts }: IDBCreateQRWalletParams) {
-    const { deviceId: rawDeviceId, xfp } = qrDevice;
+  private async getQrWalletExistingDevice({
+    rawDeviceId,
+    xfp,
+  }: {
+    rawDeviceId: string;
+    xfp: string;
+  }): Promise<IDBDevice | undefined> {
+    const { wallets: allWallets } = await this.getAllWallets();
+    const existingQrWallet = allWallets.find(
+      (w) => w.type === WALLET_TYPE_QR && w.xfp && w.xfp === xfp,
+    );
+    if (existingQrWallet?.associatedDevice) {
+      const associatedDevice = await this.getDeviceSafe(
+        existingQrWallet.associatedDevice,
+      );
+      if (associatedDevice) {
+        return associatedDevice;
+      }
+    }
+
     const existingDevice = await this.getDeviceByQuery({
       featuresDeviceId: rawDeviceId,
+    });
+    return existingDevice;
+  }
+
+  async createQrWallet({ qrDevice, airGapAccounts }: IDBCreateQRWalletParams) {
+    const { deviceId: rawDeviceId, xfp } = qrDevice;
+    const existingDevice = await this.getQrWalletExistingDevice({
+      rawDeviceId,
+      xfp,
     });
     const dbDeviceId = existingDevice?.id || accountUtils.buildDeviceDbId();
 
@@ -1566,6 +1593,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           ids: [dbDeviceId],
           updater: async (item) => {
             item.updatedAt = now;
+            item.deviceId = rawDeviceId;
             // TODO update qrDevice last version(not updated version)
             return item;
           },

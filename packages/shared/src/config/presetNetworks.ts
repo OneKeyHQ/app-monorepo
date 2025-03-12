@@ -2901,3 +2901,22 @@ export const getNetworksSupportFilterScamHistory = memoFn(
     tron,
   ],
 );
+
+export const getNetworksSupportMevProtection = memoFn(
+  (): Record<
+    string,
+    {
+      name: string;
+      logoURI: string;
+    }
+  > => ({
+    [eth.id]: {
+      name: 'MEV Blocker',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/mev_blocker.png',
+    },
+    [bsc.id]: {
+      name: 'BLOXROUTE',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/bloxroute.png',
+    },
+  }),
+);
