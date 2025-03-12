@@ -11,9 +11,13 @@ export type IDownloadPackage = (params: {
   latestVersion?: string;
 }) => Promise<IUpdateDownloadedEvent>;
 
-export type IVerifyPackage = (params: IUpdateDownloadedEvent) => Promise<void>;
-
 export type IInstallPackage = (params: IAppUpdateInfo) => Promise<void>;
+
+export type IDownloadASC = (params: IUpdateDownloadedEvent) => Promise<void>;
+
+export type IVerifyASC = (params: IUpdateDownloadedEvent) => Promise<void>;
+
+export type IVerifyPackage = (params: IUpdateDownloadedEvent) => Promise<void>;
 
 export type IUseDownloadProgress = (
   onSuccess: () => void,

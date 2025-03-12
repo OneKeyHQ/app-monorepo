@@ -138,7 +138,6 @@ export type IModalSignatureConfirmParamList = {
     networkId: string;
     indexedAccountId: string;
     walletId: string;
-    accountId: string;
     actionType?: EDeriveAddressActionType;
     onSelected?: ({
       account,

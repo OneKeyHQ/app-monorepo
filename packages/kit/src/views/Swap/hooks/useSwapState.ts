@@ -259,7 +259,11 @@ export function useSwapActionState() {
         !quoteCurrentSelect.isWrapped &&
         !quoteCurrentSelect.allowanceResult
       ) {
-        if (!swapUseLimitPrice.rate) {
+        if (
+          !swapUseLimitPrice.rate ||
+          new BigNumber(swapUseLimitPrice.rate ?? 0).isZero() ||
+          new BigNumber(swapUseLimitPrice.rate ?? 0).isNaN()
+        ) {
           infoRes.disable = true;
         }
       }

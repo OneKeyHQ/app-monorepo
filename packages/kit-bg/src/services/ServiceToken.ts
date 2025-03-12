@@ -517,11 +517,20 @@ class ServiceToken extends ServiceBase {
     if (localToken) return localToken;
 
     try {
-      const tokensDetails = await this.fetchTokensDetails({
-        accountId,
-        networkId,
-        contractList: [tokenIdOnNetwork],
-      });
+      let tokensDetails: IFetchTokenDetailItem[] = [];
+
+      if (accountId === '') {
+        tokensDetails = await this.fetchTokenInfoOnly({
+          networkId,
+          contractList: [tokenIdOnNetwork],
+        });
+      } else {
+        tokensDetails = await this.fetchTokensDetails({
+          accountId,
+          networkId,
+          contractList: [tokenIdOnNetwork],
+        });
+      }
 
       let tokenInfo = tokensDetails[0].info;
 

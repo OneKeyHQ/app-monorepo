@@ -1,18 +1,24 @@
 import type {
   IClearPackage,
+  IDownloadASC,
   IDownloadPackage,
   IInstallPackage,
   IUpdateDownloadedEvent,
   IUseDownloadProgress,
+  IVerifyASC,
   IVerifyPackage,
 } from './type';
 
 export const downloadPackage: IDownloadPackage = async () =>
   ({} as IUpdateDownloadedEvent);
 
-export const verifyPackage: IVerifyPackage = async () => {};
+export const downloadASC: IDownloadASC = async () => Promise.resolve();
 
-export const installPackage: IInstallPackage = async () => {};
+export const verifyASC: IVerifyASC = async () => Promise.resolve();
+
+export const verifyPackage: IVerifyPackage = async () => Promise.resolve();
+
+export const installPackage: IInstallPackage = async () => Promise.resolve();
 
 export type * from './type';
 

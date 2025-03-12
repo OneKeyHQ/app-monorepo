@@ -80,7 +80,7 @@ function DeviceGuideModal() {
   }, [navigation]);
 
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_device_management,
