@@ -31,6 +31,7 @@ const InAppNotification = () => {
     activeAccount?.account?.id,
     activeAccount?.dbAccount?.id,
     activeAccount?.ready,
+    activeAccount,
   ]);
 
   return null;

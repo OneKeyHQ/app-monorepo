@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "Немає даних",
   "global.no_device_connected": "Немає підключеного пристрою",
-  "global.no_device_connected_desc": "Підключіть ваш апаратний гаманець OneKey, щоб переглянути інформацію про пристрій, перевірити автентичність, перевірити оновлення прошивки та керувати налаштуваннями безпеки.",
+  "global.no_device_connected_desc": "Керуйте та переглядайте свої пристрої в одному місці",
   "global.no_network_address": "Немає {network} адреси",
   "global.no_results": "Немає результатів",
   "global.no_transactions_yet": "Жодних транзакцій ще не було",

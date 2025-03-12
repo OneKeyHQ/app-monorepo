@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "No hay datos",
   "global.no_device_connected": "Ningún dispositivo conectado",
-  "global.no_device_connected_desc": "Conecta tu billetera de hardware OneKey para ver la información del dispositivo, verificar la autenticidad, comprobar las actualizaciones de firmware y gestionar la configuración de seguridad.",
+  "global.no_device_connected_desc": "Administra y visualiza tus dispositivos en un solo lugar",
   "global.no_network_address": "No hay dirección de {network}",
   "global.no_results": "No hay resultados",
   "global.no_transactions_yet": "Aún no hay transacciones",

@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "데이터 없음",
   "global.no_device_connected": "장치가 연결되지 않음",
-  "global.no_device_connected_desc": "OneKey 하드웨어 지갑을 연결하여 장치 정보를 확인하고, 진위 여부를 검증하며, 펌웨어 업데이트를 확인하고, 보안 설정을 관리하세요.",
+  "global.no_device_connected_desc": "한 곳에서 기기를 관리하고 확인하세요",
   "global.no_network_address": "{network} 주소가 없습니다",
   "global.no_results": "결과 없음",
   "global.no_transactions_yet": "아직 거래 없음",
