@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "Нет данных",
   "global.no_device_connected": "Нет подключенного устройства",
-  "global.no_device_connected_desc": "Подключите ваш аппаратный кошелек OneKey, чтобы просмотреть информацию об устройстве, проверить подлинность, проверить обновления прошивки и управлять настройками безопасности.",
+  "global.no_device_connected_desc": "Управляйте и просматривайте свои устройства в одном месте",
   "global.no_network_address": "Нет адреса {network}",
   "global.no_results": "Нет результатов",
   "global.no_transactions_yet": "Пока нет транзакций",

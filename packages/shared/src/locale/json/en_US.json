@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "No data",
   "global.no_device_connected": "No device connected",
-  "global.no_device_connected_desc": "Connect your OneKey hardware wallet to view device info, verify authenticity, check firmware updates, and manage security settings.",
+  "global.no_device_connected_desc": "Manage and view your devices in one place",
   "global.no_network_address": "No {network} address",
   "global.no_results": "No results",
   "global.no_transactions_yet": "No Transactions Yet",
