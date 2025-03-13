@@ -111,7 +111,9 @@ const SwapQuoteResultRate = ({
       {isLoading ? (
         <XStack gap="$2">
           <SizableText size="$bodyMd" color="$text">
-            Fetching quote
+            {intl.formatMessage({
+              id: ETranslations.swap_loading_content,
+            })}
           </SizableText>
         </XStack>
       ) : (
@@ -159,14 +161,21 @@ const SwapQuoteResultRate = ({
         ) : (
           <XStack flex={1} justifyContent="flex-end">
             <LottieView
-              source={require('@onekeyhq/kit/assets/animations/swap_provider_loading_lottie.json')}
+              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
               autoPlay
               loop
               style={{
-                width: 40,
+                width: 48,
                 height: 20,
               }}
             />
+            <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
+              <Icon
+                name="ChevronDownSmallOutline"
+                color={openResult ? '$iconActive' : '$iconSubdued'}
+                size="$5"
+              />
+            </Stack>
           </XStack>
         )}
       </XStack>
