@@ -30,7 +30,10 @@ import {
   useSwapToTokenAmountAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
@@ -72,7 +75,9 @@ function PercentageStageOnKeyboard({
   onSelectPercentageStage?: (stage: number) => void;
 }) {
   const isShow = useIsKeyboardShown();
-  return isShow ? (
+  const [{ swapPercentageInputStageShowForNative }] =
+    useInAppNotificationAtom();
+  return isShow && swapPercentageInputStageShowForNative ? (
     <XStack
       alignItems="center"
       gap="$1"
@@ -288,14 +293,19 @@ const SwapActionsState = ({
         netCost.gt(0)
       ) {
         let toRealAmount = new BigNumber(0);
-        if (swapToAmount.value) {
+        const fromAmountBN = new BigNumber(fromAmount.value);
+        const toAmountBN = new BigNumber(swapToAmount.value);
+        if (!toAmountBN.isNaN() && !toAmountBN.isZero()) {
           toRealAmount = new BigNumber(swapToAmount.value);
-        } else if (fromAmount.value && swapLimitUseRate.rate) {
-          const fromAmountBN = new BigNumber(fromAmount.value);
-          const toAmountBN = new BigNumber(fromAmountBN).multipliedBy(
+        } else if (
+          !fromAmountBN.isNaN() &&
+          !fromAmountBN.isZero() &&
+          swapLimitUseRate.rate
+        ) {
+          const cToAmountBN = new BigNumber(fromAmountBN).multipliedBy(
             new BigNumber(swapLimitUseRate.rate),
           );
-          toRealAmount = toAmountBN.decimalPlaces(
+          toRealAmount = cToAmountBN.decimalPlaces(
             toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
             BigNumber.ROUND_HALF_UP,
           );
