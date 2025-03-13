@@ -162,6 +162,7 @@ export function DesktopLeftSideBar({
         type: 'timing',
       }}
       style={{
+        backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
         borderRightColor: theme.neutral4.val,
         borderRightWidth: isCollapse ? 0 : StyleSheet.hairlineWidth,
