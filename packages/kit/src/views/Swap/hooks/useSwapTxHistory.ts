@@ -41,6 +41,12 @@ export function useSwapTxHistoryActions() {
         (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
           swapTxInfo.swapBuildResData.result.isWrapped)
       ) {
+        const useOrderId = Boolean(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
+        );
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo?.symbol,
@@ -68,14 +74,7 @@ export function useSwapTxHistoryActions() {
           },
           txInfo: {
             txId,
-            useOrderId: !!(
-              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              (
-                swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ||
-                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-                swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash
-              )
-            ),
+            useOrderId,
             gasFeeFiatValue,
             gasFeeInNative,
             orderId:
