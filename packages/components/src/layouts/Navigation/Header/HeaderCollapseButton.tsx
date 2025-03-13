@@ -17,9 +17,11 @@ import HeaderIconButton from './HeaderIconButton';
 
 function HeaderCollapseButton({
   isRootScreen = true,
+  hideWhenOpen,
   hideWhenCollapse,
 }: {
   isRootScreen?: boolean;
+  hideWhenOpen?: boolean;
   hideWhenCollapse?: boolean;
 }) {
   const intl = useIntl();
@@ -37,13 +39,17 @@ function HeaderCollapseButton({
 
   const paddingLeft = useMemo(
     () =>
-      platformEnv.isDesktopMac && hideWhenCollapse && isRootScreen ? '$20' : 0,
-    [hideWhenCollapse, isRootScreen],
+      platformEnv.isDesktopMac && hideWhenOpen && isRootScreen ? '$20' : 0,
+    [hideWhenOpen, isRootScreen],
   );
+
+  if (hideWhenCollapse && isCollapse) {
+    return null;
+  }
 
   return (
     <AnimatePresence>
-      {hideWhenCollapse && !isCollapse ? null : (
+      {hideWhenOpen && !isCollapse ? null : (
         <Stack
           pl={paddingLeft}
           testID="Desktop-AppSideBar-Button"

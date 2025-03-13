@@ -17,7 +17,6 @@ import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { DesktopDragZoneAbsoluteBar } from '../../../DesktopDragZoneBox';
 import HeaderCollapseButton from '../../Header/HeaderCollapseButton';
 
 import { DesktopTabItem } from './DesktopTabItem';
@@ -163,7 +162,6 @@ export function DesktopLeftSideBar({
         type: 'timing',
       }}
       style={{
-        backgroundColor: theme.bgSidebar.val,
         paddingTop: top,
         borderRightColor: theme.neutral4.val,
         borderRightWidth: isCollapse ? 0 : StyleSheet.hairlineWidth,
@@ -171,11 +169,9 @@ export function DesktopLeftSideBar({
       }}
     >
       {platformEnv.isDesktopMac ? (
-        <DesktopDragZoneAbsoluteBar
-          position="relative"
-          testID="Desktop-AppSideBar-DragZone"
-          h="$10"
-        />
+        <XStack h={52} ai="center" jc="flex-end" px="$4">
+          <HeaderCollapseButton isRootScreen hideWhenCollapse/>
+        </XStack>
       ) : null}
       <YStack
         position="relative"
@@ -197,10 +193,12 @@ export function DesktopLeftSideBar({
           }}
         >
           <YStack flex={1}>
-            <XStack ai="center" jc="space-between" pr="$3">
-              <OneKeyLogo />
-              <HeaderCollapseButton isRootScreen />
-            </XStack>
+            {!platformEnv.isDesktopMac ? (
+              <XStack ai="center" jc="space-between" pr="$3">
+                <OneKeyLogo />
+                <HeaderCollapseButton isRootScreen />
+              </XStack>
+            ) : null}
             <YStack flex={1} pt="$3" px="$3">
               {tabs}
             </YStack>
