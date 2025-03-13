@@ -20,6 +20,7 @@ interface IHandleWebSiteParams {
   dApp?: IDApp;
   useSystemBrowser?: boolean;
   shouldPopNavigation?: boolean;
+  useCurrentWindow?: boolean;
   enterMethod: EEnterMethod;
 }
 
@@ -36,8 +37,9 @@ export const useWebSiteHandler = () => {
       webSite,
       dApp,
       useSystemBrowser,
-      shouldPopNavigation = true,
+      shouldPopNavigation,
       enterMethod,
+      useCurrentWindow,
     }: IHandleWebSiteParams) => {
       if (!webSite?.url) {
         return;
@@ -65,6 +67,7 @@ export const useWebSiteHandler = () => {
           navigation,
           shouldPopNavigation,
           switchToMultiTabBrowser: gtMd,
+          useCurrentWindow,
         });
       }
 

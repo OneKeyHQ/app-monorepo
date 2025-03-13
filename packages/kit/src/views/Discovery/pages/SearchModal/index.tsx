@@ -15,12 +15,15 @@ import {
   Skeleton,
   Stack,
   XStack,
+  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -30,7 +33,6 @@ import {
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
-import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
@@ -52,10 +54,11 @@ function SearchModal() {
     useRoute<
       RouteProp<IDiscoveryModalParamList, EDiscoveryModalRoutes.SearchModal>
     >();
-  const { url = '' } = route.params ?? {};
+  const { useCurrentWindow, tabId, url = '' } = route.params ?? {};
 
   const [searchValue, setSearchValue] = useState(url);
-  const webSiteHandler = useWebSiteHandler();
+  const { gtMd } = useMedia();
+  const { handleOpenWebSite } = useBrowserAction().current;
 
   const { serviceDiscovery } = backgroundApiProxy;
   const { result: localData, run: refreshLocalData } =
@@ -160,20 +163,30 @@ function SearchModal() {
           }}
           onPress={() => {
             if (item.dappId === SEARCH_ITEM_ID) {
-              void webSiteHandler({
+              handleOpenWebSite({
+                navigation,
+                useCurrentWindow,
+                tabId,
                 webSite: {
                   url: searchValue,
                   title: searchValue,
                 },
+              });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: searchValue,
+                dappName: searchValue,
                 enterMethod: EEnterMethod.search,
               });
             } else {
-              void webSiteHandler({
+              handleOpenWebSite({
+                navigation,
+                useCurrentWindow,
+                tabId,
                 dApp: item,
-                webSite: {
-                  url: item.url,
-                  title: item.name,
-                },
+              });
+              defaultLogger.discovery.dapp.enterDapp({
+                dappDomain: item.name,
+                dappName: item.url,
                 enterMethod: EEnterMethod.search,
               });
             }
@@ -181,7 +194,7 @@ function SearchModal() {
           testID={`dapp-search${index}`}
         />
       )),
-    [webSiteHandler, searchValue],
+    [handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
   );
 
   return (
@@ -206,11 +219,19 @@ function SearchModal() {
               if (!searchValue) {
                 navigation.pop();
               } else {
-                void webSiteHandler({
+                handleOpenWebSite({
+                  navigation,
+                  useCurrentWindow,
+                  tabId,
                   webSite: {
                     url: searchValue,
                     title: searchValue,
                   },
+                });
+
+                defaultLogger.discovery.dapp.enterDapp({
+                  dappDomain: searchValue,
+                  dappName: searchValue,
                   enterMethod: EEnterMethod.addressBar,
                 });
               }
@@ -250,11 +271,19 @@ function SearchModal() {
                       flexBasis: '16.66666667%',
                     }}
                     onPress={() => {
-                      void webSiteHandler({
+                      handleOpenWebSite({
+                        navigation,
+                        useCurrentWindow,
+                        tabId,
                         webSite: {
                           url: item.url,
                           title: item.title,
                         },
+                      });
+
+                      defaultLogger.discovery.dapp.enterDapp({
+                        dappDomain: item.url,
+                        dappName: item.title,
                         enterMethod: EEnterMethod.bookmarkInSearch,
                       });
                     }}
@@ -321,11 +350,19 @@ function SearchModal() {
                   }}
                   testID={`search-modal-${item.title.toLowerCase()}`}
                   onPress={() => {
-                    void webSiteHandler({
+                    handleOpenWebSite({
+                      navigation,
+                      useCurrentWindow,
+                      tabId,
                       webSite: {
                         url: item.url,
                         title: item.title,
                       },
+                    });
+
+                    defaultLogger.discovery.dapp.enterDapp({
+                      dappDomain: item.url,
+                      dappName: item.title,
                       enterMethod: EEnterMethod.historyInSearch,
                     });
                   }}
