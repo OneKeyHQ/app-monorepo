@@ -49,7 +49,7 @@ const LimitRateInput = ({
       </SizableText>
       <Input
         key={`${currency.from}-${currency.to}`}
-        autoScrollTopDelayMs={550}
+        autoScrollTopDelayMs={2500}
         keyboardType="decimal-pad"
         fontSize={getFontSize('$heading3xl')}
         fontWeight="600"
