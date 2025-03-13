@@ -138,6 +138,7 @@ function useReplaceTx({
             handleOpenWebSite({
               navigation,
               useCurrentWindow: false,
+              switchToMultiTabBrowser: gtMd,
               webSite: {
                 url: `https://www.f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
                 title: 'F2Pool',
@@ -159,7 +160,15 @@ function useReplaceTx({
         });
       }
     },
-    [canReplaceTx, historyTx, intl, navigation, onSuccess, handleOpenWebSite],
+    [
+      historyTx,
+      canReplaceTx,
+      intl,
+      handleOpenWebSite,
+      navigation,
+      gtMd,
+      onSuccess,
+    ],
   );
 
   const handleCheckSpeedUpState = useCallback(async () => {

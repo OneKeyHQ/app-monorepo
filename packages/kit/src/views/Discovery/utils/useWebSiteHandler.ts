@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import {
   useBrowserAction,
@@ -28,6 +29,7 @@ export const useWebSiteHandler = () => {
   const navigation = useAppNavigation();
   const { activeTabId } = useActiveTabId();
   const { tab: activeTab } = useWebTabDataById(activeTabId ?? '');
+  const { gtMd } = useMedia();
 
   return useCallback(
     async ({
@@ -62,6 +64,7 @@ export const useWebSiteHandler = () => {
           dApp,
           navigation,
           shouldPopNavigation,
+          switchToMultiTabBrowser: gtMd,
         });
       }
 
