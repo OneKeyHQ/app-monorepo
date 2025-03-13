@@ -170,7 +170,7 @@ export function DesktopLeftSideBar({
     >
       {platformEnv.isDesktopMac ? (
         <XStack h={52} ai="center" jc="flex-end" px="$4">
-          <HeaderCollapseButton isRootScreen hideWhenCollapse/>
+          <HeaderCollapseButton isRootScreen hideWhenCollapse />
         </XStack>
       ) : null}
       <YStack
