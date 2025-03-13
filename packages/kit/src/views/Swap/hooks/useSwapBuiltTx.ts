@@ -829,7 +829,12 @@ export function useSwapBuildTx() {
               encodedTx = res.tx as string;
             }
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          } else if (res?.ctx.cowSwapOrderId) {
+          } else if (
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            res?.ctx.cowSwapOrderId ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            res?.ctx.oneInchFusionOrderHash
+          ) {
             skipSendTransAction = true;
             void Toast.success({
               title: intl.formatMessage({
