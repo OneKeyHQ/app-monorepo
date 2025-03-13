@@ -2083,6 +2083,7 @@
   spotlight_account_alignment_desc = 'spotlight.account_alignment_desc',
   spotlight_enable_account_asset_message = 'spotlight.enable_account_asset_message',
   spotlight_enable_network_message = 'spotlight.enable_network_message',
+  swap_loading_content = 'swap.loading_content',
   swap_network_cost_dialog_content = 'swap.network_cost_dialog_content',
   swap_network_cost_dialog_description = 'swap.network_cost_dialog_description',
   swap_network_cost_dialog_title = 'swap.network_cost_dialog_title',
