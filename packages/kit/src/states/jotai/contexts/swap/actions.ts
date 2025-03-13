@@ -1705,6 +1705,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapAccountNetworkId?: string,
     ) => {
       set(swapTypeSwitchAtom(), type);
+      const fromTokenAmount = get(swapFromTokenAmountAtom());
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
+      if (
+        type === ESwapTabSwitchType.LIMIT &&
+        !fromTokenAmountBN.isNaN() &&
+        !fromTokenAmountBN.isZero()
+      ) {
+        set(swapFromTokenAmountAtom(), (o) => ({ ...o, isInput: true }));
+      }
       this.cleanManualSelectQuoteProviders.call(set);
       const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
