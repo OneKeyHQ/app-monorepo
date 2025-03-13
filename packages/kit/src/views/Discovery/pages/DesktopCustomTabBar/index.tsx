@@ -33,7 +33,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EDiscoveryModalRoutes,
+  EModalRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
@@ -382,7 +386,13 @@ function DesktopCustomTabBar() {
                 onPress={(e) => {
                   e.stopPropagation();
 
-                  addBrowserHomeTab();
+                  if (platformEnv.isDesktop) {
+                    addBrowserHomeTab();
+                  } else {
+                    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                      screen: EDiscoveryModalRoutes.SearchModal,
+                    });
+                  }
                 }}
               />
             </>
