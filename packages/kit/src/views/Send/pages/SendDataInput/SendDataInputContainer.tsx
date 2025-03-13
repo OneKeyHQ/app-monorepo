@@ -1206,7 +1206,7 @@ function SendDataInputContainer() {
     if (isNFT) {
       return renderNFTDataInputForm();
     }
-    if (true) {
+    if (displayAmountFormItem) {
       return (
         <>
           {renderTokenDataInputForm()}

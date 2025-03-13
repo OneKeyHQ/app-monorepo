@@ -114,7 +114,6 @@ export const useAutoScrollToTop = platformEnv.isNativeAndroid
   ? (ref: RefObject<TextInput>, waitMs = 250) => {
       useEffect(() => {
         setTimeout(() => {
-          console.log('ref.current?.setSelection', ref.current?.setSelection);
           ref.current?.setSelection(0, 0);
         }, waitMs);
       }, [ref, waitMs]);

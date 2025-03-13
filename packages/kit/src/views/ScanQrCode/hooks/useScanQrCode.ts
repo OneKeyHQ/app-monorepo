@@ -81,8 +81,6 @@ export default function useScanQrCode() {
                   }
                 }
 
-                console.log('parseValue.type--', parseValue.type);
-
                 if (parseValue.type === EQRCodeHandlerType.UNKNOWN) {
                   popNavigation();
                 }
