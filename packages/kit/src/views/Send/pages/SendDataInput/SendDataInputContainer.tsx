@@ -157,6 +157,15 @@ function SendDataInputContainer() {
     networkId,
   });
 
+  const [isShowPercentToolbar, setIsShowPercentToolbar] = useState(false);
+  const showPercentToolbar = useCallback(() => {
+    setIsShowPercentToolbar(true);
+  }, []);
+
+  const hidePercentToolbar = useCallback(() => {
+    setIsShowPercentToolbar(false);
+  }, []);
+
   const [isHexTxMessage, setIsHexTxMessage] = useState(false);
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
 
@@ -833,6 +842,8 @@ function SendDataInputContainer() {
             inputProps={{
               inputAccessoryViewID: sendInputAccessoryViewID,
               placeholder: '0',
+              onFocus: platformEnv.isNative ? showPercentToolbar : undefined,
+              onBlur: platformEnv.isNative ? hidePercentToolbar : undefined,
               ...(isUseFiat && {
                 leftAddOnProps: {
                   label: currencySymbol,
@@ -884,6 +895,7 @@ function SendDataInputContainer() {
       handleOnSelectToken,
       handleValidateTokenAmount,
       hasFrozenBalance,
+      hidePercentToolbar,
       intl,
       isLoadingAssets,
       isNFT,
@@ -898,6 +910,7 @@ function SendDataInputContainer() {
       networkId,
       nft?.metadata?.image,
       nft?.metadata?.name,
+      showPercentToolbar,
       tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
       tokenInfo?.symbol,
@@ -1385,9 +1398,11 @@ function SendDataInputContainer() {
             loading: isSubmitting,
           }}
         />
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
+        {isShowPercentToolbar ? (
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        ) : null}
       </Page.Footer>
     </Page>
   );
