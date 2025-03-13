@@ -28,6 +28,7 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 @backgroundClass()
 class ServiceSignatureConfirm extends ServiceBase {
@@ -78,8 +79,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
-          networkId,
-          owner: r[0]?.owner,
+          showAccountName:
+            networkUtils.isLightningNetworkByNetworkId(networkId),
         }),
       );
 
