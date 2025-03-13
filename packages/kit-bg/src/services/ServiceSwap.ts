@@ -466,6 +466,7 @@ export default class ServiceSwap extends ServiceBase {
     limitPartiallyFillable,
     kind,
     toTokenAmount,
+    userMarketPriceRate,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -480,6 +481,7 @@ export default class ServiceSwap extends ServiceBase {
     limitPartiallyFillable?: boolean;
     kind?: ESwapQuoteKind;
     toTokenAmount?: string;
+    userMarketPriceRate?: string;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
     const params: IFetchQuotesParams = {
@@ -500,6 +502,7 @@ export default class ServiceSwap extends ServiceBase {
       limitPartiallyFillable,
       kind,
       toTokenAmount,
+      userMarketPriceRate,
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -555,6 +558,7 @@ export default class ServiceSwap extends ServiceBase {
     limitPartiallyFillable,
     kind,
     toTokenAmount,
+    userMarketPriceRate,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -569,6 +573,7 @@ export default class ServiceSwap extends ServiceBase {
     limitPartiallyFillable?: boolean;
     kind?: ESwapQuoteKind;
     toTokenAmount?: string;
+    userMarketPriceRate?: string;
   }) {
     await this.removeQuoteEventSourceListeners();
     const params: IFetchQuotesParams = {
@@ -589,6 +594,7 @@ export default class ServiceSwap extends ServiceBase {
       limitPartiallyFillable,
       kind,
       toTokenAmount,
+      userMarketPriceRate,
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)

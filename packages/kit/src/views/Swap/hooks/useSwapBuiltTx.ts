@@ -38,6 +38,7 @@ import { swapApproveResetValue } from '@onekeyhq/shared/types/swap/SwapProvider.
 import type {
   IFetchLimitOrderRes,
   IFetchQuoteResult,
+  IOneInchOrderStruct,
   ISwapToken,
   ISwapTxInfo,
 } from '@onekeyhq/shared/types/swap/types';
@@ -432,21 +433,29 @@ export function useSwapBuildTx() {
           selectQuoteRes.swapShouldSignedData &&
           swapFromAddressInfo.accountInfo?.account?.id
         ) {
-          const { unSignedInfo, unSignedMessage, unSignedData } =
-            selectQuoteRes.swapShouldSignedData;
-          const unSignedOrder: {
-            sellTokenBalance: string;
-            buyTokenBalance: string;
-            validTo: number;
-            appData: string;
-            receiver: string;
-            buyAmount: string;
-            sellAmount: string;
-            partiallyFillable: boolean;
-          } =
+          const {
+            unSignedInfo,
+            unSignedMessage,
+            unSignedData,
+            oneInchFusionOrder,
+          } = selectQuoteRes.swapShouldSignedData;
+          if (
+            (unSignedMessage || unSignedData) &&
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
-          if ((unSignedMessage || unSignedData) && unSignedOrder) {
+            selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder
+          ) {
+            const unSignedOrder: {
+              sellTokenBalance: string;
+              buyTokenBalance: string;
+              validTo: number;
+              appData: string;
+              receiver: string;
+              buyAmount: string;
+              sellAmount: string;
+              partiallyFillable: boolean;
+            } =
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              selectQuoteRes.quoteResultCtx?.cowSwapUnSignedOrder;
             unSignedOrder.receiver = swapToAddressInfo.address;
             let dataMessage = unSignedMessage;
             if (!dataMessage && unSignedData) {
@@ -617,6 +626,93 @@ export function useSwapBuildTx() {
                 };
               }
             }
+          } else if (oneInchFusionOrder) {
+            const { makerAddress, typedData } = oneInchFusionOrder;
+            const onInchFusionOrderInfo: {
+              orderStruct: IOneInchOrderStruct;
+              extension: string;
+              quoteId: string;
+              signature?: string;
+              orderHash: string;
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            } = selectQuoteRes.quoteResultCtx?.oneInchFusionOrderCtx;
+            if (makerAddress && typedData && onInchFusionOrderInfo) {
+              const swapInfo: ISwapTxInfo = {
+                protocol: selectQuoteRes.protocol ?? EProtocolOfExchange.SWAP,
+                sender: {
+                  amount: onInchFusionOrderInfo.orderStruct.makingAmount,
+                  token: fromToken,
+                  accountInfo: {
+                    accountId: swapFromAddressInfo.accountInfo?.account?.id,
+                    networkId: fromToken.networkId,
+                  },
+                },
+                receiver: {
+                  amount: onInchFusionOrderInfo.orderStruct.takingAmount,
+                  token: toToken,
+                  accountInfo: {
+                    accountId: swapToAddressInfo.accountInfo?.account?.id,
+                    networkId: toToken.networkId,
+                  },
+                },
+                accountAddress: swapFromAddressInfo.address,
+                receivingAddress: swapToAddressInfo.address,
+                swapBuildResData: {
+                  result: {
+                    ...selectQuoteRes,
+                  },
+                },
+              };
+              const dataMessage = JSON.stringify(typedData);
+              const signHash = await new Promise<string>((resolve, reject) => {
+                if (
+                  dataMessage &&
+                  swapFromAddressInfo.address &&
+                  swapFromAddressInfo.networkId
+                ) {
+                  navigationToMessageConfirm({
+                    accountId:
+                      swapFromAddressInfo.accountInfo?.account?.id ?? '',
+                    networkId: swapFromAddressInfo.networkId,
+                    swapInfo,
+                    unsignedMessage: {
+                      type:
+                        unSignedInfo.signedType ??
+                        EMessageTypesEth.TYPED_DATA_V4,
+                      message: dataMessage,
+                      payload: [makerAddress.toLowerCase(), dataMessage],
+                    },
+                    walletInternalSign: true,
+                    onSuccess: (result: string) => {
+                      resolve(result);
+                    },
+                    onFail: (error: Error) => {
+                      reject(error);
+                    },
+                    onCancel: () => {
+                      reject(new Error('user cancel'));
+                    },
+                  });
+                } else {
+                  reject(
+                    new Error(
+                      `missing data: dataMessage: ${
+                        dataMessage ?? ''
+                      }, address: ${
+                        swapFromAddressInfo.address ?? ''
+                      }, networkId: ${swapFromAddressInfo.networkId ?? ''}`,
+                    ),
+                  );
+                }
+              });
+              if (signHash) {
+                // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+                selectQuoteRes.quoteResultCtx.oneInchFusionOrderCtx = {
+                  ...onInchFusionOrderInfo,
+                  signature: signHash,
+                };
+              }
+            }
           }
         }
         const checkRes = await checkOtherFee(selectQuoteRes);
@@ -715,7 +811,12 @@ export function useSwapBuildTx() {
               encodedTx = res.tx as string;
             }
             // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-          } else if (res?.ctx.cowSwapOrderId) {
+          } else if (
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            res?.ctx.cowSwapOrderId ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            res?.ctx.oneInchFusionOrderHash
+          ) {
             skipSendTransAction = true;
             void Toast.success({
               title: intl.formatMessage({

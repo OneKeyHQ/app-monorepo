@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "ขั้นตอนที่ 3: จัดเรียงและเจาะ",
   "settings.step3_align_and_punch_desc": "แต่ละบรรทัดของ KeyTag แทนคำหนึ่งคำ ใช้เครื่องมือสำหรับการเจาะที่แม่นยำตามตำแหน่งของวงกลมสีดำ\nสำหรับการสำรอง Passphrase, เจาะบนบรรทัดที่มีเครื่องหมาย ''*''.",
   "settings.submit_request": "ส่งคำขอ",
-  "settings.swap_history": "ประวัติการแลกเปลี่ยน",
+  "settings.swap_history": "สลับคำสั่งซื้อ",
   "settings.system_idle_lock": "ล็อคระบบเมื่อไม่มีการใช้งาน",
   "settings.system_idle_lock_desc": "เมื่อเปิดใช้งาน จะเริ่มจับเวลาเมื่อไม่มีกิจกรรมจากผู้ใช้ แม้แต่แอปอยู่ในสภาพพื้นหน้า",
   "settings.theme": "ธีม",

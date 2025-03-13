@@ -174,7 +174,10 @@ function ProfitInfo({
               {updateFrequency}
             </GridItem>
           ) : null}
-          {stakingTime ? (
+          {stakingTime &&
+          !earnUtils.isEverstakeProvider({
+            providerName: providerName || '',
+          }) ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_earnings_start,
