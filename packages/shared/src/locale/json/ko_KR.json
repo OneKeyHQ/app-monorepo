@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "잘못된 이메일 주소",
   "prime.onekeyid_log_out": "OneKey ID 로그아웃",
   "prime.onekeyid_log_out_decription": "OneKey ID 비밀번호 변경으로 인해 이 기기는 로그아웃되었습니다. 다시 로그인해 주세요.",
-  "prime.onekeyid_log_out_description": "OneKey Prime에 가입하셨다면, 로그아웃 후 일부 기능이 작동하지 않을 수 있습니다. 그래도 로그아웃하시겠습니까?",
+  "prime.onekeyid_log_out_description": "로그아웃하면 OneKey ID 관련 서비스에 영향을 미칠 수 있습니다. 그래도 로그아웃하시겠습니까?",
   "prime.onekeyid_signup": "OneKey ID에 가입하세요",
   "prime.onekeyid_signup_description": "{email}은(는) 아직 등록되지 않았습니다. 새로운 계정을 만들어 드리겠습니다.",
   "prime.password": "비밀번호",

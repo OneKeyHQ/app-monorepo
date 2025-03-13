@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "Địa chỉ email không chính xác",
   "prime.onekeyid_log_out": "Đăng xuất OneKey ID",
   "prime.onekeyid_log_out_decription": "Do mật khẩu OneKey ID thay đổi, thiết bị này đã bị đăng xuất. Vui lòng đăng nhập lại.",
-  "prime.onekeyid_log_out_description": "Nếu bạn đã đăng ký OneKey Prime, một số tính năng sẽ ngừng hoạt động sau khi bạn đăng xuất, bạn vẫn muốn đăng xuất không?",
+  "prime.onekeyid_log_out_description": "Đăng xuất có thể ảnh hưởng đến các dịch vụ liên quan đến OneKey ID, bạn vẫn muốn đăng xuất?",
   "prime.onekeyid_signup": "Đăng ký OneKey ID",
   "prime.onekeyid_signup_description": "{email} chưa được đăng ký, chúng tôi sẽ tạo một tài khoản mới cho bạn.",
   "prime.password": "Mật khẩu",

@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "Dirección de correo electrónico incorrecta",
   "prime.onekeyid_log_out": "Cerrar sesión de OneKey ID",
   "prime.onekeyid_log_out_decription": "Debido al cambio de contraseña de OneKey ID, se ha cerrado la sesión de este dispositivo. Inicie sesión nuevamente.",
-  "prime.onekeyid_log_out_description": "Si te has suscrito a OneKey Prime, algunas funciones dejarán de funcionar después de cerrar sesión, ¿aún quieres cerrar sesión?",
+  "prime.onekeyid_log_out_description": "Cerrar sesión puede afectar los servicios relacionados con OneKey ID. ¿Aún quieres cerrar sesión?",
   "prime.onekeyid_signup": "Regístrate con OneKey ID",
   "prime.onekeyid_signup_description": "{email} aún no está registrado, crearemos una nueva cuenta para ti.",
   "prime.password": "Contraseña",

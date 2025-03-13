@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "Неправильна адреса електронної пошти",
   "prime.onekeyid_log_out": "Вийти з OneKey ID",
   "prime.onekeyid_log_out_decription": "Через зміну пароля OneKey ID цей пристрій вийшов із системи. Будь ласка, увійдіть знову.",
-  "prime.onekeyid_log_out_description": "Якщо ви підписані на OneKey Prime, деякі функції перестануть працювати після виходу з системи, все ще хочете вийти?",
+  "prime.onekeyid_log_out_description": "Вихід із системи може вплинути на служби, пов’язані з ідентифікатором OneKey ID, все одно хочете вийти?",
   "prime.onekeyid_signup": "Зареєструйтеся за допомогою OneKey ID",
   "prime.onekeyid_signup_description": "{email} ще не зареєстровано, ми створимо для вас новий обліковий запис.",
   "prime.password": "Пароль",

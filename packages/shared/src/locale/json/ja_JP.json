@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "メールアドレスが正しくありません",
   "prime.onekeyid_log_out": "OneKey ID ログアウト",
   "prime.onekeyid_log_out_decription": "OneKey ID パスワードが変更されたため、このデバイスはログアウトされました。再度ログインしてください。",
-  "prime.onekeyid_log_out_description": "OneKey Primeに登録している場合、ログアウト後にいくつかの機能が動作しなくなります。それでもログアウトしますか？",
+  "prime.onekeyid_log_out_description": "ログアウトすると OneKey ID 関連のサービスに影響する可能性がありますが、それでもログアウトしますか?",
   "prime.onekeyid_signup": "OneKey ID にサインアップ",
   "prime.onekeyid_signup_description": "{email} はまだ登録されていませんので、新しいアカウントを作成します。",
   "prime.password": "パスワード",

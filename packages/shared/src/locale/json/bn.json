@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "ভুল ইমেল ঠিকানা",
   "prime.onekeyid_log_out": "OneKey আইডি লগ আউট",
   "prime.onekeyid_log_out_decription": "OneKey আইডি পাসওয়ার্ড পরিবর্তনের কারণে, এই ডিভাইসটি লগ আউট করা হয়েছে। আবার লগ ইন করুন.",
-  "prime.onekeyid_log_out_description": "আপনি যদি OneKey Prime সাবস্ক্রাইব করে থাকেন, তাহলে লগ আউট করার পর কিছু ফিচার কাজ করা বন্ধ করবে, তবুও কি আপনি লগ আউট করতে চান?",
+  "prime.onekeyid_log_out_description": "লগ আউট OneKey ID সম্পর্কিত পরিষেবাগুলিকে প্রভাবিত করতে পারে, তবুও লগ আউট করতে চান?",
   "prime.onekeyid_signup": "OneKey আইডি তৈরি করুন",
   "prime.onekeyid_signup_description": "{email} এখনও নিবন্ধিত হয়নি, আমরা আপনার জন্য একটি নতুন অ্যাকাউন্ট তৈরি করব।",
   "prime.password": "পাসওয়ার্ড",

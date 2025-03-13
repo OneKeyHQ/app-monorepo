@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "गलत ईमेल पता",
   "prime.onekeyid_log_out": "OneKey आईडी लॉग आउट",
   "prime.onekeyid_log_out_decription": "OneKey ID पासवर्ड परिवर्तन के कारण, यह डिवाइस लॉग आउट हो गया है। कृपया पुनः लॉग इन करें।",
-  "prime.onekeyid_log_out_description": "यदि आपने OneKey Prime की सदस्यता ली है, तो लॉग आउट करने के बाद कुछ सुविधाएँ काम करना बंद कर देंगी, फिर भी क्या आप लॉग आउट करना चाहते हैं?",
+  "prime.onekeyid_log_out_description": "लॉग आउट करने से OneKey ID से संबंधित सेवाएं प्रभावित हो सकती हैं, फिर भी लॉग आउट करना चाहते हैं?",
   "prime.onekeyid_signup": "OneKey आईडी के लिए साइन अप करें",
   "prime.onekeyid_signup_description": "{email} अभी तक पंजीकृत नहीं है, हम आपके लिए एक नया खाता बनाएंगे।",
   "prime.password": "पासवर्ड",

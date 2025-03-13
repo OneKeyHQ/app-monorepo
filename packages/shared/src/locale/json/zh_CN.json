@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "邮箱地址不正确",
   "prime.onekeyid_log_out": "OneKey ID 登出",
   "prime.onekeyid_log_out_decription": "由于 OneKey ID 密码修改，此设备已登出，需重新登录。",
-  "prime.onekeyid_log_out_description": "如果你订阅了 OneKey Prime，登出后部分权益将不再享受，还要登出吗？",
+  "prime.onekeyid_log_out_description": "退出可能会影响 OneKey ID 相关服务，仍然要退出吗？",
   "prime.onekeyid_signup": "注册 OneKey ID",
   "prime.onekeyid_signup_description": "{email} 尚未注册，我们将为您创建一个新账户。",
   "prime.password": "密码",

@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "Indirizzo email errato",
   "prime.onekeyid_log_out": "Disconnetti OneKey ID",
   "prime.onekeyid_log_out_decription": "A causa della modifica della password OneKey ID, questo dispositivo è stato disconnesso. Effettua nuovamente l'accesso.",
-  "prime.onekeyid_log_out_description": "Se hai sottoscritto OneKey Prime, alcune funzionalità smetteranno di funzionare dopo il logout, vuoi comunque disconnetterti?",
+  "prime.onekeyid_log_out_description": "La disconnessione potrebbe influire sui servizi correlati a OneKey ID. Vuoi comunque disconnetterti?",
   "prime.onekeyid_signup": "Registrati con OneKey ID",
   "prime.onekeyid_signup_description": "{email} non è ancora registrato, creeremo un nuovo account per te.",
   "prime.password": "Password",

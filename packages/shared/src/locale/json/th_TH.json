@@ -1710,7 +1710,7 @@
   "prime.onekeyid_email_error": "ที่อยู่อีเมลไม่ถูกต้อง",
   "prime.onekeyid_log_out": "ออกจากระบบ OneKey ID",
   "prime.onekeyid_log_out_decription": "เนื่องจากมีการเปลี่ยนแปลงรหัสผ่าน OneKey ID อุปกรณ์นี้จึงถูกออกจากระบบ โปรดลงชื่อเข้าใช้ใหม่อีกครั้ง",
-  "prime.onekeyid_log_out_description": "หากคุณได้สมัครใช้ OneKey Prime แล้ว บางฟีเจอร์จะหยุดทำงานหลังจากที่คุณออกจากระบบ คุณยังต้องการออกจากระบบหรือไม่?",
+  "prime.onekeyid_log_out_description": "การออกจากระบบอาจส่งผลต่อบริการที่เกี่ยวข้องกับ OneKey ID ยังคงต้องการออกจากระบบใช่หรือไม่",
   "prime.onekeyid_signup": "สมัคร OneKey ID",
   "prime.onekeyid_signup_description": "{email} ยังไม่ได้ลงทะเบียน เราจะสร้างบัญชีใหม่ให้คุณ",
   "prime.password": "รหัสผ่าน",
