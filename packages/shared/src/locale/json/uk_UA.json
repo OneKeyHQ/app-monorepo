@@ -104,7 +104,7 @@
   "address_label.allowlist": "Список дозволених",
   "address_type": "Тип адреси",
   "adress_book.add_address_add_to_allowlist": "Додати до списку дозволених",
-  "allowlist.enabled_popover_content": "Ви можете переказувати кошти лише на рахунки в межах гаманця або на адреси, що знаходяться в білому списку в адресній книзі. Якщо ви розумієте ризики, ви можете вимкнути це на <url>https://1key.so/send/protection<underline>Налаштування >> Захист</underline></url>",
+  "allowlist.enabled_popover_content": "Ви можете переказувати кошти лише на рахунки в межах гаманця або на адреси, що знаходяться в білому списку в адресній книзі. Якщо ви розумієте ризики, ви можете вимкнути це на <url>https://app.onekey.so/send/protection<underline>Налаштування >> Захист</underline></url>",
   "allowlist.enabled_popover_title": "Список дозволених увімкнено",
   "approve_edit.approve_amount": "Затвердити суму",
   "approve_edit.less_than_swap": "Надбавка не може бути меншою за суму обміну",

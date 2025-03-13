@@ -104,7 +104,7 @@
   "address_label.allowlist": "अनुमतिसूची",
   "address_type": "पता प्रकार",
   "adress_book.add_address_add_to_allowlist": "अनुमति सूची में जोड़ें",
-  "allowlist.enabled_popover_content": "आप केवल वॉलेट के भीतर खातों में या पता पुस्तिका में अनुमति सूचीबद्ध पतों पर ही धन हस्तांतरित कर सकते हैं। यदि आप जोखिमों को समझते हैं, तो आप इसे <url>https://1key.so/send/protection<underline>Settings >> Protection</underline></url> में अक्षम कर सकते हैं।",
+  "allowlist.enabled_popover_content": "आप केवल वॉलेट के भीतर खातों में या पता पुस्तिका में अनुमति सूचीबद्ध पतों पर ही धन हस्तांतरित कर सकते हैं। यदि आप जोखिमों को समझते हैं, तो आप इसे <url>https://app.onekey.so/send/protection<underline>Settings >> Protection</underline></url> में अक्षम कर सकते हैं।",
   "allowlist.enabled_popover_title": "अनुमति सूची सक्षम की गई",
   "approve_edit.approve_amount": "राशि स्वीकृत करें",
   "approve_edit.less_than_swap": "भत्ता स्वैप राशि से कम नहीं हो सकता",

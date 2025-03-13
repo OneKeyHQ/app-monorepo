@@ -104,7 +104,7 @@
   "address_label.allowlist": "অনুমোদিত তালিকা",
   "address_type": "ঠিকানার ধরণ",
   "adress_book.add_address_add_to_allowlist": "অনুমোদিত তালিকায় যোগ করুন",
-  "allowlist.enabled_popover_content": "আপনি শুধুমাত্র ওয়ালেটের মধ্যে অ্যাকাউন্টগুলিতে বা ঠিকানা বইয়ের অনুমোদিত ঠিকানাগুলিতে তহবিল স্থানান্তর করতে পারেন। আপনি যদি ঝুঁকিগুলি বুঝতে পারেন, তবে আপনি এটি <url>https://1key.so/send/protection<underline>Settings >> Protection</underline></url> এ নিষ্ক্রিয় করতে পারেন।",
+  "allowlist.enabled_popover_content": "আপনি শুধুমাত্র ওয়ালেটের মধ্যে অ্যাকাউন্টগুলিতে বা ঠিকানা বইয়ের অনুমোদিত ঠিকানাগুলিতে তহবিল স্থানান্তর করতে পারেন। আপনি যদি ঝুঁকিগুলি বুঝতে পারেন, তবে আপনি এটি <url>https://app.onekey.so/send/protection<underline>Settings >> Protection</underline></url> এ নিষ্ক্রিয় করতে পারেন।",
   "allowlist.enabled_popover_title": "অ্যালোলিস্ট সক্রিয়",
   "approve_edit.approve_amount": "পরিমাণ অনুমোদন করুন",
   "approve_edit.less_than_swap": "ভাতা অদলবদলের পরিমাণের চেয়ে কম হতে পারে না",

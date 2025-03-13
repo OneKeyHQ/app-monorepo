@@ -104,7 +104,7 @@
   "address_label.allowlist": "Danh sách cho phép",
   "address_type": "Loại địa chỉ",
   "adress_book.add_address_add_to_allowlist": "Thêm vào danh sách cho phép",
-  "allowlist.enabled_popover_content": "Bạn chỉ có thể chuyển tiền vào các tài khoản trong ví hoặc đến các địa chỉ trong danh sách trắng trong sổ địa chỉ. Nếu bạn hiểu rõ các rủi ro, bạn có thể tắt nó tại <url>https://1key.so/send/protection<underline>Cài đặt >> Bảo vệ</underline></url>",
+  "allowlist.enabled_popover_content": "Bạn chỉ có thể chuyển tiền vào các tài khoản trong ví hoặc đến các địa chỉ trong danh sách trắng trong sổ địa chỉ. Nếu bạn hiểu rõ các rủi ro, bạn có thể tắt nó tại <url>https://app.onekey.so/send/protection<underline>Cài đặt >> Bảo vệ</underline></url>",
   "allowlist.enabled_popover_title": "Danh sách cho phép đã được bật",
   "approve_edit.approve_amount": "Phê duyệt số tiền",
   "approve_edit.less_than_swap": "Khoản trợ cấp không được nhỏ hơn số tiền hoán đổi",

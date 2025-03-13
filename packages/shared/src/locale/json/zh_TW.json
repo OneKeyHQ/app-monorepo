@@ -104,7 +104,7 @@
   "address_label.allowlist": "白名單",
   "address_type": "地址類型",
   "adress_book.add_address_add_to_allowlist": "加入到白名單",
-  "allowlist.enabled_popover_content": "您只能将资金转移到钱包账户或地址簿中的白名单地址。如果您了解风险，可以在 <url>https://1key.so/send/protection<underline>设置 >> 保护</underline></url> 中啟用",
+  "allowlist.enabled_popover_content": "您只能将资金转移到钱包账户或地址簿中的白名单地址。如果您了解风险，可以在 <url>https://app.onekey.so/send/protection<underline>设置 >> 保护</underline></url> 中啟用",
   "allowlist.enabled_popover_title": "白名單已啟用",
   "approve_edit.approve_amount": "授權金額",
   "approve_edit.less_than_swap": "授權額度不能低於兌換金額",

@@ -104,7 +104,7 @@
   "address_label.allowlist": "許可リスト",
   "address_type": "住所タイプ",
   "adress_book.add_address_add_to_allowlist": "許可リストに追加",
-  "allowlist.enabled_popover_content": "ウォレット内のアカウントまたはアドレス帳のホワイトリストに登録されたアドレスにのみ資金を送金できます。リスクを理解している場合は、<url>https://1key.so/send/protection<underline>設定 >> 保護</underline></url>で無効にすることができます。",
+  "allowlist.enabled_popover_content": "ウォレット内のアカウントまたはアドレス帳のホワイトリストに登録されたアドレスにのみ資金を送金できます。リスクを理解している場合は、<url>https://app.onekey.so/send/protection<underline>設定 >> 保護</underline></url>で無効にすることができます。",
   "allowlist.enabled_popover_title": "許可リストが有効",
   "approve_edit.approve_amount": "金額を承認",
   "approve_edit.less_than_swap": "手当はスワップ金額より少なくすることはできません",
