@@ -104,7 +104,7 @@
   "address_label.allowlist": "Разрешенный список",
   "address_type": "Тип адреса",
   "adress_book.add_address_add_to_allowlist": "Добавить в список разрешенных",
-  "allowlist.enabled_popover_content": "Вы можете переводить средства только на счета внутри кошелька или на адреса из белого списка в адресной книге. Если вы понимаете риски, вы можете отключить это в <url>https://1key.so/send/protection<underline>Настройки >> Защита</underline></url>",
+  "allowlist.enabled_popover_content": "Вы можете переводить средства только на счета внутри кошелька или на адреса из белого списка в адресной книге. Если вы понимаете риски, вы можете отключить это в <url>https://app.onekey.so/send/protection<underline>Настройки >> Защита</underline></url>",
   "allowlist.enabled_popover_title": "Список разрешений включен",
   "approve_edit.approve_amount": "Утвердить сумму",
   "approve_edit.less_than_swap": "Пособие не может быть меньше суммы свопа",

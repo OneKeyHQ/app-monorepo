@@ -104,7 +104,7 @@
   "address_label.allowlist": "Allowlist",
   "address_type": "Address type",
   "adress_book.add_address_add_to_allowlist": "Add to allowlist",
-  "allowlist.enabled_popover_content": "You can only transfer funds to accounts within the wallet or to allowlisted addresses in the address book. If you understand the risks, you can enable it in <url>https://1key.so/send/protection<underline>Settings >> Protection</underline></url>",
+  "allowlist.enabled_popover_content": "You can only transfer funds to accounts within the wallet or to allowlisted addresses in the address book. If you understand the risks, you can enable it in <url>https://app.onekey.so/send/protection<underline>Settings >> Protection</underline></url>",
   "allowlist.enabled_popover_title": "Allowlist enabled",
   "approve_edit.approve_amount": "Approve amount",
   "approve_edit.less_than_swap": "Allowance can't be less than the swap amount",

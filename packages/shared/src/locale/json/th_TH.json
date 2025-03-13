@@ -104,7 +104,7 @@
   "address_label.allowlist": "รายการอนุญาต",
   "address_type": "ประเภทที่อยู่",
   "adress_book.add_address_add_to_allowlist": "เพิ่มในรายการที่อนุญาต",
-  "allowlist.enabled_popover_content": "คุณสามารถโอนเงินได้เฉพาะไปยังบัญชีภายในกระเป๋าเงินหรือไปยังที่อยู่ที่อยู่ในรายชื่อที่อนุญาตในสมุดที่อยู่เท่านั้น หากคุณเข้าใจความเสี่ยง คุณสามารถปิดการใช้งานได้ที่ <url>https://1key.so/send/protection<underline>การตั้งค่า >> การป้องกัน</underline></url>",
+  "allowlist.enabled_popover_content": "คุณสามารถโอนเงินได้เฉพาะไปยังบัญชีภายในกระเป๋าเงินหรือไปยังที่อยู่ที่อยู่ในรายชื่อที่อนุญาตในสมุดที่อยู่เท่านั้น หากคุณเข้าใจความเสี่ยง คุณสามารถปิดการใช้งานได้ที่ <url>https://app.onekey.so/send/protection<underline>การตั้งค่า >> การป้องกัน</underline></url>",
   "allowlist.enabled_popover_title": "อนุญาตให้ใช้ Allowlist",
   "approve_edit.approve_amount": "จำนวนเงินอนุมัติ",
   "approve_edit.less_than_swap": "ค่าเผื่อไม่สามารถน้อยกว่าจำนวนเงินสวอปได้",

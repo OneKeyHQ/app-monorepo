@@ -98,9 +98,9 @@ async function processDeepLinkWalletConnect({
 
     const universalLinkHost = await getUniversalLink();
     // ** ios UniversalLink
-    //        https://1key.so/wc/connect/wc?uri=wc%3Aeb16df1f-1d3b-4018-9d18-28ef610cc1a4%401%3Fbridge%3Dhttps%253A%252F%252Fj.bridge.walletconnect.org%26key%3D0037246aefb211f98a8386d4bf7fd2a5344960bf98cb39c57fb312a098f2eb77
+    //        https://app.onekey.so/wc/connect/wc?uri=wc%3Aeb16df1f-1d3b-4018-9d18-28ef610cc1a4%401%3Fbridge%3Dhttps%253A%252F%252Fj.bridge.walletconnect.org%26key%3D0037246aefb211f98a8386d4bf7fd2a5344960bf98cb39c57fb312a098f2eb77
     // check UniversalLink allowed path here:
-    //    https://1key.so/.well-known/apple-app-site-association
+    //    https://app.onekey.so/.well-known/apple-app-site-association
     if (
       hostname === universalLinkHost &&
       path === WalletConnectUniversalLinkPath
