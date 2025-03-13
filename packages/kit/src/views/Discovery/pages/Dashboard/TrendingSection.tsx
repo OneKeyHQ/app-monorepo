@@ -42,7 +42,7 @@ export function TrendingSection() {
         webSite,
         dApp,
         shouldPopNavigation: false,
-        enterMethod: EEnterMethod.dashboard,
+        enterMethod: EEnterMethod.trending,
       });
     },
     [handleWebSite],
