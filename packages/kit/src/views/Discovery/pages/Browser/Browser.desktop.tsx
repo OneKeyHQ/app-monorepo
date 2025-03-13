@@ -53,6 +53,7 @@ function DesktopBrowser() {
           flexGrow: 0,
         }}
         headerTitleContainerStyle={{
+          maxWidth: '100%',
           flex: 1,
         }}
       />

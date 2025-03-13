@@ -1,38 +1,41 @@
 ---
 description: Remove useless import declaration code.
-globs: *.tsx, *.ts
+globs: 
 alwaysApply: false
 ---
-First directly run 'yarn run lint' to see the full warnings details. 
+# Remember
+Run the command `yarn run lint` straight away, don't add anything else because you need the full information and any extra manipulation will get you out of luck. Don't run `yarn run lint | cat`.
 
-You will see a lot of warnings. But you only need to deal with the @typescript-eslint/no-unused-vars kind. Don't worry about the rest.
+Then you help me find @typescript-eslint/no-unused-vars related warnings. Only fix unused imports, not modify function definitions or other code.
 
-But you need to follow some rules.
+I need you to fix it for me, but there are a couple of rules to be aware of.
 
-1. you can clean up the introduction of types. for example:
-```
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+## Only fix three files. No any more.
+
+## Follow [eslint.js](mdc:development/lint/eslint.js)
+
+## You can only fix type-related ones.
+```ts
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types' ;
 
 import type {
   IAccountDeriveInfo,
-  IAccountDeriveTypes.
-} from '@onekeyhq/kit-bg/src/vaults/types'; import type { IAccountDeriveInfo, IAccountDeriveTypes, IAccountDeriveTypes
+  IAccountDeriveTypes
+} from '@onekeyhq/kit-bg/src/vaults/types'; 
 ```
 
-2. can clean up references to react, for example:
-```
+## You can only fix react related.
+```ts
 import { useCallback, useMemo, useRef, useState } from 'react';
 ```
 
-3. can clean up references to '@onekeyhq/components', for example:
-```
+## You can only fix '@onekeyhq/components' related.
+```ts
 import {
-  Checkbox, Dialog, React'; } from 'react';
-  useClipboard, useForm
-  useForm.
+  Checkbox, Dialog,
+  useClipboard, useForm,
+  useForm
 } from '@onekeyhq/components'
 ```
 
-4. Do not modify the code outside of the import declaration.
-
-5. Other than that, you cannot clean up the introduction of business code variables or types.
+## You can only fix three of the above, and you are not allowed to change the code anywhere else.

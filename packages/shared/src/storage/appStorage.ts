@@ -1,7 +1,3 @@
-// ERROR: (init localStorage in web, but ext background cannot support localStorage)
-//    redux-persist failed to create sync storage. falling back to noop storage.
-// import storage from 'redux-persist/lib/storage';
-
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
 
