@@ -313,7 +313,6 @@ export function useSwapQuote() {
         kind = ESwapQuoteKind.BUY;
       }
     }
-    alignmentDecimal();
     void quoteAction(
       swapSlippageRef.current,
       activeAccountRef.current?.address,
@@ -322,7 +321,7 @@ export function useSwapQuote() {
       undefined,
       kind,
     );
-  }, [alignmentDecimal, quoteAction, swapTabSwitchType]);
+  }, [quoteAction, swapTabSwitchType]);
 
   useEffect(
     () => () => {
