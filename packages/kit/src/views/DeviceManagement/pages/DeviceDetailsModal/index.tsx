@@ -175,6 +175,7 @@ function DeviceDetailsModalCmp() {
   }, [result?.device?.connectId, detectStatus]);
 
   const renderUpdateAlert = useCallback(() => {
+    if (isQrWallet) return null;
     if (!detectResult?.shouldUpdate) return null;
 
     let message = 'New firmware is available';
@@ -208,7 +209,7 @@ function DeviceDetailsModalCmp() {
         }}
       />
     );
-  }, [intl, actions, result?.device?.connectId, detectResult]);
+  }, [intl, actions, result?.device?.connectId, detectResult, isQrWallet]);
 
   const renderContent = useCallback(() => {
     if (isLoading || !result) {

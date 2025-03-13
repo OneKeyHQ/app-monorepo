@@ -284,6 +284,7 @@ class ServiceAccount extends ServiceBase {
   async getAllHwQrWalletWithDevice(params?: {
     filterQrWallet?: boolean;
     filterHiddenWallet?: boolean;
+    skipDuplicateDevice?: boolean;
   }) {
     const { wallets, allDevices } = await this.getAllWallets({
       refillWalletInfo: true,
@@ -291,19 +292,51 @@ class ServiceAccount extends ServiceBase {
 
     const filterQrWallet = params?.filterQrWallet ?? false;
     const filterHiddenWallet = params?.filterHiddenWallet ?? false;
+    const skipDuplicateDevice = params?.skipDuplicateDevice ?? false;
 
     const result: {
       [walletId: string]: IHwQrWalletWithDevice;
     } = {};
+
+    // Map of deviceId -> walletId for hardware wallets
+    const deviceToHwWalletMap: Record<string, string> = {};
+
+    // Collect all hardware wallet device IDs if skip duplication is enabled
+    if (skipDuplicateDevice) {
+      for (const wallet of wallets) {
+        if (
+          accountUtils.isHwWallet({ walletId: wallet.id }) &&
+          !accountUtils.isHwHiddenWallet({ wallet }) &&
+          wallet.associatedDevice
+        ) {
+          deviceToHwWalletMap[wallet.associatedDevice] = wallet.id;
+        }
+      }
+    }
 
     for (const wallet of wallets) {
       const isHiddenWallet = accountUtils.isHwHiddenWallet({ wallet });
       const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
       const isQrWallet = accountUtils.isQrWallet({ walletId: wallet.id });
 
-      const shouldIncludeHiddenWallet = !filterHiddenWallet || !isHiddenWallet;
-      const shouldIncludeQrWallet = isQrWallet && !filterQrWallet;
-      if (shouldIncludeHiddenWallet && (isHwWallet || shouldIncludeQrWallet)) {
+      // Check if this wallet should be included in the result
+      const isValidWalletType = isHwWallet || isQrWallet;
+      const passesHiddenWalletFilter = !filterHiddenWallet || !isHiddenWallet;
+      const passesQrWalletFilter = !filterQrWallet || !isQrWallet;
+      const passesDeviceDuplicationCheck = !(
+        skipDuplicateDevice &&
+        isQrWallet &&
+        wallet.associatedDevice &&
+        deviceToHwWalletMap[wallet.associatedDevice]
+      );
+
+      // Only add wallet to result if it passes all checks
+      if (
+        isValidWalletType &&
+        passesHiddenWalletFilter &&
+        passesQrWalletFilter &&
+        passesDeviceDuplicationCheck
+      ) {
         const device = (allDevices ?? []).find(
           (d) => d.id === wallet.associatedDevice,
         );
