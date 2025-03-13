@@ -136,9 +136,9 @@ function useReplaceTx({
           onConfirm: async () => {
             // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
             handleOpenWebSite({
+              switchToMultiTabBrowser: gtMd,
               navigation,
               useCurrentWindow: false,
-              switchToMultiTabBrowser: gtMd,
               webSite: {
                 url: `https://www.f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
                 title: 'F2Pool',
