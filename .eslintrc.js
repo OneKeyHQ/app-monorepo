@@ -95,7 +95,14 @@ const tsRules = {
     { disallowTypeAnnotations: false },
   ],
   '@typescript-eslint/no-var-requires': 'off',
-  '@typescript-eslint/no-unused-vars': [isDev ? 'warn' : 'error'],
+  '@typescript-eslint/no-unused-vars': [
+    isDev ? 'warn' : 'error',
+    {
+      'argsIgnorePattern': '^_',
+      'varsIgnorePattern': '^_',
+      'caughtErrorsIgnorePattern': '^_',
+    },
+  ],
   '@typescript-eslint/no-use-before-define': ['error'],
   '@typescript-eslint/no-shadow': ['error'],
   '@typescript-eslint/explicit-module-boundary-types': 'off',
@@ -410,7 +417,7 @@ module.exports = {
                   'tamagui',
                   '@onekeyhq/kit',
                   '@onekeyhq/kit-bg',
-                  '@onekeyhq/components'
+                  '@onekeyhq/components',
                 ],
                 message: 'Please avoid using tamagui in this folder',
               },
