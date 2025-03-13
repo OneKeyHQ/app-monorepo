@@ -3,6 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   convertAddressToSignatureConfirmAddress,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
@@ -28,7 +29,6 @@ import { vaultFactory } from '../vaults/factory';
 import ServiceBase from './ServiceBase';
 
 import type { IBuildDecodedTxParams } from '../vaults/types';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 @backgroundClass()
 class ServiceSignatureConfirm extends ServiceBase {
