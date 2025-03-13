@@ -1,8 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { useIntl } from 'react-intl';
-import { Vibration } from 'react-native';
-
+import { Haptics, ImpactFeedbackStyle } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type {
   IAnimationValue,
@@ -27,7 +25,6 @@ import useParseQRCode from './useParseQRCode';
 export default function useScanQrCode() {
   const navigation = useAppNavigation();
   const parseQRCode = useParseQRCode();
-  const intl = useIntl();
   const start = useCallback(
     ({
       autoHandleResult = false,
@@ -60,7 +57,7 @@ export default function useScanQrCode() {
                     resolve(parseValue);
                     popNavigation();
                   }
-                  Vibration.vibrate(1);
+                  Haptics.impact(ImpactFeedbackStyle.Light);
                   return {
                     progress: animationValue.progress,
                   };

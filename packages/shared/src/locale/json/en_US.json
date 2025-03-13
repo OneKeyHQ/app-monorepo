@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "Step 3: align and punch",
   "settings.step3_align_and_punch_desc": "Each line of KeyTag represents a word. Use a center punch tool for accurate punching based on the black circle's position.\nFor Passphrase backup, punch on the line marked with '*'.",
   "settings.submit_request": "Submit a request",
-  "settings.swap_history": "Swap history",
+  "settings.swap_history": "Swap orders",
   "settings.system_idle_lock": "System idle lock",
   "settings.system_idle_lock_desc": "When enabled, starts timing when there is no user activity, even if the app is in the foreground",
   "settings.theme": "Theme",

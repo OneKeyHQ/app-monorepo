@@ -1,12 +1,13 @@
-import type { Ref, RefObject } from 'react';
-import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react';
+import type { Ref } from 'react';
+import { forwardRef, useImperativeHandle, useRef } from 'react';
 
 import { TextArea as TMTextArea, getFontSize } from 'tamagui';
 
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { type IInputProps, Input } from '../Input';
+import { Input, useAutoScrollToTop } from '../Input';
 
+import type { IInputProps } from '../Input';
 import type { TextInput } from 'react-native';
 import type { TextAreaProps } from 'tamagui';
 
@@ -15,18 +16,6 @@ export type ITextAreaInputProps = Omit<IInputProps, 'size'> &
 
 const defaultAlignVertical: TextAreaProps['verticalAlign'] =
   platformEnv.isNative ? 'top' : undefined;
-
-const useAutoScrollToTop = platformEnv.isNativeAndroid
-  ? (ref: RefObject<TextInput>) => {
-      useEffect(() => {
-        if (platformEnv.isNativeAndroid) {
-          setTimeout(() => {
-            ref.current?.setSelection(0, 0);
-          }, 250);
-        }
-      }, [ref]);
-    }
-  : () => {};
 
 function BaseTextArea(
   { size, verticalAlign, ...props }: ITextAreaInputProps,

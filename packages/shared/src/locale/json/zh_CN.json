@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "步骤 3：对齐并打孔",
   "settings.step3_align_and_punch_desc": "KeyTag 的每一行代表一个单词。使用中心打孔工具根据黑色圆圈的位置进行精确打孔。\n对于密码短语备份，请在标有“*”的行上打孔。",
   "settings.submit_request": "提交工单",
-  "settings.swap_history": "交易历史",
+  "settings.swap_history": "交易订单",
   "settings.system_idle_lock": "系统空闲锁定",
   "settings.system_idle_lock_desc": "启用后只要用户不活跃就会开始计时，即使应用在前台运行",
   "settings.theme": "主题",

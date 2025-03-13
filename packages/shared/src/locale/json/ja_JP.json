@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "ステップ3：整列してパンチ",
   "settings.step3_align_and_punch_desc": "KeyTagの各行は1つの単語を表します。黒い円の位置に基づいて正確なパンチングを行うために、センターパンチツールを使用してください。\nパスフレーズのバックアップのためには、'*'でマークされた行にパンチしてください。",
   "settings.submit_request": "リクエストを提出する",
-  "settings.swap_history": "スワップ履歴",
+  "settings.swap_history": "注文を交換する",
   "settings.system_idle_lock": "システムアイドルロック",
   "settings.system_idle_lock_desc": "有効にすると、アプリがフォアグラウンドにある場合でも、ユーザーの活動がないときにタイミングを開始します",
   "settings.theme": "テーマ",

@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "Schritt 3: Ausrichten und stanzen",
   "settings.step3_align_and_punch_desc": "Jede Zeile von KeyTag repräsentiert ein Wort. Verwenden Sie ein Zentrierstanzwerkzeug für genaues Stanzen basierend auf der Position des schwarzen Kreises.\nFür die Passphrase-Sicherung, stanzen Sie auf der mit ''*'' markierten Linie.",
   "settings.submit_request": "Eine Anfrage einreichen",
-  "settings.swap_history": "Tauschverlauf",
+  "settings.swap_history": "Tauschaufträge",
   "settings.system_idle_lock": "System-Leerlaufsperrung",
   "settings.system_idle_lock_desc": "Wenn aktiviert, beginnt die Zeitmessung, wenn keine Benutzeraktivität vorliegt, selbst wenn die App im Vordergrund ist",
   "settings.theme": "Thema",
