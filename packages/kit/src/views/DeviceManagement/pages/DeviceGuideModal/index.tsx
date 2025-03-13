@@ -18,13 +18,13 @@ import ProHomescreenDark from '@onekeyhq/kit/assets/device_management/pro-homesc
 import ProHomescreenLight from '@onekeyhq/kit/assets/device_management/pro-homescreen-light.png';
 import TouchHomescreenDark from '@onekeyhq/kit/assets/device_management/touch-homescreen-dark.png';
 import TouchHomescreenLight from '@onekeyhq/kit/assets/device_management/touch-homescreen-light.png';
+import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import type { IAllWalletAvatarImageNames } from '@onekeyhq/shared/src/utils/avatarUtils';
 
-import { WalletAvatar } from '@onekeyhq/kit/src/components/WalletAvatar';
-import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
 
 function DeviceItem({
