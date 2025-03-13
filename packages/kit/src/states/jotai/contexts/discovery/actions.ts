@@ -747,8 +747,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         shouldPopNavigation?: boolean;
       },
     ) => {
-      const { gtMd } = useMedia();
-
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
@@ -758,7 +756,8 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
       setTimeout(() => {
         const isNewWindow = !useCurrentWindow;
-        const switchToMultiTabBrowser = gtMd;
+        const switchToMultiTabBrowser =
+          platformEnv.isDesktop || platformEnv.isNativeIOSPad;
 
         if (!useCurrentWindow) {
           const disabledAddedNewTab = get(disabledAddedNewTabAtom());
@@ -780,7 +779,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           tabId,
         });
 
-        if (switchToMultiTabBrowser || platformEnv.isDesktop) {
+        if (switchToMultiTabBrowser) {
           navigation.switchTab(ETabRoutes.MultiTabBrowser);
         } else if (shouldPopNavigation) {
           navigation.switchTab(ETabRoutes.Discovery);
