@@ -211,10 +211,10 @@ body > div.cet-container {
 }
 
 /* Hide title bar icon on Windows/Linux Desktop */
-.onekey-body > .cet-icon {
+.onekey-body >.cet-titlebar >.cet-icon {
   display: none;
 }
 
-.onekey-body > .cet-menubar {
+.onekey-body >.cet-titlebar >.cet-menubar {
   margin-left: 16px;
 }
