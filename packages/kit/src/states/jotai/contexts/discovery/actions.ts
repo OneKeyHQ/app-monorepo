@@ -2,7 +2,7 @@ import { useRef } from 'react';
 
 import { isEqual } from 'lodash';
 
-import { Toast, useMedia } from '@onekeyhq/components';
+import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';

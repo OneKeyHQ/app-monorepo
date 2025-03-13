@@ -48,7 +48,12 @@ export const useWebSiteHandler = () => {
           url: webSite.url,
           title: webSite.title || dApp?.name || '',
           type: 'normal',
+          isPinned: activeTab.isPinned,
         });
+
+        if (shouldPopNavigation) {
+          navigation.pop();
+        }
       } else if (useSystemBrowser) {
         openUrlExternal(webSite.url);
       } else {
