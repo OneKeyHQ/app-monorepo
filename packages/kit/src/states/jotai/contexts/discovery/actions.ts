@@ -235,16 +235,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
   addBrowserHomeTab = contextAtomMethod((_, set) => {
     this.addWebTab.call(set, {
-      ...{
-        id: generateUUID(),
-        url: '',
-        title: appLocale.intl.formatMessage({
-          id: ETranslations.browser_start_tab,
-        }),
-        canGoBack: false,
-        loading: false,
-        favicon: '',
-      },
+      id: generateUUID(),
+      url: '',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.browser_start_tab,
+      }),
+      canGoBack: false,
+      loading: false,
+      favicon: '',
       isActive: true,
       type: 'home',
     });
