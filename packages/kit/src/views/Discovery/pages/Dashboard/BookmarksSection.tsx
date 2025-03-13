@@ -93,7 +93,7 @@ export function BookmarksSection() {
 
   const handleOpenWebSite = useCallback(
     ({ dApp, webSite }: IMatchDAppItemType) => {
-      void handleWebSite({
+      handleWebSite({
         webSite,
         dApp,
         shouldPopNavigation: false,

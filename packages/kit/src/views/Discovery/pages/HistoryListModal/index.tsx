@@ -178,7 +178,7 @@ function HistoryListModal() {
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
                 onPress: () => {
-                  void handleWebSite({
+                  handleWebSite({
                     webSite: {
                       url: item.url,
                       title: item.title,

@@ -34,7 +34,7 @@ export const useWebSiteHandler = () => {
   const { gtMd } = useMedia();
 
   return useCallback(
-    async ({
+    ({
       webSite,
       dApp,
       useSystemBrowser,

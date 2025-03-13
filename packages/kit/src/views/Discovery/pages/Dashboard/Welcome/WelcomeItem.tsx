@@ -213,7 +213,7 @@ export const WelcomeItem = memo(
 
     const handlePress = () => {
       if (url) {
-        void handleWebSite({
+        handleWebSite({
           webSite: {
             url,
             title: url,

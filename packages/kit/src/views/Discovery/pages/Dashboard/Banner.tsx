@@ -59,7 +59,7 @@ export function DashboardBanner({
         itemTitleContainerStyle={{ display: 'none' }}
         emptyComponent={emptyComponent}
         onItemPress={(item) => {
-          void handleWebSite({
+          handleWebSite({
             webSite: {
               url: item.href,
               title: item.href,

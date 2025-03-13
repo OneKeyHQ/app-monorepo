@@ -162,7 +162,7 @@ function SearchModal() {
           }}
           onPress={() => {
             if (item.dappId === SEARCH_ITEM_ID) {
-              void handleWebSite({
+              handleWebSite({
                 webSite: {
                   url: searchValue,
                   title: searchValue,
@@ -172,7 +172,7 @@ function SearchModal() {
                 enterMethod: EEnterMethod.search,
               });
             } else {
-              void handleWebSite({
+              handleWebSite({
                 dApp: item,
                 useCurrentWindow,
                 tabId,
@@ -208,7 +208,7 @@ function SearchModal() {
               if (!searchValue) {
                 navigation.pop();
               } else {
-                void handleWebSite({
+                handleWebSite({
                   webSite: {
                     url: searchValue,
                     title: searchValue,
@@ -254,7 +254,7 @@ function SearchModal() {
                       flexBasis: '16.66666667%',
                     }}
                     onPress={() => {
-                      void handleWebSite({
+                      handleWebSite({
                         webSite: {
                           url: item.url,
                           title: item.title,
@@ -327,7 +327,7 @@ function SearchModal() {
                   }}
                   testID={`search-modal-${item.title.toLowerCase()}`}
                   onPress={() => {
-                    void handleWebSite({
+                    handleWebSite({
                       webSite: {
                         url: item.url,
                         title: item.title,

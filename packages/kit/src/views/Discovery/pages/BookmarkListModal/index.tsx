@@ -141,7 +141,7 @@ function BookmarkListModal() {
 
   const handleItemPress = useCallback(
     (item: IBrowserBookmark) => {
-      void handleWebSite({
+      handleWebSite({
         webSite: {
           url: item.url,
           title: item.title,
