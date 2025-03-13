@@ -230,7 +230,23 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addBlankWebTab = contextAtomMethod((_, set) => {
-    this.addWebTab.call(set, { ...homeTab, isActive: true });
+    this.addWebTab.call(set, { ...homeTab, isActive: true, type: 'normal' });
+  });
+
+  addBrowserHomeTab = contextAtomMethod((_, set) => {
+    this.addWebTab.call(set, {
+      id: generateUUID(),
+      url: '',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.browser_start_tab,
+      }),
+      canGoBack: false,
+      loading: false,
+      favicon: '',
+      isActive: true,
+      type: 'home',
+    });
+    this.setDisplayHomePage.call(set, true);
   });
 
   setWebTabData = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
@@ -737,16 +753,16 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation,
         webSite,
         dApp,
-        switchToMultiTabBrowser = false,
         shouldPopNavigation = true,
+        switchToMultiTabBrowser = false,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
-        switchToMultiTabBrowser?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
         shouldPopNavigation?: boolean;
+        switchToMultiTabBrowser?: boolean;
       },
     ) => {
       if (webSite?.url) {
@@ -779,6 +795,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           tabId,
         });
       }, delayTime);
+
       if (switchToMultiTabBrowser || platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
@@ -967,6 +984,7 @@ export function useBrowserTabActions() {
   const actions = createActions();
   const addWebTab = actions.addWebTab.use();
   const addBlankWebTab = actions.addBlankWebTab.use();
+  const addBrowserHomeTab = actions.addBrowserHomeTab.use();
   const buildWebTabs = actions.buildWebTabs.use();
   const setTabs = actions.setTabs.use();
   const setTabsByIds = actions.setTabsByIds.use();
@@ -983,6 +1001,7 @@ export function useBrowserTabActions() {
   return useRef({
     addWebTab,
     addBlankWebTab,
+    addBrowserHomeTab,
     buildWebTabs,
     setTabs,
     setTabsByIds,

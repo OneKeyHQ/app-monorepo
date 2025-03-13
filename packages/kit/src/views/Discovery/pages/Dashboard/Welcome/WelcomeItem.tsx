@@ -10,10 +10,9 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Image, Stack, useMedia } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { Image, Stack } from '@onekeyhq/components';
+import { useWebSiteHandler } from '@onekeyhq/kit/src/views/Discovery/utils/useWebSiteHandler';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 
 import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
@@ -105,9 +104,7 @@ export const WelcomeItem = memo(
     const rotate = useSharedValue(0);
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(DEFAULT_SHADOW_OPACITY);
-    const navigation = useAppNavigation();
-    const { gtMd } = useMedia();
-    const { handleOpenWebSite } = useBrowserAction().current;
+    const handleWebSite = useWebSiteHandler();
 
     useEffect(() => {
       setTimeout(
@@ -216,14 +213,13 @@ export const WelcomeItem = memo(
 
     const handlePress = () => {
       if (url) {
-        handleOpenWebSite({
-          switchToMultiTabBrowser: gtMd,
+        handleWebSite({
           webSite: {
             url,
             title: url,
           },
-          navigation,
           shouldPopNavigation: false,
+          enterMethod: EEnterMethod.dashboard,
         });
       }
     };

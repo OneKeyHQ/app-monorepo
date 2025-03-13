@@ -161,13 +161,13 @@ function useReplaceTx({
       }
     },
     [
-      canReplaceTx,
       historyTx,
+      canReplaceTx,
       intl,
-      navigation,
-      onSuccess,
       handleOpenWebSite,
+      navigation,
       gtMd,
+      onSuccess,
     ],
   );
 
