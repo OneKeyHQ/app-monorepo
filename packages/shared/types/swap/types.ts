@@ -235,6 +235,7 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   limitPartiallyFillable?: boolean;
   kind?: ESwapQuoteKind;
   toTokenAmount?: string;
+  userMarketPriceRate?: string;
 }
 interface ISocketAsset {
   address: string;
