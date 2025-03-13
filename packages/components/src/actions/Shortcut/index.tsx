@@ -4,15 +4,15 @@ import type {
   IShortcutProps,
 } from './type';
 
-function ShortcutKey(props: IShortcutKeyProps) {
+function ShortcutKey(_: IShortcutKeyProps) {
   return null;
 }
 
-function ShortcutContent({ shortcutKey }: IShortcutContentProps) {
+function ShortcutContent(_: IShortcutContentProps) {
   return null;
 }
 
-export function Shortcut(props: IShortcutProps) {
+export function Shortcut(_: IShortcutProps) {
   return null;
 }
 
