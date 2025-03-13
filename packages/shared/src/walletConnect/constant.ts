@@ -47,14 +47,14 @@ export const WALLET_CONNECT_CLIENT_META = {
   description: WALLET_CONNECT_CLIENT_DESC,
   // wallet-connect identify different dApps by url
   url: platformEnv.isWeb
-    ? `https://1key.so`
-    : `https://${platformName}.1key.so`,
+    ? `https://app.onekey.so`
+    : `https://${platformName}.app.onekey.so`,
   icons: [ONEKEY_LOGO_ICON_URL],
   // https://explorer-api.walletconnect.com/v3/all?projectId=2f05ae7f1116030fde2d36508f472bfb&entries=40&page=1&search=onekey&build=1710747625972
   redirect: platformEnv.isNative
     ? {
         native: ONEKEY_APP_DEEP_LINK, // 'onekey-wallet://',
-        universal: WalletConnectUniversalLinkFull, // 'https://1key.so/wc/connect',
+        universal: WalletConnectUniversalLinkFull, // 'https://app.onekey.so/wc/connect',
       }
     : (undefined as any),
 };

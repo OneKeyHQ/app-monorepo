@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "Langkah 3: sejajarkan dan pukul",
   "settings.step3_align_and_punch_desc": "Setiap baris KeyTag mewakili sebuah kata. Gunakan alat pukulan tengah untuk pukulan yang akurat berdasarkan posisi lingkaran hitam.\nUntuk cadangan Passphrase, pukul pada baris yang ditandai dengan ''*''.",
   "settings.submit_request": "Kirimkan permintaan",
-  "settings.swap_history": "Riwayat penukaran",
+  "settings.swap_history": "Tukar pesanan",
   "settings.system_idle_lock": "Kunci sistem diam",
   "settings.system_idle_lock_desc": "Ketika diaktifkan, mulai menghitung waktu ketika tidak ada aktivitas pengguna, bahkan jika aplikasi berada di latar depan",
   "settings.theme": "Tema",

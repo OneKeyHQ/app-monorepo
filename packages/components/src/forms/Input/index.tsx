@@ -71,6 +71,11 @@ export type IInputProps = {
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
   autoFocusDelayMs?: number;
+  /**
+   * Auto scroll to top delay in milliseconds.
+   * Default is 250ms, only works on Android.
+   */
+  autoScrollTopDelayMs?: number;
   allowSecureTextEye?: boolean;
   containerProps?: IGroupProps;
   onPaste?: (event: IPasteEventParams) => void;
@@ -104,6 +109,16 @@ const SIZE_MAPPINGS = {
     iconLeftPosition: 5,
   },
 };
+
+export const useAutoScrollToTop = platformEnv.isNativeAndroid
+  ? (ref: RefObject<TextInput>, waitMs = 250) => {
+      useEffect(() => {
+        setTimeout(() => {
+          ref.current?.setSelection(0, 0);
+        }, waitMs);
+      }, [ref, waitMs]);
+    }
+  : () => {};
 
 const useReadOnlyStyle = (readOnly = false) =>
   useMemo(
@@ -171,6 +186,7 @@ function BaseInput(
     keyboardType,
     InputComponentStyle,
     autoFocusDelayMs,
+    autoScrollTopDelayMs,
     secureTextEntry,
     allowSecureTextEye,
     ...props
@@ -270,6 +286,8 @@ function BaseInput(
       };
     }
   }, [onPaste]);
+
+  useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
 
   useImperativeHandle(forwardedRef, () => ({
     ...inputRef.current,
@@ -503,6 +521,7 @@ function BaseInputUnControlled(
         blur: () => {},
       },
   );
+
   return (
     <Input
       ref={inputRef}

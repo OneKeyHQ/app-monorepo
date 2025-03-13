@@ -1,5 +1,5 @@
 import type { PropsWithChildren } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Dimensions, StatusBar } from 'react-native';
 import { AnimatePresence, useThemeName } from 'tamagui';
@@ -7,6 +7,7 @@ import { AnimatePresence, useThemeName } from 'tamagui';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { EPageType, usePageType } from '../../hocs';
+import { useIsIpadLandscape } from '../../hooks/useOrientation';
 import { Spinner, Stack, View } from '../../primitives';
 
 import { useTabBarHeight } from './hooks';
@@ -26,18 +27,33 @@ function Loading() {
 const useMinHeight = (isFullPage: boolean) => {
   const pageType = usePageType();
   const tabHeight = useTabBarHeight();
-  if (!platformEnv.isNativeIOS) {
+  const isIpadLandscape = useIsIpadLandscape();
+  return useMemo(() => {
+    if (!platformEnv.isNativeIOS) {
+      return undefined;
+    }
+    if (!isFullPage) {
+      return undefined;
+    }
+    if (pageType !== EPageType.modal) {
+      if (platformEnv.isNativeIOSPad) {
+        if (isIpadLandscape) {
+          return Math.min(
+            Dimensions.get('window').height,
+            Dimensions.get('window').width,
+          );
+        }
+        return (
+          Math.max(
+            Dimensions.get('window').height,
+            Dimensions.get('window').width,
+          ) - tabHeight
+        );
+      }
+      return Dimensions.get('window').height - tabHeight;
+    }
     return undefined;
-  }
-  if (!isFullPage) {
-    return undefined;
-  }
-  if (pageType !== EPageType.modal) {
-    return platformEnv.isNativeIOSPad
-      ? Dimensions.get('window').height
-      : Dimensions.get('window').height - tabHeight;
-  }
-  return undefined;
+  }, [isFullPage, isIpadLandscape, pageType, tabHeight]);
 };
 
 function PageStatusBar() {
