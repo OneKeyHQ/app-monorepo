@@ -10,7 +10,6 @@ import {
   SortableListView,
   Toast,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
@@ -140,6 +139,19 @@ function BookmarkListModal() {
     [buildBookmarkData],
   );
 
+  const handleItemPress = useCallback(
+    (item: IBrowserBookmark) => {
+      void handleWebSite({
+        webSite: {
+          url: item.url,
+          title: item.title,
+        },
+        enterMethod: EEnterMethod.bookmark,
+      });
+    },
+    [handleWebSite],
+  );
+
   const CELL_HEIGHT = 60;
 
   const headerRight = useCallback(
@@ -196,15 +208,7 @@ function BookmarkListModal() {
               h={CELL_HEIGHT}
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
-                onPress: () => {
-                  void handleWebSite({
-                    webSite: {
-                      url: item.url,
-                      title: item.title,
-                    },
-                    enterMethod: EEnterMethod.bookmark,
-                  });
-                },
+                onPress: () => handleItemPress(item),
               })}
             >
               {isEditing ? (
