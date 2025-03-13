@@ -384,9 +384,11 @@ function DesktopCustomTabBar() {
                 testID="browser-bar-add"
                 onPress={(e) => {
                   e.stopPropagation();
-                  navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                    screen: EDiscoveryModalRoutes.SearchModal,
-                  });
+
+                  // TODO: @limi
+                  // navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                  //   screen: EDiscoveryModalRoutes.SearchModal,
+                  // });
                 }}
               />
             </>
