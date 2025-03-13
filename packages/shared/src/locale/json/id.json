@@ -2078,6 +2078,7 @@
   "spotlight.account_alignment_desc": "OneKey sekarang secara default akan otomatis beralih ke akun dApp yang terakhir Anda gunakan. Untuk mengubah pengaturan ini, buka Pengaturan > Selaraskan akun utama.",
   "spotlight.enable_account_asset_message": "Jika saldo tidak ada, pergi ke \"Jaringan\" di halaman utama dan pilih \"Semua jaringan\" terlebih dahulu.",
   "spotlight.enable_network_message": "Kelola visibilitas jaringan dan salin alamat dengan cepat untuk jaringan apa pun dalam tampilan 'Semua jaringan'.",
+  "swap.loading_content": "Menghitung harga terbaik...",
   "swap.network_cost_dialog_content": "Biaya jaringan untuk pesanan ini tinggi dibandingkan dengan jumlah total pesanan. Anda dapat melanjutkan pertukaran, tetapi sebagian besar mungkin akan habis oleh biaya jaringan.",
   "swap.network_cost_dialog_description": "Biaya jaringan melebihi {number} dari jumlah pesanan",
   "swap.network_cost_dialog_title": "Jumlah pesanan terlalu kecil",

@@ -2078,6 +2078,7 @@
   "spotlight.account_alignment_desc": "OneKey ora passa automaticamente al tuo ultimo account dApp utilizzato. Per modificare questa impostazione, vai su Impostazioni > Allinea account principale.",
   "spotlight.enable_account_asset_message": "Se mancano dei saldi, vai su \"Networks\" nella homepage e seleziona prima \"Tutti i network\".",
   "spotlight.enable_network_message": "Gestisci la visibilità della rete e copia rapidamente gli indirizzi per qualsiasi rete nella visualizzazione 'Tutte le reti'.",
+  "swap.loading_content": "Calcolando il miglior prezzo...",
   "swap.network_cost_dialog_content": "La commissione di rete per questo ordine è alta rispetto all'importo totale dell'ordine. Puoi procedere con lo scambio, ma una parte significativa potrebbe essere consumata dai costi di rete.",
   "swap.network_cost_dialog_description": "I costi di rete superano {number} dell'importo dell'ordine",
   "swap.network_cost_dialog_title": "L'importo dell'ordine è troppo piccolo",

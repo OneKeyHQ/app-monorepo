@@ -3,6 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   convertAddressToSignatureConfirmAddress,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
@@ -78,8 +79,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
-          networkId,
-          owner: r[0]?.owner,
+          showAccountName:
+            networkUtils.isLightningNetworkByNetworkId(networkId),
         }),
       );
 

@@ -13,22 +13,18 @@ import {
   SectionList,
   Toast,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useBrowserAction,
-  useBrowserHistoryAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
+import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';
@@ -57,8 +53,7 @@ function HistoryListModal() {
   const { removeBrowserHistory, removeAllBrowserHistory } =
     useBrowserHistoryAction().current;
 
-  const { gtMd } = useMedia();
-  const { handleOpenWebSite } = useBrowserAction().current;
+  const handleWebSite = useWebSiteHandler();
 
   const [page, setPage] = useState(1);
   const { result: dataSource, run } = usePromiseResult(
@@ -183,18 +178,12 @@ function HistoryListModal() {
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
                 onPress: () => {
-                  handleOpenWebSite({
-                    switchToMultiTabBrowser: gtMd,
-                    navigation,
+                  handleWebSite({
                     webSite: {
                       url: item.url,
                       title: item.title,
                     },
-                  });
-
-                  defaultLogger.discovery.dapp.enterDapp({
-                    dappDomain: item.url,
-                    dappName: item.title,
+                    shouldPopNavigation: true,
                     enterMethod: EEnterMethod.history,
                   });
                 },

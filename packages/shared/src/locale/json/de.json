@@ -2078,6 +2078,7 @@
   "spotlight.account_alignment_desc": "OneKey wechselt jetzt standardmäßig automatisch zu Ihrem zuletzt verwendeten dApp-Konto. Um diese Einstellung zu ändern, gehen Sie zu Einstellungen > Primäres Konto ausrichten.",
   "spotlight.enable_account_asset_message": "Wenn Guthaben fehlen, gehen Sie auf der Startseite zu \"Netzwerke\" und wählen Sie zuerst \"Alle Netzwerke\" aus.",
   "spotlight.enable_network_message": "Verwalten Sie die Netzwerksichtbarkeit und kopieren Sie schnell Adressen für jedes Netzwerk in der Ansicht 'Alle Netzwerke'.",
+  "swap.loading_content": "Berechnung des besten Preises...",
   "swap.network_cost_dialog_content": "Die Netzwerkgebühr für diese Bestellung ist im Verhältnis zum Gesamtbestellbetrag hoch. Sie können mit dem Tausch fortfahren, aber ein erheblicher Teil könnte durch Netzwerkkosten verbraucht werden.",
   "swap.network_cost_dialog_description": "Netzwerkkosten übersteigen {number} des Bestellbetrags",
   "swap.network_cost_dialog_title": "Bestellmenge ist zu klein",

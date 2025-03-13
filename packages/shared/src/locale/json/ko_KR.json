@@ -2078,6 +2078,7 @@
   "spotlight.account_alignment_desc": "OneKey는 이제 기본적으로 마지막으로 사용한 dApp 계정으로 자동 전환됩니다. 이 설정을 변경하려면 설정 > 기본 계정 정렬로 이동하세요.",
   "spotlight.enable_account_asset_message": "잔액이 없는 경우, 홈페이지에서 \"네트워크\"를 선택하고 먼저 \"모든 네트워크\"를 선택하십시오.",
   "spotlight.enable_network_message": "네트워크 가시성을 관리하고 '모든 네트워크' 보기에서 어떤 네트워크의 주소도 빠르게 복사하세요.",
+  "swap.loading_content": "최적의 가격 계산 중...",
   "swap.network_cost_dialog_content": "이 주문의 네트워크 수수료는 총 주문 금액에 비해 높습니다. 스왑을 진행할 수 있지만, 상당 부분이 네트워크 비용으로 소모될 수 있습니다.",
   "swap.network_cost_dialog_description": "네트워크 비용이 주문 금액의 {number}을 초과합니다",
   "swap.network_cost_dialog_title": "주문 금액이 너무 적습니다",
