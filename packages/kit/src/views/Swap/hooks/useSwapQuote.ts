@@ -254,7 +254,7 @@ export function useSwapQuote() {
     }
     // fromToken & address change will trigger effect twice. so this use skip
     if (
-      swapTabSwitchType === swapQuoteActionLockRef.current?.type &&
+      swapTabSwitchTypeRef.current === swapQuoteActionLockRef.current?.type &&
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount ===
         fromAmountDebounce.value &&
@@ -356,7 +356,7 @@ export function useSwapQuote() {
     }
     // fromToken & address change will trigger effect twice. so this use skip
     if (
-      swapTabSwitchType === swapQuoteActionLockRef.current?.type &&
+      swapTabSwitchTypeRef.current === swapQuoteActionLockRef.current?.type &&
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.toTokenAmount ===
         toAmountDebounce.value &&
