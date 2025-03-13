@@ -1,11 +1,16 @@
 import { useCallback } from 'react';
 
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  useBrowserAction,
+  useBrowserTabActions,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
+
+import { useActiveTabId, useWebTabDataById } from '../hooks/useWebTabs';
 
 import type { IBrowserBookmark, IBrowserHistory } from '../types';
 
@@ -19,7 +24,10 @@ interface IHandleWebSiteParams {
 
 export const useWebSiteHandler = () => {
   const { handleOpenWebSite } = useBrowserAction().current;
+  const { setWebTabData } = useBrowserTabActions().current;
   const navigation = useAppNavigation();
+  const { activeTabId } = useActiveTabId();
+  const { tab: activeTab } = useWebTabDataById(activeTabId ?? '');
 
   return useCallback(
     async ({
@@ -33,7 +41,15 @@ export const useWebSiteHandler = () => {
         return;
       }
 
-      if (useSystemBrowser) {
+      // If current active tab is of type 'home', change it to 'normal' and update its URL
+      if (activeTab?.type === 'home' && !useSystemBrowser) {
+        setWebTabData({
+          id: activeTab.id,
+          url: webSite.url,
+          title: webSite.title || dApp?.name || '',
+          type: 'normal',
+        });
+      } else if (useSystemBrowser) {
         openUrlExternal(webSite.url);
       } else {
         handleOpenWebSite({
@@ -50,6 +66,6 @@ export const useWebSiteHandler = () => {
         enterMethod,
       });
     },
-    [handleOpenWebSite, navigation],
+    [handleOpenWebSite, navigation, activeTab, setWebTabData],
   );
 };
