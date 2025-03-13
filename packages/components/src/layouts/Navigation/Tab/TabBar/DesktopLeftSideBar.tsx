@@ -193,7 +193,7 @@ export function DesktopLeftSideBar({
           }}
         >
           <YStack flex={1}>
-            {!platformEnv.isDesktopMac ? (
+            {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (
               <XStack ai="center" jc="space-between" pr="$3">
                 <OneKeyLogo />
                 <HeaderCollapseButton isRootScreen />
