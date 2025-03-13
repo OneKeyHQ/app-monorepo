@@ -1,4 +1,3 @@
-import BN from 'bn.js';
 import { baseDecode, baseEncode } from 'borsh';
 import bs58 from 'bs58';
 import sha256 from 'js-sha256';
@@ -6,7 +5,6 @@ import { isString } from 'lodash';
 import { transactions, utils } from 'near-api-js';
 
 import { NotImplemented } from '@onekeyhq/shared/src/errors';
-import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 
 import { CoreChainApiBase } from '../../base/CoreChainApiBase';

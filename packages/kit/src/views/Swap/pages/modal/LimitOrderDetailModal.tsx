@@ -236,7 +236,7 @@ const LimitOrderDetailModal = () => {
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_cancel,
+            id: ETranslations.Limit_order_status_cancelled,
           });
           color = '$textCritical';
           break;

@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "কোন তথ্য নেই",
   "global.no_device_connected": "কোনো ডিভাইস সংযুক্ত নেই",
-  "global.no_device_connected_desc": "আপনার OneKey হার্ডওয়্যার ওয়ালেট সংযুক্ত করুন ডিভাইসের তথ্য দেখতে, প্রামাণিকতা যাচাই করতে, ফার্মওয়্যার আপডেট পরীক্ষা করতে এবং নিরাপত্তা সেটিংস পরিচালনা করতে।",
+  "global.no_device_connected_desc": "এক জায়গায় আপনার ডিভাইসগুলি পরিচালনা এবং দেখুন",
   "global.no_network_address": "কোন {network} ঠিকানা নেই",
   "global.no_results": "কোন ফলাফল নেই",
   "global.no_transactions_yet": "এখনো কোনো লেনদেন নেই",

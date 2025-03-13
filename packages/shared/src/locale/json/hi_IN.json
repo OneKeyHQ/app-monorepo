@@ -1117,7 +1117,7 @@
   "global.nft": "NFT",
   "global.no_data": "कोई डेटा नहीं",
   "global.no_device_connected": "कोई डिवाइस कनेक्ट नहीं है",
-  "global.no_device_connected_desc": "अपने OneKey हार्डवेयर वॉलेट को कनेक्ट करें ताकि डिवाइस की जानकारी देख सकें, प्रामाणिकता सत्यापित कर सकें, फर्मवेयर अपडेट्स की जांच कर सकें, और सुरक्षा सेटिंग्स को प्रबंधित कर सकें।",
+  "global.no_device_connected_desc": "अपने उपकरणों को एक ही स्थान पर प्रबंधित और देखें",
   "global.no_network_address": "{network} पता नहीं",
   "global.no_results": "कोई परिणाम नहीं",
   "global.no_transactions_yet": "अभी तक कोई लेन-देन नहीं",
