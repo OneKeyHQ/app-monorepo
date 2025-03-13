@@ -180,6 +180,7 @@ function useReplaceTx({
     }
     // https://www.f2pool.com/user/tx-acc?from=onekey&txid={txid}
     handleOpenWebSite({
+      switchToMultiTabBrowser: gtMd,
       navigation,
       useCurrentWindow: false,
       webSite: {
@@ -187,7 +188,7 @@ function useReplaceTx({
         title: 'F2Pool',
       },
     });
-  }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation]);
+  }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation, gtMd]);
 
   return {
     canReplaceTx,
