@@ -230,7 +230,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addBlankWebTab = contextAtomMethod((_, set) => {
-    this.addWebTab.call(set, { ...homeTab, isActive: true });
+    this.addWebTab.call(set, { ...homeTab, isActive: true, type: 'normal' });
   });
 
   /**
@@ -239,7 +239,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
    * for semantic clarity when the intention is to open the browser home page.
    */
   addBrowserHomeTab = contextAtomMethod((_, set) => {
-    this.addWebTab.call(set, { ...homeTab, isActive: true });
+    this.addWebTab.call(set, { ...homeTab, isActive: true, type: 'home' });
     this.setDisplayHomePage.call(set, true);
   });
 
