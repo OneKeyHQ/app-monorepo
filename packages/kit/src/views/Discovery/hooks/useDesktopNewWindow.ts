@@ -19,11 +19,12 @@ export function useDesktopNewWindow() {
             url: data.url,
             title: data.url,
           },
+          gtMd,
           navigation,
         });
       }
     },
-    [handleOpenWebSite, navigation],
+    [handleOpenWebSite, navigation, gtMd],
   );
   useEffect(() => {
     globalThis.desktopApi?.addIpcEventListener(
