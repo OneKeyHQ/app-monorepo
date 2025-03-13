@@ -218,7 +218,3 @@ body > div.cet-container {
 .onekey-body >.cet-titlebar >.cet-menubar {
   margin-left: 16px;
 }
-
-.cet-action-item .cet-action-menu-item:hover {
-  background-color: rgb(255 255 255 / 12%);
-}
