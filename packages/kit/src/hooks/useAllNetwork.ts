@@ -146,6 +146,7 @@ function useAllNetworkRequests<T>(params: {
 
   useEffect(() => {
     if (currentAccountId && currentNetworkId && currentWalletId) {
+      allNetworkDataInit.current = false;
       perfTokenListView.markStart('useAllNetworkRequestsRun_debounceDelay');
     }
   }, [currentAccountId, currentNetworkId, currentWalletId]);
@@ -427,12 +428,6 @@ function useAllNetworkRequests<T>(params: {
         isPageFocused || !!shouldAlwaysFetch,
     },
   );
-
-  useEffect(() => {
-    if (currentAccountId && currentNetworkId && currentWalletId) {
-      allNetworkDataInit.current = false;
-    }
-  }, [currentAccountId, currentNetworkId, currentWalletId]);
 
   return {
     run,
