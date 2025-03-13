@@ -41,7 +41,7 @@ export function useCreateQrWallet() {
         urJson: IAirGapUrJson;
       },
     ) => {
-      const { urJson, byDevice, byWallet, isOnboarding } = params;
+      const { urJson, byWallet, isOnboarding } = params;
       const { qrDevice, airGapAccounts, airGapMultiAccounts } =
         await backgroundApiProxy.serviceQrWallet.buildAirGapMultiAccounts({
           urJson,
@@ -53,9 +53,6 @@ export function useCreateQrWallet() {
         airGapMultiAccounts,
       );
       if (byWallet?.xfp && qrDevice?.xfp !== byWallet?.xfp) {
-        throw new OneKeyErrorAirGapWalletMismatch();
-      }
-      if (byDevice?.deviceId && qrDevice?.deviceId !== byDevice?.deviceId) {
         throw new OneKeyErrorAirGapWalletMismatch();
       }
       if (isOnboarding) {

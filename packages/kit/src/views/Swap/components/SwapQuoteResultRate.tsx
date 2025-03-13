@@ -7,9 +7,9 @@ import {
   Badge,
   Icon,
   Image,
+  LottieView,
   NumberSizeableText,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -108,9 +108,13 @@ const SwapQuoteResultRate = ({
   return (
     <XStack alignItems="center" gap="$5">
       {isLoading ? (
-        <Stack py="$0.5">
-          <Skeleton h="$4" w="$32" />
-        </Stack>
+        <XStack gap="$2">
+          <SizableText size="$bodyMd" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.swap_loading_content,
+            })}
+          </SizableText>
+        </XStack>
       ) : (
         <XStack gap="$1" alignItems="center">
           <SwapRefreshButton refreshAction={refreshAction} />
@@ -153,7 +157,26 @@ const SwapQuoteResultRate = ({
               size="$5"
             />
           </Stack>
-        ) : null}
+        ) : (
+          <XStack flex={1} justifyContent="flex-end">
+            <LottieView
+              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+              autoPlay
+              loop
+              style={{
+                width: 48,
+                height: 20,
+              }}
+            />
+            <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
+              <Icon
+                name="ChevronDownSmallOutline"
+                color={openResult ? '$iconActive' : '$iconSubdued'}
+                size="$5"
+              />
+            </Stack>
+          </XStack>
+        )}
       </XStack>
     </XStack>
   );

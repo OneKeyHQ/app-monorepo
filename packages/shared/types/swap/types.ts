@@ -293,6 +293,45 @@ export interface IFetchLimitMarketPrice {
   price: string;
 }
 
+export interface IEIP712TypedData {
+  types: IEIP712Types;
+  domain: IEIP712Object;
+  message: IEIP712Object;
+  primaryType: string;
+}
+export interface IEIP712Types {
+  [key: string]: IEIP712Parameter[];
+}
+export interface IEIP712Parameter {
+  name: string;
+  type: string;
+}
+export declare type IEIP712ObjectValue =
+  | string
+  | bigint
+  | number
+  | IEIP712Object;
+export interface IEIP712Object {
+  [key: string]: IEIP712ObjectValue;
+}
+export type IEIP712DomainType = {
+  name: string;
+  version: string;
+  chainId: number;
+  verifyingContract: string;
+};
+
+export type IOneInchOrderStruct = {
+  salt: string;
+  maker: string;
+  receiver: string;
+  makerAsset: string;
+  takerAsset: string;
+  makingAmount: string;
+  takingAmount: string;
+  makerTraits: string;
+};
+
 export interface IFetchQuoteResult {
   quoteId?: string;
   eventId?: string;
@@ -343,6 +382,10 @@ export interface IFetchQuoteResult {
       origin: string;
       scope: string;
       signedType: EMessageTypesEth;
+    };
+    oneInchFusionOrder?: {
+      makerAddress: string;
+      typedData: IEIP712TypedData;
     };
   };
   protocolNoRouterInfo?: string;

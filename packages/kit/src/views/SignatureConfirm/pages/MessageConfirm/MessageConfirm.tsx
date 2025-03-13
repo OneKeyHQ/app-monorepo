@@ -16,6 +16,7 @@ import type {
   EModalSignatureConfirmRoutes,
   IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { promiseAllSettledEnhanced } from '@onekeyhq/shared/src/utils/promiseUtils';
 import {
   convertAddressToSignatureConfirmAddress,
@@ -161,7 +162,8 @@ function MessageConfirm() {
             }),
             convertAddressToSignatureConfirmAddress({
               address: accountAddress,
-              networkId,
+              showAccountName:
+                networkUtils.isLightningNetworkByNetworkId(networkId),
             }),
             {
               type: EParseTxComponentType.Divider,
