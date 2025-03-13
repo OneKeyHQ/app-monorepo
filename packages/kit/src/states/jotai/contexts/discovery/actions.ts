@@ -233,6 +233,16 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     this.addWebTab.call(set, { ...homeTab, isActive: true });
   });
 
+  /**
+   * Creates a new browser tab with the home page and sets it as active.
+   * This function is similar to addBlankWebTab but is specifically named
+   * for semantic clarity when the intention is to open the browser home page.
+   */
+  addBrowserHomeTab = contextAtomMethod((_, set) => {
+    this.addWebTab.call(set, { ...homeTab, isActive: true });
+    this.setDisplayHomePage.call(set, true);
+  });
+
   setWebTabData = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
     const { tabs: previousTabs } = get(webTabsAtom());
     const tabs = previousTabs;
@@ -968,6 +978,7 @@ export function useBrowserTabActions() {
   const actions = createActions();
   const addWebTab = actions.addWebTab.use();
   const addBlankWebTab = actions.addBlankWebTab.use();
+  const addBrowserHomeTab = actions.addBrowserHomeTab.use();
   const buildWebTabs = actions.buildWebTabs.use();
   const setTabs = actions.setTabs.use();
   const setTabsByIds = actions.setTabsByIds.use();
@@ -984,6 +995,7 @@ export function useBrowserTabActions() {
   return useRef({
     addWebTab,
     addBlankWebTab,
+    addBrowserHomeTab,
     buildWebTabs,
     setTabs,
     setTabsByIds,

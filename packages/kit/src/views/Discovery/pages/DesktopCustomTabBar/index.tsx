@@ -33,11 +33,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import DesktopCustomTabBarItem from '../../components/DesktopCustomTabBarItem';
@@ -66,6 +62,7 @@ function DesktopCustomTabBar() {
     setPinnedTab,
     closeAllWebTabs,
     setTabsByIds,
+    addBrowserHomeTab,
     reOpenLastClosedTab,
   } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -385,10 +382,7 @@ function DesktopCustomTabBar() {
                 onPress={(e) => {
                   e.stopPropagation();
 
-                  // TODO: @limi
-                  // navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                  //   screen: EDiscoveryModalRoutes.SearchModal,
-                  // });
+                  addBrowserHomeTab();
                 }}
               />
             </>
