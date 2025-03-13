@@ -1593,7 +1593,6 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           ids: [dbDeviceId],
           updater: async (item) => {
             item.updatedAt = now;
-            item.deviceId = rawDeviceId;
             // TODO update qrDevice last version(not updated version)
             return item;
           },
