@@ -31,14 +31,14 @@ function DeviceBasicInfoSection({
   const defaultInfo = useMemo(
     () => ({
       firmwareVersion: '-',
-      walletAvatarBadge: isQrWallet ? 'QR' : undefined,
+      walletAvatarBadge: undefined,
       verifiedBadgeType: 'default' as IBadgeType,
       verifiedBadgeText: '-',
       verifiedBadgeTextColor: '$iconCritical' as IIconProps['color'],
       verifiedBadgeIconName: 'ErrorSolid' as IKeyOfIcons,
       verifiedBadgeIconColor: '$iconCritical' as IIconProps['color'],
     }),
-    [isQrWallet],
+    [],
   );
 
   const { result: deviceInfo } = usePromiseResult(
@@ -74,7 +74,7 @@ function DeviceBasicInfoSection({
 
       return {
         firmwareVersion: versions?.firmwareVersion ?? '-',
-        walletAvatarBadge: isQrWallet ? 'QR' : undefined,
+        walletAvatarBadge: undefined,
         verifiedBadgeType: status.type,
         verifiedBadgeIconName: status.icon,
         verifiedBadgeIconColor: status.color,
@@ -82,7 +82,7 @@ function DeviceBasicInfoSection({
         verifiedBadgeTextColor: status.color,
       };
     },
-    [device, isQrWallet, intl, defaultInfo],
+    [device, intl, defaultInfo],
     { initResult: defaultInfo },
   );
 
