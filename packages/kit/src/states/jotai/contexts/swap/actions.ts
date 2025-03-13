@@ -757,8 +757,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+      }
+      if (!fromTokenAmount.value && fromTokenAmount.isInput) {
         set(swapToTokenAmountAtom(), { value: '', isInput: false });
+      } else if (!toTokenAmount.value && toTokenAmount.isInput) {
+        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
       }
     },
   );
@@ -1705,6 +1708,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       swapAccountNetworkId?: string,
     ) => {
       set(swapTypeSwitchAtom(), type);
+      const fromTokenAmount = get(swapFromTokenAmountAtom());
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
+      if (
+        type === ESwapTabSwitchType.LIMIT &&
+        !fromTokenAmountBN.isNaN() &&
+        !fromTokenAmountBN.isZero()
+      ) {
+        set(swapFromTokenAmountAtom(), (o) => ({ ...o, isInput: true }));
+      }
       this.cleanManualSelectQuoteProviders.call(set);
       const swapSupportNetworks = get(swapNetworksIncludeAllNetworkAtom());
       const fromToken = get(swapSelectFromTokenAtom());
