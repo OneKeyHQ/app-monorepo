@@ -79,6 +79,7 @@ function TokenDetailsHeader(props: IProps) {
     accountId,
     networkId,
     walletId,
+    indexedAccountId: indexedAccountId ?? '',
   });
 
   const { isFocused } = useTabIsRefreshingFocused();
@@ -315,6 +316,7 @@ function TokenDetailsHeader(props: IProps) {
                 copyAccountAddress({
                   accountId,
                   networkId,
+                  token: tokenInfo,
                 })
               }
               px="$5"

@@ -22,7 +22,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "so.onekey.wallet",
       "associatedDomains": [
-        "applinks:1key.so"
+        "applinks:app.onekey.so"
       ]
     },
     "android": {

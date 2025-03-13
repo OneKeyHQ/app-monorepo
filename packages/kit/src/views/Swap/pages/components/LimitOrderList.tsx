@@ -61,11 +61,6 @@ const LimitOrderList = ({
         await cancelLimitOrder(item);
       } catch (error) {
         console.error(error);
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_failed,
-          }),
-        });
       } finally {
         setCancelLoading((prev) => ({
           ...prev,
@@ -73,7 +68,7 @@ const LimitOrderList = ({
         }));
       }
     },
-    [cancelLimitOrder, intl],
+    [cancelLimitOrder],
   );
   const onCancel = useCallback(
     async (item: IFetchLimitOrderRes) => {

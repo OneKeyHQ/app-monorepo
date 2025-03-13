@@ -186,16 +186,11 @@ const LimitOrderDetailModal = () => {
         await cancelLimitOrder(item);
       } catch (error) {
         console.error(error);
-        Toast.error({
-          title: intl.formatMessage({
-            id: ETranslations.global_failed,
-          }),
-        });
       } finally {
         setCancelLoading(false);
       }
     },
-    [cancelLimitOrder, intl],
+    [cancelLimitOrder],
   );
   const onCancel = useCallback(
     async (item?: IFetchLimitOrderRes) => {
@@ -236,7 +231,7 @@ const LimitOrderDetailModal = () => {
       switch (status) {
         case ESwapLimitOrderStatus.CANCELLED:
           label = intl.formatMessage({
-            id: ETranslations.Limit_order_cancel,
+            id: ETranslations.Limit_order_status_cancelled,
           });
           color = '$textCritical';
           break;
@@ -316,14 +311,32 @@ const LimitOrderDetailModal = () => {
   }, [orderItemState]);
 
   const surplus = useMemo(() => {
-    const { executedBuyAmount, toAmount, toTokenInfo } = orderItemState ?? {};
+    const {
+      executedBuyAmount,
+      toAmount,
+      toTokenInfo,
+      fromTokenInfo,
+      executedSellAmount,
+      fromAmount,
+    } = orderItemState ?? {};
+    const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
+      -(fromTokenInfo?.decimals ?? 0),
+    );
+    const executeSellAmountBN = new BigNumber(
+      executedSellAmount ?? '0',
+    ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
     const executedBuyAmountBN = new BigNumber(
       executedBuyAmount ?? '0',
     ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
+    if (executeSellAmountBN.isZero()) {
+      return null;
+    }
     const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
       -(toTokenInfo?.decimals ?? 0),
     );
-    const surplusBN = executedBuyAmountBN.minus(toAmountBN);
+    const limitRate = toAmountBN.dividedBy(fromAmountBN);
+    const limitRateBuyAmountBN = limitRate.multipliedBy(executeSellAmountBN);
+    const surplusBN = executedBuyAmountBN.minus(limitRateBuyAmountBN);
     const surplusFormat = formatBalance(surplusBN.toFixed());
     if (surplusBN.gt(0)) {
       return surplusFormat.formattedValue;

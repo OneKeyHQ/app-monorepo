@@ -14,6 +14,7 @@ export type IInAppNotificationAtom = {
   swapLimitOrdersLoading: boolean;
   swapApprovingTransaction: ISwapApproveTransaction | undefined;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  swapPercentageInputStageShowForNative: boolean;
 };
 export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
   globalAtom<IInAppNotificationAtom>({
@@ -25,5 +26,6 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
       swapLimitOrdersLoading: false,
       swapApprovingTransaction: undefined,
       swapRecentTokenPairs: [],
+      swapPercentageInputStageShowForNative: false,
     },
   });

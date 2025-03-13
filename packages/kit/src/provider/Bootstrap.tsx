@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { debounce } from 'lodash';
+import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -53,7 +53,7 @@ const useDesktopEvents = platformEnv.isDesktop
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
 
-      const { checkForUpdates, toUpdatePreviewPage } = useAppUpdateInfoCallback(
+      const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
         false,
         false,
       );
@@ -67,7 +67,7 @@ const useDesktopEvents = platformEnv.isDesktop
         isCheckingUpdate.current = true;
         const { isNeedUpdate, response } = await checkForUpdates();
         if (isNeedUpdate || response === undefined) {
-          toUpdatePreviewPage(true, response);
+          onUpdateAction();
           isCheckingUpdate.current = false;
         } else {
           Dialog.confirm({
@@ -87,7 +87,7 @@ const useDesktopEvents = platformEnv.isDesktop
             }),
           });
         }
-      }, [checkForUpdates, intl, toUpdatePreviewPage]);
+      }, [checkForUpdates, intl, onUpdateAction]);
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
@@ -179,48 +179,49 @@ const useDesktopEvents = platformEnv.isDesktop
     }
   : () => undefined;
 
-const useAboutVersion = () => {
-  const intl = useIntl();
-  useEffect(() => {
-    if (platformEnv.isDesktop && !platformEnv.isDesktopMac) {
-      desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
-        const versionString = intl.formatMessage(
-          {
-            id: ETranslations.settings_version_versionnum,
-          },
-          {
-            'versionNum': ` ${process.env.VERSION || 1}(${
-              platformEnv.buildNumber || 1
-            })`,
-          },
-        );
-        Dialog.show({
-          showFooter: false,
-          renderContent: (
-            <YStack gap={4} alignItems="center" pt="$4">
-              <Image
-                source={require('../../assets/logo.png')}
-                size={72}
-                borderRadius="$full"
-              />
-              <YStack gap="$2" pt="$4" alignItems="center">
-                <SizableText size="$heading2xl">OneKey</SizableText>
-                <SizableText size="$bodySm">
-                  {`${globalThis.desktopApi.platform}-${
-                    globalThis.desktopApi.arch || 'unknown'
-                  }`}
-                </SizableText>
-                <SizableText size="$bodySm">{versionString}</SizableText>
-                <SizableText size="$bodySm">Copyright © OneKey</SizableText>
-              </YStack>
-            </YStack>
-          ),
-        });
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-};
+const useAboutVersion =
+  platformEnv.isDesktop && !platformEnv.isDesktopMac
+    ? () => {
+        const intl = useIntl();
+        useEffect(() => {
+          desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
+            const versionString = intl.formatMessage(
+              {
+                id: ETranslations.settings_version_versionnum,
+              },
+              {
+                'versionNum': ` ${process.env.VERSION || 1}(${
+                  platformEnv.buildNumber || 1
+                })`,
+              },
+            );
+            Dialog.show({
+              showFooter: false,
+              renderContent: (
+                <YStack gap={4} alignItems="center" pt="$4">
+                  <Image
+                    source={require('../../assets/logo.png')}
+                    size={72}
+                    borderRadius="$full"
+                  />
+                  <YStack gap="$2" pt="$4" alignItems="center">
+                    <SizableText size="$heading2xl">OneKey</SizableText>
+                    <SizableText size="$bodySm">
+                      {`${globalThis.desktopApi.platform}-${
+                        globalThis.desktopApi.arch || 'unknown'
+                      }`}
+                    </SizableText>
+                    <SizableText size="$bodySm">{versionString}</SizableText>
+                    <SizableText size="$bodySm">Copyright © OneKey</SizableText>
+                  </YStack>
+                </YStack>
+              ),
+            });
+          });
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, []);
+      }
+    : noop;
 
 export const useFetchCurrencyList = () => {
   useEffect(() => {
@@ -319,6 +320,30 @@ export const useLaunchEvents = (): void => {
   }, [isLocked]);
 };
 
+const getBuilderNumber = (builderNumber?: string) =>
+  builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+export const useCheckUpdateFailedOnDesktop =
+  platformEnv.isDesktop &&
+  !platformEnv.isMas &&
+  !platformEnv.isDesktopLinuxSnap &&
+  !platformEnv.isDesktopWinMsStore
+    ? () => {
+        useEffect(() => {
+          setTimeout(() => {
+            const previousBuildNumber =
+              globalThis.desktopApi.getPreviousUpdateBuildNumber();
+            if (
+              previousBuildNumber &&
+              getBuilderNumber(previousBuildNumber) >=
+                getBuilderNumber(platformEnv.buildNumber)
+            ) {
+              void backgroundApiProxy.serviceAppUpdate.resetToManualInstall();
+            }
+          }, 0);
+        }, []);
+      }
+    : noop;
+
 export function Bootstrap() {
   const navigation = useAppNavigation();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -344,5 +369,6 @@ export function Bootstrap() {
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();
+  useCheckUpdateFailedOnDesktop();
   return null;
 }

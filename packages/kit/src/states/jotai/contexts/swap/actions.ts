@@ -393,6 +393,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         const limitPartiallyFillableObj = get(swapLimitPartiallyFillAtom());
         const limitPartiallyFillable = limitPartiallyFillableObj.value;
         const expirationTime = get(swapLimitExpirationTimeAtom());
+        const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
         const res = await backgroundApiProxy.serviceSwap.fetchQuotes({
           fromToken,
           toToken,
@@ -405,6 +406,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           blockNumber,
           accountId,
           protocol,
+          userMarketPriceRate: limitUserMarketPrice.rate,
           ...(protocol === ESwapTabSwitchType.LIMIT
             ? {
                 expirationTime: Number(expirationTime.value),
@@ -644,6 +646,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
       }
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       set(swapQuoteFetchingAtom(), true);
+      const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
       await backgroundApiProxy.serviceSwap.fetchQuotesEvents({
         fromToken,
         toToken,
@@ -656,6 +659,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         kind,
         toTokenAmount,
         protocol,
+        userMarketPriceRate: limitUserMarketPrice.rate,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {
               expirationTime: Number(expirationTime.value),
@@ -746,16 +750,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmount.value,
           toTokenAmount.value,
         );
-      } else if (
-        swapTabSwitchType !== ESwapTabSwitchType.LIMIT ||
-        checkWrappedTokenPair({ fromToken, toToken })
-      ) {
+      } else {
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteEventTotalCountAtom(), {
           count: 0,
         });
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        set(swapToTokenAmountAtom(), { value: '', isInput: false });
       }
     },
   );

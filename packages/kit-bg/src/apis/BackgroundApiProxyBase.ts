@@ -6,10 +6,8 @@ import {
   getBackgroundServiceApi,
   throwMethodNotFound,
 } from '@onekeyhq/shared/src/background/backgroundUtils';
-import { OneKeyError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { globalErrorHandler } from '@onekeyhq/shared/src/errors/globalErrorHandler';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import errorUtils from '@onekeyhq/shared/src/errors/utils/errorUtils';
 import type {
   EAppEventBusNames,
   IAppEventBusPayload,

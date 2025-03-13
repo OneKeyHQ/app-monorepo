@@ -40,7 +40,13 @@ function WalletActionSend() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
-    activeAccount: { account, network, wallet, deriveInfoItems },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      deriveInfoItems,
+      indexedAccount,
+    },
   } = useActiveAccount({ num: 0 });
   // const { selectedAccount } = useSelectedAccount({ num: 0 });
   const intl = useIntl();
@@ -57,11 +63,11 @@ function WalletActionSend() {
   }, [network?.id]).result;
 
   const handleOnSend = useCallback(async () => {
-    if (!account || !network) return;
+    if (!network) return;
 
     const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
       networkId: network.id,
-      accountId: account.id,
+      accountId: account?.id ?? '',
     });
 
     if (vaultSettings?.isSingleToken) {
@@ -74,9 +80,8 @@ function WalletActionSend() {
           screen: EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
           params: {
             networkId: network.id,
-            indexedAccountId: account.indexedAccountId ?? '',
+            indexedAccountId: indexedAccount?.id ?? '',
             walletId: wallet?.id ?? '',
-            accountId: account.id,
             actionType: EDeriveAddressActionType.Select,
             token: nativeToken,
             tokenMap: map,
@@ -96,7 +101,7 @@ function WalletActionSend() {
         navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
           screen: EModalSignatureConfirmRoutes.TxDataInput,
           params: {
-            accountId: account.id,
+            accountId: account?.id ?? '',
             networkId: network.id,
             isNFT: false,
             token: nativeToken,
@@ -115,7 +120,7 @@ function WalletActionSend() {
           id: ETranslations.global_search_asset,
         }),
         networkId: network.id,
-        accountId: account.id,
+        accountId: account?.id ?? '',
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
@@ -141,7 +146,7 @@ function WalletActionSend() {
               EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
               {
                 networkId: token.networkId ?? '',
-                indexedAccountId: account.indexedAccountId ?? '',
+                indexedAccountId: indexedAccount?.id ?? '',
                 walletId,
                 accountId: token.accountId ?? '',
                 actionType: EDeriveAddressActionType.Select,
@@ -163,7 +168,7 @@ function WalletActionSend() {
           }
 
           navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
-            accountId: token.accountId ?? account.id,
+            accountId: token.accountId ?? account?.id ?? '',
             networkId: token.networkId ?? network.id,
             isNFT: false,
             token,
@@ -175,6 +180,7 @@ function WalletActionSend() {
   }, [
     account,
     network,
+    indexedAccount,
     vaultSettings?.isSingleToken,
     navigation,
     intl,

@@ -142,7 +142,7 @@ function BaseSectionList<T>(
           ? reloadSectionHeaderIndex(index)
           : null,
       )
-      .filter((index) => index != null) as number[];
+      .filter((index) => index != null);
   }, [reloadSectionHeaderIndex, stickySectionHeadersEnabled, reloadSections]);
 
   const ref = useRef<IListViewRef<T>>(null);

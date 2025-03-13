@@ -121,6 +121,11 @@ export function useSwapQuote() {
     leading: true,
   });
 
+  const toAmountDebounceRef = useRef(toAmountDebounce);
+  if (toAmountDebounceRef.current !== toAmountDebounce) {
+    toAmountDebounceRef.current = toAmountDebounce;
+  }
+
   const alignmentDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
       fromAmountDebounce.value,
@@ -249,7 +254,7 @@ export function useSwapQuote() {
     }
     // fromToken & address change will trigger effect twice. so this use skip
     if (
-      swapTabSwitchType === swapQuoteActionLockRef.current?.type &&
+      swapTabSwitchTypeRef.current === swapQuoteActionLockRef.current?.type &&
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.fromTokenAmount ===
         fromAmountDebounce.value &&
@@ -296,8 +301,28 @@ export function useSwapQuote() {
     toToken?.contractAddress,
     alignmentDecimal,
     fromAmountDebounce,
-    swapTabSwitchType,
   ]);
+
+  useEffect(() => {
+    let kind = ESwapQuoteKind.SELL;
+    if (swapTabSwitchType === ESwapTabSwitchType.LIMIT) {
+      if (
+        toAmountDebounceRef.current.isInput &&
+        toAmountDebounceRef.current.value
+      ) {
+        kind = ESwapQuoteKind.BUY;
+      }
+    }
+    alignmentDecimal();
+    void quoteAction(
+      swapSlippageRef.current,
+      activeAccountRef.current?.address,
+      activeAccountRef.current?.accountInfo?.account?.id,
+      undefined,
+      undefined,
+      kind,
+    );
+  }, [alignmentDecimal, quoteAction, swapTabSwitchType]);
 
   useEffect(
     () => () => {
@@ -331,7 +356,7 @@ export function useSwapQuote() {
     }
     // fromToken & address change will trigger effect twice. so this use skip
     if (
-      swapTabSwitchType === swapQuoteActionLockRef.current?.type &&
+      swapTabSwitchTypeRef.current === swapQuoteActionLockRef.current?.type &&
       swapQuoteActionLockRef.current?.actionLock &&
       swapQuoteActionLockRef.current?.toTokenAmount ===
         toAmountDebounce.value &&
@@ -375,7 +400,6 @@ export function useSwapQuote() {
     toToken?.contractAddress,
     alignmentToDecimal,
     toAmountDebounce,
-    swapTabSwitchType,
   ]);
 
   // Due to the changes in derived types causing address changes, this is not in the swap tab.
