@@ -219,6 +219,6 @@ body > div.cet-container {
   margin-left: 16px;
 }
 
-.cet-menubar .cet-action-menu-item {
+.cet-menubar .cet-action-menu-item:hover {
   background-color: rgb(255 255 255 / 12%)
 }
