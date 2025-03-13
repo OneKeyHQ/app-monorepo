@@ -750,16 +750,15 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           fromTokenAmount.value,
           toTokenAmount.value,
         );
-      } else if (
-        swapTabSwitchType !== ESwapTabSwitchType.LIMIT ||
-        checkWrappedTokenPair({ fromToken, toToken })
-      ) {
+      } else {
         set(swapQuoteFetchingAtom(), false);
         set(swapQuoteEventTotalCountAtom(), {
           count: 0,
         });
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        set(swapToTokenAmountAtom(), { value: '', isInput: false });
       }
     },
   );
