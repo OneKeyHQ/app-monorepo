@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "Paso 3: alinear y perforar",
   "settings.step3_align_and_punch_desc": "Cada línea de KeyTag representa una palabra. Utilice una herramienta de punzón central para un punzonado preciso basado en la posición del círculo negro.\nPara la copia de seguridad de la frase de contraseña, perfore en la línea marcada con ''*''.",
   "settings.submit_request": "Enviar una solicitud",
-  "settings.swap_history": "Historial de intercambio",
+  "settings.swap_history": "Intercambiar órdenes",
   "settings.system_idle_lock": "Bloqueo del sistema en inactividad",
   "settings.system_idle_lock_desc": "Cuando está habilitado, comienza a contar el tiempo cuando no hay actividad del usuario, incluso si la aplicación está en primer plano",
   "settings.theme": "Tema",

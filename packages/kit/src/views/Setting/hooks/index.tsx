@@ -8,6 +8,7 @@ import { ETranslations, LOCALES_OPTION } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { RESET_OVERLAY_Z_INDEX } from '@onekeyhq/shared/src/utils/overlayUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -42,7 +43,14 @@ export const inAppStateLockStyle: {
 export function useResetApp(params?: { inAppStateLock: boolean }) {
   const { inAppStateLock = false } = params || {};
   const intl = useIntl();
-  return useCallback(() => {
+  return useCallback(async () => {
+    await timerUtils.wait(50);
+    if (inAppStateLock) {
+      const isLock = await backgroundApiProxy.serviceApp.isAppLocked();
+      if (!isLock) {
+        return;
+      }
+    }
     Dialog.show({
       ...(inAppStateLock ? inAppStateLockStyle : undefined),
       title: intl.formatMessage({ id: ETranslations.global_reset }),

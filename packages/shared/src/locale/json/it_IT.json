@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "Passaggio 3: allinea e perfora",
   "settings.step3_align_and_punch_desc": "Ogni riga di KeyTag rappresenta una parola. Utilizza uno strumento per punzonatura centrale per una punzonatura precisa basata sulla posizione del cerchio nero.\nPer il backup della frase segreta, punzona sulla riga contrassegnata con ''*''.",
   "settings.submit_request": "Invia una richiesta",
-  "settings.swap_history": "Cronologia degli scambi",
+  "settings.swap_history": "Scambia ordini",
   "settings.system_idle_lock": "Blocco del sistema inattivo",
   "settings.system_idle_lock_desc": "Quando attivato, inizia a cronometrare quando non c'è attività dell'utente, anche se l'app è in primo piano",
   "settings.theme": "Tema",

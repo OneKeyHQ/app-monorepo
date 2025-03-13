@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "단계 3: 정렬하고 펀치하기",
   "settings.step3_align_and_punch_desc": "KeyTag의 각 줄은 하나의 단어를 나타냅니다. 검은 원의 위치에 따라 정확하게 펀칭하기 위해 센터 펀치 도구를 사용하세요.\n비밀번호 백업을 위해 '*'로 표시된 줄에 펀칭하세요.",
   "settings.submit_request": "요청 제출",
-  "settings.swap_history": "스왑 내역",
+  "settings.swap_history": "주문 교환",
   "settings.system_idle_lock": "시스템 유휴 잠금",
   "settings.system_idle_lock_desc": "활성화되면, 앱이 포그라운드에 있더라도 사용자 활동이 없을 때 타이밍을 시작합니다",
   "settings.theme": "테마",

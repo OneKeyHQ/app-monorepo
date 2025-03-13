@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "Étape 3 : alignez et poinçonnez",
   "settings.step3_align_and_punch_desc": "Chaque ligne de KeyTag représente un mot. Utilisez un outil de poinçonnage central pour un poinçonnage précis en fonction de la position du cercle noir.\nPour la sauvegarde de la phrase secrète, poinçonnez sur la ligne marquée par ''*''.",
   "settings.submit_request": "Soumettre une demande",
-  "settings.swap_history": "Historique des échanges",
+  "settings.swap_history": "Échanger les commandes",
   "settings.system_idle_lock": "Verrouillage du système en veille",
   "settings.system_idle_lock_desc": "Lorsqu'il est activé, commence à chronométrer lorsqu'il n'y a aucune activité de l'utilisateur, même si l'application est au premier plan",
   "settings.theme": "Thème",

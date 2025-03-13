@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "Bước 3: căn chỉnh và đấm",
   "settings.step3_align_and_punch_desc": "Mỗi dòng của KeyTag đại diện cho một từ. Sử dụng công cụ đục trung tâm để đục chính xác dựa trên vị trí của hình tròn màu đen.\nĐối với việc sao lưu cụm mật khẩu, hãy đục trên dòng được đánh dấu bằng ''*''.",
   "settings.submit_request": "Gửi một yêu cầu",
-  "settings.swap_history": "Lịch sử trao đổi",
+  "settings.swap_history": "Hoán đổi đơn hàng",
   "settings.system_idle_lock": "Khóa hệ thống khi không hoạt động",
   "settings.system_idle_lock_desc": "Khi được kích hoạt, bắt đầu tính giờ khi không có hoạt động của người dùng, ngay cả khi ứng dụng đang ở chế độ tiền cảnh",
   "settings.theme": "Chủ đề",

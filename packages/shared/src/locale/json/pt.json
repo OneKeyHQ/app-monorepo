@@ -2024,7 +2024,7 @@
   "settings.step3_align_and_punch": "Passo 3: alinhe e perfure",
   "settings.step3_align_and_punch_desc": "Cada linha do KeyTag representa uma palavra. Use uma ferramenta de punção central para uma perfuração precisa com base na posição do círculo preto.\nPara o backup da frase secreta, perfure na linha marcada com ''*''.",
   "settings.submit_request": "Envie um pedido",
-  "settings.swap_history": "Histórico de trocas",
+  "settings.swap_history": "Trocar pedidos",
   "settings.system_idle_lock": "Bloqueio de sistema inativo",
   "settings.system_idle_lock_desc": "Quando ativado, começa a contagem do tempo quando não há atividade do usuário, mesmo que o aplicativo esteja em primeiro plano",
   "settings.theme": "Tema",
