@@ -395,8 +395,9 @@ function useAllNetworkRequests<T>(params: {
         // }
         // })(requestsUUID);
       }
-
-      allNetworkDataInit.current = true;
+      if (accountsInfo.length && accountsInfo.length > 0) {
+        allNetworkDataInit.current = true;
+      }
       isFetching.current = false;
       onFinished?.({
         accountId: currentAccountId,
