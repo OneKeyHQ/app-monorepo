@@ -74,6 +74,14 @@ export const useWebSiteHandler = () => {
         enterMethod,
       });
     },
-    [handleOpenWebSite, navigation, activeTab, setWebTabData],
+    [
+      activeTab?.type,
+      activeTab?.id,
+      activeTab?.isPinned,
+      setWebTabData,
+      navigation,
+      handleOpenWebSite,
+      gtMd,
+    ],
   );
 };
