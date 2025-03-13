@@ -1,7 +1,3 @@
-import {
-  getNip19EncodedPubkey,
-  getPrivateEncodedByNip19,
-} from '@onekeyhq/core/src/chains/nostr/sdkNostr';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { ISignedTxPro } from '@onekeyhq/core/src/types';
 import type { IDeviceSharedCallParams } from '@onekeyhq/shared/types/device';

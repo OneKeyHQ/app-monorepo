@@ -104,7 +104,7 @@
   "address_label.allowlist": "허용 목록",
   "address_type": "주소 유형",
   "adress_book.add_address_add_to_allowlist": "허용 목록에 추가",
-  "allowlist.enabled_popover_content": "지갑 내 계정이나 주소록의 허용된 주소로만 자금을 이체할 수 있습니다. 위험을 이해하신다면, <url>https://1key.so/send/protection<underline>설정 >> 보호</underline></url>에서 이를 비활성화할 수 있습니다.",
+  "allowlist.enabled_popover_content": "지갑 내 계정이나 주소록의 허용된 주소로만 자금을 이체할 수 있습니다. 위험을 이해하신다면, <url>https://app.onekey.so/send/protection<underline>설정 >> 보호</underline></url>에서 이를 비활성화할 수 있습니다.",
   "allowlist.enabled_popover_title": "허용 목록 활성화됨",
   "approve_edit.approve_amount": "금액 승인",
   "approve_edit.less_than_swap": "허용량은 스왑 금액보다 적을 수 없습니다.",

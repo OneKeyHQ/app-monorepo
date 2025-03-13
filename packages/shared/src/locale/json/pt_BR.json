@@ -104,7 +104,7 @@
   "address_label.allowlist": "Lista de Permissão",
   "address_type": "Tipo de endereço",
   "adress_book.add_address_add_to_allowlist": "Adicionar à lista de permitidos",
-  "allowlist.enabled_popover_content": "Você só pode transferir fundos para contas dentro da carteira ou para endereços na lista de endereços permitidos no livro de endereços. Se você entender os riscos, pode desativá-lo em <url>https://1key.so/send/protection<underline>Configurações >> Proteção</underline></url>",
+  "allowlist.enabled_popover_content": "Você só pode transferir fundos para contas dentro da carteira ou para endereços na lista de endereços permitidos no livro de endereços. Se você entender os riscos, pode desativá-lo em <url>https://app.onekey.so/send/protection<underline>Configurações >> Proteção</underline></url>",
   "allowlist.enabled_popover_title": "Lista de permitidos ativada",
   "approve_edit.approve_amount": "Aprovar valor",
   "approve_edit.less_than_swap": "O subsídio não pode ser menor que o valor do swap",

@@ -104,7 +104,7 @@
   "address_label.allowlist": "Erlaubnisliste",
   "address_type": "Adresstyp",
   "adress_book.add_address_add_to_allowlist": "Zur Positivliste hinzufügen",
-  "allowlist.enabled_popover_content": "Sie können nur Gelder auf Konten innerhalb der Brieftasche oder an auf der 白名单 stehende Adressen im Adressbuch überweisen. Wenn Sie die Risiken verstehen, können Sie es unter <url>https://1key.so/send/protection<underline>Einstellungen >> Schutz</underline></url> deaktivieren.",
+  "allowlist.enabled_popover_content": "Sie können nur Gelder auf Konten innerhalb der Brieftasche oder an auf der 白名单 stehende Adressen im Adressbuch überweisen. Wenn Sie die Risiken verstehen, können Sie es unter <url>https://app.onekey.so/send/protection<underline>Einstellungen >> Schutz</underline></url> deaktivieren.",
   "allowlist.enabled_popover_title": "Allowlist aktiviert",
   "approve_edit.approve_amount": "Betrag genehmigen",
   "approve_edit.less_than_swap": "Der Freibetrag darf nicht geringer sein als der Swap-Betrag",

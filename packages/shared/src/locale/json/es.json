@@ -104,7 +104,7 @@
   "address_label.allowlist": "Lista de permitidos",
   "address_type": "Tipo de dirección",
   "adress_book.add_address_add_to_allowlist": "Agregar a la lista de permitidos",
-  "allowlist.enabled_popover_content": "Solo puedes transferir fondos a cuentas dentro de la billetera o a direcciones en la lista blanca en la libreta de direcciones. Si entiendes los riesgos, puedes desactivarlo en <url>https://1key.so/send/protection<underline>Configuración >> Protección</underline></url>",
+  "allowlist.enabled_popover_content": "Solo puedes transferir fondos a cuentas dentro de la billetera o a direcciones en la lista blanca en la libreta de direcciones. Si entiendes los riesgos, puedes desactivarlo en <url>https://app.onekey.so/send/protection<underline>Configuración >> Protección</underline></url>",
   "allowlist.enabled_popover_title": "Lista de permitidos habilitada",
   "approve_edit.approve_amount": "Aprobar monto",
   "approve_edit.less_than_swap": "La asignación no puede ser menor que el monto del swap",
