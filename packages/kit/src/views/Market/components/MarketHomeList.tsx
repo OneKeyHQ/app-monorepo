@@ -56,13 +56,11 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 import { MarketListTradeButton } from './MarketListTradeButton';
 import { MarketMore } from './MarketMore';
-import { MarketStar, useStarChecked } from './MarketStar';
+import { MarketStar } from './MarketStar';
 import { MarketTokenIcon } from './MarketTokenIcon';
 import { MarketTokenPrice } from './MarketTokenPrice';
-import { MarketTokenStarIcon } from './MarketTokenStarIcon';
 import { PriceChangePercentage } from './PriceChangePercentage';
 import SparklineChart from './SparklineChart';
-import { ToggleButton } from './ToggleButton';
 import { useLazyMarketTradeActions } from './tradeHook';
 import { useSortType } from './useSortType';
 import { useWatchListAction } from './wachListHooks';
