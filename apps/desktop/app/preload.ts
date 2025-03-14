@@ -78,7 +78,7 @@ export type IDesktopAPI = {
   verifyASC: (event: IVerifyUpdateParams) => void;
   verifyUpdate: (event: IVerifyUpdateParams) => void;
   installUpdate: (event: IInstallUpdateParams) => void;
-  manualInstallUpdate: (event: IInstallUpdateParams) => void;
+  manualInstallPackage: (event: IInstallUpdateParams) => void;
   getPreviousUpdateBuildNumber: () => string;
   clearUpdate: () => void;
   setAutoUpdateSettings: (settings: IUpdateSettings) => void;
@@ -328,7 +328,7 @@ const desktopApi = Object.freeze({
     ipcRenderer.send(ipcMessageKeys.UPDATE_VERIFY_ASC, params),
   installUpdate: (params: IInstallUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_INSTALL, params),
-  manualInstallUpdate: (params: IInstallUpdateParams) =>
+  manualInstallPackage: (params: IInstallUpdateParams) =>
     ipcRenderer.send(ipcMessageKeys.UPDATE_MANUAL_INSTALLATION, params),
   getPreviousUpdateBuildNumber: () =>
     ipcRenderer.sendSync(

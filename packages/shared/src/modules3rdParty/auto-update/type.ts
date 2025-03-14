@@ -25,3 +25,7 @@ export type IUseDownloadProgress = (
 ) => number;
 
 export type IClearPackage = () => Promise<void>;
+
+export type IManualInstallPackage = (
+  params: IUpdateDownloadedEvent & { buildNumber: string },
+) => Promise<void>;

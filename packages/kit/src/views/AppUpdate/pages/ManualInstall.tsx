@@ -3,12 +3,14 @@ import { useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Image, Page, SizableText, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDownloadPackage } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function ManualInstall() {
   const intl = useIntl();
+
+  const { manualInstallPackage } = useDownloadPackage();
 
   const descTranslationId = useMemo(
     () => ETranslations.update_update_incomplete_desc,
@@ -64,14 +66,7 @@ export default function ManualInstall() {
         onConfirmText={intl.formatMessage({
           id: ETranslations.update_manual_update,
         })}
-        onConfirm={async () => {
-          const params =
-            await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
-          globalThis.desktopApi.manualInstallUpdate({
-            ...params,
-            buildNumber: String(platformEnv.buildNumber || 1),
-          });
-        }}
+        onConfirm={manualInstallPackage}
       />
     </Page>
   );
