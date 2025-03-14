@@ -19,7 +19,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 
 import { BookmarksSectionItems } from './BookmarksSectionItems';
 import { DashboardSectionHeader } from './DashboardSectionHeader';

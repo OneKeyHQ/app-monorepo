@@ -25,7 +25,7 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
-import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
