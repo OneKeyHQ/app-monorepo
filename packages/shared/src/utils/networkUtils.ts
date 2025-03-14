@@ -1,7 +1,3 @@
-import { isNil } from 'lodash';
-
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-
 import {
   BtcDappNetworkTypes,
   BtcDappUniSetChainTypes,
