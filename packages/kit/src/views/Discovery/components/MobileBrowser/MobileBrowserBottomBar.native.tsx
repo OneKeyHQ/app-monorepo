@@ -136,13 +136,8 @@ function MobileBrowserBottomBar({
     }, [origin]);
 
   const { displayHomePage } = useDisplayHomePageFlag();
-  const {
-    setWebTabData,
-    setPinnedTab,
-    setCurrentWebTab,
-    closeWebTab,
-    setSiteMode,
-  } = useBrowserTabActions().current;
+  const { setPinnedTab, setCurrentWebTab, closeWebTab, setSiteMode } =
+    useBrowserTabActions().current;
   const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;

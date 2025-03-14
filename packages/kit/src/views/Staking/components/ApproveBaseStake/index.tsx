@@ -327,12 +327,16 @@ export function ApproveBaseStake({
   const onConfirmText = useMemo(() => {
     if (shouldApprove) {
       return intl.formatMessage(
-        { id: ETranslations.earn_approve_deposit },
+        {
+          id: usePermit2Approve
+            ? ETranslations.earn_approve_deposit
+            : ETranslations.global_approve,
+        },
         { amount: amountValue, symbol: token.symbol },
       );
     }
     return intl.formatMessage({ id: ETranslations.earn_deposit });
-  }, [shouldApprove, token, amountValue, intl]);
+  }, [shouldApprove, intl, usePermit2Approve, amountValue, token.symbol]);
 
   const onMax = useCallback(() => {
     onChangeAmountValue(balance);
@@ -603,10 +607,17 @@ export function ApproveBaseStake({
 
   const onApprove = useCallback(async () => {
     setApproving(true);
+    let approveAllowance = allowance;
+    try {
+      const allowanceInfo = await fetchAllowanceResponse();
+      approveAllowance = allowanceInfo.allowanceParsed;
+    } catch (e) {
+      console.error(e);
+    }
     permitSignatureRef.current = undefined;
     showStakeProgressRef.current[amountValue] = true;
 
-    const allowanceBN = BigNumber(allowance);
+    const allowanceBN = BigNumber(approveAllowance);
     const amountBN = BigNumber(amountValue);
 
     if (earnUtils.isUSDTonETHNetwork(token)) {
@@ -701,8 +712,8 @@ export function ApproveBaseStake({
       },
     });
   }, [
-    amountValue,
     allowance,
+    amountValue,
     token,
     usePermit2Approve,
     approveTarget.accountId,
@@ -710,6 +721,7 @@ export function ApproveBaseStake({
     approveTarget.spenderAddress,
     approveTarget.token,
     navigationToTxConfirm,
+    fetchAllowanceResponse,
     showResetUSDTApproveValueDialog,
     checkEstimateGasAlert,
     getPermitCache,
@@ -717,8 +729,8 @@ export function ApproveBaseStake({
     details,
     updatePermitCache,
     onSubmit,
-    trackAllowance,
     debouncedFetchEstimateFeeResp,
+    trackAllowance,
   ]);
 
   const placeholderTokens = useMemo(

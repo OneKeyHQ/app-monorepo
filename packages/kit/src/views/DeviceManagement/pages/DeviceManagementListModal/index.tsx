@@ -26,7 +26,6 @@ import {
   EModalRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
@@ -40,6 +39,7 @@ function DeviceManagementListModal() {
         const r =
           await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
             filterHiddenWallet: true,
+            skipDuplicateDevice: true,
           });
         return Object.values(r).filter(
           (item): item is IHwQrWalletWithDevice =>
@@ -84,9 +84,6 @@ function DeviceManagementListModal() {
       const walletAvatarProps: IWalletAvatarProps = {
         wallet: item.wallet,
         status: 'default',
-        badge: accountUtils.isQrWallet({ walletId: item.wallet.id })
-          ? 'QR'
-          : undefined,
       };
       return (
         <ListItem

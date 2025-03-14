@@ -16,7 +16,10 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
@@ -90,6 +93,7 @@ const SwapInputContainer = ({
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [, setInAppNotification] = useInAppNotificationAtom();
 
   const fromInputHasError = useMemo(() => {
     const accountError =
@@ -192,10 +196,22 @@ const SwapInputContainer = ({
 
   const onFromInputFocus = () => {
     setPercentageInputStageShow(true);
+    if (direction === ESwapDirectionType.FROM) {
+      setInAppNotification((v) => ({
+        ...v,
+        swapPercentageInputStageShowForNative: true,
+      }));
+    }
   };
 
   const onFromInputBlur = () => {
     // delay to avoid blur when select percentage stage
+    if (direction === ESwapDirectionType.FROM) {
+      setInAppNotification((v) => ({
+        ...v,
+        swapPercentageInputStageShowForNative: false,
+      }));
+    }
     setTimeout(() => {
       setPercentageInputStageShow(false);
     }, 200);

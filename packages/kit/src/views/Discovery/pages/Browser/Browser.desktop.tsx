@@ -6,7 +6,12 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
-import { useActiveTabId, useWebTabs } from '../../hooks/useWebTabs';
+import {
+  useActiveTabId,
+  useWebTabDataById,
+  useWebTabs,
+} from '../../hooks/useWebTabs';
+import { HistoryIconButton } from '../components/HistoryIconButton';
 
 import DesktopBrowserContent from './DesktopBrowserContent';
 import DesktopBrowserNavigationContainer from './DesktopBrowserNavigationContainer';
@@ -15,6 +20,8 @@ import { withBrowserProvider } from './WithBrowserProvider';
 function DesktopBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
+  const { tab: activeTab } = useWebTabDataById(activeTabId ?? '');
+  const isHomeType = activeTab?.type === 'home';
 
   const navigation = useAppNavigation();
   const firstRender = useRef(true);
@@ -45,9 +52,11 @@ function DesktopBrowser() {
     <Page>
       <Page.Header
         // @ts-expect-error
-        headerTitle={DesktopBrowserNavigationContainer}
+        headerTitle={
+          !isHomeType ? DesktopBrowserNavigationContainer : undefined
+        }
         // @ts-expect-error
-        headerRight={HeaderRightToolBar}
+        headerRight={!isHomeType ? HeaderRightToolBar : HistoryIconButton}
         headerRightContainerStyle={{
           flexBasis: 'auto',
           flexGrow: 0,

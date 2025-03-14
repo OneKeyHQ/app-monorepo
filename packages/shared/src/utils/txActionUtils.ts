@@ -222,14 +222,12 @@ export function getStakingActionLabel({
 
 export function convertAddressToSignatureConfirmAddress({
   address,
-  networkId,
   label,
-  owner,
+  showAccountName,
 }: {
   address: string;
-  networkId: string;
   label?: string;
-  owner?: string;
+  showAccountName?: boolean;
 }): IDisplayComponentAddress {
   return {
     type: EParseTxComponentType.Address,
@@ -238,10 +236,9 @@ export function convertAddressToSignatureConfirmAddress({
       appLocale.intl.formatMessage({
         id: ETranslations.copy_address_modal_title,
       }),
-    address: networkUtils.isLightningNetworkByNetworkId(networkId)
-      ? owner ?? ''
-      : address,
+    address,
     tags: [],
+    showAccountName,
   };
 }
 

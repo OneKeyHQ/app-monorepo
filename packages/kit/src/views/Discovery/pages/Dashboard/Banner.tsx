@@ -1,26 +1,23 @@
 import { useMemo } from 'react';
 
 import { Banner, Skeleton, Stack } from '@onekeyhq/components';
+import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
 import { useBannerData } from '../../hooks/useBannerData';
+import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
 
 import type { IMatchDAppItemType } from '../../types';
 
 export function DashboardBanner({
   banners,
-  handleOpenWebSite,
   isLoading,
 }: {
   banners: IDiscoveryBanner[];
-  handleOpenWebSite: ({
-    dApp,
-    webSite,
-    useSystemBrowser,
-  }: IMatchDAppItemType & { useSystemBrowser: boolean }) => void;
   isLoading: boolean | undefined;
 }) {
   const { data, closeAllBanners } = useBannerData(banners);
+  const handleWebSite = useWebSiteHandler();
 
   const emptyComponent = useMemo(
     () =>
@@ -62,12 +59,14 @@ export function DashboardBanner({
         itemTitleContainerStyle={{ display: 'none' }}
         emptyComponent={emptyComponent}
         onItemPress={(item) => {
-          handleOpenWebSite({
+          handleWebSite({
             webSite: {
               url: item.href,
               title: item.href,
             },
             useSystemBrowser: item.useSystemBrowser,
+            shouldPopNavigation: false,
+            enterMethod: EEnterMethod.banner,
           });
         }}
       />

@@ -96,7 +96,7 @@ describe('useParseQRCode', () => {
     );
     expect(await parse('bitcoin://1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH')).toEqual(
       expect.objectContaining({
-        type: EQRCodeHandlerType.URL,
+        type: EQRCodeHandlerType.UNKNOWN,
       }),
     );
     expect(
@@ -136,35 +136,35 @@ describe('useParseQRCode', () => {
       await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=-1'),
     ).toEqual(
       expect.objectContaining({
-        type: EQRCodeHandlerType.URL,
+        type: EQRCodeHandlerType.UNKNOWN,
       }),
     );
     expect(
       await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=-1.00'),
     ).toEqual(
       expect.objectContaining({
-        type: EQRCodeHandlerType.URL,
+        type: EQRCodeHandlerType.UNKNOWN,
       }),
     );
     expect(
       await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=two'),
     ).toEqual(
       expect.objectContaining({
-        type: EQRCodeHandlerType.URL,
+        type: EQRCodeHandlerType.UNKNOWN,
       }),
     );
     expect(
       await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=NaN'),
     ).toEqual(
       expect.objectContaining({
-        type: EQRCodeHandlerType.URL,
+        type: EQRCodeHandlerType.UNKNOWN,
       }),
     );
     expect(
       await parse('bitcoin:1BgGZ9tcN4rm9KBzDn7KprQz87SZ26SAMH?amount=Infinity'),
     ).toEqual(
       expect.objectContaining({
-        type: EQRCodeHandlerType.URL,
+        type: EQRCodeHandlerType.UNKNOWN,
       }),
     );
     expect(

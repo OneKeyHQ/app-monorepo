@@ -21,9 +21,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
@@ -33,6 +31,7 @@ import {
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
+import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import { DappSearchModalSectionHeader } from './DappSearchModalSectionHeader';
@@ -58,7 +57,7 @@ function SearchModal() {
 
   const [searchValue, setSearchValue] = useState(url);
   const { gtMd } = useMedia();
-  const { handleOpenWebSite } = useBrowserAction().current;
+  const handleWebSite = useWebSiteHandler();
 
   const { serviceDiscovery } = backgroundApiProxy;
   const { result: localData, run: refreshLocalData } =
@@ -163,32 +162,20 @@ function SearchModal() {
           }}
           onPress={() => {
             if (item.dappId === SEARCH_ITEM_ID) {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                navigation,
-                useCurrentWindow,
-                tabId,
+              handleWebSite({
                 webSite: {
                   url: searchValue,
                   title: searchValue,
                 },
-              });
-              defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: searchValue,
-                dappName: searchValue,
+                useCurrentWindow,
+                tabId,
                 enterMethod: EEnterMethod.search,
               });
             } else {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                navigation,
+              handleWebSite({
+                dApp: item,
                 useCurrentWindow,
                 tabId,
-                dApp: item,
-              });
-              defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: item.name,
-                dappName: item.url,
                 enterMethod: EEnterMethod.search,
               });
             }
@@ -196,7 +183,7 @@ function SearchModal() {
           testID={`dapp-search${index}`}
         />
       )),
-    [gtMd, handleOpenWebSite, navigation, searchValue, tabId, useCurrentWindow],
+    [handleWebSite, searchValue, tabId, useCurrentWindow],
   );
 
   return (
@@ -221,20 +208,13 @@ function SearchModal() {
               if (!searchValue) {
                 navigation.pop();
               } else {
-                handleOpenWebSite({
-                  switchToMultiTabBrowser: gtMd,
-                  navigation,
-                  useCurrentWindow,
-                  tabId,
+                handleWebSite({
                   webSite: {
                     url: searchValue,
                     title: searchValue,
                   },
-                });
-
-                defaultLogger.discovery.dapp.enterDapp({
-                  dappDomain: searchValue,
-                  dappName: searchValue,
+                  useCurrentWindow,
+                  tabId,
                   enterMethod: EEnterMethod.addressBar,
                 });
               }
@@ -274,20 +254,13 @@ function SearchModal() {
                       flexBasis: '16.66666667%',
                     }}
                     onPress={() => {
-                      handleOpenWebSite({
-                        switchToMultiTabBrowser: gtMd,
-                        navigation,
-                        useCurrentWindow,
-                        tabId,
+                      handleWebSite({
                         webSite: {
                           url: item.url,
                           title: item.title,
                         },
-                      });
-
-                      defaultLogger.discovery.dapp.enterDapp({
-                        dappDomain: item.url,
-                        dappName: item.title,
+                        useCurrentWindow,
+                        tabId,
                         enterMethod: EEnterMethod.bookmarkInSearch,
                       });
                     }}
@@ -354,20 +327,13 @@ function SearchModal() {
                   }}
                   testID={`search-modal-${item.title.toLowerCase()}`}
                   onPress={() => {
-                    handleOpenWebSite({
-                      switchToMultiTabBrowser: gtMd,
-                      navigation,
-                      useCurrentWindow,
-                      tabId,
+                    handleWebSite({
                       webSite: {
                         url: item.url,
                         title: item.title,
                       },
-                    });
-
-                    defaultLogger.discovery.dapp.enterDapp({
-                      dappDomain: item.url,
-                      dappName: item.title,
+                      useCurrentWindow,
+                      tabId,
                       enterMethod: EEnterMethod.historyInSearch,
                     });
                   }}

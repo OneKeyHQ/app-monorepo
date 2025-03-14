@@ -18,7 +18,10 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
 import {
   ESwapDirectionType,
   ESwapTabSwitchType,
@@ -106,7 +109,19 @@ const SwapQuoteInput = ({
         toToken,
       })
     ) {
-      let toAmount = swapQuoteCurrentSelect?.toAmount ?? '';
+      let toAmount = '';
+      if (
+        equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: swapQuoteCurrentSelect?.fromTokenInfo,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: toToken,
+          token2: swapQuoteCurrentSelect?.toTokenInfo,
+        })
+      ) {
+        toAmount = swapQuoteCurrentSelect?.toAmount ?? '';
+      }
       if (
         checkWrappedTokenPair({
           fromToken,
@@ -124,6 +139,8 @@ const SwapQuoteInput = ({
     }
   }, [
     swapQuoteCurrentSelect?.toAmount,
+    swapQuoteCurrentSelect?.fromTokenInfo,
+    swapQuoteCurrentSelect?.toTokenInfo,
     swapQuoteCurrentSelect?.isWrapped,
     setToInputAmount,
     setFromInputAmount,

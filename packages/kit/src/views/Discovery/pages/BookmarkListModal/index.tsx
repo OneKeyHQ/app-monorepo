@@ -6,24 +6,18 @@ import {
   Button,
   Dialog,
   Empty,
-  Input,
   Page,
   SortableListView,
   Toast,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useBrowserAction,
-  useBrowserBookmarkAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useBrowserBookmarkAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import {
   EChangeHistoryContentType,
@@ -31,6 +25,7 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
+import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserBookmark } from '../../types';
@@ -40,7 +35,7 @@ function BookmarkListModal() {
   const intl = useIntl();
   const { buildBookmarkData, removeBrowserBookmark, modifyBrowserBookmark } =
     useBrowserBookmarkAction().current;
-  const { handleOpenWebSite } = useBrowserAction().current;
+  const handleWebSite = useWebSiteHandler();
 
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
   const { run, result } = usePromiseResult(
@@ -144,6 +139,19 @@ function BookmarkListModal() {
     [buildBookmarkData],
   );
 
+  const handleItemPress = useCallback(
+    (item: IBrowserBookmark) => {
+      handleWebSite({
+        webSite: {
+          url: item.url,
+          title: item.title,
+        },
+        enterMethod: EEnterMethod.bookmark,
+      });
+    },
+    [handleWebSite],
+  );
+
   const CELL_HEIGHT = 60;
 
   const headerRight = useCallback(
@@ -165,7 +173,6 @@ function BookmarkListModal() {
     ),
     [isEditing, intl],
   );
-  const { gtMd } = useMedia();
 
   return (
     <Page>
@@ -201,21 +208,7 @@ function BookmarkListModal() {
               h={CELL_HEIGHT}
               testID={`search-modal-${item.url.toLowerCase()}`}
               {...(!isEditing && {
-                onPress: () => {
-                  handleOpenWebSite({
-                    navigation,
-                    switchToMultiTabBrowser: gtMd,
-                    webSite: {
-                      url: item.url,
-                      title: item.title,
-                    },
-                  });
-                  defaultLogger.discovery.dapp.enterDapp({
-                    dappDomain: item.url,
-                    dappName: item.title,
-                    enterMethod: EEnterMethod.bookmark,
-                  });
-                },
+                onPress: () => handleItemPress(item),
               })}
             >
               {isEditing ? (

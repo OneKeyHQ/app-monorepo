@@ -6970,7 +6970,7 @@ __metadata:
     eslint-plugin-prettier: "npm:^4.2.1"
     eslint-plugin-props-checker: "npm:^1.1.0"
     eslint-plugin-react: "npm:^7.31.11"
-    eslint-plugin-react-hooks: "npm:^4.6.0"
+    eslint-plugin-react-hooks: "npm:4.6.2"
     eslint-plugin-spellcheck: "npm:^0.0.20"
     eslint-plugin-unicorn: "npm:^56.0.0"
     eslint-plugin-use-effect-no-deps: "npm:^1.1.2"
@@ -23604,6 +23604,15 @@ __metadata:
   peerDependencies:
     eslint: ">=7"
   checksum: 10/309c92b5be4cec627abd3ed689137953a9905c8d3f4d97334a2a37d6ba3d1bc5b0b27a91a617076dafdfd3b57cd0f1b1241e144ef74ea77081f688de5495e91b
+  languageName: node
+  linkType: hard
+
+"eslint-plugin-react-hooks@npm:4.6.2":
+  version: 4.6.2
+  resolution: "eslint-plugin-react-hooks@npm:4.6.2"
+  peerDependencies:
+    eslint: ^3.0.0 || ^4.0.0 || ^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0-0
+  checksum: 10/5a0680941f34e70cf505bcb6082df31a3e445d193ee95a88ff3483041eb944f4cefdaf7e81b0eb1feb4eeceee8c7c6ddb8a2a6e8c4c0388514a42e16ac7b7a69
   languageName: node
   linkType: hard
 
