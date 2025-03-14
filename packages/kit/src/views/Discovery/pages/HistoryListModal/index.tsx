@@ -24,7 +24,7 @@ import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scene
 import { formatRelativeDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
 import { DiscoveryIcon } from '../../components/DiscoveryIcon';
-import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { IBrowserHistory } from '../../types';

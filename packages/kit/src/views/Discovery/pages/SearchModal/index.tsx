@@ -15,7 +15,7 @@ import type {
 
 import { SearchResultContent } from '../../components/SearchResultContent';
 import { useSearchModalData } from '../../hooks/useSearchModalData';
-import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
 
 import type { RouteProp } from '@react-navigation/core';
