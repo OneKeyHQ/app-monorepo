@@ -7158,7 +7158,7 @@ __metadata:
     electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
-    electron-windows-security: "npm:0.0.5"
+    electron-windows-security: "npm:0.0.6"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
@@ -22409,12 +22409,12 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-windows-security@npm:0.0.5":
-  version: 0.0.5
-  resolution: "electron-windows-security@npm:0.0.5"
+"electron-windows-security@npm:0.0.6":
+  version: 0.0.6
+  resolution: "electron-windows-security@npm:0.0.6"
   dependencies:
     nan: "npm:2.20.0"
-  checksum: 10/99d7b2584c5b27a348a393c1b0c04e427452764b2e08ed0e8889dadabfdaf34885484bd0528dc664453aa0e06071b461e353d082fb0afa9af37e7337e6d8b38a
+  checksum: 10/d1d38fadcc933d3fa8842aa30738d70ed2046ff7d8b735ab6e8de9ee628fed30d6051bec7f62d7169ce6e1ec62b749b483774945eeb4ffc5f8a30d6b909fd661
   languageName: node
   linkType: hard
 
