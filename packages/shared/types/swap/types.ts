@@ -535,6 +535,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   toTokenAmount: string;
   provider: string;
   quoteResultCtx?: any;
+  kind: ESwapQuoteKind;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;

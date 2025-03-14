@@ -730,6 +730,8 @@ export function useSwapBuildTx() {
           provider: selectQuoteRes?.info.provider,
           accountId: swapFromAddressInfo.accountInfo?.account?.id,
           quoteResultCtx: selectQuoteRes?.quoteResultCtx,
+          protocol: selectQuoteRes.protocol ?? EProtocolOfExchange.SWAP,
+          kind: selectQuoteRes.kind ?? ESwapQuoteKind.SELL,
         });
         let skipSendTransAction = false;
         if (res) {
