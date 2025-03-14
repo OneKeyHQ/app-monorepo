@@ -40,7 +40,7 @@ const LimitOrderOpenItem = ({
       justifyContent="space-between"
       py="$3.5"
       px="$4"
-      bg={swapLimitOrdersLoading ? '$bgDisabledLight' : '$bgSubdued'}
+      bg="$bgSubdued"
       borderRadius="$3"
       hoverStyle={{
         bg: '$bgStrongHover',
