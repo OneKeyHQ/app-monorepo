@@ -25,6 +25,7 @@ interface ISwapQuoteResultRateProps {
   toToken?: ISwapToken;
   providerIcon?: string;
   providerName?: string;
+  quoting?: boolean;
   isLoading?: boolean;
   onOpenResult?: () => void;
   refreshAction: (manual?: boolean) => void;
@@ -33,6 +34,7 @@ interface ISwapQuoteResultRateProps {
 const SwapQuoteResultRate = ({
   rate,
   isBest,
+  quoting,
   fromToken,
   toToken,
   providerIcon,
@@ -123,7 +125,11 @@ const SwapQuoteResultRate = ({
       )}
 
       <XStack alignItems="center" userSelect="none" gap="$1" flex={1}>
-        {!providerIcon || !fromToken || !toToken || !onOpenResult ? null : (
+        {!providerIcon ||
+        !fromToken ||
+        !toToken ||
+        !onOpenResult ||
+        quoting ? null : (
           <XStack
             flex={1}
             justifyContent="flex-end"
@@ -149,7 +155,7 @@ const SwapQuoteResultRate = ({
             {/* </XStack> */}
           </XStack>
         )}
-        {!isLoading && onOpenResult ? (
+        {!quoting && onOpenResult ? (
           <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
             <Icon
               name="ChevronDownSmallOutline"
@@ -168,13 +174,15 @@ const SwapQuoteResultRate = ({
                 height: 20,
               }}
             />
-            <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
-              <Icon
-                name="ChevronDownSmallOutline"
-                color={openResult ? '$iconActive' : '$iconSubdued'}
-                size="$5"
-              />
-            </Stack>
+            {onOpenResult ? (
+              <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  color={openResult ? '$iconActive' : '$iconSubdued'}
+                  size="$5"
+                />
+              </Stack>
+            ) : null}
           </XStack>
         )}
       </XStack>
