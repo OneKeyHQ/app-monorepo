@@ -769,12 +769,10 @@ function SendDataInputContainer() {
   }, [tokenDetails?.fiatValue]);
 
   // Lightning Network only accepts integer values on Token Mode
-  const isIntegerAmount = useMemo(() => {
-    if (networkUtils.isLightningNetworkByNetworkId(networkId) && !isUseFiat) {
-      return true;
-    }
-    return false;
-  }, [networkId, isUseFiat]);
+  const isIntegerAmount = useMemo(
+    () => networkUtils.isLightningNetworkByNetworkId(networkId) && !isUseFiat,
+    [networkId, isUseFiat],
+  );
 
   const renderTokenDataInputForm = useCallback(
     () => (
