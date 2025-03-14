@@ -744,6 +744,8 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage,
     quoteResultCtx,
     accountId,
+    protocol,
+    kind,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -755,6 +757,8 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage: number;
     accountId?: string;
     quoteResultCtx?: any;
+    protocol: EProtocolOfExchange;
+    kind: ESwapQuoteKind;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
@@ -763,12 +767,13 @@ export default class ServiceSwap extends ServiceBase {
       toTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol: EProtocolOfExchange.SWAP,
+      protocol,
       provider,
       userAddress,
       receivingAddress,
       slippagePercentage,
       quoteResultCtx,
+      kind,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
