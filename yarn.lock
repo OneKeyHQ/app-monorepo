@@ -7150,7 +7150,7 @@ __metadata:
     adm-zip: "npm:^0.5.10"
     concurrently: "npm:8.2.2"
     cross-env: "npm:^7.0.3"
-    electron: "npm:27.3.1"
+    electron: "npm:30.5.1"
     electron-builder: "npm:26.0.9"
     electron-check-biometric-auth-changed: "npm:0.0.6"
     electron-context-menu: "npm:^3.5.0"
@@ -7158,7 +7158,7 @@ __metadata:
     electron-log: "npm:5.2.0"
     electron-store: "npm:^8.2.0"
     electron-updater: "npm:6.1.8"
-    electron-windows-security: "npm:0.0.5"
+    electron-windows-security: "npm:0.0.6"
     esbuild: "npm:0.15.18"
     folderslint: "npm:^1.2.0"
     glob: "npm:^7.2.0"
@@ -14980,12 +14980,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:^18.0.0, @types/node@npm:^18.11.18":
+"@types/node@npm:^18.0.0":
   version: 18.19.78
   resolution: "@types/node@npm:18.19.78"
   dependencies:
     undici-types: "npm:~5.26.4"
   checksum: 10/c9b285b965c054d4ffd511fd31c18b3d1512dfdf2af0f0340b19a225716aedc2a26d87dadc2dd27b33e2fa6cbcdacff2bb8bf70f91978b2ef3b18dfa327afdfb
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^20.9.0":
+  version: 20.17.24
+  resolution: "@types/node@npm:20.17.24"
+  dependencies:
+    undici-types: "npm:~6.19.2"
+  checksum: 10/0c5fe294b003656b0f95ffce295c08e7ed3fa814ba9bf891e146dced90322d186e63837db9d9bb14d4f294fbe1a6fa1c89ced0b173380c8aaeb90de6c3eddb3b
   languageName: node
   linkType: hard
 
@@ -22400,25 +22409,25 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron-windows-security@npm:0.0.5":
-  version: 0.0.5
-  resolution: "electron-windows-security@npm:0.0.5"
+"electron-windows-security@npm:0.0.6":
+  version: 0.0.6
+  resolution: "electron-windows-security@npm:0.0.6"
   dependencies:
     nan: "npm:2.20.0"
-  checksum: 10/99d7b2584c5b27a348a393c1b0c04e427452764b2e08ed0e8889dadabfdaf34885484bd0528dc664453aa0e06071b461e353d082fb0afa9af37e7337e6d8b38a
+  checksum: 10/d1d38fadcc933d3fa8842aa30738d70ed2046ff7d8b735ab6e8de9ee628fed30d6051bec7f62d7169ce6e1ec62b749b483774945eeb4ffc5f8a30d6b909fd661
   languageName: node
   linkType: hard
 
-"electron@npm:27.3.1":
-  version: 27.3.1
-  resolution: "electron@npm:27.3.1"
+"electron@npm:30.5.1":
+  version: 30.5.1
+  resolution: "electron@npm:30.5.1"
   dependencies:
     "@electron/get": "npm:^2.0.0"
-    "@types/node": "npm:^18.11.18"
+    "@types/node": "npm:^20.9.0"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 10/d46f43a82653dab5e115ed4201c4d5b101c60eede6e8a4045349a75409e362384d3258a7c3dc031c9a05622d66b3df557e1f304e7196b6f60360f9bc4958c132
+  checksum: 10/2dd971883bcaae63e63ae2549aa029922f4935816d71b8a52b5d3ee2f2f242cf0236d7284778902d8a0cebdd8b75cf9ece1523e687b1ade81aeb000126ebaa19
   languageName: node
   linkType: hard
 

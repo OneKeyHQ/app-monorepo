@@ -14,7 +14,6 @@ import { Image, SizableText, Stack, XStack } from '../../primitives';
 import CloseButton from './CloseButton';
 import { PaginationButton } from './PaginationButton';
 
-import type { IIconButtonProps } from '../../actions';
 import type {
   IImageSourceProps,
   ISizableTextProps,
@@ -106,8 +105,6 @@ export function Banner<T extends IBannerData>({
   itemContainerStyle,
   itemTitleContainerStyle,
   indicatorContainerStyle,
-  leftIconButtonStyle,
-  rightIconButtonStyle,
   showPaginationButton = !platformEnv.isNative,
   showCloseButton = false,
   onBannerClose,
@@ -115,8 +112,6 @@ export function Banner<T extends IBannerData>({
 }: {
   data: T[];
   itemContainerStyle?: IStackStyle;
-  leftIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
-  rightIconButtonStyle?: Omit<IIconButtonProps, 'icon'>;
   indicatorContainerStyle?: IStackStyle;
   itemTitleContainerStyle?: IStackStyle;
   size?: 'small' | 'large';

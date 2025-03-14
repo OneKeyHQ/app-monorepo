@@ -260,7 +260,7 @@ module.exports = {
           /Preauthorized/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
-        'minLength': 3,
+        'minLength': 4,
       },
     ],
     'props-checker/validator': [
