@@ -10,6 +10,11 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 export default function ManualInstall() {
   const intl = useIntl();
 
+  const descTranslationId = useMemo(
+    () => ETranslations.update_update_incomplete_desc,
+    [],
+  );
+
   const image = useMemo(() => {
     if (platformEnv.isDesktopLinux) {
       return null;
@@ -18,14 +23,15 @@ export default function ManualInstall() {
     if (platformEnv.isDesktopMac) {
       return (
         <Image
-          h="$96"
-          source={require('@onekeyhq/kit/assets/manual_install_mac.png')}
+          h={40}
+          source={require('@onekeyhq/kit/assets/manual_install_win.png')}
         />
       );
     }
     return (
       <Image
-        h="$96"
+        h="$100"
+        mt="$5"
         source={require('@onekeyhq/kit/assets/manual_install_win.png')}
       />
     );
@@ -41,15 +47,17 @@ export default function ManualInstall() {
         <YStack px="$5" gap="$3">
           <SizableText size="$bodyMd">
             {intl.formatMessage({
-              id: ETranslations.update_update_incomplete_desc,
+              id: descTranslationId,
             })}
           </SizableText>
           {image}
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.update_update_incomplete_footnote,
-            })}
-          </SizableText>
+          {platformEnv.isDesktopMac ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.update_update_incomplete_footnote,
+              })}
+            </SizableText>
+          ) : null}
         </YStack>
       </Page.Body>
       <Page.Footer
