@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "Cầu",
   "swap_page.button_enter_a_recipient": "Nhập người nhận",
   "swap_page.button_enter_amount": "Nhập số tiền",
-  "swap_page.button_fetching_quotes": "Đang tìm kiếm trích dẫn",
+  "swap_page.button_fetching_quotes": "Đang lấy báo giá...",
   "swap_page.button_insufficient_balance": "Số dư không đủ",
   "swap_page.button_no_connected_wallet": "Không có ví nào được kết nối",
   "swap_page.button_no_enough_fee": "Không đủ để trả phí mạng",

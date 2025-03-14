@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "Міст",
   "swap_page.button_enter_a_recipient": "Введіть одержувача",
   "swap_page.button_enter_amount": "Введіть суму",
-  "swap_page.button_fetching_quotes": "Отримання цитат",
+  "swap_page.button_fetching_quotes": "Отримання котирувань...",
   "swap_page.button_insufficient_balance": "Недостатньо коштів",
   "swap_page.button_no_connected_wallet": "Гаманець не підключено",
   "swap_page.button_no_enough_fee": "Недостатньо коштів для покриття мережевого збору",

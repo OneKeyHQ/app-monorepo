@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Image, Page, SizableText, YStack } from '@onekeyhq/components';
@@ -7,6 +9,27 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function ManualInstall() {
   const intl = useIntl();
+
+  const image = useMemo(() => {
+    if (platformEnv.isDesktopLinux) {
+      return null;
+    }
+
+    if (platformEnv.isDesktopMac) {
+      return (
+        <Image
+          h="$96"
+          source={require('@onekeyhq/kit/assets/manual_install_mac.png')}
+        />
+      );
+    }
+    return (
+      <Image
+        h="$96"
+        source={require('@onekeyhq/kit/assets/manual_install_win.png')}
+      />
+    );
+  }, []);
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -21,10 +44,7 @@ export default function ManualInstall() {
               id: ETranslations.update_update_incomplete_desc,
             })}
           </SizableText>
-          <Image
-            h="$96"
-            source={require('@onekeyhq/kit/assets/manual_install.jpg')}
-          />
+          {image}
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
               id: ETranslations.update_update_incomplete_footnote,
@@ -48,29 +68,3 @@ export default function ManualInstall() {
     </Page>
   );
 }
-
-// Dialog.confirm({
-//     title: intl.formatMessage({
-//       id: ETranslations.update_update_incomplete_title,
-//     }),
-// description: intl.formatMessage({
-//   id: ETranslations.update_update_incomplete_desc,
-// }),
-//     renderContent: (
-//   <Image
-//     h={226}
-//     source={require('@onekeyhq/kit/assets/manual_install.jpg')}
-//   />
-//     ),
-// onConfirmText: intl.formatMessage({
-//   id: ETranslations.update_manual_update,
-// }),
-// onConfirm: async () => {
-//   const params =
-//     await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
-//   globalThis.desktopApi.manualInstallUpdate({
-//     ...params,
-//     buildNumber: String(platformEnv.buildNumber || 1),
-//   });
-// },
-//   });
