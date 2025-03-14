@@ -23,8 +23,8 @@ export default function ManualInstall() {
     if (platformEnv.isDesktopMac) {
       return (
         <Image
-          h={40}
-          source={require('@onekeyhq/kit/assets/manual_install_win.png')}
+          h="$96"
+          source={require('@onekeyhq/kit/assets/manual_install_mac.png')}
         />
       );
     }
