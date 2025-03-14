@@ -13,6 +13,8 @@ import type {
   EthSignRequestProps,
   EthSignature,
   MultiAccounts,
+  SolSignRequestProps,
+  SolSignature,
 } from '@keystonehq/keystone-sdk';
 
 export { AccountNote as EAirGapAccountNoteEvm } from '@keystonehq/keystone-sdk';
@@ -22,13 +24,19 @@ export type IAirGapMultiAccounts = MultiAccounts;
 
 export type IAirGapSignatureEvm = EthSignature;
 export type IAirGapSignatureBtc = BtcSignature;
-export type IAirGapSignature = IAirGapSignatureEvm | IAirGapSignatureBtc;
+export type IAirGapSignatureSol = SolSignature;
+export type IAirGapSignature =
+  | IAirGapSignatureEvm
+  | IAirGapSignatureBtc
+  | IAirGapSignatureSol;
 
 export type IAirGapGenerateSignRequestParamsEvm = EthSignRequestProps;
 export type IAirGapGenerateSignRequestParamsBtc = BtcSignRequestProps;
+export type IAirGapGenerateSignRequestParamsSol = SolSignRequestProps;
 export type IAirGapGenerateSignRequestParams =
   | IAirGapGenerateSignRequestParamsEvm
-  | IAirGapGenerateSignRequestParamsBtc;
+  | IAirGapGenerateSignRequestParamsBtc
+  | IAirGapGenerateSignRequestParamsSol;
 
 export {
   AirGapCryptoHDKeyEvm,
