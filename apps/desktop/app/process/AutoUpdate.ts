@@ -231,6 +231,10 @@ const init = ({ mainWindow, store }: IDependencies) => {
 
   autoUpdater.on('update-download-fileInfo', (fileInfo) => {
     logger.info('update-download-fileInfo', fileInfo.info.url);
+    mainWindow.webContents.send(
+      ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
+      fileInfo.info.url,
+    );
   });
 
   autoUpdater.on('update-available', ({ version, releaseDate }) => {

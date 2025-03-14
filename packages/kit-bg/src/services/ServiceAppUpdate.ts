@@ -165,6 +165,17 @@ class ServiceAppUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  public async updateDownloadUrl(downloadUrl: string) {
+    await appUpdatePersistAtom.set((prev) => ({
+      ...prev,
+      downloadedEvent: {
+        ...prev.downloadedEvent,
+        downloadUrl,
+      },
+    }));
+  }
+
+  @backgroundMethod()
   public async getDownloadEvent() {
     const appInfo = await appUpdatePersistAtom.get();
     return appInfo.downloadedEvent;

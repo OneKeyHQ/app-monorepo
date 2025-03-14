@@ -1,7 +1,7 @@
 import type { IAppUpdateInfo } from '../../appUpdate';
 
 export type IUpdateDownloadedEvent = {
-  downloadedFile: string;
+  downloadedFile?: string;
   latestVersion?: string;
   downloadUrl?: string;
 };

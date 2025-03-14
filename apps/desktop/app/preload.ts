@@ -161,6 +161,7 @@ const validChannels = [
   // Update events
   ipcMessageKeys.UPDATE_CHECKING,
   ipcMessageKeys.UPDATE_AVAILABLE,
+  ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
   ipcMessageKeys.UPDATE_NOT_AVAILABLE,
   ipcMessageKeys.UPDATE_VERIFIED,
   ipcMessageKeys.UPDATE_ERROR,

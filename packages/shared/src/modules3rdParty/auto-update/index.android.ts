@@ -107,7 +107,7 @@ export const verifyPackage: IVerifyPackage = async (params) => {
     return;
   }
   await AutoUpdateModule.verifyAPK({
-    filePath: params.downloadedFile,
+    filePath: params.downloadedFile || '',
     downloadUrl: params.downloadUrl || '',
   });
 };
