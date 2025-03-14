@@ -32,7 +32,6 @@ function SearchModal() {
   const [searchValue, setSearchValue] = useState(url);
   const handleWebSite = useWebSiteHandler();
 
-  // Use the extracted hook for data handling
   const {
     localData,
     refreshLocalData,
@@ -103,7 +102,6 @@ function SearchModal() {
             displayBookmarkList={displayBookmarkList}
             displayHistoryList={displayHistoryList}
             SEARCH_ITEM_ID={SEARCH_ITEM_ID}
-            handleWebSite={handleWebSite}
             useCurrentWindow={useCurrentWindow}
             tabId={tabId}
           />

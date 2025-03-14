@@ -22,6 +22,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
+import { useWebSiteHandler } from '../hooks/useWebSiteHandler';
 import { DappSearchModalSectionHeader } from '../pages/SearchModal/DappSearchModalSectionHeader';
 
 import { DiscoveryIcon } from './DiscoveryIcon';
@@ -42,7 +43,6 @@ interface ISearchResultContentProps {
   displayBookmarkList: boolean;
   displayHistoryList: boolean;
   SEARCH_ITEM_ID: string;
-  handleWebSite: (params: any) => void;
   useCurrentWindow?: boolean;
   tabId?: string;
 }
@@ -55,13 +55,13 @@ export function SearchResultContent({
   displayBookmarkList,
   displayHistoryList,
   SEARCH_ITEM_ID,
-  handleWebSite,
   useCurrentWindow,
   tabId,
 }: ISearchResultContentProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const jumpPageRef = useRef(false);
+  const handleWebSite = useWebSiteHandler();
 
   const renderList = useCallback(
     (list: IDApp[]) =>
