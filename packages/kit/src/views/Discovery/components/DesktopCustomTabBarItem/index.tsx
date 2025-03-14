@@ -194,9 +194,13 @@ function DesktopCustomTabBarItem({
   if (!tab) {
     return null;
   }
+
+  const isHomeTab = tab.type === 'home';
+
   return (
     <DesktopTabItem
-      showAvatar
+      showAvatar={!isHomeTab}
+      icon={isHomeTab ? 'Ai3StarOutline' : undefined}
       shortcutKey={shortcutKey}
       key={id}
       selected={isActive}
