@@ -11,7 +11,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { Image, Stack } from '@onekeyhq/components';
-import { useWebSiteHandler } from '@onekeyhq/kit/src/views/Discovery/utils/useWebSiteHandler';
+import { useWebSiteHandler } from '@onekeyhq/kit/src/views/Discovery/hooks/useWebSiteHandler';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 
 import type { ImageSourcePropType, ImageURISource } from 'react-native';
