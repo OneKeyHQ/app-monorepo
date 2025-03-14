@@ -332,7 +332,6 @@ export const useCheckUpdateOnDesktop =
           globalThis.desktopApi.on(
             ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
             (downloadUrl) => {
-              console.log('UPDATE_DOWNLOAD_FILE_INFO----web', downloadUrl);
               defaultLogger.update.app.log(
                 'UPDATE_DOWNLOAD_FILE_INFO',
                 downloadUrl,
