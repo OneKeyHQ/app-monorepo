@@ -1,5 +1,5 @@
 import type { ForwardedRef } from 'react';
-import { forwardRef } from 'react';
+import { forwardRef, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,6 +11,8 @@ import {
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { IntlShape } from 'react-intl';
 
@@ -134,3 +136,20 @@ function RequireBlePermissionDialogContainer(
 export const RequireBlePermissionDialog = forwardRef(
   RequireBlePermissionDialogContainer,
 );
+
+export const buildWebDeviceAccessDialogProps = ({
+  intl,
+  onGrantPermission,
+}: {
+  intl: IntlShape;
+  onGrantPermission?: () => void;
+}): IDialogShowProps =>
+  ({
+    icon: 'BluetoothOutline',
+    title: 'Web Device Access Permission',
+    description: 'Please grant access to the web device to continue.',
+    onConfirmText: 'Grant Permission',
+    onConfirm: onGrantPermission,
+    onCancelText: 'Cancel',
+    showCancelButton: true,
+  } as const);

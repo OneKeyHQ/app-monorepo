@@ -41,6 +41,8 @@ export enum EHardwareUiStateAction {
   FIRMWARE_TIP = 'ui-firmware-tip',
 
   PREVIOUS_ADDRESS = 'ui-previous_address_result',
+
+  WEB_DEVICE_PROMPT_ACCESS_PERMISSION = 'ui-web_device_prompt_access_permission',
 }
 
 export type IHardwareUiPayload = {

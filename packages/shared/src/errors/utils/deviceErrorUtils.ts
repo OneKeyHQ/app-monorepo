@@ -276,6 +276,7 @@ export function isHardwareInterruptErrorByCode({
       HardwareErrorCode.NotAllowInBootloaderMode, // 116
       HardwareErrorCode.DeviceUnexpectedMode, // 102
       HardwareErrorCode.BridgeDeviceDisconnected, // 817
+      HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission,
     ],
   });
 }

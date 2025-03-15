@@ -39,6 +39,7 @@ export const getHardwareSDKInstance = memoizee(
       const settings: Partial<ConnectSettings> = {
         debug: params.debugMode,
         fetchConfig: true,
+        env: 'webusb',
       };
 
       HardwareSDK = await importHardwareSDK();

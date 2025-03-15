@@ -1,12 +1,12 @@
 import type { CoreApi, LowLevelCoreApi } from '@onekeyfe/hd-core';
 
 export const importHardwareSDK = async () => {
-  const sdkLib = await import('@onekeyfe/hd-web-sdk');
-  const sdk =
-    // @ts-ignore
-    (sdkLib.HardwareSDKTopLevel as CoreApi) ||
-    sdkLib.default.HardwareSDKTopLevel;
-  return sdk;
+  const sdkLib = await import('@onekeyfe/hd-common-connect-sdk');
+  // const sdk =
+  //   // @ts-ignore
+  //   (sdkLib.HardwareSDKTopLevel as CoreApi) ||
+  //   sdkLib.default.HardwareSDKTopLevel;
+  return sdkLib;
 };
 
 // background ---> offscreen (hardware method call)
