@@ -139,17 +139,17 @@ export const RequireBlePermissionDialog = forwardRef(
 
 export const buildWebDeviceAccessDialogProps = ({
   intl,
-  onGrantPermission,
+  promptWebUsbDeviceAccess,
 }: {
   intl: IntlShape;
-  onGrantPermission?: () => void;
+  promptWebUsbDeviceAccess: () => Promise<void>;
 }): IDialogShowProps =>
   ({
     icon: 'BluetoothOutline',
     title: 'Web Device Access Permission',
     description: 'Please grant access to the web device to continue.',
     onConfirmText: 'Grant Permission',
-    onConfirm: onGrantPermission,
+    onConfirm: promptWebUsbDeviceAccess,
     onCancelText: 'Cancel',
     showCancelButton: true,
   } as const);

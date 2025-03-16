@@ -24,6 +24,7 @@ import {
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
@@ -588,23 +589,7 @@ function HardwareUiStateContainerCmpControlled() {
     />
   );
 
-  // TODO: use sdk function
-  const onGrantPermission = useCallback(async () => {
-    console.log('onGrantPermission');
-    // const sdk = await backgroundApiProxy.serviceHardware.getSDKInstance();
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-    // const r = await sdk.promptWebDeviceAccess();
-    const ONEKEY_FILTER = [
-      { vendorId: 0x12_09, productId: 0x53_c0 },
-      { vendorId: 0x12_09, productId: 0x53_c1 },
-    ];
-    // @ts-ignore
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call
-    const d = await navigator.usb.requestDevice({
-      filters: ONEKEY_FILTER,
-    });
-    console.log('navigator.usb.requestDevice: ', d);
-  }, []);
+  const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
 
   useEffect(() => {
     const callback = throttle(
@@ -623,7 +608,7 @@ function HardwareUiStateContainerCmpControlled() {
         ) {
           dialogProps = buildWebDeviceAccessDialogProps({
             intl,
-            onGrantPermission,
+            promptWebUsbDeviceAccess,
           });
         }
         if (dialogProps) {
@@ -638,7 +623,7 @@ function HardwareUiStateContainerCmpControlled() {
     return () => {
       appEventBus.off(EAppEventBusNames.RequestHardwareUIDialog, callback);
     };
-  }, [intl, onGrantPermission]);
+  }, [intl, promptWebUsbDeviceAccess]);
 
   return (
     <>

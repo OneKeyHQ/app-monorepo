@@ -1056,6 +1056,14 @@ class ServiceHardware extends ServiceBase {
       return null;
     }
   }
+
+  @backgroundMethod()
+  async promptWebDeviceAccess(params: { deviceSerialNumberFromUI: string }) {
+    const hardwareSDK = await this.getSDKInstance();
+    return convertDeviceResponse(() =>
+      hardwareSDK?.promptWebDeviceAccess(params),
+    );
+  }
 }
 
 export default ServiceHardware;

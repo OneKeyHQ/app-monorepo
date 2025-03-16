@@ -65,10 +65,6 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -86,6 +82,7 @@ import {
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
+import { usePromptWebDeviceAccess } from '../../../../hooks/usePromptWebDeviceAccess';
 import { useBuyOneKeyHeaderRightButton } from '../../../DeviceManagement/hooks/useBuyOneKeyHeaderRightButton';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 
@@ -252,6 +249,8 @@ function ConnectByUSBOrBLE({
   const isFocused = useIsFocused();
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
+  // TODO: use global atom
+  const connectMethod = 'webusb';
 
   const actions = useAccountSelectorActions();
 
@@ -714,21 +713,6 @@ function ConnectByUSBOrBLE({
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
-      /*
-      navigation.replace(RootRoutes.Onboarding, {
-          screen: EOnboardingRoutes.BehindTheScene,
-          params: {
-            password: '',
-            mnemonic: '',
-            isHardwareCreating: {
-              device,
-              features,
-            },
-            entry,
-          },
-        });
-      serviceAccount.createHWWallet
-      */
       ...searchedDevices.map((item) => ({
         title: item.name,
         src: HwWalletAvatarImages[item.deviceType],
@@ -736,66 +720,6 @@ function ConnectByUSBOrBLE({
         onPress: () => handleHwWalletCreateFlow({ device: item }),
         opacity: 1,
       })),
-      // ...(process.env.NODE_ENV !== 'production'
-      //   ? [
-      //       {
-      //         title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
-      //         src: HwWalletAvatarImages.classic1s,
-      //         onPress: () =>
-      //           handleNotActivatedDevicePress({ deviceType: 'classic' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Classic 1S(Activate Your Device)',
-      //         src: HwWalletAvatarImages.classic1s,
-      //         onPress: () =>
-      //           handleSetupNewWalletPress({ deviceType: 'classic' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Pro(Activate Your Device -- ActionSheet)',
-      //         src: HwWalletAvatarImages.pro,
-      //         onPress: () =>
-      //           handleNotActivatedDevicePress({ deviceType: 'pro' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Touch(Activate Your Device -- ActionSheet)',
-      //         src: HwWalletAvatarImages.touch,
-      //         onPress: () =>
-      //           handleNotActivatedDevicePress({ deviceType: 'touch' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Mini(Activate Your Device -- ActionSheet)',
-      //         src: HwWalletAvatarImages.mini,
-      //         onPress: () =>
-      //           handleNotActivatedDevicePress({ deviceType: 'mini' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Plus(Test Unknown Device)',
-      //         src: HwWalletAvatarImages.unknown,
-      //         onPress: () =>
-      //           handleHwWalletCreateFlow({
-      //             device: {
-      //               connectId: '123',
-      //               uuid: '123',
-      //               deviceId: '123',
-      //               deviceType: 'unknown',
-      //               name: 'OneKey Plus',
-      //             },
-      //           }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Touch2(buy)',
-      //         src: HwWalletAvatarImages.touch,
-      //         onPress: toOneKeyHardwareWalletPage,
-      //         device: undefined,
-      //       },
-      //     ]
-      //   : []),
     ],
     [handleHwWalletCreateFlow, searchedDevices],
   );
@@ -852,11 +776,37 @@ function ConnectByUSBOrBLE({
     listingDevice,
   ]);
 
-  useEffect(() => {
-    if (!platformEnv.isNative) {
-      listingDevice();
+  // web-usb connect
+  const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
+  const onConnectWebDevice = useCallback(async () => {
+    setIsChecking(true);
+    try {
+      const device = await promptWebUsbDeviceAccess();
+      if (device) {
+        const connectedDevice =
+          await backgroundApiProxy.serviceHardware.promptWebDeviceAccess({
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            deviceSerialNumberFromUI: device.serialNumber,
+          });
+        if (connectedDevice.device) {
+          void handleHwWalletCreateFlow({
+            device: connectedDevice.device as SearchDevice,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('onConnectWebDevice error:', error);
+    } finally {
+      setIsChecking(false);
     }
-  }, [listingDevice]);
+  }, [handleHwWalletCreateFlow, promptWebUsbDeviceAccess]);
+
+  useEffect(() => {
+    if (platformEnv.isNative || connectMethod === 'webusb') {
+      return;
+    }
+    listingDevice();
+  }, [listingDevice, connectMethod]);
 
   useEffect(
     () =>
@@ -1138,7 +1088,11 @@ function ConnectByUSBOrBLE({
             size="large"
             variant="primary"
             loading={isChecking}
-            onPress={startBLEConnection}
+            onPress={
+              connectMethod === 'webusb'
+                ? onConnectWebDevice
+                : startBLEConnection
+            }
           >
             {intl.formatMessage({ id: ETranslations.global_start_connection })}
           </Button>
