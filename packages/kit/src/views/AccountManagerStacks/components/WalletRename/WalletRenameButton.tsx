@@ -1,18 +1,10 @@
 import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
-import {
-  Button,
-  Icon,
-  SizableText,
-  XStack,
-  YStack,
-} from '@onekeyhq/components';
+import { Icon, SizableText, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type { IDBWallet } from '@onekeyhq/kit-bg/src/dbs/local/types';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,

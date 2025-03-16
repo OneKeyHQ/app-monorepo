@@ -11,7 +11,7 @@ import type { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
-import { useActiveTabId, useWebTabDataById } from '../hooks/useWebTabs';
+import { useActiveTabId, useWebTabDataById } from './useWebTabs';
 
 import type { IBrowserBookmark, IBrowserHistory } from '../types';
 

@@ -209,3 +209,12 @@ body > div.cet-container {
 .break-all {
   word-break: break-all;
 }
+
+/* Hide title bar icon on Windows/Linux Desktop */
+.onekey-body >.cet-titlebar >.cet-icon {
+  display: none;
+}
+
+.onekey-body >.cet-titlebar >.cet-menubar {
+  margin-left: 16px;
+}
