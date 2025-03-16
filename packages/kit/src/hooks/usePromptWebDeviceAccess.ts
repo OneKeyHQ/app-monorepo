@@ -3,6 +3,10 @@ import { useCallback } from 'react';
 import { ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
 
 export function usePromptWebDeviceAccess() {
+  /**
+   * web-usb and web-ble requestDevice function must be called in the ui thread
+   * so we need to call it in the kit layer
+   */
   const promptWebUsbDeviceAccess = useCallback(async () => {
     try {
       // Request USB device access with OneKey filters
