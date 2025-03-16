@@ -782,10 +782,9 @@ function ConnectByUSBOrBLE({
     setIsChecking(true);
     try {
       const device = await promptWebUsbDeviceAccess();
-      if (device) {
+      if (device?.serialNumber) {
         const connectedDevice =
           await backgroundApiProxy.serviceHardware.promptWebDeviceAccess({
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
             deviceSerialNumberFromUI: device.serialNumber,
           });
         if (connectedDevice.device) {

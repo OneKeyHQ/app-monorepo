@@ -6946,6 +6946,7 @@ __metadata:
     "@types/react-beautiful-dnd": "npm:13.1.8"
     "@types/react-dom": "npm:~18.3.0"
     "@types/validator": "npm:^13"
+    "@types/w3c-web-usb": "npm:^1.0.10"
     "@types/web": "npm:0.0.151"
     "@typescript-eslint/eslint-plugin": "npm:5.62.0"
     "@typescript-eslint/parser": "npm:5.62.0"
@@ -15344,6 +15345,13 @@ __metadata:
   version: 1.10.9
   resolution: "@types/verror@npm:1.10.9"
   checksum: 10/4415df08299191ad8f1308dc610df51b2339932cb311f68c93972de78e7a6e5d20e1b0157da0694422d3fe84abd3bb82c6b5f4b0686df5963effbf73e19340d9
+  languageName: node
+  linkType: hard
+
+"@types/w3c-web-usb@npm:^1.0.10":
+  version: 1.0.10
+  resolution: "@types/w3c-web-usb@npm:1.0.10"
+  checksum: 10/6ac6786a0788f0846a48b103ab06ca5fde5eb95674217b522420a2f6157bee3e181a961c1b7011940f497c55f4f5cc46129657d881fdd8112b48764089679ad6
   languageName: node
   linkType: hard
 
