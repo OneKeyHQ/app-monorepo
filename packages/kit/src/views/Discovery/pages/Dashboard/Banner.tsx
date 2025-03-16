@@ -5,7 +5,7 @@ import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scene
 import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 
 import { useBannerData } from '../../hooks/useBannerData';
-import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 
 import type { IMatchDAppItemType } from '../../types';
 

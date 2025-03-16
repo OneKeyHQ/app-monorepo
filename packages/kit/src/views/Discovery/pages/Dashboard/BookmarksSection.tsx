@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Skeleton, Stack } from '@onekeyhq/components';
+import { Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
@@ -19,7 +19,7 @@ import {
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 
 import { BookmarksSectionItems } from './BookmarksSectionItems';
 import { DashboardSectionHeader } from './DashboardSectionHeader';

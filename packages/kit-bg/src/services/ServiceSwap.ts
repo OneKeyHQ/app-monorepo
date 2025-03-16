@@ -612,6 +612,10 @@ export default class ServiceSwap extends ServiceBase {
         : {}),
     };
     if (platformEnv.isExtension) {
+      if (this._quoteEventSourcePolyfill) {
+        this._quoteEventSourcePolyfill.close();
+        this._quoteEventSourcePolyfill = undefined;
+      }
       this._quoteEventSourcePolyfill = new EventSourcePolyfill(swapEventUrl, {
         headers: headers as Record<string, string>,
       });
@@ -669,6 +673,10 @@ export default class ServiceSwap extends ServiceBase {
         });
       };
     } else {
+      if (this._quoteEventSource) {
+        this._quoteEventSource.close();
+        this._quoteEventSource = undefined;
+      }
       this._quoteEventSource = new EventSource(swapEventUrl, {
         headers,
         pollingInterval: 0,
@@ -736,6 +744,8 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage,
     quoteResultCtx,
     accountId,
+    protocol,
+    kind,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -747,6 +757,8 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage: number;
     accountId?: string;
     quoteResultCtx?: any;
+    protocol: EProtocolOfExchange;
+    kind: ESwapQuoteKind;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
@@ -755,12 +767,13 @@ export default class ServiceSwap extends ServiceBase {
       toTokenAmount,
       fromNetworkId: fromToken.networkId,
       toNetworkId: toToken.networkId,
-      protocol: EProtocolOfExchange.SWAP,
+      protocol,
       provider,
       userAddress,
       receivingAddress,
       slippagePercentage,
       quoteResultCtx,
+      kind,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);

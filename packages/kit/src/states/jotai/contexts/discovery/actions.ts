@@ -234,8 +234,9 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addBrowserHomeTab = contextAtomMethod((_, set) => {
+    const id = generateUUID();
     this.addWebTab.call(set, {
-      id: generateUUID(),
+      id,
       url: '',
       title: appLocale.intl.formatMessage({
         id: ETranslations.browser_start_tab,
@@ -246,7 +247,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       isActive: true,
       type: 'home',
     });
-    this.setDisplayHomePage.call(set, true);
+    this.setCurrentWebTab.call(set, id);
   });
 
   setWebTabData = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {

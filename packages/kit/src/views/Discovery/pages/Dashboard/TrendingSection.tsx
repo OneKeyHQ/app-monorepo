@@ -10,7 +10,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
-import { useWebSiteHandler } from '../../utils/useWebSiteHandler';
+import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 
 import { DashboardSectionHeader } from './DashboardSectionHeader';
 import { TrendingSectionItems } from './TrendingSectionItems';

@@ -34,12 +34,8 @@ import { TutorialsList } from '../../TutorialsList';
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const {
-    serviceAccount,
-    serviceQrWallet,
-    serviceBatchCreateAccount,
-    serviceHardwareUI,
-  } = backgroundApiProxy;
+  const { serviceAccount, serviceBatchCreateAccount, serviceHardwareUI } =
+    backgroundApiProxy;
   const intl = useIntl();
   const actions = useAccountSelectorActions();
   const { createQrWalletByAccount } = useCreateQrWallet();
