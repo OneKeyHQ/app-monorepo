@@ -47,6 +47,7 @@ import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   HARDWARE_BRIDGE_DOWNLOAD_URL,
   HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
@@ -76,7 +77,10 @@ import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  EHardwareTransportType,
+} from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import {
   EOneKeyDeviceMode,
@@ -249,8 +253,7 @@ function ConnectByUSBOrBLE({
   const isFocused = useIsFocused();
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
-  // TODO: use global atom
-  const connectMethod = 'webusb';
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
 
   const actions = useAccountSelectorActions();
 
@@ -801,11 +804,14 @@ function ConnectByUSBOrBLE({
   }, [handleHwWalletCreateFlow, promptWebUsbDeviceAccess]);
 
   useEffect(() => {
-    if (platformEnv.isNative || connectMethod === 'webusb') {
+    if (
+      platformEnv.isNative ||
+      hardwareTransportType === EHardwareTransportType.WEBUSB
+    ) {
       return;
     }
     listingDevice();
-  }, [listingDevice, connectMethod]);
+  }, [listingDevice, hardwareTransportType]);
 
   useEffect(
     () =>
@@ -1088,7 +1094,7 @@ function ConnectByUSBOrBLE({
             variant="primary"
             loading={isChecking}
             onPress={
-              connectMethod === 'webusb'
+              hardwareTransportType === EHardwareTransportType.WEBUSB
                 ? onConnectWebDevice
                 : startBLEConnection
             }
