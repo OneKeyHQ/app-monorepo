@@ -1,5 +1,4 @@
-import { EHardwareTransportType } from '../../../types';
-
+import type { EHardwareTransportType } from '../../../types';
 import type { CoreApi, LowLevelCoreApi } from '@onekeyfe/hd-core';
 
 export const importHardwareSDK = async ({
@@ -7,11 +6,9 @@ export const importHardwareSDK = async ({
 }: {
   hardwareTransportType?: EHardwareTransportType;
 }): Promise<CoreApi> => {
-  if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
-    return import(
-      '@onekeyfe/hd-common-connect-sdk'
-    ) as unknown as Promise<CoreApi>;
-  }
+  // if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+  //   return (await import('@onekeyfe/hd-common-connect-sdk')).default;
+  // }
 
   const sdkLib = await import('@onekeyfe/hd-web-sdk');
   return (
