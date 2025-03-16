@@ -1,8 +1,10 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import { Select, XStack } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -14,6 +16,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalSettingParamList } from '@onekeyhq/shared/src/routes';
 import { EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 const HardwareBridgeListItems = () => {
   const onPressBridgeStatus = useCallback(() => {
@@ -39,6 +42,77 @@ const HardwareBridgeListItems = () => {
         />
       </ListItem>
     </>
+  );
+};
+
+const HardwareTransportTypeListItem = () => {
+  const intl = useIntl();
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
+
+  const transportOptions = useMemo(() => {
+    if (platformEnv.isNative) {
+      return [
+        {
+          label: 'Bluetooth',
+          value: EHardwareTransportType.BLE,
+        },
+      ];
+    }
+    if (platformEnv.isDesktop) {
+      return [
+        {
+          label: 'Bridge',
+          value: EHardwareTransportType.Bridge,
+        },
+      ];
+    }
+    if (platformEnv.isWeb || platformEnv.isExtension) {
+      return [
+        {
+          label: 'WebUSB',
+          value: EHardwareTransportType.WEBUSB,
+          iconProps: { name: 'UsbOutline' as const },
+        },
+        {
+          label: 'Bridge',
+          value: EHardwareTransportType.Bridge,
+        },
+      ];
+    }
+    return [];
+  }, []);
+  const onChange = useCallback(async (value: string) => {
+    await backgroundApiProxy.serviceSetting.setHardwareTransportType(
+      value as EHardwareTransportType,
+    );
+    setTimeout(() => {
+      backgroundApiProxy.serviceApp.restartApp();
+    }, 0);
+  }, []);
+
+  return (
+    <Select
+      offset={{ mainAxis: -4, crossAxis: -10 }}
+      title="Hardware Transport Type"
+      items={transportOptions}
+      value={hardwareTransportType}
+      onChange={onChange}
+      placement="bottom-end"
+      floatingPanelProps={{ maxHeight: 280 }}
+      sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
+      renderTrigger={({ label }) => (
+        <ListItem
+          userSelect="none"
+          icon="UsbOutline"
+          title="Hardware Transport Type"
+        >
+          <XStack>
+            <ListItem.Text primary={label} align="right" />
+            <ListItem.DrillIn ml="$1.5" name="ChevronDownSmallSolid" />
+          </XStack>
+        </ListItem>
+      )}
+    />
   );
 };
 
@@ -143,6 +217,7 @@ export const AdvancedSection = () => {
       {platformEnv.isExtension || platformEnv.isWeb ? (
         <HardwareBridgeListItems />
       ) : null}
+      <HardwareTransportTypeListItem />
     </Section>
   );
 };

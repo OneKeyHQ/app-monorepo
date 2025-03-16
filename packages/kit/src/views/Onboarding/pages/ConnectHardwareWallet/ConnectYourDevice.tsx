@@ -44,6 +44,7 @@ import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsL
 import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
@@ -82,7 +83,6 @@ import {
   type IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
 
-import { usePromptWebDeviceAccess } from '../../../../hooks/usePromptWebDeviceAccess';
 import { useBuyOneKeyHeaderRightButton } from '../../../DeviceManagement/hooks/useBuyOneKeyHeaderRightButton';
 import { useFirmwareUpdateActions } from '../../../FirmwareUpdate/hooks/useFirmwareUpdateActions';
 

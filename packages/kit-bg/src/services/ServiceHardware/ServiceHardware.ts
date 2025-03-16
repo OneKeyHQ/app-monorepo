@@ -215,8 +215,11 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
     try {
       const instance = await getHardwareSDKInstance({
+        hardwareTransportType,
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
         isPreRelease: isPreRelease === true,
