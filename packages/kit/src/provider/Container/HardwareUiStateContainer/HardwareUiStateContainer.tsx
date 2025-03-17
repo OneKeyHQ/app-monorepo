@@ -637,6 +637,7 @@ function HardwareUiStateContainerCmpControlled() {
     appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.RequestHardwareUIDialog, callback);
+      instanceRef.current = undefined;
     };
   }, [intl, toPromptWebDeviceAccessPage, promptWebUsbDeviceAccess]);
 
