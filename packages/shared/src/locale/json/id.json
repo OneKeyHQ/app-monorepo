@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "Jembatan",
   "swap_page.button_enter_a_recipient": "Masukkan penerima",
   "swap_page.button_enter_amount": "Masukkan jumlah",
-  "swap_page.button_fetching_quotes": "Mengambil kutipan",
+  "swap_page.button_fetching_quotes": "Mengambil kutipan...",
   "swap_page.button_insufficient_balance": "Saldo tidak cukup",
   "swap_page.button_no_connected_wallet": "Tidak ada dompet yang terhubung",
   "swap_page.button_no_enough_fee": "Tidak cukup untuk menutupi biaya jaringan",
