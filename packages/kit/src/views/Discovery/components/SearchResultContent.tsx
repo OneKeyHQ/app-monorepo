@@ -110,11 +110,13 @@ export function SearchResultContent({
                 enterMethod: EEnterMethod.search,
               });
             } else {
+              console.log('limi-handleWebSite', item);
               handleWebSite({
                 dApp: item,
                 useCurrentWindow,
                 tabId,
                 enterMethod: EEnterMethod.search,
+                shouldPopNavigation: true,
               });
             }
           }}
