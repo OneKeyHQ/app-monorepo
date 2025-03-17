@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "สะพาน",
   "swap_page.button_enter_a_recipient": "กรอกชื่อผู้รับ",
   "swap_page.button_enter_amount": "กรอกจำนวน",
-  "swap_page.button_fetching_quotes": "กำลังเรียกคำพูด",
+  "swap_page.button_fetching_quotes": "กำลังดึงคำคม...",
   "swap_page.button_insufficient_balance": "ยอดเงินไม่เพียงพอ",
   "swap_page.button_no_connected_wallet": "ไม่มีกระเป๋าสตางค์ที่เชื่อมต่อ",
   "swap_page.button_no_enough_fee": "ไม่เพียงพอที่จะครอบคลุมค่าธรรมเนียมเครือข่าย",

@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "ব্রিজ",
   "swap_page.button_enter_a_recipient": "একজন প্রাপক প্রবেশ করান",
   "swap_page.button_enter_amount": "পরিমাণ প্রবেশ করুন",
-  "swap_page.button_fetching_quotes": "উদ্ধৃতি আনা হচ্ছে",
+  "swap_page.button_fetching_quotes": "উদ্ধৃতি সংগ্রহ করা হচ্ছে...",
   "swap_page.button_insufficient_balance": "অপর্যাপ্ত ব্যালেন্স",
   "swap_page.button_no_connected_wallet": "কোন ওয়ালেট সংযুক্ত নেই",
   "swap_page.button_no_enough_fee": "নেটওয়ার্ক ফি পরিশোধ করার জন্য যথেষ্ট নয়",

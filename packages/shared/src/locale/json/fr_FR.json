@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "Pont",
   "swap_page.button_enter_a_recipient": "Entrez un destinataire",
   "swap_page.button_enter_amount": "Entrez le montant",
-  "swap_page.button_fetching_quotes": "Récupération des citations",
+  "swap_page.button_fetching_quotes": "Récupération des devis...",
   "swap_page.button_insufficient_balance": "Solde insuffisant",
   "swap_page.button_no_connected_wallet": "Aucun portefeuille connecté",
   "swap_page.button_no_enough_fee": "Pas assez pour couvrir les frais de réseau",

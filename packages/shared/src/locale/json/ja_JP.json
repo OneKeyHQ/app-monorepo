@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "ブリッジ",
   "swap_page.button_enter_a_recipient": "受取人を入力してください",
   "swap_page.button_enter_amount": "金額を入力してください",
-  "swap_page.button_fetching_quotes": "引用を取得中",
+  "swap_page.button_fetching_quotes": "引用を取得中...",
   "swap_page.button_insufficient_balance": "残高不足",
   "swap_page.button_no_connected_wallet": "ウォレットが接続されていません",
   "swap_page.button_no_enough_fee": "ネットワーク料金をカバーするのに十分ではありません",
