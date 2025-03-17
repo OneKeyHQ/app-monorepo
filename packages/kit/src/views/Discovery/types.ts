@@ -90,6 +90,7 @@ export interface IWebTab {
   refReady?: boolean;
   timestamp?: number;
   siteMode?: ESiteMode;
+  type?: 'normal' | 'home';
 }
 
 export interface IWebTabsAtom {

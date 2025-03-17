@@ -57,7 +57,8 @@ function LightningTxFlow({ decodedTx }: { decodedTx: IDecodedTx }) {
       return (
         <InfoItem
           label={intl.formatMessage({ id: ETranslations.global_to })}
-          renderContent={
+          renderContent={account?.name ?? ''}
+          description={
             <AddressInfo
               address={account?.addressDetail.normalizedAddress ?? ''}
               accountId={accountId}
@@ -70,7 +71,8 @@ function LightningTxFlow({ decodedTx }: { decodedTx: IDecodedTx }) {
     return (
       <InfoItem
         label={intl.formatMessage({ id: ETranslations.global_from })}
-        renderContent={
+        renderContent={account?.name ?? ''}
+        description={
           <AddressInfo
             address={account?.addressDetail.normalizedAddress ?? ''}
             accountId={accountId}

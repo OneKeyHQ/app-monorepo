@@ -66,6 +66,7 @@ function DesktopCustomTabBar() {
     setPinnedTab,
     closeAllWebTabs,
     setTabsByIds,
+    addBrowserHomeTab,
     reOpenLastClosedTab,
   } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -384,9 +385,14 @@ function DesktopCustomTabBar() {
                 testID="browser-bar-add"
                 onPress={(e) => {
                   e.stopPropagation();
-                  navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                    screen: EDiscoveryModalRoutes.SearchModal,
-                  });
+
+                  if (platformEnv.isDesktop) {
+                    addBrowserHomeTab();
+                  } else {
+                    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                      screen: EDiscoveryModalRoutes.SearchModal,
+                    });
+                  }
                 }}
               />
             </>

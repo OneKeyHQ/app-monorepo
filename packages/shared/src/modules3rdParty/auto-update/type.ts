@@ -1,7 +1,7 @@
 import type { IAppUpdateInfo } from '../../appUpdate';
 
 export type IUpdateDownloadedEvent = {
-  downloadedFile: string;
+  downloadedFile?: string;
   latestVersion?: string;
   downloadUrl?: string;
 };
@@ -25,3 +25,7 @@ export type IUseDownloadProgress = (
 ) => number;
 
 export type IClearPackage = () => Promise<void>;
+
+export type IManualInstallPackage = (
+  params: IUpdateDownloadedEvent & { buildNumber: string },
+) => Promise<void>;
