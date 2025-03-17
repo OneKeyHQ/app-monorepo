@@ -55,8 +55,6 @@ export function useSearchModalData(searchValue: string) {
     return res;
   }, [searchValue, serviceDiscovery]);
 
-  console.log('limi-searchResult', searchResult);
-
   // Process search results
   useEffect(() => {
     void (async () => {
