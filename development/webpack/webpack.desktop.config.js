@@ -37,7 +37,9 @@ module.exports = ({
         developmentConfig({ platform, basePath }),
         ...configs,
         {
-          devtool: 'eval-source-map',
+          // development/webpack/webpack.development.config.js 10L
+          // Electron 30.x doesn't support cheap-module-source-map
+          devtool: 'source-map',
           devServer: {
             open: false,
           },
