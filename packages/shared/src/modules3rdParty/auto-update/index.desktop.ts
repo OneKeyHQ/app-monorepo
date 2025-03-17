@@ -14,6 +14,7 @@ import type {
   IDownloadASC,
   IDownloadPackage,
   IInstallPackage,
+  IManualInstallPackage,
   IUpdateDownloadedEvent,
   IUseDownloadProgress,
   IVerifyASC,
@@ -201,3 +202,12 @@ export const useDownloadProgress: IUseDownloadProgress = (
 export const clearPackage: IClearPackage = async () => {
   globalThis.desktopApi.clearUpdate();
 };
+
+export const manualInstallPackage: IManualInstallPackage = async (params) =>
+  new Promise((resolve, reject) => {
+    updateErrorTasks.push(reject);
+    globalThis.desktopApi.manualInstallPackage(params);
+    setTimeout(() => {
+      resolve();
+    }, 3500);
+  });

@@ -185,31 +185,21 @@ function DownloadVerify({
 
               if (fileUrl) {
                 return (
-                  <SizableText size="$bodyLg" color="$textSubdued">
-                    {intl.formatMessage(
-                      { id: ETranslations.global_from_provider },
-                      {
-                        provider: (
-                          <SizableText
-                            size="$bodyLg"
-                            color="$textSubdued"
-                            textDecorationLine="underline"
-                            cursor="pointer"
-                            onPress={
-                              fileUrl
-                                ? () => openUrlExternal(fileUrl)
-                                : undefined
-                            }
-                          >
-                            {fileUrl}
-                          </SizableText>
-                        ),
-                      },
-                    )}
-                  </SizableText>
+                  <HyperlinkText
+                    size="$bodyLg"
+                    color="$textSubdued"
+                    translationId={ETranslations.update_download_package_desc}
+                    values={{
+                      file: fileUrl.split('/').pop() || '',
+                    }}
+                    onAction={() => {
+                      openUrlExternal(
+                        'https://github.com/OneKeyHQ/app-monorepo/releases',
+                      );
+                    }}
+                  />
                 );
               }
-
               return null;
             }}
             renderAction={({ status }) =>
@@ -378,9 +368,13 @@ function DownloadVerify({
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
-          id: ETranslations.global_install,
+          id: ETranslations.global_secure_install,
         })}
         confirmButtonProps={{
+          icon:
+            data.status === EAppUpdateStatus.ready
+              ? 'BadgeVerifiedSolid'
+              : undefined,
           disabled: data.status !== EAppUpdateStatus.ready || installing,
         }}
         onConfirm={handleToUpdate}
