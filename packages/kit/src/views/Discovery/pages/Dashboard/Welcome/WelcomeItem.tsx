@@ -92,12 +92,14 @@ export const WelcomeItem = memo(
     url,
     size = '$12',
     borderRadius = 12,
+    maxOpacity = 1,
     ...stackProps
   }: {
     logo: ImageURISource | ImageURISource['uri'];
     url?: string;
     size?: string;
     borderRadius?: number;
+    maxOpacity?: number;
   } & React.ComponentProps<typeof Stack>) => {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(0);
@@ -110,7 +112,9 @@ export const WelcomeItem = memo(
       setTimeout(
         () => {
           // Fade-in animation
-          opacity.value = withTiming(1, { duration: FADE_IN_DURATION });
+          opacity.value = withTiming(maxOpacity, {
+            duration: FADE_IN_DURATION,
+          });
         },
         // random delay
         getRandomDelay(FADE_IN_DELAY),
@@ -171,7 +175,7 @@ export const WelcomeItem = memo(
         duration: scaleDuration,
         delay: scaleDelay,
       });
-    }, [opacity, translateY, rotate, scale, shadowOpacity]);
+    }, [opacity, translateY, rotate, scale, shadowOpacity, maxOpacity]);
 
     const handleHoverIn = () => {
       // Cancel and reset animations
@@ -185,12 +189,16 @@ export const WelcomeItem = memo(
       shadowOpacity.value = withTiming(HOVER_SHADOW_OPACITY, {
         duration: HOVER_TRANSITION_DURATION,
       });
+      opacity.value = withTiming(1, { duration: HOVER_TRANSITION_DURATION });
     };
 
     const handleHoverOut = () => {
       // Restore original values
       scale.value = withTiming(1, { duration: HOVER_TRANSITION_DURATION });
       shadowOpacity.value = withTiming(DEFAULT_SHADOW_OPACITY, {
+        duration: HOVER_TRANSITION_DURATION,
+      });
+      opacity.value = withTiming(maxOpacity, {
         duration: HOVER_TRANSITION_DURATION,
       });
 
