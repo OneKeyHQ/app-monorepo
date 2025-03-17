@@ -216,6 +216,7 @@ async function buildDeviceLabel({
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
     'classic': 'OneKey Classic',
     'classic1s': 'OneKey Classic 1S',
+    'classicpure': 'OneKey Classic Pure',
     'mini': 'OneKey Mini',
     'touch': 'OneKey Touch',
     'pro': 'OneKey Pro',
