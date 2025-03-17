@@ -2,6 +2,8 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
+import { verifySolSignedTxMatched } from '@onekeyhq/core/src/chains/sol/sdkSol/verify';
 import type {
   IEncodedTxSol,
   INativeTxSol,
@@ -40,8 +42,6 @@ import type {
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
-import { verifySolSignedTxMatched } from '@onekeyhq/core/src/chains/sol/sdkSol/verify';
-import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase = coreChainApi.sol.hd;

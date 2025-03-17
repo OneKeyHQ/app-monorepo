@@ -43,6 +43,7 @@ import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
 import { isEmpty, isNil } from 'lodash';
 
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IDecodedTxExtraSol,
   IEncodedTxSol,
@@ -109,8 +110,6 @@ import {
   parseNativeTxDetail,
   tokenRecordAddress,
 } from './utils';
-
-import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 
 import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
