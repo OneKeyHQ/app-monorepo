@@ -107,9 +107,10 @@ import {
   parseComputeUnitLimit,
   parseComputeUnitPrice,
   parseNativeTxDetail,
-  parseToNativeTx,
   tokenRecordAddress,
 } from './utils';
+
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 
 import type { IAssociatedTokenInfo, IParsedAccountInfo } from './types';
 import type { IDBWalletType } from '../../../dbs/local/types';
@@ -690,7 +691,7 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx, transferPayload, saveToLocalHistory } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
-    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
 
     let actions: IDecodedTxAction[] = [];
 
@@ -1019,7 +1020,7 @@ export default class Vault extends VaultBase {
 
     // internal okx sol swap tx need to replace recentBlockhash
     if (swapInfo && swapInfo.swapBuildResData.OKXTxObject) {
-      const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+      const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
       const { recentBlockhash, lastValidBlockHeight } =
         await this._getRecentBlockHash();
 
@@ -1081,7 +1082,7 @@ export default class Vault extends VaultBase {
   }) {
     const { encodedTx, nativeAmountInfo } = params;
     const network = await this.getNetwork();
-    const nativeTx = (await parseToNativeTx(encodedTx)) as Transaction;
+    const nativeTx = parseToNativeTx(encodedTx) as Transaction;
 
     // max native token transfer update
     if (
@@ -1133,7 +1134,7 @@ export default class Vault extends VaultBase {
     if (feeInfo.feeSol) {
       let isComputeUnitPriceExist = false;
       const { computeUnitPrice } = feeInfo.feeSol;
-      const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+      const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
       const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
       const isTransaction = nativeTx instanceof Transaction;
       const prioritizationFeeInstruction =
@@ -1298,7 +1299,7 @@ export default class Vault extends VaultBase {
       return { encodedTx };
     }
 
-    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
     const client = await this.getClient();
     const { instructions } = await parseNativeTxDetail({
       nativeTx,
@@ -1335,7 +1336,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     let computeUnitPrice = '0';
 
-    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
 
     // check if the tx is partially signed
     if (nativeTx.signatures && nativeTx.signatures.length > 1) {

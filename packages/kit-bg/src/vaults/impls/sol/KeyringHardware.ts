@@ -28,8 +28,6 @@ import {
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
 
-import { parseToNativeTx } from './utils';
-
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IBuildHwAllNetworkPrepareAccountsParams,
@@ -39,6 +37,7 @@ import type {
   ISignTransactionParams,
 } from '../../types';
 import type { AllNetworkAddressParams } from '@onekeyfe/hd-core';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.sol.hd;
@@ -163,7 +162,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;
 
-    const transaction = await parseToNativeTx(encodedTx);
+    const transaction = parseToNativeTx(encodedTx);
 
     if (!transaction) {
       throw new Error(

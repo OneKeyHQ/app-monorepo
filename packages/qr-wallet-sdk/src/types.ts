@@ -4,6 +4,7 @@ import {
   DataType as EAirGapDataTypeEvm,
 } from '@keystonehq/bc-ur-registry-eth';
 import { ExtendedRegistryTypes as AirGapRegistryTypesEvm } from '@keystonehq/bc-ur-registry-eth/src/RegistryType';
+import { SignType as EAirGapDataTypeSol } from '@keystonehq/bc-ur-registry-sol';
 import { URType as EAirGapURType } from '@keystonehq/keystone-sdk';
 
 import type {
@@ -44,4 +45,5 @@ export {
   AirGapRegistryTypesEvm,
   EAirGapDataTypeEvm,
   EAirGapURType,
+  EAirGapDataTypeSol,
 };

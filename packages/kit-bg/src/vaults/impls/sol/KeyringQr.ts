@@ -1,13 +1,33 @@
+import { PublicKey, VersionedTransaction } from '@solana/web3.js';
+import bs58 from 'bs58';
+
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
+import type {
+  IEncodedTxSol,
+  INativeTxSol,
+} from '@onekeyhq/core/src/chains/sol/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
   ICoreApiGetAddressItem,
   ISignedMessagePro,
   ISignedTxPro,
 } from '@onekeyhq/core/src/types';
-import { OneKeyErrorAirGapAccountNotFound } from '@onekeyhq/shared/src/errors';
+import type {
+  AirGapUR,
+  IAirGapGenerateSignRequestParamsSol,
+  IAirGapSignatureSol,
+} from '@onekeyhq/qr-wallet-sdk';
+import { EAirGapDataTypeSol, getAirGapSdk } from '@onekeyhq/qr-wallet-sdk';
+import {
+  OneKeyErrorAirGapAccountNotFound,
+  OneKeyErrorAirGapInvalidQrCode,
+} from '@onekeyhq/shared/src/errors';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
+import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 
 import localDb from '../../../dbs/local/localDb';
+import { UR_DEFAULT_ORIGIN } from '../../../services/ServiceQrWallet/qrWalletConsts';
 import { KeyringQrBase } from '../../base/KeyringQrBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
@@ -15,9 +35,13 @@ import type {
   IGetChildPathTemplatesParams,
   IGetChildPathTemplatesResult,
   IPrepareQrAccountsParams,
+  IQrWalletGetVerifyAddressChainParamsQuery,
+  IQrWalletGetVerifyAddressChainParamsResult,
   ISignMessageParams,
   ISignTransactionParams,
 } from '../../types';
+import { verifySolSignedTxMatched } from '@onekeyhq/core/src/chains/sol/sdkSol/verify';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 
 export class KeyringQr extends KeyringQrBase {
   override coreApi: CoreChainApiBase = coreChainApi.sol.hd;
@@ -91,20 +115,137 @@ export class KeyringQr extends KeyringQrBase {
   override async signTransaction(
     params: ISignTransactionParams,
   ): Promise<ISignedTxPro> {
-    return {
-      encodedTx: ' ',
-      txid: '',
-      rawTx: '',
+    const { unsignedTx } = params;
+    const { feePayer } = unsignedTx.payload as {
+      nativeTx: INativeTxSol;
+      feePayer: string;
     };
+
+    const feePayerPublicKey = new PublicKey(feePayer);
+
+    const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
+
+    const transaction = parseToNativeTx(encodedTx);
+
+    if (!transaction) {
+      throw new Error(
+        appLocale.intl.formatMessage({
+          id: ETranslations.feedback_failed_to_parse_transaction,
+        }),
+      );
+    }
+
+    const isVersionedTransaction = transaction instanceof VersionedTransaction;
+
+    const signData = isVersionedTransaction
+      ? Buffer.from(transaction.message.serialize()).toString('hex')
+      : transaction.serializeMessage().toString('hex');
+
+    return this.baseSignByQrcode(params, {
+      signRequestUrBuilder: async ({ path, account, requestId, xfp }) => {
+        const signRequestUr = await this.generateSignRequest({
+          requestId,
+          path,
+          signData,
+          dataType: EAirGapDataTypeSol.Transaction,
+          xfp,
+          address: account.address,
+        });
+        return signRequestUr;
+      },
+      signedResultBuilder: async ({ signatureUr, requestId }) => {
+        const signature = await this.parseSignature(
+          checkIsDefined(signatureUr),
+        );
+
+        const signatureHex = signature.signature;
+
+        transaction.addSignature(
+          feePayerPublicKey,
+          Buffer.from(signatureHex, 'hex'),
+        );
+
+        const rawTx = Buffer.from(
+          transaction.serialize({ requireAllSignatures: false }),
+        ).toString('base64');
+
+        const txid = bs58.encode(Buffer.from(signatureHex, 'hex'));
+
+        await this.verifySignedTxMatched({
+          from: feePayer,
+          rawTx,
+          txid,
+          requestId,
+          requestIdOfSig: signature.requestId,
+        });
+
+        return {
+          txid,
+          encodedTx,
+          rawTx,
+        };
+      },
+    });
+  }
+
+  override async verifySignedTxMatched({
+    from,
+    rawTx,
+    txid,
+    requestId,
+    requestIdOfSig,
+  }: {
+    from: string;
+    rawTx: string;
+    txid: string;
+    requestId: string | undefined;
+    requestIdOfSig: string | undefined;
+  }): Promise<void> {
+    if (requestId && requestId !== requestIdOfSig) {
+      console.error('Solana tx requestId not match');
+      throw new OneKeyErrorAirGapInvalidQrCode();
+    }
+    return verifySolSignedTxMatched({
+      signerAddress: from,
+      rawTx,
+      txid,
+      encoding: 'base64',
+    });
+  }
+
+  override async getVerifyAddressChainParams(
+    query: IQrWalletGetVerifyAddressChainParamsQuery,
+  ): Promise<IQrWalletGetVerifyAddressChainParamsResult> {
+    return {};
+  }
+
+  parseSignature(ur: AirGapUR): Promise<IAirGapSignatureSol> {
+    const sdk = getAirGapSdk();
+    try {
+      const sig = sdk.sol.parseSignature(ur);
+      return Promise.resolve(sig);
+    } catch (error) {
+      throw new OneKeyErrorAirGapInvalidQrCode();
+    }
+  }
+
+  generateSignRequest(
+    params: IAirGapGenerateSignRequestParamsSol,
+  ): Promise<AirGapUR> {
+    if (!params.xfp) {
+      throw new Error('xfp not found');
+    }
+    const sdk = getAirGapSdk();
+    const signRequestUr = sdk.sol.generateSignRequest({
+      ...params,
+      origin: params.origin ?? UR_DEFAULT_ORIGIN,
+    });
+    return Promise.resolve(signRequestUr);
   }
 
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
     return [];
-  }
-
-  override async verifySignedTxMatched() {
-    return undefined;
   }
 }
