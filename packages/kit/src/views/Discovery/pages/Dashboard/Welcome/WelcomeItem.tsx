@@ -245,7 +245,7 @@ export const WelcomeItem = memo(
       shadowRadius: SHADOW_RADIUS,
       elevation: ELEVATION,
       backgroundColor: 'transparent',
-      borderRadius,
+      borderRadius: borderRadius * scale.value * 0.5,
       overflow: 'hidden',
     }));
 
@@ -267,7 +267,6 @@ export const WelcomeItem = memo(
             source={{ uri: logo } as ImageSourcePropType}
             width={size}
             height={size}
-            borderRadius={borderRadius}
           />
         </Animated.View>
       </Stack>

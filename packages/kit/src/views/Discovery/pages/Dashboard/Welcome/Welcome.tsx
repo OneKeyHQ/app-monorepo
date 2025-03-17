@@ -22,6 +22,7 @@ type IItemType = {
   dappIndex: number;
   size: string;
   maxOpacity?: number;
+  borderRadius?: number;
 };
 
 // Component to render the dapp logos on either side
@@ -49,6 +50,7 @@ function DappSideDisplay({
             url={dapp.url}
             size={item.size}
             maxOpacity={item.maxOpacity}
+            borderRadius={item.borderRadius}
           />
         );
       })}
@@ -90,18 +92,21 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
       dappIndex: 0,
       size: '$14',
       maxOpacity: 1,
+      borderRadius: 18,
     },
     {
       position: { bottom: '25%', right: '$12' },
       dappIndex: 1,
       size: '$12',
       maxOpacity: 0.8,
+      borderRadius: 14,
     },
     {
       position: { top: '30%', right: '$0' },
       dappIndex: 2,
       size: '$9',
       maxOpacity: 0.6,
+      borderRadius: 10,
     },
   ];
 
@@ -112,18 +117,21 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
       dappIndex: 3,
       size: '$12',
       maxOpacity: 1,
+      borderRadius: 18,
     },
     {
       position: { bottom: '22%', left: '$11' },
       dappIndex: 4,
       size: '$10',
       maxOpacity: 0.8,
+      borderRadius: 14,
     },
     {
       position: { top: '40%', left: '$2' },
       dappIndex: 5,
       size: '$8',
       maxOpacity: 0.6,
+      borderRadius: 10,
     },
   ];
 
