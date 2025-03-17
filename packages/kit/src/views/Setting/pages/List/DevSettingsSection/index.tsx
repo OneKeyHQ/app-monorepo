@@ -4,7 +4,6 @@ import { useIntl } from 'react-intl';
 import { I18nManager } from 'react-native';
 
 import {
-  Button,
   Dialog,
   ESwitchSize,
   Input,

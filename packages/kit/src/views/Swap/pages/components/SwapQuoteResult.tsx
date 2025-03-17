@@ -7,8 +7,10 @@ import {
   Accordion,
   Divider,
   Icon,
+  LottieView,
   NumberSizeableText,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -18,6 +20,7 @@ import {
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -71,6 +74,7 @@ const SwapQuoteResult = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
+  const [swapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapProviderSupportReceiveAddress] =
@@ -158,6 +162,25 @@ const SwapQuoteResult = ({
     },
     [calculateTaxItem],
   );
+
+  const quoting = useMemo(() => {
+    if (swapQuoteEventTotalCount.count > 0) {
+      if (
+        swapQuoteList?.every(
+          (q) => q.eventId === swapQuoteEventTotalCount.eventId,
+        ) &&
+        swapQuoteList.length === swapQuoteEventTotalCount.count
+      ) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }, [
+    swapQuoteEventTotalCount.count,
+    swapQuoteEventTotalCount.eventId,
+    swapQuoteList,
+  ]);
 
   const limitOrderExpiryStepMap = useMemo(
     () => [
@@ -257,52 +280,77 @@ const SwapQuoteResult = ({
   ) {
     return null;
   }
-  if (
-    quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
-    !quoteResult?.isWrapped
-  ) {
-    return !quoteResult?.shouldWrappedToken &&
-      quoteResult?.info.provider &&
-      swapTypeSwitch === ESwapTabSwitchType.LIMIT ? (
-      <YStack gap="$3">
-        <SwapProviderInfoItem
-          providerIcon={quoteResult?.info.providerLogo ?? ''}
-          providerName={quoteResult?.info.providerName ?? ''}
-          // isLoading={swapQuoteLoading}
-          fromToken={fromToken}
-          onekeyFee={quoteResult?.fee?.percentageFee}
-          toToken={toToken}
-          showLock={!!quoteResult?.allowanceResult}
-          onPress={
-            quoteResult?.info.provider && swapQuoteList?.length > 1
-              ? () => {
-                  onOpenProviderList?.();
-                }
-              : undefined
-          }
-        />
-        {quoteResult?.fee?.estimatedFeeFiatValue &&
-        quoteResult?.networkCostBuyAmount ? (
-          <SwapCommonInfoItem
-            title={intl.formatMessage({
-              id: ETranslations.swap_page_provider_est_network_fee,
-            })}
+
+  if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+    if (swapQuoteLoading) {
+      return (
+        <XStack alignItems="center">
+          <XStack gap="$2">
+            <SizableText size="$bodyMd" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.swap_loading_content,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack flex={1} justifyContent="flex-end">
+            <LottieView
+              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+              autoPlay
+              loop
+              style={{
+                width: 48,
+                height: 20,
+              }}
+            />
+          </XStack>
+        </XStack>
+      );
+    }
+    if (
+      quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
+      !quoteResult?.isWrapped
+    ) {
+      return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
+        <YStack gap="$3">
+          <SwapProviderInfoItem
+            providerIcon={quoteResult?.info.providerLogo ?? ''}
+            providerName={quoteResult?.info.providerName ?? ''}
             // isLoading={swapQuoteLoading}
-            value={networkCostBuyAmountFormatValue}
+            fromToken={fromToken}
+            onekeyFee={quoteResult?.fee?.percentageFee}
+            toToken={toToken}
+            showLock={!!quoteResult?.allowanceResult}
+            onPress={
+              quoteResult?.info.provider && swapQuoteList?.length > 1
+                ? () => {
+                    onOpenProviderList?.();
+                  }
+                : undefined
+            }
           />
-        ) : null}
-        <LimitExpirySelect
-          currentSelectExpiryValue={swapLimitExpirySelect}
-          onSelectExpiryValue={setSwapLimitExpirySelect}
-          selectItems={limitOrderExpiryStepMap}
-        />
-        <LimitPartialFillSelect
-          currentSelectPartiallyFillValue={swapLimitPartiallyFill}
-          onSelectPartiallyFillValue={setSwapLimitPartiallyFill}
-          selectItems={limitOrderPartiallyFillStepMap}
-        />
-      </YStack>
-    ) : null;
+          {quoteResult?.fee?.estimatedFeeFiatValue &&
+          quoteResult?.networkCostBuyAmount ? (
+            <SwapCommonInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.swap_page_provider_est_network_fee,
+              })}
+              // isLoading={swapQuoteLoading}
+              value={networkCostBuyAmountFormatValue}
+            />
+          ) : null}
+          <LimitExpirySelect
+            currentSelectExpiryValue={swapLimitExpirySelect}
+            onSelectExpiryValue={setSwapLimitExpirySelect}
+            selectItems={limitOrderExpiryStepMap}
+          />
+          <LimitPartialFillSelect
+            currentSelectPartiallyFillValue={swapLimitPartiallyFill}
+            onSelectPartiallyFillValue={setSwapLimitPartiallyFill}
+            selectItems={limitOrderPartiallyFillStepMap}
+          />
+        </YStack>
+      ) : null;
+    }
   }
   if (
     swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
@@ -325,6 +373,7 @@ const SwapQuoteResult = ({
             {({ open }: { open: boolean }) => (
               <SwapQuoteResultRate
                 rate={quoteResult?.instantRate}
+                quoting={quoting}
                 fromToken={fromToken}
                 toToken={toToken}
                 isBest={quoteResult?.isBest}

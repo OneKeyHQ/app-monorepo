@@ -7,7 +7,7 @@ const { WEB_PORT } = require('./constant');
 
 module.exports = ({ basePath }) => ({
   mode: 'development',
-  devtool: 'cheap-module-source-map',
+  devtool: 'eval-source-map',
   plugins: [
     new webpack.HotModuleReplacementPlugin(),
     new ReactRefreshWebpackPlugin({ overlay: false }),

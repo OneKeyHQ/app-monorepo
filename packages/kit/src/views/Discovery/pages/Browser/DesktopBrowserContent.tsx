@@ -20,6 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import WebContent from '../../components/WebContent/WebContent';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
+import DashboardContent from '../Dashboard/DashboardContent';
 
 interface IElectronWebView {
   stopFindInPage: (text: string) => void;
@@ -234,7 +235,9 @@ function BasicDesktopBrowserContent({
       {platformEnv.isDesktop ? <Find id={id} /> : null}
       {tab?.url ? (
         <WebContent id={id} url={tab.url} isCurrent={isActive} />
-      ) : null}
+      ) : (
+        <DashboardContent />
+      )}
     </Freeze>
   );
 }

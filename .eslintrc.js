@@ -23,6 +23,7 @@ const jsRules = {
   'react/jsx-key': 'error',
   'react/jsx-no-useless-fragment': 'off',
   'use-effect-no-deps/use-effect-no-deps': 'error',
+  'react-hooks/rules-of-hooks': 'error',
   'react-hooks/exhaustive-deps': [
     'error',
     {
@@ -259,7 +260,7 @@ module.exports = {
           /Preauthorized/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
-        'minLength': 3,
+        'minLength': 4,
       },
     ],
     'props-checker/validator': [

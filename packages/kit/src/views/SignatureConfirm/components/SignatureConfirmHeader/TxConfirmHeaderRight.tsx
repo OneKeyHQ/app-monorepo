@@ -33,6 +33,10 @@ function TxConfirmHeaderRight(props: {
   const mevProtectionProvider = useMemo(() => {
     if (!unsignedTxs) return null;
 
+    if (decodedTx?.txDisplay?.mevProtectionProvider) {
+      return decodedTx.txDisplay.mevProtectionProvider;
+    }
+
     const swapTx = find(unsignedTxs, 'swapInfo');
 
     if (swapTx && swapTx.swapInfo) {
@@ -55,8 +59,6 @@ function TxConfirmHeaderRight(props: {
         ];
       }
     }
-
-    return decodedTx?.txDisplay?.mevProtectionProvider;
   }, [unsignedTxs, decodedTx?.txDisplay?.mevProtectionProvider]);
 
   if (!mevProtectionProvider) return null;

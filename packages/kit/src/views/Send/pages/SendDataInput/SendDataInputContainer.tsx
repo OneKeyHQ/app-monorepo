@@ -157,6 +157,15 @@ function SendDataInputContainer() {
     networkId,
   });
 
+  const [isShowPercentToolbar, setIsShowPercentToolbar] = useState(false);
+  const showPercentToolbar = useCallback(() => {
+    setIsShowPercentToolbar(true);
+  }, []);
+
+  const hidePercentToolbar = useCallback(() => {
+    setIsShowPercentToolbar(false);
+  }, []);
+
   const [isHexTxMessage, setIsHexTxMessage] = useState(false);
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
 
@@ -759,6 +768,12 @@ function SendDataInputContainer() {
     return balanceFiat.isNaN() ? '0' : balanceFiat.toFixed();
   }, [tokenDetails?.fiatValue]);
 
+  // Lightning Network only accepts integer values on Token Mode
+  const isIntegerAmount = useMemo(
+    () => networkUtils.isLightningNetworkByNetworkId(networkId) && !isUseFiat,
+    [networkId, isUseFiat],
+  );
+
   const renderTokenDataInputForm = useCallback(
     () => (
       <>
@@ -774,12 +789,9 @@ function SendDataInputContainer() {
               const valueBN = new BigNumber(value ?? 0);
 
               if (valueBN.isNaN()) {
-                // Lightning Network only accepts integer values on Token Mode
-                const formattedValue =
-                  !isUseFiat &&
-                  networkUtils.isLightningNetworkByNetworkId(networkId)
-                    ? Number.parseInt(value, 10)
-                    : Number.parseFloat(value);
+                const formattedValue = isIntegerAmount
+                  ? Number.parseInt(value, 10)
+                  : Number.parseFloat(value);
                 form.setValue(
                   'amount',
                   isNaN(formattedValue) ? '' : String(formattedValue),
@@ -787,11 +799,7 @@ function SendDataInputContainer() {
                 return;
               }
 
-              // Lightning Network only accepts integer values on Token Mode
-              if (
-                !isUseFiat &&
-                networkUtils.isLightningNetworkByNetworkId(networkId)
-              ) {
+              if (isIntegerAmount) {
                 form.setValue('amount', valueBN.toFixed(0));
                 return;
               }
@@ -833,6 +841,9 @@ function SendDataInputContainer() {
             inputProps={{
               inputAccessoryViewID: sendInputAccessoryViewID,
               placeholder: '0',
+              onFocus: platformEnv.isNative ? showPercentToolbar : undefined,
+              onBlur: platformEnv.isNative ? hidePercentToolbar : undefined,
+              keyboardType: isIntegerAmount ? 'number-pad' : 'decimal-pad',
               ...(isUseFiat && {
                 leftAddOnProps: {
                   label: currencySymbol,
@@ -884,7 +895,9 @@ function SendDataInputContainer() {
       handleOnSelectToken,
       handleValidateTokenAmount,
       hasFrozenBalance,
+      hidePercentToolbar,
       intl,
+      isIntegerAmount,
       isLoadingAssets,
       isNFT,
       isSelectTokenDisabled,
@@ -895,9 +908,9 @@ function SendDataInputContainer() {
       network?.isCustomNetwork,
       network?.logoURI,
       network?.name,
-      networkId,
       nft?.metadata?.image,
       nft?.metadata?.name,
+      showPercentToolbar,
       tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
       tokenInfo?.symbol,
@@ -1385,9 +1398,11 @@ function SendDataInputContainer() {
             loading: isSubmitting,
           }}
         />
-        <PercentageStageOnKeyboard
-          onSelectPercentageStage={onSelectPercentageStage}
-        />
+        {isShowPercentToolbar ? (
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        ) : null}
       </Page.Footer>
     </Page>
   );

@@ -66,6 +66,7 @@ export interface IDisplayComponentAddress {
   }[];
   isNavigable?: boolean;
   networkId?: string;
+  showAccountName?: boolean;
 }
 
 export interface IDisplayComponentAmount {

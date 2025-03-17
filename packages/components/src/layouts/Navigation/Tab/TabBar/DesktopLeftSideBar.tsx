@@ -17,7 +17,7 @@ import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
-import { DesktopDragZoneAbsoluteBar } from '../../../DesktopDragZoneBox';
+import HeaderCollapseButton from '../../Header/HeaderCollapseButton';
 
 import { DesktopTabItem } from './DesktopTabItem';
 
@@ -73,9 +73,6 @@ function TabItemView({
 }
 
 function OneKeyLogo() {
-  if (!platformEnv.isWeb) {
-    return null;
-  }
   return (
     <XStack px="$4" py="$3">
       <Icon name="OnekeyTextIllus" width={101} height={28} color="$text" />
@@ -173,11 +170,9 @@ export function DesktopLeftSideBar({
       }}
     >
       {platformEnv.isDesktopMac ? (
-        <DesktopDragZoneAbsoluteBar
-          position="relative"
-          testID="Desktop-AppSideBar-DragZone"
-          h="$10"
-        />
+        <XStack h={52} ai="center" jc="flex-end" px="$4">
+          <HeaderCollapseButton isRootScreen hideWhenCollapse />
+        </XStack>
       ) : null}
       <YStack
         position="relative"
@@ -194,12 +189,17 @@ export function DesktopLeftSideBar({
             bottom: 0,
           }}
           transition={{
-            duration: 200,
+            duration: 120,
             type: 'timing',
           }}
         >
           <YStack flex={1}>
-            <OneKeyLogo />
+            {!platformEnv.isDesktopMac && !platformEnv.isNativeIOSPad ? (
+              <XStack ai="center" jc="space-between" pr="$3">
+                <OneKeyLogo />
+                <HeaderCollapseButton isRootScreen />
+              </XStack>
+            ) : null}
             <YStack flex={1} pt="$3" px="$3">
               {tabs}
             </YStack>
