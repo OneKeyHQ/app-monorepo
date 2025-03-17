@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "पुल",
   "swap_page.button_enter_a_recipient": "प्राप्तकर्ता दर्ज करें",
   "swap_page.button_enter_amount": "राशि दर्ज करें",
-  "swap_page.button_fetching_quotes": "उद्धरण ला रहे हैं",
+  "swap_page.button_fetching_quotes": "उद्धरण प्राप्त किए जा रहे हैं...",
   "swap_page.button_insufficient_balance": "अपर्याप्त बैलेंस",
   "swap_page.button_no_connected_wallet": "कोई वॉलेट कनेक्टेड नहीं है",
   "swap_page.button_no_enough_fee": "नेटवर्क शुल्क को कवर करने के लिए पर्याप्त नहीं",

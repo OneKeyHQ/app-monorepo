@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "브릿지",
   "swap_page.button_enter_a_recipient": "수신자를 입력하세요",
   "swap_page.button_enter_amount": "금액 입력",
-  "swap_page.button_fetching_quotes": "견적을 가져오는 중",
+  "swap_page.button_fetching_quotes": "견적을 가져오는 중...",
   "swap_page.button_insufficient_balance": "잔액 부족",
   "swap_page.button_no_connected_wallet": "지갑이 연결되지 않았습니다",
   "swap_page.button_no_enough_fee": "네트워크 요금을 충당하기에 충분하지 않습니다",
