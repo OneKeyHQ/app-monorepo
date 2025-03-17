@@ -110,7 +110,7 @@ export function MoreActionButton() {
               label: intl.formatMessage({
                 id: ETranslations.open_as_sidebar,
               }),
-              icon: 'LayoutRightOutline',
+              icon: 'LayoutRightOutline' as const,
               onPress: async () => {
                 defaultLogger.account.wallet.openSidePanel();
                 await extUtils.openPanelOnActionClick(true);
@@ -122,7 +122,7 @@ export function MoreActionButton() {
               label: intl.formatMessage({
                 id: ETranslations.open_as_popup,
               }),
-              icon: 'LayoutTopOutline',
+              icon: 'LayoutTopOutline' as const,
               onPress: async () => {
                 await extUtils.openPanelOnActionClick(false);
                 window.close();
@@ -132,7 +132,7 @@ export function MoreActionButton() {
           label: intl.formatMessage({
             id: ETranslations.global_expand_view,
           }),
-          icon: 'ExpandOutline',
+          icon: 'ExpandOutline' as const,
           onPress: async () => {
             defaultLogger.account.wallet.openExpandView();
             window.close();
@@ -163,7 +163,7 @@ export function MoreActionButton() {
               label: intl.formatMessage({
                 id: ETranslations.settings_lock_now,
               }),
-              icon: 'LockOutline',
+              icon: 'LockOutline' as const,
               onPress: onLock,
               testID: 'lock-now',
             },
@@ -171,7 +171,7 @@ export function MoreActionButton() {
               label: intl.formatMessage({
                 id: ETranslations.scan_scan_qr_code,
               }),
-              icon: 'ScanOutline',
+              icon: 'ScanOutline' as const,
               onPress: handleScan,
               testID: 'scan-qr-code',
             },
