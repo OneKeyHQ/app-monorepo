@@ -43,14 +43,11 @@ import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 export function useSwapQuote() {
   const intl = useIntl();
-  const {
-    quoteAction,
-    cleanQuoteInterval,
-    // recoverQuoteInterval,
-    quoteEventHandler,
-  } = useSwapActions().current;
+  const { quoteAction, cleanQuoteInterval, quoteEventHandler } =
+    useSwapActions().current;
   const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
   const swapAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [fromToken] = useSwapSelectFromTokenAtom();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
   const [toToken] = useSwapSelectToTokenAtom();
@@ -72,9 +69,13 @@ export function useSwapQuote() {
   const swapShouldRefreshRef = useRef(swapShouldRefresh);
   const swapQuoteActionLockRef = useRef(swapQuoteActionLock);
   const swapQuoteFetchingRef = useRef(swapQuoteFetching);
+  const swapToAddressInfoRef = useRef(swapToAddressInfo);
 
   const swapSlippageRef = useRef(slippageItem);
 
+  if (swapToAddressInfoRef.current !== swapToAddressInfo) {
+    swapToAddressInfoRef.current = swapToAddressInfo;
+  }
   if (swapTabSwitchTypeRef.current !== swapTabSwitchType) {
     swapTabSwitchTypeRef.current = swapTabSwitchType;
   }
@@ -162,6 +163,8 @@ export function useSwapQuote() {
         undefined,
         undefined,
         ESwapQuoteKind.SELL,
+        undefined,
+        swapToAddressInfoRef.current.address,
       );
     }
   }, [fromTokenAmount, quoteAction]);
@@ -180,6 +183,8 @@ export function useSwapQuote() {
         undefined,
         undefined,
         ESwapQuoteKind.BUY,
+        undefined,
+        swapToAddressInfoRef.current.address,
       );
     }
   }, [toTokenAmount, quoteAction]);
@@ -198,19 +203,13 @@ export function useSwapQuote() {
         undefined,
         undefined,
         ESwapQuoteKind.SELL,
+        undefined,
+        swapToAddressInfoRef.current.address,
       );
     }
-    // else {
-    // void recoverQuoteInterval(
-    //   swapSlippageRef.current,
-    //   activeAccountRef.current?.address,
-    //   activeAccountRef.current?.accountInfo?.account?.id,
-    // );
-    // }
   }, [
     quoteAction,
     cleanQuoteInterval,
-    // recoverQuoteInterval,
     swapApproveAllowanceSelectOpen,
     swapSlippageDialogOpening,
   ]);
@@ -231,12 +230,20 @@ export function useSwapQuote() {
         swapApprovingTransaction.blockNumber,
         undefined,
         ESwapQuoteKind.SELL,
+        undefined,
+        swapToAddressInfoRef.current.address,
       );
     }
   }, [intl, cleanQuoteInterval, quoteAction, swapApprovingTransaction]);
 
   useEffect(() => {
-    if (!isFocusRef.current) return;
+    if (
+      !isFocusRef.current &&
+      swapToAddressInfo.address ===
+        swapQuoteActionLockRef.current?.receivingAddress
+    ) {
+      return;
+    }
     if (
       fromToken?.networkId !== activeAccountRef.current?.networkId ||
       equalTokenNoCaseSensitive({
@@ -274,7 +281,9 @@ export function useSwapQuote() {
       }) &&
       swapQuoteActionLockRef.current.accountId ===
         activeAccountRef.current?.accountInfo?.account?.id &&
-      swapQuoteActionLockRef.current?.address === swapAddressInfo.address
+      swapQuoteActionLockRef.current?.address === swapAddressInfo.address &&
+      swapQuoteActionLockRef.current?.receivingAddress ===
+        swapToAddressInfo.address
     ) {
       return;
     }
@@ -289,12 +298,15 @@ export function useSwapQuote() {
       undefined,
       undefined,
       ESwapQuoteKind.SELL,
+      undefined,
+      swapToAddressInfoRef.current.address,
     );
   }, [
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
+    swapToAddressInfo.address,
     fromToken?.networkId,
     fromToken?.contractAddress,
     toToken?.networkId,
@@ -320,6 +332,8 @@ export function useSwapQuote() {
       undefined,
       undefined,
       kind,
+      undefined,
+      swapToAddressInfoRef.current.address,
     );
   }, [quoteAction, swapTabSwitchType]);
 
@@ -331,7 +345,13 @@ export function useSwapQuote() {
   );
 
   useEffect(() => {
-    if (!isFocusRef.current) return;
+    if (
+      !isFocusRef.current &&
+      swapToAddressInfo.address ===
+        swapQuoteActionLockRef.current?.receivingAddress
+    ) {
+      return;
+    }
     if (swapTabSwitchTypeRef.current !== ESwapTabSwitchType.LIMIT) {
       return;
     }
@@ -375,7 +395,9 @@ export function useSwapQuote() {
       }) &&
       swapQuoteActionLockRef.current.accountId ===
         activeAccountRef.current?.accountInfo?.account?.id &&
-      swapQuoteActionLockRef.current?.address === swapAddressInfo.address
+      swapQuoteActionLockRef.current?.address === swapAddressInfo.address &&
+      swapQuoteActionLockRef.current?.receivingAddress ===
+        swapToAddressInfo.address
     ) {
       return;
     }
@@ -387,12 +409,15 @@ export function useSwapQuote() {
       undefined,
       undefined,
       ESwapQuoteKind.BUY,
+      undefined,
+      swapToAddressInfoRef.current.address,
     );
   }, [
     cleanQuoteInterval,
     quoteAction,
     swapAddressInfo.address,
     swapAddressInfo.networkId,
+    swapToAddressInfo.address,
     fromToken?.networkId,
     fromToken?.contractAddress,
     toToken?.networkId,
@@ -427,6 +452,8 @@ export function useSwapQuote() {
       undefined,
       undefined,
       ESwapQuoteKind.SELL,
+      undefined,
+      swapToAddressInfoRef.current.address,
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [swapAddressInfo.accountInfo?.deriveType]);

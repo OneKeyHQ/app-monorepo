@@ -166,6 +166,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           undefined,
           undefined,
           quoteResult?.kind ?? ESwapQuoteKind.SELL,
+          undefined,
+          toAddressInfo?.address,
         );
       } else {
         setSwapQuoteIntervalCount((v) => v + 1);
@@ -176,6 +178,8 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
           undefined,
           true,
           quoteResult?.kind ?? ESwapQuoteKind.SELL,
+          undefined,
+          toAddressInfo?.address,
         );
       }
     },
@@ -185,6 +189,7 @@ const SwapMainLoad = ({ swapInitParams, pageType }: ISwapMainLoadProps) => {
       swapFromAddressInfo?.accountInfo?.account?.id,
       quoteResult?.kind,
       setSwapQuoteIntervalCount,
+      toAddressInfo?.address,
     ],
   );
 
