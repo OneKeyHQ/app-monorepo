@@ -33,6 +33,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useReferFriends } from '../../../hooks/useReferFriends';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -137,6 +138,8 @@ function BottomMenu() {
     useNewModal: true,
   });
 
+  const { toReferFriendsPage } = useReferFriends();
+
   const openDeviceManagementPage = useCallback(async () => {
     const allHwQrWallet =
       await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
@@ -161,6 +164,13 @@ function BottomMenu() {
       borderTopColor="$borderSubdued"
       bg="$bgSidebar"
     >
+      <DesktopTabItem
+        onPress={toReferFriendsPage}
+        selected={false}
+        icon="GiftOutline"
+        label="Refer a friend"
+        testID="refer-a-friend"
+      />
       <DesktopTabItem
         onPress={openDeviceManagementPage}
         selected={false}

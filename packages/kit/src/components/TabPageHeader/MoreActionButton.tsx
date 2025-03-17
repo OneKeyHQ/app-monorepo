@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 
@@ -96,6 +97,8 @@ export function MoreActionButton() {
     [openAddressBook],
   );
 
+  const { toReferFriendsPage } = useReferFriends();
+
   return (
     <ActionList
       key="more-action"
@@ -124,6 +127,16 @@ export function MoreActionButton() {
               icon: 'ScanOutline',
               onPress: handleScan,
               testID: 'scan-qr-code',
+            },
+          ],
+        },
+        {
+          items: [
+            {
+              label: 'Refer a friend',
+              icon: 'GiftOutline',
+              onPress: toReferFriendsPage,
+              testID: 'refer-a-friend',
             },
           ],
         },
