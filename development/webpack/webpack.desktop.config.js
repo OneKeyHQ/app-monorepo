@@ -37,6 +37,7 @@ module.exports = ({
         developmentConfig({ platform, basePath }),
         ...configs,
         {
+          devtool: 'eval-source-map',
           devServer: {
             open: false,
           },
