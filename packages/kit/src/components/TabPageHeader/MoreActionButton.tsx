@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -11,12 +11,15 @@ import {
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalDeviceManagementRoutes,
   EModalRoutes,
   EModalSettingRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
@@ -96,6 +99,53 @@ export function MoreActionButton() {
     [openAddressBook],
   );
 
+  const popupMenu = useMemo(() => {
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      const routeInfo = {
+        routes: '',
+      };
+      return [
+        platformEnv.isExtensionUiPopup
+          ? {
+              label: intl.formatMessage({
+                id: ETranslations.open_as_sidebar,
+              }),
+              icon: 'LayoutRightOutline',
+              onPress: async () => {
+                defaultLogger.account.wallet.openSidePanel();
+                await extUtils.openPanelOnActionClick(true);
+                await extUtils.openSidePanel(routeInfo);
+                window.close();
+              },
+            }
+          : {
+              label: intl.formatMessage({
+                id: ETranslations.open_as_popup,
+              }),
+              icon: 'LayoutTopOutline',
+              onPress: async () => {
+                await extUtils.openPanelOnActionClick(false);
+                window.close();
+              },
+            },
+        {
+          label: intl.formatMessage({
+            id: ETranslations.global_expand_view,
+          }),
+          icon: 'ExpandOutline',
+          onPress: async () => {
+            defaultLogger.account.wallet.openExpandView();
+            window.close();
+            await backgroundApiProxy.serviceApp.openExtensionExpandTab(
+              routeInfo,
+            );
+          },
+        },
+      ];
+    }
+    return [];
+  }, [intl]);
+
   return (
     <ActionList
       key="more-action"
@@ -125,7 +175,8 @@ export function MoreActionButton() {
               onPress: handleScan,
               testID: 'scan-qr-code',
             },
-          ],
+            ...popupMenu,
+          ].filter(Boolean),
         },
         {
           items: [
