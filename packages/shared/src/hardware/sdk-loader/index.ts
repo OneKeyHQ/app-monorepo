@@ -9,8 +9,7 @@ export const importHardwareSDK = async ({
   // if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
   //   return (await import('@onekeyfe/hd-common-connect-sdk')).default;
   // }
-  (await import('@onekeyfe/hd-common-connect-sdk'))
-    .default as unknown as Promise<CoreApi>;
+  (await import('@onekeyfe/hd-web-sdk')).default as unknown as Promise<CoreApi>;
 
 export const importHardwareSDKLowLevel = async () =>
   (await import('@onekeyfe/hd-web-sdk')).default

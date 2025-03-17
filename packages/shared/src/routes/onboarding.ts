@@ -40,6 +40,9 @@ export enum EOnboardingPages {
 
   // device management guide page
   DeviceManagementGuide = 'DeviceManagementGuide',
+
+  // prompt web device access
+  PromptWebDeviceAccess = 'PromptWebDeviceAccess',
 }
 
 export type IOnboardingParamList = {
@@ -102,4 +105,7 @@ export type IOnboardingParamList = {
 
   // device management guide page
   [EOnboardingPages.DeviceManagementGuide]: undefined;
+
+  // prompt web device access
+  [EOnboardingPages.PromptWebDeviceAccess]: undefined;
 };

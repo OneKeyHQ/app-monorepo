@@ -1,6 +1,15 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { ONEKEY_WEBUSB_FILTER } from '@onekeyfe/hd-shared';
+
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalRoutes,
+  EOnboardingPages,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
 
 export function usePromptWebDeviceAccess() {
   /**
@@ -22,4 +31,27 @@ export function usePromptWebDeviceAccess() {
   }, []);
 
   return { promptWebUsbDeviceAccess };
+}
+
+export function useToPromptWebDeviceAccessPage() {
+  const navigation = useAppNavigation();
+
+  return useMemo(
+    () => async () => {
+      if (platformEnv.isExtensionUiPopup) {
+        await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+          routes: [
+            ERootRoutes.Modal,
+            EModalRoutes.OnboardingModal,
+            EOnboardingPages.PromptWebDeviceAccess,
+          ],
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.OnboardingModal, {
+          screen: EOnboardingPages.PromptWebDeviceAccess,
+        });
+      }
+    },
+    [navigation],
+  );
 }

@@ -24,7 +24,10 @@ import {
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
+import {
+  usePromptWebDeviceAccess,
+  useToPromptWebDeviceAccessPage,
+} from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
@@ -590,6 +593,7 @@ function HardwareUiStateContainerCmpControlled() {
   );
 
   const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
+  const toPromptWebDeviceAccessPage = useToPromptWebDeviceAccessPage();
 
   useEffect(() => {
     const callback = throttle(
@@ -608,7 +612,10 @@ function HardwareUiStateContainerCmpControlled() {
         ) {
           dialogProps = buildWebDeviceAccessDialogProps({
             intl,
-            promptWebUsbDeviceAccess,
+            // @ts-expect-error
+            promptWebUsbDeviceAccess: platformEnv.isExtensionUiPopup
+              ? toPromptWebDeviceAccessPage
+              : promptWebUsbDeviceAccess,
           });
         }
         if (dialogProps) {
@@ -623,7 +630,7 @@ function HardwareUiStateContainerCmpControlled() {
     return () => {
       appEventBus.off(EAppEventBusNames.RequestHardwareUIDialog, callback);
     };
-  }, [intl, promptWebUsbDeviceAccess]);
+  }, [intl, toPromptWebDeviceAccessPage, promptWebUsbDeviceAccess]);
 
   return (
     <>
