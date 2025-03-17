@@ -60,7 +60,7 @@ function useAspectRatioInfo(params: {
   return useMemo(() => {
     let flexBasis: DimensionValue | undefined = '25%';
     let ratio = (sizeInfo?.width ?? 1) / (sizeInfo?.height ?? 1);
-    if (['classic', 'mini', 'classic1s'].includes(deviceType)) {
+    if (['classic', 'mini', 'classic1s', 'classicpure'].includes(deviceType)) {
       // classic mini 128x64
       ratio = 2;
       flexBasis = media.gtMd ? '25%' : '33.33333%';
@@ -194,11 +194,11 @@ export default function HardwareHomeScreenModal({
         homeScreenType: 'WallPaper',
       });
 
-    // 'unknown' | 'classic' | 'classic1s' | 'mini' | 'touch' | 'pro';
+    // 'unknown' | 'classic' | 'classic1s' | 'classicpure' | 'mini' | 'touch' | 'pro';
     const deviceType: IDeviceType = device?.deviceType || 'unknown';
     let dataList: IHardwareHomeScreenData[] = [];
     let canUpload = false;
-    if (['classic', 'mini', 'classic1s'].includes(deviceType)) {
+    if (['classic', 'mini', 'classic1s', 'classicpure'].includes(deviceType)) {
       dataList = hardwareHomeScreenData.classicMini;
       canUpload = true;
     }

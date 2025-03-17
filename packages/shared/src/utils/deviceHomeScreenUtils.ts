@@ -7,6 +7,7 @@ import type { IDeviceType } from '@onekeyfe/hd-core';
 const HAS_MONOCHROME_SCREEN: Partial<Record<IDeviceType, boolean>> = {
   classic: true,
   classic1s: true,
+  classicpure: true,
   mini: true,
 };
 
@@ -45,6 +46,7 @@ const deviceModelInformation: Partial<
 > = {
   classic: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
   classic1s: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
+  classicpure: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
   mini: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
 };
 

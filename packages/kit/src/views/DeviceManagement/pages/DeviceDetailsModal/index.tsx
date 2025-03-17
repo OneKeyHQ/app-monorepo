@@ -124,9 +124,12 @@ function DeviceDetailsModalCmp() {
   }, [result?.device?.connectId, actions]);
 
   // Advance Section
-  const inputPinOnSoftwareSupport = ['classic', 'mini', 'classic1s'].includes(
-    result?.device?.deviceType || '',
-  );
+  const inputPinOnSoftwareSupport = [
+    'classic',
+    'mini',
+    'classic1s',
+    'classicpure',
+  ].includes(result?.device?.deviceType || '');
 
   const onPassphraseEnabledChange = useCallback(
     async (value: boolean) => {

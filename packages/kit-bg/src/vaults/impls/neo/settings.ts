@@ -31,7 +31,7 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: false,
   softwareAccountDisabled: true,
 
-  supportedDeviceTypes: ['classic1s', 'pro'],
+  supportedDeviceTypes: ['classic1s', 'pro', 'classicpure'],
 
   defaultFeePresetIndex: 0,
 

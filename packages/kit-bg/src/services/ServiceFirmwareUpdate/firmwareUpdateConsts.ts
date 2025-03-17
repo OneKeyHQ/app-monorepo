@@ -31,6 +31,10 @@ export const FIRMWARE_UPDATE_MIN_VERSION_ALLOWED: Partial<
     // ble: '0.0.0',
     bootloader: '2.0.0',
   },
+  'classicpure': {
+    firmware: '3.0.0',
+    bootloader: '2.0.0',
+  },
   'mini': {
     firmware: '3.0.0',
     // ble: '0.0.0',

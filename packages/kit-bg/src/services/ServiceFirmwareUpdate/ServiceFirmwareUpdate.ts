@@ -831,7 +831,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const isClassicOrMini =
       deviceType === 'classic' ||
       deviceType === 'mini' ||
-      deviceType === 'classic1s';
+      deviceType === 'classic1s' ||
+      deviceType === 'classicpure';
 
     const isTouchOrPro = deviceType === 'touch' || deviceType === 'pro';
 

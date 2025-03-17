@@ -86,7 +86,9 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
           device.featuresInfo.onekey_serial ??
           device.featuresInfo.serial_no ??
           VERSION_PLACEHOLDER,
-        certifications: ['pro', 'classic1s'].includes(device.deviceType)
+        certifications: ['pro', 'classic1s', 'classicpure'].includes(
+          device.deviceType,
+        )
           ? 'EAL 6+'
           : null,
       };

@@ -976,7 +976,7 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() => {
       // classic1s does not support getOnekeyFeatures method
-      if (deviceType === 'classic1s') {
+      if (deviceType === 'classic1s' || deviceType === 'classicpure') {
         return hardwareSDK?.getFeatures(
           connectId,
         ) as unknown as Response<OnekeyFeatures>;
