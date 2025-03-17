@@ -322,13 +322,25 @@ export const useLaunchEvents = (): void => {
 
 const getBuilderNumber = (builderNumber?: string) =>
   builderNumber ? Number(builderNumber.split('-')[0]) : -1;
-export const useCheckUpdateFailedOnDesktop =
+export const useCheckUpdateOnDesktop =
   platformEnv.isDesktop &&
   !platformEnv.isMas &&
   !platformEnv.isDesktopLinuxSnap &&
   !platformEnv.isDesktopWinMsStore
     ? () => {
         useEffect(() => {
+          globalThis.desktopApi.on(
+            ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
+            (downloadUrl) => {
+              defaultLogger.update.app.log(
+                'UPDATE_DOWNLOAD_FILE_INFO',
+                downloadUrl,
+              );
+              void backgroundApiProxy.serviceAppUpdate.updateDownloadUrl(
+                downloadUrl,
+              );
+            },
+          );
           setTimeout(() => {
             const previousBuildNumber =
               globalThis.desktopApi.getPreviousUpdateBuildNumber();
@@ -369,6 +381,6 @@ export function Bootstrap() {
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();
-  useCheckUpdateFailedOnDesktop();
+  useCheckUpdateOnDesktop();
   return null;
 }
