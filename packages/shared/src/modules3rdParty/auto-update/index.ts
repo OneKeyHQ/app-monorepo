@@ -3,6 +3,7 @@ import type {
   IDownloadASC,
   IDownloadPackage,
   IInstallPackage,
+  IManualInstallPackage,
   IUpdateDownloadedEvent,
   IUseDownloadProgress,
   IVerifyASC,
@@ -25,3 +26,6 @@ export type * from './type';
 export const useDownloadProgress: IUseDownloadProgress = () => 0;
 
 export const clearPackage: IClearPackage = () => Promise.resolve();
+
+export const manualInstallPackage: IManualInstallPackage = () =>
+  Promise.resolve();

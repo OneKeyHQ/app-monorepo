@@ -460,6 +460,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage,
     autoSlippage,
     blockNumber,
+    receivingAddress,
     accountId,
     protocol,
     expirationTime,
@@ -474,6 +475,7 @@ export default class ServiceSwap extends ServiceBase {
     userAddress?: string;
     slippagePercentage: number;
     autoSlippage?: boolean;
+    receivingAddress?: string;
     blockNumber?: number;
     accountId?: string;
     expirationTime?: number;
@@ -498,6 +500,7 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
       autoSlippage,
       blockNumber,
+      receivingAddress,
       expirationTime,
       limitPartiallyFillable,
       kind,
@@ -555,6 +558,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     protocol,
     expirationTime,
+    receivingAddress,
     limitPartiallyFillable,
     kind,
     toTokenAmount,
@@ -563,6 +567,7 @@ export default class ServiceSwap extends ServiceBase {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount?: string;
+    receivingAddress?: string;
     userAddress?: string;
     slippagePercentage: number;
     autoSlippage?: boolean;
@@ -591,6 +596,7 @@ export default class ServiceSwap extends ServiceBase {
       autoSlippage,
       blockNumber,
       expirationTime,
+      receivingAddress,
       limitPartiallyFillable,
       kind,
       toTokenAmount,
