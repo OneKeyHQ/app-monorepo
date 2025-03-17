@@ -55,6 +55,8 @@ export function useSearchModalData(searchValue: string) {
     return res;
   }, [searchValue, serviceDiscovery]);
 
+  console.log('limi-searchResult', searchResult);
+
   // Process search results
   useEffect(() => {
     void (async () => {
@@ -74,7 +76,7 @@ export function useSearchModalData(searchValue: string) {
           name: `${intl.formatMessage({
             id: ETranslations.explore_search_placeholder,
           })} "${searchValue}"`,
-          url: '',
+          url: `https://www.google.com/search?q=${searchValue}`,
           logo: GOOGLE_LOGO_URL,
         } as IDApp,
         ...otherResults,

@@ -102,7 +102,7 @@ export function SearchResultContent({
             if (item.dappId === SEARCH_ITEM_ID) {
               handleWebSite({
                 webSite: {
-                  url: searchValue,
+                  url: item.url,
                   title: searchValue,
                 },
                 useCurrentWindow,
