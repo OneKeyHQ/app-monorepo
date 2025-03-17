@@ -27,6 +27,7 @@ export const HwWalletAvatarImages: Record<IDeviceType, ImageSourcePropType> = {
   unknown: { uri: undefined },
   classic: require('../assets/wallet/avatar/Classic.png'),
   classic1s: require('../assets/wallet/avatar/Classic.png'),
+  classicpure: require('../assets/wallet/avatar/Classic.png'),
   mini: require('../assets/wallet/avatar/Mini.png'),
   touch: require('../assets/wallet/avatar/Touch.png'),
   pro: require('../assets/wallet/avatar/Pro.png'),

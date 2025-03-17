@@ -49,6 +49,7 @@ export function ConfirmOnDeviceToastContent({
         return Promise.resolve(null);
       case 'classic':
       case 'classic1s':
+      case 'classicpure':
         return import(
           '@onekeyhq/kit/assets/animations/confirm-on-classic.json'
         );
@@ -143,6 +144,7 @@ export function EnterPinOnDevice({
         return Promise.resolve(null);
       case 'classic':
       case 'classic1s':
+      case 'classicpure':
         return import(
           '@onekeyhq/kit/assets/animations/enter-pin-on-classic.json'
         );
@@ -510,6 +512,7 @@ export function EnterPassphraseOnDevice({
         return Promise.resolve(null);
       case 'classic':
       case 'classic1s':
+      case 'classicpure':
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-classic.json'
         );

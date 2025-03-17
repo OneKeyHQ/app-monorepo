@@ -7,6 +7,7 @@ export const getCreateNewWalletStepImage = (type: IDeviceType) => {
       return Promise.resolve(null);
     case 'classic':
     case 'classic1s':
+    case 'classicpure':
       return require('@onekeyhq/kit/assets/onboarding/classic-create-new-wallet.png');
     case 'mini':
       return require('@onekeyhq/kit/assets/onboarding/mini-create-new-wallet.png');
@@ -26,6 +27,7 @@ export const getWriteDownRecoveryPhraseStepImage = (type: IDeviceType) => {
       return Promise.resolve(null);
     case 'classic':
     case 'classic1s':
+    case 'classicpure':
       return require('@onekeyhq/kit/assets/onboarding/classic-write-down-recovery-phrase.png');
     case 'mini':
       return require('@onekeyhq/kit/assets/onboarding/mini-write-down-recovery-phrase.png');
@@ -45,6 +47,7 @@ export const getSetPinStepImage = (type: IDeviceType) => {
       return Promise.resolve(null);
     case 'classic':
     case 'classic1s':
+    case 'classicpure':
       return require('@onekeyhq/kit/assets/onboarding/classic-set-pin.png');
     case 'mini':
       return require('@onekeyhq/kit/assets/onboarding/mini-set-pin.png');
@@ -64,6 +67,7 @@ export const getImportWalletStepImage = (type: IDeviceType) => {
       return Promise.resolve(null);
     case 'classic':
     case 'classic1s':
+    case 'classicpure':
       return require('@onekeyhq/kit/assets/onboarding/classic-import-wallet.png');
     case 'mini':
       return require('@onekeyhq/kit/assets/onboarding/mini-import-wallet.png');
@@ -83,6 +87,7 @@ export const getEnterRecoveryPhraseStepImage = (type: IDeviceType) => {
       return Promise.resolve(null);
     case 'classic':
     case 'classic1s':
+    case 'classicpure':
       return require('@onekeyhq/kit/assets/onboarding/classic-enter-recovery-phrase.png');
     case 'mini':
       return require('@onekeyhq/kit/assets/onboarding/mini-enter-recovery-phrase.png');

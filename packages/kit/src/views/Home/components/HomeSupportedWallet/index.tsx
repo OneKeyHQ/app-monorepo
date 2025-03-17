@@ -26,6 +26,7 @@ export function HomeSupportedWallet({
   const labels: Record<IWalletType, string> = {
     'classic': 'Classic',
     'classic1s': 'Classic 1S',
+    'classicpure': 'Classic Pure',
     'mini': 'Mini',
     'touch': 'Touch',
     'pro': 'Pro',

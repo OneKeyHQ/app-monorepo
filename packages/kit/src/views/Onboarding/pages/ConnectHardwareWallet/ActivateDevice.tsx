@@ -116,6 +116,7 @@ export function ActivateDevice({
         return;
       case 'classic':
       case 'classic1s':
+      case 'classicpure':
         switch (stepType) {
           case 'create':
             return [
