@@ -43,18 +43,20 @@ export const useWebSiteHandler = () => {
       useCurrentWindow,
       tabId,
     }: IHandleWebSiteParams) => {
-      if (!webSite?.url) {
+      const isDapp = !!dApp;
+      const url = isDapp ? dApp?.url : webSite?.url;
+      const title = isDapp ? dApp?.name : webSite?.title;
+
+      if (!url || !title) {
         return;
       }
-
-      console.log('limi-item', activeTab);
 
       // If current active tab is of type 'home', change it to 'normal' and update its URL
       if (activeTab?.type === 'home' && !useSystemBrowser) {
         setWebTabData({
           id: activeTab.id,
-          url: webSite.url,
-          title: webSite.title || dApp?.name || '',
+          url,
+          title,
           type: 'normal',
           isPinned: activeTab.isPinned,
         });
@@ -63,7 +65,7 @@ export const useWebSiteHandler = () => {
           navigation.pop();
         }
       } else if (useSystemBrowser) {
-        openUrlExternal(webSite.url);
+        openUrlExternal(url);
       } else {
         handleOpenWebSite({
           webSite,
@@ -77,8 +79,8 @@ export const useWebSiteHandler = () => {
       }
 
       defaultLogger.discovery.dapp.enterDapp({
-        dappDomain: webSite.url,
-        dappName: webSite.title || dApp?.name || '',
+        dappDomain: url,
+        dappName: title,
         enterMethod,
       });
     },

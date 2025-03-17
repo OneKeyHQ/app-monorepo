@@ -116,7 +116,6 @@ export function SearchResultContent({
                 enterMethod: EEnterMethod.search,
               });
             } else {
-              console.log('limi-handleWebSite', item);
               handleWebSite({
                 dApp: item,
                 useCurrentWindow,
@@ -129,12 +128,12 @@ export function SearchResultContent({
         />
       )),
     [
+      onItemClick,
+      SEARCH_ITEM_ID,
       handleWebSite,
       searchValue,
-      tabId,
       useCurrentWindow,
-      SEARCH_ITEM_ID,
-      onItemClick,
+      tabId,
     ],
   );
 
