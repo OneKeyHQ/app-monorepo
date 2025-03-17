@@ -63,6 +63,7 @@ export function HyperlinkText({
               },
               url: (params: React.ReactNode[]) => {
                 const [link, chunks] = params;
+                const isLinkString = typeof link === 'string';
                 return (
                   <SizableText
                     {...textProps}
@@ -70,10 +71,10 @@ export function HyperlinkText({
                     hoverStyle={{ bg: '$bgHover' }}
                     pressStyle={{ bg: '$bgActive' }}
                     onPress={() => {
-                      if (typeof link === 'string') {
-                        setTimeout(() => {
-                          onAction?.(link);
-                        }, 0);
+                      setTimeout(() => {
+                        onAction?.(isLinkString ? link : '');
+                      }, 0);
+                      if (isLinkString) {
                         void parseQRCode.parse(link, {
                           handlers: [
                             EQRCodeHandlerNames.marketDetail,
@@ -86,7 +87,7 @@ export function HyperlinkText({
                       }
                     }}
                   >
-                    {chunks}
+                    {isLinkString ? chunks : link}
                   </SizableText>
                 );
               },

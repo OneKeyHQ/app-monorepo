@@ -11,6 +11,7 @@ import type {
   IDownloadASC,
   IDownloadPackage,
   IInstallPackage,
+  IManualInstallPackage,
   IUseDownloadProgress,
   IVerifyASC,
   IVerifyPackage,
@@ -107,7 +108,7 @@ export const verifyPackage: IVerifyPackage = async (params) => {
     return;
   }
   await AutoUpdateModule.verifyAPK({
-    filePath: params.downloadedFile,
+    filePath: params.downloadedFile || '',
     downloadUrl: params.downloadUrl || '',
   });
 };
@@ -187,3 +188,6 @@ export const useDownloadProgress: IUseDownloadProgress = (
   }, [handleFailed, handleSuccess, onFailed, onSuccess, updatePercent]);
   return percent;
 };
+
+export const manualInstallPackage: IManualInstallPackage = () =>
+  Promise.resolve();
