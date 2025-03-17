@@ -148,10 +148,13 @@ class ServiceQrWallet extends ServiceBase {
         index,
       });
       paths.push(
-        accountUtils.removePathLastSegment({
-          path: fullPath,
-          removeCount: 2, // TODO always remove last 2 segments, only works for EVM and BTC yet
-        }),
+        // solana uses hardened derivation, so no need to remove last 2 segments
+        networkUtils.isSolanaNetworkByNetworkId(networkId)
+          ? fullPath
+          : accountUtils.removePathLastSegment({
+              path: fullPath,
+              removeCount: 2, // TODO always remove last 2 segments, only works for EVM and BTC yet
+            }),
       );
     }
 

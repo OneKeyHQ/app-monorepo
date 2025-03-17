@@ -71,6 +71,11 @@ function isLightningNetworkByNetworkId(networkId?: string) {
   );
 }
 
+function isSolanaNetworkByNetworkId(networkId?: string) {
+  const networkIdsMap = getNetworkIdsMap();
+  return networkId === networkIdsMap.sol;
+}
+
 function isBTCNetwork(networkId?: string) {
   return (
     networkId === getNetworkIdsMap().btc ||
@@ -197,6 +202,7 @@ export default {
   isLightningNetwork,
   isLightningNetworkByImpl,
   isLightningNetworkByNetworkId,
+  isSolanaNetworkByNetworkId,
   isBTCNetwork,
   getBtcDappNetworkName,
   isAllNetwork,
