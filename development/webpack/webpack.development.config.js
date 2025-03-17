@@ -7,7 +7,10 @@ const { WEB_PORT } = require('./constant');
 
 module.exports = ({ basePath }) => ({
   mode: 'development',
-  devtool: 'eval-source-map',
+  devtool:
+    process.env.ONEKEY_PLATFORM === 'desktop'
+      ? 'eval-source-map'
+      : 'cheap-module-source-map',
   plugins: [
     new webpack.HotModuleReplacementPlugin(),
     new ReactRefreshWebpackPlugin({ overlay: false }),

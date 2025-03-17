@@ -833,4 +833,5 @@ module.exports = [
   'Ethena',
   'Mev',
   'mev',
+  'devtool',
 ];
