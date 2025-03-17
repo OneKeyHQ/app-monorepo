@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "Мост",
   "swap_page.button_enter_a_recipient": "Введите получателя",
   "swap_page.button_enter_amount": "Введите сумму",
-  "swap_page.button_fetching_quotes": "Получение цитат",
+  "swap_page.button_fetching_quotes": "Получение котировок...",
   "swap_page.button_insufficient_balance": "Недостаточный баланс",
   "swap_page.button_no_connected_wallet": "Кошелек не подключен",
   "swap_page.button_no_enough_fee": "Недостаточно средств для оплаты сетевого сбора",

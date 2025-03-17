@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "Ponte",
   "swap_page.button_enter_a_recipient": "Insira um destinatário",
   "swap_page.button_enter_amount": "Insira o valor",
-  "swap_page.button_fetching_quotes": "Buscando cotações",
+  "swap_page.button_fetching_quotes": "Buscando cotações...",
   "swap_page.button_insufficient_balance": "Saldo insuficiente",
   "swap_page.button_no_connected_wallet": "Nenhuma carteira conectada",
   "swap_page.button_no_enough_fee": "Não é suficiente para cobrir a taxa de rede",

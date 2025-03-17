@@ -2171,7 +2171,7 @@
   "swap_page.button_cross_chain": "Brücke",
   "swap_page.button_enter_a_recipient": "Geben Sie einen Empfänger ein",
   "swap_page.button_enter_amount": "Geben Sie den Betrag ein",
-  "swap_page.button_fetching_quotes": "Zitate abrufen",
+  "swap_page.button_fetching_quotes": "Zitate werden abgerufen...",
   "swap_page.button_insufficient_balance": "Unzureichendes Guthaben",
   "swap_page.button_no_connected_wallet": "Keine Geldbörse verbunden",
   "swap_page.button_no_enough_fee": "Nicht genug, um Netzwerkgebühr zu decken",
