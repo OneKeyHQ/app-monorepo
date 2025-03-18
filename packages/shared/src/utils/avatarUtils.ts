@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 import type { ImageSourcePropType } from 'react-native';
 
@@ -24,12 +26,13 @@ export const HdWalletAvatarImageNames = Object.keys(
 ) as IHdWalletAvatarImageNames[];
 
 export const HwWalletAvatarImages: Record<IDeviceType, ImageSourcePropType> = {
-  unknown: { uri: undefined },
-  classic: require('../assets/wallet/avatar/Classic.png'),
-  classic1s: require('../assets/wallet/avatar/Classic.png'),
-  mini: require('../assets/wallet/avatar/Mini.png'),
-  touch: require('../assets/wallet/avatar/Touch.png'),
-  pro: require('../assets/wallet/avatar/Pro.png'),
+  [EDeviceType.Unknown]: { uri: undefined },
+  [EDeviceType.Classic]: require('../assets/wallet/avatar/Classic.png'),
+  [EDeviceType.Classic1s]: require('../assets/wallet/avatar/Classic.png'),
+  [EDeviceType.ClassicPure]: require('../assets/wallet/avatar/Classic.png'),
+  [EDeviceType.Mini]: require('../assets/wallet/avatar/Mini.png'),
+  [EDeviceType.Touch]: require('../assets/wallet/avatar/Touch.png'),
+  [EDeviceType.Pro]: require('../assets/wallet/avatar/Pro.png'),
 };
 
 export const OthersWalletAvatarImages = {

@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -77,7 +78,7 @@ export function ActivateDevice({
 
   const getImportWalletStep = (type: IStep['type']) => ({
     title:
-      type === 'mini'
+      type === EDeviceType.Mini
         ? intl.formatMessage({
             id: ETranslations.onboarding_device_mini_set_up_import,
           })
@@ -112,79 +113,80 @@ export function ActivateDevice({
     stepType: IDeviceStepType,
   ): IDeviceStepDetail[] | undefined => {
     switch (onekeyDeviceType) {
-      case 'unknown':
+      case EDeviceType.Unknown:
         return;
-      case 'classic':
-      case 'classic1s':
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
         switch (stepType) {
           case 'create':
             return [
-              getCreateNewWalletStep('classic'),
-              getWriteDownRecoveryPhraseStep('classic'),
-              getSetPinStep('classic'),
+              getCreateNewWalletStep(EDeviceType.Classic),
+              getWriteDownRecoveryPhraseStep(EDeviceType.Classic),
+              getSetPinStep(EDeviceType.Classic),
             ];
           case 'restore':
             return [
-              getImportWalletStep('classic'),
-              getEnterRecoveryPhraseStep('classic'),
-              getSetPinStep('classic'),
+              getImportWalletStep(EDeviceType.Classic),
+              getEnterRecoveryPhraseStep(EDeviceType.Classic),
+              getSetPinStep(EDeviceType.Classic),
             ];
           default:
             // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
             const _exhaustiveCheck: never = stepType;
         }
         return;
-      case 'mini':
+      case EDeviceType.Mini:
         if (stepType === 'create') {
           return [
-            getCreateNewWalletStep('mini'),
-            getWriteDownRecoveryPhraseStep('mini'),
-            getSetPinStep('mini'),
+            getCreateNewWalletStep(EDeviceType.Mini),
+            getWriteDownRecoveryPhraseStep(EDeviceType.Mini),
+            getSetPinStep(EDeviceType.Mini),
           ];
         }
         if (stepType === 'restore') {
           return [
-            getImportWalletStep('mini'),
-            getEnterRecoveryPhraseStep('mini'),
-            getSetPinStep('mini'),
+            getImportWalletStep(EDeviceType.Mini),
+            getEnterRecoveryPhraseStep(EDeviceType.Mini),
+            getSetPinStep(EDeviceType.Mini),
           ];
         }
         return;
-      case 'touch':
+      case EDeviceType.Touch:
         if (stepType === 'create') {
           return [
-            getCreateNewWalletStep('touch'),
-            getWriteDownRecoveryPhraseStep('touch'),
-            getSetPinStep('touch'),
+            getCreateNewWalletStep(EDeviceType.Touch),
+            getWriteDownRecoveryPhraseStep(EDeviceType.Touch),
+            getSetPinStep(EDeviceType.Touch),
           ];
         }
         if (stepType === 'restore') {
           return [
-            getImportWalletStep('touch'),
-            getEnterRecoveryPhraseStep('touch'),
-            getSetPinStep('touch'),
+            getImportWalletStep(EDeviceType.Touch),
+            getEnterRecoveryPhraseStep(EDeviceType.Touch),
+            getSetPinStep(EDeviceType.Touch),
           ];
         }
         return;
-      case 'pro':
+      case EDeviceType.Pro:
         if (stepType === 'create') {
           return [
-            getCreateNewWalletStep('pro'),
-            getWriteDownRecoveryPhraseStep('pro'),
-            getSetPinStep('pro'),
+            getCreateNewWalletStep(EDeviceType.Pro),
+            getWriteDownRecoveryPhraseStep(EDeviceType.Pro),
+            getSetPinStep(EDeviceType.Pro),
           ];
         }
         if (stepType === 'restore') {
           return [
-            getImportWalletStep('pro'),
-            getEnterRecoveryPhraseStep('pro'),
-            getSetPinStep('pro'),
+            getImportWalletStep(EDeviceType.Pro),
+            getEnterRecoveryPhraseStep(EDeviceType.Pro),
+            getSetPinStep(EDeviceType.Pro),
           ];
         }
         return;
       default:
         // eslint-disable-next-line no-case-declarations, @typescript-eslint/no-unused-vars
-        const _exhaustiveCheck: never = onekeyDeviceType;
+        const _exhaustiveCheck = onekeyDeviceType;
     }
   };
 
