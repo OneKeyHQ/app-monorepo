@@ -6,6 +6,8 @@ import wordLists from 'bip39/src/wordlists/english.json';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+
 import type { BrowserOptions, Stacktrace } from '@sentry/browser';
 // dirty check for common private key formats
 const checkPrivateKey = (errorText: string) =>
@@ -52,7 +54,17 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
-  'OneKeyHardwareError',
+  EOneKeyErrorClassNames.OneKeyHardwareError,
+  EOneKeyErrorClassNames.OneKeyAppError,
+  EOneKeyErrorClassNames.OneKeyErrorNotImplemented,
+  EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
+  EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+  EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+  EOneKeyErrorClassNames.VaultKeyringNotDefinedError,
+  EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+  EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+  EOneKeyErrorClassNames.FirmwareUpdateExit,
+  EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
 
 const isFilterErrorAndSkipSentry = (error?: {
