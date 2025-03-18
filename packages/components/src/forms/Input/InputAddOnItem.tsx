@@ -32,7 +32,6 @@ export const InputAddOnItem = XStack.styleable<IExtraProps>((props, ref) => {
     loading,
     iconName,
     iconColor,
-    iconSize,
     disabled,
     error,
     onPress,
