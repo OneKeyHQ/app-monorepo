@@ -74,12 +74,9 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
   isFilterScamHistoryEnabled: false,
-  // eslint-disable-next-line no-nested-ternary
   hardwareTransportType: platformEnv.isNative
     ? EHardwareTransportType.BLE
-    : platformEnv.isDesktop
-    ? EHardwareTransportType.Bridge
-    : EHardwareTransportType.WEBUSB,
+    : EHardwareTransportType.Bridge,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

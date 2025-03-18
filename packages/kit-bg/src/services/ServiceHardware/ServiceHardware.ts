@@ -1,4 +1,5 @@
 import { Semaphore } from 'async-mutex';
+import axios from 'axios';
 import { uniq } from 'lodash';
 import semver from 'semver';
 
@@ -31,6 +32,7 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceResponseResult,
@@ -108,6 +110,8 @@ const NEW_DIALOG_EVENTS = [
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
+  private bridgeAvailabilityChecked = false;
+
   constructor(props: IServiceBaseProps) {
     super(props);
     appEventBus.on(
@@ -206,6 +210,7 @@ class ServiceHardware extends ServiceBase {
   async getSDKInstance() {
     this.checkSdkVersionValid();
 
+    await this.checkBridgeAndFallbackToWebUSB();
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
     const isPreRelease =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
@@ -1066,6 +1071,55 @@ class ServiceHardware extends ServiceBase {
     return convertDeviceResponse(() =>
       hardwareSDK?.promptWebDeviceAccess(params),
     );
+  }
+
+  private async _needCheckBridgeStatus() {
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+      return false;
+    }
+    return platformEnv.isWeb || platformEnv.isExtension;
+  }
+
+  @backgroundMethod()
+  async checkBridgeAndFallbackToWebUSB() {
+    try {
+      if (this.bridgeAvailabilityChecked) {
+        return;
+      }
+      if (!(await this._needCheckBridgeStatus())) {
+        return;
+      }
+      this.bridgeAvailabilityChecked = true;
+      const isBridgeAvailable = await new Promise<boolean>((resolve) => {
+        axios
+          .request({
+            url: 'http://127.0.0.1:21320/status/',
+            method: 'GET',
+            withCredentials: false,
+            timeout: 3000,
+          })
+          .then(() => resolve(true))
+          .catch((e) => {
+            console.log('bridge status error ===>>>:: ', e);
+            resolve(false);
+          });
+      });
+
+      if (!isBridgeAvailable && platformEnv.isExtension) {
+        await this.fallbackToWebUSBTransport();
+      }
+    } catch (error) {
+      console.error('checkBridgeAndFallbackToWebUSB error', error);
+    }
+  }
+
+  private async fallbackToWebUSBTransport() {
+    await this.backgroundApi.serviceSetting.setHardwareTransportType(
+      EHardwareTransportType.WEBUSB,
+    );
+    await timerUtils.wait(0);
   }
 }
 

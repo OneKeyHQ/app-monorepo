@@ -525,10 +525,7 @@ class ServiceSetting extends ServiceBase {
     if (platformEnv.isNative) {
       return EHardwareTransportType.BLE;
     }
-    if (platformEnv.isDesktop) {
-      return EHardwareTransportType.Bridge;
-    }
-    return EHardwareTransportType.WEBUSB;
+    return EHardwareTransportType.Bridge;
   }
 }
 
