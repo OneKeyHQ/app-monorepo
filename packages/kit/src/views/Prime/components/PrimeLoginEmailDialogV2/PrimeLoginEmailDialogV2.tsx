@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -30,6 +30,7 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
   const form = useForm<{ email: string }>({
     defaultValues: { email: '' },
   });
+
 
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
