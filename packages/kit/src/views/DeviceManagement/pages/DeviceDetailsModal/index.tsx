@@ -35,6 +35,7 @@ import DeviceQrInfoSection from './DeviceQrInfoSection';
 import DeviceSpecsSection from './DeviceSpecsSection';
 
 import type { RouteProp } from '@react-navigation/native';
+import { EDeviceType } from '@onekeyfe/hd-shared';
 
 function DeviceDetailsModalCmp() {
   const intl = useIntl();
@@ -125,11 +126,11 @@ function DeviceDetailsModalCmp() {
 
   // Advance Section
   const inputPinOnSoftwareSupport = [
-    'classic',
-    'mini',
-    'classic1s',
-    'classicpure',
-  ].includes(result?.device?.deviceType || '');
+    EDeviceType.Classic,
+    EDeviceType.Mini,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+  ].includes((result?.device?.deviceType || '') as EDeviceType);
 
   const onPassphraseEnabledChange = useCallback(
     async (value: boolean) => {

@@ -8,6 +8,7 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
+import { EDeviceType } from '@onekeyfe/hd-shared';
 
 const VERSION_PLACEHOLDER = '--';
 
@@ -86,9 +87,11 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
           device.featuresInfo.onekey_serial ??
           device.featuresInfo.serial_no ??
           VERSION_PLACEHOLDER,
-        certifications: ['pro', 'classic1s', 'classicpure'].includes(
-          device.deviceType,
-        )
+        certifications: [
+          EDeviceType.Pro,
+          EDeviceType.Classic1s,
+          EDeviceType.ClassicPure,
+        ].includes(device.deviceType)
           ? 'EAL 6+'
           : null,
       };
