@@ -24,6 +24,7 @@ export const ipcMessageKeys = {
   UPDATE_CLEAR: 'update/clear',
   UPDATE_CHECKING: 'update/checking',
   UPDATE_AVAILABLE: 'update/available',
+  UPDATE_DOWNLOAD_FILE_INFO: 'update/download-file-info',
   UPDATE_NOT_AVAILABLE: 'update/not-available',
   UPDATE_ERROR: 'update/error',
   UPDATE_DOWNLOADING: 'update/downloading',

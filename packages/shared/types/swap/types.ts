@@ -633,6 +633,7 @@ export enum ESwapTxHistoryStatus {
   PENDING = 'pending',
   CANCELED = 'canceled',
   CANCELING = 'canceling',
+  PARTIALLY_FILLED = 'partiallyFilled',
 }
 
 export interface IFetchSwapTxHistoryStatusResponse {
