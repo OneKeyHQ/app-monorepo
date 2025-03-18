@@ -2,11 +2,12 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import type { CoreChainApiBase } from '@onekeyhq/core/src/base/CoreChainApiBase';
+import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
 import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import { verifySolSignedTxMatched } from '@onekeyhq/core/src/chains/sol/sdkSol/verify';
-import type {
-  IEncodedTxSol,
-  INativeTxSol,
+import {
+  type IEncodedTxSol,
+  type INativeTxSol,
 } from '@onekeyhq/core/src/chains/sol/types';
 import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type {
@@ -27,6 +28,10 @@ import {
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import {
+  EMessageTypesCommon,
+  EMessageTypesSolana,
+} from '@onekeyhq/shared/types/message';
 
 import localDb from '../../../dbs/local/localDb';
 import { UR_DEFAULT_ORIGIN } from '../../../services/ServiceQrWallet/qrWalletConsts';
@@ -239,6 +244,8 @@ export class KeyringQr extends KeyringQrBase {
     const signRequestUr = sdk.sol.generateSignRequest({
       ...params,
       origin: params.origin ?? UR_DEFAULT_ORIGIN,
+      // @ts-ignore
+      dataType: params.dataType,
     });
     return Promise.resolve(signRequestUr);
   }
@@ -246,6 +253,60 @@ export class KeyringQr extends KeyringQrBase {
   override async signMessage(
     params: ISignMessageParams,
   ): Promise<ISignedMessagePro> {
-    return [];
+    return Promise.all(
+      params.messages.map(
+        async (payload: {
+          type: string;
+          message: string;
+          applicationDomain?: string;
+        }) => {
+          let dataType = EAirGapDataTypeSol.Message;
+          let signData = Buffer.from(payload.message).toString('hex');
+
+          if (payload.type === EMessageTypesSolana.SIGN_OFFCHAIN_MESSAGE) {
+            const format = OffchainMessage.guessMessageFormat(
+              Buffer.from(payload.message),
+            );
+
+            if (payload.applicationDomain) {
+              const account = await this.vault.getAccount();
+              dataType = EAirGapDataTypeSol.Off_Chain_Message_Standard;
+              signData = OffchainMessage.createStandardSolanaOffChainMessage({
+                message: payload.message,
+                applicationDomain: payload.applicationDomain,
+                signerPublicKeys: [new PublicKey(account.address).toBytes()],
+                format,
+              });
+            } else {
+              dataType = EAirGapDataTypeSol.Off_Chain_Message_Legacy;
+              signData = OffchainMessage.createLegacySolanaOffchainMessage(
+                payload.message,
+              );
+            }
+          }
+
+          return this.baseSignByQrcode(params, {
+            signRequestUrBuilder: async ({ path, account, requestId, xfp }) => {
+              const signRequestUr = await this.generateSignRequest({
+                requestId,
+                signData,
+                dataType,
+                path,
+                xfp,
+                address: account.address,
+              });
+              return signRequestUr;
+            },
+            signedResultBuilder: async ({ signatureUr }) => {
+              const signature = await this.parseSignature(
+                checkIsDefined(signatureUr),
+              );
+              const signatureHex = signature.signature;
+              return bs58.encode(Buffer.from(signatureHex, 'hex'));
+            },
+          });
+        },
+      ),
+    );
   }
 }

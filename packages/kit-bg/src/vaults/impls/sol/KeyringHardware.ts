@@ -217,7 +217,11 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const result = await Promise.all(
       params.messages.map(
-        async (payload: { type: string; message: string }) => {
+        async (payload: {
+          type: string;
+          message: string;
+          applicationDomain?: string;
+        }) => {
           if (payload.type === EMessageTypesCommon.SIGN_MESSAGE) {
             const response = await HardwareSDK.solSignMessage(
               connectId,
@@ -242,6 +246,9 @@ export class KeyringHardware extends KeyringHardwareBase {
                 ...params.deviceParams?.deviceCommonParams,
                 path: dbAccount.path,
                 messageHex: Buffer.from(payload.message).toString('hex'),
+                applicationDomainHex: payload.applicationDomain
+                  ? Buffer.from(payload.applicationDomain).toString('hex')
+                  : undefined,
                 // @ts-expect-error
                 messageFormat: OffchainMessage.guessMessageFormat(
                   Buffer.from(payload.message),

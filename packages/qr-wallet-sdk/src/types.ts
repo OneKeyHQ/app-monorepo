@@ -4,7 +4,6 @@ import {
   DataType as EAirGapDataTypeEvm,
 } from '@keystonehq/bc-ur-registry-eth';
 import { ExtendedRegistryTypes as AirGapRegistryTypesEvm } from '@keystonehq/bc-ur-registry-eth/src/RegistryType';
-import { SignType as EAirGapDataTypeSol } from '@keystonehq/bc-ur-registry-sol';
 import { URType as EAirGapURType } from '@keystonehq/keystone-sdk';
 
 import type {
@@ -14,9 +13,16 @@ import type {
   EthSignRequestProps,
   EthSignature,
   MultiAccounts,
-  SolSignRequestProps,
   SolSignature,
 } from '@keystonehq/keystone-sdk';
+
+export enum EAirGapDataTypeSol {
+  Unknown = 0,
+  Transaction = 1,
+  Message = 2,
+  Off_Chain_Message_Legacy = 3,
+  Off_Chain_Message_Standard = 4,
+}
 
 export { AccountNote as EAirGapAccountNoteEvm } from '@keystonehq/keystone-sdk';
 
@@ -33,7 +39,15 @@ export type IAirGapSignature =
 
 export type IAirGapGenerateSignRequestParamsEvm = EthSignRequestProps;
 export type IAirGapGenerateSignRequestParamsBtc = BtcSignRequestProps;
-export type IAirGapGenerateSignRequestParamsSol = SolSignRequestProps;
+export type IAirGapGenerateSignRequestParamsSol = {
+  requestId: string;
+  signData: string;
+  dataType: EAirGapDataTypeSol;
+  path: string;
+  xfp: string;
+  address?: string;
+  origin?: string;
+};
 export type IAirGapGenerateSignRequestParams =
   | IAirGapGenerateSignRequestParamsEvm
   | IAirGapGenerateSignRequestParamsBtc
@@ -45,5 +59,4 @@ export {
   AirGapRegistryTypesEvm,
   EAirGapDataTypeEvm,
   EAirGapURType,
-  EAirGapDataTypeSol,
 };
