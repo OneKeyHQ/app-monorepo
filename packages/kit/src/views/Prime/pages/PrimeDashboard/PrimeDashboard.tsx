@@ -109,8 +109,6 @@ export default function PrimeDashboard() {
 
   const subscribe = useCallback(() => {
     if (!isLoggedIn) {
-      void logout();
-
       const loginDialog = Dialog.show({
         renderContent: (
           <PrimeLoginEmailDialogV2
@@ -133,7 +131,7 @@ export default function PrimeDashboard() {
         />
       ),
     });
-  }, [isLoggedIn, logout]);
+  }, [isLoggedIn]);
 
   return (
     <>
