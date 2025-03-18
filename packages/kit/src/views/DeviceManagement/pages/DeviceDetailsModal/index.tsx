@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -35,7 +36,6 @@ import DeviceQrInfoSection from './DeviceQrInfoSection';
 import DeviceSpecsSection from './DeviceSpecsSection';
 
 import type { RouteProp } from '@react-navigation/native';
-import { EDeviceType } from '@onekeyfe/hd-shared';
 
 function DeviceDetailsModalCmp() {
   const intl = useIntl();

@@ -1,4 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   COINTYPE_NEO,
   IMPL_NEO,

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
-
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 

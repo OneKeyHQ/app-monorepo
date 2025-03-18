@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import semver from 'semver';
 
@@ -8,7 +9,6 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
-import { EDeviceType } from '@onekeyfe/hd-shared';
 
 const VERSION_PLACEHOLDER = '--';
 
