@@ -156,6 +156,7 @@ const SwapActionsState = ({
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
@@ -218,6 +219,7 @@ const SwapActionsState = ({
         undefined,
         currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
         true,
+        swapToAddressInfo?.address,
       );
     } else {
       cleanQuoteInterval();
@@ -244,6 +246,7 @@ const SwapActionsState = ({
     swapActionState.isWrapped,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
+    swapToAddressInfo?.address,
   ]);
 
   const onActionHandlerBefore = useCallback(() => {

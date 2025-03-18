@@ -1,12 +1,43 @@
+import { useMemo } from 'react';
+
 import { useIntl } from 'react-intl';
 
 import { Image, Page, SizableText, YStack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useDownloadPackage } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 export default function ManualInstall() {
   const intl = useIntl();
+
+  const { manualInstallPackage } = useDownloadPackage();
+
+  const descTranslationId = useMemo(
+    () => ETranslations.update_update_incomplete_desc,
+    [],
+  );
+
+  const image = useMemo(() => {
+    if (platformEnv.isDesktopLinux) {
+      return null;
+    }
+
+    if (platformEnv.isDesktopMac) {
+      return (
+        <Image
+          h="$96"
+          source={require('@onekeyhq/kit/assets/manual_install_mac.png')}
+        />
+      );
+    }
+    return (
+      <Image
+        h="$100"
+        mt="$5"
+        source={require('@onekeyhq/kit/assets/manual_install_win.png')}
+      />
+    );
+  }, []);
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -18,59 +49,25 @@ export default function ManualInstall() {
         <YStack px="$5" gap="$3">
           <SizableText size="$bodyMd">
             {intl.formatMessage({
-              id: ETranslations.update_update_incomplete_desc,
+              id: descTranslationId,
             })}
           </SizableText>
-          <Image
-            h="$96"
-            source={require('@onekeyhq/kit/assets/manual_install.jpg')}
-          />
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({
-              id: ETranslations.update_update_incomplete_footnote,
-            })}
-          </SizableText>
+          {image}
+          {platformEnv.isDesktopMac ? (
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.update_update_incomplete_footnote,
+              })}
+            </SizableText>
+          ) : null}
         </YStack>
       </Page.Body>
       <Page.Footer
         onConfirmText={intl.formatMessage({
           id: ETranslations.update_manual_update,
         })}
-        onConfirm={async () => {
-          const params =
-            await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
-          globalThis.desktopApi.manualInstallUpdate({
-            ...params,
-            buildNumber: String(platformEnv.buildNumber || 1),
-          });
-        }}
+        onConfirm={manualInstallPackage}
       />
     </Page>
   );
 }
-
-// Dialog.confirm({
-//     title: intl.formatMessage({
-//       id: ETranslations.update_update_incomplete_title,
-//     }),
-// description: intl.formatMessage({
-//   id: ETranslations.update_update_incomplete_desc,
-// }),
-//     renderContent: (
-//   <Image
-//     h={226}
-//     source={require('@onekeyhq/kit/assets/manual_install.jpg')}
-//   />
-//     ),
-// onConfirmText: intl.formatMessage({
-//   id: ETranslations.update_manual_update,
-// }),
-// onConfirm: async () => {
-//   const params =
-//     await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
-//   globalThis.desktopApi.manualInstallUpdate({
-//     ...params,
-//     buildNumber: String(platformEnv.buildNumber || 1),
-//   });
-// },
-//   });

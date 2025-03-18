@@ -282,7 +282,7 @@ const SwapQuoteResult = ({
   }
 
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
-    if (swapQuoteLoading) {
+    if (quoting || swapQuoteLoading) {
       return (
         <XStack alignItems="center">
           <XStack gap="$2">
