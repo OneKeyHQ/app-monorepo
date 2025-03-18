@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -214,12 +216,13 @@ async function buildDeviceLabel({
     return features.label;
   }
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
-    'classic': 'OneKey Classic',
-    'classic1s': 'OneKey Classic 1S',
-    'mini': 'OneKey Mini',
-    'touch': 'OneKey Touch',
-    'pro': 'OneKey Pro',
-    'unknown': '',
+    [EDeviceType.Classic]: 'OneKey Classic',
+    [EDeviceType.Classic1s]: 'OneKey Classic 1S',
+    [EDeviceType.ClassicPure]: 'OneKey Classic Pure',
+    [EDeviceType.Mini]: 'OneKey Mini',
+    [EDeviceType.Touch]: 'OneKey Touch',
+    [EDeviceType.Pro]: 'OneKey Pro',
+    [EDeviceType.Unknown]: '',
   };
   const deviceType = await getDeviceTypeFromFeatures({
     features,
