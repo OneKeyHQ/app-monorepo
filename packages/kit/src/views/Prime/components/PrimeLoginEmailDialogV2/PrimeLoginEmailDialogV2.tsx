@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -13,7 +13,7 @@ import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
   const { onComplete } = props;
-  const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
+  const { getAccessToken, useLoginWithEmail, logout } = usePrivyUniversalV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
       const token = await getAccessToken();
@@ -30,6 +30,10 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
   const form = useForm<{ email: string }>({
     defaultValues: { email: '' },
   });
+
+  useEffect(() => {
+    void logout();
+  }, [logout]);
 
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
