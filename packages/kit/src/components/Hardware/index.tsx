@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { Dialog, Toast } from '@onekeyhq/components';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -53,7 +55,7 @@ export const confirmOnDeviceToastSample = async () => {
   const event = mockListenDeviceResult();
 
   const toast = Toast.show({
-    children: <ConfirmOnDeviceToastContent deviceType="pro" />,
+    children: <ConfirmOnDeviceToastContent deviceType={EDeviceType.Pro} />,
     dismissOnOverlayPress: false,
     disableSwipeGesture: false,
     onClose: async (params) => {
@@ -74,7 +76,7 @@ export const confirmPinOnDevice = async () => {
     title: 'Enter PIN on Device',
     showFooter: false,
     dismissOnOverlayPress: false,
-    renderContent: <EnterPinOnDevice deviceType="pro" />,
+    renderContent: <EnterPinOnDevice deviceType={EDeviceType.Pro} />,
     onClose: () => {
       console.log('close confirmPinOnDevice');
       event.cancel();
@@ -120,7 +122,7 @@ export const confirmPhraseOnDevice = async () => {
     title: 'Enter Passphrase on Device',
     showFooter: false,
     dismissOnOverlayPress: false,
-    renderContent: <EnterPassphraseOnDevice deviceType="pro" />,
+    renderContent: <EnterPassphraseOnDevice deviceType={EDeviceType.Pro} />,
     onClose: () => {
       console.log('close EnterPassphraseOnDevice');
       event.cancel();

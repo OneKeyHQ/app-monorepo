@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
@@ -124,9 +125,12 @@ function DeviceDetailsModalCmp() {
   }, [result?.device?.connectId, actions]);
 
   // Advance Section
-  const inputPinOnSoftwareSupport = ['classic', 'mini', 'classic1s'].includes(
-    result?.device?.deviceType || '',
-  );
+  const inputPinOnSoftwareSupport = [
+    EDeviceType.Classic,
+    EDeviceType.Mini,
+    EDeviceType.Classic1s,
+    EDeviceType.ClassicPure,
+  ].includes((result?.device?.deviceType || '') as EDeviceType);
 
   const onPassphraseEnabledChange = useCallback(
     async (value: boolean) => {
