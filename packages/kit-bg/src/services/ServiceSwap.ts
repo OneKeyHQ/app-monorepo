@@ -460,6 +460,7 @@ export default class ServiceSwap extends ServiceBase {
     slippagePercentage,
     autoSlippage,
     blockNumber,
+    receivingAddress,
     accountId,
     protocol,
     expirationTime,
@@ -474,6 +475,7 @@ export default class ServiceSwap extends ServiceBase {
     userAddress?: string;
     slippagePercentage: number;
     autoSlippage?: boolean;
+    receivingAddress?: string;
     blockNumber?: number;
     accountId?: string;
     expirationTime?: number;
@@ -498,6 +500,7 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
       autoSlippage,
       blockNumber,
+      receivingAddress,
       expirationTime,
       limitPartiallyFillable,
       kind,
@@ -555,6 +558,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     protocol,
     expirationTime,
+    receivingAddress,
     limitPartiallyFillable,
     kind,
     toTokenAmount,
@@ -563,6 +567,7 @@ export default class ServiceSwap extends ServiceBase {
     fromToken: ISwapToken;
     toToken: ISwapToken;
     fromTokenAmount?: string;
+    receivingAddress?: string;
     userAddress?: string;
     slippagePercentage: number;
     autoSlippage?: boolean;
@@ -591,6 +596,7 @@ export default class ServiceSwap extends ServiceBase {
       autoSlippage,
       blockNumber,
       expirationTime,
+      receivingAddress,
       limitPartiallyFillable,
       kind,
       toTokenAmount,
@@ -1049,10 +1055,14 @@ export default class ServiceSwap extends ServiceBase {
         }
         void this.backgroundApi.serviceApp.showToast({
           method:
-            item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
+            item.status === ESwapTxHistoryStatus.SUCCESS ||
+            item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+              ? 'success'
+              : 'error',
           title: appLocale.intl.formatMessage({
             id:
-              item.status === ESwapTxHistoryStatus.SUCCESS
+              item.status === ESwapTxHistoryStatus.SUCCESS ||
+              item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
                 ? ETranslations.swap_page_toast_swap_successful
                 : ETranslations.swap_page_toast_swap_failed,
           }),
@@ -1197,7 +1207,8 @@ export default class ServiceSwap extends ServiceBase {
           currentSwapTxHistory.crossChainStatus ===
             ESwapCrossChainStatus.REFUNDED ||
           (!currentSwapTxHistory.crossChainStatus &&
-            txStatusRes?.state === ESwapTxHistoryStatus.SUCCESS)
+            (txStatusRes?.state === ESwapTxHistoryStatus.SUCCESS ||
+              txStatusRes?.state === ESwapTxHistoryStatus.PARTIALLY_FILLED))
         ) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
             fromToken: currentSwapTxHistory.baseInfo.fromToken,

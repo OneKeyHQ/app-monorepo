@@ -182,6 +182,7 @@ export const {
   accountId?: string;
   kind?: ESwapQuoteKind;
   address?: string;
+  receivingAddress?: string;
 }>({ actionLock: false });
 
 export const {
