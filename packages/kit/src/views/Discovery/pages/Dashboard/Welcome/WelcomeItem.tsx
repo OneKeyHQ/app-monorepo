@@ -21,7 +21,7 @@ const FADE_IN_DURATION = 1000;
 const FADE_IN_DELAY = 1000;
 const FLOAT_MIN_DISTANCE = 3;
 const FLOAT_MAX_DISTANCE = 7;
-const FLOAT_DURATION_BASE = 1500;
+const FLOAT_DURATION_BASE = 2000;
 const FLOAT_DURATION_VARIANCE = 1000;
 const FLOAT_MAX_DELAY = 500;
 
@@ -31,9 +31,9 @@ const ROTATION_DURATION_BASE = 2000;
 const ROTATION_DURATION_VARIANCE = 1000;
 const ROTATION_MAX_DELAY = 300;
 
-const SCALE_MIN_FACTOR = 1.05;
-const SCALE_MAX_FACTOR = 1.15;
-const SCALE_DURATION_BASE = 2200;
+const SCALE_MIN_FACTOR = 1;
+const SCALE_MAX_FACTOR = 1.2;
+const SCALE_DURATION_BASE = 2500;
 const SCALE_DURATION_VARIANCE = 1000;
 const SCALE_MAX_DELAY = 1000;
 
@@ -92,12 +92,14 @@ export const WelcomeItem = memo(
     url,
     size = '$12',
     borderRadius = 12,
+    maxOpacity = 1,
     ...stackProps
   }: {
     logo: ImageURISource | ImageURISource['uri'];
     url?: string;
     size?: string;
     borderRadius?: number;
+    maxOpacity?: number;
   } & React.ComponentProps<typeof Stack>) => {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(0);
@@ -110,7 +112,9 @@ export const WelcomeItem = memo(
       setTimeout(
         () => {
           // Fade-in animation
-          opacity.value = withTiming(1, { duration: FADE_IN_DURATION });
+          opacity.value = withTiming(maxOpacity, {
+            duration: FADE_IN_DURATION,
+          });
         },
         // random delay
         getRandomDelay(FADE_IN_DELAY),
@@ -171,7 +175,7 @@ export const WelcomeItem = memo(
         duration: scaleDuration,
         delay: scaleDelay,
       });
-    }, [opacity, translateY, rotate, scale, shadowOpacity]);
+    }, [opacity, translateY, rotate, scale, shadowOpacity, maxOpacity]);
 
     const handleHoverIn = () => {
       // Cancel and reset animations
@@ -185,12 +189,16 @@ export const WelcomeItem = memo(
       shadowOpacity.value = withTiming(HOVER_SHADOW_OPACITY, {
         duration: HOVER_TRANSITION_DURATION,
       });
+      opacity.value = withTiming(1, { duration: HOVER_TRANSITION_DURATION });
     };
 
     const handleHoverOut = () => {
       // Restore original values
       scale.value = withTiming(1, { duration: HOVER_TRANSITION_DURATION });
       shadowOpacity.value = withTiming(DEFAULT_SHADOW_OPACITY, {
+        duration: HOVER_TRANSITION_DURATION,
+      });
+      opacity.value = withTiming(maxOpacity, {
         duration: HOVER_TRANSITION_DURATION,
       });
 
@@ -237,7 +245,7 @@ export const WelcomeItem = memo(
       shadowRadius: SHADOW_RADIUS,
       elevation: ELEVATION,
       backgroundColor: 'transparent',
-      borderRadius,
+      borderRadius: borderRadius * scale.value * 0.5,
       overflow: 'hidden',
     }));
 
@@ -259,7 +267,6 @@ export const WelcomeItem = memo(
             source={{ uri: logo } as ImageSourcePropType}
             width={size}
             height={size}
-            borderRadius={borderRadius}
           />
         </Animated.View>
       </Stack>
