@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import { Semaphore } from 'async-mutex';
+import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
@@ -600,40 +601,39 @@ function HardwareUiStateContainerCmpControlled() {
     } = {
       current: undefined,
     };
-    const callback = ({
-      uiRequestType,
-    }: {
-      uiRequestType: EHardwareUiStateAction;
-    }) => {
-      if (instanceRef.current?.isExist()) {
-        return;
-      }
-      let dialogProps: IDialogShowProps | undefined;
-      if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
-        dialogProps = buildBleSettingsDialogProps(intl);
-      } else if (
-        uiRequestType ===
-        EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
-      ) {
-        dialogProps = buildBleNotifyChangeError(intl);
-      } else if (
-        uiRequestType ===
-        EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
-      ) {
-        dialogProps = buildWebDeviceAccessDialogProps({
-          intl,
-          // @ts-expect-error
-          promptWebUsbDeviceAccess: platformEnv.isExtensionUiPopup
-            ? toPromptWebDeviceAccessPage
-            : promptWebUsbDeviceAccess,
-        });
-      }
-      if (dialogProps) {
-        setTimeout(() => {
-          instanceRef.current = Dialog.show(dialogProps);
-        }, 200);
-      }
-    };
+    const callback = throttle(
+      ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
+        if (instanceRef.current?.isExist()) {
+          return;
+        }
+        let dialogProps: IDialogShowProps | undefined;
+        if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
+          dialogProps = buildBleSettingsDialogProps(intl);
+        } else if (
+          uiRequestType ===
+          EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
+        ) {
+          dialogProps = buildBleNotifyChangeError(intl);
+        } else if (
+          uiRequestType ===
+          EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
+        ) {
+          dialogProps = buildWebDeviceAccessDialogProps({
+            intl,
+            // @ts-expect-error
+            promptWebUsbDeviceAccess: platformEnv.isExtensionUiPopup
+              ? toPromptWebDeviceAccessPage
+              : promptWebUsbDeviceAccess,
+          });
+        }
+        if (dialogProps) {
+          setTimeout(() => {
+            instanceRef.current = Dialog.show(dialogProps);
+          }, 200);
+        }
+      },
+      2500,
+    );
     appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.RequestHardwareUIDialog, callback);
