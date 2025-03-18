@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -45,24 +46,25 @@ export function ConfirmOnDeviceToastContent({
       case undefined:
         return Promise.resolve(null);
       // Specify unsupported devices
-      case 'unknown':
+      case EDeviceType.Unknown:
         return Promise.resolve(null);
-      case 'classic':
-      case 'classic1s':
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
         return import(
           '@onekeyhq/kit/assets/animations/confirm-on-classic.json'
         );
-      case 'mini':
+      case EDeviceType.Mini:
         return import('@onekeyhq/kit/assets/animations/confirm-on-mini.json');
-      case 'touch':
+      case EDeviceType.Touch:
         return import('@onekeyhq/kit/assets/animations/confirm-on-touch.json');
-      case 'pro':
+      case EDeviceType.Pro:
         return import(
           '@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'
         );
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        const checkType = deviceType;
     }
   }, [deviceType]);
 
@@ -139,26 +141,27 @@ export function EnterPinOnDevice({
       case undefined:
         return Promise.resolve(null);
       // Specify unsupported devices
-      case 'unknown':
+      case EDeviceType.Unknown:
         return Promise.resolve(null);
-      case 'classic':
-      case 'classic1s':
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
         return import(
           '@onekeyhq/kit/assets/animations/enter-pin-on-classic.json'
         );
-      case 'mini':
+      case EDeviceType.Mini:
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-mini.json');
-      case 'touch':
+      case EDeviceType.Touch:
         return import(
           '@onekeyhq/kit/assets/animations/enter-pin-on-touch.json'
         );
-      case 'pro':
+      case EDeviceType.Pro:
         return import(
           '@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json'
         );
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        const checkType = deviceType;
     }
   }, [deviceType]);
 
@@ -506,28 +509,29 @@ export function EnterPassphraseOnDevice({
       case undefined:
         return Promise.resolve(null);
       // Specify unsupported devices
-      case 'unknown':
+      case EDeviceType.Unknown:
         return Promise.resolve(null);
-      case 'classic':
-      case 'classic1s':
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-classic.json'
         );
-      case 'mini':
+      case EDeviceType.Mini:
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-mini.json'
         );
-      case 'touch':
+      case EDeviceType.Touch:
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-touch.json'
         );
-      case 'pro':
+      case EDeviceType.Pro:
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-pro-dark.json'
         );
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        const checkType = deviceType;
     }
   }, [deviceType]);
 

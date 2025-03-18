@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Stack } from '@onekeyhq/components';
@@ -25,7 +26,10 @@ export function FirmwareUpdateWalletProfile({
         wallet={undefined}
       /> 
       */}
-      <DeviceAvatar size="$14" deviceType={result?.deviceType || 'unknown'} />
+      <DeviceAvatar
+        size="$14"
+        deviceType={result?.deviceType || EDeviceType.Unknown}
+      />
       {/* <SizableText>{result?.deviceName || ''}</SizableText> */}
       <SizableText mt="$5" size="$heading2xl">
         {intl.formatMessage({ id: ETranslations.update_new_hardware_updates })}{' '}
