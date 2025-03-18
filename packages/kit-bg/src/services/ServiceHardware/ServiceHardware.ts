@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
 import semver from 'semver';
@@ -260,7 +261,7 @@ class ServiceHardware extends ServiceBase {
 
       if (
         dbDevice?.deviceType &&
-        ['touch', 'pro'].includes(dbDevice?.deviceType)
+        [EDeviceType.Touch, EDeviceType.Pro].includes(dbDevice?.deviceType)
       ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
       } else {
@@ -976,7 +977,10 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() => {
       // classic1s does not support getOnekeyFeatures method
-      if (deviceType === 'classic1s') {
+      if (
+        deviceType === EDeviceType.Classic1s ||
+        deviceType === EDeviceType.ClassicPure
+      ) {
         return hardwareSDK?.getFeatures(
           connectId,
         ) as unknown as Response<OnekeyFeatures>;
