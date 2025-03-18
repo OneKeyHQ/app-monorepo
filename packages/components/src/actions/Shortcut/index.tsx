@@ -8,7 +8,7 @@ function ShortcutKey(_: IShortcutKeyProps) {
   return null;
 }
 
-function ShortcutContent(_: IShortcutContentProps) {
+export function ShortcutContent(_: IShortcutContentProps) {
   return null;
 }
 
