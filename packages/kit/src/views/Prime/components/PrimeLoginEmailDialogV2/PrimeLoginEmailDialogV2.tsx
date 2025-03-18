@@ -31,10 +31,6 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
     defaultValues: { email: '' },
   });
 
-  useEffect(() => {
-    void logout();
-  }, [logout]);
-
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
       const { preventClose } = options;
@@ -46,6 +42,8 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
       const data = form.getValues();
 
       try {
+        await logout();
+
         const dialog = Dialog.show({
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
@@ -75,7 +73,7 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
         throw error;
       }
     },
-    [form, loginWithCode, onComplete, sendCode],
+    [form, loginWithCode, onComplete, sendCode, logout],
   );
 
   return (
