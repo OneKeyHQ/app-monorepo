@@ -9,7 +9,6 @@ import {
   Divider,
   ESwitchSize,
   Icon,
-  IconButton,
   SizableText,
   Skeleton,
   Stack,

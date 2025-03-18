@@ -4,7 +4,7 @@ import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps, IButtonProps } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
