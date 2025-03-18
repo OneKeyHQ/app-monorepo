@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
 import pRetry from 'p-retry';
 import { useIntl } from 'react-intl';
@@ -13,7 +13,7 @@ import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
 export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
   const { onComplete } = props;
-  const { getAccessToken, useLoginWithEmail, logout } = usePrivyUniversalV2();
+  const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
       const token = await getAccessToken();
@@ -42,8 +42,6 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
       const data = form.getValues();
 
       try {
-        await logout();
-
         const dialog = Dialog.show({
           renderContent: (
             <PrimeLoginEmailCodeDialogV2
@@ -73,7 +71,7 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
         throw error;
       }
     },
-    [form, loginWithCode, onComplete, sendCode, logout],
+    [form, loginWithCode, onComplete, sendCode],
   );
 
   return (
