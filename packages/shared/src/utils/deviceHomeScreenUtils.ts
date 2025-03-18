@@ -1,13 +1,16 @@
 /* eslint-disable spellcheck/spell-checker */
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import imageUtils from './imageUtils';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const HAS_MONOCHROME_SCREEN: Partial<Record<IDeviceType, boolean>> = {
-  classic: true,
-  classic1s: true,
-  mini: true,
+  [EDeviceType.Classic]: true,
+  [EDeviceType.Classic1s]: true,
+  [EDeviceType.ClassicPure]: true,
+  [EDeviceType.Mini]: true,
 };
 
 export const T1_HOME_SCREEN_DEFAULT_IMAGES = [
@@ -43,9 +46,10 @@ const deviceModelInformation: Partial<
     { width: number; height: number; supports: Array<'png' | 'jpeg'> }
   >
 > = {
-  classic: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
-  classic1s: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
-  mini: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
+  [EDeviceType.Classic]: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
+  [EDeviceType.Classic1s]: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
+  [EDeviceType.ClassicPure]: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
+  [EDeviceType.Mini]: { ...DEFAULT_T1_HOME_SCREEN_INFORMATION },
 };
 
 function isMonochromeScreen(deviceModelInternal: IDeviceType): boolean {

@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
@@ -156,7 +156,7 @@ export function EnterBootModeGuide({
   deviceType: IDeviceType | undefined;
 }) {
   const intl = useIntl();
-  if (deviceType === 'mini') {
+  if (deviceType === EDeviceType.Mini) {
     return (
       <Stack mb="$6">
         <Image w={353} h={224} source={ImgEnterBootGuideMini} />
@@ -304,7 +304,7 @@ export function useFirmwareUpdateErrors({
         detail: <EnterBootModeGuide deviceType={result?.deviceType} />,
         onRetryHandler: onRetry,
         retryText:
-          result?.deviceType === 'mini'
+          result?.deviceType === EDeviceType.Mini
             ? intl.formatMessage({
                 id: ETranslations.update_verify_status_and_continue,
               })

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import semver from 'semver';
 
@@ -86,7 +87,11 @@ function DeviceSpecsSection({ data }: { data: IHwQrWalletWithDevice }) {
           device.featuresInfo.onekey_serial ??
           device.featuresInfo.serial_no ??
           VERSION_PLACEHOLDER,
-        certifications: ['pro', 'classic1s'].includes(device.deviceType)
+        certifications: [
+          EDeviceType.Pro,
+          EDeviceType.Classic1s,
+          EDeviceType.ClassicPure,
+        ].includes(device.deviceType)
           ? 'EAL 6+'
           : null,
       };
