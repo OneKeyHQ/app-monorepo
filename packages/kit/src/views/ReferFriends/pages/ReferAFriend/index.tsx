@@ -11,7 +11,9 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 enum EPhaseState {
   next = 'next',
@@ -43,6 +45,7 @@ function Line({ no, description }: { no: number; description: string }) {
 export default function ReferAFriend() {
   const intl = useIntl();
   const [phaseState, setPhaseState] = useState(EPhaseState.next);
+  const navigation = useAppNavigation();
   return (
     <Page scrollEnabled>
       <Page.Header title="Refer a friend" />
@@ -191,7 +194,9 @@ export default function ReferAFriend() {
         onConfirm={async () => {
           if (phaseState === EPhaseState.next) {
             setPhaseState(EPhaseState.join);
+            return;
           }
+          navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
         }}
       />
     </Page>

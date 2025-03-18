@@ -293,7 +293,7 @@ function BaseSectionList<T>(
   );
 }
 
-const SectionHeader = ({
+function SectionHeader({
   title,
   titleProps,
   children,
@@ -301,19 +301,21 @@ const SectionHeader = ({
 }: IStackProps & {
   title?: string;
   titleProps?: ISizableTextProps;
-}) => (
-  <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" {...restProps}>
-    <SizableText
-      numberOfLines={1}
-      size="$headingSm"
-      color="$textSubdued"
-      {...titleProps}
-    >
-      {title}
-    </SizableText>
-    {children}
-  </XStack>
-);
+}) {
+  return (
+    <XStack h="$9" px="$5" alignItems="center" bg="$bgApp" {...restProps}>
+      <SizableText
+        numberOfLines={1}
+        size="$headingSm"
+        color="$textSubdued"
+        {...titleProps}
+      >
+        {title}
+      </SizableText>
+      {children}
+    </XStack>
+  );
+}
 
 export const SectionList = withStaticProperties(forwardRef(BaseSectionList), {
   SectionHeader,
