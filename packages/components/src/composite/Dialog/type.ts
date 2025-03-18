@@ -132,6 +132,7 @@ export interface IDialogInstanceRef {
 export interface IDialogInstance {
   close: (extra?: { flag?: string }) => Promise<void> | void;
   getForm: () => IDialogForm | undefined;
+  isExist: () => boolean;
 }
 
 export type IDialogFormProps = PropsWithChildren<{

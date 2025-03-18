@@ -496,6 +496,7 @@ function dialogShow({
   return {
     close,
     getForm: () => instanceRef?.current?.getForm(),
+    isExist: () => !!instanceRef?.current,
   };
 }
 
