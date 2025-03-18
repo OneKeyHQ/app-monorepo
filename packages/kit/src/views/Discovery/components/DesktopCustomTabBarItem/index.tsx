@@ -40,6 +40,8 @@ function DesktopCustomTabBarItem({
 }>) {
   const intl = useIntl();
   const { tab } = useWebTabDataById(id);
+  const isHomeTab = tab?.type === 'home';
+
   const {
     result: displayDisconnectOption,
     run: refreshDisplayDisconnectOptionStatus,
@@ -78,7 +80,7 @@ function DesktopCustomTabBarItem({
     () => [
       {
         items: [
-          {
+          !isHomeTab && {
             shortcutKeys: EShortcutEvents.AddOrRemoveBookmark,
             label: intl.formatMessage({
               id: tab?.isBookmark
@@ -126,7 +128,7 @@ function DesktopCustomTabBarItem({
       },
       {
         items: [
-          {
+          !isHomeTab && {
             shortcutKeys: EShortcutEvents.CopyAddressOrUrl,
             label: intl.formatMessage({
               id: ETranslations.global_copy_url,
@@ -189,13 +191,12 @@ function DesktopCustomTabBarItem({
       copyText,
       handleRenameTab,
       closeTab,
+      isHomeTab,
     ],
   );
   if (!tab) {
     return null;
   }
-
-  const isHomeTab = tab.type === 'home';
 
   return (
     <DesktopTabItem

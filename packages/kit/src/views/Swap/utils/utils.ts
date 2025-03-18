@@ -65,6 +65,13 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
     };
   }
 
+  if (status === ESwapTxHistoryStatus.PARTIALLY_FILLED) {
+    return {
+      key: ETranslations.Limit_order_history_status_partially_filled,
+      color: '$textSuccess',
+    };
+  }
+
   if (status === ESwapTxHistoryStatus.CANCELING) {
     return {
       key: ETranslations.swap_history_status_cancelling,
