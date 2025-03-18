@@ -13,6 +13,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   downloadASC as NativeDownloadASC,
   downloadPackage as NativeDownloadPackage,
+  manualInstallPackage as NativeManualInstallPackage,
   verifyASC as NativeVerifyASC,
   verifyPackage as NativeVerifyPackage,
 } from '@onekeyhq/shared/src/modules3rdParty/auto-update';
@@ -39,6 +40,7 @@ export const useAppChangeLog = (version?: string) => {
 
 export const useDownloadPackage = () => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   const verifyPackage = useCallback(async () => {
     try {
@@ -158,6 +160,28 @@ export const useDownloadPackage = () => {
     [downloadPackage, intl, resetToInComplete],
   );
 
+  const manualInstallPackage = useCallback(async () => {
+    const params = await backgroundApiProxy.serviceAppUpdate.getDownloadEvent();
+    try {
+      await NativeManualInstallPackage({
+        ...params,
+        buildNumber: String(platformEnv.buildNumber || 1),
+      });
+    } catch (e) {
+      Toast.error({
+        title: intl.formatMessage({
+          id: ETranslations.global_update_failed,
+        }),
+      });
+      await backgroundApiProxy.serviceAppUpdate.resetToInComplete();
+      showUpdateInCompleteDialog({
+        onConfirm: () => {
+          navigation.popStack();
+        },
+      });
+    }
+  }, [intl, navigation, showUpdateInCompleteDialog]);
+
   return useMemo(
     () => ({
       downloadPackage,
@@ -165,12 +189,14 @@ export const useDownloadPackage = () => {
       verifyASC,
       downloadASC,
       resetToInComplete,
+      manualInstallPackage,
       showUpdateInCompleteDialog,
     }),
     [
       downloadASC,
       downloadPackage,
       resetToInComplete,
+      manualInstallPackage,
       showUpdateInCompleteDialog,
       verifyASC,
       verifyPackage,

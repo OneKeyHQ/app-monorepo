@@ -535,6 +535,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   toTokenAmount: string;
   provider: string;
   quoteResultCtx?: any;
+  kind: ESwapQuoteKind;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
@@ -632,6 +633,7 @@ export enum ESwapTxHistoryStatus {
   PENDING = 'pending',
   CANCELED = 'canceled',
   CANCELING = 'canceling',
+  PARTIALLY_FILLED = 'partiallyFilled',
 }
 
 export interface IFetchSwapTxHistoryStatusResponse {
