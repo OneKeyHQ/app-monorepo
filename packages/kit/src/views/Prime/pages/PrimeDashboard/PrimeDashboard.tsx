@@ -85,7 +85,8 @@ function PrimeTerms() {
 
 export default function PrimeDashboard() {
   const intl = useIntl();
-  const { user, isLoggedIn, isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const { user, isLoggedIn, isPrimeSubscriptionActive, logout } =
+    usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { isNative, isWebMobile } = platformEnv;
@@ -108,6 +109,8 @@ export default function PrimeDashboard() {
 
   const subscribe = useCallback(() => {
     if (!isLoggedIn) {
+      void logout();
+
       const loginDialog = Dialog.show({
         renderContent: (
           <PrimeLoginEmailDialogV2
@@ -130,7 +133,7 @@ export default function PrimeDashboard() {
         />
       ),
     });
-  }, [isLoggedIn]);
+  }, [isLoggedIn, logout]);
 
   return (
     <>
