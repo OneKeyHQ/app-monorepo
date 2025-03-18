@@ -52,9 +52,6 @@ class ErrorBoundarySimple extends ErrorBoundaryBase {
 
 function SentryErrorBoundaryFallback({
   error,
-  componentStack,
-  eventId,
-  resetError,
 }: {
   error: unknown;
   componentStack: string;

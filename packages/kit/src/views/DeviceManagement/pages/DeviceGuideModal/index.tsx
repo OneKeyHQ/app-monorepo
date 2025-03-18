@@ -59,6 +59,7 @@ function DeviceItem({
         bottom={0}
         left={0}
         w={360}
+        h={72}
         resizeMode="cover"
       />
       <WalletAvatar wallet={undefined} img={img} />
@@ -80,14 +81,14 @@ function DeviceGuideModal() {
   }, [navigation]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_device_management,
         })}
         headerRight={headerRight}
       />
-      <Page.Body justifyContent="center" gap="$5">
+      <Page.Body flex={1} justifyContent="center" gap="$5">
         <YStack alignItems="center">
           <DeviceItem
             img="pro"
