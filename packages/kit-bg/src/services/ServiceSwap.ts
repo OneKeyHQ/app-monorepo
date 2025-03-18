@@ -1055,10 +1055,14 @@ export default class ServiceSwap extends ServiceBase {
         }
         void this.backgroundApi.serviceApp.showToast({
           method:
-            item.status === ESwapTxHistoryStatus.SUCCESS ? 'success' : 'error',
+            item.status === ESwapTxHistoryStatus.SUCCESS ||
+            item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
+              ? 'success'
+              : 'error',
           title: appLocale.intl.formatMessage({
             id:
-              item.status === ESwapTxHistoryStatus.SUCCESS
+              item.status === ESwapTxHistoryStatus.SUCCESS ||
+              item.status === ESwapTxHistoryStatus.PARTIALLY_FILLED
                 ? ETranslations.swap_page_toast_swap_successful
                 : ETranslations.swap_page_toast_swap_failed,
           }),
@@ -1203,7 +1207,8 @@ export default class ServiceSwap extends ServiceBase {
           currentSwapTxHistory.crossChainStatus ===
             ESwapCrossChainStatus.REFUNDED ||
           (!currentSwapTxHistory.crossChainStatus &&
-            txStatusRes?.state === ESwapTxHistoryStatus.SUCCESS)
+            (txStatusRes?.state === ESwapTxHistoryStatus.SUCCESS ||
+              txStatusRes?.state === ESwapTxHistoryStatus.PARTIALLY_FILLED))
         ) {
           appEventBus.emit(EAppEventBusNames.SwapTxHistoryStatusUpdate, {
             fromToken: currentSwapTxHistory.baseInfo.fromToken,
