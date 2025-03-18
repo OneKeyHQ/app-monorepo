@@ -90,63 +90,6 @@ export function HeaderRight({
   }, [navigation]);
 
   const items = useMemo(() => {
-    const routeInfo = {
-      routes: '',
-    };
-    const layoutExtView = (
-      <ActionList
-        key="layoutExtView"
-        title={intl.formatMessage({
-          id: ETranslations.global_layout,
-        })}
-        items={[
-          platformEnv.isExtensionUiPopup
-            ? {
-                label: intl.formatMessage({
-                  id: ETranslations.open_as_sidebar,
-                }),
-                icon: 'LayoutRightOutline',
-                onPress: async () => {
-                  defaultLogger.account.wallet.openSidePanel();
-                  await extUtils.openPanelOnActionClick(true);
-                  await extUtils.openSidePanel(routeInfo);
-                  window.close();
-                },
-              }
-            : {
-                label: intl.formatMessage({
-                  id: ETranslations.open_as_popup,
-                }),
-                icon: 'LayoutTopOutline',
-                onPress: async () => {
-                  await extUtils.openPanelOnActionClick(false);
-                  window.close();
-                },
-              },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.global_expand_view,
-            }),
-            icon: 'ExpandOutline',
-            onPress: async () => {
-              defaultLogger.account.wallet.openExpandView();
-              window.close();
-              await backgroundApiProxy.serviceApp.openExtensionExpandTab(
-                routeInfo,
-              );
-            },
-          },
-        ]}
-        renderTrigger={
-          <HeaderIconButton
-            key="layoutRightView"
-            title={intl.formatMessage({ id: ETranslations.global_layout })}
-            icon="LayoutRightOutline"
-          />
-        }
-      />
-    );
-
     const scanButton = media.gtMd ? (
       <HeaderIconButton
         key="scan"
@@ -231,12 +174,9 @@ export function HeaderRight({
     }
 
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [
-        layoutExtView,
-        primeButton,
-        notificationsButton,
-        moreActionButton,
-      ].filter(Boolean);
+      return [primeButton, notificationsButton, moreActionButton].filter(
+        Boolean,
+      );
     }
 
     // notifications is not supported on web currently
