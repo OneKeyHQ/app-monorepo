@@ -51,6 +51,8 @@ export const useWebSiteHandler = () => {
         return;
       }
 
+      console.log('limi-url', url, title);
+
       // If current active tab is of type 'home', change it to 'normal' and update its URL
       if (activeTab?.type === 'home' && !useSystemBrowser) {
         setWebTabData({
