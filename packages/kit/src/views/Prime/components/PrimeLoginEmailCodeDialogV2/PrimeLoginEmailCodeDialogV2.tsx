@@ -8,6 +8,7 @@ import {
   OTPInput,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -76,14 +77,24 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
     setIsSubmittingVerificationCode(true);
 
+    Toast.success({
+      title: 'handleConfirm success',
+    });
+
     try {
       await loginWithCode({
         code: verificationCode,
         email,
       });
+
+      Toast.success({
+        title: 'loginWithCode success',
+      });
+
       setState({ status: 'done' });
       onLoginSuccess?.();
     } catch (error) {
+      console.error('prime login error', error);
       setState({ status: 'error' });
     } finally {
       setIsSubmittingVerificationCode(false);
@@ -96,11 +107,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     onLoginSuccess,
   ]);
 
-  useEffect(() => {
-    if (verificationCode.length === 6) {
-      void handleConfirm();
-    }
-  }, [verificationCode, handleConfirm]);
+  // useEffect(() => {
+  //   if (verificationCode.length === 6 && !isSubmittingVerificationCode) {
+  //     void handleConfirm();
+  //   }
+  // }, [verificationCode, handleConfirm, isSubmittingVerificationCode]);
 
   return (
     <Stack>
@@ -133,6 +144,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           </XStack>
 
           <OTPInput
+            autoFocus
             status={state.status === 'error' ? 'error' : 'normal'}
             numberOfDigits={6}
             value={verificationCode}
