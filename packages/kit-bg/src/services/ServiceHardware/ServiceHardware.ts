@@ -1107,7 +1107,7 @@ class ServiceHardware extends ServiceBase {
           });
       });
 
-      if (!isBridgeAvailable && platformEnv.isExtension) {
+      if (!isBridgeAvailable) {
         await this.fallbackToWebUSBTransport();
       }
     } catch (error) {
