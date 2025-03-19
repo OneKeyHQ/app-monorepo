@@ -10,6 +10,22 @@ import { fullModalRouter, modalRouter } from './Modal/router';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 
+const buildPermissionRouter = () => {
+  const WebUSB = LazyLoad(
+    () => import('@onekeyhq/kit/src/views/Permission/WebUSB'),
+  );
+  return [
+    platformEnv.isExtension
+      ? {
+          name: ERootRoutes.PermissionWebUSB,
+          component: WebUSB,
+          rewrite: '/permission/web-usb',
+          exact: true,
+        }
+      : undefined,
+  ].filter(Boolean);
+};
+
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
   {
     name: ERootRoutes.Main,
@@ -26,6 +42,7 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     component: ModalNavigator,
     type: 'iOSFullScreen',
   },
+  ...buildPermissionRouter(),
 ];
 
 if (platformEnv.isDev) {
@@ -52,6 +69,8 @@ export const useRootRouter = () => {
         name: ERootRoutes.iOSFullScreen,
         children: fullModalRouter,
       },
+
+      ...buildPermissionRouter(),
     ],
     [tabRouter],
   );

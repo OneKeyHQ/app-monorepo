@@ -8,4 +8,6 @@ export enum ERootRoutes {
   Gallery = 'gallery',
 
   NotFound = 'NotFound',
+
+  PermissionWebUSB = 'PermissionWebUSB',
 }

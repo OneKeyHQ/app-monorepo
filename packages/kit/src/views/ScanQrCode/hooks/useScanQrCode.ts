@@ -81,7 +81,10 @@ export default function useScanQrCode() {
                   }
                 }
 
-                if (parseValue.type === EQRCodeHandlerType.UNKNOWN) {
+                if (
+                  parseValue.type === EQRCodeHandlerType.UNKNOWN ||
+                  parseValue.type === EQRCodeHandlerType.URL_ACCOUNT
+                ) {
                   popNavigation();
                 }
 
