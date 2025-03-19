@@ -196,7 +196,6 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
     color: outerColor,
     iconColor: outerIconColor,
     variant = 'secondary',
-    textAlign,
     childrenAsText = true,
     textEllipsis,
     ...rest
