@@ -51,6 +51,12 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
   return result;
 }
 
+function getDeviceSerialNoFromFeatures(features: IOneKeyDeviceFeatures) {
+  return (
+    features?.onekey_serial ?? features?.serial_no ?? features?.onekey_serial_no
+  );
+}
+
 // web sdk return KnownDevice
 // ble sdk return SearchDevice
 // db return IDBDevice
@@ -397,6 +403,7 @@ export function compareDeviceVersions({
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
+  getDeviceSerialNoFromFeatures,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,

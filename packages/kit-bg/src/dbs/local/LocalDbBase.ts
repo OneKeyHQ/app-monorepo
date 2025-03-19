@@ -787,24 +787,28 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (await this.getDeviceSafe(wallet.associatedDevice));
         const label = device?.featuresInfo?.label;
         const deviceType = device?.deviceType;
-        const serialNo = device?.featuresInfo?.serial_no;
-        if (deviceType === EDeviceType.Pro && serialNo) {
+        const serialNo = device?.featuresInfo
+          ? deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo)
+          : undefined;
+        if (device && deviceType === EDeviceType.Pro && serialNo) {
           const imgFromSerialNo = getDeviceAvatarImage(deviceType, serialNo);
-          appEventBus.emit(
-            EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
-            {
-              walletId: wallet.id,
-              dbDeviceId: device.id,
-              avatarInfo: {
-                ...avatarInfo,
-                img: imgFromSerialNo,
+          if (imgFromSerialNo !== avatarInfo?.img) {
+            appEventBus.emit(
+              EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
+              {
+                walletId: wallet.id,
+                dbDeviceId: device.id,
+                avatarInfo: {
+                  ...avatarInfo,
+                  img: imgFromSerialNo,
+                },
               },
-            },
-          );
-          wallet.avatarInfo = {
-            ...avatarInfo,
-            img: imgFromSerialNo,
-          };
+            );
+            wallet.avatarInfo = {
+              ...avatarInfo,
+              img: imgFromSerialNo,
+            };
+          }
         }
         if (device && label && label !== wallet.name) {
           appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
@@ -1839,7 +1843,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const deviceType = deviceTypeFromFeatures || device.deviceType;
 
     const avatar: IAvatarInfo = {
-      img: getDeviceAvatarImage(deviceType, features.onekey_serial),
+      img: getDeviceAvatarImage(
+        deviceType,
+        deviceUtils.getDeviceSerialNoFromFeatures(features),
+      ),
     };
 
     const { dbDeviceId, dbWalletId, deviceUUID, rawDeviceId } =
