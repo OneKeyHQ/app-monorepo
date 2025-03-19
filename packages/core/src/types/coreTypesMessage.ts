@@ -78,6 +78,7 @@ export type IUnsignedMessageSolana = {
   message: string;
   payload?: {
     version?: number;
+    applicationDomain?: string;
   };
 };
 
