@@ -6,6 +6,8 @@ import wordLists from 'bip39/src/wordlists/english.json';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
+import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+
 import type { BrowserOptions, Stacktrace } from '@sentry/browser';
 // dirty check for common private key formats
 const checkPrivateKey = (errorText: string) =>
@@ -52,10 +54,20 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
-  'OneKeyHardwareError',
+  EOneKeyErrorClassNames.OneKeyHardwareError,
+  EOneKeyErrorClassNames.OneKeyAppError,
+  EOneKeyErrorClassNames.OneKeyErrorNotImplemented,
+  EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
+  EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+  EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+  EOneKeyErrorClassNames.VaultKeyringNotDefinedError,
+  EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+  EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+  EOneKeyErrorClassNames.FirmwareUpdateExit,
+  EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
 
-const isFilterError = (error?: {
+const isFilterErrorAndSkipSentry = (error?: {
   type?: string | undefined;
   value?: string | undefined;
 }) => {
@@ -88,10 +100,6 @@ export const buildBasicOptions = ({
         for (let index = 0; index < event.exception.values.length; index += 1) {
           const errorText = event.exception.values[index].value;
           if (errorText) {
-            if (isFilterError(event.exception.values[index])) {
-              return null;
-            }
-
             try {
               let textSlices = errorText?.split(' ');
               for (let i = 0; i < textSlices.length; i += 1) {
@@ -102,7 +110,11 @@ export const buildBasicOptions = ({
               }
               textSlices = checkAndRedactMnemonicWords(textSlices);
               const newErrorText = textSlices.join(' ');
+              // Save error message locally
               onError(newErrorText, event.exception?.values[index].stacktrace);
+              if (isFilterErrorAndSkipSentry(event.exception.values[index])) {
+                return null;
+              }
               event.exception.values[index].value = newErrorText;
             } catch {
               // Do nothing

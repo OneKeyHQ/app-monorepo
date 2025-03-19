@@ -2,6 +2,14 @@
 /* eslint-disable no-bitwise */
 /* eslint-disable spellcheck/spell-checker */
 
+import { EOffChainMessageType } from '../types';
+
+import type {
+  ICreateOffChainMessageOptions,
+  IOffChainMessageHeaderLegacy,
+  IOffChainMessageHeaderStandard,
+} from '../types';
+
 // Max off-chain message length supported by Ledger
 const OFFCM_MAX_LEDGER_LEN = 1212;
 // Max length of version 0 off-chain message
@@ -128,6 +136,308 @@ export class OffchainMessage {
 
   static isUTF8(buffer: Buffer) {
     return buffer && isValidUTF8(buffer);
+  }
+
+  private static createMessageBytes(
+    message: string,
+    format: number,
+  ): Uint8Array {
+    if (format === 0) {
+      if (!/^[\x20-\x7E]*$/.test(message)) {
+        throw new Error(
+          'Format 0 only supports printable ASCII characters (0x20-0x7E)',
+        );
+      }
+    }
+    return new TextEncoder().encode(message);
+  }
+
+  private static validateMessageLength(
+    totalLength: number,
+    format: number,
+    isLegacy: boolean,
+  ) {
+    let maxLength;
+    if (isLegacy) {
+      maxLength = OFFCM_MAX_LEDGER_LEN;
+    } else if (format === 2) {
+      maxLength = 65_535;
+    } else {
+      maxLength = 1232;
+    }
+
+    if (totalLength > maxLength) {
+      throw new Error(
+        `Total message length (${totalLength}) exceeds maximum (${maxLength}) for format ${format}`,
+      );
+    }
+  }
+
+  private static createBasicHeader(): {
+    signingDomain: Uint8Array;
+    version: Uint8Array;
+  } {
+    const SIGNING_DOMAIN = new Uint8Array([
+      0xff, 0x73, 0x6f, 0x6c, 0x61, 0x6e, 0x61, 0x20, 0x6f, 0x66, 0x66, 0x63,
+      0x68, 0x61, 0x69, 0x6e,
+    ]); // "\xffsolana offchain"
+
+    return {
+      signingDomain: SIGNING_DOMAIN,
+      version: new Uint8Array([0]), // version 0
+    };
+  }
+
+  private static processApplicationDomain(
+    applicationDomain: Uint8Array | string | undefined,
+  ): Uint8Array {
+    if (!applicationDomain) {
+      return new Uint8Array(32).fill(0);
+    }
+
+    if (typeof applicationDomain === 'string') {
+      const appDomainBytes = new Uint8Array(32).fill(0);
+      const tempBytes = new TextEncoder().encode(applicationDomain);
+      appDomainBytes.set(tempBytes.slice(0, Math.min(tempBytes.length, 32)));
+      return appDomainBytes;
+    }
+
+    if (applicationDomain.length !== 32) {
+      throw new Error('Application domain must be 32 bytes');
+    }
+    return applicationDomain;
+  }
+
+  private static validateSignerPublicKeys(signerPublicKeys: Uint8Array[]) {
+    if (signerPublicKeys.length === 0) {
+      throw new Error('At least one signer public key is required');
+    }
+
+    for (const pubkey of signerPublicKeys) {
+      if (pubkey.length !== 32) {
+        throw new Error('Each signer public key must be 32 bytes');
+      }
+    }
+  }
+
+  static createOffChainMessage({
+    message,
+    applicationDomain,
+    signerPublicKeys = [],
+    format = 0,
+    isLegacy = false,
+  }: ICreateOffChainMessageOptions) {
+    if (message.length === 0) {
+      throw new Error('Message cannot be empty');
+    }
+
+    const messageBytes = this.createMessageBytes(message, format);
+    const { signingDomain, version } = this.createBasicHeader();
+
+    if (isLegacy) {
+      // Legacy format
+      const formatBytes = new Uint8Array([format]);
+      const lengthBytes = new Uint8Array(2);
+      lengthBytes[0] = messageBytes.length & 0xff;
+      lengthBytes[1] = (messageBytes.length >> 8) & 0xff;
+
+      this.validateMessageLength(
+        signingDomain.length +
+          version.length +
+          formatBytes.length +
+          lengthBytes.length +
+          messageBytes.length,
+        format,
+        true,
+      );
+
+      const result = new Uint8Array(
+        signingDomain.length +
+          version.length +
+          formatBytes.length +
+          lengthBytes.length +
+          messageBytes.length,
+      );
+
+      let offset = 0;
+      result.set(signingDomain, offset);
+      offset += signingDomain.length;
+      result.set(version, offset);
+      offset += version.length;
+      result.set(formatBytes, offset);
+      offset += formatBytes.length;
+      result.set(lengthBytes, offset);
+      offset += lengthBytes.length;
+      result.set(messageBytes, offset);
+
+      return Buffer.from(result).toString('hex');
+    }
+    // Standard format
+    this.validateSignerPublicKeys(signerPublicKeys);
+    const appDomainBytes = this.processApplicationDomain(applicationDomain);
+
+    const preambleLength =
+      16 + 1 + 32 + 1 + 1 + signerPublicKeys.length * 32 + 2;
+    this.validateMessageLength(
+      preambleLength + messageBytes.length,
+      format,
+      false,
+    );
+
+    const preamble = new Uint8Array(preambleLength);
+    let offset = 0;
+
+    preamble.set(signingDomain, offset);
+    offset += signingDomain.length;
+
+    preamble[offset] = version[0];
+    offset += 1;
+
+    preamble.set(appDomainBytes, offset);
+    offset += 32;
+
+    preamble[offset] = format;
+    offset += 1;
+
+    preamble[offset] = signerPublicKeys.length;
+    offset += 1;
+
+    for (const pubkey of signerPublicKeys) {
+      preamble.set(pubkey, offset);
+      offset += 32;
+    }
+
+    preamble[offset] = messageBytes.length & 0xff;
+    offset += 1;
+    preamble[offset] = (messageBytes.length >> 8) & 0xff;
+    offset += 1;
+
+    const result = new Uint8Array(preambleLength + messageBytes.length);
+    result.set(preamble, 0);
+    result.set(messageBytes, preambleLength);
+
+    return Buffer.from(result).toString('hex');
+  }
+
+  static createStandardSolanaOffChainMessage(
+    options: Omit<ICreateOffChainMessageOptions, 'isLegacy'>,
+  ) {
+    return this.createOffChainMessage({ ...options, isLegacy: false });
+  }
+
+  static createLegacySolanaOffchainMessage(message: string) {
+    return this.createOffChainMessage({ message, isLegacy: true });
+  }
+
+  static detectOffChainMessageType(message: Uint8Array): {
+    type: EOffChainMessageType;
+    header?: IOffChainMessageHeaderLegacy | IOffChainMessageHeaderStandard;
+  } {
+    const SIGNING_DOMAIN = new Uint8Array([
+      0xff, 0x73, 0x6f, 0x6c, 0x61, 0x6e, 0x61, 0x20, 0x6f, 0x66, 0x66, 0x63,
+      0x68, 0x61, 0x69, 0x6e,
+    ]); // "\xffsolana offchain"
+
+    if (message.length < SIGNING_DOMAIN.length) {
+      return { type: EOffChainMessageType.INVALID };
+    }
+
+    try {
+      const signatureCount = message[0];
+      if (signatureCount > 0) {
+        const signaturesLength = signatureCount * 64;
+        const preambleStart = 1 + signaturesLength;
+
+        if (message.length >= preambleStart + SIGNING_DOMAIN.length) {
+          let isStandardFormat = true;
+          for (let i = 0; i < SIGNING_DOMAIN.length; i += 1) {
+            if (message[preambleStart + i] !== SIGNING_DOMAIN[i]) {
+              isStandardFormat = false;
+              break;
+            }
+          }
+
+          if (isStandardFormat) {
+            let offset = preambleStart + SIGNING_DOMAIN.length;
+            const version = message[offset];
+            offset += 1;
+
+            if (message.length >= offset + 32) {
+              const applicationDomain = message.slice(offset, offset + 32);
+              offset += 32;
+
+              const format = message[offset];
+              offset += 1;
+
+              const signersCount = message[offset];
+              offset += 1;
+
+              if (signersCount === signatureCount) {
+                const messageLength =
+                  message[offset] + (message[offset + 1] << 8);
+
+                return {
+                  type: EOffChainMessageType.STANDARD,
+                  header: {
+                    signatureCount,
+                    signatures: Array.from({ length: signatureCount }, (_, i) =>
+                      message.slice(1 + i * 64, 1 + (i + 1) * 64),
+                    ),
+                    version,
+                    applicationDomain,
+                    format,
+                    signersCount,
+                    signerPublicKeys: Array.from(
+                      { length: signersCount },
+                      (_, i) =>
+                        message.slice(
+                          offset + 2 + i * 32,
+                          offset + 2 + (i + 1) * 32,
+                        ),
+                    ),
+                    messageLength,
+                  },
+                };
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      // noop
+    }
+
+    try {
+      for (let i = 0; i < SIGNING_DOMAIN.length; i += 1) {
+        if (message[i] !== SIGNING_DOMAIN[i]) {
+          return { type: EOffChainMessageType.INVALID };
+        }
+      }
+
+      let offset = SIGNING_DOMAIN.length;
+      const version = message[offset];
+      offset += 1;
+
+      const format = message[offset];
+      offset += 1;
+
+      const length = message[offset] + (message[offset + 1] << 8);
+      offset += 2;
+
+      if (version === 0 && [0, 1, 2].includes(format)) {
+        const maxLength = format === 2 ? 65_535 : 1232;
+        if (length <= maxLength) {
+          return {
+            type: EOffChainMessageType.LEGACY,
+            header: { version, format, length },
+          };
+        }
+      }
+    } catch (error) {
+      // noop
+    }
+
+    return { type: EOffChainMessageType.INVALID };
   }
 
   isValid() {
