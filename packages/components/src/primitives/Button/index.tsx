@@ -161,10 +161,9 @@ export const ButtonFrame = styled(ThemeableStack, {
 } as IButtonProps);
 
 function ButtonIcon({
-  variant,
   size,
   ...props
-}: Pick<IButtonProps, 'variant' | 'size'> & Omit<IIconProps, 'size'>) {
+}: Pick<IButtonProps, 'size'> & Omit<IIconProps, 'size'>) {
   return <Icon size={size === 'small' ? '$4.5' : '$5'} {...props} />;
 }
 
@@ -248,7 +247,6 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       {icon && !loading ? (
         <ButtonIcon
           name={icon}
-          variant={variant}
           size={size}
           mr="$2"
           color={outerIconColor || iconColor}
@@ -275,7 +273,6 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       {iconAfter ? (
         <ButtonIcon
           name={iconAfter}
-          variant={variant}
           size={size}
           ml="$2"
           color={outerIconColor || iconColor}
