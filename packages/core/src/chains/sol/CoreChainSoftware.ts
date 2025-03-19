@@ -27,27 +27,12 @@ import {
 } from '../../types';
 
 import { OffchainMessage } from './sdkSol/OffchainMessage';
+import { parseToNativeTx } from './sdkSol/parse';
 
 import type { IEncodedTxSol, INativeTxSol } from './types';
 import type { ISigner } from '../../base/ChainSigner';
 
 const curve: ICurveName = 'ed25519';
-
-function parseToNativeTx(
-  encodedTx: IEncodedTxSol,
-): Promise<INativeTxSol | null> {
-  if (!encodedTx) {
-    return Promise.resolve(null);
-  }
-
-  const txByte = bs58.decode(encodedTx);
-
-  try {
-    return Promise.resolve(Transaction.from(txByte));
-  } catch (e) {
-    return Promise.resolve(VersionedTransaction.deserialize(txByte));
-  }
-}
 
 async function signTransaction({
   nativeTx,
@@ -136,7 +121,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
       curve,
     });
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
-    const nativeTx = await parseToNativeTx(encodedTx);
+    const nativeTx = parseToNativeTx(encodedTx);
     const feePayer = new PublicKey(
       checkIsDefined(account.pub || account.pubKey),
     );
