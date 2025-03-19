@@ -293,7 +293,9 @@ const SwapQuoteResult = ({
               id: ETranslations.limit_order_info_network_cost,
             })}
           </SizableText>
-          <SizableText size="$bodyMdMedium">{`${networkCostBuyAmountFormat} ${quoteResult?.toTokenInfo?.symbol}`}</SizableText>
+          <SizableText size="$bodyMdMedium">{`${networkCostBuyAmountFormat} ${
+            quoteResult?.toTokenInfo?.symbol ?? ''
+          }`}</SizableText>
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
@@ -301,7 +303,9 @@ const SwapQuoteResult = ({
               id: ETranslations.provider_ios_popover_onekey_fee,
             })}
           </SizableText>
-          <SizableText size="$bodyMdMedium">{`${oneKeyFeeCostFormat} ${quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeSymbol}`}</SizableText>
+          <SizableText size="$bodyMdMedium">{`${oneKeyFeeCostFormat} ${
+            quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeSymbol ?? ''
+          }`}</SizableText>
         </XStack>
         <Divider />
         <XStack justifyContent="space-between">

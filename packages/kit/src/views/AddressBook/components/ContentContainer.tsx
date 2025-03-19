@@ -114,7 +114,7 @@ const UnsafeAlert = () => {
       cancelButtonProps: {
         icon: 'Copy2Outline',
       },
-      onCancel: async (_close) => {
+      onCancel: async (close) => {
         const text =
           await backgroundApiProxy.serviceAddressBook.stringifyItems();
         copyText(text);
@@ -140,7 +140,7 @@ const UnsafeAlert = () => {
           id: ETranslations.address_book_button_reset,
         })}
         onConfirm={onConfirm}
-        onCancel={async (_close) => {
+        onCancel={async (close) => {
           const text =
             await backgroundApiProxy.serviceAddressBook.stringifyItems();
           copyText(text);
