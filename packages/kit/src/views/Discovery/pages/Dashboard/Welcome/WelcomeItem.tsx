@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Image, Stack } from '@onekeyhq/components';
+import { Image, Stack, useThemeValue } from '@onekeyhq/components';
 import { useWebSiteHandler } from '@onekeyhq/kit/src/views/Discovery/hooks/useWebSiteHandler';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 
@@ -25,15 +25,15 @@ const FLOAT_DURATION_BASE = 2000;
 const FLOAT_DURATION_VARIANCE = 1000;
 const FLOAT_MAX_DELAY = 500;
 
-const ROTATION_MIN_ANGLE = -2;
-const ROTATION_MAX_ANGLE = 2;
-const ROTATION_DURATION_BASE = 3000;
-const ROTATION_DURATION_VARIANCE = 1000;
+const ROTATION_MIN_ANGLE = -5;
+const ROTATION_MAX_ANGLE = 5;
+const ROTATION_DURATION_BASE = 4000;
+const ROTATION_DURATION_VARIANCE = 2000;
 const ROTATION_MAX_DELAY = 300;
 
 const SCALE_MIN_FACTOR = 1;
 const SCALE_MAX_FACTOR = 1.1;
-const SCALE_DURATION_BASE = 2500;
+const SCALE_DURATION_BASE = 3500;
 const SCALE_DURATION_VARIANCE = 1000;
 const SCALE_MAX_DELAY = 1000;
 
@@ -44,8 +44,7 @@ const ANIMATION_SHADOW_OPACITY = 0.25;
 const HOVER_TRANSITION_DURATION = 300;
 const HOVER_SCALE_FACTOR = 1.2;
 
-const SHADOW_COLOR = '#000';
-const SHADOW_OFFSET = { width: 0, height: 10 };
+const SHADOW_OFFSET = { width: 0, height: 12 };
 const BASE_SHADOW_RADIUS = 32;
 const BASE_ELEVATION = 10;
 
@@ -109,6 +108,7 @@ export const WelcomeItem = memo(
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(DEFAULT_SHADOW_OPACITY);
     const handleWebSite = useWebSiteHandler();
+    const shadowColor = useThemeValue('gray8');
 
     useEffect(() => {
       setTimeout(
@@ -135,7 +135,10 @@ export const WelcomeItem = memo(
 
       const rotationAngle =
         getRandomInRange(ROTATION_MIN_ANGLE, ROTATION_MAX_ANGLE) *
-        (Math.random() > 0.5 ? 1 : -1);
+          (Math.random() > 0.5 ? 1 : -1) *
+          0.4 +
+        initialRotation;
+
       const rotationDuration = getRandomInRange(
         ROTATION_DURATION_BASE,
         ROTATION_DURATION_BASE + ROTATION_DURATION_VARIANCE,
@@ -177,7 +180,15 @@ export const WelcomeItem = memo(
         duration: scaleDuration,
         delay: scaleDelay,
       });
-    }, [opacity, translateY, rotate, scale, shadowOpacity, maxOpacity]);
+    }, [
+      opacity,
+      translateY,
+      rotate,
+      scale,
+      shadowOpacity,
+      maxOpacity,
+      initialRotation,
+    ]);
 
     const handleHoverIn = () => {
       // Cancel and reset animations
@@ -242,14 +253,15 @@ export const WelcomeItem = memo(
         { rotate: `${rotate.value}deg` },
         { scale: scale.value },
       ],
-      shadowColor: SHADOW_COLOR,
+      shadowColor,
       shadowOffset: SHADOW_OFFSET,
-      shadowOpacity: shadowOpacity.value,
-      shadowRadius: BASE_SHADOW_RADIUS * scale.value,
+      shadowOpacity: shadowOpacity.value * scale.value,
+      shadowRadius: BASE_SHADOW_RADIUS,
       elevation: BASE_ELEVATION * scale.value,
       backgroundColor: 'transparent',
       borderRadius: borderRadius * scale.value * 0.5,
       overflow: 'hidden',
+      overlayColor: 'rgba(128, 128, 128, 0.3)',
     }));
 
     return (

@@ -65,7 +65,7 @@ const RIGHT_SIDE_ITEMS: IItemType[] = [
     initialRotation: 15,
   },
   {
-    position: { bottom: '30%', left: '$11' },
+    position: { bottom: '30%', left: '$12' },
     dappIndex: 4,
     size: '$10',
     maxOpacity: 0.8,
