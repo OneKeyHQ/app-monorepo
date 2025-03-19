@@ -2472,6 +2472,8 @@
   "update.update_in_official_web_tool_desc_copy": "あなたのハードウェアウォレットのファームウェアはアップデートが必要です。\nアップグレードを進めるには、コンピュータで firmware.onekey.so をご覧ください。",
   "update.update_incomplete_cta_text": "手動インストール",
   "update.update_incomplete_desc": "以前のインストールは不明な理由でブロックされた可能性があります。「手動インストール」をクリックしてパッケージを開き、アプリをアプリケーションフォルダにドラッグしてアップデートを完了してください。",
+  "update.update_incomplete_desc_linux": "以前のインストールは不明な理由でブロックされた可能性があります。「手動インストール」をクリックしてファイルエクスプローラーを開き、.AppImageファイルを手動でインストールしてください。",
+  "update.update_incomplete_desc_windows": "以前のインストールは不明な理由でブロックされた可能性があります。「手動インストール」をクリックしてファイルエクスプローラーを開き、.exeファイルをダブルクリックしてインストールしてください。",
   "update.update_incomplete_footnote": "*ダウンロードしたファイルが.zipの場合、まずダブルクリックして解凍し、次にアプリをFinderサイドバーのアプリケーションフォルダにドラッグしてください。",
   "update.update_incomplete_package_missing_desc": "システムは、前回のクライアント更新が完了していないことを検出しました。今すぐ更新を再試行するか、後で行うことができます。",
   "update.update_incomplete_text": "更新が不完全です",

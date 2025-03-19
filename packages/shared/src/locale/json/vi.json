@@ -2472,6 +2472,8 @@
   "update.update_in_official_web_tool_desc_copy": "Phần cứng ví của bạn cần cập nhật firmware.\nVui lòng truy cập firmware.onekey.so trên máy tính của bạn để tiến hành nâng cấp.",
   "update.update_incomplete_cta_text": "Cài đặt thủ công",
   "update.update_incomplete_desc": "Việc cài đặt trước của bạn có thể đã bị chặn vì lý do không rõ. Nhấp vào 'Cài đặt Thủ công' để mở gói, sau đó kéo ứng dụng vào thư mục Ứng dụng để hoàn tất cập nhật.",
+  "update.update_incomplete_desc_linux": "Việc cài đặt trước của bạn có thể đã bị chặn vì lý do không rõ. Nhấp vào 'Cài đặt Thủ công' để mở trình khám phá tệp, sau đó cài đặt tệp .AppImage theo cách thủ công.",
+  "update.update_incomplete_desc_windows": "Việc cài đặt trước của bạn có thể đã bị chặn vì lý do không rõ. Nhấp vào 'Cài đặt Thủ công' để mở trình duyệt tệp, sau đó nhấp đúp vào tệp .exe để cài đặt.",
   "update.update_incomplete_footnote": "*Nếu tệp bạn tải xuống là .zip, hãy nhấp đúp để giải nén trước, sau đó kéo ứng dụng vào thư mục Ứng dụng trong thanh bên Finder của bạn.",
   "update.update_incomplete_package_missing_desc": "Hệ thống đã phát hiện rằng bản cập nhật khách hàng trước của bạn chưa hoàn thành. Bạn có thể thử cập nhật lại ngay bây giờ hoặc làm điều đó sau.",
   "update.update_incomplete_text": "Cập nhật chưa hoàn tất",

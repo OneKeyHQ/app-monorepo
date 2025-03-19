@@ -2472,6 +2472,8 @@
   "update.update_in_official_web_tool_desc_copy": "La version du firmware de votre portefeuille matériel nécessite une mise à jour. Veuillez visiter firmware.onekey.so sur votre ordinateur pour procéder à la mise à niveau.",
   "update.update_incomplete_cta_text": "Installation manuelle",
   "update.update_incomplete_desc": "Votre installation précédente a peut-être été bloquée pour des raisons inconnues. Cliquez sur 'Installation manuelle' pour ouvrir le package, puis faites glisser l'application dans le dossier Applications pour terminer la mise à jour.",
+  "update.update_incomplete_desc_linux": "Votre installation précédente a peut-être été bloquée pour des raisons inconnues. Cliquez sur 'Installation manuelle' pour ouvrir l'explorateur de fichiers, puis installez le fichier .AppImage manuellement.",
+  "update.update_incomplete_desc_windows": "Votre installation précédente a peut-être été bloquée pour des raisons inconnues. Cliquez sur 'Installation manuelle' pour ouvrir l'explorateur de fichiers, puis double-cliquez sur le fichier .exe pour installer.",
   "update.update_incomplete_footnote": "*Si votre fichier téléchargé est un .zip, double-cliquez pour le décompresser d'abord, puis faites glisser l'application dans le dossier Applications de la barre latérale de votre Finder.",
   "update.update_incomplete_package_missing_desc": "Le système a détecté que votre mise à jour client précédente n'a pas été complétée. Vous pouvez réessayer la mise à jour maintenant ou le faire plus tard.",
   "update.update_incomplete_text": "Mise à jour incomplète",

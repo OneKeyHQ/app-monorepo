@@ -2472,6 +2472,8 @@
   "update.update_in_official_web_tool_desc_copy": "하드웨어 지갑 펌웨어가 업데이트가 필요합니다.\n업그레이드를 진행하려면 컴퓨터에서 firmware.onekey.so 를 방문해 주세요.",
   "update.update_incomplete_cta_text": "수동 설치",
   "update.update_incomplete_desc": "이전 설치가 알 수 없는 이유로 차단되었을 수 있습니다. '수동 설치'를 클릭하여 패키지를 열고, 앱을 응용 프로그램 폴더로 드래그하여 업데이트를 완료하세요.",
+  "update.update_incomplete_desc_linux": "이전 설치가 알 수 없는 이유로 차단되었을 수 있습니다. '수동 설치'를 클릭하여 파일 탐색기를 열고, .AppImage 파일을 수동으로 설치하세요.",
+  "update.update_incomplete_desc_windows": "이전 설치가 알 수 없는 이유로 차단되었을 수 있습니다. '수동 설치'를 클릭하여 파일 탐색기를 열고, .exe 파일을 두 번 클릭하여 설치하세요.",
   "update.update_incomplete_footnote": "*다운로드한 파일이 .zip 파일인 경우, 먼저 더블 클릭하여 압축을 풀고, Finder 사이드바의 응용 프로그램 폴더로 앱을 드래그하세요.",
   "update.update_incomplete_package_missing_desc": "시스템이 이전 클라이언트 업데이트가 완료되지 않았음을 감지했습니다. 지금 업데이트를 다시 시도하거나 나중에 할 수 있습니다.",
   "update.update_incomplete_text": "업데이트가 완료되지 않았습니다",
