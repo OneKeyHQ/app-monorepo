@@ -165,15 +165,17 @@ const SwapQuoteResultRate = ({
           </Stack>
         ) : (
           <XStack flex={1} justifyContent="flex-end">
-            <LottieView
-              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
-              autoPlay
-              loop
-              style={{
-                width: 48,
-                height: 20,
-              }}
-            />
+            {quoting ? (
+              <LottieView
+                source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+                autoPlay
+                loop
+                style={{
+                  width: 48,
+                  height: 20,
+                }}
+              />
+            ) : null}
             {onOpenResult ? (
               <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
                 <Icon
