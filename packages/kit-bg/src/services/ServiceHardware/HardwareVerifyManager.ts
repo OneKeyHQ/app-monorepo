@@ -312,9 +312,7 @@ export class HardwareVerifyManager extends ServiceHardwareManagerBase {
     const defaultResult = {
       certificate: {
         isMatch: true,
-        format: onekeyFeatures
-          ? deviceUtils.getDeviceSerialNoFromFeatures(onekeyFeatures)
-          : '',
+        format: onekeyFeatures?.onekey_serial_no ?? '',
       },
       firmware: { isMatch: false, format: '' },
       bluetooth: { isMatch: false, format: '' },
