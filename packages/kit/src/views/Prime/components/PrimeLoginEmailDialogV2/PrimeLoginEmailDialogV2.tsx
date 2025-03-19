@@ -11,8 +11,12 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
-  const { onComplete } = props;
+export function PrimeLoginEmailDialogV2(props: {
+  title?: string;
+  description?: string;
+  onComplete: () => void;
+}) {
+  const { onComplete, title, description } = props;
   const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
@@ -78,14 +82,16 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
     <Stack>
       <Dialog.Icon icon="EmailOutline" />
       <Dialog.Title>
-        {intl.formatMessage({
-          id: ETranslations.prime_signup_login,
-        })}
+        {title ||
+          intl.formatMessage({
+            id: ETranslations.prime_signup_login,
+          })}
       </Dialog.Title>
       <Dialog.Description>
-        {intl.formatMessage({
-          id: ETranslations.prime_onekeyid_continue_description,
-        })}
+        {description ||
+          intl.formatMessage({
+            id: ETranslations.prime_onekeyid_continue_description,
+          })}
       </Dialog.Description>
       <Stack pt="$4">
         <Form form={form}>

@@ -1,0 +1,136 @@
+import type { PropsWithChildren } from 'react';
+
+import { useIntl } from 'react-intl';
+
+import {
+  ActionList,
+  Badge,
+  Icon,
+  IconButton,
+  LinearGradient,
+  Page,
+  SizableText,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
+
+function Tag({ children }: PropsWithChildren) {
+  return (
+    <XStack bg="$bgStrong" borderRadius="$1">
+      <SizableText color="$textSubdued" size="$bodySmMedium" px="$2" py="$0.5">
+        {children}
+      </SizableText>
+    </XStack>
+  );
+}
+
+export default function OneKeyId() {
+  const { isLoggedIn, user } = usePrimeAuthV2();
+  const intl = useIntl();
+  return (
+    <Page>
+      <Page.Header title="OneKey ID" />
+      <Page.Body>
+        <YStack>
+          <YStack p="$5" ai="center" jc="center">
+            <LinearGradient
+              bg="$bgInverse"
+              borderRadius="$3"
+              colors={['rgba(255, 255, 255, 0.2)', 'rgba(255, 255, 255, 0)']}
+              width={56}
+              height={56}
+              jc="center"
+              ai="center"
+            >
+              <Icon size="$8" name="PeopleSolid" color="$iconInverse" />
+            </LinearGradient>
+            <SizableText pt="$5" pb="$2" size="$heading2xl">
+              OneKey ID
+            </SizableText>
+            <SizableText color="$textSubdued" size="$bodyLg">
+              Access all OneKey services and earn
+            </SizableText>
+            <SizableText color="$textSubdued" size="$bodyLg">
+              referral rewards.
+            </SizableText>
+          </YStack>
+          <XStack p="$5" jc="space-between">
+            <XStack gap="$2">
+              <Icon size="$5" name="PeopleOutline" color="$iconSubdued" />
+              <SizableText size="$bodyMdMedium">{user.email}</SizableText>
+            </XStack>
+            <XStack gap="$2">
+              <Tag>free</Tag>
+              <ActionList
+                title={intl.formatMessage({ id: ETranslations.global_more })}
+                renderTrigger={
+                  <IconButton
+                    icon="DotHorOutline"
+                    variant="tertiary"
+                    size="small"
+                  />
+                }
+                items={[
+                  {
+                    testID: 'copy-recovery-phrase-button',
+                    label: 'test',
+                  },
+                ]}
+              />
+            </XStack>
+          </XStack>
+          <YStack>
+            <ListItem
+              userSelect="none"
+              renderAvatar={
+                <XStack
+                  borderRadius="$3"
+                  bg="$brand7"
+                  w="$12"
+                  h="$12"
+                  ai="center"
+                  jc="center"
+                >
+                  <Icon name="PrimeSolid" color="$brand12" size="$6" />
+                </XStack>
+              }
+              title="OneKey Prime"
+              subtitle="Unlock advanced features"
+            >
+              <Badge badgeSize="sm">
+                <Badge.Text> Soon</Badge.Text>
+              </Badge>
+            </ListItem>
+            <ListItem
+              userSelect="none"
+              renderAvatar={
+                <XStack
+                  borderRadius="$3"
+                  bg="$purple8"
+                  w="$12"
+                  h="$12"
+                  ai="center"
+                  jc="center"
+                >
+                  <Icon name="GiftSolid" color="$purple12" size="$6" />
+                </XStack>
+              }
+              title="Refer a friend"
+              subtitle="Invite friends to earn rewards"
+            >
+              <IconButton
+                icon="ChevronRightSmallOutline"
+                variant="tertiary"
+                size="small"
+              />
+            </ListItem>
+          </YStack>
+        </YStack>
+      </Page.Body>
+    </Page>
+  );
+}
