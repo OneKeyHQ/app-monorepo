@@ -10,7 +10,6 @@ import {
   LottieView,
   NumberSizeableText,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -288,7 +287,7 @@ const SwapQuoteResult = ({
     );
 
     return (
-      <YStack gap="$2">
+      <YStack gap="$2" p="$2">
         <XStack justifyContent="space-between">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {intl.formatMessage({
@@ -517,11 +516,12 @@ const SwapQuoteResult = ({
                   isLoading={swapQuoteLoading}
                   valueComponent={
                     quoteResult?.fee?.isFreeNetworkFee ? (
-                      <XStack gap="$1">
+                      <XStack gap="$1" alignItems="center">
                         <Icon
                           name="PartyCelebrateSolid"
                           color="$iconSuccess"
-                          size={15}
+                          w={15}
+                          h={15}
                         />
                         <SizableText size="$bodyMdMedium" color="$textSuccess">
                           {intl.formatMessage({
