@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "คุณแน่ใจหรือว่าต้องการยกเลิกคำสั่งซื้อ {orderID}",
   "limit.cancel_order_off_chain_tip": "นี่คือการยกเลิก <underline>off-chain</underline> ซึ่งต้องการลายเซ็นและไม่มีค่าใช้จ่าย",
   "limit.cancel_order_title": "ยกเลิกคำสั่งซื้อ",
+  "limit.est_fee": "ค่าธรรมเนียมโดยประมาณ",
+  "limit.est_to": "ประมาณถึง",
   "limit.history_fill_sold": "{num1} {token1} ขายไปในราคารวม {num2} {token2}",
   "limit.network_cost_dialog_content": "ค่าธรรมเนียมเครือข่ายสำหรับคำสั่งซื้อนี้ค่อนข้างสูงเมื่อเทียบกับจำนวนเงินรวมของคำสั่งซื้อทั้งหมด คำสั่งซื้อนี้มีแนวโน้มที่จะไม่ถูกเติมเต็มหรือราคาการดำเนินการอาจแตกต่างจากราคาจำกัดของคุณมาก",
   "limit.order_card_network": "เครือข่าย:",

@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "Tem certeza de que deseja cancelar o pedido {orderID}",
   "limit.cancel_order_off_chain_tip": "Esta é um cancelamento <underline>off-chain</underline>. Requer uma assinatura e é gratuito.",
   "limit.cancel_order_title": "Cancelar pedido",
+  "limit.est_fee": "Taxa est.",
+  "limit.est_to": "Est. para",
   "limit.history_fill_sold": "{num1} {token1} vendido por um total de {num2} {token2}",
   "limit.network_cost_dialog_content": "A taxa de rede para este pedido é relativamente alta em comparação com o valor total do pedido. É improvável que este pedido seja atendido ou o preço de execução pode diferir muito do seu preço limite.",
   "limit.order_card_network": "Rede:",

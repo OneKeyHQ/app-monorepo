@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "Ви впевнені, що хочете скасувати замовлення {orderID}",
   "limit.cancel_order_off_chain_tip": "Це <underline>позаланцюгове</underline> скасування. Воно вимагає підпису і є безкоштовним.",
   "limit.cancel_order_title": "Скасувати замовлення",
+  "limit.est_fee": "Орієнтовна плата",
+  "limit.est_to": "Приблизно до",
   "limit.history_fill_sold": "{num1} {token1} продано на загальну суму {num2} {token2}",
   "limit.network_cost_dialog_content": "Мережевий збір за це замовлення відносно високий у порівнянні з загальною сумою замовлення. Це замовлення, ймовірно, не буде виконане, або ціна виконання може значно відрізнятися від вашої лімітної ціни.",
   "limit.order_card_network": "Мережа:",
