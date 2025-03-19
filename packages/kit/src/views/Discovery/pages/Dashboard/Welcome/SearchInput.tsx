@@ -48,6 +48,10 @@ export function SearchInput() {
     setSearchValue(text);
   }, []);
 
+  const handleInputBlur = useCallback(() => {
+    setIsPopoverOpen(false);
+  }, []);
+
   const searchInputTrigger = (
     <Stack position="relative" width="100%" $gtSm={{ w: 384 }}>
       <Input
@@ -62,6 +66,7 @@ export function SearchInput() {
         onFocus={() => {
           setIsPopoverOpen(true);
         }}
+        onBlur={handleInputBlur}
         addOns={
           hasResults
             ? [
