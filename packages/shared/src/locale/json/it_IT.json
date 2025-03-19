@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "Sei sicuro di voler annullare l'ordine {orderID}",
   "limit.cancel_order_off_chain_tip": "Questa è una cancellazione <underline>off-chain</underline>. Richiede una firma ed è gratuita.",
   "limit.cancel_order_title": "Annulla ordine",
+  "limit.est_fee": "Tariffa stimata",
+  "limit.est_to": "Previsto per",
   "limit.history_fill_sold": "{num1} {token1} venduti per un totale di {num2} {token2}",
   "limit.network_cost_dialog_content": "La commissione di rete per questo ordine è relativamente alta rispetto all'importo totale dell'ordine. È improbabile che questo ordine venga eseguito o il prezzo di esecuzione potrebbe differire molto dal tuo prezzo limite.",
   "limit.order_card_network": "Rete:",

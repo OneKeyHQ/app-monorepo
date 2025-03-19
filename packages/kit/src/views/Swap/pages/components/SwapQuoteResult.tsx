@@ -10,7 +10,6 @@ import {
   LottieView,
   NumberSizeableText,
   SizableText,
-  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -36,6 +35,7 @@ import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   EProtocolOfExchange,
   ESwapLimitOrderExpiryStep,
+  ESwapQuoteKind,
   ESwapTabSwitchType,
   type IFetchQuoteResult,
   type ISwapToken,
@@ -247,28 +247,90 @@ const SwapQuoteResult = ({
     [intl],
   );
 
-  const networkCostBuyAmountFormatValue = useMemo(() => {
+  const allCostFeeFormatValue = useMemo(() => {
+    const oneKeyFeeAmountBN = new BigNumber(
+      quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount ?? '0',
+    );
+    const tokenPriceBN = new BigNumber(
+      quoteResult?.kind === ESwapQuoteKind.SELL
+        ? toToken?.price ?? '0'
+        : fromToken?.price ?? '0',
+    );
+    const oneKeyFeeFiatValue = oneKeyFeeAmountBN.multipliedBy(tokenPriceBN);
+    const estimatedFeeFiatValue = new BigNumber(
+      quoteResult?.fee?.estimatedFeeFiatValue ?? '0',
+    );
+    const allFeeFiatValue = estimatedFeeFiatValue.plus(oneKeyFeeFiatValue);
+    const allFeeFiatValueFormat = numberFormat(allFeeFiatValue.toFixed(), {
+      formatter: 'value',
+      formatterOptions: { currency: settingsPersistAtom.currencyInfo.symbol },
+    });
+    return `${allFeeFiatValueFormat as string}`;
+  }, [
+    quoteResult?.fee?.estimatedFeeFiatValue,
+    quoteResult?.oneKeyFeeExtraInfo,
+    toToken?.price,
+    quoteResult?.kind,
+    fromToken?.price,
+    settingsPersistAtom.currencyInfo.symbol,
+  ]);
+
+  const limitNetworkFeeMarkQuestContent = useMemo(() => {
     const networkCostBuyAmountFormat = numberFormat(
       quoteResult?.networkCostBuyAmount ?? '0',
       { formatter: 'balance' },
     );
-    const estimatedFeeFiatValueFormat = numberFormat(
-      quoteResult?.fee?.estimatedFeeFiatValue?.toString() ?? '0',
+    const oneKeyFeeCostFormat = numberFormat(
+      quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount ?? '0',
       {
-        formatter: 'value',
-        formatterOptions: { currency: settingsPersistAtom.currencyInfo.symbol },
+        formatter: 'balance',
       },
     );
-    return `${networkCostBuyAmountFormat as string} ${
-      quoteResult?.toTokenInfo?.symbol ?? ''
-    } (${estimatedFeeFiatValueFormat as string})`;
-  }, [
-    quoteResult?.networkCostBuyAmount,
-    quoteResult?.fee?.estimatedFeeFiatValue,
-    quoteResult?.toTokenInfo?.symbol,
-    settingsPersistAtom.currencyInfo.symbol,
-  ]);
 
+    return (
+      <YStack gap="$2" p="$2">
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.limit_order_info_network_cost,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMdMedium">{`${
+            networkCostBuyAmountFormat as string
+          } ${quoteResult?.toTokenInfo?.symbol ?? ''}`}</SizableText>
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.provider_ios_popover_onekey_fee,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMdMedium">{`${
+            oneKeyFeeCostFormat as string
+          } ${
+            quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeSymbol ?? ''
+          }`}</SizableText>
+        </XStack>
+        <Divider />
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.limit_est_fee,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMdMedium">
+            {allCostFeeFormatValue}
+          </SizableText>
+        </XStack>
+      </YStack>
+    );
+  }, [
+    quoteResult?.oneKeyFeeExtraInfo,
+    quoteResult?.networkCostBuyAmount,
+    quoteResult?.toTokenInfo?.symbol,
+    intl,
+    allCostFeeFormatValue,
+  ]);
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
   });
@@ -332,10 +394,11 @@ const SwapQuoteResult = ({
           quoteResult?.networkCostBuyAmount ? (
             <SwapCommonInfoItem
               title={intl.formatMessage({
-                id: ETranslations.swap_page_provider_est_network_fee,
+                id: ETranslations.limit_est_fee,
               })}
+              questionMarkContent={limitNetworkFeeMarkQuestContent}
               // isLoading={swapQuoteLoading}
-              value={networkCostBuyAmountFormatValue}
+              value={allCostFeeFormatValue}
             />
           ) : null}
           <LimitExpirySelect
@@ -456,22 +519,40 @@ const SwapQuoteResult = ({
                   slippageItem={slippageItem}
                 />
               ) : null}
-              {quoteResult?.fee?.estimatedFeeFiatValue ? (
+              {(quoteResult?.fee?.estimatedFeeFiatValue ||
+                quoteResult?.fee?.isFreeNetworkFee) &&
+              !quoteResult?.allowanceResult ? (
                 <SwapCommonInfoItem
                   title={intl.formatMessage({
                     id: ETranslations.swap_page_provider_est_network_fee,
                   })}
                   isLoading={swapQuoteLoading}
                   valueComponent={
-                    <NumberSizeableText
-                      size="$bodyMdMedium"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settingsPersistAtom.currencyInfo.symbol,
-                      }}
-                    >
-                      {quoteResult.fee?.estimatedFeeFiatValue}
-                    </NumberSizeableText>
+                    quoteResult?.fee?.isFreeNetworkFee ? (
+                      <XStack gap="$1" alignItems="center">
+                        <Icon
+                          name="PartyCelebrateSolid"
+                          color="$iconSuccess"
+                          w={15}
+                          h={15}
+                        />
+                        <SizableText size="$bodyMdMedium" color="$textSuccess">
+                          {intl.formatMessage({
+                            id: ETranslations.prime_status_free,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    ) : (
+                      <NumberSizeableText
+                        size="$bodyMdMedium"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settingsPersistAtom.currencyInfo.symbol,
+                        }}
+                      >
+                        {quoteResult.fee?.estimatedFeeFiatValue}
+                      </NumberSizeableText>
+                    )
                   }
                 />
               ) : null}

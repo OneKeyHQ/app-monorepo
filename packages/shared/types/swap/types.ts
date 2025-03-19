@@ -363,6 +363,10 @@ export interface IFetchQuoteResult {
   cowSwapQuoteResult?: any;
   kind?: ESwapQuoteKind;
   networkCostBuyAmount?: string;
+  oneKeyFeeExtraInfo?: {
+    oneKeyFeeAmount?: string;
+    oneKeyFeeSymbol?: string;
+  };
   networkCostExceedInfo?: {
     tokenInfo: {
       symbol: string;
@@ -438,6 +442,7 @@ export interface IFetchQuoteFee {
   protocolFees?: number;
   estimatedFeeFiatValue?: number;
   otherFeeInfos?: IQuoteResultFeeOtherFeeInfo[];
+  isFreeNetworkFee?: boolean;
 }
 
 export enum ESwapApproveAllowanceType {

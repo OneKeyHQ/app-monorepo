@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "Apakah Anda yakin ingin membatalkan pesanan {orderID}",
   "limit.cancel_order_off_chain_tip": "Ini adalah pembatalan <underline>off-chain</underline>. Ini memerlukan tanda tangan dan gratis.",
   "limit.cancel_order_title": "Batalkan pesanan",
+  "limit.est_fee": "Perkiraan biaya",
+  "limit.est_to": "Est. sampai",
   "limit.history_fill_sold": "{num1} {token1} terjual dengan total harga {num2} {token2}",
   "limit.network_cost_dialog_content": "Biaya jaringan untuk pesanan ini relatif tinggi dibandingkan dengan jumlah total pesanan. Pesanan ini kemungkinan tidak akan terpenuhi atau harga eksekusi mungkin sangat berbeda dari harga batas Anda.",
   "limit.order_card_network": "Jaringan:",

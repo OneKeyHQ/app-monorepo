@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "क्या आप वाकई {orderID} ऑर्डर रद्द करना चाहते हैं",
   "limit.cancel_order_off_chain_tip": "यह एक <underline>ऑफ-चेन</underline> रद्दीकरण है। इसके लिए एक हस्ताक्षर की आवश्यकता होती है और यह मुफ्त है।",
   "limit.cancel_order_title": "ऑर्डर रद्द करें",
+  "limit.est_fee": "अनुमानित शुल्क",
+  "limit.est_to": "अनुमानित",
   "limit.history_fill_sold": "{num1} {token1} कुल {num2} {token2} में बिके",
   "limit.network_cost_dialog_content": "इस ऑर्डर के लिए नेटवर्क शुल्क कुल ऑर्डर राशि की तुलना में अपेक्षाकृत अधिक है। इस ऑर्डर के भरे जाने की संभावना कम है या निष्पादन मूल्य आपके सीमा मूल्य से काफी भिन्न हो सकता है।",
   "limit.order_card_network": "नेटवर्क:",
