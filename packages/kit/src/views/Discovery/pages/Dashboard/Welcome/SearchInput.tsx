@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Input, Popover, Stack, View, XStack } from '@onekeyhq/components';
+import { Input, Stack, View, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -16,6 +16,7 @@ import { SearchResultContent } from '../../../components/SearchResultContent';
 import { useSearchModalData } from '../../../hooks/useSearchModalData';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
+import { SearchPopover } from './SearchPopover';
 
 export function SearchInput() {
   const intl = useIntl();
@@ -94,14 +95,9 @@ export function SearchInput() {
 
   return (
     <>
-      {searchInputTrigger}
-      <Popover
-        title="Search Results"
-        placement="bottom-end"
-        open={isPopoverOpen}
-        onOpenChange={setIsPopoverOpen}
-        renderTrigger={<View />}
-        renderContent={({ closePopover }) => (
+      <View position="relative">
+        {searchInputTrigger}
+        <SearchPopover isOpen={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <Stack p="$2" maxHeight={400}>
             <SearchResultContent
               searchValue={searchValue}
@@ -112,12 +108,12 @@ export function SearchInput() {
               displayHistoryList={displayHistoryList}
               SEARCH_ITEM_ID={SEARCH_ITEM_ID}
               onItemClick={() => {
-                closePopover();
+                setIsPopoverOpen(false);
               }}
             />
           </Stack>
-        )}
-      />
+        </SearchPopover>
+      </View>
     </>
   );
 }
