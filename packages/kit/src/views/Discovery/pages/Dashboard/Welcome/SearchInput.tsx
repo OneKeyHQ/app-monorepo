@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Input, Popover, Stack, XStack } from '@onekeyhq/components';
+import { Input, Popover, Stack, View, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -32,6 +32,7 @@ export function SearchInput() {
 
   const navigation = useAppNavigation();
   const handleSearchBarPress = useCallback(() => {
+    // only on mobile
     if (!platformEnv.isDesktop) {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
@@ -44,15 +45,10 @@ export function SearchInput() {
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
-    if (text.length > 0) {
-      setIsPopoverOpen(true);
-    } else {
-      setIsPopoverOpen(false);
-    }
   }, []);
 
-  const inputContent = (
-    <Stack position="relative" width="100%" $gtSm={{ w: 384 }} cursor="pointer">
+  const searchInputTrigger = (
+    <Stack position="relative" width="100%" $gtSm={{ w: 384 }}>
       <Input
         testID="search-input"
         placeholder={intl.formatMessage({
@@ -63,9 +59,7 @@ export function SearchInput() {
         value={searchValue}
         onChangeText={handleInputChange}
         onFocus={() => {
-          if (platformEnv.isDesktop && !searchValue) {
-            handleSearchBarPress();
-          }
+          setIsPopoverOpen(true);
         }}
         addOns={
           hasResults
@@ -98,33 +92,32 @@ export function SearchInput() {
     </Stack>
   );
 
-  if (!hasResults) {
-    return inputContent;
-  }
-
   return (
-    <Popover
-      title="Search Results"
-      placement="bottom-end"
-      open={isPopoverOpen ? Boolean(hasResults) : null}
-      onOpenChange={setIsPopoverOpen}
-      renderTrigger={inputContent}
-      renderContent={({ closePopover }) => (
-        <Stack p="$2" maxHeight={400}>
-          <SearchResultContent
-            searchValue={searchValue}
-            localData={localData}
-            searchList={searchList}
-            displaySearchList={displaySearchList}
-            displayBookmarkList={displayBookmarkList}
-            displayHistoryList={displayHistoryList}
-            SEARCH_ITEM_ID={SEARCH_ITEM_ID}
-            onItemClick={() => {
-              closePopover();
-            }}
-          />
-        </Stack>
-      )}
-    />
+    <>
+      {searchInputTrigger}
+      <Popover
+        title="Search Results"
+        placement="bottom-end"
+        open={isPopoverOpen}
+        onOpenChange={setIsPopoverOpen}
+        renderTrigger={<View />}
+        renderContent={({ closePopover }) => (
+          <Stack p="$2" maxHeight={400}>
+            <SearchResultContent
+              searchValue={searchValue}
+              localData={localData}
+              searchList={searchList}
+              displaySearchList={displaySearchList}
+              displayBookmarkList={displayBookmarkList}
+              displayHistoryList={displayHistoryList}
+              SEARCH_ITEM_ID={SEARCH_ITEM_ID}
+              onItemClick={() => {
+                closePopover();
+              }}
+            />
+          </Stack>
+        )}
+      />
+    </>
   );
 }
