@@ -1,6 +1,11 @@
 import type { FC, ReactNode } from 'react';
 
-import { AnimatePresence, Portal, Stack } from '@onekeyhq/components';
+import {
+  AnimatePresence,
+  Portal,
+  ScrollView,
+  Stack,
+} from '@onekeyhq/components';
 
 export interface ISearchPopoverProps {
   isOpen: boolean;
@@ -37,7 +42,7 @@ export const SearchPopover: FC<ISearchPopoverProps> = ({
             $gtSm={{ width: 384 }}
             animation="quick"
           >
-            {children}
+            <ScrollView maxHeight={300}>{children}</ScrollView>
           </Stack>
         ) : null}
       </AnimatePresence>
