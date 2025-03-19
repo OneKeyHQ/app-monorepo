@@ -20,6 +20,7 @@ import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 export function SearchInput() {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const {
     localData,
     searchList,
@@ -31,7 +32,7 @@ export function SearchInput() {
 
   const navigation = useAppNavigation();
   const handleSearchBarPress = useCallback(() => {
-    if (platformEnv.isDesktop) {
+    if (!platformEnv.isDesktop) {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
       });
@@ -41,33 +42,37 @@ export function SearchInput() {
   const hasResults =
     displaySearchList || displayBookmarkList || displayHistoryList;
 
+  const handleInputChange = useCallback((text: string) => {
+    setSearchValue(text);
+    if (text.length > 0) {
+      setIsPopoverOpen(true);
+    } else {
+      setIsPopoverOpen(false);
+    }
+  }, []);
+
   const inputContent = (
-    <Stack
-      position="relative"
-      width="100%"
-      $gtSm={{ w: 384 }}
-      onPress={handleSearchBarPress}
-      pressStyle={{
-        opacity: 0.8,
-      }}
-      cursor="pointer"
-    >
+    <Stack position="relative" width="100%" $gtSm={{ w: 384 }} cursor="pointer">
       <Input
         testID="search-input"
         placeholder={intl.formatMessage({
           id: ETranslations.browser_search_dapp_or_enter_url,
         })}
-        readonly
         size="large"
         leftIconName="SearchOutline"
-        onFocus={handleSearchBarPress}
         value={searchValue}
-        onChangeText={setSearchValue}
+        onChangeText={handleInputChange}
+        onFocus={() => {
+          if (platformEnv.isDesktop && !searchValue) {
+            handleSearchBarPress();
+          }
+        }}
         addOns={
           hasResults
             ? [
                 {
                   iconName: 'ChevronDownSmallOutline',
+                  onPress: () => setIsPopoverOpen(!isPopoverOpen),
                 },
               ]
             : undefined
@@ -101,6 +106,8 @@ export function SearchInput() {
     <Popover
       title="Search Results"
       placement="bottom-end"
+      open={isPopoverOpen ? Boolean(hasResults) : null}
+      onOpenChange={setIsPopoverOpen}
       renderTrigger={inputContent}
       renderContent={({ closePopover }) => (
         <Stack p="$2" maxHeight={400}>
