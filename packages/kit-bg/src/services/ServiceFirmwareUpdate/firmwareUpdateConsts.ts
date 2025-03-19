@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 export const FIRMWARE_UPDATE_MIN_VERSION_ALLOWED: Partial<
@@ -10,28 +12,32 @@ export const FIRMWARE_UPDATE_MIN_VERSION_ALLOWED: Partial<
     }
   >
 > = {
-  'pro': {
+  [EDeviceType.Pro]: {
     // firmware: '0.0.0',
     // ble: '0.0.0',
     // bootloader: '0.0.0',
   },
-  'touch': {
+  [EDeviceType.Touch]: {
     // >= 4.1.0 allowed update by App, < 4.1.0 only allowed update by web
     firmware: '4.1.0', // only 4.1.0 support bootloader update
     // ble: '0.0.0',
     bootloader: '2.4.2',
   },
-  'classic': {
+  [EDeviceType.Classic]: {
     firmware: '3.0.0',
     // ble: '0.0.0',
     bootloader: '2.0.0',
   },
-  'classic1s': {
+  [EDeviceType.Classic1s]: {
     firmware: '3.0.0',
     // ble: '0.0.0',
     bootloader: '2.0.0',
   },
-  'mini': {
+  [EDeviceType.ClassicPure]: {
+    firmware: '3.0.0',
+    bootloader: '2.0.0',
+  },
+  [EDeviceType.Mini]: {
     firmware: '3.0.0',
     // ble: '0.0.0',
     bootloader: '2.0.0',
