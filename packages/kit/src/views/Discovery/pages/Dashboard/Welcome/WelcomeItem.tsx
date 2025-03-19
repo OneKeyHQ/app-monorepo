@@ -108,7 +108,7 @@ export const WelcomeItem = memo(
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(DEFAULT_SHADOW_OPACITY);
     const handleWebSite = useWebSiteHandler();
-    const shadowColor = useThemeValue('gray8');
+    const shadowColor = useThemeValue('gray8', 'gray6');
 
     useEffect(() => {
       setTimeout(
@@ -218,8 +218,10 @@ export const WelcomeItem = memo(
       // Restart rotation animation with new random values
       const rotationAngle =
         getRandomInRange(ROTATION_MIN_ANGLE, ROTATION_MAX_ANGLE) *
-          (Math.random() > 0.5 ? 1 : -1) +
+          (Math.random() > 0.5 ? 1 : -1) *
+          0.4 +
         initialRotation;
+
       rotate.value = withRepeat(
         withTiming(rotationAngle, {
           duration: getRandomInRange(
