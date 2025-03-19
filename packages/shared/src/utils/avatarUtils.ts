@@ -61,13 +61,13 @@ export type IOthersWalletAvatarImageNames =
 
 export function getDeviceAvatarImage(
   deviceType: IDeviceType,
-  uuid?: string,
+  serialNo?: string,
 ): IDeviceType | `${EDeviceType.Pro}Black` | `${EDeviceType.Pro}White` {
   if (deviceType === EDeviceType.Pro) {
-    if (uuid?.endsWith('A')) {
-      return `${EDeviceType.Pro}Black`;
+    if (serialNo?.startsWith('PR') && serialNo?.endsWith('B')) {
+      return `${EDeviceType.Pro}White`;
     }
-    return `${EDeviceType.Pro}White`;
+    return `${EDeviceType.Pro}Black`;
   }
   return deviceType;
 }

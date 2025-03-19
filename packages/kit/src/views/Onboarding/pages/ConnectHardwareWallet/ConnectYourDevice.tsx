@@ -734,9 +734,7 @@ function ConnectByUSBOrBLE({
       */
       ...searchedDevices.map((item) => ({
         title: item.name,
-        src: HwWalletAvatarImages[
-          getDeviceAvatarImage(item.deviceType, item.uuid)
-        ],
+        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
         onPress: () => handleHwWalletCreateFlow({ device: item }),
         opacity: 1,

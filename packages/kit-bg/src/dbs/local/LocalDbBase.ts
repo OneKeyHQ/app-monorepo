@@ -788,23 +788,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         const label = device?.featuresInfo?.label;
         const deviceType = device?.deviceType;
         const serialNo = device?.featuresInfo?.serial_no;
-        if (deviceType) {
+        if (deviceType === EDeviceType.Pro && serialNo) {
           const imgFromSerialNo = getDeviceAvatarImage(deviceType, serialNo);
-          if (imgFromSerialNo !== avatarInfo?.img) {
-            if (serialNo && avatarInfo?.img !== imgFromSerialNo) {
-              appEventBus.emit(
-                EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
-                {
-                  walletId: wallet.id,
-                  dbDeviceId: device.id,
-                  avatarInfo: {
-                    ...avatarInfo,
-                    img: imgFromSerialNo,
-                  },
-                },
-              );
-            }
-          }
+          appEventBus.emit(
+            EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
+            {
+              walletId: wallet.id,
+              dbDeviceId: device.id,
+              avatarInfo: {
+                ...avatarInfo,
+                img: imgFromSerialNo,
+              },
+            },
+          );
+          wallet.avatarInfo = {
+            ...avatarInfo,
+            img: imgFromSerialNo,
+          };
         }
         if (device && label && label !== wallet.name) {
           appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
