@@ -4,7 +4,8 @@ import { forwardRef, useCallback } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
-import { DialogContainer } from '@onekeyhq/components';
+import { DialogContainer, SizableText, YStack } from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import {
   openBLEPermissionsSettings,
   openBLESettings,
@@ -137,6 +138,40 @@ export const RequireBlePermissionDialog = forwardRef(
   RequireBlePermissionDialogContainer,
 );
 
+function WebDeviceAccessDialogContent({
+  intl,
+  promptWebUsbDeviceAccess,
+}: {
+  intl: IntlShape;
+  promptWebUsbDeviceAccess: () => Promise<void>;
+}) {
+  return (
+    <YStack gap="$5">
+      <YStack gap="$2">
+        <SizableText size="$bodyLg" color="$text">
+          1.{' '}
+          {intl.formatMessage({
+            id: ETranslations.device_check_connection,
+          })}
+        </SizableText>
+        <SizableText size="$bodyLg" color="$text">
+          2.{' '}
+          {intl.formatMessage({
+            id: ETranslations.device_try_reconnecting_usb,
+          })}
+        </SizableText>
+      </YStack>
+      <HyperlinkText
+        size="$bodyLg"
+        translationId={ETranslations.device_reconnect_from_beginning}
+        autoHandleResult={false}
+        onAction={() => {
+          void promptWebUsbDeviceAccess();
+        }}
+      />
+    </YStack>
+  );
+}
 export const buildWebDeviceAccessDialogProps = ({
   intl,
   promptWebUsbDeviceAccess,
@@ -145,11 +180,15 @@ export const buildWebDeviceAccessDialogProps = ({
   promptWebUsbDeviceAccess: () => Promise<void>;
 }): IDialogShowProps =>
   ({
-    icon: 'BluetoothOutline',
-    title: 'Web Device Access Permission',
-    description: 'Please grant access to the web device to continue.',
-    onConfirmText: 'Grant Permission',
-    onConfirm: promptWebUsbDeviceAccess,
-    onCancelText: 'Cancel',
-    showCancelButton: true,
+    icon: 'UsbOutline',
+    title: intl.formatMessage({
+      id: ETranslations.device_not_connected,
+    }),
+    renderContent: (
+      <WebDeviceAccessDialogContent
+        intl={intl}
+        promptWebUsbDeviceAccess={promptWebUsbDeviceAccess}
+      />
+    ),
+    showFooter: false,
   } as const);

@@ -675,6 +675,7 @@ function ConnectByUSBOrBLE({
             device,
             features,
             onContinue: async ({ checked }) => {
+              setIsChecking(false);
               if (deviceMode === EOneKeyDeviceMode.notInitialized) {
                 handleNotActivatedDevicePress({ deviceType });
                 return;
@@ -798,7 +799,6 @@ function ConnectByUSBOrBLE({
       }
     } catch (error) {
       console.error('onConnectWebDevice error:', error);
-    } finally {
       setIsChecking(false);
     }
   }, [handleHwWalletCreateFlow, promptWebUsbDeviceAccess]);
@@ -1073,7 +1073,10 @@ function ConnectByUSBOrBLE({
         <YStack pt="$8">
           <Heading size="$headingMd" textAlign="center">
             {intl.formatMessage({
-              id: ETranslations.onboarding_bluetooth_prepare_to_connect,
+              id:
+                hardwareTransportType === EHardwareTransportType.WEBUSB
+                  ? ETranslations.device_connect_via_usb
+                  : ETranslations.onboarding_bluetooth_prepare_to_connect,
             })}
           </Heading>
           <SizableText
@@ -1085,7 +1088,10 @@ function ConnectByUSBOrBLE({
             mx="auto"
           >
             {intl.formatMessage({
-              id: ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
+              id:
+                hardwareTransportType === EHardwareTransportType.WEBUSB
+                  ? ETranslations.device_select_device_popup
+                  : ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
             })}
           </SizableText>
           <Button

@@ -621,9 +621,24 @@ function HardwareUiStateContainerCmpControlled() {
           dialogProps = buildWebDeviceAccessDialogProps({
             intl,
             // @ts-expect-error
-            promptWebUsbDeviceAccess: platformEnv.isExtensionUiPopup
-              ? toPromptWebDeviceAccessPage
-              : promptWebUsbDeviceAccess,
+            promptWebUsbDeviceAccess: (dialogInstance?: IDialogInstance) => {
+              // Use the provided instance or the current instance
+              const instance = dialogInstance || instanceRef.current;
+              return (
+                platformEnv.isExtensionUiPopup
+                  ? toPromptWebDeviceAccessPage
+                  : async () => {
+                      try {
+                        const result = await promptWebUsbDeviceAccess();
+                        // Close dialog after successful connection
+                        await instance?.close();
+                        return result;
+                      } catch (error) {
+                        console.log('promptWebUsbDeviceAccess error', error);
+                      }
+                    }
+              )();
+            },
           });
         }
         if (dialogProps) {
