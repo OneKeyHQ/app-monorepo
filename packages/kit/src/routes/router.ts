@@ -11,18 +11,25 @@ import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 
 const buildPermissionRouter = () => {
-  const WebUSB = LazyLoad(
-    () => import('@onekeyhq/kit/src/views/Permission/WebUSB'),
+  const PromptWebDeviceAccessPage = LazyLoad(
+    () =>
+      import('@onekeyhq/kit/src/views/Permission/PromptWebDeviceAccessPage'),
   );
   return [
-    platformEnv.isExtension
-      ? {
-          name: ERootRoutes.PermissionWebUSB,
-          component: WebUSB,
-          rewrite: '/permission/web-usb',
-          exact: true,
-        }
-      : undefined,
+    {
+      name: ERootRoutes.PermissionWebDevice,
+      component: PromptWebDeviceAccessPage,
+      rewrite: '/permission/web-device',
+      exact: true,
+    },
+    // platformEnv.isExtension
+    //   ? {
+    //       name: ERootRoutes.PermissionWebUSB,
+    //       component: WebUSB,
+    //       rewrite: '/permission/web-usb',
+    //       exact: true,
+    //     }
+    //   : undefined,
   ].filter(Boolean);
 };
 

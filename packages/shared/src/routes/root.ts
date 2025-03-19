@@ -9,5 +9,5 @@ export enum ERootRoutes {
 
   NotFound = 'NotFound',
 
-  PermissionWebUSB = 'PermissionWebUSB',
+  PermissionWebDevice = 'PermissionWebDevice',
 }

@@ -105,7 +105,4 @@ export type IOnboardingParamList = {
 
   // device management guide page
   [EOnboardingPages.DeviceManagementGuide]: undefined;
-
-  // prompt web device access
-  [EOnboardingPages.PromptWebDeviceAccess]: undefined;
 };

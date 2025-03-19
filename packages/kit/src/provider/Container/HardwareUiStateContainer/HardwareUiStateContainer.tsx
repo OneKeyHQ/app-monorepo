@@ -624,20 +624,21 @@ function HardwareUiStateContainerCmpControlled() {
             promptWebUsbDeviceAccess: (dialogInstance?: IDialogInstance) => {
               // Use the provided instance or the current instance
               const instance = dialogInstance || instanceRef.current;
-              return (
-                platformEnv.isExtensionUiPopup
-                  ? toPromptWebDeviceAccessPage
-                  : async () => {
-                      try {
-                        const result = await promptWebUsbDeviceAccess();
-                        // Close dialog after successful connection
-                        await instance?.close();
-                        return result;
-                      } catch (error) {
-                        console.log('promptWebUsbDeviceAccess error', error);
-                      }
-                    }
-              )();
+              return (async () => {
+                try {
+                  const promptWebUsbDeviceAccessFn =
+                    platformEnv.isExtensionUiPopup ||
+                    platformEnv.isExtensionUiSidePanel
+                      ? toPromptWebDeviceAccessPage
+                      : promptWebUsbDeviceAccess;
+                  const result = await promptWebUsbDeviceAccessFn();
+                  // Close dialog after successful connection
+                  await instance?.close();
+                  return result;
+                } catch (error) {
+                  console.log('promptWebUsbDeviceAccess error', error);
+                }
+              })();
             },
           });
         }

@@ -171,7 +171,7 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     // },
 
     // Permission WebUSB
-    [pagePath`${ERootRoutes.PermissionWebUSB}`]: {
+    [pagePath`${ERootRoutes.PermissionWebDevice}`]: {
       showUrl: true,
       showParams: true,
     },

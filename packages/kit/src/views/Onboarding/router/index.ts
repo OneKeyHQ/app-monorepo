@@ -80,10 +80,6 @@ const DeviceManagementGuideModal = LazyLoadPage(
   () => import('../../DeviceManagement/pages/DeviceGuideModal'),
 );
 
-const PromptWebDeviceAccessModal = LazyLoadPage(
-  () => import('../pages/PromptWebDeviceAccess'),
-);
-
 export const OnboardingRouter: IModalFlowNavigatorConfig<
   EOnboardingPages,
   IOnboardingParamList
@@ -191,11 +187,5 @@ export const OnboardingRouter: IModalFlowNavigatorConfig<
   {
     name: EOnboardingPages.DeviceManagementGuide,
     component: DeviceManagementGuideModal,
-  },
-
-  // prompt web device access
-  {
-    name: EOnboardingPages.PromptWebDeviceAccess,
-    component: PromptWebDeviceAccessModal,
   },
 ];
