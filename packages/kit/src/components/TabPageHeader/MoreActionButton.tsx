@@ -19,6 +19,7 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
@@ -98,6 +99,7 @@ export function MoreActionButton() {
   );
 
   const { toReferFriendsPage } = useReferFriends();
+  const { loginOneKeyId } = useLoginOneKeyId();
 
   return (
     <ActionList
@@ -132,6 +134,12 @@ export function MoreActionButton() {
         },
         {
           items: [
+            {
+              label: 'OneKey ID',
+              icon: 'PeopleOutline',
+              onPress: loginOneKeyId,
+              testID: 'onekey_id',
+            },
             {
               label: 'Refer a friend',
               icon: 'GiftOutline',

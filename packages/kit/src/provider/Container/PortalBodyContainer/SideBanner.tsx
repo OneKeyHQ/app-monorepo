@@ -33,6 +33,7 @@ import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useLoginOneKeyId } from '../../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../../hooks/useReferFriends';
 
 import type { GestureResponderEvent } from 'react-native';
@@ -139,6 +140,7 @@ function BottomMenu() {
   });
 
   const { toReferFriendsPage } = useReferFriends();
+  const { loginOneKeyId } = useLoginOneKeyId();
 
   const openDeviceManagementPage = useCallback(async () => {
     const allHwQrWallet =
@@ -164,6 +166,13 @@ function BottomMenu() {
       borderTopColor="$borderSubdued"
       bg="$bgSidebar"
     >
+      <DesktopTabItem
+        onPress={loginOneKeyId}
+        selected={false}
+        icon="PeopleOutline"
+        label="OneKey ID"
+        testID="onekey_id"
+      />
       <DesktopTabItem
         onPress={toReferFriendsPage}
         selected={false}
