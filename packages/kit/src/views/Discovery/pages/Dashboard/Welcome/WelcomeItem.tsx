@@ -108,7 +108,7 @@ export const WelcomeItem = memo(
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(DEFAULT_SHADOW_OPACITY);
     const handleWebSite = useWebSiteHandler();
-    const shadowColor = useThemeValue('gray8', 'gray6');
+    const shadowColor = useThemeValue('shadowColor');
 
     useEffect(() => {
       setTimeout(
