@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -16,6 +16,7 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -67,6 +68,250 @@ export function SearchResultContent({
   const jumpPageRef = useRef(false);
   const handleWebSite = useWebSiteHandler();
 
+  // State for keeping track of keyboard navigation
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [selectedSection, setSelectedSection] = useState<
+    'search' | 'bookmark' | 'history'
+  >('search');
+
+  // References to track the number of items in each section
+  const searchListRef = useRef<HTMLDivElement>(null);
+  const bookmarkListRef = useRef<HTMLDivElement>(null);
+  const historyListRef = useRef<HTMLDivElement>(null);
+
+  // Get total number of items in each section
+  const searchCount = displaySearchList ? searchList.length : 0;
+  const bookmarkCount = displayBookmarkList
+    ? localData?.bookmarkData?.length || 0
+    : 0;
+  const historyCount = displayHistoryList
+    ? localData?.historyData?.length || 0
+    : 0;
+
+  // Reset selection when search results change
+  useEffect(() => {
+    setSelectedIndex(-1);
+    if (displaySearchList) {
+      setSelectedSection('search');
+    } else if (displayBookmarkList) {
+      setSelectedSection('bookmark');
+    } else if (displayHistoryList) {
+      setSelectedSection('history');
+    }
+  }, [displaySearchList, displayBookmarkList, displayHistoryList, searchValue]);
+
+  // Handlers for different types of items
+  const handleSearchItemClick = useCallback(
+    (item: IDApp) => {
+      onItemClick?.(item);
+
+      if (item.dappId === SEARCH_ITEM_ID) {
+        handleWebSite({
+          webSite: {
+            url: searchValue,
+            title: searchValue,
+          },
+          useCurrentWindow,
+          tabId,
+          enterMethod: EEnterMethod.search,
+        });
+      } else {
+        handleWebSite({
+          dApp: item,
+          useCurrentWindow,
+          tabId,
+          enterMethod: EEnterMethod.search,
+        });
+      }
+    },
+    [
+      SEARCH_ITEM_ID,
+      handleWebSite,
+      onItemClick,
+      searchValue,
+      tabId,
+      useCurrentWindow,
+    ],
+  );
+
+  const handleBookmarkItemClick = useCallback(
+    (item: { url: string; title: string; logo?: string }) => {
+      onItemClick?.(item);
+
+      handleWebSite({
+        webSite: {
+          url: item.url,
+          title: item.title,
+        },
+        useCurrentWindow,
+        tabId,
+        enterMethod: EEnterMethod.bookmarkInSearch,
+      });
+    },
+    [handleWebSite, onItemClick, tabId, useCurrentWindow],
+  );
+
+  const handleHistoryItemClick = useCallback(
+    (item: { url: string; title: string; logo?: string }) => {
+      onItemClick?.(item);
+
+      handleWebSite({
+        webSite: {
+          url: item.url,
+          title: item.title,
+        },
+        useCurrentWindow,
+        tabId,
+        enterMethod: EEnterMethod.historyInSearch,
+      });
+    },
+    [handleWebSite, onItemClick, tabId, useCurrentWindow],
+  );
+
+  // Handle keyboard navigation
+  useEffect(() => {
+    if (!platformEnv.isDesktop) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+
+        if (selectedIndex === -1) {
+          // First item selection
+          setSelectedIndex(0);
+          return;
+        }
+
+        if (selectedSection === 'search' && selectedIndex < searchCount - 1) {
+          // Navigate within search section
+          setSelectedIndex(selectedIndex + 1);
+        } else if (
+          selectedSection === 'search' &&
+          selectedIndex === searchCount - 1
+        ) {
+          // Move to bookmark section
+          if (displayBookmarkList) {
+            setSelectedSection('bookmark');
+            setSelectedIndex(0);
+          } else if (displayHistoryList) {
+            // Skip to history if bookmarks are not displayed
+            setSelectedSection('history');
+            setSelectedIndex(0);
+          }
+        } else if (
+          selectedSection === 'bookmark' &&
+          selectedIndex < bookmarkCount - 1
+        ) {
+          // Navigate within bookmark section
+          setSelectedIndex(selectedIndex + 1);
+        } else if (
+          selectedSection === 'bookmark' &&
+          selectedIndex === bookmarkCount - 1
+        ) {
+          // Move to history section
+          if (displayHistoryList) {
+            setSelectedSection('history');
+            setSelectedIndex(0);
+          }
+        } else if (
+          selectedSection === 'history' &&
+          selectedIndex < historyCount - 1
+        ) {
+          // Navigate within history section
+          setSelectedIndex(selectedIndex + 1);
+        }
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+
+        if (selectedIndex === -1) {
+          // Select last item when pressing up from no selection
+          if (displayHistoryList) {
+            setSelectedSection('history');
+            setSelectedIndex(historyCount - 1);
+          } else if (displayBookmarkList) {
+            setSelectedSection('bookmark');
+            setSelectedIndex(bookmarkCount - 1);
+          } else if (displaySearchList) {
+            setSelectedSection('search');
+            setSelectedIndex(searchCount - 1);
+          }
+          return;
+        }
+
+        if (selectedSection === 'search' && selectedIndex > 0) {
+          // Navigate within search section
+          setSelectedIndex(selectedIndex - 1);
+        } else if (selectedSection === 'bookmark' && selectedIndex > 0) {
+          // Navigate within bookmark section
+          setSelectedIndex(selectedIndex - 1);
+        } else if (selectedSection === 'bookmark' && selectedIndex === 0) {
+          // Move back to search section
+          if (displaySearchList) {
+            setSelectedSection('search');
+            setSelectedIndex(searchCount - 1);
+          }
+        } else if (selectedSection === 'history' && selectedIndex > 0) {
+          // Navigate within history section
+          setSelectedIndex(selectedIndex - 1);
+        } else if (selectedSection === 'history' && selectedIndex === 0) {
+          // Move back to bookmark section
+          if (displayBookmarkList) {
+            setSelectedSection('bookmark');
+            setSelectedIndex(bookmarkCount - 1);
+          } else if (displaySearchList) {
+            // Skip back to search if bookmarks are not displayed
+            setSelectedSection('search');
+            setSelectedIndex(searchCount - 1);
+          }
+        }
+      } else if (e.key === 'Enter') {
+        // Trigger click on selected item
+        if (selectedIndex !== -1) {
+          e.preventDefault();
+
+          if (selectedSection === 'search' && displaySearchList) {
+            const item = searchList[selectedIndex];
+            handleSearchItemClick(item);
+          } else if (
+            selectedSection === 'bookmark' &&
+            displayBookmarkList &&
+            localData?.bookmarkData
+          ) {
+            const item = localData.bookmarkData[selectedIndex];
+            handleBookmarkItemClick(item);
+          } else if (
+            selectedSection === 'history' &&
+            displayHistoryList &&
+            localData?.historyData
+          ) {
+            const item = localData.historyData[selectedIndex];
+            handleHistoryItemClick(item);
+          }
+        }
+      }
+    };
+
+    globalThis.addEventListener('keydown', handleKeyDown);
+    return () => {
+      globalThis.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [
+    selectedIndex,
+    selectedSection,
+    searchCount,
+    bookmarkCount,
+    historyCount,
+    displaySearchList,
+    displayBookmarkList,
+    displayHistoryList,
+    handleSearchItemClick,
+    handleBookmarkItemClick,
+    handleHistoryItemClick,
+    searchList,
+    localData?.bookmarkData,
+    localData?.historyData,
+  ]);
+
   const renderList = useCallback(
     (list: IDApp[]) =>
       list.map((item, index) => (
@@ -102,47 +347,26 @@ export function SearchResultContent({
           subtitleProps={{
             numberOfLines: 1,
           }}
-          onPress={() => {
-            onItemClick?.(item);
-
-            if (item.dappId === SEARCH_ITEM_ID) {
-              handleWebSite({
-                webSite: {
-                  url: searchValue,
-                  title: searchValue,
-                },
-                useCurrentWindow,
-                tabId,
-                enterMethod: EEnterMethod.search,
-              });
-            } else {
-              handleWebSite({
-                dApp: item,
-                useCurrentWindow,
-                tabId,
-                enterMethod: EEnterMethod.search,
-              });
-            }
-          }}
+          bg={
+            selectedSection === 'search' && selectedIndex === index
+              ? '$bgActive'
+              : undefined
+          }
+          onPress={() => handleSearchItemClick(item)}
           testID={`dapp-search${index}`}
         />
       )),
-    [
-      onItemClick,
-      SEARCH_ITEM_ID,
-      handleWebSite,
-      searchValue,
-      useCurrentWindow,
-      tabId,
-    ],
+    [handleSearchItemClick, selectedSection, selectedIndex],
   );
 
   return (
     <>
-      {displaySearchList ? renderList(searchList) : null}
+      {displaySearchList ? (
+        <Stack ref={searchListRef}>{renderList(searchList)}</Stack>
+      ) : null}
 
       {displayBookmarkList ? (
-        <Stack>
+        <Stack ref={bookmarkListRef}>
           <DappSearchModalSectionHeader
             title={intl.formatMessage({
               id: ETranslations.explore_bookmarks,
@@ -164,19 +388,16 @@ export function SearchResultContent({
                 $gtMd={{
                   flexBasis: '16.66666667%',
                 }}
-                onPress={() => {
-                  onItemClick?.(item);
-
-                  handleWebSite({
-                    webSite: {
-                      url: item.url,
-                      title: item.title,
-                    },
-                    useCurrentWindow,
-                    tabId,
-                    enterMethod: EEnterMethod.bookmarkInSearch,
-                  });
-                }}
+                onPress={() => handleBookmarkItemClick(item)}
+                focusStyle={{ bg: '$bgActive' }}
+                hoverStyle={{ bg: '$bgHover' }}
+                pressStyle={{ bg: '$bgActive' }}
+                borderRadius="$3"
+                bg={
+                  selectedSection === 'bookmark' && selectedIndex === index
+                    ? '$bgActive'
+                    : undefined
+                }
               >
                 <DiscoveryIcon uri={item.logo} size="$14" borderRadius="$3" />
                 <SizableText
@@ -197,7 +418,7 @@ export function SearchResultContent({
         </Stack>
       ) : null}
       {displayHistoryList ? (
-        <Stack pt="$5">
+        <Stack pt="$5" ref={historyListRef}>
           <DappSearchModalSectionHeader
             title={intl.formatMessage({
               id: ETranslations.browser_recently_closed,
@@ -235,19 +456,12 @@ export function SearchResultContent({
                 numberOfLines: 1,
               }}
               testID={`search-modal-${item.title.toLowerCase()}`}
-              onPress={() => {
-                onItemClick?.(item);
-
-                handleWebSite({
-                  webSite: {
-                    url: item.url,
-                    title: item.title,
-                  },
-                  useCurrentWindow,
-                  tabId,
-                  enterMethod: EEnterMethod.historyInSearch,
-                });
-              }}
+              bg={
+                selectedSection === 'history' && selectedIndex === index
+                  ? '$bgActive'
+                  : undefined
+              }
+              onPress={() => handleHistoryItemClick(item)}
             />
           ))}
         </Stack>
