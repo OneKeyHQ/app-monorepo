@@ -1,6 +1,8 @@
 import axios from 'axios';
 import { isPlainObject } from 'lodash';
 
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
+
 import { EAppEventBusNames, appEventBus } from '../../eventBus/appEventBus';
 import { EOneKeyErrorClassNames, type IOneKeyError } from '../types/errorTypes';
 
@@ -57,6 +59,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       method: 'error',
       title: err?.message ?? 'Error',
       message: err?.requestId,
+      i18nKey: err?.key as ETranslations | undefined,
     });
   }
 }

@@ -38,6 +38,7 @@ import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
@@ -48,10 +49,7 @@ import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDe
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import {
-  HARDWARE_BRIDGE_DOWNLOAD_URL,
-  HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
-} from '@onekeyhq/shared/src/config/appConfig';
+import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -226,15 +224,11 @@ function ConnectByQrCodeComingSoon() {
 function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
   return (
     <Stack>
-      <Dialog.RichDescription
-        linkList={{
-          url: {
-            url: HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
-          },
-        }}
-      >
-        {ETranslations.onboarding_install_onekey_bridge_help_text}
-      </Dialog.RichDescription>
+      <HyperlinkText
+        size="$bodyLg"
+        mt="$1.5"
+        translationId={ETranslations.onboarding_install_onekey_bridge_help_text}
+      />
     </Stack>
   );
 }
