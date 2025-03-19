@@ -11,6 +11,7 @@ import type { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
+import { SEARCH_ITEM_ID } from './useSearchModalData';
 import { useActiveTabId, useWebTabDataById } from './useWebTabs';
 
 import type { IBrowserBookmark, IBrowserHistory } from '../types';
@@ -51,22 +52,7 @@ export const useWebSiteHandler = () => {
         return;
       }
 
-      console.log('limi-url', url, title);
-
-      // If current active tab is of type 'home', change it to 'normal' and update its URL
-      if (activeTab?.type === 'home' && !useSystemBrowser) {
-        setWebTabData({
-          id: activeTab.id,
-          url,
-          title,
-          type: 'normal',
-          isPinned: activeTab.isPinned,
-        });
-
-        if (shouldPopNavigation) {
-          navigation.pop();
-        }
-      } else if (useSystemBrowser) {
+      if (useSystemBrowser) {
         openUrlExternal(url);
       } else {
         handleOpenWebSite({
@@ -77,6 +63,7 @@ export const useWebSiteHandler = () => {
           switchToMultiTabBrowser: gtMd,
           useCurrentWindow,
           tabId,
+          type: 'normal',
         });
       }
 
@@ -86,6 +73,6 @@ export const useWebSiteHandler = () => {
         enterMethod,
       });
     },
-    [activeTab, setWebTabData, navigation, handleOpenWebSite, gtMd],
+    [navigation, handleOpenWebSite, gtMd],
   );
 };

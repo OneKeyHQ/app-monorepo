@@ -8,7 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IFuseResultMatch } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
-const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
+export const SEARCH_ITEM_ID = 'SEARCH_ITEM_ID';
 const GOOGLE_LOGO_URL = 'https://uni.onekey-asset.com/static/logo/google.png';
 
 export interface ILocalDataType {
@@ -74,9 +74,7 @@ export function useSearchModalData(searchValue: string) {
           name: `${intl.formatMessage({
             id: ETranslations.explore_search_placeholder,
           })} "${searchValue}"`,
-          url: `https://www.google.com/search?q=${encodeURIComponent(
-            searchValue,
-          )}`,
+          url: '',
           logo: GOOGLE_LOGO_URL,
         } as IDApp,
         ...otherResults,
