@@ -342,7 +342,6 @@ const SwapQuoteResult = ({
   ) {
     return null;
   }
-
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
     if (quoting || swapQuoteLoading) {
       return (
