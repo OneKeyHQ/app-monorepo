@@ -164,6 +164,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         </YStack>
       </Stack>
       <Dialog.Footer
+        showCancelButton={false}
         confirmButtonProps={{
           loading: isSubmittingVerificationCode,
           disabled: verificationCode.length !== 6,
