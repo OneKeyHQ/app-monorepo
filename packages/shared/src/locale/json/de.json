@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "Sind Sie sicher, dass Sie die Bestellung {orderID} stornieren möchten?",
   "limit.cancel_order_off_chain_tip": "Dies ist eine <underline>off-chain</underline> Stornierung. Es erfordert eine Signatur und ist kostenlos.",
   "limit.cancel_order_title": "Bestellung stornieren",
+  "limit.est_fee": "Geschätzte Gebühr",
+  "limit.est_to": "Geschätzt auf",
   "limit.history_fill_sold": "{num1} {token1} verkauft für insgesamt {num2} {token2}",
   "limit.network_cost_dialog_content": "Die Netzwerkgebühr für diese Bestellung ist im Vergleich zum Gesamtbestellbetrag relativ hoch. Es ist unwahrscheinlich, dass diese Bestellung ausgeführt wird, oder der Ausführungspreis kann stark von Ihrem Limitpreis abweichen.",
   "limit.order_card_network": "Netzwerk:",

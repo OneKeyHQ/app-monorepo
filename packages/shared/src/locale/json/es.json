@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "¿Está seguro de que desea cancelar el pedido {orderID}",
   "limit.cancel_order_off_chain_tip": "Esta es una cancelación <underline>fuera de la cadena</underline>. Requiere una firma y es gratuita.",
   "limit.cancel_order_title": "Cancelar pedido",
+  "limit.est_fee": "Cuota est.",
+  "limit.est_to": "Estimado a",
   "limit.history_fill_sold": "{num1} {token1} vendido por un total de {num2} {token2}",
   "limit.network_cost_dialog_content": "La tarifa de red para este pedido es relativamente alta en comparación con el monto total del pedido. Es poco probable que este pedido se complete o que el precio de ejecución difiera mucho de su precio límite.",
   "limit.order_card_network": "Red:",
