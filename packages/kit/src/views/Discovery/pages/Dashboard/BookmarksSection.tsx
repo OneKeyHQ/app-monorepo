@@ -31,11 +31,7 @@ export function BookmarksSection() {
   const navigation = useAppNavigation();
   const handleWebSite = useWebSiteHandler();
 
-  const {
-    result: bookmarksData,
-    run: refreshLocalData,
-    isLoading: isLoadingBookmarks,
-  } = usePromiseResult(
+  const { result: bookmarksData, run: refreshLocalData } = usePromiseResult(
     async () => {
       const bookmarks =
         await backgroundApiProxy.serviceDiscovery.getBookmarkData({
