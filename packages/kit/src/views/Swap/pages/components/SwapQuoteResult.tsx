@@ -53,7 +53,6 @@ import { useSwapQuoteLoading } from '../../hooks/useSwapState';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
-import { isNil } from 'lodash';
 
 interface ISwapQuoteResultProps {
   quoteResult?: IFetchQuoteResult;
