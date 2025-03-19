@@ -787,9 +787,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           (await this.getDeviceSafe(wallet.associatedDevice));
         const label = device?.featuresInfo?.label;
         const deviceType = device?.deviceType;
-        const serialNo = device?.featuresInfo
-          ? deviceUtils.getDeviceSerialNoFromFeatures(device?.featuresInfo)
-          : undefined;
+        const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
+          device?.featuresInfo,
+        );
         if (device && deviceType === EDeviceType.Pro && serialNo) {
           const imgFromSerialNo = getDeviceAvatarImage(deviceType, serialNo);
           if (imgFromSerialNo !== avatarInfo?.img) {

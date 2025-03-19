@@ -51,7 +51,9 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
   return result;
 }
 
-function getDeviceSerialNoFromFeatures(features: IOneKeyDeviceFeatures) {
+function getDeviceSerialNoFromFeatures(
+  features: IOneKeyDeviceFeatures | undefined,
+) {
   return (
     features?.onekey_serial_no ?? features?.onekey_serial ?? features?.serial_no
   );
