@@ -147,6 +147,7 @@ function BookmarkListModal() {
           title: item.title,
         },
         enterMethod: EEnterMethod.bookmark,
+        shouldPopNavigation: true,
       });
     },
     [handleWebSite],

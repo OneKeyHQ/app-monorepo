@@ -104,6 +104,9 @@ function SearchModal() {
             SEARCH_ITEM_ID={SEARCH_ITEM_ID}
             useCurrentWindow={useCurrentWindow}
             tabId={tabId}
+            onItemClick={() => {
+              navigation.pop();
+            }}
           />
         </ScrollView>
       </Page.Body>
