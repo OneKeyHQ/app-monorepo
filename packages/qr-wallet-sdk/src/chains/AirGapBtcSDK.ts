@@ -2,7 +2,9 @@ import { KeystoneBitcoinSDK } from '@keystonehq/keystone-sdk';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-export class AirGapBtcSDK extends KeystoneBitcoinSDK {
+import type { IAirGapSDK } from '../types';
+
+export class AirGapBtcSDK extends KeystoneBitcoinSDK implements IAirGapSDK {
   normalizeGetMultiAccountsPath(path: string) {
     return accountUtils.removePathLastSegment({
       path,

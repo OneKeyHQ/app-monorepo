@@ -6,7 +6,9 @@ import { KeystoneEthereumSDK } from '@keystonehq/keystone-sdk';
 
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
-export class AirGapEthSDK extends KeystoneEthereumSDK {
+import type { IAirGapSDK } from '../types';
+
+export class AirGapEthSDK extends KeystoneEthereumSDK implements IAirGapSDK {
   normalizeGetMultiAccountsPath(path: string) {
     return accountUtils.removePathLastSegment({
       path,

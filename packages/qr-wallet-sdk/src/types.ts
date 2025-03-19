@@ -53,6 +53,10 @@ export type IAirGapGenerateSignRequestParams =
   | IAirGapGenerateSignRequestParamsBtc
   | IAirGapGenerateSignRequestParamsSol;
 
+export interface IAirGapSDK {
+  normalizeGetMultiAccountsPath(path: string): string;
+}
+
 export {
   AirGapCryptoHDKeyEvm,
   AirGapEthSignRequestEvm,
