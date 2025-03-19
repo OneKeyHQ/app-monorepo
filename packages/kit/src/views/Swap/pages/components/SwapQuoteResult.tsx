@@ -267,9 +267,11 @@ const SwapQuoteResult = ({
     });
     return `${allFeeFiatValueFormat as string}`;
   }, [
-    quoteResult?.networkCostBuyAmount,
     quoteResult?.fee?.estimatedFeeFiatValue,
-    quoteResult?.toTokenInfo?.symbol,
+    quoteResult?.oneKeyFeeExtraInfo,
+    toToken?.price,
+    quoteResult?.kind,
+    fromToken?.price,
     settingsPersistAtom.currencyInfo.symbol,
   ]);
 
@@ -293,9 +295,9 @@ const SwapQuoteResult = ({
               id: ETranslations.limit_order_info_network_cost,
             })}
           </SizableText>
-          <SizableText size="$bodyMdMedium">{`${networkCostBuyAmountFormat} ${
-            quoteResult?.toTokenInfo?.symbol ?? ''
-          }`}</SizableText>
+          <SizableText size="$bodyMdMedium">{`${
+            networkCostBuyAmountFormat as string
+          } ${quoteResult?.toTokenInfo?.symbol ?? ''}`}</SizableText>
         </XStack>
         <XStack justifyContent="space-between">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
@@ -303,7 +305,9 @@ const SwapQuoteResult = ({
               id: ETranslations.provider_ios_popover_onekey_fee,
             })}
           </SizableText>
-          <SizableText size="$bodyMdMedium">{`${oneKeyFeeCostFormat} ${
+          <SizableText size="$bodyMdMedium">{`${
+            oneKeyFeeCostFormat as string
+          } ${
             quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeSymbol ?? ''
           }`}</SizableText>
         </XStack>
@@ -320,7 +324,13 @@ const SwapQuoteResult = ({
         </XStack>
       </YStack>
     );
-  }, [quoteResult?.fee?.isFreeNetworkFee, intl]);
+  }, [
+    quoteResult?.oneKeyFeeExtraInfo,
+    quoteResult?.networkCostBuyAmount,
+    quoteResult?.toTokenInfo?.symbol,
+    intl,
+    allCostFeeFormatValue,
+  ]);
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
   });
