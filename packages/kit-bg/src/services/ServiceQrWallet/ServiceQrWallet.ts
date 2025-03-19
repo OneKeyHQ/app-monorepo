@@ -35,6 +35,7 @@ import ServiceBase from '../ServiceBase';
 import { UR_DEFAULT_ORIGIN } from './qrWalletConsts';
 
 import type { IDBDevice, IDBWalletId } from '../../dbs/local/types';
+import type { KeyringQrBase } from '../../vaults/base/KeyringQrBase';
 import type {
   IAnimationValue,
   IQRCodeHandlerParseResult,
@@ -180,7 +181,9 @@ class ServiceQrWallet extends ServiceBase {
       networkId,
     });
 
-    return vault.keyring.normalizeGetMultiAccountsPath({ path });
+    return (vault.keyring as KeyringQrBase).normalizeGetMultiAccountsPath({
+      path,
+    });
   }
 
   @backgroundMethod()

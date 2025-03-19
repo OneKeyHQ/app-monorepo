@@ -41,7 +41,7 @@ export abstract class KeyringQrBase extends KeyringBase {
 
   abstract verifySignedTxMatched(...args: any[]): Promise<void>;
 
-  abstract override normalizeGetMultiAccountsPath(
+  abstract normalizeGetMultiAccountsPath(
     params: INormalizeGetMultiAccountsPathParams,
   ): Promise<string>;
 

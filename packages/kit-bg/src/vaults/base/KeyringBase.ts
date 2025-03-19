@@ -292,12 +292,6 @@ export abstract class KeyringBase extends VaultContext {
   ): string {
     throw new NotImplemented();
   }
-
-  async normalizeGetMultiAccountsPath(
-    params: INormalizeGetMultiAccountsPathParams,
-  ): Promise<string> {
-    throw new NotImplemented();
-  }
 }
 
 // @ts-ignore
