@@ -4,7 +4,6 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   SizableText,
   Stack,
   useIsIpadLandscape,
@@ -54,7 +53,6 @@ export function HeaderRight({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const isIpadLandscape = useIsIpadLandscape();
   const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
