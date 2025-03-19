@@ -1,8 +1,8 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import { Icon, Input, Popover, Stack, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,56 +12,112 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
+import { SearchResultContent } from '../../../components/SearchResultContent';
+import { useSearchModalData } from '../../../hooks/useSearchModalData';
+
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 
 export function SearchInput() {
   const intl = useIntl();
+  const [searchValue, setSearchValue] = useState('');
+  const {
+    localData,
+    searchList,
+    displaySearchList,
+    displayBookmarkList,
+    displayHistoryList,
+    SEARCH_ITEM_ID,
+  } = useSearchModalData(searchValue);
 
   const navigation = useAppNavigation();
   const handleSearchBarPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
+    if (platformEnv.isDesktop) {
+      navigation.pushModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.SearchModal,
+      });
+    }
   }, [navigation]);
 
-  return (
-    <XStack
-      testID="search-input"
-      gap="$2"
+  const hasResults =
+    displaySearchList || displayBookmarkList || displayHistoryList;
+
+  const inputContent = (
+    <Stack
       position="relative"
       width="100%"
-      backgroundColor="$bgStrong"
-      borderRadius="$full"
-      alignItems="center"
-      hoverStyle={{
-        cursor: 'pointer',
+      $gtSm={{ w: 384 }}
+      onPress={handleSearchBarPress}
+      pressStyle={{
         opacity: 0.8,
       }}
-      pressStyle={{
-        opacity: 1,
-      }}
-      onPress={handleSearchBarPress}
-      p="$3"
-      $gtSm={{
-        w: 384,
-      }}
+      cursor="pointer"
     >
-      <Icon name="SearchOutline" size="$5" color="$textSubdued" />
-
-      <Stack flex={1}>
-        <SizableText size="$bodyLg" color="$textPlaceholder">
-          {intl.formatMessage({
-            id: ETranslations.browser_search_dapp_or_enter_url,
-          })}
-        </SizableText>
-      </Stack>
+      <Input
+        testID="search-input"
+        placeholder={intl.formatMessage({
+          id: ETranslations.browser_search_dapp_or_enter_url,
+        })}
+        readonly
+        size="large"
+        leftIconName="SearchOutline"
+        onFocus={handleSearchBarPress}
+        value={searchValue}
+        onChangeText={setSearchValue}
+        addOns={
+          hasResults
+            ? [
+                {
+                  iconName: 'ChevronDownSmallOutline',
+                },
+              ]
+            : undefined
+        }
+        containerProps={{
+          alignItems: 'center',
+        }}
+      />
 
       {platformEnv.isDesktop ? (
-        <XStack gap="$1">
+        <XStack
+          position="absolute"
+          right="$3"
+          top="50%"
+          style={{ transform: [{ translateY: -12 }] }}
+          gap="$1"
+          pointerEvents="none"
+        >
           <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
           <KeyboardShortcutKey label="T" />
         </XStack>
       ) : null}
-    </XStack>
+    </Stack>
+  );
+
+  if (!hasResults) {
+    return inputContent;
+  }
+
+  return (
+    <Popover
+      title="Search Results"
+      placement="bottom-end"
+      renderTrigger={inputContent}
+      renderContent={({ closePopover }) => (
+        <Stack p="$2" maxHeight={400}>
+          <SearchResultContent
+            searchValue={searchValue}
+            localData={localData}
+            searchList={searchList}
+            displaySearchList={displaySearchList}
+            displayBookmarkList={displayBookmarkList}
+            displayHistoryList={displayHistoryList}
+            SEARCH_ITEM_ID={SEARCH_ITEM_ID}
+            onItemClick={() => {
+              closePopover();
+            }}
+          />
+        </Stack>
+      )}
+    />
   );
 }
