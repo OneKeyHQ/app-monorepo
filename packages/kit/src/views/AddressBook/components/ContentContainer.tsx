@@ -114,7 +114,7 @@ const UnsafeAlert = () => {
       cancelButtonProps: {
         icon: 'Copy2Outline',
       },
-      onCancel: async (close) => {
+      onCancel: async (_close) => {
         const text =
           await backgroundApiProxy.serviceAddressBook.stringifyItems();
         copyText(text);
