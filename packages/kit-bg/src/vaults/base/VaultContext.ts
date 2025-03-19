@@ -65,6 +65,10 @@ export class VaultContext {
     return networkUtils.getNetworkImpl({ networkId: this.networkId });
   }
 
+  async getNetworkChainCode() {
+    return networkUtils.getNetworkChainCode({ networkId: this.networkId });
+  }
+
   async getVaultSettings() {
     return getVaultSettings({ networkId: this.networkId });
   }

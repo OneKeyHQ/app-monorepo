@@ -50,6 +50,12 @@ function getNetworkImpl({ networkId }: { networkId: string }): string {
   return impl;
 }
 
+function getNetworkChainCode({ networkId }: { networkId: string }): string {
+  const presetNetworks = getPresetNetworks();
+  const network = presetNetworks.find((n) => n.id === networkId);
+  return network?.code ?? '';
+}
+
 function isEvmNetwork({ networkId }: { networkId: string | undefined }) {
   return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_EVM);
 }
@@ -196,6 +202,7 @@ function getLocalNetworkInfo(networkId: string) {
 
 export default {
   getNetworkChainId,
+  getNetworkChainCode,
   getNetworkImpl,
   isEvmNetwork,
   parseNetworkId,
