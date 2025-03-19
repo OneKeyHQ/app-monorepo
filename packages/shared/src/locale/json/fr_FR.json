@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "Êtes-vous sûr de vouloir annuler la commande {orderID}",
   "limit.cancel_order_off_chain_tip": "Ceci est une annulation <underline>hors chaîne</underline>. Elle nécessite une signature et est gratuite.",
   "limit.cancel_order_title": "Annuler la commande",
+  "limit.est_fee": "Frais estimés",
+  "limit.est_to": "Est. à",
   "limit.history_fill_sold": "{num1} {token1} vendu pour un total de {num2} {token2}",
   "limit.network_cost_dialog_content": "Les frais de réseau pour cette commande sont relativement élevés par rapport au montant total de la commande. Il est peu probable que cette commande soit exécutée ou le prix d'exécution peut différer beaucoup de votre prix limite.",
   "limit.order_card_network": "Réseau:",

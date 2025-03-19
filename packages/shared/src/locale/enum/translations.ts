@@ -1401,6 +1401,8 @@
   limit_cancel_order_content = 'limit.cancel_order_content',
   limit_cancel_order_off_chain_tip = 'limit.cancel_order_off_chain_tip',
   limit_cancel_order_title = 'limit.cancel_order_title',
+  limit_est_fee = 'limit.est_fee',
+  limit_est_to = 'limit.est_to',
   limit_history_fill_sold = 'limit.history_fill_sold',
   limit_network_cost_dialog_content = 'limit.network_cost_dialog_content',
   limit_order_card_network = 'limit.order_card_network',

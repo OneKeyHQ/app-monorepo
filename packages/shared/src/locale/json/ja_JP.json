@@ -1396,6 +1396,8 @@
   "limit.cancel_order_content": "注文 {orderID} をキャンセルしてもよろしいですか",
   "limit.cancel_order_off_chain_tip": "これは<underline>オフチェーン</underline>のキャンセルです。署名が必要で、手数料は無料です。",
   "limit.cancel_order_title": "注文をキャンセル",
+  "limit.est_fee": "推定料金",
+  "limit.est_to": "推定～",
   "limit.history_fill_sold": "{num1} {token1}合計{num2}の{token2}で販売されました",
   "limit.network_cost_dialog_content": "この注文のネットワーク手数料は、合計注文金額と比較して比較的高いです。この注文が成立する可能性は低いか、実行価格があなたの指値価格と大きく異なる可能性があります。",
   "limit.order_card_network": "ネットワーク：",
