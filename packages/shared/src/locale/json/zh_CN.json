@@ -2472,6 +2472,8 @@
   "update.update_in_official_web_tool_desc_copy": "您的硬件钱包固件需要更新，\n请在您的电脑上访问 firmware.onekey.so，以进行升级操作。",
   "update.update_incomplete_cta_text": "手动安装",
   "update.update_incomplete_desc": "您的先前安装可能由于未知原因被阻止。点击「手动安装」以打开安装包，然后将 app 到应用程序文件夹以完成更新。",
+  "update.update_incomplete_desc_linux": "您的先前安装可能因未知原因被阻止。点击「手动安装」以打开文件资源管理器，然后手动安装 .AppImage 文件。",
+  "update.update_incomplete_desc_windows": "您的先前安装可能因未知原因被阻止。点击「手动安装」以打开文件资源管理器，然后双击 .exe 文件进行安装。",
   "update.update_incomplete_footnote": "*如果您下载的文件是 .zip，请先双击解压缩，然后将应用程序拖到 Finder 侧边栏中的应用程序文件夹中。",
   "update.update_incomplete_package_missing_desc": "系统检测到您上次的客户端更新未能完成安装。您可以立即重新尝试更新，或稍后再进行。",
   "update.update_incomplete_text": "更新未完成",

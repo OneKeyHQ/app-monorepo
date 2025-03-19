@@ -2477,6 +2477,8 @@
   update_update_in_official_web_tool_desc_copy = 'update.update_in_official_web_tool_desc_copy',
   update_update_incomplete_cta_text = 'update.update_incomplete_cta_text',
   update_update_incomplete_desc = 'update.update_incomplete_desc',
+  update_update_incomplete_desc_linux = 'update.update_incomplete_desc_linux',
+  update_update_incomplete_desc_windows = 'update.update_incomplete_desc_windows',
   update_update_incomplete_footnote = 'update.update_incomplete_footnote',
   update_update_incomplete_package_missing_desc = 'update.update_incomplete_package_missing_desc',
   update_update_incomplete_text = 'update.update_incomplete_text',

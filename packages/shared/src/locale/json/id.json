@@ -2472,6 +2472,8 @@
   "update.update_in_official_web_tool_desc_copy": "Firmware dompet hardware Anda memerlukan pembaruan. Silakan kunjungi firmware.onekey.so di komputer Anda untuk melanjutkan peningkatan.",
   "update.update_incomplete_cta_text": "Instalasi manual",
   "update.update_incomplete_desc": "Instalasi sebelumnya mungkin telah diblokir karena alasan yang tidak diketahui. Klik 'Instalasi Manual' untuk membuka paket, lalu seret aplikasi ke folder Aplikasi untuk menyelesaikan pembaruan.",
+  "update.update_incomplete_desc_linux": "Instalasi sebelumnya mungkin telah diblokir karena alasan yang tidak diketahui. Klik 'Instalasi Manual' untuk membuka penjelajah file, lalu instal file .AppImage secara manual.",
+  "update.update_incomplete_desc_windows": "Instalasi sebelumnya mungkin telah diblokir karena alasan yang tidak diketahui. Klik 'Instalasi Manual' untuk membuka penjelajah file, lalu klik dua kali file .exe untuk menginstal.",
   "update.update_incomplete_footnote": "*Jika file yang Anda unduh adalah .zip, klik dua kali untuk mengekstraknya terlebih dahulu, lalu seret aplikasi ke folder Aplikasi di bilah samping Finder Anda.",
   "update.update_incomplete_package_missing_desc": "Sistem telah mendeteksi bahwa pembaruan klien Anda sebelumnya tidak selesai. Anda dapat mencoba pembaruan lagi sekarang atau melakukannya nanti.",
   "update.update_incomplete_text": "Pembaruan tidak lengkap",

@@ -2472,6 +2472,8 @@
   "update.update_in_official_web_tool_desc_copy": "Your hardware wallet firmware requires an update.\nPlease visit firmware.onekey.so on your computer to proceed with the upgrade.",
   "update.update_incomplete_cta_text": "Manual install",
   "update.update_incomplete_desc": "Your previous installation may have been blocked for unknown reasons. Click 'Manual Install' to open the package, then drag the app to the Applications folder to complete the update.",
+  "update.update_incomplete_desc_linux": "Your previous installation may have been blocked for unknown reasons. Click 'Manual Install' to open the file explorer, then install the .AppImage file manually.",
+  "update.update_incomplete_desc_windows": "Your previous installation may have been blocked for unknown reasons. Click 'Manual Install' to open the file explorer, then double-click the .exe file to install.",
   "update.update_incomplete_footnote": "*If your downloaded file is a .zip, double-click to unzip it first, then drag the app into the Applications folder in your Finder sidebar.",
   "update.update_incomplete_package_missing_desc": "The system has detected that your previous client update was not completed. You can retry the update now or do it later.",
   "update.update_incomplete_text": "Update incomplete",
