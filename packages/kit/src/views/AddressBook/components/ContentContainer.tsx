@@ -140,7 +140,7 @@ const UnsafeAlert = () => {
           id: ETranslations.address_book_button_reset,
         })}
         onConfirm={onConfirm}
-        onCancel={async (close) => {
+        onCancel={async (_close) => {
           const text =
             await backgroundApiProxy.serviceAddressBook.stringifyItems();
           copyText(text);

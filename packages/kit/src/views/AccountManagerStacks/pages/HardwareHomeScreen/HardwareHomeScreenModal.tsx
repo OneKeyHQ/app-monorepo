@@ -438,7 +438,7 @@ export default function HardwareHomeScreenModal({
           disabled: !selectedItem || isLoading,
           loading: isLoading,
         }}
-        onConfirm={async (close) => {
+        onConfirm={async (_close) => {
           try {
             if (!device?.id || !selectedItem) {
               return;
