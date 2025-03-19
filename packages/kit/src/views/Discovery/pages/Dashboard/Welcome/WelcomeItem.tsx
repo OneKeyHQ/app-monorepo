@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
-import { Image, Stack } from '@onekeyhq/components';
+import { Image, Stack, useThemeValue } from '@onekeyhq/components';
 import { useWebSiteHandler } from '@onekeyhq/kit/src/views/Discovery/hooks/useWebSiteHandler';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 
@@ -19,35 +19,34 @@ import type { ImageSourcePropType, ImageURISource } from 'react-native';
 // Animation constants
 const FADE_IN_DURATION = 1000;
 const FADE_IN_DELAY = 1000;
-const FLOAT_MIN_DISTANCE = 3;
-const FLOAT_MAX_DISTANCE = 7;
+const FLOAT_MIN_DISTANCE = 2;
+const FLOAT_MAX_DISTANCE = 4;
 const FLOAT_DURATION_BASE = 2000;
 const FLOAT_DURATION_VARIANCE = 1000;
 const FLOAT_MAX_DELAY = 500;
 
-const ROTATION_MIN_ANGLE = -20;
-const ROTATION_MAX_ANGLE = 20;
-const ROTATION_DURATION_BASE = 2000;
-const ROTATION_DURATION_VARIANCE = 1000;
+const ROTATION_MIN_ANGLE = -5;
+const ROTATION_MAX_ANGLE = 5;
+const ROTATION_DURATION_BASE = 4000;
+const ROTATION_DURATION_VARIANCE = 2000;
 const ROTATION_MAX_DELAY = 300;
 
 const SCALE_MIN_FACTOR = 1;
-const SCALE_MAX_FACTOR = 1.2;
-const SCALE_DURATION_BASE = 2500;
+const SCALE_MAX_FACTOR = 1.1;
+const SCALE_DURATION_BASE = 3500;
 const SCALE_DURATION_VARIANCE = 1000;
 const SCALE_MAX_DELAY = 1000;
 
-const DEFAULT_SHADOW_OPACITY = 0.2;
-const HOVER_SHADOW_OPACITY = 0.5;
-const ANIMATION_SHADOW_OPACITY = 0.4;
+const DEFAULT_SHADOW_OPACITY = 0.3;
+const HOVER_SHADOW_OPACITY = 0.2;
+const ANIMATION_SHADOW_OPACITY = 0.25;
 
 const HOVER_TRANSITION_DURATION = 300;
 const HOVER_SCALE_FACTOR = 1.2;
 
-const SHADOW_COLOR = '#444';
-const SHADOW_OFFSET = { width: 2, height: 8 };
-const SHADOW_RADIUS = 22;
-const ELEVATION = 5;
+const SHADOW_OFFSET = { width: 0, height: 12 };
+const BASE_SHADOW_RADIUS = 32;
+const BASE_ELEVATION = 10;
 
 // Helper function to create random value within range
 const getRandomInRange = (min: number, max: number) =>
@@ -93,6 +92,7 @@ export const WelcomeItem = memo(
     size = '$12',
     borderRadius = 12,
     maxOpacity = 1,
+    initialRotation = 0,
     ...stackProps
   }: {
     logo: ImageURISource | ImageURISource['uri'];
@@ -100,13 +100,15 @@ export const WelcomeItem = memo(
     size?: string;
     borderRadius?: number;
     maxOpacity?: number;
+    initialRotation?: number;
   } & React.ComponentProps<typeof Stack>) => {
     const opacity = useSharedValue(0);
     const translateY = useSharedValue(0);
-    const rotate = useSharedValue(0);
+    const rotate = useSharedValue(initialRotation);
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(DEFAULT_SHADOW_OPACITY);
     const handleWebSite = useWebSiteHandler();
+    const shadowColor = useThemeValue('shadowColor');
 
     useEffect(() => {
       setTimeout(
@@ -133,7 +135,10 @@ export const WelcomeItem = memo(
 
       const rotationAngle =
         getRandomInRange(ROTATION_MIN_ANGLE, ROTATION_MAX_ANGLE) *
-        (Math.random() > 0.5 ? 1 : -1);
+          (Math.random() > 0.5 ? 1 : -1) *
+          0.4 +
+        initialRotation;
+
       const rotationDuration = getRandomInRange(
         ROTATION_DURATION_BASE,
         ROTATION_DURATION_BASE + ROTATION_DURATION_VARIANCE,
@@ -175,7 +180,15 @@ export const WelcomeItem = memo(
         duration: scaleDuration,
         delay: scaleDelay,
       });
-    }, [opacity, translateY, rotate, scale, shadowOpacity, maxOpacity]);
+    }, [
+      opacity,
+      translateY,
+      rotate,
+      scale,
+      shadowOpacity,
+      maxOpacity,
+      initialRotation,
+    ]);
 
     const handleHoverIn = () => {
       // Cancel and reset animations
@@ -205,7 +218,10 @@ export const WelcomeItem = memo(
       // Restart rotation animation with new random values
       const rotationAngle =
         getRandomInRange(ROTATION_MIN_ANGLE, ROTATION_MAX_ANGLE) *
-        (Math.random() > 0.5 ? 1 : -1);
+          (Math.random() > 0.5 ? 1 : -1) *
+          0.4 +
+        initialRotation;
+
       rotate.value = withRepeat(
         withTiming(rotationAngle, {
           duration: getRandomInRange(
@@ -239,14 +255,15 @@ export const WelcomeItem = memo(
         { rotate: `${rotate.value}deg` },
         { scale: scale.value },
       ],
-      shadowColor: SHADOW_COLOR,
+      shadowColor,
       shadowOffset: SHADOW_OFFSET,
-      shadowOpacity: shadowOpacity.value,
-      shadowRadius: SHADOW_RADIUS,
-      elevation: ELEVATION,
+      shadowOpacity: shadowOpacity.value * scale.value,
+      shadowRadius: BASE_SHADOW_RADIUS,
+      elevation: BASE_ELEVATION * scale.value,
       backgroundColor: 'transparent',
       borderRadius: borderRadius * scale.value * 0.5,
       overflow: 'hidden',
+      overlayColor: 'rgba(128, 128, 128, 0.3)',
     }));
 
     return (
