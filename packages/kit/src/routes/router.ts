@@ -10,7 +10,15 @@ import { fullModalRouter, modalRouter } from './Modal/router';
 import { TabNavigator } from './Tab/Navigator';
 import { useTabRouterConfig } from './Tab/router';
 
+const NotFound = LazyLoad(() => import('../components/NotFound'));
+
 export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
+  {
+    name: ERootRoutes.NotFound,
+    component: NotFound,
+    rewrite: '/not-found',
+    exact: true,
+  },
   {
     name: ERootRoutes.Main,
     component: TabNavigator,
@@ -27,14 +35,6 @@ export const rootRouter: IRootStackNavigatorConfig<ERootRoutes, any>[] = [
     type: 'iOSFullScreen',
   },
 ];
-
-if (platformEnv.isDev) {
-  const NotFound = LazyLoad(() => import('../components/NotFound'));
-  rootRouter.push({
-    name: ERootRoutes.NotFound,
-    component: NotFound,
-  });
-}
 
 export const useRootRouter = () => {
   const tabRouter = useTabRouterConfig();
