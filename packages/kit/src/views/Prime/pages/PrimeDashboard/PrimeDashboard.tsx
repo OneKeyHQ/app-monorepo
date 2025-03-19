@@ -85,7 +85,8 @@ function PrimeTerms() {
 
 export default function PrimeDashboard() {
   const intl = useIntl();
-  const { user, isLoggedIn, isPrimeSubscriptionActive } = usePrimeAuthV2();
+  const { user, isLoggedIn, isPrimeSubscriptionActive, logout } =
+    usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
   const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { isNative, isWebMobile } = platformEnv;
