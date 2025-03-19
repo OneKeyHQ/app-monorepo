@@ -15,6 +15,7 @@ import {
   IMPL_EVM,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
+  IMPL_SOL,
   SEPERATOR,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
@@ -72,8 +73,7 @@ function isLightningNetworkByNetworkId(networkId?: string) {
 }
 
 function isSolanaNetworkByNetworkId(networkId?: string) {
-  const networkIdsMap = getNetworkIdsMap();
-  return networkId === networkIdsMap.sol;
+  return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_SOL);
 }
 
 function isBTCNetwork(networkId?: string) {
