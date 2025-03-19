@@ -1,4 +1,3 @@
-import { ECoreApiExportedSecretKeyType } from '@onekeyhq/core/src/types';
 import {
   COINTYPE_CKB,
   IMPL_CKB,
