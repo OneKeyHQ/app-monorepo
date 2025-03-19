@@ -4,7 +4,16 @@ import {
 } from '@keystonehq/bc-ur-registry-eth';
 import { KeystoneEthereumSDK } from '@keystonehq/keystone-sdk';
 
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+
 export class AirGapEthSDK extends KeystoneEthereumSDK {
+  normalizeGetMultiAccountsPath(path: string) {
+    return accountUtils.removePathLastSegment({
+      path,
+      removeCount: 2,
+    });
+  }
+
   generateAddressFromXpub(params: { xpub: string; derivePath: string }) {
     // derivePath: `m/0/0`, `m/0/1` `m/0/2`
     return generateAddressFromXpub(params.xpub, params.derivePath);

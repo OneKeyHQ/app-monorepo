@@ -25,6 +25,7 @@ import type {
   IBuildPrepareAccountsPrefixedPathParams,
   IExportAccountSecretKeysParams,
   IExportAccountSecretKeysResult,
+  INormalizeGetMultiAccountsPathParams,
   IPrepareAccountsParams,
   IPrepareHdAccountsOptions,
   IPrepareHdAccountsParamsBase,
@@ -289,6 +290,12 @@ export abstract class KeyringBase extends VaultContext {
   buildPrepareAccountsPrefixedPath(
     params: IBuildPrepareAccountsPrefixedPathParams,
   ): string {
+    throw new NotImplemented();
+  }
+
+  async normalizeGetMultiAccountsPath(
+    params: INormalizeGetMultiAccountsPathParams,
+  ): Promise<string> {
     throw new NotImplemented();
   }
 }
