@@ -16,10 +16,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import type {
-  IChangeHistoryItem,
-  IChangeHistoryUpdateItem,
-} from '@onekeyhq/shared/src/types/changeHistory';
+import type { IChangeHistoryUpdateItem } from '@onekeyhq/shared/src/types/changeHistory';
 import {
   EChangeHistoryContentType,
   EChangeHistoryEntityType,
