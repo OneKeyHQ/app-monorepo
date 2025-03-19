@@ -29,20 +29,20 @@ type IItemType = {
 // Configuration for left side items
 const LEFT_SIDE_ITEMS: IItemType[] = [
   {
-    position: { top: '25%', right: '$28' },
+    position: { top: '30%', right: '$28' },
     dappIndex: 0,
     size: '$12',
     maxOpacity: 1,
     borderRadius: 18,
-    initialRotation: -5,
+    initialRotation: -15,
   },
   {
-    position: { bottom: '25%', right: '$12' },
+    position: { bottom: '30%', right: '$12' },
     dappIndex: 1,
     size: '$10',
     maxOpacity: 0.8,
     borderRadius: 14,
-    initialRotation: 3,
+    initialRotation: -10,
   },
   {
     position: { top: '30%', right: '$0' },
@@ -50,35 +50,35 @@ const LEFT_SIDE_ITEMS: IItemType[] = [
     size: '$8',
     maxOpacity: 0.6,
     borderRadius: 10,
-    initialRotation: -2,
+    initialRotation: 10,
   },
 ];
 
 // Configuration for right side items
 const RIGHT_SIDE_ITEMS: IItemType[] = [
   {
-    position: { top: '22%', left: '$28' },
+    position: { top: '30%', left: '$28' },
     dappIndex: 3,
     size: '$12',
     maxOpacity: 1,
     borderRadius: 18,
-    initialRotation: 5,
+    initialRotation: 15,
   },
   {
-    position: { bottom: '22%', left: '$11' },
+    position: { bottom: '30%', left: '$11' },
     dappIndex: 4,
     size: '$10',
     maxOpacity: 0.8,
     borderRadius: 14,
-    initialRotation: -3,
+    initialRotation: 10,
   },
   {
-    position: { top: '40%', left: '$2' },
+    position: { top: '35%', left: '$2' },
     dappIndex: 5,
     size: '$8',
     maxOpacity: 0.6,
     borderRadius: 10,
-    initialRotation: 2,
+    initialRotation: -10,
   },
 ];
 
