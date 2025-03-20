@@ -1,12 +1,19 @@
 import { useCallback } from 'react';
 
+import { useAtomValue } from 'jotai';
+
 import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import {
+  activeTabIdAtom,
+  useBrowserAction,
+} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
+
+import { useActiveTabId } from './useWebTabs';
 
 import type { IBrowserBookmark, IBrowserHistory } from '../types';
 
@@ -16,14 +23,16 @@ interface IHandleWebSiteParams {
   useSystemBrowser?: boolean;
   shouldPopNavigation?: boolean;
   useCurrentWindow?: boolean;
-  tabId?: string;
   enterMethod: EEnterMethod;
+  tabId?: string;
 }
 
 export const useWebSiteHandler = () => {
   const { handleOpenWebSite } = useBrowserAction().current;
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
+  // get current tab id
+  const { activeTabId } = useActiveTabId();
 
   return useCallback(
     ({
@@ -38,6 +47,7 @@ export const useWebSiteHandler = () => {
       const isDapp = !!dApp;
       const url = isDapp ? dApp?.url : webSite?.url;
       const title = isDapp ? dApp?.name : webSite?.title;
+      const effectiveTabId = tabId || activeTabId || '';
 
       if (!url || !title) {
         return;
@@ -53,8 +63,7 @@ export const useWebSiteHandler = () => {
           shouldPopNavigation,
           switchToMultiTabBrowser: gtMd,
           useCurrentWindow,
-          tabId,
-          type: 'normal',
+          tabId: effectiveTabId,
         });
       }
 
@@ -64,6 +73,6 @@ export const useWebSiteHandler = () => {
         enterMethod,
       });
     },
-    [navigation, handleOpenWebSite, gtMd],
+    [navigation, handleOpenWebSite, gtMd, activeTabId],
   );
 };
