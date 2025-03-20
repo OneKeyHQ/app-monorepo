@@ -1,6 +1,6 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
-import { useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -24,7 +24,6 @@ function DashboardContent({
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
   const isFocused = useIsFocused();
-  const { height: screenHeight } = useWindowDimensions();
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -128,13 +127,14 @@ function DashboardContent({
   if (platformEnv.isNative) {
     return (
       <ScrollView
+        height="100%"
         onScroll={isFocused ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={refresh} />
         }
       >
-        <Stack minHeight={screenHeight}>{content}</Stack>
+        {content}
       </ScrollView>
     );
   }
