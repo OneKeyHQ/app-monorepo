@@ -1,13 +1,8 @@
 import { useCallback } from 'react';
 
-import { useAtomValue } from 'jotai';
-
 import { useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import {
-  activeTabIdAtom,
-  useBrowserAction,
-} from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
