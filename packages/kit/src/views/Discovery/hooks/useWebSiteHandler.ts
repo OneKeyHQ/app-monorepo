@@ -26,7 +26,6 @@ export const useWebSiteHandler = () => {
   const { handleOpenWebSite } = useBrowserAction().current;
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
-  // get current tab id
   const { activeTabId } = useActiveTabId();
 
   return useCallback(
