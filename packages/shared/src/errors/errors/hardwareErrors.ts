@@ -839,7 +839,7 @@ export class HardwareCommunicationError extends OneKeyHardwareError {
   override code = HardwareErrorCode.BridgeNetworkError;
 }
 
-export class HardwareWebUSBCommunicationError extends OneKeyHardwareError {
+export class HardwareWebDeviceCommunicationError extends OneKeyHardwareError {
   constructor(props?: IOneKeyErrorHardwareProps) {
     super(
       normalizeErrorProps(props, {
@@ -851,6 +851,11 @@ export class HardwareWebUSBCommunicationError extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.WebDevicePromptAccessError;
+
+  override className =
+    EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission;
+
+  override autoToast = false;
 }
 
 // UnknownHardware

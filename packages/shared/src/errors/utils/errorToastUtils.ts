@@ -28,6 +28,7 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
       EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
       EOneKeyErrorClassNames.FirmwareUpdateExit,
       EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
+      EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission,
       EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
       EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
       EOneKeyErrorClassNames.AxiosAbortCancelError,

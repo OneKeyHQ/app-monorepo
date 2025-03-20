@@ -196,7 +196,9 @@ export function convertDeviceError(
     case HardwareErrorCode.ResponseUnexpectTypeError:
       return new HardwareErrors.ResponseUnexpectTypeError({ payload });
     case HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission:
-      return new HardwareErrors.HardwareWebUSBCommunicationError({ payload });
+      return new HardwareErrors.HardwareWebDeviceCommunicationError({
+        payload,
+      });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':
