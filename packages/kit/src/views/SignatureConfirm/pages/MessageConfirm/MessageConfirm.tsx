@@ -122,6 +122,7 @@ function MessageConfirm() {
               accountId,
               accountAddress,
               message: unsignedMessage.message,
+              swapInfo,
             }),
             backgroundApiProxy.serviceDiscovery.postSignTypedDataMessage({
               networkId,
@@ -136,6 +137,7 @@ function MessageConfirm() {
               accountId,
               accountAddress,
               message: unsignedMessage.message,
+              swapInfo,
             }),
           ];
 
@@ -192,6 +194,7 @@ function MessageConfirm() {
       accountId,
       isSignTypedDataV3orV4Method,
       unsignedMessage.message,
+      swapInfo,
       sourceInfo?.origin,
       typedData,
     ],

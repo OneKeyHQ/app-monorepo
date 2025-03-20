@@ -756,7 +756,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         dApp,
         shouldPopNavigation = true,
         switchToMultiTabBrowser = false,
-        type = 'normal',
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
@@ -765,7 +764,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         dApp?: IMatchDAppItemType['dApp'];
         shouldPopNavigation?: boolean;
         switchToMultiTabBrowser?: boolean;
-        type?: 'normal' | 'home';
       },
     ) => {
       if (webSite?.url) {
@@ -791,16 +789,27 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           }
         }
         this.setDisplayHomePage.call(set, false);
-        this.setWebTabData.call(set, {
-          id: tabId,
-          type,
-        });
-        void this.openMatchDApp.call(set, {
-          webSite,
-          dApp,
-          isNewWindow,
-          tabId,
-        });
+
+        const currentTab = this.getWebTabById.call(set, tabId ?? '');
+
+        if (currentTab?.type === 'home') {
+          const url = webSite?.url || dApp?.url;
+          const title = webSite?.title || dApp?.name;
+
+          this.setWebTabData.call(set, {
+            id: tabId,
+            type: 'normal',
+            url,
+            title,
+          });
+        } else {
+          void this.openMatchDApp.call(set, {
+            webSite,
+            dApp,
+            isNewWindow,
+            tabId,
+          });
+        }
       }, delayTime);
 
       if (switchToMultiTabBrowser || platformEnv.isDesktop) {
