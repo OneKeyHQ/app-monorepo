@@ -774,6 +774,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     ) => {
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
+        webSite.url = uriUtils.validateUrl(webSite.url);
       }
       let delayTime = 0;
       if (shouldPopNavigation) {
