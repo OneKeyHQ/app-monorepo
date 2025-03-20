@@ -13,6 +13,7 @@ import Animated, {
 import { Image, Stack, useThemeValue } from '@onekeyhq/components';
 import { useWebSiteHandler } from '@onekeyhq/kit/src/views/Discovery/hooks/useWebSiteHandler';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import type { ImageSourcePropType, ImageURISource } from 'react-native';
 
@@ -263,7 +264,9 @@ export const WelcomeItem = memo(
       backgroundColor: 'transparent',
       borderRadius: borderRadius * scale.value * 0.5,
       overflow: 'hidden',
-      overlayColor: 'rgba(128, 128, 128, 0.3)',
+      ...(platformEnv.isWeb
+        ? { overlayColor: 'rgba(128, 128, 128, 0.3)' }
+        : {}),
     }));
 
     return (

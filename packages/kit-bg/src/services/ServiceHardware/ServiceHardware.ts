@@ -114,6 +114,10 @@ class ServiceHardware extends ServiceBase {
       EAppEventBusNames.SyncDeviceLabelToWalletName,
       this.handleHardwareLabelChanged,
     );
+    appEventBus.on(
+      EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
+      this.handleHardwareAvatarChanged,
+    );
   }
 
   handleHardwareLabelChanged = cacheUtils.memoizee(
@@ -155,6 +159,29 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
         name: label,
+        shouldCheckDuplicate: false,
+      });
+    },
+    {
+      maxAge: 600,
+    },
+  );
+
+  handleHardwareAvatarChanged = cacheUtils.memoizee(
+    async ({
+      walletId,
+      avatarInfo,
+    }: IAppEventBusPayload[EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo]) => {
+      const isHw =
+        accountUtils.isHwWallet({ walletId }) &&
+        !accountUtils.isQrWallet({ walletId });
+      if (!isHw) {
+        return;
+      }
+      console.log('handleHardwareAvatarChanged');
+      await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
+        walletId,
+        avatar: avatarInfo,
         shouldCheckDuplicate: false,
       });
     },

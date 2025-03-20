@@ -12,6 +12,7 @@ import {
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
+  EParseTxComponentRole,
   EParseTxComponentType,
   EParseTxType,
 } from '@onekeyhq/shared/types/signatureConfirm';
@@ -22,6 +23,7 @@ import type {
   IParseTransactionParams,
   IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
+import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
@@ -259,7 +261,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseMessage(params: IParseMessageParams) {
-    const { accountId, networkId, message } = params;
+    const { accountId, networkId, message, swapInfo } = params;
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
       accountAddress =
@@ -296,7 +298,27 @@ class ServiceSignatureConfirm extends ServiceBase {
             ),
         },
       );
-      return resp.data.data;
+
+      const parsedMessage = resp.data.data;
+
+      if (
+        swapInfo &&
+        swapInfo.swapBuildResData.result.info.provider ===
+          ESwapProvider.Swap1inchFusion
+      ) {
+        // fix: 1inch fusion receiver address
+        parsedMessage?.display?.components?.forEach((component) => {
+          if (
+            component.type === EParseTxComponentType.Address &&
+            component.role === EParseTxComponentRole.SwapReceiver
+          ) {
+            component.address = swapInfo.receivingAddress;
+            component.tags = [];
+          }
+        });
+      }
+
+      return parsedMessage;
     } catch (e) {
       console.log('parse message failed', e);
       return null;

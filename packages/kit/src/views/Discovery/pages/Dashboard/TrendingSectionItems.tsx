@@ -21,13 +21,13 @@ export function TrendingSectionItems({
 
   useEffect(() => {
     const calculateNumberOfItems = () => {
-      if (media.gtXl) return 7;
-      if (media.gt2Md) return 6;
-      if (media.gtSm) return 10;
-      return 8;
+      if (media.sm) return 8;
+      if (media['2md']) return 10;
+      if (media.xl) return 12;
+      return 14;
     };
     setNumberOfItems(calculateNumberOfItems());
-  }, [media.gtXl, media.gt2Md, media.gtSm]);
+  }, [media.gtXl, media.gt2Md, media.gtSm, media]);
 
   return (
     <YStack flexDirection="row" flexWrap="wrap" {...restProps}>
