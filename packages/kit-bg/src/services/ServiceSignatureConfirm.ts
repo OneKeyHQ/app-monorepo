@@ -313,6 +313,7 @@ class ServiceSignatureConfirm extends ServiceBase {
             component.role === EParseTxComponentRole.SwapReceiver
           ) {
             component.address = swapInfo.receivingAddress;
+            component.tags = [];
           }
         });
       }

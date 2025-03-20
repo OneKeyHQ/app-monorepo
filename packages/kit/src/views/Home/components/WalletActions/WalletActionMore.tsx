@@ -167,7 +167,6 @@ export function WalletActionMore() {
                   type: 'sell',
                 });
               openUrlExternal(url);
-              navigation.pop();
             },
           },
         });
@@ -231,7 +230,6 @@ export function WalletActionMore() {
                 networkId: network?.id,
                 address: a?.address,
               });
-              navigation.pop();
             },
           },
         });
