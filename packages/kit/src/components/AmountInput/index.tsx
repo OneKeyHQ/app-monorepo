@@ -72,7 +72,6 @@ export function AmountInput({
   reversible,
   onChange,
   value,
-  name,
   hasError,
   valueProps,
   balanceProps,

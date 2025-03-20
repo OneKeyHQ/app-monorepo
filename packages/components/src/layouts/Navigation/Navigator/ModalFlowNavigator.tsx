@@ -43,7 +43,6 @@ const ModalStack = hasStackNavigatorModal
 
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
-  name: pageStackName,
   onMounted,
   onUnmounted,
 }: IModalFlowNavigatorProps<RouteName, P>) {
