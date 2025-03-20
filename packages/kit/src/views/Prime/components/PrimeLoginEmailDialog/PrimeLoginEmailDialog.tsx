@@ -1,14 +1,10 @@
 import { useCallback } from 'react';
 
-import { useIntl } from 'react-intl';
-
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
 export function PrimeLoginEmailDialog({ promiseId }: { promiseId: number }) {
-  const intl = useIntl();
-
   const form = useForm<{ email: string }>({
     // mode: 'onSubmit',
     // reValidateMode: 'onSubmit',
