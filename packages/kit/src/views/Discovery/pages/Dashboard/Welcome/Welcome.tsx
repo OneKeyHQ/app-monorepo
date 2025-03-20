@@ -129,13 +129,8 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
     },
   );
 
-  // Find the "Onekey hot" category and extract its dapps
-  const dapps = useMemo(() => {
-    const onekeyHotCategory = discoveryData?.categories?.find(
-      (category) => category.name === 'Onekey hot',
-    );
-    return onekeyHotCategory?.dapps || [];
-  }, [discoveryData]);
+  // Use the 'hot' data instead of finding the "Onekey hot" category
+  const dapps = useMemo(() => discoveryData?.hot || [], [discoveryData]);
 
   // Create a randomized array of dapps
   const shuffledDapps = useMemo(
