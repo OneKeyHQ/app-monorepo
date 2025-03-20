@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -59,6 +60,7 @@ function DeviceItem({
         bottom={0}
         left={0}
         w={360}
+        h={72}
         resizeMode="cover"
       />
       <WalletAvatar wallet={undefined} img={img} />
@@ -80,17 +82,17 @@ function DeviceGuideModal() {
   }, [navigation]);
 
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.global_device_management,
         })}
         headerRight={headerRight}
       />
-      <Page.Body justifyContent="center" gap="$5">
+      <Page.Body flex={1} justifyContent="center" gap="$5">
         <YStack alignItems="center">
           <DeviceItem
-            img="pro"
+            img={EDeviceType.Pro}
             name="OneKey Pro"
             elevation={10}
             zIndex={3}
@@ -99,7 +101,7 @@ function DeviceGuideModal() {
             }
           />
           <DeviceItem
-            img="touch"
+            img={EDeviceType.Touch}
             name="OneKey Touch"
             scale={0.9}
             mt={-24}
@@ -112,7 +114,7 @@ function DeviceGuideModal() {
             }
           />
           <DeviceItem
-            img="classic"
+            img={EDeviceType.Classic}
             name="OneKey Classic"
             scale={0.8}
             mt={-28}

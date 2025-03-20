@@ -4,7 +4,6 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
-  ActionList,
   SizableText,
   Stack,
   useIsIpadLandscape,
@@ -24,14 +23,11 @@ import {
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
@@ -57,7 +53,6 @@ export function HeaderRight({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const isIpadLandscape = useIsIpadLandscape();
   const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
@@ -90,63 +85,6 @@ export function HeaderRight({
   }, [navigation]);
 
   const items = useMemo(() => {
-    const routeInfo = {
-      routes: '',
-    };
-    const layoutExtView = (
-      <ActionList
-        key="layoutExtView"
-        title={intl.formatMessage({
-          id: ETranslations.global_layout,
-        })}
-        items={[
-          platformEnv.isExtensionUiPopup
-            ? {
-                label: intl.formatMessage({
-                  id: ETranslations.open_as_sidebar,
-                }),
-                icon: 'LayoutRightOutline',
-                onPress: async () => {
-                  defaultLogger.account.wallet.openSidePanel();
-                  await extUtils.openPanelOnActionClick(true);
-                  await extUtils.openSidePanel(routeInfo);
-                  window.close();
-                },
-              }
-            : {
-                label: intl.formatMessage({
-                  id: ETranslations.open_as_popup,
-                }),
-                icon: 'LayoutTopOutline',
-                onPress: async () => {
-                  await extUtils.openPanelOnActionClick(false);
-                  window.close();
-                },
-              },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.global_expand_view,
-            }),
-            icon: 'ExpandOutline',
-            onPress: async () => {
-              defaultLogger.account.wallet.openExpandView();
-              window.close();
-              await backgroundApiProxy.serviceApp.openExtensionExpandTab(
-                routeInfo,
-              );
-            },
-          },
-        ]}
-        renderTrigger={
-          <HeaderIconButton
-            key="layoutRightView"
-            title={intl.formatMessage({ id: ETranslations.global_layout })}
-            icon="LayoutRightOutline"
-          />
-        }
-      />
-    );
-
     const scanButton = media.gtMd ? (
       <HeaderIconButton
         key="scan"
@@ -231,12 +169,9 @@ export function HeaderRight({
     }
 
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [
-        layoutExtView,
-        primeButton,
-        notificationsButton,
-        moreActionButton,
-      ].filter(Boolean);
+      return [primeButton, notificationsButton, moreActionButton].filter(
+        Boolean,
+      );
     }
 
     // notifications is not supported on web currently

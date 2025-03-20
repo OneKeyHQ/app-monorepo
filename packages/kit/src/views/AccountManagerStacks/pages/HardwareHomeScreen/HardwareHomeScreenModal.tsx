@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isNil } from 'lodash';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
@@ -60,7 +61,14 @@ function useAspectRatioInfo(params: {
   return useMemo(() => {
     let flexBasis: DimensionValue | undefined = '25%';
     let ratio = (sizeInfo?.width ?? 1) / (sizeInfo?.height ?? 1);
-    if (['classic', 'mini', 'classic1s'].includes(deviceType)) {
+    if (
+      [
+        EDeviceType.Classic,
+        EDeviceType.Mini,
+        EDeviceType.Classic1s,
+        EDeviceType.ClassicPure,
+      ].includes(deviceType)
+    ) {
       // classic mini 128x64
       ratio = 2;
       flexBasis = media.gtMd ? '25%' : '33.33333%';
@@ -194,19 +202,26 @@ export default function HardwareHomeScreenModal({
         homeScreenType: 'WallPaper',
       });
 
-    // 'unknown' | 'classic' | 'classic1s' | 'mini' | 'touch' | 'pro';
+    // 'unknown' | 'classic' | 'classic1s' | 'classicPure' | 'mini' | 'touch' | 'pro';
     const deviceType: IDeviceType = device?.deviceType || 'unknown';
     let dataList: IHardwareHomeScreenData[] = [];
     let canUpload = false;
-    if (['classic', 'mini', 'classic1s'].includes(deviceType)) {
+    if (
+      [
+        EDeviceType.Classic,
+        EDeviceType.Mini,
+        EDeviceType.Classic1s,
+        EDeviceType.ClassicPure,
+      ].includes(deviceType)
+    ) {
       dataList = hardwareHomeScreenData.classicMini;
       canUpload = true;
     }
-    if (['touch'].includes(deviceType)) {
+    if ([EDeviceType.Touch].includes(deviceType)) {
       dataList = hardwareHomeScreenData.touch;
       canUpload = true;
     }
-    if (['pro'].includes(deviceType)) {
+    if ([EDeviceType.Pro].includes(deviceType)) {
       dataList = hardwareHomeScreenData.pro;
       canUpload = true;
     }

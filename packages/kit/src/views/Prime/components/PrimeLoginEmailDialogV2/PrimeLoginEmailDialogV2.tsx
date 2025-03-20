@@ -26,7 +26,7 @@ export function PrimeLoginEmailDialogV2(props: {
       });
     },
     onError: (error) => {
-      console.log(error);
+      console.error('prime login error', error);
     },
   });
   const intl = useIntl();

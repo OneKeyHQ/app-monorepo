@@ -1,4 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 import { isArray, isNil } from 'lodash';
 import semver from 'semver';
 
@@ -829,11 +829,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
     // TODO move to utils
     const isClassicOrMini =
-      deviceType === 'classic' ||
-      deviceType === 'mini' ||
-      deviceType === 'classic1s';
+      deviceType === EDeviceType.Classic ||
+      deviceType === EDeviceType.Mini ||
+      deviceType === EDeviceType.Classic1s ||
+      deviceType === EDeviceType.ClassicPure;
 
-    const isTouchOrPro = deviceType === 'touch' || deviceType === 'pro';
+    const isTouchOrPro =
+      deviceType === EDeviceType.Touch || deviceType === EDeviceType.Pro;
 
     return this.withFirmwareUpdateEvents(async () => {
       if (isClassicOrMini) {
@@ -1003,7 +1005,11 @@ class ServiceFirmwareUpdate extends ServiceBase {
             },
           ),
         );
-        if (result && deviceType === 'touch' && firmwareType === 'firmware') {
+        if (
+          result &&
+          deviceType === EDeviceType.Touch &&
+          firmwareType === 'firmware'
+        ) {
           // const updateBootRes = await this.updateBootloader(connectId);
           // if (!updateBootRes.success) return updateBootRes;
         }
@@ -1176,17 +1182,25 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await timerUtils.wait(5 * 1000);
     }
     if (actionType === 'ble-done') {
-      if (['touch', 'pro'].includes(releaseResult?.deviceType ?? '')) {
+      if (
+        [EDeviceType.Touch, EDeviceType.Pro].includes(
+          (releaseResult?.deviceType || '') as EDeviceType,
+        )
+      ) {
         await timerUtils.wait(15 * 1000);
       }
     }
     if (actionType === 'done') {
       await timerUtils.wait(
-        releaseResult?.deviceType === 'mini' ? 5 * 1000 : 2 * 1000,
+        releaseResult?.deviceType === EDeviceType.Mini ? 5 * 1000 : 2 * 1000,
       );
     }
     if (actionType === 'boot-done') {
-      if (['touch', 'pro'].includes(releaseResult?.deviceType ?? '')) {
+      if (
+        [EDeviceType.Touch, EDeviceType.Pro].includes(
+          (releaseResult?.deviceType ?? '') as EDeviceType,
+        )
+      ) {
         await timerUtils.wait(20 * 1000);
       }
     }
@@ -1488,7 +1502,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const fwRelease = fwUpdateInfo?.releasePayload?.release;
     if (fwRelease) {
       const { version, fullResourceRange = ['3.5.0', '3.5.0'] } = fwRelease;
-      if (deviceType !== 'touch') {
+      if (deviceType !== EDeviceType.Touch) {
         return { error: null, needUpdate: false };
       }
       const currentVersion = fwUpdateInfo.fromVersion;

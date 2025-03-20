@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { InteractionManager } from 'react-native';
@@ -1505,7 +1506,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let xfpHash = '';
 
     // TODO support OneKey Pro device only
-    const deviceType: IDeviceType = 'pro';
+    const deviceType: IDeviceType = EDeviceType.Pro;
     // TODO name should be OneKey Pro-xxxxxx
     let deviceName = qrDevice.name || 'OneKey Pro';
     const nameArr = deviceName.split('-');
