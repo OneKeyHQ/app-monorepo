@@ -599,7 +599,9 @@ export default class VaultBtc extends VaultBase {
   }
 
   async getBtcForkNetwork() {
-    return getBtcForkNetwork(await this.getNetworkChainCode());
+    return getBtcForkNetwork(
+      (await this.getCoreApiNetworkInfo()).networkChainCode,
+    );
   }
 
   override validatePrivateKey(): Promise<IPrivateKeyValidation> {
