@@ -115,9 +115,15 @@ describe('numberUtils.italy.test', () => {
       },
     });
     expect(appLocale.intl.locale).toBe('it-IT');
-    expect(formatDisplayNumber(formatBalance('4512.1242'))).toEqual(
-      '4.512,1242',
-    );
+    expect(formatBalance('4512.1242')).toEqual('4.512,1242');
+    expect(formatDisplayNumber(formatBalance('4512.1242'))).toEqual({
+      'formattedValue': '4.512,1242',
+      'meta': {
+        'decimalSymbol': ',',
+        'roundValue': '4512.1242',
+        'value': '4512.1242',
+      },
+    });
     expect(formatDisplayNumber(formatBalance('-4512.1242'))).toEqual(
       '-4.512,1242',
     );
