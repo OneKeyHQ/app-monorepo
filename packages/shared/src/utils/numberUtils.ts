@@ -127,7 +127,9 @@ const formatLocalNumber = (
   const integer = `${integerPart === '-0' ? '-' : ''}${
     disableThousandSeparator
       ? integerPart
-      : formatNumber(new BigNumber(integerPart).toFixed() as any)
+      : formatNumber(new BigNumber(integerPart).toFixed() as any, {
+          useGrouping: true,
+        })
   }`;
   const decimalSymbol = lazyDecimalSymbol(digits);
   const formatDecimal = `${decimalSymbol}${decimalPart}`;
