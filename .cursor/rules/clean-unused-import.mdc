@@ -14,6 +14,8 @@ I need you to fix it for me, but there are a couple of rules to be aware of.
 
 ## Follow [eslint.js](mdc:development/lint/eslint.js)
 
+# rules
+
 ## You can only fix type-related ones.
 ```ts
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types' ;

@@ -11,7 +11,6 @@ import {
   useClipboard,
   useForm,
 } from '@onekeyhq/components';
-import {} from '@onekeyhq/components/src/layouts/SectionList';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
