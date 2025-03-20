@@ -50,7 +50,7 @@
     "lint": "yarn lint:project",
     "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",
     "tsc:only": "npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty",
-    "test": "yarn jest packages/shared/src/utils/numberUtils.italy.test.ts"
+    "test": "yarn jest"
   },
   "dependencies": {
     "@aivenio/tsc-output-parser": "^2.1.1",
