@@ -1,6 +1,5 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
-import axios from 'axios';
 import { uniq } from 'lodash';
 import semver from 'semver';
 
@@ -238,7 +237,6 @@ class ServiceHardware extends ServiceBase {
   async getSDKInstance() {
     this.checkSdkVersionValid();
 
-    await this.checkBridgeAndFallbackToWebUSB();
     const { hardwareConnectSrc } = await settingsPersistAtom.get();
     const isPreRelease =
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
@@ -260,6 +258,9 @@ class ServiceHardware extends ServiceBase {
         debugMode,
       });
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
+      await this.checkBridgeAndFallbackToWebUSB({
+        hardwareSDKInstance: instance,
+      });
       await this.registerSdkEvents(instance);
       return instance;
     } catch (error) {
@@ -1114,7 +1115,11 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkBridgeAndFallbackToWebUSB() {
+  async checkBridgeAndFallbackToWebUSB({
+    hardwareSDKInstance,
+  }: {
+    hardwareSDKInstance: CoreApi;
+  }) {
     try {
       if (this.bridgeAvailabilityChecked) {
         return;
@@ -1124,21 +1129,19 @@ class ServiceHardware extends ServiceBase {
       }
       this.bridgeAvailabilityChecked = true;
       const isBridgeAvailable = await new Promise<boolean>((resolve) => {
-        axios
-          .request({
-            url: 'http://127.0.0.1:21320/status/',
-            method: 'GET',
-            withCredentials: false,
-            timeout: 3000,
+        convertDeviceResponse(() => hardwareSDKInstance?.checkBridgeStatus())
+          .then((bridgeStatus) => {
+            console.log('bridgeStatus ===>>>:: ', bridgeStatus);
+            resolve(!!bridgeStatus);
           })
-          .then(() => resolve(true))
-          .catch((e) => {
-            console.log('bridge status error ===>>>:: ', e);
+          .catch((error) => {
+            console.error('Bridge status check failed:', error);
             resolve(false);
           });
       });
 
       if (!isBridgeAvailable) {
+        await hardwareSDKInstance.switchTransport('webusb');
         await this.fallbackToWebUSBTransport();
       }
     } catch (error) {
@@ -1151,6 +1154,18 @@ class ServiceHardware extends ServiceBase {
       EHardwareTransportType.WEBUSB,
     );
     await timerUtils.wait(0);
+  }
+
+  @backgroundMethod()
+  async switchTransport({
+    transportType,
+  }: {
+    transportType: EHardwareTransportType;
+  }) {
+    const hardwareSDK = await this.getSDKInstance();
+    await hardwareSDK.switchTransport(
+      transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
+    );
   }
 }
 

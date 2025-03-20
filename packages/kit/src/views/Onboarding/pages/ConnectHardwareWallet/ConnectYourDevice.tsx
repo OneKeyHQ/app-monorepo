@@ -230,7 +230,7 @@ function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
       <HyperlinkText
         size="$bodyLg"
         mt="$1.5"
-        translationId={ETranslations.onboarding_install_onekey_bridge_help_text}
+        translationId={ETranslations.device_communication_failed}
       />
     </Stack>
   );

@@ -19,10 +19,15 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 
 const HardwareBridgeListItems = () => {
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
   const onPressBridgeStatus = useCallback(() => {
     openUrlExternal(BRIDGE_STATUS_URL);
   }, []);
   const intl = useIntl();
+
+  if (hardwareTransportType !== EHardwareTransportType.Bridge) {
+    return null;
+  }
 
   return (
     <>
@@ -82,12 +87,14 @@ const HardwareTransportTypeListItem = () => {
     return [];
   }, []);
   const onChange = useCallback(async (value: string) => {
+    if (platformEnv.isWeb || platformEnv.isExtension) {
+      await backgroundApiProxy.serviceHardware.switchTransport({
+        transportType: value as EHardwareTransportType,
+      });
+    }
     await backgroundApiProxy.serviceSetting.setHardwareTransportType(
       value as EHardwareTransportType,
     );
-    setTimeout(() => {
-      backgroundApiProxy.serviceApp.restartApp();
-    }, 0);
   }, []);
 
   return (
@@ -104,7 +111,9 @@ const HardwareTransportTypeListItem = () => {
         <ListItem
           userSelect="none"
           icon="UsbOutline"
-          title="Hardware Transport Type"
+          title={intl.formatMessage({
+            id: ETranslations.device_hardware_communication,
+          })}
         >
           <XStack>
             <ListItem.Text primary={label} align="right" />
@@ -215,10 +224,10 @@ export const AdvancedSection = () => {
       />
       {/* <SpendDustUTXOItem />  Hide the spendDustUTXO function; it's not ready yet. */}
       {platformEnv.isExtension || platformEnv.isWeb ? (
-        <HardwareBridgeListItems />
+        <HardwareTransportTypeListItem />
       ) : null}
       {platformEnv.isExtension || platformEnv.isWeb ? (
-        <HardwareTransportTypeListItem />
+        <HardwareBridgeListItems />
       ) : null}
     </Section>
   );
