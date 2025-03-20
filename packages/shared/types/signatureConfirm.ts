@@ -2,6 +2,7 @@ import type { IBadgeType, IKeyOfIcons } from '@onekeyhq/components';
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
 import type { ENFTType, IAccountNFT } from './nft';
+import type { ISwapTxInfo } from './swap/types';
 import type { IToken, ITokenFiat } from './token';
 import type { ISendTxOnSuccessData } from './tx';
 
@@ -17,6 +18,10 @@ export enum EParseTxComponentType {
   Divider = 'divider',
   InternalAssets = 'internalAssets',
   DateTime = 'datetime',
+}
+
+export enum EParseTxComponentRole {
+  SwapReceiver = 'swapReceiver',
 }
 
 export enum EParseTxType {
@@ -56,6 +61,7 @@ export interface IDisplayComponentNetwork {
 
 export interface IDisplayComponentAddress {
   type: EParseTxComponentType.Address;
+  role?: EParseTxComponentRole;
   label: string;
   address: string;
   tags: {
@@ -200,6 +206,7 @@ export interface IParseMessageParams {
   networkId: string;
   accountAddress?: string;
   message: string;
+  swapInfo?: ISwapTxInfo;
 }
 
 export interface IParseMessageResp {
