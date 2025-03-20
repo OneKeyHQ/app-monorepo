@@ -66,7 +66,7 @@ export function SearchInput() {
         onFocus={() => {
           setIsPopoverOpen(true);
         }}
-        onBlur={handleInputBlur}
+        // onBlur={handleInputBlur}
         addOns={
           hasResults
             ? [
