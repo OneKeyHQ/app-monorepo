@@ -1,7 +1,5 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
 import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
