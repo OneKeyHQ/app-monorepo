@@ -51,6 +51,14 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
   return result;
 }
 
+function getDeviceSerialNoFromFeatures(
+  features: IOneKeyDeviceFeatures | undefined,
+) {
+  return (
+    features?.onekey_serial_no ?? features?.onekey_serial ?? features?.serial_no
+  );
+}
+
 // web sdk return KnownDevice
 // ble sdk return SearchDevice
 // db return IDBDevice
@@ -218,7 +226,7 @@ async function buildDeviceLabel({
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
     [EDeviceType.Classic]: 'OneKey Classic',
     [EDeviceType.Classic1s]: 'OneKey Classic 1S',
-    [EDeviceType.ClassicPure]: 'OneKey Classic Pure',
+    [EDeviceType.ClassicPure]: 'OneKey Classic 1S Pure',
     [EDeviceType.Mini]: 'OneKey Mini',
     [EDeviceType.Touch]: 'OneKey Touch',
     [EDeviceType.Pro]: 'OneKey Pro',
@@ -397,6 +405,7 @@ export function compareDeviceVersions({
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
+  getDeviceSerialNoFromFeatures,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,
