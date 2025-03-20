@@ -340,7 +340,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         }
 
         const activateAdjacentTab = () => {
-          const newActiveTab = tabs[targetIndex - 1];
+          let newActiveTabIndex = targetIndex - 1;
+
+          if (newActiveTabIndex < 0 && tabs.length > 0) {
+            newActiveTabIndex = 0;
+          }
+
+          const newActiveTab = tabs[newActiveTabIndex];
+
           if (newActiveTab.id === activeTabId) {
             return;
           }
