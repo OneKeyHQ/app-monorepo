@@ -14,6 +14,7 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
@@ -29,8 +30,9 @@ function Tag({ children }: PropsWithChildren) {
 }
 
 export default function OneKeyId() {
-  const { isLoggedIn, user } = usePrimeAuthV2();
+  const { isLoggedIn, user, logout } = usePrimeAuthV2();
   const intl = useIntl();
+  const navigation = useAppNavigation();
   return (
     <Page>
       <Page.Header title="OneKey ID" />
@@ -76,8 +78,15 @@ export default function OneKeyId() {
                 }
                 items={[
                   {
+                    icon: 'LogoutOutline',
                     testID: 'copy-recovery-phrase-button',
-                    label: 'test',
+                    onPress: () => {
+                      navigation.pop();
+                      void logout();
+                    },
+                    label: intl.formatMessage({
+                      id: ETranslations.prime_log_out,
+                    }),
                   },
                 ]}
               />

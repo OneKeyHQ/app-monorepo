@@ -15,8 +15,9 @@ export function PrimeLoginEmailDialogV2(props: {
   title?: string;
   description?: string;
   onComplete: () => void;
+  onLoginSuccess?: () => void;
 }) {
-  const { onComplete, title, description } = props;
+  const { onComplete, title, description, onLoginSuccess } = props;
   const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
@@ -54,6 +55,7 @@ export function PrimeLoginEmailDialogV2(props: {
               email={data.email}
               onLoginSuccess={() => {
                 void dialog.close();
+                onLoginSuccess?.();
               }}
             />
           ),

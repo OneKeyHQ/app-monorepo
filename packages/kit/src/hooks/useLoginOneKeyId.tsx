@@ -45,6 +45,8 @@ export const useLoginOneKeyId = () => {
             description="OneKey ID is all you need to access all OneKey services and earn referral rewards."
             onComplete={() => {
               void loginDialog.close();
+            }}
+            onLoginSuccess={() => {
               setTimeout(() => {
                 toOneKeyIdPage();
               }, 120);
