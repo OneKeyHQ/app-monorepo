@@ -307,7 +307,7 @@ class ServiceSignatureConfirm extends ServiceBase {
           ESwapProvider.Swap1inchFusion
       ) {
         // fix: 1inch fusion receiver address
-        parsedMessage.display.components.forEach((component) => {
+        parsedMessage?.display?.components?.forEach((component) => {
           if (
             component.type === EParseTxComponentType.Address &&
             component.role === EParseTxComponentRole.SwapReceiver
