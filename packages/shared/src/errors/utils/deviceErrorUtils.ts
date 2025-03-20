@@ -195,6 +195,8 @@ export function convertDeviceError(
       return new HardwareErrors.BTCPsbtTooManyUtxos({ payload });
     case HardwareErrorCode.ResponseUnexpectTypeError:
       return new HardwareErrors.ResponseUnexpectTypeError({ payload });
+    case HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission:
+      return new HardwareErrors.HardwareWebUSBCommunicationError({ payload });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':
