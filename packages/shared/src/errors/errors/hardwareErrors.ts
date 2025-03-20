@@ -153,7 +153,7 @@ export class NeedOneKeyBridge extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedOneKeyBridge',
-        defaultKey: ETranslations.onboarding_install_onekey_bridge_help_text,
+        defaultKey: ETranslations.device_communication_failed,
       }),
     );
   }
