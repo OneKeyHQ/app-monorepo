@@ -45,7 +45,6 @@ function BaseListView<T>(
     data,
     renderItem,
     contentContainerStyle = {},
-    columnWrapperStyle,
     ListHeaderComponentStyle = {},
     ListFooterComponentStyle = {},
     estimatedItemSize,
