@@ -8,6 +8,8 @@ import type { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
 
+import { useActiveTabId } from './useWebTabs';
+
 import type { IBrowserBookmark, IBrowserHistory } from '../types';
 
 interface IHandleWebSiteParams {
@@ -16,14 +18,15 @@ interface IHandleWebSiteParams {
   useSystemBrowser?: boolean;
   shouldPopNavigation?: boolean;
   useCurrentWindow?: boolean;
-  tabId?: string;
   enterMethod: EEnterMethod;
+  tabId?: string;
 }
 
 export const useWebSiteHandler = () => {
   const { handleOpenWebSite } = useBrowserAction().current;
   const navigation = useAppNavigation();
   const { gtMd } = useMedia();
+  const { activeTabId } = useActiveTabId();
 
   return useCallback(
     ({
@@ -38,6 +41,7 @@ export const useWebSiteHandler = () => {
       const isDapp = !!dApp;
       const url = isDapp ? dApp?.url : webSite?.url;
       const title = isDapp ? dApp?.name : webSite?.title;
+      const effectiveTabId = tabId || activeTabId || '';
 
       if (!url || !title) {
         return;
@@ -53,8 +57,7 @@ export const useWebSiteHandler = () => {
           shouldPopNavigation,
           switchToMultiTabBrowser: gtMd,
           useCurrentWindow,
-          tabId,
-          type: 'normal',
+          tabId: effectiveTabId,
         });
       }
 
@@ -64,6 +67,6 @@ export const useWebSiteHandler = () => {
         enterMethod,
       });
     },
-    [navigation, handleOpenWebSite, gtMd],
+    [navigation, handleOpenWebSite, gtMd, activeTabId],
   );
 };
