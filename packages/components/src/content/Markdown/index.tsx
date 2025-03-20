@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import { Platform } from 'react-native';
 import RNMarkdown from 'react-native-markdown-display';
 import { useMedia } from 'tamagui';
 
