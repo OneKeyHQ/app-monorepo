@@ -115,8 +115,7 @@ describe('numberUtils.italy.test', () => {
       },
     });
     expect(appLocale.intl.locale).toBe('it-IT');
-    expect(formatBalance('4512.1242')).toEqual('4.512,1242');
-    expect(formatDisplayNumber(formatBalance('4512.1242'))).toEqual({
+    expect(formatBalance('4512.1242')).toEqual({
       'formattedValue': '4.512,1242',
       'meta': {
         'decimalSymbol': ',',
@@ -124,6 +123,9 @@ describe('numberUtils.italy.test', () => {
         'value': '4512.1242',
       },
     });
+    expect(formatDisplayNumber(formatBalance('4512.1242'))).toEqual(
+      '4.512,1242',
+    );
     expect(formatDisplayNumber(formatBalance('-4512.1242'))).toEqual(
       '-4.512,1242',
     );
