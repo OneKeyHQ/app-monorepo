@@ -12,10 +12,15 @@ export default function ManualInstall() {
 
   const { manualInstallPackage } = useDownloadPackage();
 
-  const descTranslationId = useMemo(
-    () => ETranslations.update_update_incomplete_desc,
-    [],
-  );
+  const descTranslationId = useMemo(() => {
+    if (platformEnv.isDesktopLinux) {
+      return ETranslations.update_update_incomplete_desc_linux;
+    }
+    if (platformEnv.isDesktopWin) {
+      return ETranslations.update_update_incomplete_desc_windows;
+    }
+    return ETranslations.update_update_incomplete_desc;
+  }, []);
 
   const image = useMemo(() => {
     if (platformEnv.isDesktopLinux) {

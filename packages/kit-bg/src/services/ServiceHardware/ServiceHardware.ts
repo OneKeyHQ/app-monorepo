@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import axios from 'axios';
 import { uniq } from 'lodash';
@@ -118,6 +119,10 @@ class ServiceHardware extends ServiceBase {
       EAppEventBusNames.SyncDeviceLabelToWalletName,
       this.handleHardwareLabelChanged,
     );
+    appEventBus.on(
+      EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
+      this.handleHardwareAvatarChanged,
+    );
   }
 
   handleHardwareLabelChanged = cacheUtils.memoizee(
@@ -159,6 +164,29 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
         name: label,
+        shouldCheckDuplicate: false,
+      });
+    },
+    {
+      maxAge: 600,
+    },
+  );
+
+  handleHardwareAvatarChanged = cacheUtils.memoizee(
+    async ({
+      walletId,
+      avatarInfo,
+    }: IAppEventBusPayload[EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo]) => {
+      const isHw =
+        accountUtils.isHwWallet({ walletId }) &&
+        !accountUtils.isQrWallet({ walletId });
+      if (!isHw) {
+        return;
+      }
+      console.log('handleHardwareAvatarChanged');
+      await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
+        walletId,
+        avatar: avatarInfo,
         shouldCheckDuplicate: false,
       });
     },
@@ -269,7 +297,7 @@ class ServiceHardware extends ServiceBase {
 
       if (
         dbDevice?.deviceType &&
-        ['touch', 'pro'].includes(dbDevice?.deviceType)
+        [EDeviceType.Touch, EDeviceType.Pro].includes(dbDevice?.deviceType)
       ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
       } else {
@@ -985,7 +1013,10 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() => {
       // classic1s does not support getOnekeyFeatures method
-      if (deviceType === 'classic1s') {
+      if (
+        deviceType === EDeviceType.Classic1s ||
+        deviceType === EDeviceType.ClassicPure
+      ) {
         return hardwareSDK?.getFeatures(
           connectId,
         ) as unknown as Response<OnekeyFeatures>;

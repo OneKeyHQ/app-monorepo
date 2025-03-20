@@ -9,6 +9,7 @@ import {
   useState,
 } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { throttle } from 'lodash';
 import { useIntl } from 'react-intl';
@@ -321,7 +322,7 @@ function HardwareUiStateContainerCmpControlled() {
 
   const getDeviceType = useCallback(
     (currentState: IHardwareUiState | undefined) =>
-      currentState?.payload?.deviceType || 'unknown',
+      currentState?.payload?.deviceType || EDeviceType.Unknown,
     [],
   );
 
@@ -690,7 +691,7 @@ function HardwareUiStateContainerCmp() {
 
   const getDeviceType = useCallback(
     (currentState: IHardwareUiState | undefined) =>
-      currentState?.payload?.deviceType || 'unknown',
+      currentState?.payload?.deviceType || EDeviceType.Unknown,
     [],
   );
 

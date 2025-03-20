@@ -12,6 +12,7 @@ import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/a
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
 import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
 import { defaultLogger } from '../logger/logger';
@@ -67,6 +68,7 @@ export enum EAppEventBusNames {
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
   SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
+  UpdateWalletAvatarByDeviceSerialNo = 'UpdateWalletAvatarByDeviceSerialNo',
   BatchCreateAccount = 'BatchCreateAccount',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
@@ -199,6 +201,11 @@ export interface IAppEventBusPayload {
     dbDeviceId: string;
     label: string;
     walletName: string | undefined;
+  };
+  [EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo]: {
+    walletId: string;
+    dbDeviceId: string;
+    avatarInfo: IAvatarInfo;
   };
   [EAppEventBusNames.BatchCreateAccount]: {
     totalCount: number;

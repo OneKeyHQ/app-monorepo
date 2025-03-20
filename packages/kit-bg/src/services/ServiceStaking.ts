@@ -1,4 +1,3 @@
-import { AxiosResponse } from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';

@@ -370,6 +370,10 @@ export type IBuildPrepareAccountsPrefixedPathParams = {
   index: number;
 };
 
+export type INormalizeGetMultiAccountsPathParams = {
+  path: string;
+};
+
 export type IHwSdkNetwork = AllNetworkAddressParams['network'];
 
 type IHwAllNetworkPrepareAccountsItemErrorPayload = {

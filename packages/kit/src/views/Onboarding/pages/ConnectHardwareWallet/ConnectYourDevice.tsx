@@ -72,7 +72,10 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
-import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  HwWalletAvatarImages,
+  getDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
@@ -713,7 +716,7 @@ function ConnectByUSBOrBLE({
     () => [
       ...searchedDevices.map((item) => ({
         title: item.name,
-        src: HwWalletAvatarImages[item.deviceType],
+        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
         onPress: () => handleHwWalletCreateFlow({ device: item }),
         opacity: 1,

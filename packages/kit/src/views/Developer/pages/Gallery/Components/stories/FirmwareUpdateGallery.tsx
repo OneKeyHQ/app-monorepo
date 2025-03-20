@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   Button,
   Dialog,
@@ -290,12 +292,12 @@ function FirmwareUpdateGalleryStaticUI() {
         <SizableText size="$heading2xl">
           ** 手动进入 boot 模式(mini)
         </SizableText>
-        <EnterBootModeGuide deviceType="mini" />
+        <EnterBootModeGuide deviceType={EDeviceType.Mini} />
 
         <SizableText size="$heading2xl">
           ** 手动进入 boot 模式(classic)
         </SizableText>
-        <EnterBootModeGuide deviceType="classic" />
+        <EnterBootModeGuide deviceType={EDeviceType.Classic} />
 
         <SizableText size="$heading2xl">
           ** 需要安装或检查 bridge 状态

@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 // eslint-disable-next-line max-classes-per-file
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
 import natsort from 'natsort';
 import { InteractionManager } from 'react-native';
@@ -56,6 +57,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
+import { getDeviceAvatarImage } from '@onekeyhq/shared/src/utils/avatarUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import perfUtils, {
   EPerformanceTimerLogNames,
@@ -784,6 +786,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           allDevices?.find((item) => item.id === wallet.associatedDevice) ||
           (await this.getDeviceSafe(wallet.associatedDevice));
         const label = device?.featuresInfo?.label;
+        const deviceType = device?.deviceType;
+        const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
+          device?.featuresInfo,
+        );
+        if (device && deviceType === EDeviceType.Pro && serialNo) {
+          const imgFromSerialNo = getDeviceAvatarImage(deviceType, serialNo);
+          if (imgFromSerialNo !== avatarInfo?.img) {
+            appEventBus.emit(
+              EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
+              {
+                walletId: wallet.id,
+                dbDeviceId: device.id,
+                avatarInfo: {
+                  ...avatarInfo,
+                  img: imgFromSerialNo,
+                },
+              },
+            );
+            wallet.avatarInfo = {
+              ...avatarInfo,
+              img: imgFromSerialNo,
+            };
+          }
+        }
         if (device && label && label !== wallet.name) {
           appEventBus.emit(EAppEventBusNames.SyncDeviceLabelToWalletName, {
             walletId: wallet.id,
@@ -1505,7 +1531,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let xfpHash = '';
 
     // TODO support OneKey Pro device only
-    const deviceType: IDeviceType = 'pro';
+    const deviceType: IDeviceType = EDeviceType.Pro;
     // TODO name should be OneKey Pro-xxxxxx
     let deviceName = qrDevice.name || 'OneKey Pro';
     const nameArr = deviceName.split('-');
@@ -1817,7 +1843,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const deviceType = deviceTypeFromFeatures || device.deviceType;
 
     const avatar: IAvatarInfo = {
-      img: deviceType,
+      img: getDeviceAvatarImage(
+        deviceType,
+        deviceUtils.getDeviceSerialNoFromFeatures(features),
+      ),
     };
 
     const { dbDeviceId, dbWalletId, deviceUUID, rawDeviceId } =
