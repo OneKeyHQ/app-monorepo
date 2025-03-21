@@ -37,15 +37,15 @@ import { PushProviderJPush } from '../PushProvider/PushProviderJPush';
 
 import NotificationProviderBase from './NotificationProviderBase';
 
-import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
+import type { INotificationProviderBaseParams } from './NotificationProviderBase';
 import type {
   NotificationContentInput,
   NotificationPermissionsStatus,
 } from 'expo-notifications';
 
 export default class NotificationProvider extends NotificationProviderBase {
-  constructor(options: INotificationProviderBaseOptions) {
-    super(options);
+  constructor(params: INotificationProviderBaseParams) {
+    super(params);
     void this.configureNotifications();
     this.initWebSocketProvider();
     this.initJPushProvider();
@@ -60,6 +60,7 @@ export default class NotificationProvider extends NotificationProviderBase {
     this.jpushProvider = new PushProviderJPush({
       eventEmitter: this.eventEmitter,
       instanceId: this.options.instanceId,
+      backgroundApi: this.backgroundApi,
     });
   }
 

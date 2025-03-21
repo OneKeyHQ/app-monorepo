@@ -20,7 +20,13 @@ export type IPrimeServerUserInfo = {
   primeExpiredAt: number;
   level: 'PRIME' | 'NORMAL';
   salt: string;
+  pwdHash: string;
   userId: string;
   // email
   // isLogin
 };
+
+export enum ESecurityPasswordType {
+  CloudSyncR1 = 'CloudSyncR1', // risk level 1 (low), for wallet names, bookmarks, etc.
+  CloudSyncR5 = 'CloudSyncR5', // risk level 5 (high), for wallet private keys, mnemonic words, etc.
+}

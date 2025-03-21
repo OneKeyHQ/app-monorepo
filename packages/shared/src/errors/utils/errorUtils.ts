@@ -1,9 +1,7 @@
 import { isObject, isString, isUndefined, omitBy } from 'lodash';
 
-import type {
-  ETranslations,
-  ETranslationsMock,
-} from '@onekeyhq/shared/src/locale';
+import type { ETranslationsMock } from '@onekeyhq/shared/src/locale';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { appLocale } from '../../locale/appLocale';
 import platformEnv from '../../platformEnv';
@@ -122,11 +120,19 @@ export function normalizeErrorProps(
     (isString(props) ? undefined : props?.key) ||
     config?.defaultKey ||
     undefined;
+
+  if (key === ETranslations.auth_error_passcode_incorrect) {
+    console.log('IncorrectPasswordI18nKey before', key, msg);
+  }
+
   if (!msg && key && appLocale.intl.formatMessage && !platformEnv.isJest) {
     msg = appLocale.intl.formatMessage(
       { id: key },
       (props as IOneKeyError)?.info,
     );
+    if (key === ETranslations.auth_error_passcode_incorrect) {
+      console.log('IncorrectPasswordI18nKey', key, msg);
+    }
     if (msg === key) {
       msg = [config?.defaultMessage, key].filter(Boolean).join(' ');
     }

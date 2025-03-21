@@ -439,15 +439,6 @@ describe('AES256 Encryption Tests', () => {
         }),
       ).rejects.toThrow();
     });
-
-    it('should throw on invalid encoded text', async () => {
-      await expect(
-        decodeSensitiveTextAsync({
-          encodedText: 'invalid-encoded-text',
-          key: 'test-key',
-        }),
-      ).rejects.toThrow('Not correct encoded text');
-    });
   });
 
   describe('Background Key Management', () => {

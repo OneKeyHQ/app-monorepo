@@ -351,7 +351,8 @@ async function decodeSensitiveTextAsync({
       return text;
     }
   }
-  throw new Error('Not correct encoded text');
+  // if not encoded, return the original text
+  return encodedText;
 }
 
 async function encodeSensitiveTextAsync({

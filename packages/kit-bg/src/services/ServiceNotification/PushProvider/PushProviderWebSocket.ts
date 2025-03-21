@@ -12,7 +12,11 @@ import type {
   INotificationPushMessageInfo,
 } from '@onekeyhq/shared/types/notification';
 import { EPushProviderEventNames } from '@onekeyhq/shared/types/notification';
-import type { IPrimeDeviceLogoutInfo } from '@onekeyhq/shared/types/socket';
+import type {
+  IPrimeConfigChangedInfo,
+  IPrimeConfigFlushInfo,
+  IPrimeDeviceLogoutInfo,
+} from '@onekeyhq/shared/types/socket';
 import { EAppSocketEventNames } from '@onekeyhq/shared/types/socket';
 
 import { getEndpointInfo } from '../../../endpoints';
@@ -141,7 +145,37 @@ export class PushProviderWebSocket extends PushProviderBase {
       },
     );
 
-    defaultLogger.notification.websocket.consoleLog('WebSocket 初始化完成');
+    this.socket.on(
+      EAppSocketEventNames.primeConfigChanged,
+      async (payload: IPrimeConfigChangedInfo) => {
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket 收到 primeConfigChanged 消息:',
+          payload,
+        );
+        const syncCredential =
+          await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+        await this.backgroundApi.servicePrimeCloudSync.saveServerSyncItemsToLocal(
+          {
+            serverItems: payload.serverData,
+            shouldSyncToScene: true,
+            syncCredential,
+          },
+        );
+      },
+    );
+
+    this.socket.on(
+      EAppSocketEventNames.primeConfigFlush,
+      (payload: IPrimeConfigFlushInfo) => {
+        defaultLogger.notification.websocket.consoleLog(
+          'WebSocket 收到 primeConfigFlush 消息:',
+          payload,
+        );
+        void this.backgroundApi.servicePrimeCloudSync.onWebSocketConfigFlush(
+          payload,
+        );
+      },
+    );
 
     // this.socket.off('notification');
   }

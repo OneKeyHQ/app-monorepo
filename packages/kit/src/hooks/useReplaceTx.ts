@@ -142,6 +142,7 @@ function useReplaceTx({
               webSite: {
                 url: `https://www.f2pool.com/user/tx-acc?from=onekey&txid=${decodedTx.txid}`,
                 title: 'F2Pool',
+                logo: undefined,
               },
             });
           },
@@ -186,6 +187,7 @@ function useReplaceTx({
       webSite: {
         url: `https://www.f2pool.com/user/tx-acc?query=${txid}`,
         title: 'F2Pool',
+        logo: undefined,
       },
     });
   }, [historyTx, cancelTxConfig, handleOpenWebSite, navigation, gtMd]);

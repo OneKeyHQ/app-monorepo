@@ -10,10 +10,16 @@ import { contextAtomMethod, marketWatchListAtom } from './atoms';
 export const homeResettingFlags: Record<string, number> = {};
 
 class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
-  syncToDb = contextAtomMethod((_, set, payload: IMarketWatchListItem[]) => {
-    const result = { data: payload };
-    set(marketWatchListAtom(), result);
-    void backgroundApiProxy.simpleDb.marketWatchList.setRawData(result);
+  flushWatchListAtom = contextAtomMethod(
+    (_, set, payload: IMarketWatchListItem[]) => {
+      const result = { data: payload };
+      set(marketWatchListAtom(), result);
+    },
+  );
+
+  refreshWatchList = contextAtomMethod(async (get, set) => {
+    const data = await backgroundApiProxy.serviceMarket.getMarketWatchList();
+    return this.flushWatchListAtom.call(set, data.data);
   });
 
   isInWatchList = contextAtomMethod((get, set, coingeckoId: string) => {
@@ -23,13 +29,18 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
 
   addIntoWatchList = contextAtomMethod(
     (get, set, payload: IMarketWatchListItem | IMarketWatchListItem[]) => {
-      const params = !Array.isArray(payload) ? [payload] : payload;
+      const params: IMarketWatchListItem[] = !Array.isArray(payload)
+        ? [payload]
+        : payload;
       const prev = get(marketWatchListAtom());
       if (!prev.isMounted) {
         return;
       }
       const watchList = [...prev.data, ...params];
-      this.syncToDb.call(set, watchList);
+      this.flushWatchListAtom.call(set, watchList);
+      void backgroundApiProxy.serviceMarket.addMarketWatchList({
+        watchList: params,
+      });
     },
   );
 
@@ -42,7 +53,10 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       const watchList = prev.data.filter(
         (i) => i.coingeckoId !== payload.coingeckoId,
       );
-      this.syncToDb.call(set, watchList);
+      this.flushWatchListAtom.call(set, watchList);
+      void backgroundApiProxy.serviceMarket.removeMarketWatchList({
+        watchList: [payload],
+      });
     },
   );
 
@@ -55,16 +69,12 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       (i) => i.coingeckoId !== payload.coingeckoId,
     );
     const watchList = [payload, ...newItems];
-    this.syncToDb.call(set, watchList);
+    this.flushWatchListAtom.call(set, watchList);
   });
 
   saveWatchList = contextAtomMethod(
     (get, set, payload: IMarketWatchListItem[]) => {
-      const prev = get(marketWatchListAtom());
-      if (!prev.isMounted) {
-        return;
-      }
-      this.syncToDb.call(set, payload);
+      this.addIntoWatchList.call(set, payload);
     },
   );
 }
@@ -78,11 +88,13 @@ export function useWatchListActions() {
   const moveToTop = actions.moveToTop.use();
   const isInWatchList = actions.isInWatchList.use();
   const saveWatchList = actions.saveWatchList.use();
+  const refreshWatchList = actions.refreshWatchList.use();
   return useRef({
     isInWatchList,
     addIntoWatchList,
     removeFormWatchList,
     moveToTop,
     saveWatchList,
+    refreshWatchList,
   });
 }

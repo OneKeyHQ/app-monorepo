@@ -3,6 +3,7 @@ import { ELocalDBStoreNames } from '../../localDBStoreNames';
 import { RealmSchemaAccount } from './RealmSchemaAccount';
 import { RealmSchemaAccountDerivation } from './RealmSchemaAccountDerivation';
 import { RealmSchemaAddress } from './RealmSchemaAddress';
+import { RealmSchemaCloudSyncItem } from './RealmSchemaCloudSyncItem';
 import { RealmSchemaConnectedSite } from './RealmSchemaConnectedSite';
 import { RealmSchemaContext } from './RealmSchemaContext';
 import { RealmSchemaCredential } from './RealmSchemaCredential';
@@ -29,5 +30,6 @@ export const realmDBSchemasMap: Record<
   [ELocalDBStoreNames.SignedMessage]: RealmSchemaSignMessage,
   [ELocalDBStoreNames.SignedTransaction]: RealmSchemaSignTransaction,
   [ELocalDBStoreNames.ConnectedSite]: RealmSchemaConnectedSite,
+  [ELocalDBStoreNames.CloudSyncItem]: RealmSchemaCloudSyncItem,
 };
 export const realmDBSchemas = Object.values(realmDBSchemasMap);

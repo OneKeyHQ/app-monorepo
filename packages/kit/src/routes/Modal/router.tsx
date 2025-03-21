@@ -78,6 +78,13 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
       void backgroundApiProxy.serviceBatchCreateAccount.clearNetworkAccountCache();
       // void backgroundApiProxy.serviceBatchCreateAccount.cancelBatchCreateAccountsFlow();
     },
+    async onMounted() {
+      void backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlowSilently(
+        {
+          callerName: 'AccountManagerStacks onMounted',
+        },
+      );
+    },
   },
   onboardingRouterConfig,
   {

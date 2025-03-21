@@ -16,14 +16,19 @@ import type {
   ILocalDBGetAllRecordsResult,
   ILocalDBGetRecordByIdParams,
   ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordsByIdsParams,
+  ILocalDBGetRecordsByIdsResult,
   ILocalDBGetRecordsCountParams,
   ILocalDBGetRecordsCountResult,
+  ILocalDBRemoveRecordsParams,
   ILocalDBTxAddRecordsParams,
   ILocalDBTxAddRecordsResult,
   ILocalDBTxGetAllRecordsParams,
   ILocalDBTxGetAllRecordsResult,
   ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordsByIdsParams,
+  ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
@@ -61,6 +66,13 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
     const db = await this.readyDb;
     return db.getAllRecords(params);
+  }
+
+  async getRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
+    const db = await this.readyDb;
+    return db.getRecordsByIds(params);
   }
 
   async getRecordById<T extends ELocalDBStoreNames>(
@@ -138,11 +150,29 @@ export abstract class LocalDbBaseContainer implements ILocalDBAgent {
     this.dbAllRecordsCache.clear();
   }
 
+  async removeRecords<T extends ELocalDBStoreNames>(
+    params: ILocalDBRemoveRecordsParams<T>,
+  ) {
+    return this.withTransaction((tx) => {
+      return this.txRemoveRecords({
+        ...params,
+        tx,
+      });
+    });
+  }
+
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
     const db = await this.readyDb;
     return db.txGetAllRecords(params);
+  }
+
+  async txGetRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordsByIdsResult<T>> {
+    const db = await this.readyDb;
+    return db.txGetRecordsByIds(params);
   }
 
   async txGetRecordById<T extends ELocalDBStoreNames>(

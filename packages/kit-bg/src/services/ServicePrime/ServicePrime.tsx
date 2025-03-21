@@ -1,3 +1,4 @@
+import { Semaphore } from 'async-mutex';
 import { isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
@@ -9,6 +10,8 @@ import {
 import {
   OneKeyErrorPrimeLoginExceedDeviceLimit,
   OneKeyErrorPrimeLoginInvalidToken,
+  OneKeyErrorPrimeMasterPasswordInvalid,
+  OneKeyErrorPrimePaidMembershipRequired,
   PrimeLoginDialogCancelError,
 } from '@onekeyhq/shared/src/errors';
 import {
@@ -65,14 +68,28 @@ class ServicePrime extends ServiceBase {
         const errorCode: number | undefined = (
           error as { data: { code: number } }
         )?.data?.code;
-        if ([90_002, 90_003].includes(errorCode)) {
+        // TODO 90_002 sdk refresh token required
+        // TODO 90_003 user login required
+        if ([90_002, 90_003, 90_008].includes(errorCode)) {
           appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
           throw new OneKeyErrorPrimeLoginInvalidToken();
         }
-
         if ([90_004].includes(errorCode)) {
           appEventBus.emit(EAppEventBusNames.PrimeExceedDeviceLimit, undefined);
           throw new OneKeyErrorPrimeLoginExceedDeviceLimit();
+        }
+        if ([90_005].includes(errorCode)) {
+          // appEventBus.emit(EAppEventBusNames.PrimePaidMembershipRequired, undefined);
+          throw new OneKeyErrorPrimePaidMembershipRequired();
+        }
+        if ([90_006].includes(errorCode)) {
+          const e = new OneKeyErrorPrimeMasterPasswordInvalid();
+          void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfLocalPasswordInvalid(
+            {
+              error: e,
+            },
+          );
+          throw e;
         }
         throw error;
       },
@@ -81,42 +98,70 @@ class ServicePrime extends ServiceBase {
     return this._primeAuthClient;
   }
 
+  loginMutex = new Semaphore(1);
+
   @backgroundMethod()
   async apiLogin({ accessToken }: { accessToken: string }) {
-    if (accessToken) {
-      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken || '');
-    }
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
-    if (!authToken) {
-      return;
-    }
-    const client = await this.getPrimeClient();
-    await client.post('/prime/v1/user/login');
+    await this.loginMutex.runExclusive(async () => {
+      if (!accessToken) {
+        return;
+      }
+      await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+      const client = await this.getPrimeClient();
+      try {
+        await client.post(
+          '/prime/v1/user/login',
+          {},
+          {
+            headers: {
+              'X-Onekey-Request-Token': `${accessToken}`,
+            },
+          },
+        );
+        await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
+      } catch (error) {
+        await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+        throw error;
+      }
+    });
   }
 
   @backgroundMethod()
   async apiLogout() {
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
+      await this.setPrimePersistAtomNotLoggedIn();
       return;
     }
     const client = await this.getPrimeClient();
     await client.post('/prime/v1/user/logout');
+    await this.setPrimePersistAtomNotLoggedIn();
   }
 
   @backgroundMethod()
-  async apiLogoutPrimeUserDevice({ instanceId }: { instanceId: string }) {
+  async apiLogoutPrimeUserDevice({
+    instanceId,
+    accessToken,
+  }: {
+    instanceId: string;
+    accessToken: string;
+  }) {
+    if (accessToken) {
+      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
+    }
     const client = await this.getPrimeClient();
     // TODO 404 not found
     await client.post(`/prime/v1/user/device/${instanceId}`);
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
-    if (authToken) {
-      await this.apiLogin({ accessToken: authToken });
+    if (instanceId) {
+      await this.apiLogin({ accessToken });
     }
   }
 
   @backgroundMethod()
-  async apiGetPrimeUserDevices() {
+  async apiGetPrimeUserDevices({ accessToken }: { accessToken?: string } = {}) {
+    if (accessToken) {
+      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
+    }
     const client = await this.getPrimeClient();
     const result = await client.get<
       IApiClientResponse<
@@ -138,11 +183,13 @@ class ServicePrime extends ServiceBase {
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
   }> {
+    await this.loginMutex.waitForUnlock();
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
       await this.setPrimePersistAtomNotLoggedIn();
+      const localUserInfo = await primePersistAtom.get();
       return {
-        userInfo: await primePersistAtom.get(),
+        userInfo: localUserInfo,
         serverUserInfo: undefined,
       };
     }
@@ -152,6 +199,11 @@ class ServicePrime extends ServiceBase {
     );
     const serverUserInfo = result?.data?.data;
     let primeSubscription: IPrimeSubscriptionInfo | undefined;
+    void this.backgroundApi.servicePrimeCloudSync.showAlertDialogIfServerPasswordNotSet(
+      {
+        serverUserInfo,
+      },
+    );
     if (serverUserInfo.isPrime) {
       primeSubscription = {
         isActive: true,
@@ -164,9 +216,12 @@ class ServicePrime extends ServiceBase {
       ...v,
       isLoggedIn: true,
       primeSubscription,
+      salt: serverUserInfo.salt,
+      pwdHash: serverUserInfo.pwdHash,
     }));
+    const localUserInfo = await primePersistAtom.get();
     return {
-      userInfo: await primePersistAtom.get(),
+      userInfo: localUserInfo,
       serverUserInfo,
     };
   }
@@ -178,7 +233,25 @@ class ServicePrime extends ServiceBase {
       email: undefined,
       primeSubscription: undefined,
       subscriptionManageUrl: undefined,
+      salt: undefined,
+      pwdHash: undefined,
     }));
+    await this.backgroundApi.serviceMasterPassword.clearLocalMasterPassword();
+  }
+
+  @backgroundMethod()
+  async isPrimeLoggedIn() {
+    const { isLoggedIn } = await primePersistAtom.get();
+    return Boolean(isLoggedIn);
+  }
+
+  @backgroundMethod()
+  async isPrimeSubscriptionActive() {
+    if (!(await this.isPrimeLoggedIn())) {
+      return false;
+    }
+    const { primeSubscription } = await primePersistAtom.get();
+    return Boolean(primeSubscription?.isActive);
   }
 
   @backgroundMethod()
@@ -295,19 +368,6 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   @toastIfError()
-  async ensurePrimeLoginValidPassword(password: string) {
-    ensureSensitiveTextEncoded(password);
-    const rawPassword =
-      await this.backgroundApi.servicePassword.decodeSensitiveText({
-        encodedText: password,
-      });
-    if (!rawPassword) {
-      throw new Error('Invalid password');
-    }
-  }
-
-  @backgroundMethod()
-  @toastIfError()
   async startPrimeLogin() {
     const { email } = await this.promptPrimeLoginEmailDialog();
 
@@ -325,11 +385,11 @@ class ServicePrime extends ServiceBase {
       );
     const isRegister = !isRegistered;
 
-    const { password } = await this.promptPrimeLoginPasswordDialog({
+    const { masterPassword } = await this.promptPrimeLoginPasswordDialog({
       email,
       isRegister,
     });
-    ensureSensitiveTextEncoded(password);
+    ensureSensitiveTextEncoded(masterPassword);
 
     if (captchaRequired) {
       // TODO captcha verify (register, or login retry 5 times)
@@ -349,7 +409,7 @@ class ServicePrime extends ServiceBase {
       async () =>
         this.apiPrimeLogin({
           email,
-          password,
+          password: masterPassword,
           emailCode: code,
           verifyUUID,
           isRegister,
@@ -359,38 +419,12 @@ class ServicePrime extends ServiceBase {
     return {
       success,
       email,
-      password,
+      masterPassword,
       isRegister,
       code,
       captcha: 'mock-captcha',
       verifyUUID,
     };
-  }
-
-  @backgroundMethod()
-  async startForgetPassword({
-    email,
-    passwordDialogPromiseId,
-  }: {
-    email: string;
-    passwordDialogPromiseId: number;
-  }) {
-    console.log('startForgetPassword', passwordDialogPromiseId);
-    if (passwordDialogPromiseId) {
-      await this.cancelPrimeLogin({
-        promiseId: passwordDialogPromiseId,
-        dialogType: 'promptPrimeLoginPasswordDialog',
-      });
-    }
-
-    // TODO show forget password dialog
-
-    return { success: true };
-  }
-
-  @backgroundMethod()
-  async startChangePassword() {
-    // TODO show change password dialog
   }
 
   @backgroundMethod()
@@ -435,30 +469,72 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
+  async promptForgetMasterPasswordDialog() {
+    const result = await new Promise(
+      // eslint-disable-next-line no-async-promise-executor
+      async (resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        await primeLoginDialogAtom.set((v) => ({
+          ...v,
+          promptForgetMasterPasswordDialog: {
+            promiseId,
+          },
+        }));
+      },
+    );
+    return result;
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async resolveForgetMasterPasswordDialog({
+    promiseId,
+  }: {
+    promiseId: number;
+  }) {
+    await this.backgroundApi.servicePrimeCloudSync.resetServerData({
+      skipPrimeStatusCheck: true,
+    });
+    await primeLoginDialogAtom.set((v) => ({
+      ...v,
+      promptForgetMasterPasswordDialog: undefined,
+    }));
+    await this.backgroundApi.servicePromise.resolveCallback({
+      id: promiseId,
+      data: true,
+    });
+  }
+
+  @backgroundMethod()
   async promptPrimeLoginPasswordDialog({
     email,
     isRegister,
   }: {
-    email: string;
-    isRegister?: boolean;
+    email?: string;
+    isRegister: boolean;
   }) {
-    // eslint-disable-next-line no-async-promise-executor
-    const password = await new Promise<string>(async (resolve, reject) => {
-      const promiseId = this.backgroundApi.servicePromise.createCallback({
-        resolve,
-        reject,
-      });
-      await primeLoginDialogAtom.set((v) => ({
-        ...v,
-        promptPrimeLoginPasswordDialog: {
-          email,
-          isRegister,
-          promiseId,
-        },
-      }));
-    });
-    ensureSensitiveTextEncoded(password);
-    return { password };
+    const masterPassword = await new Promise<string>(
+      // eslint-disable-next-line no-async-promise-executor
+      async (resolve, reject) => {
+        const promiseId = this.backgroundApi.servicePromise.createCallback({
+          resolve,
+          reject,
+        });
+        await primeLoginDialogAtom.set((v) => ({
+          ...v,
+          promptPrimeLoginPasswordDialog: {
+            email: email || '',
+            isRegister,
+            promiseId,
+          },
+        }));
+      },
+    );
+    ensureSensitiveTextEncoded(masterPassword);
+    return { masterPassword };
   }
 
   @backgroundMethod()

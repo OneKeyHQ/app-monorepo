@@ -31,6 +31,7 @@ module.exports = [
   'Cbc',
   'facebook',
   'captcha',
+  'decrypting',
   'privy',
   'google',
   'Sollet',

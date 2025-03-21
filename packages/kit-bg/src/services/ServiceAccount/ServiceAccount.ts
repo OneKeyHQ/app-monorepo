@@ -88,6 +88,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
+import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -1597,6 +1598,9 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getDBAccountSafe({ accountId }: { accountId: string }) {
+    if (accountUtils.isAllNetworkMockAccount({ accountId })) {
+      return undefined;
+    }
     const account = await localDb.getAccountSafe({ accountId });
     return account;
   }
@@ -2319,7 +2323,7 @@ class ServiceAccount extends ServiceBase {
       throw new Error('TON mnemonic is not supported');
     }
 
-    await this.generateHDWalletsMissingHash({ password });
+    await this.generateMissingHDWalletHash({ password });
 
     const walletHash: string | undefined = this.walletHashBuilder({
       realMnemonic,
@@ -2395,7 +2399,14 @@ class ServiceAccount extends ServiceBase {
     }
     ensureSensitiveTextEncoded(password);
 
-    if (walletHash) {
+    let shouldCheckDuplicate = true;
+
+    const devSettings = await devSettingsPersistAtom.get();
+    if (devSettings.enabled && devSettings.settings?.allowAddSameHDWallet) {
+      shouldCheckDuplicate = false;
+    }
+
+    if (walletHash && shouldCheckDuplicate) {
       // TODO performance issue
       const { wallets } = await this.getAllWallets();
       const existsSameHashWallet = wallets.find(
@@ -2480,10 +2491,13 @@ class ServiceAccount extends ServiceBase {
     }
 
     const result = await localDb.setWalletNameAndAvatar(params);
-    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-    appEventBus.emit(EAppEventBusNames.WalletRename, {
-      walletId: params.walletId,
-    });
+
+    if (!params.skipEmitEvent) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      appEventBus.emit(EAppEventBusNames.WalletRename, {
+        walletId: params.walletId,
+      });
+    }
 
     // Only proceed if the name is actually changing
     if (name && oldName && oldName !== name) {
@@ -3153,7 +3167,7 @@ class ServiceAccount extends ServiceBase {
     return undefined;
   }
 
-  async generateHDWalletsMissingHash({ password }: { password: string }) {
+  async generateMissingHDWalletHash({ password }: { password: string }) {
     const { wallets } = await this.getAllWallets({ refillWalletInfo: false });
     const hdWallets = wallets.filter((wallet) =>
       accountUtils.isHdWallet({ walletId: wallet.id }),
@@ -3226,6 +3240,62 @@ class ServiceAccount extends ServiceBase {
       );
     }
     return false;
+  }
+
+  async getLocalSameHDWallets({ password }: { password: string }) {
+    await this.generateMissingHDWalletHash({ password });
+    const { wallets: allWallets } = await this.getAllWallets({
+      refillWalletInfo: true,
+    });
+    const sameWalletsMap: {
+      [walletHash: string]: IDBWallet[];
+    } = {};
+    for (const wallet of allWallets) {
+      const walletHash = wallet.hash;
+      if (walletHash) {
+        sameWalletsMap[walletHash] = sameWalletsMap[walletHash] || [];
+        sameWalletsMap[walletHash].push(wallet);
+      }
+    }
+    const sameWallets: Array<{ walletHash: string; wallets: IDBWallet[] }> = [];
+    Object.entries(sameWalletsMap).forEach(([walletHash, wallets]) => {
+      if (wallets.length >= 2) {
+        sameWallets.push({ walletHash, wallets });
+      }
+    });
+    return sameWallets;
+  }
+
+  @backgroundMethod()
+  async removeDuplicateHDWallets({
+    sameWallets,
+    selectedWalletsMap,
+  }: {
+    sameWallets: {
+      walletHash: string;
+      wallets: IDBWallet[];
+    }[];
+    selectedWalletsMap: {
+      [walletHash: string]: string; // walletId
+    };
+  }) {
+    const walletsToRemove: string[] = [];
+
+    for (const sameWallet of sameWallets) {
+      const selectedWalletId = selectedWalletsMap[sameWallet.walletHash];
+      if (selectedWalletId) {
+        for (const wallet of sameWallet.wallets) {
+          if (wallet.id !== selectedWalletId) {
+            walletsToRemove.push(wallet.id);
+          }
+        }
+      }
+    }
+
+    for (const walletId of walletsToRemove) {
+      await this.removeWallet({ walletId });
+    }
+    // await timerUtils.wait(3000);
   }
 }
 

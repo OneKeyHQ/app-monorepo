@@ -153,7 +153,7 @@ export function HeaderRight({
       </Stack>
     );
 
-    const moreActionButton = <ReactMoreActionButton />;
+    const moreActionButton = <ReactMoreActionButton key="moreActionButton" />;
 
     const searchInput = media.gtMd ? (
       <UniversalSearchInput key="searchInput" />

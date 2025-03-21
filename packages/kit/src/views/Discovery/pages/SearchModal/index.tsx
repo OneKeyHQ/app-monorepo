@@ -78,6 +78,7 @@ function SearchModal() {
                   webSite: {
                     url: searchValue,
                     title: searchValue,
+                    logo: undefined,
                   },
                   useCurrentWindow,
                   tabId,

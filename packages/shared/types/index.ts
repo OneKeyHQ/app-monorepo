@@ -47,7 +47,7 @@ export interface INetworkExplorerConfig {
 }
 
 export type IServerNetwork = {
-  id: string;
+  id: string; // networkId like evm--1
   impl: string;
   chainId: string;
   name: string;

@@ -11,6 +11,7 @@ import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 
+import { usePrimeAuthV2 } from './usePrimeAuthV2';
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 import type {
@@ -22,7 +23,7 @@ import type { CustomerInfo } from '@revenuecat/purchases-typescript-internal';
 
 export function usePrimePayment(): IUsePrimePayment {
   const [isPaymentReady, setIsPaymentReady] = useState(false);
-  const { isReady: isAuthReady, user } = usePrivyUniversalV2();
+  const { isReady: isAuthReady, user } = usePrimeAuthV2();
 
   const [, setPrimePersistAtom] = usePrimePersistAtom();
 
@@ -32,24 +33,24 @@ export function usePrimePayment(): IUsePrimePayment {
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
-    if (!user?.id) {
+    if (!user?.privyUserId) {
       throw new Error('User not logged in');
     }
 
-    if (user?.id) {
+    if (user?.privyUserId) {
       try {
-        await Purchases.logIn(user.id);
+        await Purchases.logIn(user.privyUserId);
       } catch (e) {
         console.error(e);
       }
       try {
-        await Purchases.logIn(user.id);
+        await Purchases.logIn(user.privyUserId);
       } catch (e) {
         console.error(e);
       }
     }
     const appUserId = await Purchases.getAppUserID();
-    if (appUserId !== user?.id) {
+    if (appUserId !== user?.privyUserId) {
       throw new Error('AppUserId not match');
     }
     const customerInfo: CustomerInfo = await Purchases.getCustomerInfo();
@@ -62,7 +63,7 @@ export function usePrimePayment(): IUsePrimePayment {
     );
 
     return customerInfo;
-  }, [isReady, setPrimePersistAtom, user?.id]);
+  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
 
   const getApiKey = useCallback(async () => {
     if (process.env.NODE_ENV !== 'production') {
@@ -100,11 +101,11 @@ export function usePrimePayment(): IUsePrimePayment {
 
   useEffect(() => {
     void (async () => {
-      if (isReady && user?.id) {
+      if (isReady && user?.privyUserId) {
         await getCustomerInfo();
       }
     })();
-  }, [getCustomerInfo, isReady, user?.id]);
+  }, [getCustomerInfo, isReady, user?.privyUserId]);
 
   const getPackagesNative = useCallback(async () => {
     if (!isReady) {

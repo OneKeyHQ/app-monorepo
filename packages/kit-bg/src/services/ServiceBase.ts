@@ -8,6 +8,7 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import type { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import { getEndpointInfo } from '../endpoints';
@@ -60,25 +61,45 @@ export default class ServiceBase {
     this._currentAccountId = accountId;
   }
 
-  showDialogLoading(
+  @backgroundMethod()
+  async showDialogLoading(
     payload: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
   ) {
     appEventBus.emit(EAppEventBusNames.ShowDialogLoading, payload);
   }
 
-  hideDialogLoading() {
+  @backgroundMethod()
+  async hideDialogLoading() {
     appEventBus.emit(EAppEventBusNames.HideDialogLoading, undefined);
   }
+
+  hideTimer: ReturnType<typeof setTimeout> | undefined;
 
   async withDialogLoading<T>(
     payload: IAppEventBusPayload[EAppEventBusNames.ShowDialogLoading],
     fn: () => Promise<T>,
   ) {
     try {
-      this.showDialogLoading(payload);
-      return await fn();
+      clearTimeout(this.hideTimer);
+      await this.showDialogLoading(payload);
+      const r = await fn();
+      return r;
     } finally {
-      this.hideDialogLoading();
+      await timerUtils.wait(600);
+      await this.hideDialogLoading();
+      // this.hideTimer = setTimeout(() => {
+      //   this.hideDialogLoading();
+      // }, 600);
     }
+  }
+
+  @backgroundMethod()
+  async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
+    appEventBus.emit(EAppEventBusNames.ShowToast, params);
+  }
+
+  @backgroundMethod()
+  async showToast2(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
+    appEventBus.emit(EAppEventBusNames.ShowToast, params);
   }
 }

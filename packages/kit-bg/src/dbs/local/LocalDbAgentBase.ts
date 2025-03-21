@@ -7,6 +7,8 @@ import type {
   ILocalDBGetAllRecordsResult,
   ILocalDBGetRecordByIdParams,
   ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordsByIdsParams,
+  ILocalDBGetRecordsByIdsResult,
   ILocalDBGetRecordsCountParams,
   ILocalDBGetRecordsCountResult,
   ILocalDBRecordPair,
@@ -16,6 +18,8 @@ import type {
   ILocalDBTxGetAllRecordsResult,
   ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordsByIdsParams,
+  ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
@@ -71,6 +75,10 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
     params: ILocalDBGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult>;
 
+  abstract getRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBGetRecordsByIdsResult<T>>;
+
   // TODO get with query
   abstract getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
@@ -83,6 +91,10 @@ export abstract class LocalDbAgentBase implements ILocalDBAgent {
   abstract txGetRecordsCount<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetRecordsCountParams<T>,
   ): Promise<ILocalDBGetRecordsCountResult>;
+
+  abstract txGetRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordsByIdsResult<T>>;
 
   abstract txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,

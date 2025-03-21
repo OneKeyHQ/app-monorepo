@@ -170,11 +170,6 @@ class ServiceApp extends ServiceBase {
   }
 
   @backgroundMethod()
-  async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
-    appEventBus.emit(EAppEventBusNames.ShowToast, params);
-  }
-
-  @backgroundMethod()
   async openExtensionExpandTab(routeInfo: IOpenUrlRouteInfo) {
     await extUtils.openExpandTab(routeInfo);
   }

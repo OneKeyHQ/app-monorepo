@@ -1,6 +1,5 @@
 // eslint-disable-next-line max-classes-per-file
 
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import type {
   INativeNotificationCenterMessageInfo,
@@ -14,15 +13,24 @@ import type {
 import { NotificationEventEmitter } from '../NotificationEventEmitter';
 import { PushProviderWebSocket } from '../PushProvider/PushProviderWebSocket';
 
+import type { IBackgroundApi } from '../../../apis/IBackgroundApi';
+
 export type INotificationProviderBaseOptions = {
   disabledWebSocket?: boolean;
   disabledJPush?: boolean;
   instanceId: string;
 };
+export type INotificationProviderBaseParams = {
+  backgroundApi: IBackgroundApi;
+  options: INotificationProviderBaseOptions;
+};
 export default abstract class NotificationProviderBase {
-  constructor(options: INotificationProviderBaseOptions) {
+  constructor({ options, backgroundApi }: INotificationProviderBaseParams) {
     this.options = options;
+    this.backgroundApi = backgroundApi;
   }
+
+  backgroundApi: IBackgroundApi;
 
   options: INotificationProviderBaseOptions;
 
@@ -37,6 +45,7 @@ export default abstract class NotificationProviderBase {
     this.webSocketProvider = new PushProviderWebSocket({
       eventEmitter: this.eventEmitter,
       instanceId: this.options.instanceId,
+      backgroundApi: this.backgroundApi,
     });
   }
 

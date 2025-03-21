@@ -182,6 +182,7 @@ function HistoryListModal() {
                     webSite: {
                       url: item.url,
                       title: item.title,
+                      logo: item.logo,
                     },
                     shouldPopNavigation: true,
                     enterMethod: EEnterMethod.history,

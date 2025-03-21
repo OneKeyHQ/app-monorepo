@@ -101,9 +101,12 @@ export default class ServiceNotification extends ServiceBase {
       const settings = await settingsPersistAtom.get();
 
       this._notificationProvider = new NotificationProvider({
-        instanceId: settings.instanceId,
-        disabledWebSocket,
-        disabledJPush,
+        options: {
+          instanceId: settings.instanceId,
+          disabledWebSocket,
+          disabledJPush,
+        },
+        backgroundApi: this.backgroundApi,
       });
       this._notificationProvider.eventEmitter.on(
         EPushProviderEventNames.ws_connected,

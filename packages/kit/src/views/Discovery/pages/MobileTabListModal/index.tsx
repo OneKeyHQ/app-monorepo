@@ -116,8 +116,10 @@ function MobileTabListModal() {
 
   const { activeTabId } = useActiveTabId();
 
-  const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction().current;
+  const {
+    addOrUpdateBrowserBookmark: addBrowserBookmark,
+    removeBrowserBookmark,
+  } = useBrowserBookmarkAction().current;
 
   const {
     closeAllWebTabs,
@@ -151,7 +153,7 @@ function MobileTabListModal() {
   const handleBookmarkPress = useCallback(
     (bookmark: boolean, url: string, title: string) => {
       if (bookmark) {
-        void addBrowserBookmark({ url, title });
+        void addBrowserBookmark({ url, title, logo: undefined });
       } else {
         void removeBrowserBookmark(url);
       }

@@ -4,6 +4,7 @@ import type {
   IDBAccount,
   IDBDevice,
   IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 
 export enum EAccountManagerStacksRoutes {
@@ -12,6 +13,7 @@ export enum EAccountManagerStacksRoutes {
   BatchCreateAccountForm = 'BatchCreateAccountForm',
   BatchCreateAccountPreview = 'BatchCreateAccountPreview',
   HardwareHomeScreenModal = 'HardwareHomeScreenModal',
+  PageResolveSameWallets = 'PageResolveSameWallets',
 }
 
 export type IAccountSelectorRouteParamsExtraConfig = {
@@ -42,5 +44,11 @@ export type IAccountManagerStacksParamList = {
   };
   [EAccountManagerStacksRoutes.HardwareHomeScreenModal]: {
     device: IDBDevice;
+  };
+  [EAccountManagerStacksRoutes.PageResolveSameWallets]: {
+    sameWallets: {
+      walletHash: string;
+      wallets: IDBWallet[];
+    }[];
   };
 };

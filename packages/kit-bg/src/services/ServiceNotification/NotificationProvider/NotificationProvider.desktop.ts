@@ -13,11 +13,11 @@ import {
 
 import NotificationProviderBase from './NotificationProviderBase';
 
-import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
+import type { INotificationProviderBaseParams } from './NotificationProviderBase';
 
 export default class NotificationProvider extends NotificationProviderBase {
-  constructor(options: INotificationProviderBaseOptions) {
-    super(options);
+  constructor(params: INotificationProviderBaseParams) {
+    super(params);
     this.initWebSocketProvider();
   }
 

@@ -22,6 +22,7 @@ export interface IDevSettings {
   disableSolanaPriorityFee?: boolean;
   disableAllShortcuts?: boolean;
   webviewDebuggingEnabled?: boolean;
+  allowAddSameHDWallet?: boolean;
   // show trading view
   showTradingView?: boolean;
   showPrimeTest?: boolean;

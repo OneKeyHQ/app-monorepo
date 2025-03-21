@@ -345,7 +345,17 @@ export const DevSettingsSection = () => {
           }}
         />
       </ListItem>
+
       <AutoUpdateSection />
+
+      <SectionFieldItem
+        name="allowAddSameHDWallet"
+        title="允许添加相同助记词 HD 钱包"
+        subtitle=""
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
       <SectionPressItem
         title="Export Accounts Data"
         onPress={() => {

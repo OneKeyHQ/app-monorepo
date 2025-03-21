@@ -18,6 +18,7 @@ import {
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
@@ -94,7 +95,12 @@ export default function PrimeDashboard() {
   const mobileTopValue = isMobile ? top + 25 : '$10';
 
   useEffect(() => {
-    void fetchPrimeUserInfo();
+    const fn = async () => {
+      // wait 600ms to ensure the apiLogin() is finished
+      await timerUtils.wait(600);
+      await fetchPrimeUserInfo();
+    };
+    void fn();
   }, [fetchPrimeUserInfo]);
 
   const shouldShowConfirmButton = useMemo(() => {

@@ -1,5 +1,11 @@
 import ISO6391 from 'iso-639-1';
 
+// must keep this platformEnv import, otherwise the IDE will be very laggy when linting, don't know why
+/*
+Linting file xxx.tsx took 14762ms. Please check the ESLint rules for performance issues.
+*/
+import '@onekeyhq/shared/src/platformEnv';
+
 import { LOCALES as _LOCALES } from './localeJsonMap';
 
 import type { ETranslations } from './enum/translations';

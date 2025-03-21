@@ -205,6 +205,7 @@ export function SearchResultContent({
           webSite: {
             url: searchValue,
             title: searchValue,
+            logo: undefined,
           },
           useCurrentWindow,
           tabId,
@@ -237,6 +238,7 @@ export function SearchResultContent({
         webSite: {
           url: item.url,
           title: item.title,
+          logo: item.logo,
         },
         useCurrentWindow,
         tabId,
@@ -254,6 +256,7 @@ export function SearchResultContent({
         webSite: {
           url: item.url,
           title: item.title,
+          logo: item.logo,
         },
         useCurrentWindow,
         tabId,
