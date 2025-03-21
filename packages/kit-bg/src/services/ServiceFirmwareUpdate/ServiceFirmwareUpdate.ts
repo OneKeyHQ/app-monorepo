@@ -147,6 +147,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
             retryCount: 0, // don't retry, just checking once
             // force sdk throw DeviceDetectInBootloaderMode but not DeviceNotFound when device at bootloader mode and only one device connected
             detectBootloaderDevice: true,
+            // do not prompt web device permission
+            skipWebDevicePrompt: true,
           },
         });
       isBootloaderMode = await deviceUtils.isBootloaderModeByFeatures({
