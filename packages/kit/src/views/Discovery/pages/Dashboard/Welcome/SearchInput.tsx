@@ -84,6 +84,11 @@ export function SearchInput() {
           setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
         }
       }
+
+      // Log when Enter key is pressed
+      if (e.key === 'Enter') {
+        console.log('Enter key pressed', { searchValue });
+      }
     },
     [
       displaySearchList,
@@ -91,6 +96,7 @@ export function SearchInput() {
       displayHistoryList,
       searchList.length,
       localData,
+      searchValue,
     ],
   );
 
