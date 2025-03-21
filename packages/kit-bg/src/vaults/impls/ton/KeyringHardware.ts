@@ -1,5 +1,6 @@
 /* eslint-disable spellcheck/spell-checker */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { TonWalletVersion } from '@onekeyfe/hd-transport';
 import TonWeb from 'tonweb';
 
@@ -47,7 +48,6 @@ import type {
   CommonParams,
   TonSignMessageParams,
 } from '@onekeyfe/hd-core';
-import { EDeviceType } from '@onekeyfe/hd-shared';
 
 export class KeyringHardware extends KeyringHardwareBase {
   override coreApi = coreChainApi.ton.hd;
