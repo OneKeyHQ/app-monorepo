@@ -548,6 +548,12 @@ class ServicePrime extends ServiceBase {
       error,
     });
   }
+
+  @backgroundMethod()
+  async isLoggedIn() {
+    const { isLoggedIn } = await primePersistAtom.get();
+    return isLoggedIn;
+  }
 }
 
 export default ServicePrime;

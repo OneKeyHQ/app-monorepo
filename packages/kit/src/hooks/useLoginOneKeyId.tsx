@@ -11,7 +11,7 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { usePrimeAuthV2 } from '../views/Prime/hooks/usePrimeAuthV2';
+import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
 const PrimeLoginEmailDialogV2 = LazyLoadPage(
   () =>
@@ -23,7 +23,6 @@ const PrimeLoginEmailDialogV2 = LazyLoadPage(
 );
 
 export const useLoginOneKeyId = () => {
-  const { isLoggedIn } = usePrimeAuthV2();
   const intl = useIntl();
   const navigation = useAppNavigation();
 
@@ -33,7 +32,8 @@ export const useLoginOneKeyId = () => {
     });
   }, [navigation]);
 
-  const loginOneKeyId = useCallback(() => {
+  const loginOneKeyId = useCallback(async () => {
+    const isLoggedIn = await backgroundApiProxy.servicePrime.isLoggedIn();
     if (isLoggedIn) {
       toOneKeyIdPage();
     } else {
@@ -55,6 +55,6 @@ export const useLoginOneKeyId = () => {
         ),
       });
     }
-  }, [intl, isLoggedIn, toOneKeyIdPage]);
+  }, [intl, toOneKeyIdPage]);
   return useMemo(() => ({ loginOneKeyId }), [loginOneKeyId]);
 };
