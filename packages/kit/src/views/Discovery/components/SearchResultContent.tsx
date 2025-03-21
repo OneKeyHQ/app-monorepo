@@ -73,7 +73,7 @@ export function SearchResultContent({
   useCurrentWindow,
   tabId,
   onItemClick,
-  selectedIndex = 2,
+  selectedIndex = -1,
   innerRef,
 }: ISearchResultContentProps) {
   const intl = useIntl();
