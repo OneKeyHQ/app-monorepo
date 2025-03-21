@@ -31,6 +31,7 @@ function OTPInputGallery() {
 
               <Button
                 onPress={() => {
+                  setText('');
                   setIsCompleted(false);
                 }}
               >
