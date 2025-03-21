@@ -7,10 +7,13 @@ const PrivyProvider = lazy(() =>
 );
 
 export function PrivyProviderLazy({ children }: { children: React.ReactNode }) {
-  return (
-    <Suspense fallback={null}>
-      <PrivyProvider>{children}</PrivyProvider>
-    </Suspense>
-  );
+  const [devSettings] = useDevSettingsPersistAtom();
+  if (devSettings.enabled && devSettings.settings?.showPrimeTest) {
+    return (
+      <Suspense fallback={null}>
+        <PrivyProvider>{children}</PrivyProvider>
+      </Suspense>
+    );
+  }
   return children;
 }

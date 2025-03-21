@@ -1,5 +1,7 @@
 import { Suspense, lazy } from 'react';
 
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
 const PrimeLoginContainer = lazy(() =>
   import('./PrimeLoginContainer').then((m) => ({
     default: m.PrimeLoginContainer,
@@ -7,9 +9,13 @@ const PrimeLoginContainer = lazy(() =>
 );
 
 export function PrimeLoginContainerLazy() {
-  return (
-    <Suspense fallback={null}>
-      <PrimeLoginContainer />
-    </Suspense>
-  );
+  const [devSettings] = useDevSettingsPersistAtom();
+  if (devSettings.enabled && devSettings.settings?.showPrimeTest) {
+    return (
+      <Suspense fallback={null}>
+        <PrimeLoginContainer />
+      </Suspense>
+    );
+  }
+  return null;
 }
