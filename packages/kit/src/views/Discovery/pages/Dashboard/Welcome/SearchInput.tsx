@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -22,6 +22,7 @@ export function SearchInput() {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const {
     localData,
     searchList,
@@ -46,15 +47,53 @@ export function SearchInput() {
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
+    setSelectedIndex(-1);
   }, []);
 
   const handleInputBlur = useCallback(() => {
     setIsPopoverOpen(false);
   }, []);
 
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      // Prevent default behavior for up and down arrow keys
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+
+        // Calculate total items count
+        const searchCount = displaySearchList ? searchList.length : 0;
+        const bookmarkCount = displayBookmarkList
+          ? localData?.bookmarkData?.length || 0
+          : 0;
+        const historyCount = displayHistoryList
+          ? localData?.historyData?.length || 0
+          : 0;
+        const totalItems = searchCount + bookmarkCount + historyCount;
+
+        if (totalItems === 0) return;
+
+        // Update selected index based on arrow key
+        if (e.key === 'ArrowDown') {
+          setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
+        } else if (e.key === 'ArrowUp') {
+          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
+        }
+      }
+    },
+    [
+      displaySearchList,
+      displayBookmarkList,
+      displayHistoryList,
+      searchList.length,
+      localData,
+    ],
+  );
+
   const searchInputTrigger = (
     <Stack position="relative" width="100%" $gtSm={{ w: 384 }}>
       <Input
+        // @ts-expect-error
+        onKeyPress={handleKeyDown}
         testID="search-input"
         placeholder={intl.formatMessage({
           id: ETranslations.browser_search_dapp_or_enter_url,
@@ -112,6 +151,7 @@ export function SearchInput() {
               displayBookmarkList={displayBookmarkList}
               displayHistoryList={displayHistoryList}
               SEARCH_ITEM_ID={SEARCH_ITEM_ID}
+              selectedIndex={selectedIndex}
               onItemClick={() => {
                 setIsPopoverOpen(false);
               }}
