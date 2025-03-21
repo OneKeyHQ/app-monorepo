@@ -49,7 +49,10 @@ import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
 import { useSwapRecipientAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
-import { useSwapQuoteLoading } from '../../hooks/useSwapState';
+import {
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
+} from '../../hooks/useSwapState';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
@@ -163,24 +166,7 @@ const SwapQuoteResult = ({
     [calculateTaxItem],
   );
 
-  const quoting = useMemo(() => {
-    if (swapQuoteEventTotalCount.count > 0) {
-      if (
-        swapQuoteList?.every(
-          (q) => q.eventId === swapQuoteEventTotalCount.eventId,
-        ) &&
-        swapQuoteList.length === swapQuoteEventTotalCount.count
-      ) {
-        return false;
-      }
-      return true;
-    }
-    return false;
-  }, [
-    swapQuoteEventTotalCount.count,
-    swapQuoteEventTotalCount.eventId,
-    swapQuoteList,
-  ]);
+  const quoting = useSwapQuoteEventFetching();
 
   const limitOrderExpiryStepMap = useMemo(
     () => [
@@ -288,7 +274,7 @@ const SwapQuoteResult = ({
     );
 
     return (
-      <YStack gap="$2" p="$2">
+      <YStack gap="$2" p="$4">
         <XStack justifyContent="space-between">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {intl.formatMessage({
