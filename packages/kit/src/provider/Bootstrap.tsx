@@ -12,7 +12,6 @@ import {
   useShortcuts,
 } from '@onekeyhq/components';
 import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
-import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import {
   useAppIsLockedAtom,
   useDevSettingsPersistAtom,
@@ -25,6 +24,7 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  EMultiTabBrowserRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
@@ -92,7 +92,6 @@ const useDesktopEvents = platformEnv.isDesktop
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
-      // const { addBrowserHomeTab } = useBrowserTabActions().current;
 
       const openSettings = useCallback(
         (isMainWindowVisible: boolean) => {
@@ -171,7 +170,10 @@ const useDesktopEvents = platformEnv.isDesktop
           case EShortcutEvents.NewTab2:
             if (platformEnv.isDesktop) {
               navigation.switchTab(ETabRoutes.MultiTabBrowser, {
-                action: 'create_new_tab',
+                screen: EMultiTabBrowserRoutes.MultiTabBrowser,
+                params: {
+                  action: 'create_new_tab',
+                },
               });
             } else {
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
