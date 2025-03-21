@@ -5,6 +5,7 @@ import { useRoute } from '@react-navigation/native';
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type {
   EMultiTabBrowserRoutes,
   IMultiTabBrowserParamList,
@@ -41,7 +42,7 @@ function DesktopBrowser() {
     >();
 
   useEffect(() => {
-    if (route.params?.action === 'create_new_tab') {
+    if (route.params?.action === 'create_new_tab' && platformEnv.isDesktop) {
       addBrowserHomeTab();
     }
   }, [route.params, addBrowserHomeTab]);
