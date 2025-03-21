@@ -43,7 +43,6 @@ const LoadingSkeleton = (
 
 export interface ISearchResultContentRef {
   openSelectedItem: () => void;
-  getSelectedItemDistance: () => number;
 }
 
 interface ISearchResultContentProps {
@@ -154,22 +153,6 @@ export function SearchResultContent({
       selectedSection === 'history' && getAdjustedHistoryIndex() === index,
     [selectedSection, getAdjustedHistoryIndex],
   );
-
-  // Function to calculate the distance from the selected item to the top
-  const getSelectedItemDistance = useCallback(() => {
-    let distance = 0;
-
-    // Get the selected item in search section
-    const selectedItem = searchItemsRef.current[selectedIndex];
-    if (selectedItem) {
-      const itemRect = selectedItem.getBoundingClientRect();
-      const containerRect = searchListRef.current?.getBoundingClientRect();
-
-      distance = itemRect.top - containerRect.top;
-    }
-
-    return distance;
-  }, [selectedIndex]);
 
   // Update selectedSection based on displayedSections and selectedIndex
   useEffect(() => {
@@ -327,9 +310,8 @@ export function SearchResultContent({
     innerRef,
     () => ({
       openSelectedItem,
-      getSelectedItemDistance,
     }),
-    [openSelectedItem, getSelectedItemDistance],
+    [openSelectedItem],
   );
 
   const renderList = useCallback(
