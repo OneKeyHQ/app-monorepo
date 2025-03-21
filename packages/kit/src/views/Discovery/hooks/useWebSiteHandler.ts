@@ -47,16 +47,6 @@ export const useWebSiteHandler = () => {
         return;
       }
 
-      console.log({
-        webSite,
-        dApp,
-        useSystemBrowser,
-        shouldPopNavigation,
-        enterMethod,
-        useCurrentWindow,
-        tabId,
-      });
-
       if (useSystemBrowser) {
         openUrlExternal(url);
       } else {
