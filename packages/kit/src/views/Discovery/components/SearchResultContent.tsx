@@ -49,6 +49,7 @@ interface ISearchResultContentProps {
   onItemClick?: (
     item: IDApp | { url: string; title: string; logo?: string },
   ) => void;
+  selectedIndex?: number;
 }
 
 export function SearchResultContent({
@@ -62,14 +63,14 @@ export function SearchResultContent({
   useCurrentWindow,
   tabId,
   onItemClick,
+  selectedIndex = 2,
 }: ISearchResultContentProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const jumpPageRef = useRef(false);
   const handleWebSite = useWebSiteHandler();
 
-  // State for keeping track of keyboard navigation
-  const [selectedIndex, setSelectedIndex] = useState(-1);
+  // State for keeping track of which section is active
   const [selectedSection, setSelectedSection] = useState<
     'search' | 'bookmark' | 'history'
   >('search');
@@ -88,17 +89,96 @@ export function SearchResultContent({
     ? localData?.historyData?.length || 0
     : 0;
 
-  // Reset selection when search results change
-  useEffect(() => {
-    setSelectedIndex(-1);
+  // Helper functions to calculate adjusted indices
+  const getAdjustedBookmarkIndex = useCallback(() => {
+    if (selectedSection !== 'bookmark') return -1;
+    return displaySearchList ? selectedIndex - searchCount : selectedIndex;
+  }, [selectedSection, selectedIndex, displaySearchList, searchCount]);
+
+  const getAdjustedHistoryIndex = useCallback(() => {
+    if (selectedSection !== 'history') return -1;
+
+    if (displaySearchList && displayBookmarkList) {
+      return selectedIndex - searchCount - bookmarkCount;
+    }
+
     if (displaySearchList) {
+      return selectedIndex - searchCount;
+    }
+
+    if (displayBookmarkList) {
+      return selectedIndex - bookmarkCount;
+    }
+
+    return selectedIndex;
+  }, [
+    selectedSection,
+    selectedIndex,
+    displaySearchList,
+    displayBookmarkList,
+    searchCount,
+    bookmarkCount,
+  ]);
+
+  // Section-specific index calculation as memoized values
+  const searchIndex = useCallback(
+    (index: number) => selectedSection === 'search' && selectedIndex === index,
+    [selectedSection, selectedIndex],
+  );
+
+  const bookmarkIndex = useCallback(
+    (index: number) =>
+      selectedSection === 'bookmark' && getAdjustedBookmarkIndex() === index,
+    [selectedSection, getAdjustedBookmarkIndex],
+  );
+
+  const historyIndex = useCallback(
+    (index: number) =>
+      selectedSection === 'history' && getAdjustedHistoryIndex() === index,
+    [selectedSection, getAdjustedHistoryIndex],
+  );
+
+  // Update selectedSection based on displayedSections and selectedIndex
+  useEffect(() => {
+    // Default section based on what's displayed
+    if (selectedIndex === -1) {
+      if (displaySearchList) {
+        setSelectedSection('search');
+      } else if (displayBookmarkList) {
+        setSelectedSection('bookmark');
+      } else if (displayHistoryList) {
+        setSelectedSection('history');
+      }
+      return;
+    }
+
+    // Determine which section the selectedIndex belongs to
+    if (displaySearchList && selectedIndex < searchCount) {
       setSelectedSection('search');
     } else if (displayBookmarkList) {
-      setSelectedSection('bookmark');
+      const adjustedIndex = displaySearchList
+        ? selectedIndex - searchCount
+        : selectedIndex;
+      if (adjustedIndex >= 0 && adjustedIndex < bookmarkCount) {
+        setSelectedSection('bookmark');
+      }
     } else if (displayHistoryList) {
-      setSelectedSection('history');
+      const combinedCount =
+        (displaySearchList ? searchCount : 0) +
+        (displayBookmarkList ? bookmarkCount : 0);
+      if (selectedIndex >= combinedCount) {
+        setSelectedSection('history');
+      }
     }
-  }, [displaySearchList, displayBookmarkList, displayHistoryList, searchValue]);
+  }, [
+    selectedIndex,
+    displaySearchList,
+    displayBookmarkList,
+    displayHistoryList,
+    searchCount,
+    bookmarkCount,
+    historyCount,
+  ]);
 
   // Handlers for different types of items
   const handleSearchItemClick = useCallback(
@@ -168,150 +248,6 @@ export function SearchResultContent({
     [handleWebSite, onItemClick, tabId, useCurrentWindow],
   );
 
-  // Handle keyboard navigation
-  useEffect(() => {
-    if (!platformEnv.isDesktop) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-
-        if (selectedIndex === -1) {
-          // First item selection
-          setSelectedIndex(0);
-          return;
-        }
-
-        if (selectedSection === 'search' && selectedIndex < searchCount - 1) {
-          // Navigate within search section
-          setSelectedIndex(selectedIndex + 1);
-        } else if (
-          selectedSection === 'search' &&
-          selectedIndex === searchCount - 1
-        ) {
-          // Move to bookmark section
-          if (displayBookmarkList) {
-            setSelectedSection('bookmark');
-            setSelectedIndex(0);
-          } else if (displayHistoryList) {
-            // Skip to history if bookmarks are not displayed
-            setSelectedSection('history');
-            setSelectedIndex(0);
-          }
-        } else if (
-          selectedSection === 'bookmark' &&
-          selectedIndex < bookmarkCount - 1
-        ) {
-          // Navigate within bookmark section
-          setSelectedIndex(selectedIndex + 1);
-        } else if (
-          selectedSection === 'bookmark' &&
-          selectedIndex === bookmarkCount - 1
-        ) {
-          // Move to history section
-          if (displayHistoryList) {
-            setSelectedSection('history');
-            setSelectedIndex(0);
-          }
-        } else if (
-          selectedSection === 'history' &&
-          selectedIndex < historyCount - 1
-        ) {
-          // Navigate within history section
-          setSelectedIndex(selectedIndex + 1);
-        }
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-
-        if (selectedIndex === -1) {
-          // Select last item when pressing up from no selection
-          if (displayHistoryList) {
-            setSelectedSection('history');
-            setSelectedIndex(historyCount - 1);
-          } else if (displayBookmarkList) {
-            setSelectedSection('bookmark');
-            setSelectedIndex(bookmarkCount - 1);
-          } else if (displaySearchList) {
-            setSelectedSection('search');
-            setSelectedIndex(searchCount - 1);
-          }
-          return;
-        }
-
-        if (selectedSection === 'search' && selectedIndex > 0) {
-          // Navigate within search section
-          setSelectedIndex(selectedIndex - 1);
-        } else if (selectedSection === 'bookmark' && selectedIndex > 0) {
-          // Navigate within bookmark section
-          setSelectedIndex(selectedIndex - 1);
-        } else if (selectedSection === 'bookmark' && selectedIndex === 0) {
-          // Move back to search section
-          if (displaySearchList) {
-            setSelectedSection('search');
-            setSelectedIndex(searchCount - 1);
-          }
-        } else if (selectedSection === 'history' && selectedIndex > 0) {
-          // Navigate within history section
-          setSelectedIndex(selectedIndex - 1);
-        } else if (selectedSection === 'history' && selectedIndex === 0) {
-          // Move back to bookmark section
-          if (displayBookmarkList) {
-            setSelectedSection('bookmark');
-            setSelectedIndex(bookmarkCount - 1);
-          } else if (displaySearchList) {
-            // Skip back to search if bookmarks are not displayed
-            setSelectedSection('search');
-            setSelectedIndex(searchCount - 1);
-          }
-        }
-      } else if (e.key === 'Enter') {
-        // Trigger click on selected item
-        if (selectedIndex !== -1) {
-          e.preventDefault();
-
-          if (selectedSection === 'search' && displaySearchList) {
-            const item = searchList[selectedIndex];
-            handleSearchItemClick(item);
-          } else if (
-            selectedSection === 'bookmark' &&
-            displayBookmarkList &&
-            localData?.bookmarkData
-          ) {
-            const item = localData.bookmarkData[selectedIndex];
-            handleBookmarkItemClick(item);
-          } else if (
-            selectedSection === 'history' &&
-            displayHistoryList &&
-            localData?.historyData
-          ) {
-            const item = localData.historyData[selectedIndex];
-            handleHistoryItemClick(item);
-          }
-        }
-      }
-    };
-
-    globalThis.addEventListener('keydown', handleKeyDown);
-    return () => {
-      globalThis.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [
-    selectedIndex,
-    selectedSection,
-    searchCount,
-    bookmarkCount,
-    historyCount,
-    displaySearchList,
-    displayBookmarkList,
-    displayHistoryList,
-    handleSearchItemClick,
-    handleBookmarkItemClick,
-    handleHistoryItemClick,
-    searchList,
-    localData?.bookmarkData,
-    localData?.historyData,
-  ]);
-
   const renderList = useCallback(
     (list: IDApp[]) =>
       list.map((item, index) => (
@@ -347,16 +283,12 @@ export function SearchResultContent({
           subtitleProps={{
             numberOfLines: 1,
           }}
-          bg={
-            selectedSection === 'search' && selectedIndex === index
-              ? '$bgActive'
-              : undefined
-          }
+          bg={searchIndex(index) ? '$bgActive' : undefined}
           onPress={() => handleSearchItemClick(item)}
           testID={`dapp-search${index}`}
         />
       )),
-    [handleSearchItemClick, selectedSection, selectedIndex],
+    [handleSearchItemClick, searchIndex],
   );
 
   return (
@@ -393,11 +325,7 @@ export function SearchResultContent({
                 hoverStyle={{ bg: '$bgHover' }}
                 pressStyle={{ bg: '$bgActive' }}
                 borderRadius="$3"
-                bg={
-                  selectedSection === 'bookmark' && selectedIndex === index
-                    ? '$bgActive'
-                    : undefined
-                }
+                bg={bookmarkIndex(index) ? '$bgActive' : undefined}
               >
                 <DiscoveryIcon uri={item.logo} size="$14" borderRadius="$3" />
                 <SizableText
@@ -456,11 +384,7 @@ export function SearchResultContent({
                 numberOfLines: 1,
               }}
               testID={`search-modal-${item.title.toLowerCase()}`}
-              bg={
-                selectedSection === 'history' && selectedIndex === index
-                  ? '$bgActive'
-                  : undefined
-              }
+              bg={historyIndex(index) ? '$bgActive' : undefined}
               onPress={() => handleHistoryItemClick(item)}
             />
           ))}
