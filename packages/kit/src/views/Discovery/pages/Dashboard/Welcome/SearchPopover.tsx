@@ -15,7 +15,6 @@ export interface ISearchPopoverProps {
 
 export const SearchPopover: FC<ISearchPopoverProps> = ({
   isOpen,
-  onOpenChange,
   children,
 }) => {
   if (!isOpen) return null;
@@ -46,17 +45,6 @@ export const SearchPopover: FC<ISearchPopoverProps> = ({
           </Stack>
         ) : null}
       </AnimatePresence>
-      {isOpen ? (
-        <Stack
-          position="absolute"
-          top={0}
-          left={0}
-          right={0}
-          bottom={0}
-          zIndex={998}
-          onPress={() => onOpenChange(false)}
-        />
-      ) : null}
     </Portal>
   );
 };
