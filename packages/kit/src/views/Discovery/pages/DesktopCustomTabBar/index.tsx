@@ -380,7 +380,7 @@ function DesktopCustomTabBar() {
                 label={intl.formatMessage({
                   id: ETranslations.explore_new_tab,
                 })}
-                shortcutKey={EShortcutEvents.NewTab}
+                shortcutKey={EShortcutEvents.NewTab2}
                 icon="PlusSmallOutline"
                 testID="browser-bar-add"
                 onPress={(e) => {
