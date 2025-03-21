@@ -274,7 +274,7 @@ const SwapQuoteResult = ({
     );
 
     return (
-      <YStack gap="$2" p="$2">
+      <YStack gap="$2" p="$4">
         <XStack justifyContent="space-between">
           <SizableText size="$bodyMdMedium" color="$textSubdued">
             {intl.formatMessage({
