@@ -124,10 +124,16 @@ export function useSwapQuoteLoading() {
 export function useSwapQuoteEventFetching() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteResult] = useSwapQuoteListAtom();
-  return (
-    quoteEventTotalCount.count > 0 &&
-    quoteResult.length < quoteEventTotalCount.count
-  );
+  if (quoteEventTotalCount.count > 0) {
+    if (
+      quoteResult?.every((q) => q.eventId === quoteEventTotalCount.eventId) &&
+      quoteResult.length === quoteEventTotalCount.count
+    ) {
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 export function useSwapBatchTransfer(
@@ -222,6 +228,21 @@ export function useSwapActionState() {
     ) {
       infoRes.disable = true;
     }
+    if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.LIMIT &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+    if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.SWAP &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.SWAP &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+
     if (quoteLoading || quoteEventFetching) {
       infoRes.label = intl.formatMessage({
         id: ETranslations.swap_page_button_fetching_quotes,
