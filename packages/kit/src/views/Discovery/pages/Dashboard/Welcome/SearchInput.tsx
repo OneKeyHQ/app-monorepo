@@ -111,6 +111,8 @@ export function SearchInput() {
           backgroundColor="$bgStrong"
           borderRadius="$full"
           alignItems="center"
+          borderWidth={2}
+          borderColor={isPopoverOpen ? '$focusRing' : 'transparent'}
           hoverStyle={{
             cursor: 'pointer',
             opacity: 0.8,
@@ -160,8 +162,8 @@ export function SearchInput() {
           ) : null}
         </XStack>
 
-        <SearchPopover isOpen={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-          <Stack p="$2" maxHeight={400}>
+        <SearchPopover isOpen={isPopoverOpen}>
+          <Stack py="$2">
             <SearchResultContent
               searchValue={searchValue}
               localData={localData}
