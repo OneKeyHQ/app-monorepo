@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
@@ -35,6 +41,10 @@ const LoadingSkeleton = (
   </Image.Loading>
 );
 
+export interface ISearchResultContentRef {
+  openSelectedItem: () => void;
+}
+
 interface ISearchResultContentProps {
   searchValue: string;
   localData: ILocalDataType | null;
@@ -49,6 +59,7 @@ interface ISearchResultContentProps {
     item: IDApp | { url: string; title: string; logo?: string },
   ) => void;
   selectedIndex?: number;
+  innerRef?: React.RefObject<ISearchResultContentRef>;
 }
 
 export function SearchResultContent({
@@ -63,6 +74,7 @@ export function SearchResultContent({
   tabId,
   onItemClick,
   selectedIndex = 2,
+  innerRef,
 }: ISearchResultContentProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -245,6 +257,56 @@ export function SearchResultContent({
       });
     },
     [handleWebSite, onItemClick, tabId, useCurrentWindow],
+  );
+
+  const openSelectedItem = useCallback(() => {
+    if (
+      selectedSection === 'search' &&
+      displaySearchList &&
+      searchList[selectedIndex]
+    ) {
+      handleSearchItemClick(searchList[selectedIndex]);
+    } else if (
+      selectedSection === 'bookmark' &&
+      displayBookmarkList &&
+      localData?.bookmarkData
+    ) {
+      const adjustedIndex = getAdjustedBookmarkIndex();
+      if (adjustedIndex >= 0 && adjustedIndex < localData.bookmarkData.length) {
+        handleBookmarkItemClick(localData.bookmarkData[adjustedIndex]);
+      }
+    } else if (
+      selectedSection === 'history' &&
+      displayHistoryList &&
+      localData?.historyData
+    ) {
+      const adjustedIndex = getAdjustedHistoryIndex();
+      if (adjustedIndex >= 0 && adjustedIndex < localData.historyData.length) {
+        handleHistoryItemClick(localData.historyData[adjustedIndex]);
+      }
+    }
+  }, [
+    selectedSection,
+    displaySearchList,
+    displayBookmarkList,
+    displayHistoryList,
+    searchList,
+    localData,
+    selectedIndex,
+    getAdjustedBookmarkIndex,
+    getAdjustedHistoryIndex,
+    handleSearchItemClick,
+    handleBookmarkItemClick,
+    handleHistoryItemClick,
+  ]);
+
+  // Expose the openSelectedItem function to parent components
+  useImperativeHandle(
+    innerRef,
+    () => ({
+      openSelectedItem,
+    }),
+    [openSelectedItem],
   );
 
   const renderList = useCallback(

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -18,11 +18,14 @@ import { useSearchModalData } from '../../../hooks/useSearchModalData';
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
 
+import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
+
 export function SearchInput() {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const searchResultRef = useRef<ISearchResultContentRef>(null);
 
   useEffect(() => {
     setSelectedIndex(-1);
@@ -85,9 +88,13 @@ export function SearchInput() {
         }
       }
 
-      // Log when Enter key is pressed
+      // Handle Enter key press - call openSelectedItem
       if (e.key === 'Enter') {
-        console.log('Enter key pressed', { searchValue });
+        e.preventDefault();
+        if (searchResultRef.current) {
+          searchResultRef.current.openSelectedItem();
+          setIsPopoverOpen(false);
+        }
       }
     },
     [
@@ -96,7 +103,6 @@ export function SearchInput() {
       displayHistoryList,
       searchList.length,
       localData,
-      searchValue,
     ],
   );
 
@@ -173,6 +179,7 @@ export function SearchInput() {
               displayHistoryList={displayHistoryList}
               SEARCH_ITEM_ID={SEARCH_ITEM_ID}
               selectedIndex={selectedIndex}
+              innerRef={searchResultRef}
               onItemClick={() => {
                 setIsPopoverOpen(false);
               }}
