@@ -2,7 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, Input, Stack, View, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Input,
+  SizableText,
+  Stack,
+  View,
+  XStack,
+} from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -134,31 +141,41 @@ export function SearchInput() {
         >
           <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 
-          <Input
-            containerProps={{
-              flex: 1,
-              borderWidth: 0,
-              bg: 'transparent',
-              p: 0,
-            }}
-            InputComponentStyle={{
-              p: 0,
-              bg: 'transparent',
-            }}
-            // @ts-expect-error
-            onKeyPress={handleKeyDown}
-            testID="search-input"
-            placeholder={intl.formatMessage({
-              id: ETranslations.browser_search_dapp_or_enter_url,
-            })}
-            size="large"
-            value={searchValue}
-            onChangeText={handleInputChange}
-            onFocus={() => {
-              setIsPopoverOpen(true);
-            }}
-            onBlur={handleInputBlur}
-          />
+          {platformEnv.isDesktop ? (
+            <Input
+              containerProps={{
+                flex: 1,
+                borderWidth: 0,
+                bg: 'transparent',
+                p: 0,
+              }}
+              InputComponentStyle={{
+                p: 0,
+                bg: 'transparent',
+              }}
+              // @ts-expect-error
+              onKeyPress={handleKeyDown}
+              testID="search-input"
+              placeholder={intl.formatMessage({
+                id: ETranslations.browser_search_dapp_or_enter_url,
+              })}
+              size="large"
+              value={searchValue}
+              onChangeText={handleInputChange}
+              onFocus={() => {
+                setIsPopoverOpen(true);
+              }}
+              onBlur={handleInputBlur}
+            />
+          ) : (
+            <Stack py="$3" flex={1}>
+              <SizableText size="$bodyLg" color="$textPlaceholder">
+                {intl.formatMessage({
+                  id: ETranslations.browser_search_dapp_or_enter_url,
+                })}
+              </SizableText>
+            </Stack>
+          )}
 
           {platformEnv.isDesktop ? (
             <XStack gap="$1" pointerEvents="none">
