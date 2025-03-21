@@ -191,6 +191,7 @@ const SwapQuoteInput = ({
           alignSelf="center"
           bg="$bgSubdued"
           icon="SwitchVerOutline"
+          iconColor="$iconSubdued"
           size="medium"
           disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
