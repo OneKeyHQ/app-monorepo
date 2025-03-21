@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Input, Stack, View, XStack } from '@onekeyhq/components';
+import { Icon, Input, Stack, View, XStack } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -100,58 +100,66 @@ export function SearchInput() {
     ],
   );
 
-  const searchInputTrigger = (
-    <Stack position="relative" width="100%" $gtSm={{ w: 384 }}>
-      <Input
-        // @ts-expect-error
-        onKeyPress={handleKeyDown}
-        testID="search-input"
-        placeholder={intl.formatMessage({
-          id: ETranslations.browser_search_dapp_or_enter_url,
-        })}
-        size="large"
-        leftIconName="SearchOutline"
-        value={searchValue}
-        onChangeText={handleInputChange}
-        onFocus={() => {
-          setIsPopoverOpen(true);
-        }}
-        onBlur={handleInputBlur}
-        addOns={
-          hasResults
-            ? [
-                {
-                  iconName: 'ChevronDownSmallOutline',
-                  onPress: () => setIsPopoverOpen(!isPopoverOpen),
-                },
-              ]
-            : undefined
-        }
-        containerProps={{
-          alignItems: 'center',
-        }}
-      />
-
-      {platformEnv.isDesktop ? (
-        <XStack
-          position="absolute"
-          right="$3"
-          top="50%"
-          style={{ transform: [{ translateY: -12 }] }}
-          gap="$1"
-          pointerEvents="none"
-        >
-          <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
-          <KeyboardShortcutKey label="T" />
-        </XStack>
-      ) : null}
-    </Stack>
-  );
-
   return (
     <>
-      <View position="relative">
-        {searchInputTrigger}
+      <View position="relative" width="100%">
+        <XStack
+          testID="search-input"
+          gap="$2"
+          position="relative"
+          width="100%"
+          backgroundColor="$bgStrong"
+          borderRadius="$full"
+          alignItems="center"
+          hoverStyle={{
+            cursor: 'pointer',
+            opacity: 0.8,
+          }}
+          pressStyle={{
+            opacity: 1,
+          }}
+          onPress={handleSearchBarPress}
+          px="$3"
+          $gtSm={{
+            w: 384,
+          }}
+        >
+          <Icon name="SearchOutline" size="$5" color="$textSubdued" />
+
+          <Input
+            containerProps={{
+              flex: 1,
+              borderWidth: 0,
+              bg: 'transparent',
+              p: 0,
+            }}
+            InputComponentStyle={{
+              p: 0,
+              bg: 'transparent',
+            }}
+            // @ts-expect-error
+            onKeyPress={handleKeyDown}
+            testID="search-input"
+            placeholder={intl.formatMessage({
+              id: ETranslations.browser_search_dapp_or_enter_url,
+            })}
+            size="large"
+            value={searchValue}
+            onChangeText={handleInputChange}
+            onFocus={() => {
+              setIsPopoverOpen(true);
+            }}
+            onBlur={handleInputBlur}
+          />
+
+          {platformEnv.isDesktop ? (
+            <XStack gap="$1" pointerEvents="none">
+              <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
+              <KeyboardShortcutKey label="T" />
+            </XStack>
+          ) : null}
+        </XStack>
+
         <SearchPopover isOpen={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
           <Stack p="$2" maxHeight={400}>
             <SearchResultContent
