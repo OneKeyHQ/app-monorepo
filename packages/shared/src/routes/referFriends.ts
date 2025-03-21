@@ -3,6 +3,7 @@ export enum EModalReferFriendsRoutes {
   YourReferred = 'YourReferred',
   HardwareSalesReward = 'HardwareSalesReward',
   OneKeyId = 'OneKeyId',
+  InviteReward = 'InviteReward',
 }
 
 export type IModalReferFriendsParamList = {
@@ -10,4 +11,5 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.YourReferred]: undefined;
   [EModalReferFriendsRoutes.HardwareSalesReward]: undefined;
   [EModalReferFriendsRoutes.OneKeyId]: undefined;
+  [EModalReferFriendsRoutes.InviteReward]: undefined;
 };

@@ -1,6 +1,7 @@
-import type { PropsWithChildren } from 'react';
+import { type PropsWithChildren, useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   ActionList,
@@ -16,6 +17,7 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
 
@@ -33,8 +35,11 @@ export default function OneKeyId() {
   const { isLoggedIn, user, logout } = usePrimeAuthV2();
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const toInviteRewardPage = useCallback(() => {
+    navigation.push(EModalReferFriendsRoutes.InviteReward);
+  }, [navigation]);
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="OneKey ID" />
       <Page.Body>
         <YStack>
@@ -60,7 +65,19 @@ export default function OneKeyId() {
               referral rewards.
             </SizableText>
           </YStack>
-          <XStack p="$5" jc="space-between">
+          <XStack
+            m="$5"
+            p="$4"
+            borderRadius="$3"
+            jc="space-between"
+            borderWidth={StyleSheet.hairlineWidth}
+            borderColor="$borderSubdued"
+            shadowColor="rgba(0, 0, 0, 0.09)"
+            shadowOffset={{ width: 0, height: 1 }}
+            shadowOpacity={1}
+            shadowRadius={2}
+            elevation={0.5}
+          >
             <XStack gap="$2">
               <Icon size="$5" name="PeopleOutline" color="$iconSubdued" />
               <SizableText size="$bodyMdMedium">{user.email}</SizableText>
@@ -130,6 +147,7 @@ export default function OneKeyId() {
               }
               title="Refer a friend"
               subtitle="Invite friends to earn rewards"
+              onPress={toInviteRewardPage}
             >
               <IconButton
                 icon="ChevronRightSmallOutline"

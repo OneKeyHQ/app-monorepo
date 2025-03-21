@@ -9,7 +9,7 @@ const HardwareSalesReward = LazyLoadPage(
   () => import('../pages/HardwareSalesReward'),
 );
 const OneKeyId = LazyLoadPage(() => import('../pages/OneKeyId'));
-
+const InviteReward = LazyLoadPage(() => import('../pages/InviteReward'));
 export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   EModalReferFriendsRoutes,
   IModalReferFriendsParamList
@@ -29,5 +29,9 @@ export const ReferFriendsRouter: IModalFlowNavigatorConfig<
   {
     name: EModalReferFriendsRoutes.OneKeyId,
     component: OneKeyId,
+  },
+  {
+    name: EModalReferFriendsRoutes.InviteReward,
+    component: InviteReward,
   },
 ];
