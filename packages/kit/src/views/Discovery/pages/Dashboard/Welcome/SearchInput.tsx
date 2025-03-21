@@ -10,6 +10,7 @@ import {
   Stack,
   View,
   XStack,
+  useShortcuts,
 } from '@onekeyhq/components';
 import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -19,6 +20,7 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 import { SearchResultContent } from '../../../components/SearchResultContent';
@@ -28,6 +30,7 @@ import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
 
 import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
+import type { TextInput } from 'react-native';
 
 const ITEM_HEIGHT = 48; // Height of each item in the search results
 
@@ -38,6 +41,7 @@ export function SearchInput() {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const scrollViewRef = useRef<IScrollViewRef>(null);
+  const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
     setSelectedIndex(-1);
@@ -77,6 +81,17 @@ export function SearchInput() {
       setIsPopoverOpen(false);
     }, 100);
   }, []);
+
+  useShortcuts(EShortcutEvents.NewTab, () => {
+    if (platformEnv.isDesktop) {
+      // focus on search input
+      inputRef.current?.focus();
+    } else {
+      navigation.pushModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.SearchModal,
+      });
+    }
+  });
 
   useEffect(() => {
     if (scrollViewRef.current) {
@@ -126,6 +141,11 @@ export function SearchInput() {
           setIsPopoverOpen(false);
         }
       }
+
+      if (e.key === 'Escape') {
+        setIsPopoverOpen(false);
+        inputRef.current?.blur();
+      }
     },
     [
       displaySearchList,
@@ -165,6 +185,7 @@ export function SearchInput() {
 
           {platformEnv.isDesktop ? (
             <Input
+              ref={inputRef}
               containerProps={{
                 flex: 1,
                 borderWidth: 0,
