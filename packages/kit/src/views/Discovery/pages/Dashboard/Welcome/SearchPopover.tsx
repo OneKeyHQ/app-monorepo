@@ -1,6 +1,6 @@
 import type { FC, ReactNode } from 'react';
 
-import { Portal, ScrollView, Stack } from '@onekeyhq/components';
+import { Portal, Stack } from '@onekeyhq/components';
 
 export interface ISearchPopoverProps {
   isOpen: boolean;
@@ -41,7 +41,7 @@ export const SearchPopover: FC<ISearchPopoverProps> = ({
         opacity={1}
         scale={1}
       >
-        <ScrollView maxHeight={300}>{children}</ScrollView>
+        {children}
       </Stack>
     ) : null}
   </Portal>

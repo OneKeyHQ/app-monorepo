@@ -43,6 +43,7 @@ const LoadingSkeleton = (
 
 export interface ISearchResultContentRef {
   openSelectedItem: () => void;
+  getSelectedItemDistance: () => number;
 }
 
 interface ISearchResultContentProps {
@@ -87,9 +88,14 @@ export function SearchResultContent({
   >('search');
 
   // References to track the number of items in each section
-  const searchListRef = useRef<HTMLDivElement>(null);
-  const bookmarkListRef = useRef<HTMLDivElement>(null);
-  const historyListRef = useRef<HTMLDivElement>(null);
+  const searchListRef = useRef<any>(null);
+  const bookmarkListRef = useRef<any>(null);
+  const historyListRef = useRef<any>(null);
+
+  // References to track individual item elements
+  const searchItemsRef = useRef<any[]>([]);
+  const bookmarkItemsRef = useRef<any[]>([]);
+  const historyItemsRef = useRef<any[]>([]);
 
   // Get total number of items in each section
   const searchCount = displaySearchList ? searchList.length : 0;
@@ -148,6 +154,67 @@ export function SearchResultContent({
       selectedSection === 'history' && getAdjustedHistoryIndex() === index,
     [selectedSection, getAdjustedHistoryIndex],
   );
+
+  // Function to calculate the distance from the selected item to the top
+  const getSelectedItemDistance = useCallback(() => {
+    let distance = 0;
+
+    if (selectedSection === 'search') {
+      // Get the selected item in search section
+      const selectedItem = searchItemsRef.current[selectedIndex];
+      if (selectedItem) {
+        const itemRect = selectedItem.getBoundingClientRect();
+        const containerRect = searchListRef.current?.getBoundingClientRect();
+        if (containerRect) {
+          distance = itemRect.top - containerRect.top;
+        }
+      }
+    } else if (selectedSection === 'bookmark') {
+      // Get the selected item in bookmark section
+      const adjustedIndex = getAdjustedBookmarkIndex();
+      const selectedItem = bookmarkItemsRef.current[adjustedIndex];
+      if (selectedItem) {
+        const itemRect = selectedItem.getBoundingClientRect();
+        const containerRect = bookmarkListRef.current?.getBoundingClientRect();
+        if (containerRect) {
+          distance = itemRect.top - containerRect.top;
+        }
+      }
+
+      // Add the height of search section if it's displayed
+      if (displaySearchList && searchListRef.current) {
+        distance += searchListRef.current.offsetHeight;
+      }
+    } else if (selectedSection === 'history') {
+      // Get the selected item in history section
+      const adjustedIndex = getAdjustedHistoryIndex();
+      const selectedItem = historyItemsRef.current[adjustedIndex];
+      if (selectedItem) {
+        const itemRect = selectedItem.getBoundingClientRect();
+        const containerRect = historyListRef.current?.getBoundingClientRect();
+        if (containerRect) {
+          distance = itemRect.top - containerRect.top;
+        }
+      }
+
+      // Add the height of previous sections if they're displayed
+      if (displaySearchList && searchListRef.current) {
+        distance += searchListRef.current.offsetHeight;
+      }
+      if (displayBookmarkList && bookmarkListRef.current) {
+        distance += bookmarkListRef.current.offsetHeight;
+      }
+    }
+
+    return distance;
+  }, [
+    selectedSection,
+    selectedIndex,
+    getAdjustedBookmarkIndex,
+    getAdjustedHistoryIndex,
+    displaySearchList,
+    displayBookmarkList,
+  ]);
 
   // Update selectedSection based on displayedSections and selectedIndex
   useEffect(() => {
@@ -300,13 +367,14 @@ export function SearchResultContent({
     handleHistoryItemClick,
   ]);
 
-  // Expose the openSelectedItem function to parent components
+  // Expose functions to parent components
   useImperativeHandle(
     innerRef,
     () => ({
       openSelectedItem,
+      getSelectedItemDistance,
     }),
-    [openSelectedItem],
+    [openSelectedItem, getSelectedItemDistance],
   );
 
   const renderList = useCallback(
@@ -314,6 +382,9 @@ export function SearchResultContent({
       list.map((item, index) => (
         <ListItem
           key={index}
+          ref={(el) => {
+            searchItemsRef.current[index] = el;
+          }}
           avatarProps={{
             src: item.logo || item.originLogo,
             loading: LoadingSkeleton,
@@ -375,6 +446,9 @@ export function SearchResultContent({
             {localData?.bookmarkData?.map((item, index) => (
               <Stack
                 key={index}
+                ref={(el) => {
+                  bookmarkItemsRef.current[index] = el;
+                }}
                 flexBasis="25%"
                 alignItems="center"
                 py="$2"
@@ -422,6 +496,9 @@ export function SearchResultContent({
           {localData?.historyData.map((item, index) => (
             <ListItem
               key={index}
+              ref={(el) => {
+                historyItemsRef.current[index] = el;
+              }}
               avatarProps={{
                 src: item.logo,
                 loading: LoadingSkeleton,

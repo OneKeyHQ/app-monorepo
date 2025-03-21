@@ -5,11 +5,13 @@ import { useIntl } from 'react-intl';
 import {
   Icon,
   Input,
+  ScrollView,
   SizableText,
   Stack,
   View,
   XStack,
 } from '@onekeyhq/components';
+import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -27,12 +29,15 @@ import { SearchPopover } from './SearchPopover';
 
 import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
 
+const ITEM_HEIGHT = 48; // Height of each item in the search results
+
 export function SearchInput() {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const searchResultRef = useRef<ISearchResultContentRef>(null);
+  const scrollViewRef = useRef<IScrollViewRef>(null);
 
   useEffect(() => {
     setSelectedIndex(-1);
@@ -57,9 +62,6 @@ export function SearchInput() {
     }
   }, [navigation]);
 
-  const hasResults =
-    displaySearchList || displayBookmarkList || displayHistoryList;
-
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
     setSelectedIndex(-1);
@@ -68,6 +70,13 @@ export function SearchInput() {
   const handleInputBlur = useCallback(() => {
     setIsPopoverOpen(false);
   }, []);
+
+  const getSelectedItemDistance = useCallback(() => {
+    if (selectedIndex < 0) return 0;
+
+    // Calculate item height based on your UI design
+    return selectedIndex * ITEM_HEIGHT;
+  }, [selectedIndex]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -89,10 +98,23 @@ export function SearchInput() {
 
         // Update selected index based on arrow key
         if (e.key === 'ArrowDown') {
-          setSelectedIndex((prev) => (prev < totalItems - 1 ? prev + 1 : 0));
+          setSelectedIndex((prev) =>
+            prev < totalItems - 1 ? prev + 1 : totalItems - 1,
+          );
         } else if (e.key === 'ArrowUp') {
-          setSelectedIndex((prev) => (prev > 0 ? prev - 1 : totalItems - 1));
+          setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
         }
+
+        // Use setTimeout to ensure the state is updated before getting the distance
+        setTimeout(() => {
+          if (scrollViewRef.current) {
+            const distance = getSelectedItemDistance();
+            scrollViewRef.current.scrollTo({
+              y: distance,
+              animated: true,
+            });
+          }
+        }, 0);
       }
 
       // Handle Enter key press - call openSelectedItem
@@ -110,6 +132,7 @@ export function SearchInput() {
       displayHistoryList,
       searchList.length,
       localData,
+      getSelectedItemDistance,
     ],
   );
 
@@ -186,22 +209,24 @@ export function SearchInput() {
         </XStack>
 
         <SearchPopover isOpen={isPopoverOpen}>
-          <Stack py="$2">
-            <SearchResultContent
-              searchValue={searchValue}
-              localData={localData}
-              searchList={searchList}
-              displaySearchList={displaySearchList}
-              displayBookmarkList={displayBookmarkList}
-              displayHistoryList={displayHistoryList}
-              SEARCH_ITEM_ID={SEARCH_ITEM_ID}
-              selectedIndex={selectedIndex}
-              innerRef={searchResultRef}
-              onItemClick={() => {
-                setIsPopoverOpen(false);
-              }}
-            />
-          </Stack>
+          <ScrollView ref={scrollViewRef} maxHeight={300}>
+            <Stack py="$2">
+              <SearchResultContent
+                searchValue={searchValue}
+                localData={localData}
+                searchList={searchList}
+                displaySearchList={displaySearchList}
+                displayBookmarkList={displayBookmarkList}
+                displayHistoryList={displayHistoryList}
+                SEARCH_ITEM_ID={SEARCH_ITEM_ID}
+                selectedIndex={selectedIndex}
+                innerRef={searchResultRef}
+                onItemClick={() => {
+                  setIsPopoverOpen(false);
+                }}
+              />
+            </Stack>
+          </ScrollView>
         </SearchPopover>
       </View>
     </>
