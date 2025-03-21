@@ -47,10 +47,15 @@ export function SearchInput() {
     localData,
     searchList,
     displaySearchList,
-    displayBookmarkList,
     displayHistoryList,
     SEARCH_ITEM_ID,
   } = useSearchModalData(searchValue);
+
+  useEffect(() => {
+    scrollViewRef?.current?.scrollTo({
+      y: 0,
+    });
+  }, [searchValue]);
 
   const navigation = useAppNavigation();
   const handleSearchBarPress = useCallback(() => {
@@ -72,7 +77,7 @@ export function SearchInput() {
   }, []);
 
   const getSelectedItemDistance = useCallback(() => {
-    if (selectedIndex < 0) return 0;
+    if (selectedIndex < 3) return 0;
 
     // Calculate item height based on your UI design
     return selectedIndex * ITEM_HEIGHT;
@@ -86,21 +91,16 @@ export function SearchInput() {
 
         // Calculate total items count
         const searchCount = displaySearchList ? searchList.length : 0;
-        const bookmarkCount = displayBookmarkList
-          ? localData?.bookmarkData?.length || 0
-          : 0;
         const historyCount = displayHistoryList
           ? localData?.historyData?.length || 0
           : 0;
-        const totalItems = searchCount + bookmarkCount + historyCount;
+        const totalItems = searchCount + historyCount;
 
         if (totalItems === 0) return;
 
         // Update selected index based on arrow key
         if (e.key === 'ArrowDown') {
-          setSelectedIndex((prev) =>
-            prev < totalItems - 1 ? prev + 1 : totalItems - 1,
-          );
+          setSelectedIndex((prev) => (prev + 2 > totalItems ? prev : prev + 1));
         } else if (e.key === 'ArrowUp') {
           setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
         }
@@ -128,10 +128,9 @@ export function SearchInput() {
     },
     [
       displaySearchList,
-      displayBookmarkList,
-      displayHistoryList,
       searchList.length,
-      localData,
+      displayHistoryList,
+      localData?.historyData?.length,
       getSelectedItemDistance,
     ],
   );
@@ -209,7 +208,7 @@ export function SearchInput() {
         </XStack>
 
         <SearchPopover isOpen={isPopoverOpen}>
-          <ScrollView ref={scrollViewRef} maxHeight={300}>
+          <ScrollView ref={scrollViewRef} maxHeight={310}>
             <Stack py="$2">
               <SearchResultContent
                 searchValue={searchValue}
