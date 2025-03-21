@@ -73,7 +73,9 @@ export function SearchInput() {
   }, []);
 
   const handleInputBlur = useCallback(() => {
-    setIsPopoverOpen(false);
+    setTimeout(() => {
+      setIsPopoverOpen(false);
+    }, 100);
   }, []);
 
   useEffect(() => {

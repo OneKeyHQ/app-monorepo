@@ -78,7 +78,6 @@ export function SearchResultContent({
 }: ISearchResultContentProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const jumpPageRef = useRef(false);
   const handleWebSite = useWebSiteHandler();
 
   // State for keeping track of which section is active
@@ -373,7 +372,6 @@ export function SearchResultContent({
               id: ETranslations.explore_bookmarks,
             })}
             onMorePress={() => {
-              jumpPageRef.current = true;
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
                 screen: EDiscoveryModalRoutes.BookmarkListModal,
               });
@@ -424,7 +422,6 @@ export function SearchResultContent({
               id: ETranslations.browser_recently_closed,
             })}
             onMorePress={() => {
-              jumpPageRef.current = true;
               navigation.pushModal(EModalRoutes.DiscoveryModal, {
                 screen: EDiscoveryModalRoutes.HistoryListModal,
               });
