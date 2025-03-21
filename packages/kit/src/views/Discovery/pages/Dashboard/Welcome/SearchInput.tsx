@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -23,6 +23,11 @@ export function SearchInput() {
   const [searchValue, setSearchValue] = useState('');
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
+
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [isPopoverOpen]);
+
   const {
     localData,
     searchList,
