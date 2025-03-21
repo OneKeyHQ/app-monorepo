@@ -401,7 +401,7 @@ const SwapQuoteResult = ({
     }
   }
   if (
-    swapTypeSwitch !== ESwapTabSwitchType.LIMIT &&
+    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT || quoteResult?.isWrapped) &&
     fromToken &&
     toToken &&
     !new BigNumber(fromAmountDebounce.value).isZero() &&
