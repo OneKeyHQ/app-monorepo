@@ -216,7 +216,7 @@ export function SearchInput() {
                 localData={localData}
                 searchList={searchList}
                 displaySearchList={displaySearchList}
-                displayBookmarkList={displayBookmarkList}
+                displayBookmarkList={false}
                 displayHistoryList={displayHistoryList}
                 SEARCH_ITEM_ID={SEARCH_ITEM_ID}
                 selectedIndex={selectedIndex}

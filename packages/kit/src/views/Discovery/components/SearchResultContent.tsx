@@ -159,62 +159,17 @@ export function SearchResultContent({
   const getSelectedItemDistance = useCallback(() => {
     let distance = 0;
 
-    if (selectedSection === 'search') {
-      // Get the selected item in search section
-      const selectedItem = searchItemsRef.current[selectedIndex];
-      if (selectedItem) {
-        const itemRect = selectedItem.getBoundingClientRect();
-        const containerRect = searchListRef.current?.getBoundingClientRect();
-        if (containerRect) {
-          distance = itemRect.top - containerRect.top;
-        }
-      }
-    } else if (selectedSection === 'bookmark') {
-      // Get the selected item in bookmark section
-      const adjustedIndex = getAdjustedBookmarkIndex();
-      const selectedItem = bookmarkItemsRef.current[adjustedIndex];
-      if (selectedItem) {
-        const itemRect = selectedItem.getBoundingClientRect();
-        const containerRect = bookmarkListRef.current?.getBoundingClientRect();
-        if (containerRect) {
-          distance = itemRect.top - containerRect.top;
-        }
-      }
+    // Get the selected item in search section
+    const selectedItem = searchItemsRef.current[selectedIndex];
+    if (selectedItem) {
+      const itemRect = selectedItem.getBoundingClientRect();
+      const containerRect = searchListRef.current?.getBoundingClientRect();
 
-      // Add the height of search section if it's displayed
-      if (displaySearchList && searchListRef.current) {
-        distance += searchListRef.current.offsetHeight;
-      }
-    } else if (selectedSection === 'history') {
-      // Get the selected item in history section
-      const adjustedIndex = getAdjustedHistoryIndex();
-      const selectedItem = historyItemsRef.current[adjustedIndex];
-      if (selectedItem) {
-        const itemRect = selectedItem.getBoundingClientRect();
-        const containerRect = historyListRef.current?.getBoundingClientRect();
-        if (containerRect) {
-          distance = itemRect.top - containerRect.top;
-        }
-      }
-
-      // Add the height of previous sections if they're displayed
-      if (displaySearchList && searchListRef.current) {
-        distance += searchListRef.current.offsetHeight;
-      }
-      if (displayBookmarkList && bookmarkListRef.current) {
-        distance += bookmarkListRef.current.offsetHeight;
-      }
+      distance = itemRect.top - containerRect.top;
     }
 
     return distance;
-  }, [
-    selectedSection,
-    selectedIndex,
-    getAdjustedBookmarkIndex,
-    getAdjustedHistoryIndex,
-    displaySearchList,
-    displayBookmarkList,
-  ]);
+  }, [selectedIndex]);
 
   // Update selectedSection based on displayedSections and selectedIndex
   useEffect(() => {
