@@ -45,6 +45,9 @@ interface ISearchResultContentProps {
   SEARCH_ITEM_ID: string;
   useCurrentWindow?: boolean;
   tabId?: string;
+  onItemClick?: (
+    item: IDApp | { url: string; title: string; logo?: string },
+  ) => void;
 }
 
 export function SearchResultContent({
@@ -57,6 +60,7 @@ export function SearchResultContent({
   SEARCH_ITEM_ID,
   useCurrentWindow,
   tabId,
+  onItemClick,
 }: ISearchResultContentProps) {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -99,6 +103,8 @@ export function SearchResultContent({
             numberOfLines: 1,
           }}
           onPress={() => {
+            onItemClick?.(item);
+
             if (item.dappId === SEARCH_ITEM_ID) {
               handleWebSite({
                 webSite: {
@@ -121,7 +127,14 @@ export function SearchResultContent({
           testID={`dapp-search${index}`}
         />
       )),
-    [handleWebSite, searchValue, tabId, useCurrentWindow, SEARCH_ITEM_ID],
+    [
+      onItemClick,
+      SEARCH_ITEM_ID,
+      handleWebSite,
+      searchValue,
+      useCurrentWindow,
+      tabId,
+    ],
   );
 
   return (
@@ -152,6 +165,8 @@ export function SearchResultContent({
                   flexBasis: '16.66666667%',
                 }}
                 onPress={() => {
+                  onItemClick?.(item);
+
                   handleWebSite({
                     webSite: {
                       url: item.url,
@@ -221,6 +236,8 @@ export function SearchResultContent({
               }}
               testID={`search-modal-${item.title.toLowerCase()}`}
               onPress={() => {
+                onItemClick?.(item);
+
                 handleWebSite({
                   webSite: {
                     url: item.url,

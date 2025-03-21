@@ -95,6 +95,8 @@ export const homeTab: IWebTab = {
 };
 
 class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
+  closeTimeId: NodeJS.Timeout | null = null;
+
   /**
    * Browser web tab action
    */
@@ -326,7 +328,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const activeTabId = get(activeTabIdAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
-        const isClosingActiveTab = tabs[targetIndex].id === activeTabId;
         const closedTab = tabs[targetIndex];
         tabs.splice(targetIndex, 1);
 
@@ -338,28 +339,33 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           });
         }
 
-        if (isClosingActiveTab) {
+        const activateAdjacentTab = () => {
           let newActiveTabIndex = targetIndex - 1;
-          // If the first tab is closed and there are other tabs
+
           if (newActiveTabIndex < 0 && tabs.length > 0) {
             newActiveTabIndex = 0;
           }
 
-          if (newActiveTabIndex >= 0) {
-            const newActiveTab = tabs[newActiveTabIndex];
-            newActiveTab.isActive = true;
-            const saveSetCurrentWebTab = () => {
-              this.setCurrentWebTab.call(set, newActiveTab.id);
-            };
-            // Refresh the list after closing WebView in Electron to improve list fluidity
-            if (platformEnv.isNative) {
-              saveSetCurrentWebTab();
-            } else {
-              setTimeout(() => {
-                saveSetCurrentWebTab();
-              }, 200);
-            }
+          const newActiveTab = tabs[newActiveTabIndex];
+
+          if (newActiveTab.id === activeTabId) {
+            return;
           }
+          newActiveTab.isActive = true;
+          this.setCurrentWebTab.call(set, newActiveTab.id);
+        };
+
+        // Refresh the list after closing WebView in Electron to improve list fluidity
+        if (platformEnv.isNative) {
+          activateAdjacentTab();
+        } else {
+          if (this.closeTimeId) {
+            clearTimeout(this.closeTimeId);
+          }
+
+          this.closeTimeId = setTimeout(() => {
+            activateAdjacentTab();
+          }, 100);
         }
 
         setTimeout(() => {
@@ -789,12 +795,27 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           }
         }
         this.setDisplayHomePage.call(set, false);
-        void this.openMatchDApp.call(set, {
-          webSite,
-          dApp,
-          isNewWindow,
-          tabId,
-        });
+
+        const currentTab = this.getWebTabById.call(set, tabId ?? '');
+
+        if (currentTab?.type === 'home') {
+          const url = webSite?.url || dApp?.url;
+          const title = webSite?.title || dApp?.name;
+
+          this.setWebTabData.call(set, {
+            id: tabId,
+            type: 'normal',
+            url,
+            title,
+          });
+        } else {
+          void this.openMatchDApp.call(set, {
+            webSite,
+            dApp,
+            isNewWindow,
+            tabId,
+          });
+        }
       }, delayTime);
 
       if (switchToMultiTabBrowser || platformEnv.isDesktop) {

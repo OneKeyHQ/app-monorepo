@@ -1,4 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
   backgroundClass,
@@ -76,7 +76,7 @@ class ServiceHardwareUI extends ServiceBase {
       action: EHardwareUiStateAction.REQUEST_BUTTON,
       connectId,
       payload: {
-        deviceType: 'classic',
+        deviceType: EDeviceType.Classic,
         uiRequestType: EHardwareUiStateAction.REQUEST_BUTTON,
         eventType: '',
         deviceId: '',

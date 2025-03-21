@@ -21,7 +21,66 @@ type IItemType = {
   position: IPositionType;
   dappIndex: number;
   size: string;
+  maxOpacity?: number;
+  borderRadius?: number;
+  initialRotation?: number;
 };
+
+// Configuration for left side items
+const LEFT_SIDE_ITEMS: IItemType[] = [
+  {
+    position: { top: '30%', right: '$28' },
+    dappIndex: 0,
+    size: '$12',
+    maxOpacity: 1,
+    borderRadius: 18,
+    initialRotation: -15,
+  },
+  {
+    position: { bottom: '30%', right: '$12' },
+    dappIndex: 1,
+    size: '$10',
+    maxOpacity: 0.8,
+    borderRadius: 14,
+    initialRotation: -10,
+  },
+  {
+    position: { top: '30%', right: '$0' },
+    dappIndex: 2,
+    size: '$8',
+    maxOpacity: 0.6,
+    borderRadius: 10,
+    initialRotation: 10,
+  },
+];
+
+// Configuration for right side items
+const RIGHT_SIDE_ITEMS: IItemType[] = [
+  {
+    position: { top: '30%', left: '$28' },
+    dappIndex: 3,
+    size: '$12',
+    maxOpacity: 1,
+    borderRadius: 18,
+    initialRotation: 15,
+  },
+  {
+    position: { bottom: '30%', left: '$12' },
+    dappIndex: 4,
+    size: '$10',
+    maxOpacity: 0.8,
+    borderRadius: 14,
+    initialRotation: 10,
+  },
+  {
+    position: { top: '35%', left: '$2' },
+    dappIndex: 5,
+    size: '$8',
+    maxOpacity: 0.6,
+    borderRadius: 10,
+    initialRotation: -10,
+  },
+];
 
 // Component to render the dapp logos on either side
 function DappSideDisplay({
@@ -47,6 +106,9 @@ function DappSideDisplay({
             logo={dapp.logo}
             url={dapp.url}
             size={item.size}
+            maxOpacity={item.maxOpacity}
+            borderRadius={item.borderRadius}
+            initialRotation={item.initialRotation}
           />
         );
       })}
@@ -67,33 +129,14 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
     },
   );
 
-  // Find the "Onekey hot" category and extract its dapps
-  const dapps = useMemo(() => {
-    const onekeyHotCategory = discoveryData?.categories?.find(
-      (category) => category.name === 'Onekey hot',
-    );
-    return onekeyHotCategory?.dapps || [];
-  }, [discoveryData]);
+  // Use the 'hot' data instead of finding the "Onekey hot" category
+  const dapps = useMemo(() => discoveryData?.hot || [], [discoveryData]);
 
   // Create a randomized array of dapps
   const shuffledDapps = useMemo(
     () => [...dapps].sort(() => Math.random() - 0.5),
     [dapps],
   );
-
-  // Configuration for left side items
-  const leftSideItems = [
-    { position: { top: '25%', right: '$28' }, dappIndex: 0, size: '$14' },
-    { position: { bottom: '25%', right: '$12' }, dappIndex: 1, size: '$12' },
-    { position: { top: '30%', right: '$0' }, dappIndex: 2, size: '$9' },
-  ];
-
-  // Configuration for right side items
-  const rightSideItems = [
-    { position: { top: '22%', left: '$28' }, dappIndex: 3, size: '$12' },
-    { position: { bottom: '22%', left: '$11' }, dappIndex: 4, size: '$10' },
-    { position: { top: '40%', left: '$2' }, dappIndex: 5, size: '$8' },
-  ];
 
   // Shared stack props for the side containers
   const sideStackProps = {
@@ -135,7 +178,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
       {/* Left side with logo items */}
       <DappSideDisplay
-        items={leftSideItems}
+        items={LEFT_SIDE_ITEMS}
         shuffledDapps={shuffledDapps}
         sideStackProps={sideStackProps}
       />
@@ -163,7 +206,7 @@ export function Welcome({ banner }: { banner: React.ReactNode }) {
 
       {/* Right side with logo items */}
       <DappSideDisplay
-        items={rightSideItems}
+        items={RIGHT_SIDE_ITEMS}
         shuffledDapps={shuffledDapps}
         sideStackProps={sideStackProps}
       />

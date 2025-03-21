@@ -4,13 +4,11 @@ import type { IAnchorProps, ISizableTextProps } from '../../primitives';
 
 export interface IAnchorSizableTextProps extends ISizableTextProps {
   anchorRegExp?: RegExp;
-  hrefRegExp?: RegExp;
   anchorProps?: IAnchorProps;
 }
 
 export function AnchorSizableText({
   anchorRegExp = /<url(?:\s+[^>]*?)?>(.*?)<\/url>/g,
-  hrefRegExp = /href="(.*?)"/,
   children,
   anchorProps,
   ...props

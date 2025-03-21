@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useRoute } from '@react-navigation/core';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import type { IActionListItemProps, IButtonProps } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
 import {
   ActionList,
   Button,
@@ -40,7 +41,9 @@ import type { DeviceUploadResourceParams } from '@onekeyfe/hd-core';
 import type { RouteProp } from '@react-navigation/core';
 
 const isCollectNFTDeviceCompatible = (device?: IDBDevice) =>
-  device && (device.deviceType === 'touch' || device.deviceType === 'pro');
+  device &&
+  (device.deviceType === EDeviceType.Touch ||
+    device.deviceType === EDeviceType.Pro);
 
 // Disable NFT image collection on web due to CORS errors when fetching NFT image data
 const canCollectNFT = (nft?: IAccountNFT, device?: IDBDevice) =>

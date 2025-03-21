@@ -388,6 +388,7 @@ function DesktopCustomTabBar() {
 
                   if (platformEnv.isDesktop) {
                     addBrowserHomeTab();
+                    navigation.switchTab(ETabRoutes.MultiTabBrowser);
                   } else {
                     navigation.pushModal(EModalRoutes.DiscoveryModal, {
                       screen: EDiscoveryModalRoutes.SearchModal,

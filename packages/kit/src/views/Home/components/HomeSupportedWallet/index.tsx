@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
 import { Empty, Stack, YStack } from '@onekeyhq/components';
@@ -24,12 +25,13 @@ export function HomeSupportedWallet({
     wallets.push('watching');
   }
   const labels: Record<IWalletType, string> = {
-    'classic': 'Classic',
-    'classic1s': 'Classic 1S',
-    'mini': 'Mini',
-    'touch': 'Touch',
-    'pro': 'Pro',
-    'unknown': '',
+    [EDeviceType.Classic]: 'Classic',
+    [EDeviceType.Classic1s]: 'Classic 1S',
+    [EDeviceType.ClassicPure]: 'Classic Pure',
+    [EDeviceType.Mini]: 'Mini',
+    [EDeviceType.Touch]: 'Touch',
+    [EDeviceType.Pro]: 'Pro',
+    [EDeviceType.Unknown]: '',
     'watching': intl.formatMessage({
       id: ETranslations.faq_watched_account,
     }),

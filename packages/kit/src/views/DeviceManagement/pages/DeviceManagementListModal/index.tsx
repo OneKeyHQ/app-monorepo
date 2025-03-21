@@ -41,10 +41,17 @@ function DeviceManagementListModal() {
             filterHiddenWallet: true,
             skipDuplicateDevice: true,
           });
-        return Object.values(r).filter(
-          (item): item is IHwQrWalletWithDevice =>
-            Boolean(item.device) && !item.wallet.deprecated,
-        );
+        return Object.values(r)
+          .filter(
+            (item): item is IHwQrWalletWithDevice =>
+              Boolean(item.device) && !item.wallet.deprecated,
+          )
+          .sort((a, b) => {
+            // Sort by walletOrder or fallback to walletNo
+            const orderA = a.wallet.walletOrder || a.wallet.walletNo;
+            const orderB = b.wallet.walletOrder || b.wallet.walletNo;
+            return orderA - orderB;
+          });
       },
       [],
       {
