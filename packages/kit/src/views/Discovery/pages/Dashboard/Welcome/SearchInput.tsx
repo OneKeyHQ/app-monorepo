@@ -76,11 +76,21 @@ export function SearchInput() {
     setIsPopoverOpen(false);
   }, []);
 
-  const getSelectedItemDistance = useCallback(() => {
-    if (selectedIndex < 3) return 0;
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      const getSelectedItemDistance = () => {
+        if (selectedIndex < 4) return 0;
 
-    // Calculate item height based on your UI design
-    return selectedIndex * ITEM_HEIGHT;
+        // Calculate item height based on your UI design
+        return selectedIndex * ITEM_HEIGHT;
+      };
+
+      const distance = getSelectedItemDistance();
+      scrollViewRef.current.scrollTo({
+        y: distance,
+        animated: true,
+      });
+    }
   }, [selectedIndex]);
 
   const handleKeyDown = useCallback(
@@ -104,17 +114,6 @@ export function SearchInput() {
         } else if (e.key === 'ArrowUp') {
           setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
         }
-
-        // Use setTimeout to ensure the state is updated before getting the distance
-        setTimeout(() => {
-          if (scrollViewRef.current) {
-            const distance = getSelectedItemDistance();
-            scrollViewRef.current.scrollTo({
-              y: distance,
-              animated: true,
-            });
-          }
-        }, 0);
       }
 
       // Handle Enter key press - call openSelectedItem
@@ -131,7 +130,6 @@ export function SearchInput() {
       searchList.length,
       displayHistoryList,
       localData?.historyData?.length,
-      getSelectedItemDistance,
     ],
   );
 
