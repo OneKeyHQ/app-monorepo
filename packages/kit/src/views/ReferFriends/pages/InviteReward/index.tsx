@@ -6,15 +6,18 @@ import { StyleSheet } from 'react-native';
 import {
   Accordion,
   Button,
+  Divider,
   Icon,
   IconButton,
   NumberSizeableText,
   Page,
+  Progress,
   SizableText,
   XStack,
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -151,6 +154,80 @@ function Dashboard() {
         <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
           From your friends who used Earn.
         </SizableText>
+        <YStack gap="$2" pt="$4">
+          <XStack gap="$2">
+            <Token size="xs" networkId="evm--1" />
+            <NumberSizeableText
+              formatter="balance"
+              size="$bodyMd"
+              formatterOptions={{ tokenSymbol: 'USDT' }}
+            >
+              0.1
+            </NumberSizeableText>
+          </XStack>
+          <Divider bg="$borderSubdued" />
+          <XStack gap="$2">
+            <Token size="xs" networkId="evm--1" />
+            <NumberSizeableText
+              formatter="balance"
+              size="$bodyMd"
+              formatterOptions={{ tokenSymbol: 'ETH' }}
+            >
+              0.1
+            </NumberSizeableText>
+          </XStack>
+        </YStack>
+      </YStack>
+      <YStack
+        px="$5"
+        py="$4"
+        borderWidth={StyleSheet.hairlineWidth}
+        borderColor="$borderSubdued"
+        borderRadius="$3"
+      >
+        <XStack ai="center" jc="space-between">
+          <SizableText size="$headingMd">Hardware sale reward</SizableText>
+          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
+        </XStack>
+        <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
+          Your friend gets 5% off, you get at least 5% reward.
+        </SizableText>
+        <YStack pt="$4">
+          <YStack gap="$2">
+            <XStack jc="space-between">
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Bronze
+              </SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                Sliver (Upgrade coming soon)
+              </SizableText>
+            </XStack>
+            <Progress value={1} width="100%" size="medium" />
+          </YStack>
+          <XStack pt="$4">
+            <Token size="xs" networkId="evm--1" />
+            <SizableText size="$bodyMd">
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyMd"
+                formatterOptions={{ tokenSymbol: 'USDC' }}
+              >
+                0
+              </NumberSizeableText>
+              {` + `}
+              <NumberSizeableText
+                formatter="balance"
+                size="$bodyMd"
+                formatterOptions={{ tokenSymbol: 'USDC' }}
+              >
+                55.52
+              </NumberSizeableText>
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              Pending
+            </SizableText>
+          </XStack>
+        </YStack>
       </YStack>
     </YStack>
   );
@@ -232,7 +309,7 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
 
 export default function InviteReward() {
   return (
-    <Page>
+    <Page scrollEnabled>
       <Page.Header title="Invite & Reward" />
       <Page.Body>
         <ShareCode />
