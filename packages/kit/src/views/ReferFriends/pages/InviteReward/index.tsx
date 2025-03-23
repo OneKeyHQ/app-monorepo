@@ -18,8 +18,10 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 function ShareCode() {
   const text = 'GMGMGM';
@@ -95,8 +97,13 @@ function ShareCode() {
 
 function Dashboard() {
   const [settings] = useSettingsPersistAtom();
+  const navigation = useAppNavigation();
   const intl = useIntl();
   const currencySymbol = settings.currencyInfo.symbol;
+
+  const toEditAddressPage = useCallback(() => {
+    navigation.push(EModalReferFriendsRoutes.EditAddress);
+  }, [navigation]);
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -135,6 +142,7 @@ function Dashboard() {
               variant="tertiary"
               icon="EditOutline"
               size="small"
+              onPress={toEditAddressPage}
               iconColor="$iconSubdued"
             />
           </XStack>
