@@ -31,7 +31,7 @@ export default class NotificationProviderEmpty extends NotificationProviderBase 
   }
 
   override removeNotification(
-    params: INotificationRemoveParams,
+    _params: INotificationRemoveParams,
   ): Promise<void> {
     throw new NotImplemented();
   }
@@ -40,7 +40,7 @@ export default class NotificationProviderEmpty extends NotificationProviderBase 
     throw new NotImplemented();
   }
 
-  override setBadge(params: INotificationSetBadgeParams): Promise<void> {
+  override setBadge(_params: INotificationSetBadgeParams): Promise<void> {
     throw new NotImplemented();
   }
 
