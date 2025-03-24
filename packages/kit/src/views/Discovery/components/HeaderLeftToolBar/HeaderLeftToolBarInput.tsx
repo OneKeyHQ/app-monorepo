@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,17 +8,14 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useSearchModalData } from '../../hooks/useSearchModalData';
+import { useSearchSelectedIndex } from '../../hooks/useSearchSelectedIndex';
 import { SearchPopover } from '../../pages/Dashboard/Welcome/SearchPopover';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 import { SearchResultContent } from '../SearchResultContent';
 
 import type { ISearchResultContentRef } from '../SearchResultContent';
-import type {
-  NativeSyntheticEvent,
-  TextInput,
-  TextInputKeyPressEventData,
-} from 'react-native';
+import type { TextInput } from 'react-native';
 
 interface IHeaderLeftToolBarInputProps {
   iconConfig: {
@@ -50,7 +47,6 @@ function HeaderLeftToolBarInput({
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [isPopoverVisible, setIsPopoverVisible] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
   const [internalValue, setInternalValue] = useState('');
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const searchResultRef = useRef<ISearchResultContentRef>(null);
@@ -69,60 +65,24 @@ function HeaderLeftToolBarInput({
     displaySearchList,
     displayHistoryList,
     SEARCH_ITEM_ID,
+    totalItems,
   } = useSearchModalData(searchValue);
 
-  useEffect(() => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        y: 0,
-      });
-    }
-  }, [searchValue]);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      // Prevent default behavior for up and down arrow keys
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-
-        // Calculate total items count
-        const searchCount = displaySearchList ? searchList.length : 0;
-        const historyCount = displayHistoryList
-          ? localData?.historyData?.length || 0
-          : 0;
-        const totalItems = searchCount + historyCount;
-
-        if (totalItems === 0) return;
-
-        // Update selected index based on arrow key
-        if (e.key === 'ArrowDown') {
-          setSelectedIndex((prev) => (prev + 2 > totalItems ? prev : prev + 1));
-        } else if (e.key === 'ArrowUp') {
-          setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
-        }
-      }
-
-      // Handle Enter key press - call openSelectedItem
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (searchResultRef.current) {
-          searchResultRef.current.openSelectedItem();
-          setIsPopoverVisible(false);
-        }
-      }
-
-      if (e.key === 'Escape') {
+  const { selectedIndex, handleKeyDown } = useSearchSelectedIndex({
+    scrollViewRef,
+    totalItems,
+    searchValue,
+    onEnterPress: () => {
+      if (searchResultRef.current) {
+        searchResultRef.current.openSelectedItem();
         setIsPopoverVisible(false);
-        inputRef.current?.blur();
       }
     },
-    [
-      displaySearchList,
-      searchList.length,
-      displayHistoryList,
-      localData?.historyData?.length,
-    ],
-  );
+    onEscape: () => {
+      setIsPopoverVisible(false);
+      inputRef.current?.blur();
+    },
+  });
 
   return (
     <Stack flex={1}>
