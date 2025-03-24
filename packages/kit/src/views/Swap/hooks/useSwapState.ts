@@ -215,6 +215,7 @@ export function useSwapActionState() {
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
+      noConnectWallet: alerts.states.some((item) => item.noConnectWallet),
       label:
         swapTypeSwitchValue === ESwapTabSwitchType.LIMIT
           ? intl.formatMessage({ id: ETranslations.limit_place_order })
@@ -238,6 +239,7 @@ export function useSwapActionState() {
     if (
       quoteCurrentSelect?.protocol === EProtocolOfExchange.SWAP &&
       swapTypeSwitchValue !== ESwapTabSwitchType.SWAP &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.BRIDGE &&
       !isRefreshQuote
     ) {
       infoRes.disable = true;
@@ -336,27 +338,31 @@ export function useSwapActionState() {
   }, [
     hasError,
     quoteCurrentSelect,
+    alerts.states,
     swapTypeSwitchValue,
     intl,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
-    fromTokenAmount,
+    fromTokenAmount.value,
+    isRefreshQuote,
     quoteLoading,
     quoteEventFetching,
     isCrossChain,
     fromToken,
     toToken,
     selectedFromTokenBalance,
-    isRefreshQuote,
     quoteResultNoMatchDebounce,
     isBatchTransfer,
     swapUseLimitPrice.rate,
   ]);
-
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
+    noConnectWallet: actionInfo.noConnectWallet,
+    disabled:
+      (actionInfo.disable && !actionInfo.noConnectWallet) ||
+      quoteLoading ||
+      quoteEventFetching,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,

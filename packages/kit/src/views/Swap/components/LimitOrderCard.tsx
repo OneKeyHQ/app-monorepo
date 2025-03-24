@@ -22,6 +22,7 @@ import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import {
   ESwapLimitOrderStatus,
+  ESwapQuoteKind,
   type IFetchLimitOrderRes,
   LIMIT_PRICE_DEFAULT_DECIMALS,
 } from '@onekeyhq/shared/types/swap/types';
@@ -198,7 +199,7 @@ const LimitOrderCard = ({
     [item, limitPrice, intl, gtMd],
   );
   const renderLimitOrderStatus = useCallback(() => {
-    const { status, executedSellAmount } = item ?? {};
+    const { status, executedSellAmount, executedBuyAmount, kind } = item ?? {};
     let label = intl.formatMessage({
       id: ETranslations.Limit_order_status_open,
     });
@@ -238,17 +239,32 @@ const LimitOrderCard = ({
           break;
       }
     }
+    let sellPercentage = '0';
+    if (kind === ESwapQuoteKind.SELL) {
+      const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
+        -(fromTokenInfo?.decimals ?? 0),
+      );
+      const executedSellAmountBN = new BigNumber(
+        executedSellAmount ?? '0',
+      ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
 
-    const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
-      -(fromTokenInfo?.decimals ?? 0),
-    );
-    const executedSellAmountBN = new BigNumber(
-      executedSellAmount ?? '0',
-    ).shiftedBy(-(fromTokenInfo?.decimals ?? 0));
-    const sellPercentage = executedSellAmountBN
-      .div(fromAmountBN)
-      .multipliedBy(100)
-      .toFixed(2);
+      sellPercentage = executedSellAmountBN
+        .div(fromAmountBN)
+        .multipliedBy(100)
+        .toFixed(2);
+    } else if (kind === ESwapQuoteKind.BUY) {
+      const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
+        -(toTokenInfo?.decimals ?? 0),
+      );
+      const executedBuyAmountBN = new BigNumber(
+        executedBuyAmount ?? '0',
+      ).shiftedBy(-(toTokenInfo?.decimals ?? 0));
+      sellPercentage = executedBuyAmountBN
+        .div(toAmountBN)
+        .multipliedBy(100)
+        .toFixed(2);
+    }
+
     return (
       <YStack gap="$1.5" justifyContent="flex-start">
         <SizableText size="$bodySm" color="$textSubdued">
@@ -270,7 +286,15 @@ const LimitOrderCard = ({
         </XStack>
       </YStack>
     );
-  }, [item, intl, fromAmount, fromTokenInfo?.decimals, progressWidth]);
+  }, [
+    item,
+    intl,
+    progressWidth,
+    fromAmount,
+    fromTokenInfo?.decimals,
+    toAmount,
+    toTokenInfo?.decimals,
+  ]);
 
   return (
     <YStack
