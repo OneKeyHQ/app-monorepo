@@ -235,7 +235,11 @@ export function SearchInput() {
           ) : null}
         </XStack>
 
-        <SearchPopover isOpen={isPopoverOpen}>
+        <SearchPopover
+          isOpen={
+            isPopoverOpen ? displaySearchList || displayHistoryList : false
+          }
+        >
           <ScrollView ref={scrollViewRef} maxHeight={310}>
             <Stack py="$2">
               <SearchResultContent

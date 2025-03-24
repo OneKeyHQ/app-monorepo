@@ -96,5 +96,6 @@ export function useSearchModalData(searchValue: string) {
     displayBookmarkList,
     displayHistoryList,
     SEARCH_ITEM_ID,
+    isEmpty: !displaySearchList && !displayBookmarkList && !displayHistoryList,
   };
 }
