@@ -1,8 +1,8 @@
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { ColorTokens, Icon } from '@onekeyhq/components';
+import type { ColorTokens, IScrollViewRef, Icon } from '@onekeyhq/components';
 import { Input, Popover, ScrollView, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
@@ -12,6 +12,13 @@ import { SearchPopover } from '../../pages/Dashboard/Welcome/SearchPopover';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
 import { SearchResultContent } from '../SearchResultContent';
+
+import type { ISearchResultContentRef } from '../SearchResultContent';
+import type {
+  NativeSyntheticEvent,
+  TextInput,
+  TextInputKeyPressEventData,
+} from 'react-native';
 
 interface IHeaderLeftToolBarInputProps {
   iconConfig: {
@@ -43,10 +50,18 @@ function HeaderLeftToolBarInput({
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
   const [isPopoverVisible, setIsPopoverVisible] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const scrollViewRef = useRef(null);
-  const searchResultRef = useRef(null);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [internalValue, setInternalValue] = useState('');
+  const scrollViewRef = useRef<IScrollViewRef>(null);
+  const searchResultRef = useRef<ISearchResultContentRef>(null);
+  const inputRef = useRef<TextInput>(null);
   const { hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
+
+  useEffect(() => {
+    if (hiddenHttpsUrl) {
+      setInternalValue(hiddenHttpsUrl);
+    }
+  }, [hiddenHttpsUrl]);
 
   const {
     localData,
@@ -54,12 +69,65 @@ function HeaderLeftToolBarInput({
     displaySearchList,
     displayHistoryList,
     SEARCH_ITEM_ID,
-    refreshLocalData,
   } = useSearchModalData(searchValue);
+
+  useEffect(() => {
+    if (scrollViewRef.current) {
+      scrollViewRef.current.scrollTo({
+        y: 0,
+      });
+    }
+  }, [searchValue]);
+
+  const handleKeyDown = useCallback(
+    (e: KeyboardEvent) => {
+      // Prevent default behavior for up and down arrow keys
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        e.preventDefault();
+
+        // Calculate total items count
+        const searchCount = displaySearchList ? searchList.length : 0;
+        const historyCount = displayHistoryList
+          ? localData?.historyData?.length || 0
+          : 0;
+        const totalItems = searchCount + historyCount;
+
+        if (totalItems === 0) return;
+
+        // Update selected index based on arrow key
+        if (e.key === 'ArrowDown') {
+          setSelectedIndex((prev) => (prev + 2 > totalItems ? prev : prev + 1));
+        } else if (e.key === 'ArrowUp') {
+          setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
+        }
+      }
+
+      // Handle Enter key press - call openSelectedItem
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (searchResultRef.current) {
+          searchResultRef.current.openSelectedItem();
+          setIsPopoverVisible(false);
+        }
+      }
+
+      if (e.key === 'Escape') {
+        setIsPopoverVisible(false);
+        inputRef.current?.blur();
+      }
+    },
+    [
+      displaySearchList,
+      searchList.length,
+      displayHistoryList,
+      localData?.historyData?.length,
+    ],
+  );
 
   return (
     <Stack flex={1}>
       <Input
+        ref={inputRef}
         containerProps={{ mx: '$6', flex: 1 } as any}
         size="small"
         leftAddOnProps={{
@@ -71,14 +139,17 @@ function HeaderLeftToolBarInput({
           },
         }}
         pb="$1.5"
-        value={hiddenHttpsUrl || ''}
-        selectTextOnFocus
-        testID="explore-index-search-input"
+        value={internalValue}
         onChangeText={(text) => {
+          setInternalValue(text);
           setSearchValue(text);
           setIsPopoverVisible(true);
         }}
+        selectTextOnFocus
+        testID="explore-index-search-input"
         onFocus={() => setIsPopoverVisible(true)}
+        // @ts-expect-error
+        onKeyPress={handleKeyDown}
         addOns={[
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
