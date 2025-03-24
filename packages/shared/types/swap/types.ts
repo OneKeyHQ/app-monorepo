@@ -464,6 +464,7 @@ export interface ISwapState {
   disabled: boolean;
   isCrossChain: boolean;
   shoutResetApprove?: boolean;
+  noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
 }
@@ -502,6 +503,7 @@ export interface ISwapAlertState {
   message?: string;
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
+  noConnectWallet?: boolean;
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
@@ -725,6 +727,7 @@ export interface IFetchLimitOrderRes {
   provider: string;
   status: ESwapLimitOrderStatus;
   fromTokenInfo: ISwapToken;
+  kind: ESwapQuoteKind;
   toTokenInfo: ISwapToken;
   payAddress: string;
   receiveAddress: string;

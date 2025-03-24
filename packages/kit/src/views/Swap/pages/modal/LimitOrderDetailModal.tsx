@@ -37,7 +37,10 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import { defaultSupportUrl } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
-import { ESwapLimitOrderStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapLimitOrderStatus,
+  ESwapQuoteKind,
+} from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
 import {
@@ -317,6 +320,7 @@ const LimitOrderDetailModal = () => {
       fromTokenInfo,
       executedSellAmount,
       fromAmount,
+      kind,
     } = orderItemState ?? {};
     const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
       -(fromTokenInfo?.decimals ?? 0),
@@ -333,12 +337,22 @@ const LimitOrderDetailModal = () => {
     const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
       -(toTokenInfo?.decimals ?? 0),
     );
-    const limitRate = toAmountBN.dividedBy(fromAmountBN);
-    const limitRateBuyAmountBN = limitRate.multipliedBy(executeSellAmountBN);
-    const surplusBN = executedBuyAmountBN.minus(limitRateBuyAmountBN);
-    const surplusFormat = formatBalance(surplusBN.toFixed());
-    if (surplusBN.gt(0)) {
-      return surplusFormat.formattedValue;
+    if (kind === ESwapQuoteKind.SELL) {
+      const limitRate = toAmountBN.dividedBy(fromAmountBN);
+      const limitRateBuyAmountBN = limitRate.multipliedBy(executeSellAmountBN);
+      const surplusBN = executedBuyAmountBN.minus(limitRateBuyAmountBN);
+      const surplusFormat = formatBalance(surplusBN.toFixed());
+      if (surplusBN.gt(0)) {
+        return surplusFormat.formattedValue;
+      }
+    } else if (kind === ESwapQuoteKind.BUY) {
+      const limitRate = fromAmountBN.dividedBy(toAmountBN);
+      const limitRateSellAmountBN = limitRate.multipliedBy(executedBuyAmountBN);
+      const surplusBN = limitRateSellAmountBN.minus(executeSellAmountBN);
+      const surplusFormat = formatBalance(surplusBN.toFixed());
+      if (surplusBN.gt(0)) {
+        return surplusFormat.formattedValue;
+      }
     }
     return null;
   }, [orderItemState]);
@@ -357,10 +371,12 @@ const LimitOrderDetailModal = () => {
   const renderLimitOrderFilledStatus = useCallback(() => {
     const {
       fromAmount,
+      toAmount,
       executedBuyAmount,
       executedSellAmount,
       fromTokenInfo,
       toTokenInfo,
+      kind,
     } = orderItemState ?? {};
     const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
       -(fromTokenInfo?.decimals ?? 0),
@@ -377,10 +393,21 @@ const LimitOrderDetailModal = () => {
     const formattedExecutedSellAmount = formatBalance(
       executedSellAmountBN.toFixed(),
     );
-    const sellPercentage = executedSellAmountBN
-      .div(fromAmountBN)
-      .multipliedBy(100)
-      .toFixed(2);
+    let sellPercentage = '0';
+    if (kind === ESwapQuoteKind.SELL) {
+      sellPercentage = executedSellAmountBN
+        .div(fromAmountBN)
+        .multipliedBy(100)
+        .toFixed(2);
+    } else if (kind === ESwapQuoteKind.BUY) {
+      const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
+        -(toTokenInfo?.decimals ?? 0),
+      );
+      sellPercentage = executedBuyAmountBN
+        .div(toAmountBN)
+        .multipliedBy(100)
+        .toFixed(2);
+    }
     return (
       <YStack gap="$0.5" flex={1}>
         <XStack alignItems="center" gap="$2" flex={1}>
@@ -491,7 +518,11 @@ const LimitOrderDetailModal = () => {
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_surplus,
                 })}
-                renderContent={`${surplus} ${orderItemState.toTokenInfo.symbol}`}
+                renderContent={`${surplus} ${
+                  orderItemState.kind === ESwapQuoteKind.SELL
+                    ? orderItemState.toTokenInfo.symbol
+                    : orderItemState.fromTokenInfo.symbol
+                }`}
               />
             ) : null}
           </InfoItemGroup>
