@@ -134,6 +134,7 @@ export type IAddHDOrHWAccountsParams = {
   deriveType: IAccountDeriveTypes;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   isVerifyAddressAction?: boolean;
+  createAllDeriveTypes?: boolean;
 
   // purpose?: number;
   // skipRepeat?: boolean;

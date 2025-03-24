@@ -46,6 +46,7 @@ export function useAccountSelectorCreateAddress() {
       num,
       selectAfterCreate,
       account,
+      createAllDeriveTypes,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -55,6 +56,7 @@ export function useAccountSelectorCreateAddress() {
         indexedAccountId: string | undefined;
         deriveType: IAccountDeriveTypes;
       };
+      createAllDeriveTypes?: boolean;
     }) => {
       if (
         !account ||
@@ -154,6 +156,7 @@ export function useAccountSelectorCreateAddress() {
             indexedAccountId: account?.indexedAccountId,
             networkId: account?.networkId,
             deriveType: account?.deriveType,
+            createAllDeriveTypes,
             ...hwUiControlParams,
           });
           return await handleAddAccounts(result);
