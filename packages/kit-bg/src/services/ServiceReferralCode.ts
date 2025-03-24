@@ -17,6 +17,20 @@ class ServiceReferralCode extends ServiceBase {
       await this.backgroundApi.simpleDb.referralCode.getInviteCode();
     return inviteCode !== '';
   }
+
+  @backgroundMethod()
+  async bindInviteCode(code: string) {
+    await this.backgroundApi.simpleDb.referralCode.updateCode({
+      inviteCode: code,
+    });
+  }
+
+  @backgroundMethod()
+  async updateMyReferralCode(code: string) {
+    await this.backgroundApi.simpleDb.referralCode.updateCode({
+      myReferralCode: code,
+    });
+  }
 }
 
 export default ServiceReferralCode;

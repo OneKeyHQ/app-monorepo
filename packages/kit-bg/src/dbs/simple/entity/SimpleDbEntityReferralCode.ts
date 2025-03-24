@@ -1,5 +1,3 @@
-import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
-
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
 
 export interface IReferralCodeData {
@@ -12,11 +10,10 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
 
   override enableCache = false;
 
-  updateCode({ myReferralCode, inviteCode }: IReferralCodeData) {
+  updateCode(params: Partial<IReferralCodeData>) {
     return this.setRawData((rawData) => ({
       ...rawData,
-      myReferralCode,
-      inviteCode,
+      ...params,
     }));
   }
 

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
+import { StyleSheet } from 'react-native';
 
 import {
   Dialog,
@@ -20,11 +21,16 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 import useAppNavigation from './useAppNavigation';
+import { useLoginOneKeyId } from './useLoginOneKeyId';
 
 const NUMBER_OF_DIGITS = 6;
 function InviteCode() {
   const [verificationCode, setVerificationCode] = useState('');
-  const handleConfirm = useCallback(() => {}, []);
+  const handleConfirm = useCallback(() => {
+    void backgroundApiProxy.serviceReferralCode.bindInviteCode(
+      verificationCode,
+    );
+  }, [verificationCode]);
   return (
     <YStack>
       <OTPInput
@@ -33,10 +39,11 @@ function InviteCode() {
         numberOfDigits={NUMBER_OF_DIGITS}
         value={verificationCode}
         onTextChange={(value) => {
-          setVerificationCode(value);
+          setVerificationCode(value.toUpperCase());
         }}
       />
       <Dialog.Footer
+        showCancelButton={false}
         confirmButtonProps={{
           disabled: verificationCode.length !== NUMBER_OF_DIGITS,
         }}
@@ -49,6 +56,8 @@ function InviteCode() {
 export const useReferFriends = () => {
   const intl = useIntl();
   const navigation = useAppNavigation();
+  const { loginOneKeyId } = useLoginOneKeyId();
+
   const toReferFriendsPage = useCallback(() => {
     navigation.pushModal(EModalRoutes.ReferFriendsModal, {
       screen: EModalReferFriendsRoutes.ReferAFriend,
@@ -56,11 +65,11 @@ export const useReferFriends = () => {
   }, [navigation]);
   const bindInviteCode = useCallback(() => {
     Dialog.confirm({
+      showExitButton: false,
       icon: 'InputOutline',
       title: 'Enter invite code',
       description:
         'Use an invite code to receive {number%} yield boost in this vault',
-      showCancelButton: false,
       renderContent: <InviteCode />,
     });
   }, []);
@@ -72,6 +81,15 @@ export const useReferFriends = () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
     const text = 'GMGMGM';
 
+    const handleConfirm = () => {
+      if (isLogin) {
+        navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+          screen: EModalReferFriendsRoutes.ReferAFriend,
+        });
+      } else {
+        void loginOneKeyId();
+      }
+    };
     Dialog.show({
       icon: 'GiftOutline',
       title: 'Referral and earn more!',
@@ -161,9 +179,9 @@ export const useReferFriends = () => {
         bindInviteCode();
       },
       onConfirmText: isLogin ? 'View rewards' : 'Join',
-      onConfirm: () => {},
+      onConfirm: handleConfirm,
     });
-  }, [bindInviteCode, copyText, intl]);
+  }, [bindInviteCode, copyText, intl, loginOneKeyId, navigation]);
 
   return useMemo(
     () => ({ toReferFriendsPage, bindInviteCode, shareReferRewards }),
