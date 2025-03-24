@@ -47,12 +47,12 @@ export const useWatchListAction = () => {
     [actions],
   );
   const MoveToTop = useCallback(
-    (coingeckoId: string) => {
+    async (coingeckoId: string) => {
       const item = {
         coingeckoId,
         sortIndex: undefined,
       };
-      actions.current.moveToTop(item);
+      await actions.current.moveToTop(item);
     },
     [actions],
   );

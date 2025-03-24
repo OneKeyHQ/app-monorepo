@@ -85,6 +85,8 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       let newSortIndex = target?.sortIndex ?? 100_000;
       if (prev && !next) {
         newSortIndex = (prev.sortIndex ?? newSortIndex) + 1;
+      } else if (!prev && next) {
+        newSortIndex = (next.sortIndex ?? newSortIndex) - 1;
       } else {
         newSortIndex =
           ((prev?.sortIndex ?? newSortIndex - 1) +
@@ -112,17 +114,19 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     },
   );
 
-  moveToTop = contextAtomMethod((get, set, payload: IMarketWatchListItem) => {
-    const prev = get(marketWatchListAtom());
-    if (!prev.isMounted) {
-      return;
-    }
-    const newItems = prev.data.filter(
-      (i) => i.coingeckoId !== payload.coingeckoId,
-    );
-    const watchList = [payload, ...newItems];
-    this.flushWatchListAtom.call(set, watchList);
-  });
+  moveToTop = contextAtomMethod(
+    async (get, set, payload: IMarketWatchListItem) => {
+      const prev = get(marketWatchListAtom());
+      if (!prev.isMounted) {
+        return;
+      }
+      await this.sortWatchListItems.call(set, {
+        target: payload,
+        prev: undefined,
+        next: prev?.data?.[0],
+      });
+    },
+  );
 
   saveWatchList = contextAtomMethod(
     (get, set, payload: IMarketWatchListItem[]) => {

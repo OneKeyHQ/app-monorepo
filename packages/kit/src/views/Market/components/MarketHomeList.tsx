@@ -221,8 +221,8 @@ function MarketMdColumn({
               label: intl.formatMessage({
                 id: ETranslations.market_move_to_top,
               }),
-              onPress: () => {
-                actions.MoveToTop(coingeckoId);
+              onPress: async () => {
+                await actions.MoveToTop(coingeckoId);
               },
             },
           ].filter(Boolean),

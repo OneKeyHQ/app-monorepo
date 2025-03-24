@@ -26,8 +26,8 @@ function BasicMarketMore({
 } & IStackProps) {
   const intl = useIntl();
   const actions = useWatchListAction();
-  const MoveToTop = useCallback(() => {
-    actions.MoveToTop(coingeckoId);
+  const MoveToTop = useCallback(async () => {
+    await actions.MoveToTop(coingeckoId);
   }, [actions, coingeckoId]);
   const tradeActions = useLazyMarketTradeActions(coingeckoId);
   const show = useReviewControl();
