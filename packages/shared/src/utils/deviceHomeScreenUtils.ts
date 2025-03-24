@@ -72,7 +72,7 @@ function isMonochromeScreen(deviceModelInternal: IDeviceType): boolean {
 //         const g = imageData.data[4 * i + 1];
 //         const b = imageData.data[4 * i + 2];
 
-//         return toGrayscale(r, g, b);
+//         return toGrayScale(r, g, b);
 //       }),
 //     )
 //     .flat();
