@@ -125,7 +125,7 @@ function HeaderLeftToolBar({
         hostSecurity={hostSecurity}
         iconConfig={iconConfig}
         inputProps={{
-          onPress: platformEnv.isDesktop ? () => onSearch?.(url) : undefined,
+          onPress: !platformEnv.isDesktop ? () => onSearch?.(url) : undefined,
         }}
         isBookmark={isBookmark}
         isPinned={isPinned}

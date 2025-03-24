@@ -136,7 +136,7 @@ function HeaderLeftToolBarInput({
 
       <SearchPopover
         containerProps={{
-          mx: 24,
+          px: 24,
         }}
         isOpen={isPopoverVisible}
       >
