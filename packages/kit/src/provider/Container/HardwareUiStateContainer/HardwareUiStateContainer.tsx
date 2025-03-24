@@ -419,6 +419,7 @@ function HardwareUiStateContainerCmpControlled() {
           EHardwareUiStateAction.FIRMWARE_PROGRESS,
           EHardwareUiStateAction.CLOSE_UI_WINDOW,
           EHardwareUiStateAction.PREVIOUS_ADDRESS,
+          EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE,
         ].includes(currentState?.action)
       ) {
         return false;

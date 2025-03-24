@@ -110,6 +110,7 @@ export enum EAppEventBusNames {
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
+  RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -323,6 +324,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.RequestHardwareUIDialog]: {
     uiRequestType: EHardwareUiStateAction;
   };
+  [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

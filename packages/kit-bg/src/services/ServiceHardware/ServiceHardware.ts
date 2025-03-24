@@ -391,6 +391,14 @@ class ServiceHardware extends ServiceBase {
             appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
               uiRequestType: newUiRequestType,
             });
+          } else if (
+            newUiRequestType ===
+            EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE
+          ) {
+            appEventBus.emit(
+              EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+              undefined,
+            );
           } else {
             // show hardware ui dialog
             await hardwareUiStateAtom.set({
