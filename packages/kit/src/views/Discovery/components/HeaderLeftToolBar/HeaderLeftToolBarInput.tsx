@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ColorTokens, IScrollViewRef, Icon } from '@onekeyhq/components';
 import { Input, Popover, ScrollView, Stack } from '@onekeyhq/components';
+import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useSearchModalData } from '../../hooks/useSearchModalData';
@@ -89,6 +91,12 @@ function HeaderLeftToolBarInput({
       setIsPopoverOpen(false);
       inputRef.current?.blur();
     },
+  });
+
+  useShortcutsOnRouteFocused(EShortcutEvents.ChangeCurrentTabUrl, () => {
+    if (platformEnv.isDesktop) {
+      inputRef.current?.focus();
+    }
   });
 
   return (
