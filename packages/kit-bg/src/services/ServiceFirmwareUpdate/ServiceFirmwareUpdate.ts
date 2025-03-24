@@ -35,6 +35,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IBleFirmwareUpdateInfo,
@@ -1044,7 +1045,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   @backgroundMethod()
   async checkBridgeStatus(): Promise<{ status: boolean; timeout?: boolean }> {
-    if (!this._hasUseBridge()) {
+    if (!(await this._hasUseBridge())) {
       return Promise.resolve({ status: true });
     }
 
@@ -1074,7 +1075,12 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
   }
 
-  _hasUseBridge() {
+  async _hasUseBridge() {
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+      return false;
+    }
     return (
       platformEnv.isDesktop || platformEnv.isWeb || platformEnv.isExtension
     );
@@ -1088,7 +1094,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     connectId: string | undefined;
     willUpdateFirmwareVersion: string;
   }): Promise<IHardwareBridgeReleasePayload | undefined> {
-    if (!this._hasUseBridge()) {
+    if (!(await this._hasUseBridge())) {
       return undefined;
     }
     const hardwareSDK = await this.getSDKInstance();
