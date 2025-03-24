@@ -44,6 +44,14 @@ export function SearchInput() {
   const inputRef = useRef<TextInput>(null);
 
   useEffect(() => {
+    if (platformEnv.isDesktop) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 200);
+    }
+  }, []);
+
+  useEffect(() => {
     setSelectedIndex(-1);
   }, [isPopoverOpen]);
 
