@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -170,6 +170,14 @@ export function SearchInput() {
     ],
   );
 
+  const isPopoverVisible = useMemo(
+    () =>
+      isPopoverOpen && searchValue.length > 0
+        ? displaySearchList || displayHistoryList
+        : false,
+    [isPopoverOpen, searchValue.length, displaySearchList, displayHistoryList],
+  );
+
   return (
     <>
       <View position="relative" width="100%">
@@ -243,11 +251,7 @@ export function SearchInput() {
           ) : null}
         </XStack>
 
-        <SearchPopover
-          isOpen={
-            isPopoverOpen ? displaySearchList || displayHistoryList : false
-          }
-        >
+        <SearchPopover isOpen={isPopoverVisible}>
           <ScrollView ref={scrollViewRef} maxHeight={310}>
             <Stack py="$2">
               <SearchResultContent
