@@ -100,13 +100,13 @@ const HardwareTransportTypeListItem = () => {
   return (
     <Select
       offset={{ mainAxis: -4, crossAxis: -10 }}
-      title="Hardware Transport Type"
+      title={intl.formatMessage({
+        id: ETranslations.device_hardware_communication,
+      })}
       items={transportOptions}
       value={hardwareTransportType}
       onChange={onChange}
       placement="bottom-end"
-      floatingPanelProps={{ maxHeight: 280 }}
-      sheetProps={{ snapPoints: [80], snapPointsMode: 'percent' }}
       renderTrigger={({ label }) => (
         <ListItem
           userSelect="none"

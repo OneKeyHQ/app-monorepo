@@ -79,19 +79,19 @@ export default function PromptWebDeviceAccessPage() {
           borderColor="$borderSubdued"
         >
           {/* Dialog container */}
-          <Stack
+          <YStack
             bg="$bg"
             width="100%"
             h={140}
             p="$2.5"
             gap="$2.5"
             borderRadius="$2"
-            borderWidth={StyleSheet.hairlineWidth}
             borderColor="$borderSubdued"
-            shadowColor="$shadowColor"
-            shadowOffset={{ width: 0, height: 12 }}
-            shadowOpacity={0.09}
-            shadowRadius={24}
+            outlineWidth={1}
+            outlineColor="$borderSubdued"
+            outlineStyle="solid"
+            outlineOffset={0}
+            elevation={20}
           >
             {/* Dialog header with padding */}
             <Stack
@@ -130,13 +130,13 @@ export default function PromptWebDeviceAccessPage() {
               />
               <Stack w="$12" h="$3" borderRadius="$full" bg="$info11" />
             </XStack>
-          </Stack>
+          </YStack>
         </Stack>
 
         {/* Button */}
         <Button
           variant="primary"
-          size="large"
+          size="small"
           onPress={handleGrantAccess}
           loading={isConnecting}
           disabled={isConnecting}
