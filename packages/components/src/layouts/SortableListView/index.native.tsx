@@ -15,7 +15,14 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import type { ISortableListViewProps, ISortableListViewRef } from './types';
+import sortableListViewUtils from './sortableListViewUtils';
+
+import type {
+  IDragEndParams,
+  IDragEndParamsWithItem,
+  ISortableListViewProps,
+  ISortableListViewRef,
+} from './types';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type {
   DragEndParams,
@@ -86,7 +93,8 @@ function BaseSortableListView<T>(
   );
   const reloadOnDragEnd = useCallback(
     (params: DragEndParams<any>) => {
-      onDragEnd?.(params);
+      const p = sortableListViewUtils.convertToDragEndParamsWithItem(params);
+      onDragEnd?.(p);
       appEventBus.emit(EAppEventBusNames.onDragEndInListView, undefined);
     },
     [onDragEnd],

@@ -18,7 +18,13 @@ import {
 
 import { ListView } from '../ListView';
 
-import type { ISortableListViewProps, ISortableListViewRef } from './types';
+import sortableListViewUtils from './sortableListViewUtils';
+
+import type {
+  IDragEndParams,
+  ISortableListViewProps,
+  ISortableListViewRef,
+} from './types';
 import type { DragStart, DropResult } from 'react-beautiful-dnd';
 import type { ListRenderItem, ListRenderItemInfo } from 'react-native';
 
@@ -73,14 +79,22 @@ function BaseSortableListView<T>(
         return;
       }
       const reloadData = [...data];
-      const sourceItem = reloadData[params.source.index];
+      const dragItem: T = reloadData[params.source.index];
       reloadData.splice(params.source.index, 1);
-      reloadData.splice(params.destination.index, 0, sourceItem);
-      onDragEnd?.({
+      reloadData.splice(params.destination.index, 0, dragItem);
+      const from = params.source.index;
+      const to = params.destination.index;
+
+      const nativeDragParams: IDragEndParams<T> = {
         data: reloadData,
-        from: params.source.index,
-        to: params.destination.index,
-      });
+        from,
+        to,
+      };
+
+      const p =
+        sortableListViewUtils.convertToDragEndParamsWithItem(nativeDragParams);
+
+      onDragEnd?.(p);
     },
     [onDragEnd, data],
   );

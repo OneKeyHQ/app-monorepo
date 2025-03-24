@@ -7,6 +7,11 @@ import type {
 import type { FlatList } from 'react-native-gesture-handler';
 
 export type IDragEndParams<T> = DragEndParams<T>;
+export type IDragEndParamsWithItem<T> = IDragEndParams<T> & {
+  dragItem: T;
+  prevItem: T | undefined;
+  nextItem: T | undefined;
+};
 export type ISortableListViewRef<T> = FlatList<T>;
 
 export type IRenderItemParams<T> = RenderItemParams<T> & {
@@ -26,6 +31,7 @@ export type ISortableListViewProps<T> = Omit<
   | 'columnWrapperStyle'
   | 'ListHeaderComponentStyle'
   | 'ListFooterComponentStyle'
+  | 'onDragEnd'
 > &
   StackStyle & {
     ref?: any;
@@ -43,4 +49,5 @@ export type ISortableListViewProps<T> = Omit<
     columnWrapperStyle?: StackStyle;
     ListHeaderComponentStyle?: StackStyle;
     ListFooterComponentStyle?: StackStyle;
+    onDragEnd?: (params: IDragEndParamsWithItem<T>) => void;
   };

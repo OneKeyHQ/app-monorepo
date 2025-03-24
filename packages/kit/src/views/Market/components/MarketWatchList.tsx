@@ -132,8 +132,8 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     [],
   );
 
-  const handleAddTokens = useCallback(() => {
-    actions.addIntoWatchList(coingeckoIds);
+  const handleAddTokens = useCallback(async () => {
+    await actions.addIntoWatchList(coingeckoIds);
     // reset selections
     setTimeout(() => {
       setCoingeckoIds(defaultCoingeckoIds);
@@ -167,6 +167,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
         coingeckoIds: watchListCoingeckoIds?.map(
           ({ coingeckoId }) => coingeckoId,
         ),
+        watchList: watchListCoingeckoIds,
       } as IMarketCategory),
     [watchListCoingeckoIds],
   );

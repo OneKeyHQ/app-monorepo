@@ -49,6 +49,7 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
 
     const watchListItem: IMarketWatchListItem = {
       coingeckoId: payload.coingeckoId,
+      sortIndex: payload.sortIndex,
     };
     if (item.isDeleted) {
       await this.backgroundApi.serviceMarket.removeMarketWatchList({

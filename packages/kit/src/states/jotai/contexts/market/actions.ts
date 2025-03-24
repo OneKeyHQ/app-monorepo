@@ -1,8 +1,11 @@
 import { useRef } from 'react';
 
+import { cloneDeep } from 'lodash';
+
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
+import marketUtils from '@onekeyhq/shared/src/utils/marketUtils';
 import type { IMarketWatchListItem } from '@onekeyhq/shared/types/market';
 
 import { contextAtomMethod, marketWatchListAtom } from './atoms';
@@ -28,7 +31,11 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
   });
 
   addIntoWatchList = contextAtomMethod(
-    (get, set, payload: IMarketWatchListItem | IMarketWatchListItem[]) => {
+    async (
+      get,
+      set,
+      payload: IMarketWatchListItem | IMarketWatchListItem[],
+    ) => {
       const params: IMarketWatchListItem[] = !Array.isArray(payload)
         ? [payload]
         : payload;
@@ -36,11 +43,10 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
       if (!prev.isMounted) {
         return;
       }
-      const watchList = [...prev.data, ...params];
-      this.flushWatchListAtom.call(set, watchList);
-      void backgroundApiProxy.serviceMarket.addMarketWatchList({
+      await backgroundApiProxy.serviceMarket.addMarketWatchList({
         watchList: params,
       });
+      await this.refreshWatchList.call(set);
     },
   );
 
@@ -60,6 +66,52 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
     },
   );
 
+  sortWatchListItems = contextAtomMethod(
+    async (
+      get,
+      set,
+      payload: {
+        target: IMarketWatchListItem;
+        prev: IMarketWatchListItem | undefined;
+        next: IMarketWatchListItem | undefined;
+      },
+    ) => {
+      const { target, prev, next } = payload;
+      const oldItemsResult = get(marketWatchListAtom());
+      if (!oldItemsResult.isMounted) {
+        return;
+      }
+
+      let newSortIndex = target?.sortIndex ?? 100_000;
+      if (prev && !next) {
+        newSortIndex = (prev.sortIndex ?? newSortIndex) + 1;
+      } else {
+        newSortIndex =
+          ((prev?.sortIndex ?? newSortIndex - 1) +
+            (next?.sortIndex ?? newSortIndex + 1)) /
+          2;
+      }
+
+      const watchList = [
+        cloneDeep({
+          ...target,
+          sortIndex: newSortIndex,
+        }),
+      ];
+
+      const newList = marketUtils.buildSortedMarketWatchList({
+        oldList: oldItemsResult.data,
+        addWatchListItems: watchList,
+      });
+      this.flushWatchListAtom.call(set, newList);
+
+      await backgroundApiProxy.serviceMarket.addMarketWatchList({
+        watchList,
+      });
+      await this.refreshWatchList.call(set);
+    },
+  );
+
   moveToTop = contextAtomMethod((get, set, payload: IMarketWatchListItem) => {
     const prev = get(marketWatchListAtom());
     if (!prev.isMounted) {
@@ -74,7 +126,7 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
 
   saveWatchList = contextAtomMethod(
     (get, set, payload: IMarketWatchListItem[]) => {
-      this.addIntoWatchList.call(set, payload);
+      void this.addIntoWatchList.call(set, payload);
     },
   );
 }
@@ -89,6 +141,7 @@ export function useWatchListActions() {
   const isInWatchList = actions.isInWatchList.use();
   const saveWatchList = actions.saveWatchList.use();
   const refreshWatchList = actions.refreshWatchList.use();
+  const sortWatchListItems = actions.sortWatchListItems.use();
   return useRef({
     isInWatchList,
     addIntoWatchList,
@@ -96,5 +149,6 @@ export function useWatchListActions() {
     moveToTop,
     saveWatchList,
     refreshWatchList,
+    sortWatchListItems,
   });
 }

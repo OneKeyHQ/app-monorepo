@@ -1,6 +1,6 @@
-import { uniqBy } from 'lodash';
+import { isNil, uniqBy } from 'lodash';
 
-import { backgroundMethod } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import marketUtils from '@onekeyhq/shared/src/utils/marketUtils';
 import type {
   IMarketWatchListData,
   IMarketWatchListItem,
@@ -14,22 +14,32 @@ export class SimpleDbEntityMarketWatchList extends SimpleDbEntityBase<IMarketWat
   override enableCache = false;
 
   async getMarketWatchList() {
-    const data: IMarketWatchListData | undefined | null =
+    const result: IMarketWatchListData | undefined | null =
       await this.getRawData();
-    return data ?? { data: [] };
+    if (result) {
+      return {
+        data: result.data,
+      };
+    }
+    return { data: [] };
   }
 
+  // addOrEdit
   async addMarketWatchList({
     watchList,
   }: {
     watchList: IMarketWatchListItem[];
   }) {
     await this.setRawData((data) => {
+      const oldList: IMarketWatchListItem[] = data?.data ?? [];
+
+      const newList = marketUtils.buildSortedMarketWatchList({
+        oldList,
+        addWatchListItems: watchList,
+      });
+
       const newData: IMarketWatchListData | undefined | null = {
-        data: uniqBy(
-          [...watchList, ...(data?.data ?? [])],
-          (i) => i.coingeckoId,
-        ),
+        data: newList,
       };
       return newData;
     });
