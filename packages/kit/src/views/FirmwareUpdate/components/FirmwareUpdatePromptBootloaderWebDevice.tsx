@@ -41,11 +41,9 @@ export function FirmwareUpdatePromptBootloaderWebDevice({
           deviceId: device.serialNumber ?? '',
         },
       );
-      // @ts-expect-error
       setStepInfo({
-        step: previousStepInfo.step,
-        payload: previousStepInfo.payload,
-      });
+        ...previousStepInfo,
+      } as IFirmwareUpdateStepInfo);
     } catch (error) {
       console.error('USB device connection failed:', error);
     } finally {
