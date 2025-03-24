@@ -39,6 +39,7 @@ import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import simpleDb from '../../dbs/simple/simpleDb';
 import {
+  addressBookPersistAtom,
   devSettingsPersistAtom,
   primeCloudSyncPersistAtom,
   primeMasterPasswordPersistAtom,
@@ -507,7 +508,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       }
     }
 
-    const emitEventsStack: (() => void)[] = [];
+    const emitEventsStack: (() => Promise<void> | void)[] = [];
 
     // wallet sync
     await this.syncManagers.wallet.syncToScene({
@@ -585,15 +586,19 @@ class ServicePrimeCloudSync extends ServiceBase {
       items: addressBookItems,
     });
     if (addressBookItems?.length) {
-      emitEventsStack.push(() => {
+      emitEventsStack.push(async () => {
         // appEventBus.emit(EAppEventBusNames.RefreshAddressBookList, undefined);
+        await addressBookPersistAtom.set((prev) => ({
+          ...prev,
+          updateTimestamp: Date.now(),
+        }));
       });
     }
 
     setTimeout(async () => {
       for (const fn of emitEventsStack) {
         await timerUtils.wait(100);
-        fn();
+        await fn();
       }
     }, 1000);
   }

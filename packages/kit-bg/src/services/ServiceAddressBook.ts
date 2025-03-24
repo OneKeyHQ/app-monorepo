@@ -59,18 +59,23 @@ class ServiceAddressBook extends ServiceBase {
   private async setItems({
     items,
     password,
+    skipEventEmit,
   }: {
     items: IAddressItem[];
     password: string;
+    skipEventEmit?: boolean;
   }): Promise<void> {
     const { simpleDb } = this.backgroundApi;
     const hash = await this.computeItemsHash(items, password);
     await simpleDb.addressBook.updateItemsAndHash({ items, hash });
     this.verifyHashTimestamp = undefined;
-    await addressBookPersistAtom.set((prev) => ({
-      ...prev,
-      updateTimestamp: Date.now(),
-    }));
+
+    if (!skipEventEmit) {
+      await addressBookPersistAtom.set((prev) => ({
+        ...prev,
+        updateTimestamp: Date.now(),
+      }));
+    }
 
     void this.backgroundApi.serviceCloudBackup.requestAutoBackup();
   }
@@ -330,6 +335,7 @@ class ServiceAddressBook extends ServiceBase {
           await this.setItems({
             items,
             password: options.password,
+            skipEventEmit: options.skipEventEmit,
           });
           defaultLogger.setting.page.addAddressBook({
             network: newObj.networkId,
@@ -392,6 +398,7 @@ class ServiceAddressBook extends ServiceBase {
             await this.setItems({
               items,
               password: options.password,
+              skipEventEmit: options.skipEventEmit,
             });
             // Check if name is changing and record history if it is
             if (obj.id && obj.name && data.name !== obj.name) {
@@ -464,6 +471,7 @@ class ServiceAddressBook extends ServiceBase {
           await this.setItems({
             items: data,
             password: options.password,
+            skipEventEmit: options.skipEventEmit,
           });
           const remove = items.filter((i) => i.id === removedItem.id);
           if (remove.length > 0) {
