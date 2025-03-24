@@ -134,7 +134,12 @@ function HeaderLeftToolBarInput({
         />
       </Stack>
 
-      <SearchPopover isOpen={isPopoverVisible}>
+      <SearchPopover
+        containerProps={{
+          mx: 24,
+        }}
+        isOpen={isPopoverVisible}
+      >
         <ScrollView ref={scrollViewRef} maxHeight={310}>
           <Stack py="$2">
             <SearchResultContent

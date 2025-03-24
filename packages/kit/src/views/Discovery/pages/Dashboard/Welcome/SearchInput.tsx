@@ -251,7 +251,12 @@ export function SearchInput() {
           ) : null}
         </XStack>
 
-        <SearchPopover isOpen={isPopoverVisible}>
+        <SearchPopover
+          containerProps={{
+            $gtSm: { width: 384 },
+          }}
+          isOpen={isPopoverVisible}
+        >
           <ScrollView ref={scrollViewRef} maxHeight={310}>
             <Stack py="$2">
               <SearchResultContent
