@@ -1,20 +1,24 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ColorTokens, Icon } from '@onekeyhq/components';
-import { Input, Popover, Stack } from '@onekeyhq/components';
+import { Input, Popover, ScrollView, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
+import { useSearchModalData } from '../../hooks/useSearchModalData';
+import { SearchPopover } from '../../pages/Dashboard/Welcome/SearchPopover';
+import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
+import { SearchResultContent } from '../SearchResultContent';
 
 interface IHeaderLeftToolBarInputProps {
   iconConfig: {
     iconName: NonNullable<Parameters<typeof Icon>[0]['name']>;
     iconColor: ColorTokens;
   };
-  hiddenHttpsUrl: string;
+  url: string;
   isBookmark?: boolean;
   isPinned?: boolean;
   onBookmarkPress?: (bookmark: boolean) => void;
@@ -27,7 +31,7 @@ interface IHeaderLeftToolBarInputProps {
 
 function HeaderLeftToolBarInput({
   iconConfig,
-  hiddenHttpsUrl,
+  url,
   isBookmark,
   isPinned,
   onBookmarkPress,
@@ -37,13 +41,27 @@ function HeaderLeftToolBarInput({
 }: IHeaderLeftToolBarInputProps) {
   const intl = useIntl();
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
+  const [searchValue, setSearchValue] = useState('');
+  const [isPopoverVisible, setIsPopoverVisible] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const scrollViewRef = useRef(null);
+  const searchResultRef = useRef(null);
+  const { hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
+
+  const {
+    localData,
+    searchList,
+    displaySearchList,
+    displayHistoryList,
+    SEARCH_ITEM_ID,
+    refreshLocalData,
+  } = useSearchModalData(searchValue);
 
   return (
     <Stack flex={1}>
       <Input
         containerProps={{ mx: '$6', flex: 1 } as any}
         size="small"
-        bg="$red10"
         leftAddOnProps={{
           ...iconConfig,
           iconSize: '$4',
@@ -53,9 +71,14 @@ function HeaderLeftToolBarInput({
           },
         }}
         pb="$1.5"
-        value={hiddenHttpsUrl}
+        value={hiddenHttpsUrl || ''}
         selectTextOnFocus
         testID="explore-index-search-input"
+        onChangeText={(text) => {
+          setSearchValue(text);
+          setIsPopoverVisible(true);
+        }}
+        onFocus={() => setIsPopoverVisible(true)}
         addOns={[
           {
             iconName: isBookmark ? 'StarSolid' : 'StarOutline',
@@ -110,6 +133,27 @@ function HeaderLeftToolBarInput({
           )}
         />
       </Stack>
+
+      <SearchPopover isOpen={isPopoverVisible}>
+        <ScrollView ref={scrollViewRef} maxHeight={310}>
+          <Stack py="$2">
+            <SearchResultContent
+              searchValue={searchValue}
+              localData={localData}
+              searchList={searchList}
+              displaySearchList={displaySearchList}
+              displayBookmarkList={false}
+              displayHistoryList={displayHistoryList}
+              SEARCH_ITEM_ID={SEARCH_ITEM_ID}
+              selectedIndex={selectedIndex}
+              innerRef={searchResultRef}
+              onItemClick={() => {
+                setIsPopoverVisible(false);
+              }}
+            />
+          </Stack>
+        </ScrollView>
+      </SearchPopover>
     </Stack>
   );
 }

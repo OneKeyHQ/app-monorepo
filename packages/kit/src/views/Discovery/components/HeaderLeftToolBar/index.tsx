@@ -13,10 +13,10 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useUrlRiskConfig } from '../../hooks/useUrlRiskConfig';
-import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 
 import HeaderLeftToolBarInput from './HeaderLeftToolBarInput';
 
@@ -52,7 +52,6 @@ function HeaderLeftToolBar({
   const { hostSecurity, iconConfig } = useUrlRiskConfig(url);
   const intl = useIntl();
   const media = useMedia();
-  const { hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
 
   if (media.md) {
     return (
@@ -122,10 +121,12 @@ function HeaderLeftToolBar({
         />
       </HeaderButtonGroup>
       <HeaderLeftToolBarInput
-        hiddenHttpsUrl={hiddenHttpsUrl || ''}
+        url={url}
         hostSecurity={hostSecurity}
         iconConfig={iconConfig}
-        inputProps={{ onPress: () => onSearch?.(url) }}
+        inputProps={{
+          onPress: platformEnv.isDesktop ? () => onSearch?.(url) : undefined,
+        }}
         isBookmark={isBookmark}
         isPinned={isPinned}
         onBookmarkPress={onBookmarkPress}
