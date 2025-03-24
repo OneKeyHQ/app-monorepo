@@ -9,6 +9,7 @@ import {
   EOnboardingPages,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
+import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
@@ -30,7 +31,10 @@ export const useToOnBoardingPage = () => {
         isFullModal?: boolean;
         params?: IOnboardingParamList[EOnboardingPages.GetStarted];
       } = {}) => {
-        if (platformEnv.isExtensionUiPopup) {
+        if (
+          platformEnv.isExtensionUiPopup ||
+          platformEnv.isExtensionUiSidePanel
+        ) {
           await backgroundApiProxy.serviceApp.openExtensionExpandTab({
             routes: [
               isFullModal ? ERootRoutes.iOSFullScreen : ERootRoutes.Modal,
@@ -42,6 +46,9 @@ export const useToOnBoardingPage = () => {
               fromExt: true,
             },
           });
+          if (platformEnv.isExtensionUiSidePanel) {
+            window.close();
+          }
         } else {
           navigation[isFullModal ? 'pushFullModal' : 'pushModal'](
             EModalRoutes.OnboardingModal,
