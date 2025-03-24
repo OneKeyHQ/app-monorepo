@@ -14,6 +14,8 @@ import {
   Badge,
   Banner,
   Button,
+  HeaderButtonGroup,
+  HeaderIconButton,
   Icon,
   IconButton,
   Image,
@@ -56,6 +58,7 @@ import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useReferFriends } from '../../hooks/useReferFriends';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
@@ -886,11 +889,30 @@ function BasicEarnHome() {
   }, [earnBanners, media.gtLg, onBannerPress]);
 
   const isLoading = !!isFetchingAccounts;
+
+  const { toReferFriendsPage } = useReferFriends();
+  const renderCustomHeaderRight = useCallback(
+    () => (
+      <HeaderButtonGroup
+        testID="ear-Page-Header-Right"
+        className="app-region-no-drag"
+      >
+        <HeaderIconButton
+          key="refer"
+          title={intl.formatMessage({ id: ETranslations.global_profit })}
+          icon="GiftOutline"
+          onPress={toReferFriendsPage}
+        />
+      </HeaderButtonGroup>
+    ),
+    [intl, toReferFriendsPage],
+  );
+
   return (
     <Page fullPage>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
-        showHeaderRight={false}
+        showCustomHeaderRight={renderCustomHeaderRight}
       />
       <Page.Body>
         <ScrollView
