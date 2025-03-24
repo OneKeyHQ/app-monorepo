@@ -59,23 +59,22 @@ const SwapSlippageTriggerContainer = ({
 
   const valueComponent = useMemo(
     () => (
-      <XStack gap="$1">
+      <XStack gap="$1" alignItems="center">
         {!accountUtils.isExternalWallet({
           walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
         }) &&
         mevSwapNetworks.includes(
           swapFromAddressInfo.accountInfo?.network?.id ?? '',
         ) ? (
-          <Badge
-            gap="$1"
-            borderRadius={1}
-            borderColor="$borderSubdued"
-            borderWidth={1}
-          >
-            <Icon name="ShieldCheckDoneOutline" color="$textSuccess" />
-            <SizableText size="$bodySmMedium" color="$textSuccess">
+          <Badge gap="$1" badgeSize="sm" badgeType="success" h="$5">
+            <Icon
+              name="ShieldCheckDoneOutline"
+              color="$textSuccess"
+              size="$4"
+            />
+            <Badge.Text size="$bodySmMedium" color="$textSuccess">
               MEV
-            </SizableText>
+            </Badge.Text>
           </Badge>
         ) : null}
         <SizableText

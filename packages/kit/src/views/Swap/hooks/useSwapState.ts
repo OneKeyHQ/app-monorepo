@@ -333,6 +333,12 @@ export function useSwapActionState() {
         });
         infoRes.disable = false;
       }
+      if (alerts.states.some((item) => item.noConnectWallet)) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.global_connect_wallet,
+        });
+        infoRes.disable = false;
+      }
     }
     return infoRes;
   }, [
@@ -359,10 +365,7 @@ export function useSwapActionState() {
     label: actionInfo.label,
     isLoading: buildTxFetching,
     noConnectWallet: actionInfo.noConnectWallet,
-    disabled:
-      (actionInfo.disable && !actionInfo.noConnectWallet) ||
-      quoteLoading ||
-      quoteEventFetching,
+    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
