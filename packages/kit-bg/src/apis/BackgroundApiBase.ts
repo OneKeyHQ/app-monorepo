@@ -1,3 +1,4 @@
+import { consts } from '@onekeyfe/cross-inpage-provider-core';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
 import { isFunction } from 'lodash';
 
@@ -49,9 +50,6 @@ import type ProviderApiBase from '../providers/ProviderApiBase';
 import type { EAtomNames } from '../states/jotai/atomNames';
 import type { JotaiCrossAtom } from '../states/jotai/utils/JotaiCrossAtom';
 import type { JsBridgeBase } from '@onekeyfe/cross-inpage-provider-core';
-
-import { consts } from '@onekeyfe/cross-inpage-provider-core';
-
 import type {
   IInjectedProviderNamesStrings,
   IJsBridgeMessagePayload,

@@ -1,7 +1,15 @@
 import { memo, useEffect, useMemo, useRef } from 'react';
 
+import { useRoute } from '@react-navigation/native';
+
 import { Page } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type {
+  EMultiTabBrowserRoutes,
+  IMultiTabBrowserParamList,
+} from '@onekeyhq/shared/src/routes';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
@@ -17,11 +25,27 @@ import DesktopBrowserContent from './DesktopBrowserContent';
 import DesktopBrowserNavigationContainer from './DesktopBrowserNavigationContainer';
 import { withBrowserProvider } from './WithBrowserProvider';
 
+import type { RouteProp } from '@react-navigation/native';
+
 function DesktopBrowser() {
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
   const { tab: activeTab } = useWebTabDataById(activeTabId ?? '');
   const isHomeType = activeTab?.type === 'home';
+  const { addBrowserHomeTab } = useBrowserTabActions().current;
+  const route =
+    useRoute<
+      RouteProp<
+        IMultiTabBrowserParamList,
+        EMultiTabBrowserRoutes.MultiTabBrowser
+      >
+    >();
+
+  useEffect(() => {
+    if (route.params?.action === 'create_new_tab' && platformEnv.isDesktop) {
+      addBrowserHomeTab();
+    }
+  }, [route.params, addBrowserHomeTab]);
 
   const navigation = useAppNavigation();
   const firstRender = useRef(true);

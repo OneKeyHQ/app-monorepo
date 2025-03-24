@@ -1189,7 +1189,7 @@
   "global.receive_address_confirmation": "Address confirmation",
   "global.receive_address_confirmation_button": "I’ll take the risk",
   "global.receive_address_confirmation_desc": "Unverified actions may result in assets being sent to the wrong address, especially if the OneKey App is not reconnected after local data tampering or reset.",
-  "global.recent_searched": "Recent searched",
+  "global.recent_searched": "Recent",
   "global.recents": "Recents",
   "global.recipient": "Recipient",
   "global.recommend": "Recommend",

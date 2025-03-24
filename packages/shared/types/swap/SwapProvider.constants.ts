@@ -108,6 +108,10 @@ export enum ESwapProviderSort {
   RECEIVED = 'received',
 }
 
+export enum ESwapProvider {
+  Swap1inchFusion = 'Swap1inchFusion',
+}
+
 export const swapDefaultSetTokens: Record<
   string,
   {

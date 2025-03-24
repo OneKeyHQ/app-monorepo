@@ -343,71 +343,56 @@ export class OffchainMessage {
     }
 
     try {
-      const signatureCount = message[0];
-      if (signatureCount > 0) {
-        const signaturesLength = signatureCount * 64;
-        const preambleStart = 1 + signaturesLength;
+      let isStandardFormat = true;
+      for (let i = 0; i < SIGNING_DOMAIN.length; i += 1) {
+        if (message[i] !== SIGNING_DOMAIN[i]) {
+          isStandardFormat = false;
+          break;
+        }
+      }
 
-        if (message.length >= preambleStart + SIGNING_DOMAIN.length) {
-          let isStandardFormat = true;
-          for (let i = 0; i < SIGNING_DOMAIN.length; i += 1) {
-            if (message[preambleStart + i] !== SIGNING_DOMAIN[i]) {
-              isStandardFormat = false;
-              break;
-            }
-          }
+      if (isStandardFormat) {
+        let offset = SIGNING_DOMAIN.length;
+        const version = message[offset];
+        offset += 1;
 
-          if (isStandardFormat) {
-            let offset = preambleStart + SIGNING_DOMAIN.length;
-            const version = message[offset];
+        if (message.length >= offset + 32) {
+          const applicationDomain = message.slice(offset, offset + 32);
+          offset += 32;
+
+          if (message.length >= offset + 2) {
+            const format = message[offset];
             offset += 1;
 
-            if (message.length >= offset + 32) {
-              const applicationDomain = message.slice(offset, offset + 32);
-              offset += 32;
+            const signersCount = message[offset];
+            offset += 1;
 
-              const format = message[offset];
-              offset += 1;
+            if (message.length >= offset + signersCount * 32 + 2) {
+              const messageLength =
+                message[offset + signersCount * 32] +
+                (message[offset + signersCount * 32 + 1] << 8);
 
-              const signersCount = message[offset];
-              offset += 1;
+              const signerPublicKeys = Array.from(
+                { length: signersCount },
+                (_, i) => message.slice(offset + i * 32, offset + (i + 1) * 32),
+              );
 
-              if (signersCount === signatureCount) {
-                const messageLength =
-                  message[offset] + (message[offset + 1] << 8);
-
-                return {
-                  type: EOffChainMessageType.STANDARD,
-                  header: {
-                    signatureCount,
-                    signatures: Array.from({ length: signatureCount }, (_, i) =>
-                      message.slice(1 + i * 64, 1 + (i + 1) * 64),
-                    ),
-                    version,
-                    applicationDomain,
-                    format,
-                    signersCount,
-                    signerPublicKeys: Array.from(
-                      { length: signersCount },
-                      (_, i) =>
-                        message.slice(
-                          offset + 2 + i * 32,
-                          offset + 2 + (i + 1) * 32,
-                        ),
-                    ),
-                    messageLength,
-                  },
-                };
-              }
+              return {
+                type: EOffChainMessageType.STANDARD,
+                header: {
+                  version,
+                  applicationDomain,
+                  format,
+                  signersCount,
+                  signerPublicKeys,
+                  messageLength,
+                } as IOffChainMessageHeaderStandard,
+              };
             }
           }
         }
       }
-    } catch (error) {
-      // noop
-    }
 
-    try {
       for (let i = 0; i < SIGNING_DOMAIN.length; i += 1) {
         if (message[i] !== SIGNING_DOMAIN[i]) {
           return { type: EOffChainMessageType.INVALID };

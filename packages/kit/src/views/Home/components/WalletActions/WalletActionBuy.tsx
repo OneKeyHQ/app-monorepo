@@ -89,7 +89,6 @@ export function WalletActionBuy() {
                   type: 'buy',
                 });
               openUrlExternal(url);
-              navigation.pop();
             },
           },
         });

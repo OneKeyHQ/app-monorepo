@@ -10,6 +10,7 @@ import {
   Dialog,
   EPageType,
   Icon,
+  LottieView,
   Page,
   Popover,
   SizableText,
@@ -19,6 +20,7 @@ import {
   useMedia,
   usePageType,
 } from '@onekeyhq/components';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -54,6 +56,8 @@ import {
 import {
   useSwapActionState,
   useSwapBatchTransfer,
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 
@@ -172,12 +176,15 @@ const SwapActionsState = ({
     swapFromAddressInfo.accountInfo?.account?.id,
     currentQuoteRes?.providerDisableBatchTransfer,
   );
+  const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
+  const themeVariant = useThemeVariant();
+  const quoting = useSwapQuoteEventFetching();
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
@@ -550,9 +557,24 @@ const SwapActionsState = ({
           size={pageType === EPageType.modal && !md ? 'medium' : 'large'}
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
-          loading={swapActionState.isLoading}
         >
-          {swapActionState.label}
+          {quoting || swapActionState.isLoading || quoteLoading ? (
+            <LottieView
+              source={
+                themeVariant === 'light'
+                  ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
+                  : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              }
+              autoPlay
+              loop
+              style={{
+                width: 40,
+                height: 24,
+              }}
+            />
+          ) : (
+            swapActionState.label
+          )}
         </Button>
       </Stack>
     ),
@@ -562,10 +584,13 @@ const SwapActionsState = ({
       md,
       onActionHandlerBefore,
       pageType,
+      quoteLoading,
+      quoting,
       recipientComponent,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
+      themeVariant,
     ],
   );
 
