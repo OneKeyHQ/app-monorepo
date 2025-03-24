@@ -1,5 +1,8 @@
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  EProtocolOfExchange,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 export const swapSlippageItems: {
@@ -110,6 +113,19 @@ export enum ESwapProviderSort {
 
 export enum ESwapProvider {
   Swap1inchFusion = 'Swap1inchFusion',
+}
+
+export interface ISwapServiceProvider {
+  providerInfo: {
+    provider: string;
+    protocol: EProtocolOfExchange;
+    logo: string;
+    providerName: string;
+  };
+  isSupportSingleSwap?: boolean;
+  isSupportCrossChain?: boolean;
+  supportSingleSwapNetworks?: string[];
+  supportCrossChainNetworks?: string[];
 }
 
 export const swapDefaultSetTokens: Record<

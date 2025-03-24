@@ -88,6 +88,24 @@ const SwapSettingsCommonItem = ({
   </XStack>
 );
 
+const SwapProviderSettingItem = ({
+  title,
+  onPress,
+}: {
+  title: string;
+  onPress: () => void;
+}) => (
+  <XStack
+    justifyContent="space-between"
+    alignItems="center"
+    onPress={onPress}
+    cursor="pointer"
+  >
+    <SizableText size="$bodyLgMedium">{title}</SizableText>
+    <Icon name="ChevronRightSmallOutline" size="$6" color="$iconSubdued" />
+  </XStack>
+);
+
 const SwapSettingsSlippageItem = ({
   title,
   rightTrigger,
@@ -330,6 +348,22 @@ const SwapSettingsDialogContent = () => {
           }
         }}
       />
+      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+        <>
+          <SwapProviderSettingItem
+            title="Enable dex aggregator"
+            onPress={() => {
+              console.log('onPress');
+            }}
+          />
+          <SwapProviderSettingItem
+            title="Enable bridges"
+            onPress={() => {
+              console.log('onPress');
+            }}
+          />
+        </>
+      ) : null}
     </YStack>
   );
 };
