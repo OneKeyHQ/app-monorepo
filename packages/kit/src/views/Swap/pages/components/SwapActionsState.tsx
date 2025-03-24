@@ -20,6 +20,7 @@ import {
   useMedia,
   usePageType,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -37,6 +38,7 @@ import {
   useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EProtocolOfExchange,
@@ -155,6 +157,7 @@ const SwapActionsState = ({
   onSelectPercentageStage,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
@@ -217,6 +220,13 @@ const SwapActionsState = ({
   const { md } = useMedia();
 
   const onActionHandler = useCallback(() => {
+    if (swapActionState.noConnectWallet) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.GetStarted,
+        params: { showCloseButton: true },
+      });
+      return;
+    }
     if (swapActionState.isRefreshQuote) {
       void quoteAction(
         swapSlippageRef.current,
@@ -245,12 +255,14 @@ const SwapActionsState = ({
     cleanQuoteInterval,
     currentQuoteRes?.kind,
     handleApprove,
+    navigation,
     onBuildTx,
     onWrapped,
     quoteAction,
     swapActionState.isApprove,
     swapActionState.isRefreshQuote,
     swapActionState.isWrapped,
+    swapActionState.noConnectWallet,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
     swapToAddressInfo?.address,
