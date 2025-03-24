@@ -25,11 +25,16 @@ import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 function ShareCode() {
   const text = 'GMGMGM';
+  const navigation = useAppNavigation();
   const { copyText } = useClipboard();
 
   const handleCopy = useCallback(() => {
     copyText(text);
   }, [copyText]);
+
+  const toYourReferredPage = useCallback(() => {
+    navigation.push(EModalReferFriendsRoutes.YourReferred);
+  }, [navigation]);
   const intl = useIntl();
   return (
     <YStack px="$5" pt="$6" pb="$8">
@@ -37,8 +42,7 @@ function ShareCode() {
         <XStack jc="space-between">
           <SizableText size="$headingMd">Your referral code</SizableText>
           <Button
-            //   childrenAsText={!hasClaimableAssets}
-            //   onPress={onPress}
+            onPress={toYourReferredPage}
             variant="tertiary"
             iconAfter="ChevronRightOutline"
             jc="center"
@@ -104,6 +108,14 @@ function Dashboard() {
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress);
   }, [navigation]);
+
+  const toEarnRewardPage = useCallback(() => {
+    navigation.push(EModalReferFriendsRoutes.EarnReward);
+  }, [navigation]);
+
+  const toHardwareSalesRewardPage = useCallback(() => {
+    navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
+  }, [navigation]);
   return (
     <YStack px="$5" py="$8" gap="$5">
       <YStack
@@ -154,6 +166,7 @@ function Dashboard() {
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
+        onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
           <SizableText size="$headingMd">Earn reward</SizableText>
@@ -192,6 +205,7 @@ function Dashboard() {
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
+        onPress={toHardwareSalesRewardPage}
       >
         <XStack ai="center" jc="space-between">
           <SizableText size="$headingMd">Hardware sale reward</SizableText>
