@@ -53,6 +53,7 @@ export function SearchInput() {
     displaySearchList,
     displayHistoryList,
     SEARCH_ITEM_ID,
+    refreshLocalData,
   } = useSearchModalData(searchValue);
 
   useEffect(() => {
@@ -60,6 +61,12 @@ export function SearchInput() {
       y: 0,
     });
   }, [searchValue]);
+
+  useEffect(() => {
+    if (isPopoverOpen) {
+      void refreshLocalData();
+    }
+  }, [refreshLocalData, isPopoverOpen]);
 
   const navigation = useAppNavigation();
   const handleSearchBarPress = useCallback(() => {
