@@ -82,7 +82,7 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
   override async syncToSceneEachItem(params: {
     target: ICloudSyncTargetIndexedAccount;
     payload: ICloudSyncPayloadIndexedAccount;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const { target, payload } = params;
     await this.backgroundApi.serviceAccount.setAccountName({
       indexedAccountId: target.indexedAccount.id,
@@ -91,6 +91,7 @@ export class CloudSyncFlowManagerIndexedAccount extends CloudSyncFlowManagerBase
       skipSaveLocalSyncItem: true,
       skipEventEmit: true,
     });
+    return true;
   }
 
   override async getDBRecordBySyncPayload(params: {

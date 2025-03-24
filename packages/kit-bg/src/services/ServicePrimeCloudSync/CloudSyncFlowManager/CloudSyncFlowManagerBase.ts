@@ -55,7 +55,7 @@ export abstract class CloudSyncFlowManagerBase<
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMap[T]; // local db target
     payload: ICloudSyncPayloadMap[T]; // decrypted cloud sync payload
-  }): Promise<void>;
+  }): Promise<boolean>;
 
   abstract getDBRecordBySyncPayload(params: {
     payload: ICloudSyncPayloadMap[T];
@@ -66,6 +66,8 @@ export abstract class CloudSyncFlowManagerBase<
     allDevices?: IDBDevice[];
   }): Promise<ICloudSyncTargetMap[T]>;
 
+  // for syncToSceneEachItem, fillingSyncItemsMissingDataFromRawData
+  // This method should not query the local database, most business scenarios will have new data, the local database is empty. Only account wallet data is excluded, because account wallet does not have new data, only existing data is modified
   abstract buildSyncTargetByPayload(params: {
     payload: ICloudSyncPayloadMap[T];
   }): Promise<ICloudSyncTargetMap[T] | undefined>;
@@ -409,22 +411,24 @@ export abstract class CloudSyncFlowManagerBase<
                 // TODO server data may be incorrect, how to remove it from server?
                 if (keyInfo.key === item.id) {
                   // TODO batch update
-                  await this.syncToSceneEachItem({
+                  const isSuccess = await this.syncToSceneEachItem({
                     item,
                     target,
                     payload: payload as any,
                   });
-                  await this.backgroundApi.localDb.updateSyncItem({
-                    ids: [item.id],
-                    updater: (record) => {
-                      record.localSceneUpdated = true;
-                      record.pwdHash = decryptedItem.dbItem.pwdHash;
-                      record.rawData = decryptedItem.dbItem.rawData;
-                      record.rawKey =
-                        record.rawKey || decryptedItem.dbItem.rawKey;
-                      return record;
-                    },
-                  });
+                  if (isSuccess) {
+                    await this.backgroundApi.localDb.updateSyncItem({
+                      ids: [item.id],
+                      updater: (record) => {
+                        record.localSceneUpdated = true;
+                        record.pwdHash = decryptedItem.dbItem.pwdHash;
+                        record.rawData = decryptedItem.dbItem.rawData;
+                        record.rawKey =
+                          record.rawKey || decryptedItem.dbItem.rawKey;
+                        return record;
+                      },
+                    });
+                  }
                 }
               }
             }

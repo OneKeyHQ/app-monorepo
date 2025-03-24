@@ -45,8 +45,9 @@ export class CloudSyncFlowManagerLock extends CloudSyncFlowManagerBase<
   override async syncToSceneEachItem(params: {
     target: ICloudSyncTargetLock;
     payload: ICloudSyncPayloadLock;
-  }): Promise<void> {
+  }): Promise<boolean> {
     // do nothing
+    return true;
   }
 
   override async getDBRecordBySyncPayload(params: {

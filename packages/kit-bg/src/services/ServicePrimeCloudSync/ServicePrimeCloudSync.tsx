@@ -1,5 +1,6 @@
 import { debounce, isNil, uniqBy } from 'lodash';
 
+import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import {
   backgroundClass,
@@ -45,6 +46,7 @@ import {
 import ServiceBase from '../ServiceBase';
 
 import { CloudSyncFlowManagerAccount } from './CloudSyncFlowManager/CloudSyncFlowManagerAccount';
+import { CloudSyncFlowManagerAddressBook } from './CloudSyncFlowManager/CloudSyncFlowManagerAddressBook';
 import { CloudSyncFlowManagerBrowserBookmark } from './CloudSyncFlowManager/CloudSyncFlowManagerBrowserBookmark';
 import { CloudSyncFlowManagerCustomNetwork } from './CloudSyncFlowManager/CloudSyncFlowManagerCustomNetwork';
 import { CloudSyncFlowManagerCustomRpc } from './CloudSyncFlowManager/CloudSyncFlowManagerCustomRpc';
@@ -94,6 +96,9 @@ class ServicePrimeCloudSync extends ServiceBase {
     customNetwork: new CloudSyncFlowManagerCustomNetwork({
       backgroundApi: this.backgroundApi,
     }),
+    addressBook: new CloudSyncFlowManagerAddressBook({
+      backgroundApi: this.backgroundApi,
+    }),
   };
 
   getSyncManager(dataType: EPrimeCloudSyncDataType) {
@@ -110,6 +115,8 @@ class ServicePrimeCloudSync extends ServiceBase {
         return this.syncManagers.browserBookmark;
       case EPrimeCloudSyncDataType.MarketWatchList:
         return this.syncManagers.marketWatchList;
+      case EPrimeCloudSyncDataType.AddressBook:
+        return this.syncManagers.addressBook;
       case EPrimeCloudSyncDataType.CustomRpc:
         return this.syncManagers.customRpc;
       case EPrimeCloudSyncDataType.CustomNetwork:
@@ -461,6 +468,7 @@ class ServicePrimeCloudSync extends ServiceBase {
     const marketWatchListItems: IDBCloudSyncItem[] = [];
     const customRpcItems: IDBCloudSyncItem[] = [];
     const customNetworkItems: IDBCloudSyncItem[] = [];
+    const addressBookItems: IDBCloudSyncItem[] = [];
 
     for (const item of items) {
       switch (item.dataType) {
@@ -487,6 +495,9 @@ class ServicePrimeCloudSync extends ServiceBase {
           break;
         case EPrimeCloudSyncDataType.CustomNetwork:
           customNetworkItems.push(item);
+          break;
+        case EPrimeCloudSyncDataType.AddressBook:
+          addressBookItems.push(item);
           break;
         default: {
           const exhaustiveCheck: never = item.dataType;
@@ -565,6 +576,17 @@ class ServicePrimeCloudSync extends ServiceBase {
     if (customNetworkItems?.length) {
       emitEventsStack.push(() => {
         appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+      });
+    }
+
+    // address book sync
+    await this.syncManagers.addressBook.syncToScene({
+      syncCredential,
+      items: addressBookItems,
+    });
+    if (addressBookItems?.length) {
+      emitEventsStack.push(() => {
+        // appEventBus.emit(EAppEventBusNames.RefreshAddressBookList, undefined);
       });
     }
 
@@ -1124,7 +1146,20 @@ class ServicePrimeCloudSync extends ServiceBase {
         // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
         initDataTime: undefined,
       });
-    // TODO sync other items: accounts, addressBook, settings, etc.
+
+    let syncItemsForAddressBook: IDBCloudSyncItem[] = [];
+    const { isSafe, items: safeAddressBookItems } =
+      await this.backgroundApi.serviceAddressBook.getSafeRawItems();
+    if (isSafe && safeAddressBookItems?.length) {
+      syncItemsForAddressBook =
+        await this.syncManagers.addressBook.buildInitSyncDBItems({
+          dbRecords: safeAddressBookItems,
+          allDevices,
+          syncCredential,
+          // for legacy data, dateTime must be undefined, so that users can manually resolve conflicts
+          initDataTime: undefined,
+        });
+    }
 
     const totalItems = [
       ...syncItemsForWallets,
@@ -1134,6 +1169,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       ...syncItemsForMarketWatchList,
       ...syncItemsForCustomRpc,
       ...syncItemsForCustomNetwork,
+      ...syncItemsForAddressBook,
     ];
 
     await localDb.withTransaction(async (tx) => {

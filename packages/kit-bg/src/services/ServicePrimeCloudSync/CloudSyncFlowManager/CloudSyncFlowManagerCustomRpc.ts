@@ -44,7 +44,7 @@ export class CloudSyncFlowManagerCustomRpc extends CloudSyncFlowManagerBase<
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetCustomRpc;
     payload: ICloudSyncPayloadCustomRpc;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const { payload, item } = params;
 
     const customRpc: IDBCustomRpc = {
@@ -69,6 +69,7 @@ export class CloudSyncFlowManagerCustomRpc extends CloudSyncFlowManagerBase<
         skipEventEmit: true,
       });
     }
+    return true;
   }
 
   override async getDBRecordBySyncPayload(params: {

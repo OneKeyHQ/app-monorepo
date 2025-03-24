@@ -44,7 +44,7 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetMarketWatchList;
     payload: ICloudSyncPayloadMarketWatchList;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const { payload, item } = params;
 
     const watchListItem: IMarketWatchListItem = {
@@ -65,6 +65,7 @@ export class CloudSyncFlowManagerMarketWatchList extends CloudSyncFlowManagerBas
         skipEventEmit: true,
       });
     }
+    return true;
   }
 
   override async getDBRecordBySyncPayload(params: {

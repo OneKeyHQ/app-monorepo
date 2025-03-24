@@ -50,7 +50,7 @@ export class CloudSyncFlowManagerCustomNetwork extends CloudSyncFlowManagerBase<
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetCustomNetwork;
     payload: ICloudSyncPayloadCustomNetwork;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const { payload, item } = params;
 
     const networkInfo: IServerNetwork = payload.customNetwork;
@@ -82,6 +82,7 @@ export class CloudSyncFlowManagerCustomNetwork extends CloudSyncFlowManagerBase<
         });
       }
     }
+    return true;
   }
 
   override async getDBRecordBySyncPayload(params: {

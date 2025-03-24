@@ -71,7 +71,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
   override async syncToSceneEachItem(params: {
     target: ICloudSyncTargetWallet;
     payload: ICloudSyncPayloadWallet;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const { target, payload } = params;
     await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
       walletId: target.wallet.id,
@@ -81,6 +81,7 @@ export class CloudSyncFlowManagerWallet extends CloudSyncFlowManagerBase<
       skipSaveLocalSyncItem: true,
       skipEmitEvent: true,
     });
+    return true;
   }
 
   override async getDBRecordBySyncPayload(params: {

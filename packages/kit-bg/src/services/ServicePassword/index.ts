@@ -727,6 +727,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
     const { manual = true } = options || {};
+    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
     if (isFirmwareUpdateRunning) {

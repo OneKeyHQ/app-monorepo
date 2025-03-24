@@ -1,3 +1,4 @@
+import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import type {
   IDBAccount,
@@ -27,6 +28,7 @@ export type ICloudSyncServerDiffItem = {
     | ICloudSyncPayloadMarketWatchList
     | ICloudSyncPayloadCustomRpc
     | ICloudSyncPayloadCustomNetwork
+    | ICloudSyncPayloadAddressBook
     | undefined;
   record:
     | IDBWallet
@@ -36,6 +38,7 @@ export type ICloudSyncServerDiffItem = {
     | IMarketWatchListItem
     | IDBCustomRpc
     | IServerNetwork
+    | IAddressItem
     | undefined;
 };
 
@@ -75,7 +78,8 @@ export type ICloudSyncDBRecord =
   | IBrowserBookmark
   | IMarketWatchListItem
   | IDBCustomRpc
-  | IServerNetwork;
+  | IServerNetwork
+  | IAddressItem;
 export type ICloudSyncDBRecords =
   | IDBWallet[]
   | IDBAccount[]
@@ -83,7 +87,8 @@ export type ICloudSyncDBRecords =
   | IBrowserBookmark[]
   | IMarketWatchListItem[]
   | IDBCustomRpc[]
-  | IServerNetwork[];
+  | IServerNetwork[]
+  | IAddressItem[];
 
 // sync target --------------------------------
 
@@ -134,6 +139,11 @@ export type ICloudSyncTargetCustomNetwork = ICloudSyncTargetBase & {
   customRpc: IDBCustomRpc;
 };
 
+export type ICloudSyncTargetAddressBook = ICloudSyncTargetBase & {
+  dataType: EPrimeCloudSyncDataType.AddressBook;
+  addressBookItem: IAddressItem;
+};
+
 export interface ICloudSyncTargetMap {
   [EPrimeCloudSyncDataType.Wallet]: ICloudSyncTargetWallet;
   [EPrimeCloudSyncDataType.Account]: ICloudSyncTargetAccount;
@@ -141,6 +151,7 @@ export interface ICloudSyncTargetMap {
   [EPrimeCloudSyncDataType.Lock]: ICloudSyncTargetLock;
   [EPrimeCloudSyncDataType.BrowserBookmark]: ICloudSyncTargetBrowserBookmark;
   [EPrimeCloudSyncDataType.MarketWatchList]: ICloudSyncTargetMarketWatchList;
+  [EPrimeCloudSyncDataType.AddressBook]: ICloudSyncTargetAddressBook;
   [EPrimeCloudSyncDataType.CustomRpc]: ICloudSyncTargetCustomRpc;
   [EPrimeCloudSyncDataType.CustomNetwork]: ICloudSyncTargetCustomNetwork;
 }
@@ -190,6 +201,11 @@ export type ICloudSyncKeyInfoCustomNetwork = ICloudSyncKeyInfoBase & {
   payload: ICloudSyncPayloadCustomNetwork;
 };
 
+export type ICloudSyncKeyInfoAddressBook = ICloudSyncKeyInfoBase & {
+  dataType: EPrimeCloudSyncDataType.AddressBook;
+  payload: ICloudSyncPayloadAddressBook;
+};
+
 export interface ICloudSyncKeyInfoMap {
   [EPrimeCloudSyncDataType.Wallet]: ICloudSyncKeyInfoWallet;
   [EPrimeCloudSyncDataType.Account]: ICloudSyncKeyInfoAccount;
@@ -197,6 +213,7 @@ export interface ICloudSyncKeyInfoMap {
   [EPrimeCloudSyncDataType.Lock]: ICloudSyncKeyInfoLock;
   [EPrimeCloudSyncDataType.BrowserBookmark]: ICloudSyncKeyInfoBrowserBookmark;
   [EPrimeCloudSyncDataType.MarketWatchList]: ICloudSyncKeyInfoMarketWatchList;
+  [EPrimeCloudSyncDataType.AddressBook]: ICloudSyncKeyInfoAddressBook;
   [EPrimeCloudSyncDataType.CustomRpc]: ICloudSyncKeyInfoCustomRpc;
   [EPrimeCloudSyncDataType.CustomNetwork]: ICloudSyncKeyInfoCustomNetwork;
 }
@@ -243,6 +260,13 @@ export type ICloudSyncPayloadCustomNetwork = {
   customRpc: IDBCustomRpc;
 };
 
+export type ICloudSyncPayloadAddressBook = {
+  networkImpl: string;
+  addressBookItem: IAddressItem & {
+    id: ''; // id is local uuid, should not be sync
+  };
+};
+
 export type ICloudSyncPayload =
   | ICloudSyncPayloadWallet
   | ICloudSyncPayloadAccount
@@ -250,6 +274,7 @@ export type ICloudSyncPayload =
   | ICloudSyncPayloadLock
   | ICloudSyncPayloadBrowserBookmark
   | ICloudSyncPayloadMarketWatchList
+  | ICloudSyncPayloadAddressBook
   | ICloudSyncPayloadCustomRpc
   | ICloudSyncPayloadCustomNetwork;
 
@@ -260,6 +285,7 @@ export interface ICloudSyncPayloadMap {
   [EPrimeCloudSyncDataType.Lock]: ICloudSyncPayloadLock;
   [EPrimeCloudSyncDataType.BrowserBookmark]: ICloudSyncPayloadBrowserBookmark;
   [EPrimeCloudSyncDataType.MarketWatchList]: ICloudSyncPayloadMarketWatchList;
+  [EPrimeCloudSyncDataType.AddressBook]: ICloudSyncPayloadAddressBook;
   [EPrimeCloudSyncDataType.CustomRpc]: ICloudSyncPayloadCustomRpc;
   [EPrimeCloudSyncDataType.CustomNetwork]: ICloudSyncPayloadCustomNetwork;
 }
@@ -298,6 +324,10 @@ export type ICloudSyncRawDataJson =
   | (ICloudSyncRawDataJsonBase & {
       dataType: EPrimeCloudSyncDataType.MarketWatchList;
       payload: ICloudSyncPayloadMarketWatchList;
+    })
+  | (ICloudSyncRawDataJsonBase & {
+      dataType: EPrimeCloudSyncDataType.AddressBook;
+      payload: ICloudSyncPayloadAddressBook;
     })
   | (ICloudSyncRawDataJsonBase & {
       dataType: EPrimeCloudSyncDataType.CustomRpc;

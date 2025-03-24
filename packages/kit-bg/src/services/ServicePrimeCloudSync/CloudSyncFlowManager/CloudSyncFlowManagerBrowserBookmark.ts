@@ -49,7 +49,7 @@ export class CloudSyncFlowManagerBrowserBookmark extends CloudSyncFlowManagerBas
     item: IDBCloudSyncItem;
     target: ICloudSyncTargetBrowserBookmark;
     payload: ICloudSyncPayloadBrowserBookmark;
-  }): Promise<void> {
+  }): Promise<boolean> {
     const { payload, item } = params;
     const bookmark: IBrowserBookmark = {
       title: payload.title,
@@ -63,6 +63,7 @@ export class CloudSyncFlowManagerBrowserBookmark extends CloudSyncFlowManagerBas
       skipSaveLocalSyncItem: true,
       skipEventEmit: true,
     });
+    return true;
   }
 
   override async getDBRecordBySyncPayload(params: {

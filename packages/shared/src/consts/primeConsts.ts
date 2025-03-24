@@ -19,7 +19,7 @@ export enum EPrimeCloudSyncDataType {
   IndexedAccount = 'IndexedAccount',
   Account = 'Account',
   BrowserBookmark = 'BrowserBookmark',
-  // AddressBook = 'AddressBook',
+  AddressBook = 'AddressBook',
   MarketWatchList = 'MarketWatchList',
   // CustomToken = 'CustomToken',
   CustomNetwork = 'CustomNetwork',

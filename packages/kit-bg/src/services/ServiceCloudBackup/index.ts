@@ -112,7 +112,8 @@ class ServiceCloudBackup extends ServiceBase {
       wallets: {},
     };
     const { version } = platformEnv;
-    const contacts = await serviceAddressBook.getSafeRawItems();
+    const { isSafe, items: contacts } =
+      await serviceAddressBook.getSafeRawItems();
     defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
       contacts.length,
     );
