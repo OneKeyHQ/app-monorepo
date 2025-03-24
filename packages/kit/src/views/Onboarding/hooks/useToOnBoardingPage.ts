@@ -9,7 +9,6 @@ import {
   EOnboardingPages,
   ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 export const isOnboardingFromExtensionUrl = () => {
   // eslint-disable-next-line unicorn/prefer-global-this
