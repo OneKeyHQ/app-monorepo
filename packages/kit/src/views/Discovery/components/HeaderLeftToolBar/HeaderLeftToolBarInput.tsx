@@ -8,7 +8,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useSearchModalData } from '../../hooks/useSearchModalData';
-import { useSearchSelectedIndex } from '../../hooks/useSearchSelectedIndex';
+import { useSearchPopover } from '../../hooks/useSearchPopover';
 import { SearchPopover } from '../../pages/Dashboard/Welcome/SearchPopover';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
@@ -68,10 +68,12 @@ function HeaderLeftToolBarInput({
     totalItems,
   } = useSearchModalData(searchValue);
 
-  const { selectedIndex, handleKeyDown } = useSearchSelectedIndex({
+  const { selectedIndex, handleKeyDown } = useSearchPopover({
     scrollViewRef,
     totalItems,
     searchValue,
+    displaySearchList,
+    displayHistoryList,
     onEnterPress: () => {
       if (searchResultRef.current) {
         searchResultRef.current.openSelectedItem();

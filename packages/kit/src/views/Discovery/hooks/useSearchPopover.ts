@@ -1,25 +1,30 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 
 const ITEM_HEIGHT = 48; // Height of each item in the search results
 
-interface IUseSearchSelectedIndexProps {
+interface IUseSearchPopoverProps {
   scrollViewRef: React.RefObject<IScrollViewRef>;
   totalItems: number;
   onEnterPress?: () => void;
   onEscape?: () => void;
   searchValue?: string;
+  displaySearchList: boolean;
+  displayHistoryList: boolean;
 }
 
-export function useSearchSelectedIndex({
+export function useSearchPopover({
   scrollViewRef,
   totalItems,
   onEnterPress,
   onEscape,
   searchValue,
-}: IUseSearchSelectedIndexProps) {
+  displaySearchList,
+  displayHistoryList,
+}: IUseSearchPopoverProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
   // Scroll to selected item
   useEffect(() => {
@@ -67,6 +72,7 @@ export function useSearchSelectedIndex({
 
       if (e.key === 'Escape') {
         onEscape?.();
+        setIsPopoverOpen(false);
       }
     },
     [totalItems, onEnterPress, onEscape],
@@ -76,9 +82,20 @@ export function useSearchSelectedIndex({
     setSelectedIndex(-1);
   };
 
+  const isPopoverVisible = useMemo(
+    () =>
+      isPopoverOpen && searchValue && searchValue.length > 0
+        ? displaySearchList || displayHistoryList
+        : false,
+    [isPopoverOpen, searchValue, displaySearchList, displayHistoryList],
+  );
+
   return {
     selectedIndex,
     handleKeyDown,
     resetSelectedIndex,
+    isPopoverVisible,
+    isPopoverOpen,
+    setIsPopoverOpen,
   };
 }
