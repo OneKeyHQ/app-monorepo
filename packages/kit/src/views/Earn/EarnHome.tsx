@@ -14,6 +14,7 @@ import {
   Badge,
   Banner,
   Button,
+  Dialog,
   HeaderButtonGroup,
   HeaderIconButton,
   Icon,
@@ -31,6 +32,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
@@ -52,7 +54,6 @@ import type {
   IEarnRewardUnit,
 } from '@onekeyhq/shared/types/staking';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
@@ -890,7 +891,9 @@ function BasicEarnHome() {
 
   const isLoading = !!isFetchingAccounts;
 
-  const { toReferFriendsPage } = useReferFriends();
+  const { shareReferRewards } = useReferFriends();
+
+
   const renderCustomHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup
@@ -898,14 +901,13 @@ function BasicEarnHome() {
         className="app-region-no-drag"
       >
         <HeaderIconButton
-          key="refer"
           title={intl.formatMessage({ id: ETranslations.global_profit })}
           icon="GiftOutline"
-          onPress={toReferFriendsPage}
+          onPress={shareReferRewards}
         />
       </HeaderButtonGroup>
     ),
-    [intl, toReferFriendsPage],
+    [shareReferRewards, intl],
   );
 
   return (
