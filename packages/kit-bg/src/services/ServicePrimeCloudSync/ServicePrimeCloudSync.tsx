@@ -1109,7 +1109,8 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
 
     const allBookmarks: IBrowserBookmark[] =
-      (await simpleDb.browserBookmarks.getRawData())?.data || [];
+      (await this.backgroundApi.serviceDiscovery.getBrowserBookmarksWithFillingSortIndex()) ||
+      [];
     const syncItemsForBookmarks: IDBCloudSyncItem[] =
       await this.syncManagers.browserBookmark.buildInitSyncDBItems({
         dbRecords: allBookmarks,
@@ -1120,7 +1121,9 @@ class ServicePrimeCloudSync extends ServiceBase {
       });
 
     const allMarketWatchList: IMarketWatchListItem[] =
-      (await this.backgroundApi.serviceMarket.getMarketWatchList())?.data || [];
+      (
+        await this.backgroundApi.serviceMarket.getMarketWatchListWithFillingSortIndex()
+      )?.data || [];
     const syncItemsForMarketWatchList: IDBCloudSyncItem[] =
       await this.syncManagers.marketWatchList.buildInitSyncDBItems({
         dbRecords: allMarketWatchList,

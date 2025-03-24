@@ -37,6 +37,7 @@ import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { openUrlInApp } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import { EValidateUrlEnum } from '@onekeyhq/shared/types/dappConnection';
 
@@ -520,10 +521,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (!payload.url || payload.url === homeTab.url) {
         return;
       }
-      const newBookmark = {
+      const newBookmark: IBrowserBookmark = {
         url: payload.url,
         title: payload.title,
         logo: payload.logo ?? undefined,
+        sortIndex: payload.sortIndex ?? undefined,
       };
       const updatedBookmarks = [newBookmark];
       this.buildBookmarkData.call(set, { data: updatedBookmarks });
@@ -561,6 +563,29 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         return;
       }
       await this.addOrUpdateBrowserBookmark.call(set, payload);
+    },
+  );
+
+  sortBrowserBookmark = contextAtomMethod(
+    async (
+      _,
+      set,
+      payload: {
+        target: IBrowserBookmark;
+        prev: IBrowserBookmark | undefined;
+        next: IBrowserBookmark | undefined;
+      },
+    ) => {
+      const { target, prev, next } = payload;
+      const newSortIndex = sortUtils.buildNewSortIndex({
+        target,
+        prev,
+        next,
+      });
+      await this.modifyBrowserBookmark.call(set, {
+        ...target,
+        sortIndex: newSortIndex,
+      });
     },
   );
 
@@ -1045,6 +1070,7 @@ export function useBrowserBookmarkAction() {
   const addOrUpdateBrowserBookmark = actions.addOrUpdateBrowserBookmark.use();
   const removeBrowserBookmark = actions.removeBrowserBookmark.use();
   const modifyBrowserBookmark = actions.modifyBrowserBookmark.use();
+  const sortBrowserBookmark = actions.sortBrowserBookmark.use();
 
   return useRef({
     buildBookmarkData,
@@ -1052,6 +1078,7 @@ export function useBrowserBookmarkAction() {
     addOrUpdateBrowserBookmark,
     removeBrowserBookmark,
     modifyBrowserBookmark,
+    sortBrowserBookmark,
   });
 }
 

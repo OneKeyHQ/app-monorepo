@@ -1,6 +1,4 @@
-import { isNil, uniqBy } from 'lodash';
-
-import marketUtils from '@onekeyhq/shared/src/utils/marketUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type {
   IMarketWatchListData,
   IMarketWatchListItem,
@@ -33,9 +31,10 @@ export class SimpleDbEntityMarketWatchList extends SimpleDbEntityBase<IMarketWat
     await this.setRawData((data) => {
       const oldList: IMarketWatchListItem[] = data?.data ?? [];
 
-      const newList = marketUtils.buildSortedMarketWatchList({
+      const newList: IMarketWatchListItem[] = sortUtils.buildSortedList({
         oldList,
-        addWatchListItems: watchList,
+        saveItems: watchList,
+        uniqByFn: (i) => i.coingeckoId,
       });
 
       const newData: IMarketWatchListData | undefined | null = {

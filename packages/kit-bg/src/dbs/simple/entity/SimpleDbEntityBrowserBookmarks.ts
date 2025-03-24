@@ -3,6 +3,7 @@ import { cloneDeep, uniqBy } from 'lodash';
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 
 import { SimpleDbEntityBase } from '../base/SimpleDbEntityBase';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 
 export interface IBrowserBookmarks {
   data: IBrowserBookmark[];
@@ -28,8 +29,13 @@ export class SimpleDbEntityBrowserBookmarks extends SimpleDbEntityBase<IBrowserB
     bookmarks: IBrowserBookmark[];
   }): Promise<void> {
     await this.setRawData((rawData) => {
+      const newList = sortUtils.buildSortedList({
+        oldList: rawData?.data ?? [],
+        saveItems: bookmarks,
+        uniqByFn: (i) => i.url,
+      });
       return {
-        data: uniqBy([...bookmarks, ...(rawData?.data ?? [])], (i) => i.url),
+        data: newList,
       };
     });
   }

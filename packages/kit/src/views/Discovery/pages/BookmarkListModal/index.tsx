@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IDragEndParamsWithItem } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
@@ -37,8 +38,12 @@ import type { IBrowserBookmark } from '../../types';
 function BookmarkListModal() {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const { buildBookmarkData, removeBrowserBookmark, modifyBrowserBookmark } =
-    useBrowserBookmarkAction().current;
+  const {
+    buildBookmarkData,
+    sortBrowserBookmark,
+    removeBrowserBookmark,
+    modifyBrowserBookmark,
+  } = useBrowserBookmarkAction().current;
   const handleWebSite = useWebSiteHandler();
 
   const [dataSource, setDataSource] = useState<IBrowserBookmark[]>([]);
@@ -150,15 +155,17 @@ function BookmarkListModal() {
   }, [result?.length, navigation]);
 
   const onSortBookmarks = useCallback(
-    (data: IBrowserBookmark[]) => {
-      buildBookmarkData({
-        data,
-        // TODO bookmark sort cloud sync use number
-        skipSaveLocalSyncItem: true, // sort action do not need cloud sync
-      });
+    async (params: IDragEndParamsWithItem<IBrowserBookmark>) => {
+      const { data, dragItem, prevItem, nextItem } = params;
+
       setDataSource(data);
+      await sortBrowserBookmark({
+        target: dragItem,
+        prev: prevItem,
+        next: nextItem,
+      });
     },
-    [buildBookmarkData],
+    [sortBrowserBookmark],
   );
 
   const handleItemPress = useCallback(
@@ -216,7 +223,7 @@ function BookmarkListModal() {
             offset: index * CELL_HEIGHT,
             index,
           })}
-          onDragEnd={(ret) => onSortBookmarks(ret.data)}
+          onDragEnd={onSortBookmarks}
           ListEmptyComponent={
             <Empty
               py="$32"

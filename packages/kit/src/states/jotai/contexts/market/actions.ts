@@ -5,7 +5,7 @@ import { cloneDeep } from 'lodash';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
 import { memoFn } from '@onekeyhq/shared/src/utils/cacheUtils';
-import marketUtils from '@onekeyhq/shared/src/utils/marketUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import type { IMarketWatchListItem } from '@onekeyhq/shared/types/market';
 
 import { contextAtomMethod, marketWatchListAtom } from './atoms';
@@ -82,17 +82,11 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
         return;
       }
 
-      let newSortIndex = target?.sortIndex ?? 100_000;
-      if (prev && !next) {
-        newSortIndex = (prev.sortIndex ?? newSortIndex) + 1;
-      } else if (!prev && next) {
-        newSortIndex = (next.sortIndex ?? newSortIndex) - 1;
-      } else {
-        newSortIndex =
-          ((prev?.sortIndex ?? newSortIndex - 1) +
-            (next?.sortIndex ?? newSortIndex + 1)) /
-          2;
-      }
+      const newSortIndex = sortUtils.buildNewSortIndex({
+        target,
+        prev,
+        next,
+      });
 
       const watchList = [
         cloneDeep({
@@ -101,9 +95,10 @@ class ContextJotaiActionsMarket extends ContextJotaiActionsBase {
         }),
       ];
 
-      const newList = marketUtils.buildSortedMarketWatchList({
+      const newList = sortUtils.buildSortedList({
         oldList: oldItemsResult.data,
-        addWatchListItems: watchList,
+        saveItems: watchList,
+        uniqByFn: (i) => i.coingeckoId,
       });
       this.flushWatchListAtom.call(set, newList);
 

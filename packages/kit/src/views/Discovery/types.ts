@@ -17,7 +17,7 @@ export interface IBrowserBookmark {
   title: string;
   url: string;
   logo: string | undefined;
-  sortIndex?: number;
+  sortIndex?: number | undefined;
 }
 
 export interface IBrowserRiskWhiteList {

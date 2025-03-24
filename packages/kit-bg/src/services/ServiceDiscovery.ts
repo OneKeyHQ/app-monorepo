@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
-import { isNumber } from 'lodash';
+import { isNil, isNumber } from 'lodash';
 import { LRUCache } from 'lru-cache';
 import WebViewCleaner from 'react-native-webview-cleaner';
 
@@ -28,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
@@ -386,6 +387,12 @@ class ServiceDiscovery extends ServiceBase {
     const currentData =
       await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, no-param-reassign
+    bookmarks = sortUtils.fillingSaveItemsSortIndex({
+      oldList: currentData?.data ?? [],
+      saveItems: bookmarks,
+    });
+
     const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
     let syncItems: IDBCloudSyncItem[] = [];
     if (!skipSaveLocalSyncItem) {
@@ -470,6 +477,18 @@ class ServiceDiscovery extends ServiceBase {
     const data =
       await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
     return data?.data ?? [];
+  }
+
+  async getBrowserBookmarksWithFillingSortIndex() {
+    const data = await this.getBrowserBookmarks();
+    const hasMissingSortIndex = data.some((item) => isNil(item.sortIndex));
+    if (hasMissingSortIndex) {
+      const newList = sortUtils.fillingMissingSortIndex({ items: data });
+      await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
+        bookmarks: newList.items,
+      });
+    }
+    return this.getBrowserBookmarks();
   }
 
   @backgroundMethod()

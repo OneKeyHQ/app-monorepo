@@ -1,4 +1,4 @@
-import { cloneDeep } from 'lodash';
+import { cloneDeep, isNil } from 'lodash';
 
 import {
   backgroundClass,
@@ -7,6 +7,7 @@ import {
 import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
@@ -263,6 +264,13 @@ class ServiceMarket extends ServiceBase {
     skipSaveLocalSyncItem?: boolean;
     skipEventEmit?: boolean;
   }) {
+    const currentData =
+      await this.backgroundApi.simpleDb.marketWatchList.getRawData();
+    // eslint-disable-next-line no-param-reassign
+    watchList = sortUtils.fillingSaveItemsSortIndex({
+      oldList: currentData?.data ?? [],
+      saveItems: watchList,
+    });
     return this.withMarketWatchListCloudSync({
       watchList,
       isDeleted: false,
@@ -300,6 +308,20 @@ class ServiceMarket extends ServiceBase {
   @backgroundMethod()
   async getMarketWatchList() {
     return this.backgroundApi.simpleDb.marketWatchList.getMarketWatchList();
+  }
+
+  async getMarketWatchListWithFillingSortIndex() {
+    const items = await this.getMarketWatchList();
+    const hasMissingSortIndex = items.data.some((item) =>
+      isNil(item.sortIndex),
+    );
+    if (hasMissingSortIndex) {
+      const newList = sortUtils.fillingMissingSortIndex({ items: items.data });
+      await this.backgroundApi.simpleDb.marketWatchList.addMarketWatchList({
+        watchList: newList.items,
+      });
+    }
+    return this.getMarketWatchList();
   }
 }
 
