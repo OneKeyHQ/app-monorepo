@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -46,7 +46,6 @@ function HeaderLeftToolBarInput({
   const intl = useIntl();
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
-  const [isPopoverVisible, setIsPopoverVisible] = useState(false);
   const [internalValue, setInternalValue] = useState('');
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const searchResultRef = useRef<ISearchResultContentRef>(null);
@@ -68,7 +67,13 @@ function HeaderLeftToolBarInput({
     totalItems,
   } = useSearchModalData(searchValue);
 
-  const { selectedIndex, handleKeyDown } = useSearchPopover({
+  const {
+    selectedIndex,
+    handleKeyDown,
+    handleInputBlur,
+    isPopoverOpen,
+    setIsPopoverOpen,
+  } = useSearchPopover({
     scrollViewRef,
     totalItems,
     searchValue,
@@ -77,11 +82,11 @@ function HeaderLeftToolBarInput({
     onEnterPress: () => {
       if (searchResultRef.current) {
         searchResultRef.current.openSelectedItem();
-        setIsPopoverVisible(false);
+        setIsPopoverOpen(false);
       }
     },
     onEscape: () => {
-      setIsPopoverVisible(false);
+      setIsPopoverOpen(false);
       inputRef.current?.blur();
     },
   });
@@ -105,11 +110,12 @@ function HeaderLeftToolBarInput({
         onChangeText={(text) => {
           setInternalValue(text);
           setSearchValue(text);
-          setIsPopoverVisible(true);
+          setIsPopoverOpen(true);
         }}
+        onBlur={handleInputBlur}
         selectTextOnFocus
         testID="explore-index-search-input"
-        onFocus={() => setIsPopoverVisible(true)}
+        onFocus={() => setIsPopoverOpen(true)}
         // @ts-expect-error
         onKeyPress={handleKeyDown}
         addOns={[
@@ -171,7 +177,7 @@ function HeaderLeftToolBarInput({
         containerProps={{
           px: 24,
         }}
-        isOpen={isPopoverVisible}
+        isOpen={isPopoverOpen}
       >
         <ScrollView ref={scrollViewRef} maxHeight={310}>
           <Stack py="$2">
@@ -186,7 +192,7 @@ function HeaderLeftToolBarInput({
               selectedIndex={selectedIndex}
               innerRef={searchResultRef}
               onItemClick={() => {
-                setIsPopoverVisible(false);
+                setIsPopoverOpen(false);
               }}
             />
           </Stack>

@@ -52,11 +52,13 @@ export function SearchInput() {
   } = useSearchModalData(searchValue);
 
   const {
-    selectedIndex,
+    handleInputBlur,
     handleKeyDown,
-    resetSelectedIndex,
-    isPopoverVisible,
+    handleSearchBarPress,
     isPopoverOpen,
+    isPopoverVisible,
+    resetSelectedIndex,
+    selectedIndex,
     setIsPopoverOpen,
   } = useSearchPopover({
     scrollViewRef,
@@ -96,24 +98,9 @@ export function SearchInput() {
     }
   }, [isPopoverOpen, resetSelectedIndex]);
 
-  const handleSearchBarPress = useCallback(() => {
-    // only on mobile
-    if (!platformEnv.isDesktop) {
-      navigation.pushModal(EModalRoutes.DiscoveryModal, {
-        screen: EDiscoveryModalRoutes.SearchModal,
-      });
-    }
-  }, [navigation]);
-
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
   }, []);
-
-  const handleInputBlur = useCallback(() => {
-    setTimeout(() => {
-      setIsPopoverOpen(false);
-    }, 100);
-  }, [setIsPopoverOpen]);
 
   useShortcuts(EShortcutEvents.NewTab, () => {
     if (platformEnv.isDesktop) {

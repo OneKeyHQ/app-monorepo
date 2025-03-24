@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EDiscoveryModalRoutes } from '@onekeyhq/shared/src/routes/discovery';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 
 const ITEM_HEIGHT = 48; // Height of each item in the search results
 
@@ -25,6 +29,8 @@ export function useSearchPopover({
 }: IUseSearchPopoverProps) {
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+
+  const navigation = useAppNavigation();
 
   // Scroll to selected item
   useEffect(() => {
@@ -90,12 +96,29 @@ export function useSearchPopover({
     [isPopoverOpen, searchValue, displaySearchList, displayHistoryList],
   );
 
+  const handleInputBlur = useCallback(() => {
+    setTimeout(() => {
+      setIsPopoverOpen(false);
+    }, 200);
+  }, [setIsPopoverOpen]);
+
+  const handleSearchBarPress = useCallback(() => {
+    // only on mobile
+    if (!platformEnv.isDesktop) {
+      navigation.pushModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.SearchModal,
+      });
+    }
+  }, [navigation]);
+
   return {
+    handleSearchBarPress,
     selectedIndex,
     handleKeyDown,
     resetSelectedIndex,
     isPopoverVisible,
     isPopoverOpen,
     setIsPopoverOpen,
+    handleInputBlur,
   };
 }

@@ -153,6 +153,7 @@ function DesktopBrowserNavigationBar({
   useShortcutsOnRouteFocused(EShortcutEvents.PinOrUnpinTab, onShortcutsPin);
 
   const onShortcutsChangeUrl = useCallback(() => {
+    console.log('onShortcutsChangeUrl', tab?.url, isActive);
     if (tab?.url && isActive) {
       handleSearch(tab.url);
     }
