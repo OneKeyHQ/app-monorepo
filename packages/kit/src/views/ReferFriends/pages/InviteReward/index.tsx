@@ -105,26 +105,28 @@ function ShareCode() {
                 copyText(sharedUrl);
               }}
             />
-            <IconButton
-              title={intl.formatMessage({ id: ETranslations.global_copy })}
-              variant="tertiary"
-              icon="ShareOutline"
-              size="large"
-              iconColor="$iconSubdued"
-              onPress={() => {
-                setTimeout(() => {
-                  void Share.share(
-                    platformEnv.isNativeIOS
-                      ? {
-                          url: sharedUrl,
-                        }
-                      : {
-                          message: sharedUrl,
-                        },
-                  );
-                }, 300);
-              }}
-            />
+            {platformEnv.isNative ? (
+              <IconButton
+                title={intl.formatMessage({ id: ETranslations.global_copy })}
+                variant="tertiary"
+                icon="ShareOutline"
+                size="large"
+                iconColor="$iconSubdued"
+                onPress={() => {
+                  setTimeout(() => {
+                    void Share.share(
+                      platformEnv.isNativeIOS
+                        ? {
+                            url: sharedUrl,
+                          }
+                        : {
+                            message: sharedUrl,
+                          },
+                    );
+                  }, 300);
+                }}
+              />
+            ) : null}
           </XStack>
         </XStack>
       </YStack>
