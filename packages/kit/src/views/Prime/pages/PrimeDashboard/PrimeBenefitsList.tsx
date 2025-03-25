@@ -1,6 +1,10 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
+import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
+
+import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 function PrimeBenefitsItem({
   icon,
@@ -29,6 +33,7 @@ function PrimeBenefitsItem({
 }
 
 export function PrimeBenefitsList() {
+  const navigation = useAppNavigation();
   return (
     <Stack py="$2">
       <PrimeBenefitsItem
@@ -76,8 +81,8 @@ export function PrimeBenefitsList() {
         title="Device management"
         subtitle="Access Prime on up to 5 devices."
         onPress={() => {
-          Toast.success({
-            title: 'Device management',
+          navigation.pushFullModal(EModalRoutes.PrimeModal, {
+            screen: EPrimePages.PrimeDeviceLimit,
           });
         }}
       />

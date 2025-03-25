@@ -95,9 +95,9 @@ export function PrimeLoginPasswordDialog({
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: formData.password,
           });
-        await backgroundApiProxy.serviceMasterPassword.ensurePrimeLoginValidPassword(
-          encodedPassword,
-        );
+        // await backgroundApiProxy.serviceMasterPassword.ensurePrimeLoginValidPassword(
+        //   encodedPassword,
+        // );
         await backgroundApiProxy.servicePrime.resolvePrimeLoginPasswordDialog({
           promiseId,
           password: encodedPassword,
@@ -153,12 +153,12 @@ export function PrimeLoginPasswordDialog({
                       size="small"
                       variant="tertiary"
                       onPress={async () => {
-                        await backgroundApiProxy.serviceMasterPassword.startForgetPassword(
-                          {
-                            passwordDialogPromiseId: promiseId,
-                            email,
-                          },
-                        );
+                        // await backgroundApiProxy.serviceMasterPassword.startForgetPassword(
+                        //   {
+                        //     passwordDialogPromiseId: promiseId,
+                        //     email,
+                        //   },
+                        // );
                       }}
                     >
                       Forget password?
