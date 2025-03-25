@@ -30,6 +30,15 @@ export function usePrimeAuthV2() {
     }
   }, [apiLogout, sdkLogout]);
 
+  const saveAccessToken = useCallback(async () => {
+    if (authenticated) {
+      const accessToken = await getAccessToken();
+      if (accessToken) {
+        await backgroundApiProxy.simpleDb.prime.saveAuthToken(accessToken);
+      }
+    }
+  }, [authenticated, getAccessToken]);
+
   return useMemo(() => {
     return {
       isLoggedIn: user?.isLoggedIn,
@@ -39,6 +48,7 @@ export function usePrimeAuthV2() {
       apiLogout,
       sdkLogout,
       getAccessToken,
+      saveAccessToken,
       isReady,
       authenticated,
       useLoginWithEmail,
@@ -47,6 +57,7 @@ export function usePrimeAuthV2() {
   }, [
     authenticated,
     getAccessToken,
+    saveAccessToken,
     isReady,
     logout,
     apiLogout,

@@ -1,3 +1,4 @@
+import { Semaphore } from 'async-mutex';
 import { isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
@@ -81,28 +82,44 @@ class ServicePrime extends ServiceBase {
     return this._primeAuthClient;
   }
 
+  loginMutex = new Semaphore(1);
+
   @backgroundMethod()
   async apiLogin({ accessToken }: { accessToken: string }) {
-    console.log('servicePrime.apiLogin');
-    if (accessToken) {
-      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken || '');
-    }
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
-    if (!authToken) {
-      return;
-    }
-    const client = await this.getPrimeClient();
-    await client.post('/prime/v1/user/login');
+    await this.loginMutex.runExclusive(async () => {
+      if (!accessToken) {
+        return;
+      }
+      await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+      const client = await this.getPrimeClient();
+      try {
+        await client.post(
+          '/prime/v1/user/login',
+          {},
+          {
+            headers: {
+              'X-Onekey-Request-Token': `${accessToken}`,
+            },
+          },
+        );
+        await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
+      } catch (error) {
+        await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+        throw error;
+      }
+    });
   }
 
   @backgroundMethod()
   async apiLogout() {
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
+      await this.setPrimePersistAtomNotLoggedIn();
       return;
     }
     const client = await this.getPrimeClient();
     await client.post('/prime/v1/user/logout');
+    await this.setPrimePersistAtomNotLoggedIn();
   }
 
   @backgroundMethod()
