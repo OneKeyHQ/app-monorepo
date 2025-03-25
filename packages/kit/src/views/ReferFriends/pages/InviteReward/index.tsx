@@ -157,11 +157,15 @@ function Dashboard() {
         </XStack>
         <YStack gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued" flexShrink={1}>
-            Receiving address
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_received_address,
+            })}
           </SizableText>
           <XStack ai="center" jc="space-between">
             <SizableText size="$bodyMd" color="$textSubdued">
-              Not yet set
+              {intl.formatMessage({
+                id: ETranslations.referral_reward_received_address_notset,
+              })}
             </SizableText>
             <IconButton
               title={intl.formatMessage({ id: ETranslations.global_edit })}
