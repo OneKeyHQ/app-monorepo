@@ -72,6 +72,7 @@ interface IBasicDialogProps extends TMDialogProps {
   isAsync?: boolean;
   onOpen?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
+  isExist?: () => boolean;
   icon?: IKeyOfIcons;
   renderIcon?: ReactElement;
   title?: string;
@@ -127,11 +128,13 @@ type IDialogForm = ReturnType<typeof useForm>;
 export interface IDialogInstanceRef {
   close: (extra?: { flag?: string }) => Promise<void>;
   ref: MutableRefObject<IDialogForm | undefined>;
+  isExist: () => boolean;
 }
 
 export interface IDialogInstance {
   close: (extra?: { flag?: string }) => Promise<void> | void;
   getForm: () => IDialogForm | undefined;
+  isExist: () => boolean;
 }
 
 export type IDialogFormProps = PropsWithChildren<{

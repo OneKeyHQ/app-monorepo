@@ -9,6 +9,7 @@ import {
   useBrowserBookmarkAction,
   useBrowserTabActions,
 } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
@@ -153,7 +154,7 @@ function DesktopBrowserNavigationBar({
   useShortcutsOnRouteFocused(EShortcutEvents.PinOrUnpinTab, onShortcutsPin);
 
   const onShortcutsChangeUrl = useCallback(() => {
-    if (tab?.url && isActive) {
+    if (tab?.url && isActive && !platformEnv.isDesktop) {
       handleSearch(tab.url);
     }
   }, [handleSearch, isActive, tab?.url]);

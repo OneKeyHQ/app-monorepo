@@ -172,6 +172,21 @@ class ServiceHardwareUI extends ServiceBase {
   }
 
   @backgroundMethod()
+  async sendRequestDeviceInBootloaderForWebDevice({
+    deviceId,
+  }: {
+    deviceId: string;
+  }) {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.SELECT_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE,
+      payload: {
+        deviceId,
+      },
+    });
+  }
+
+  @backgroundMethod()
   async cleanHardwareUiState({
     hardClose,
   }: {

@@ -1,6 +1,7 @@
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
-import { EOnekeyDomain } from '@onekeyhq/shared/types';
+import { EHardwareTransportType, EOnekeyDomain } from '@onekeyhq/shared/types';
 import { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import { swapSlippageAutoValue } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
@@ -43,6 +44,7 @@ export type ISettingsPersistAtom = {
   isCustomTxMessageEnabled: boolean;
   isFloatingIconAlwaysDisplay: boolean;
   isFilterScamHistoryEnabled: boolean;
+  hardwareTransportType?: EHardwareTransportType;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -72,6 +74,9 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   isCustomTxMessageEnabled: false,
   isFloatingIconAlwaysDisplay: false,
   isFilterScamHistoryEnabled: false,
+  hardwareTransportType: platformEnv.isNative
+    ? EHardwareTransportType.BLE
+    : EHardwareTransportType.Bridge,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

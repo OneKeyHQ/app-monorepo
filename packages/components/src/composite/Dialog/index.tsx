@@ -309,6 +309,7 @@ function BaseDialogContainer(
     renderIcon,
     showExitButton,
     open,
+    isExist,
     onOpenChange,
     ...props
   }: IDialogContainerProps,
@@ -336,18 +337,24 @@ function BaseDialogContainer(
     [changeIsOpen, onClose],
   );
 
+  const handleIsExist = useCallback(
+    () => (isExist ? isExist() : false),
+    [isExist],
+  );
+
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
         close: handleClose,
         ref: formRef,
+        isExist: handleIsExist,
       },
       footerRef: {
         notifyUpdate: undefined,
         props: undefined,
       },
     }),
-    [handleClose],
+    [handleClose, handleIsExist],
   );
 
   const handleOpen = useCallback(() => {
@@ -365,8 +372,9 @@ function BaseDialogContainer(
     () => ({
       close: handleImperativeClose,
       getForm: () => formRef.current,
+      isExist: handleIsExist,
     }),
-    [handleImperativeClose],
+    [handleImperativeClose, handleIsExist],
   );
   const [headerProps, setHeaderProps] = useState<IDialogHeaderProps>({
     title,
@@ -453,7 +461,7 @@ function dialogShow({
           resolve();
         }, 300);
       });
-
+  const isExist = () => !!instanceRef?.current;
   const element = (() => {
     if (dialogContainer) {
       const e = dialogContainer({ ref: instanceRef });
@@ -472,6 +480,7 @@ function dialogShow({
         ref={instanceRef}
         {...props}
         onClose={buildForwardOnClose({ onClose })}
+        isExist={isExist}
       />
     );
   })();
@@ -496,6 +505,7 @@ function dialogShow({
   return {
     close,
     getForm: () => instanceRef?.current?.getForm(),
+    isExist,
   };
 }
 
