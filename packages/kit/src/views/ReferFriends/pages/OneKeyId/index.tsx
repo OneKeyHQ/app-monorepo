@@ -59,10 +59,12 @@ export default function OneKeyId() {
               OneKey ID
             </SizableText>
             <SizableText color="$textSubdued" size="$bodyLg">
-              Access all OneKey services and earn
+              {intl.formatMessage({ id: ETranslations.id_desc })}
             </SizableText>
             <SizableText color="$textSubdued" size="$bodyLg">
-              referral rewards.
+              {intl.formatMessage({
+                id: ETranslations.earn_referral_referral_reward,
+              })}
             </SizableText>
           </YStack>
           <XStack
@@ -128,7 +130,11 @@ export default function OneKeyId() {
               subtitle="Unlock advanced features"
             >
               <Badge badgeSize="sm">
-                <Badge.Text> Soon</Badge.Text>
+                <Badge.Text>
+                  {intl.formatMessage({
+                    id: ETranslations.id_prime_soon,
+                  })}
+                </Badge.Text>
               </Badge>
             </ListItem>
             <ListItem

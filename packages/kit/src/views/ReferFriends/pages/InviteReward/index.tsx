@@ -187,11 +187,13 @@ function Dashboard() {
         onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">Earn reward</SizableText>
+          <SizableText size="$headingMd">
+            {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
+          </SizableText>
           <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
         <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
-          From your friends who used Earn.
+          {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
         <YStack gap="$2" pt="$4">
           <XStack gap="$2">
@@ -226,20 +228,32 @@ function Dashboard() {
         onPress={toHardwareSalesRewardPage}
       >
         <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">Hardware sale reward</SizableText>
+          <SizableText size="$headingMd">
+            {intl.formatMessage({ id: ETranslations.referral_sales_reward })}
+          </SizableText>
           <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
         <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
-          Your friend gets 5% off, you get at least 5% reward.
+          {intl.formatMessage({ id: ETranslations.referral_sales_reward_desc })}
         </SizableText>
         <YStack pt="$4">
           <YStack gap="$2">
             <XStack jc="space-between">
               <SizableText size="$bodyMd" color="$textSubdued">
-                Bronze
+                {intl.formatMessage({
+                  id: ETranslations.referral_sales_level_bronze,
+                })}
               </SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
-                Sliver (Upgrade coming soon)
+                `
+                {intl.formatMessage({
+                  id: ETranslations.referral_sales_level_sliver,
+                })}
+                ($
+                {intl.formatMessage({
+                  id: ETranslations.referral_sales_level_upgrade,
+                })}
+                )`
               </SizableText>
             </XStack>
             <Progress value={1} width="100%" size="medium" />
@@ -264,7 +278,9 @@ function Dashboard() {
               </NumberSizeableText>
             </SizableText>
             <SizableText size="$bodyMd" color="$textSubdued">
-              Pending
+              {intl.formatMessage({
+                id: ETranslations.global_pending,
+              })}
             </SizableText>
           </XStack>
         </YStack>

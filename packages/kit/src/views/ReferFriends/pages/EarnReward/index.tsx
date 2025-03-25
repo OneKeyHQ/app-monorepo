@@ -38,11 +38,16 @@ export default function EarnReward() {
     },
     [],
   );
+  const intl = useIntl();
   const renderItem = useCallback(
     ({ item, section }: { item: number; section: ISectionListItem }) => (
       <YStack px="$5">
         <XStack jc="space-between">
-          <SizableText size="$bodyLgMedium">Sales Refund</SizableText>
+          <SizableText size="$bodyLgMedium">
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_received_address_notset,
+            })}
+          </SizableText>
           <SizableText size="$bodyLgMedium" color="$textCritical">
             -$10.5
           </SizableText>
@@ -52,7 +57,7 @@ export default function EarnReward() {
         </SizableText>
       </YStack>
     ),
-    [],
+    [intl],
   );
   return (
     <Page scrollEnabled>

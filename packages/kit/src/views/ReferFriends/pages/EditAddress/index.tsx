@@ -241,11 +241,14 @@ function BasicEditAddress() {
         </Form>
         <YStack gap="$5" mt="$1.5">
           <SizableText color="$textSubdued" size="$bodyMd">
-            On the 1st of each month, a snapshot will be taken of eligible
-            rewards and the current address.
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_edit_address_desc_1,
+            })}
           </SizableText>
           <SizableText color="$textSubdued" size="$bodyMd">
-            Rewards will be sent to the address by the 10th of the same month.
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_edit_address_desc_2,
+            })}
           </SizableText>
         </YStack>
       </Page.Body>

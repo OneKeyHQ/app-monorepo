@@ -38,11 +38,16 @@ export default function HardwareSalesReward() {
     },
     [],
   );
+  const intl = useIntl();
   const renderItem = useCallback(
     ({ item, section }: { item: number; section: ISectionListItem }) => (
       <YStack px="$5">
         <XStack jc="space-between">
-          <SizableText size="$bodyLgMedium">Sales Refund</SizableText>
+          <SizableText size="$bodyLgMedium">
+            {intl.formatMessage({
+              id: ETranslations.referral_reward_received_address_notset,
+            })}
+          </SizableText>
           <SizableText size="$bodyLgMedium" color="$textCritical">
             -$10.5
           </SizableText>
@@ -52,7 +57,7 @@ export default function HardwareSalesReward() {
         </SizableText>
       </YStack>
     ),
-    [],
+    [intl],
   );
   return (
     <Page scrollEnabled>
@@ -61,14 +66,22 @@ export default function HardwareSalesReward() {
         <SectionList
           ListHeaderComponent={
             <YStack px="$5">
-              <SizableText size="$bodyLg">Total</SizableText>
+              <SizableText size="$bodyLg">
+                {intl.formatMessage({
+                  id: ETranslations.referral_referred_total,
+                })}
+              </SizableText>
               <SizableText size="$heading5xl">245</SizableText>
               <XStack jc="space-between" h={38} ai="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  Order info
+                  {intl.formatMessage({
+                    id: ETranslations.referral_order_info,
+                  })}
                 </SizableText>
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  Rewards
+                  {intl.formatMessage({
+                    id: ETranslations.earn_rewards,
+                  })}
                 </SizableText>
               </XStack>
             </YStack>

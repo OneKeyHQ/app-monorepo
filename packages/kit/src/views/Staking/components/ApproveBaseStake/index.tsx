@@ -866,7 +866,7 @@ export function ApproveBaseStake({
     estReceiveToken,
     estimateFeeResp,
     usePermit2Approve,
-    bindOrChangeInviteCode,
+    handleBindOrChangeInviteCode,
     intl,
     inviteCode,
     estReceiveTokenRate,
