@@ -85,9 +85,10 @@ export default function EarnReward() {
             })}
             type="info"
             mx="$5"
+            mb="$2.5"
             onClose={hideAlert}
           />
-          <YStack p="$5" pt="$2.5">
+          <YStack p="$5" pt={0}>
             <SizableText size="$bodyLg">
               {intl.formatMessage({
                 id: ETranslations.referral_reward_undistributed,
@@ -101,34 +102,32 @@ export default function EarnReward() {
               20.45
             </NumberSizeableText>
             <SizableText mt="$1">
-              {intl.formatMessage({
-                id: ETranslations.referral_reward_undistributed,
-              })}
               <NumberSizeableText
                 size="$bodyMdMedium"
                 formatter="balance"
                 formatterOptions={{ currency: currencySymbol }}
+                mr="$1"
               >
                 245
               </NumberSizeableText>
-              <SizableText size="$bodyLg" color="$textSubdued">
+              <SizableText size="$bodyMd" color="$textSubdued">
                 {intl.formatMessage({
                   id: ETranslations.referral_total_reward,
                 })}
               </SizableText>
             </SizableText>
-            <YStack>
-              <Divider />
-              <Empty
-                icon="GiftOutline"
-                title={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty,
-                })}
-                description={intl.formatMessage({
-                  id: ETranslations.referral_referred_empty_desc,
-                })}
-              />
-            </YStack>
+          </YStack>
+          <YStack>
+            <Divider />
+            <Empty
+              icon="GiftOutline"
+              title={intl.formatMessage({
+                id: ETranslations.referral_referred_empty,
+              })}
+              description={intl.formatMessage({
+                id: ETranslations.referral_referred_empty_desc,
+              })}
+            />
           </YStack>
         </YStack>
       </Page.Body>
