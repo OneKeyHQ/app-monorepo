@@ -24,7 +24,9 @@ export function TabPageHeader({
 
   const headerRight = useMemo(() => {
     if (showCustomHeaderRight) {
-      return showCustomHeaderRight();
+      return showCustomHeaderRight({
+        canGoBack: false,
+      });
     }
     return (
       <HomeTokenListProviderMirror>

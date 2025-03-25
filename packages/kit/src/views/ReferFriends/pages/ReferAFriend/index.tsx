@@ -189,7 +189,7 @@ export default function ReferAFriend() {
           id:
             phaseState === EPhaseState.next
               ? ETranslations.global_next
-              : 'join',
+              : ETranslations.global_join,
         })}
         onConfirm={async () => {
           if (phaseState === EPhaseState.next) {

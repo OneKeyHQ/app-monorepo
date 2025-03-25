@@ -11,10 +11,13 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
   override enableCache = false;
 
   updateCode(params: Partial<IReferralCodeData>) {
-    return this.setRawData((rawData) => ({
-      ...rawData,
-      ...params,
-    }));
+    return this.setRawData(
+      (rawData) =>
+        ({
+          ...rawData,
+          ...params,
+        } as IReferralCodeData),
+    );
   }
 
   async getReferralCode(): Promise<string> {
