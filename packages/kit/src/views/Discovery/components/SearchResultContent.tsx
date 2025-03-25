@@ -297,22 +297,36 @@ export function SearchResultContent({
       return { type: 'history' };
     }
 
-    return {
-      type: 'null',
-    };
+    if (searchValue) {
+      handleSearchItemClick({
+        dappId: SEARCH_ITEM_ID,
+        name: searchValue,
+        logo: '',
+        description: '',
+        url: searchValue,
+        networkIds: [],
+        tags: [],
+      });
+      return { type: 'search' };
+    }
+
+    return { type: 'null' };
   }, [
     selectedSection,
     displaySearchList,
-    displayBookmarkList,
-    displayHistoryList,
     searchList,
-    localData,
     selectedIndex,
-    getAdjustedBookmarkIndex,
-    getAdjustedHistoryIndex,
+    displayBookmarkList,
+    localData?.bookmarkData,
+    localData?.historyData,
+    displayHistoryList,
+    searchValue,
     handleSearchItemClick,
+    getAdjustedBookmarkIndex,
     handleBookmarkItemClick,
+    getAdjustedHistoryIndex,
     handleHistoryItemClick,
+    SEARCH_ITEM_ID,
   ]);
 
   // Expose functions to parent components
