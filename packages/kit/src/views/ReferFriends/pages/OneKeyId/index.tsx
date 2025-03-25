@@ -127,7 +127,9 @@ export default function OneKeyId() {
                 </XStack>
               }
               title="OneKey Prime"
-              subtitle="Unlock advanced features"
+              subtitle={intl.formatMessage({
+                id: ETranslations.id_prime,
+              })}
             >
               <Badge badgeSize="sm">
                 <Badge.Text>
@@ -152,9 +154,11 @@ export default function OneKeyId() {
                 </XStack>
               }
               title={intl.formatMessage({
-                id: ETranslations.sidebar_refer_a_friend,
+                id: ETranslations.id_refer_a_friend,
               })}
-              subtitle="Invite friends to earn rewards"
+              subtitle={intl.formatMessage({
+                id: ETranslations.id_refer_a_friend_desc,
+              })}
               onPress={toInviteRewardPage}
             >
               <IconButton

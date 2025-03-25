@@ -192,7 +192,7 @@ export function MoreActionButton() {
             },
             {
               label: intl.formatMessage({
-                id: ETranslations.sidebar_refer_a_friend,
+                id: ETranslations.id_refer_a_friend,
               }),
               icon: 'GiftOutline',
               onPress: toReferFriendsPage,

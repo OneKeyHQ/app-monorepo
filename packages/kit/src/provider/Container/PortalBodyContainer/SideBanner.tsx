@@ -178,7 +178,7 @@ function BottomMenu() {
         selected={false}
         icon="GiftOutline"
         label={intl.formatMessage({
-          id: ETranslations.sidebar_refer_a_friend,
+          id: ETranslations.id_refer_a_friend,
         })}
         testID="refer-a-friend"
       />

@@ -50,7 +50,7 @@ export default function ReferAFriend() {
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({
-          id: ETranslations.sidebar_refer_a_friend,
+          id: ETranslations.id_refer_a_friend,
         })}
       />
       <Page.Body>
