@@ -893,6 +893,10 @@ function BasicEarnHome() {
 
   const { shareReferRewards } = useReferFriends();
 
+  const handleShareReferRewards = useCallback(() => {
+    void shareReferRewards();
+  }, [shareReferRewards]);
+
   const renderCustomHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup
@@ -902,11 +906,11 @@ function BasicEarnHome() {
         <HeaderIconButton
           title={intl.formatMessage({ id: ETranslations.global_profit })}
           icon="GiftOutline"
-          onPress={shareReferRewards}
+          onPress={handleShareReferRewards}
         />
       </HeaderButtonGroup>
     ),
-    [shareReferRewards, intl],
+    [intl, handleShareReferRewards],
   );
 
   return (
