@@ -764,6 +764,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
+        if (!fromToken) {
+          set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        }
+        if (!toToken) {
+          set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        }
         if (!fromTokenAmount.value && fromTokenAmount.isInput) {
           set(swapToTokenAmountAtom(), { value: '', isInput: false });
         } else if (!toTokenAmount.value && toTokenAmount.isInput) {

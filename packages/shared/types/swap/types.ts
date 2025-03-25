@@ -222,6 +222,7 @@ export interface ISwapApproveTransaction {
   status: ESwapApproveTransactionStatus;
   resetApproveValue?: string;
   resetApproveIsMax?: boolean;
+  kind?: ESwapQuoteKind;
   txId?: string;
   blockNumber?: number;
 }
