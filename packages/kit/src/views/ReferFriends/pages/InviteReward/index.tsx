@@ -391,9 +391,14 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
 }
 
 export default function InviteReward() {
+  const intl = useIntl();
   return (
     <Page scrollEnabled>
-      <Page.Header title="Invite & Reward" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.referral_title,
+        })}
+      />
       <Page.Body>
         <ShareCode />
         <Dashboard />

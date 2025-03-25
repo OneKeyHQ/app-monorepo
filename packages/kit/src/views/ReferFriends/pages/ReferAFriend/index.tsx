@@ -15,6 +15,8 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
+import { useReferFriends } from '../../../../hooks/useReferFriends';
+
 enum EPhaseState {
   next = 'next',
   join = 'join',
@@ -46,6 +48,7 @@ export default function ReferAFriend() {
   const intl = useIntl();
   const [phaseState, setPhaseState] = useState(EPhaseState.next);
   const navigation = useAppNavigation();
+  const { toInviteRewardPage } = useReferFriends();
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -201,19 +204,35 @@ export default function ReferAFriend() {
                 }}
               >
                 <SizableText size="$heading2xl" textAlign="center">
-                  How it works
+                  {intl.formatMessage({
+                    id: ETranslations.referral_intro_title_2,
+                  })}
                 </SizableText>
                 <YStack gap="$5">
-                  <Line no={1} description="Create a OneKey ID" />
+                  <Line
+                    no={1}
+                    description={intl.formatMessage({
+                      id: ETranslations.referral_how_1,
+                    })}
+                  />
                   <Line
                     no={2}
-                    description="Invite your friend by your referral code"
+                    description={intl.formatMessage({
+                      id: ETranslations.referral_how_2,
+                    })}
                   />
                   <Line
                     no={3}
-                    description="Your friend place order or be using Earn"
+                    description={intl.formatMessage({
+                      id: ETranslations.referral_how_3,
+                    })}
                   />
-                  <Line no={4} description="Your get Reward" />
+                  <Line
+                    no={4}
+                    description={intl.formatMessage({
+                      id: ETranslations.referral_how_4,
+                    })}
+                  />
                 </YStack>
                 <YStack />
               </YStack>
@@ -233,7 +252,10 @@ export default function ReferAFriend() {
             setPhaseState(EPhaseState.join);
             return;
           }
-          navigation.push(EModalReferFriendsRoutes.HardwareSalesReward);
+          navigation.popStack();
+          setTimeout(() => {
+            void toInviteRewardPage();
+          }, 200);
         }}
       />
     </Page>

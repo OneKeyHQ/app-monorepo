@@ -77,10 +77,28 @@ export const useReferFriends = () => {
   const navigation = useAppNavigation();
   const { loginOneKeyId } = useLoginOneKeyId();
 
-  const toReferFriendsPage = useCallback(() => {
-    navigation.pushModal(EModalRoutes.ReferFriendsModal, {
-      screen: EModalReferFriendsRoutes.ReferAFriend,
-    });
+  const toInviteRewardPage = useCallback(async () => {
+    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+    if (isLogin) {
+      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+        screen: EModalReferFriendsRoutes.InviteReward,
+      });
+    } else {
+      void loginOneKeyId();
+    }
+  }, [loginOneKeyId, navigation]);
+
+  const toReferFriendsPage = useCallback(async () => {
+    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+    if (isLogin) {
+      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+        screen: EModalReferFriendsRoutes.InviteReward,
+      });
+    } else {
+      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+        screen: EModalReferFriendsRoutes.ReferAFriend,
+      });
+    }
   }, [navigation]);
   const bindInviteCode = useCallback(
     (onSuccess?: () => void, onFail?: () => void) => {
@@ -284,12 +302,14 @@ export const useReferFriends = () => {
       bindInviteCode,
       shareReferRewards,
       bindOrChangeInviteCode,
+      toInviteRewardPage,
     }),
     [
       toReferFriendsPage,
       bindInviteCode,
       shareReferRewards,
       bindOrChangeInviteCode,
+      toInviteRewardPage,
     ],
   );
 };
