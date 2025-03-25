@@ -73,11 +73,18 @@ export default function ReferAFriend() {
                 }}
               >
                 <SizableText size="$heading2xl">
-                  Get up to{' '}
-                  <SizableText size="$heading2xl" color="$textSuccess">
-                    $27
-                  </SizableText>{' '}
-                  per Friend - Plus Lifetime Rewards
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.referral_intro_title,
+                    },
+                    {
+                      RewardAmount: (
+                        <SizableText size="$heading2xl" color="$textSuccess">
+                          $27
+                        </SizableText>
+                      ),
+                    },
+                  )}
                 </SizableText>
                 <YStack gap="$5">
                   <XStack gap="$4">
@@ -95,21 +102,33 @@ export default function ReferAFriend() {
                       />
                     </XStack>
                     <YStack>
-                      <SizableText size="$headingMd">For You</SizableText>
+                      <SizableText size="$headingMd">
+                        {intl.formatMessage({
+                          id: ETranslations.referral_intro_for_you,
+                        })}
+                      </SizableText>
                       <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                        Get{' '}
-                        <SizableText size="$bodyMd" color="$textSuccess">
-                          5-18%
-                        </SizableText>{' '}
-                        hardware wallet sale commission.
+                        {intl.formatMessage(
+                          {
+                            id: ETranslations.referral_intro_for_you_1,
+                          },
+                          {
+                            RebateRate: (
+                              <SizableText size="$bodyMd" color="$textSuccess">
+                                5-18%
+                              </SizableText>
+                            ),
+                          },
+                        )}
                       </SizableText>
                       <SizableText
                         size="$bodyMd"
                         color="$textSubdued"
                         pt="$0.5"
                       >
-                        Unlock lifetime rewards from your friends’ DeFi earnings
-                        and more.
+                        {intl.formatMessage({
+                          id: ETranslations.earn_referral_for_you_reward,
+                        })}
                       </SizableText>
                     </YStack>
                   </XStack>
@@ -123,20 +142,32 @@ export default function ReferAFriend() {
                     </XStack>
                     <YStack>
                       <SizableText size="$headingMd">
-                        For Your Friend
+                        {intl.formatMessage({
+                          id: ETranslations.referral_intro_for_your_friend,
+                        })}
                       </SizableText>
                       <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                        <SizableText size="$bodyMd" color="$textInfo">
-                          5% off
-                        </SizableText>{' '}
-                        on hardware wallets at checkout with your code.
+                        {intl.formatMessage(
+                          {
+                            id: ETranslations.referral_intro_for_your_friend_1,
+                          },
+                          {
+                            RebateRate: (
+                              <SizableText size="$bodyMd" color="$textInfo">
+                                5% off
+                              </SizableText>
+                            ),
+                          },
+                        )}
                       </SizableText>
                       <SizableText
                         size="$bodyMd"
                         color="$textSubdued"
                         pt="$0.5"
                       >
-                        DeFi welcome bonus.
+                        {intl.formatMessage({
+                          id: ETranslations.referral_intro_for_your_friend_2,
+                        })}
                       </SizableText>
                       <SizableText
                         size="$bodyMd"
@@ -145,7 +176,9 @@ export default function ReferAFriend() {
                         textDecorationLine="underline"
                         cursor="pointer"
                       >
-                        Learn more
+                        {intl.formatMessage({
+                          id: ETranslations.global_learn_more,
+                        })}
                       </SizableText>
                     </YStack>
                   </XStack>
