@@ -1,10 +1,9 @@
 import type { IKeyOfIcons } from '@onekeyhq/components';
 import { Icon, Stack, Toast, YStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
-
-import useAppNavigation from '../../../../hooks/useAppNavigation';
 
 function PrimeBenefitsItem({
   icon,
