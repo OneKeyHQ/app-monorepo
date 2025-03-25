@@ -2,6 +2,7 @@ import type { PropsWithChildren } from 'react';
 import { memo, useCallback } from 'react';
 
 import { ConfigProvider } from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
@@ -25,6 +26,7 @@ function BasicThemeProvider({ children }: PropsWithChildren<unknown>) {
     <ConfigProvider
       theme={themeVariant as any}
       locale={localeVariant}
+      HyperlinkText={HyperlinkText}
       onLocaleChange={handleLocalChange}
     >
       {children}
