@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -92,18 +92,12 @@ export function SearchInput() {
     }
   }, [refreshLocalData, isPopoverOpen]);
 
-  useEffect(() => {
-    if (!isPopoverOpen) {
-      resetSelectedIndex();
-    }
-  }, [isPopoverOpen, resetSelectedIndex]);
-
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
   }, []);
 
   useShortcuts(EShortcutEvents.NewTab, () => {
-    if (platformEnv.isDesktop) {
+    if (platformEnv.isDesktop || platformEnv.isExtension) {
       // focus on search input
       inputRef.current?.focus();
     } else {
@@ -141,7 +135,7 @@ export function SearchInput() {
         >
           <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 
-          {platformEnv.isDesktop ? (
+          {platformEnv.isDesktop || platformEnv.isExtension ? (
             <Input
               ref={inputRef}
               containerProps={{
