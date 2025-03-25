@@ -18,7 +18,7 @@ export interface IOtpInputProps {
   hideStick?: boolean;
   focusStickBlinkingDuration?: number;
   secureTextEntry?: boolean;
-  theme?: IOptTheme;
+  theme?: IOtpTheme;
   disabled?: boolean;
   textInputProps?: TextInputProps & {
     onPaste?: IInputProps['onPaste'];
@@ -33,7 +33,7 @@ export interface IOtpInputRef {
   setValue: (value: string) => void;
 }
 
-export interface IOptTheme {
+export interface IOtpTheme {
   containerStyle?: ViewStyle;
   /**
    * @deprecated Use `containerStyle` instead
