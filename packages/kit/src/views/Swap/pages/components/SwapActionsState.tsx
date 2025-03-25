@@ -10,6 +10,7 @@ import {
   Dialog,
   EPageType,
   Icon,
+  LottieView,
   Page,
   Popover,
   SizableText,
@@ -19,6 +20,8 @@ import {
   useMedia,
   usePageType,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
@@ -35,6 +38,7 @@ import {
   useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EProtocolOfExchange,
@@ -54,6 +58,8 @@ import {
 import {
   useSwapActionState,
   useSwapBatchTransfer,
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 
@@ -151,6 +157,7 @@ const SwapActionsState = ({
   onSelectPercentageStage,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
@@ -172,12 +179,15 @@ const SwapActionsState = ({
     swapFromAddressInfo.accountInfo?.account?.id,
     currentQuoteRes?.providerDisableBatchTransfer,
   );
+  const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
+  const themeVariant = useThemeVariant();
+  const quoting = useSwapQuoteEventFetching();
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
@@ -210,6 +220,13 @@ const SwapActionsState = ({
   const { md } = useMedia();
 
   const onActionHandler = useCallback(() => {
+    if (swapActionState.noConnectWallet) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.GetStarted,
+        params: { showCloseButton: true },
+      });
+      return;
+    }
     if (swapActionState.isRefreshQuote) {
       void quoteAction(
         swapSlippageRef.current,
@@ -238,12 +255,14 @@ const SwapActionsState = ({
     cleanQuoteInterval,
     currentQuoteRes?.kind,
     handleApprove,
+    navigation,
     onBuildTx,
     onWrapped,
     quoteAction,
     swapActionState.isApprove,
     swapActionState.isRefreshQuote,
     swapActionState.isWrapped,
+    swapActionState.noConnectWallet,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
     swapToAddressInfo?.address,
@@ -550,9 +569,24 @@ const SwapActionsState = ({
           size={pageType === EPageType.modal && !md ? 'medium' : 'large'}
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
-          loading={swapActionState.isLoading}
         >
-          {swapActionState.label}
+          {quoting || swapActionState.isLoading || quoteLoading ? (
+            <LottieView
+              source={
+                themeVariant === 'light'
+                  ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
+                  : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              }
+              autoPlay
+              loop
+              style={{
+                width: 40,
+                height: 24,
+              }}
+            />
+          ) : (
+            swapActionState.label
+          )}
         </Button>
       </Stack>
     ),
@@ -562,10 +596,13 @@ const SwapActionsState = ({
       md,
       onActionHandlerBefore,
       pageType,
+      quoteLoading,
+      quoting,
       recipientComponent,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
+      themeVariant,
     ],
   );
 

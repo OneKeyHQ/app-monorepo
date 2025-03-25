@@ -146,7 +146,11 @@ export function AccountSelectorAddAccountButton({
             const result = await addDefaultNetworkAccounts();
             if (
               accountUtils.isQrWallet({ walletId: focusedWallet.id }) &&
-              result?.failedAccounts?.length
+              activeNetworkId !== getNetworkIdsMap().onekeyall
+                ? result?.failedAccounts?.find(
+                    (account) => account.networkId === activeNetworkId,
+                  )
+                : result?.failedAccounts?.length
             ) {
               await createQrWalletByAccount({
                 walletId: focusedWallet.id,

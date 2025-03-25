@@ -94,7 +94,7 @@ async function buildUrlNetworkSegment({
 
 // http://localhost:3000/wallet/account/evm--1/0xF907eBC4348b02F4b808Ec84591AAfD281c4422D
 // export const urlAccountLandingRewrite = '/wallet/account/:address/:networkId?';
-export const urlAccountLandingRewrite = '/:networkId/:address?'; // visible url
+export const urlAccountLandingRewrite = '/url-account/:networkId/:address?'; // visible url
 // export const urlAccountPageRewrite = '/url-account/:networkId/:address'; // hidden url
 export async function buildUrlAccountLandingRoute({
   account,
@@ -109,7 +109,7 @@ export async function buildUrlAccountLandingRoute({
     realNetworkIdFallback: account?.createAtNetwork || '',
     contextNetworkId: networkId || '',
   });
-  const path = `/${networkSegment || '--'}/${address || '--'}`;
+  const path = `/url-account/${networkSegment || '--'}/${address || '--'}`;
   if (includingOrigin) {
     const origin =
       platformEnv.isWeb && !platformEnv.isDev

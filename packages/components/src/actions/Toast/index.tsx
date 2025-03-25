@@ -6,10 +6,11 @@ import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 
 import { dismissKeyboard } from '@onekeyhq/shared/src/keyboard';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { AnchorSizableText } from '../../content/AnchorSizableText';
 import { Portal } from '../../hocs';
+import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { Icon, View, XStack, YStack } from '../../primitives';
 
 import { ShowCustom, ShowToasterClose } from './ShowCustom';
@@ -42,7 +43,7 @@ const iconMap = {
   warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
 };
 
-const RenderLines = ({
+function RenderLines({
   size,
   children: text,
   color,
@@ -50,7 +51,8 @@ const RenderLines = ({
   children?: string;
   size: ISizableTextProps['size'];
   color: ISizableTextProps['color'];
-}) => {
+}) {
+  const { HyperlinkText } = useSettingConfig();
   if (!text) {
     return null;
   }
@@ -63,20 +65,23 @@ const RenderLines = ({
   return (
     <YStack>
       {lines.map((line, index) => (
-        <AnchorSizableText
+        <HyperlinkText
           key={index}
           color={color}
           textTransform="none"
           userSelect="none"
+          underlineTextProps={{
+            color: '$textSubdued',
+          }}
           size={size}
           wordWrap="break-word"
-        >
-          {line}
-        </AnchorSizableText>
+          translationId={line as ETranslations}
+          defaultMessage={line}
+        />
       ))}
     </YStack>
   );
-};
+}
 
 export function ToastContent({
   title,

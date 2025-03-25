@@ -1,4 +1,3 @@
-import { Asset } from 'expo-asset';
 import {
   downloadAsync as ExpoFSDownloadAsync,
   readAsStringAsync as ExpoFSReadAsStringAsync,
@@ -7,7 +6,6 @@ import {
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { isArray, isNil, isNumber, isObject, isString } from 'lodash';
 import { Image as RNImage } from 'react-native';
-import RNFS from 'react-native-fs';
 
 import appGlobals from '../appGlobals';
 import platformEnv from '../platformEnv';
@@ -24,11 +22,10 @@ type ICommonImageLogFn = (...args: string[]) => void;
 
 const range = (length: number) => [...Array(length).keys()];
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const toGrayscale = (red: number, green: number, blue: number): number =>
+export const toGrayScale = (red: number, green: number, blue: number): number =>
   Math.round(0.299 * red + 0.587 * green + 0.114 * blue);
 
-function getOriginX(
+export function getOriginX(
   originW: number,
   originH: number,
   scaleW: number,
@@ -131,7 +128,7 @@ async function resizeImage(params: {
   originH: number;
   isMonochrome?: boolean;
 }) {
-  const { uri, width, height, originW, originH, isMonochrome } = params;
+  const { uri, width, height, isMonochrome } = params;
   if (!uri) return;
   const actions: ExpoImageManipulatorAction[] = [
     // resize first
@@ -175,7 +172,7 @@ async function resizeImage(params: {
 }
 
 async function getRNLocalImageBase64({
-  nativeModuleId,
+  nativeModuleId: _nativeModuleId,
   uri,
   logFn,
 }: {
@@ -323,6 +320,7 @@ async function getBase64FromImageUriWeb(
     const blob = await response.blob();
     return await new Promise((resolve, reject) => {
       const reader = new FileReader();
+      // eslint-disable-next-line spellcheck/spell-checker
       reader.onloadend = () => {
         const readerResult = reader.result as string;
         // readerResult is base64 string with mime prefix
@@ -468,12 +466,12 @@ function canvasImageDataToBitmap({
     .map((j) =>
       range(width / 8)
         .map((i) => {
-          const bytestr = range(8)
+          const byteString = range(8)
             .map((k) => (j * width + i * 8 + k) * 4)
             .map((index) => (imageData.data[index] === 0 ? '0' : '1'))
             .join('');
 
-          return String.fromCharCode(Number.parseInt(bytestr, 2));
+          return String.fromCharCode(Number.parseInt(byteString, 2));
         })
         .join(''),
     )

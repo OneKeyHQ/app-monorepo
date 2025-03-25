@@ -1,10 +1,14 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type {
   EModalFirmwareUpdateRoutes,
   IModalFirmwareUpdateParamList,
@@ -20,6 +24,7 @@ import {
   ForceExtensionUpdatingFromExpandTab,
 } from '../components/FirmwareUpdateExitPrevent';
 import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
+import { FirmwareUpdatePromptBootloaderWebDevice } from '../components/FirmwareUpdatePromptBootloaderWebDevice';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
 
 function PageFirmwareUpdateInstall() {
@@ -30,7 +35,25 @@ function PageFirmwareUpdateInstall() {
   const { result } = route.params;
 
   const navigation = useAppNavigation();
-  const [stepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const previousStepInfo = useRef(stepInfo);
+
+  useEffect(() => {
+    const fn = () => {
+      previousStepInfo.current = stepInfo;
+      setStepInfo({
+        step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice,
+        payload: undefined,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.RequestDeviceInBootloaderForWebDevice, fn);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+        fn,
+      );
+    };
+  }, [setStepInfo, stepInfo]);
 
   /*
      await backgroundApiProxy.serviceFirmwareUpdate.startFirmwareUpdateWorkflow(
@@ -70,6 +93,20 @@ function PageFirmwareUpdateInstall() {
         navigation.pop();
       });
       return <FirmwareUpdateExitPrevent shouldPreventRemove={false} />;
+    }
+
+    if (
+      stepInfo.step ===
+      EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice
+    ) {
+      return (
+        <>
+          <FirmwareUpdatePromptBootloaderWebDevice
+            previousStepInfo={previousStepInfo.current}
+          />
+          <FirmwareUpdateExitPrevent />
+        </>
+      );
     }
 
     return (

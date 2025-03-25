@@ -32,6 +32,7 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceResponseResult,
@@ -104,10 +105,13 @@ const SKIPPED_EVENTS = [
 const NEW_DIALOG_EVENTS = [
   EHardwareUiStateAction.BLUETOOTH_PERMISSION,
   EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
+  EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
 ];
 
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
+  private bridgeAvailabilityChecked = false;
+
   constructor(props: IServiceBaseProps) {
     super(props);
     appEventBus.on(
@@ -242,8 +246,11 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
     try {
       const instance = await getHardwareSDKInstance({
+        hardwareTransportType,
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
         isPreRelease: isPreRelease === true,
@@ -251,6 +258,9 @@ class ServiceHardware extends ServiceBase {
         debugMode,
       });
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
+      await this.checkBridgeAndFallbackToWebUSB({
+        hardwareSDKInstance: instance,
+      });
       await this.registerSdkEvents(instance);
       return instance;
     } catch (error) {
@@ -381,6 +391,14 @@ class ServiceHardware extends ServiceBase {
             appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
               uiRequestType: newUiRequestType,
             });
+          } else if (
+            newUiRequestType ===
+            EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE
+          ) {
+            appEventBus.emit(
+              EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+              undefined,
+            );
           } else {
             // show hardware ui dialog
             await hardwareUiStateAtom.set({
@@ -1085,6 +1103,77 @@ class ServiceHardware extends ServiceBase {
       console.error('getEvmAddress error', error);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  async promptWebDeviceAccess(params: { deviceSerialNumberFromUI: string }) {
+    const hardwareSDK = await this.getSDKInstance();
+    return convertDeviceResponse(() =>
+      hardwareSDK?.promptWebDeviceAccess(params),
+    );
+  }
+
+  private async _needCheckBridgeStatus() {
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+      return false;
+    }
+    return platformEnv.isWeb || platformEnv.isExtension;
+  }
+
+  @backgroundMethod()
+  async checkBridgeAndFallbackToWebUSB({
+    hardwareSDKInstance,
+  }: {
+    hardwareSDKInstance: CoreApi;
+  }) {
+    try {
+      if (this.bridgeAvailabilityChecked) {
+        return;
+      }
+      if (!(await this._needCheckBridgeStatus())) {
+        return;
+      }
+      this.bridgeAvailabilityChecked = true;
+      const isBridgeAvailable = await new Promise<boolean>((resolve) => {
+        convertDeviceResponse(() => hardwareSDKInstance?.checkBridgeStatus())
+          .then((bridgeStatus) => {
+            console.log('bridgeStatus ===>>>:: ', bridgeStatus);
+            resolve(!!bridgeStatus);
+          })
+          .catch((error) => {
+            console.error('Bridge status check failed:', error);
+            resolve(false);
+          });
+      });
+
+      if (!isBridgeAvailable) {
+        await hardwareSDKInstance.switchTransport('webusb');
+        await this.fallbackToWebUSBTransport();
+      }
+    } catch (error) {
+      console.error('checkBridgeAndFallbackToWebUSB error', error);
+    }
+  }
+
+  private async fallbackToWebUSBTransport() {
+    await this.backgroundApi.serviceSetting.setHardwareTransportType(
+      EHardwareTransportType.WEBUSB,
+    );
+    await timerUtils.wait(0);
+  }
+
+  @backgroundMethod()
+  async switchTransport({
+    transportType,
+  }: {
+    transportType: EHardwareTransportType;
+  }) {
+    const hardwareSDK = await this.getSDKInstance();
+    await hardwareSDK.switchTransport(
+      transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
+    );
   }
 }
 

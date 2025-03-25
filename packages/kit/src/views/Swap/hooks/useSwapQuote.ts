@@ -126,7 +126,6 @@ export function useSwapQuote() {
   if (toAmountDebounceRef.current !== toAmountDebounce) {
     toAmountDebounceRef.current = toAmountDebounce;
   }
-
   const alignmentDecimal = useCallback(() => {
     const checkedDecimal = truncateDecimalPlaces(
       fromAmountDebounce.value,

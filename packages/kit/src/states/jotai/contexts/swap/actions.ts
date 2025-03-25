@@ -764,11 +764,11 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-      }
-      if (!fromTokenAmount.value && fromTokenAmount.isInput) {
-        set(swapToTokenAmountAtom(), { value: '', isInput: false });
-      } else if (!toTokenAmount.value && toTokenAmount.isInput) {
-        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        if (!fromTokenAmount.value && fromTokenAmount.isInput) {
+          set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        } else if (!toTokenAmount.value && toTokenAmount.isInput) {
+          set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        }
       }
     },
   );
@@ -989,6 +989,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               id: ETranslations.swap_page_button_no_connected_wallet,
             }),
             alertLevel: ESwapAlertLevel.ERROR,
+            noConnectWallet: true,
           },
         ];
         set(swapAlertsAtom(), {
