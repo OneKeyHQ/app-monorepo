@@ -77,7 +77,7 @@ export function PrimeLoginEmailDialogV2(props: {
         throw error;
       }
     },
-    [form, loginWithCode, onComplete, sendCode],
+    [form, loginWithCode, onComplete, onLoginSuccess, sendCode],
   );
 
   return (

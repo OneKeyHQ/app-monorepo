@@ -127,7 +127,8 @@ export const useReferFriends = () => {
                   icon="ShareOutline"
                   size="large"
                   iconColor="$iconSubdued"
-                  onPress={() => copyText('onekey.so/r/GMGMGM')}
+                  onPress={() => copyText('onekey.so/r/
+                    ')}
                 />
               </XStack>
             </XStack>
@@ -156,7 +157,7 @@ export const useReferFriends = () => {
             <YStack>
               <SizableText size="$headingMd">For You</SizableText>
               <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                Unlock lifetime rewards from your friends’ fee sharing
+                Unlock lifetime rewards from your friends’ fee sharing
               </SizableText>
             </YStack>
           </XStack>

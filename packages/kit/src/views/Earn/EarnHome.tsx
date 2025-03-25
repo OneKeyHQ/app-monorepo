@@ -893,7 +893,6 @@ function BasicEarnHome() {
 
   const { shareReferRewards } = useReferFriends();
 
-
   const renderCustomHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup

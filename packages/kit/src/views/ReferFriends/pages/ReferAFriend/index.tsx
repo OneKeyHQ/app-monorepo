@@ -104,7 +104,7 @@ export default function ReferAFriend() {
                         color="$textSubdued"
                         pt="$0.5"
                       >
-                        Unlock lifetime rewards from your friends’ DeFi earnings
+                        Unlock lifetime rewards from your friends’ DeFi earnings
                         and more.
                       </SizableText>
                     </YStack>
