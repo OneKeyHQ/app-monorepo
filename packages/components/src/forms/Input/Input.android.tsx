@@ -1,6 +1,6 @@
 import { useRef } from 'react';
 
-import TextInput from '@onekeyfe/react-native-text-input';
+import TextInput from './TextInput';
 import { styled, useComposedRefs } from '@tamagui/core';
 import { defaultStyles, useInputProps } from 'tamagui';
 import { inputSizeVariant } from 'tamagui/src/helpers/inputHelpers';

@@ -15,6 +15,7 @@ import {
 } from 'react';
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
+import noop from 'lodash/noop';
 import { InteractionManager } from 'react-native';
 import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
@@ -132,7 +133,7 @@ const useReadOnlyStyle = (readOnly = false) =>
     [readOnly],
   );
 
-const useAutoFocus = (
+export const useAutoFocus = (
   inputRef: RefObject<TextInput>,
   autoFocus?: boolean,
   autoFocusDelayMs?: number,
@@ -158,6 +159,58 @@ const useAutoFocus = (
   }, [autoFocusDelayMs, inputRef, shouldReloadAutoFocus]);
   return shouldReloadAutoFocus ? false : autoFocus;
 };
+
+export const useOnWebPaste = platformEnv.isNative
+  ? noop
+  : (
+      inputRef: RefObject<TextInput> | null,
+      onPaste?: (event: IPasteEventParams) => void,
+    ) => {
+      useEffect(() => {
+        if (!platformEnv.isNative && inputRef?.current && onPaste) {
+          const handleWebPaste = (event: {
+            type: 'paste';
+            clipboardData: {
+              items: DataTransferItem[];
+            };
+          }) => {
+            if (event.type === 'paste') {
+              const clipboardData = event.clipboardData;
+              if (clipboardData && clipboardData.items.length > 0) {
+                const items: IPasteEventPayload = [];
+                const promises: Promise<void>[] = [];
+
+                for (let i = 0; i < clipboardData.items.length; i += 1) {
+                  const item = clipboardData.items[i];
+                  if (item.kind === 'string') {
+                    promises.push(
+                      new Promise<void>((resolve) => {
+                        item.getAsString((pastedText) => {
+                          items.push({
+                            data: pastedText,
+                            type: EPasteEventPayloadItemType.TextPlain,
+                          });
+                          resolve();
+                        });
+                      }),
+                    );
+                  }
+                }
+
+                void Promise.all(promises).then(() => {
+                  onPaste({ nativeEvent: { items } });
+                });
+              }
+            }
+          };
+          const inputElement = inputRef.current as unknown as HTMLInputElement;
+          inputElement.addEventListener('paste', handleWebPaste as any);
+          return () => {
+            inputElement.removeEventListener('paste', handleWebPaste as any);
+          };
+        }
+      }, [inputRef, onPaste]);
+    };
 
 function BaseInput(
   inputProps: IInputProps,
@@ -242,50 +295,7 @@ function BaseInput(
     secureEntryState,
   ]);
 
-  useEffect(() => {
-    if (!platformEnv.isNative && inputRef.current && onPaste) {
-      const handleWebPaste = (event: {
-        type: 'paste';
-        clipboardData: {
-          items: DataTransferItem[];
-        };
-      }) => {
-        if (event.type === 'paste') {
-          const clipboardData = event.clipboardData;
-          if (clipboardData && clipboardData.items.length > 0) {
-            const items: IPasteEventPayload = [];
-            const promises: Promise<void>[] = [];
-
-            for (let i = 0; i < clipboardData.items.length; i += 1) {
-              const item = clipboardData.items[i];
-              if (item.kind === 'string') {
-                promises.push(
-                  new Promise<void>((resolve) => {
-                    item.getAsString((pastedText) => {
-                      items.push({
-                        data: pastedText,
-                        type: EPasteEventPayloadItemType.TextPlain,
-                      });
-                      resolve();
-                    });
-                  }),
-                );
-              }
-            }
-
-            void Promise.all(promises).then(() => {
-              onPaste({ nativeEvent: { items } });
-            });
-          }
-        }
-      };
-      const inputElement = inputRef.current as unknown as HTMLInputElement;
-      inputElement.addEventListener('paste', handleWebPaste as any);
-      return () => {
-        inputElement.removeEventListener('paste', handleWebPaste as any);
-      };
-    }
-  }, [onPaste]);
+  useOnWebPaste(inputRef, onPaste);
 
   useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
 

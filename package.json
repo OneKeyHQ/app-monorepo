@@ -130,7 +130,6 @@
     "react-native": "0.73.7",
     "react-native-confirmation-code-field": "^7.4.0",
     "react-native-draggable-flatlist": "4.0.1",
-    "react-native-otp-entry": "^1.8.2",
     "react-native-reanimated": "3.6.1",
     "react-native-web": "0.18.12",
     "react-render-tracker": "^0.7.6",

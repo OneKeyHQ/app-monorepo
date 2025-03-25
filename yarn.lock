@@ -7012,7 +7012,6 @@ __metadata:
     react-native-copy-asset: "npm:^3.0.2"
     react-native-draggable-flatlist: "npm:4.0.1"
     react-native-flipper: "npm:0.201.0"
-    react-native-otp-entry: "npm:^1.8.2"
     react-native-reanimated: "npm:3.6.1"
     react-native-web: "npm:0.18.12"
     react-refresh: "npm:^0.14.0"
@@ -35544,16 +35543,6 @@ __metadata:
     react: "*"
     react-native: "*"
   checksum: 10/43d168d57ece1b2246a6a8a03b4e116894cb70582087de6d5c9aca483c73858411846f314ace492634f06fba425cb895a042bd20dee0060cbc1738c367aff6ab
-  languageName: node
-  linkType: hard
-
-"react-native-otp-entry@npm:^1.8.2":
-  version: 1.8.2
-  resolution: "react-native-otp-entry@npm:1.8.2"
-  peerDependencies:
-    react: "*"
-    react-native: "*"
-  checksum: 10/697c7564a23317f0c0f2e1b400d02340e31f954e230be7017efe1dcf810753fcde79cbdd27f045dd3813e26db3f31c877933bc02bd4a42cfa04820c7a7f299d5
   languageName: node
   linkType: hard
 
