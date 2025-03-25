@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Share } from 'react-native';
+import { Share, StyleSheet } from 'react-native';
 
 import {
   Dialog,
