@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -25,6 +25,7 @@ import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum
 
 import { SearchResultContent } from '../../../components/SearchResultContent';
 import { useSearchModalData } from '../../../hooks/useSearchModalData';
+import { useSearchPopover } from '../../../hooks/useSearchPopover';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
@@ -32,20 +33,13 @@ import { SearchPopover } from './SearchPopover';
 import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
 import type { TextInput } from 'react-native';
 
-const ITEM_HEIGHT = 48; // Height of each item in the search results
-
 export function SearchInput() {
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const inputRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    setSelectedIndex(-1);
-  }, [isPopoverOpen]);
+  const navigation = useAppNavigation();
 
   const {
     localData,
@@ -53,33 +47,59 @@ export function SearchInput() {
     displaySearchList,
     displayHistoryList,
     SEARCH_ITEM_ID,
+    refreshLocalData,
+    totalItems,
   } = useSearchModalData(searchValue);
 
-  useEffect(() => {
-    scrollViewRef?.current?.scrollTo({
-      y: 0,
-    });
-  }, [searchValue]);
+  const {
+    handleInputBlur,
+    handleKeyDown,
+    handleSearchBarPress,
+    isPopoverOpen,
+    isPopoverVisible,
+    resetSelectedIndex,
+    selectedIndex,
+    setIsPopoverOpen,
+  } = useSearchPopover({
+    scrollViewRef,
+    totalItems,
+    searchValue,
+    onEnterPress: () => {
+      if (searchResultRef.current) {
+        searchResultRef.current.openSelectedItem();
+        setIsPopoverOpen(false);
+      }
+    },
+    onEscape: () => {
+      setIsPopoverOpen(false);
+      inputRef.current?.blur();
+    },
+    displaySearchList: Boolean(displaySearchList),
+    displayHistoryList: Boolean(displayHistoryList),
+  });
 
-  const navigation = useAppNavigation();
-  const handleSearchBarPress = useCallback(() => {
-    // only on mobile
-    if (!platformEnv.isDesktop) {
-      navigation.pushModal(EModalRoutes.DiscoveryModal, {
-        screen: EDiscoveryModalRoutes.SearchModal,
-      });
+  useEffect(() => {
+    if (platformEnv.isDesktop) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 200);
     }
-  }, [navigation]);
+  }, []);
+
+  useEffect(() => {
+    if (isPopoverOpen) {
+      void refreshLocalData();
+    }
+  }, [refreshLocalData, isPopoverOpen]);
+
+  useEffect(() => {
+    if (!isPopoverOpen) {
+      resetSelectedIndex();
+    }
+  }, [isPopoverOpen, resetSelectedIndex]);
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
-    setSelectedIndex(-1);
-  }, []);
-
-  const handleInputBlur = useCallback(() => {
-    setTimeout(() => {
-      setIsPopoverOpen(false);
-    }, 100);
   }, []);
 
   useShortcuts(EShortcutEvents.NewTab, () => {
@@ -92,68 +112,6 @@ export function SearchInput() {
       });
     }
   });
-
-  useEffect(() => {
-    if (scrollViewRef.current) {
-      const getSelectedItemDistance = () => {
-        if (selectedIndex < 4) return 0;
-
-        // Calculate item height based on your UI design
-        return selectedIndex * ITEM_HEIGHT;
-      };
-
-      const distance = getSelectedItemDistance();
-      scrollViewRef.current.scrollTo({
-        y: distance,
-        animated: true,
-      });
-    }
-  }, [selectedIndex]);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      // Prevent default behavior for up and down arrow keys
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-
-        // Calculate total items count
-        const searchCount = displaySearchList ? searchList.length : 0;
-        const historyCount = displayHistoryList
-          ? localData?.historyData?.length || 0
-          : 0;
-        const totalItems = searchCount + historyCount;
-
-        if (totalItems === 0) return;
-
-        // Update selected index based on arrow key
-        if (e.key === 'ArrowDown') {
-          setSelectedIndex((prev) => (prev + 2 > totalItems ? prev : prev + 1));
-        } else if (e.key === 'ArrowUp') {
-          setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
-        }
-      }
-
-      // Handle Enter key press - call openSelectedItem
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (searchResultRef.current) {
-          searchResultRef.current.openSelectedItem();
-          setIsPopoverOpen(false);
-        }
-      }
-
-      if (e.key === 'Escape') {
-        setIsPopoverOpen(false);
-        inputRef.current?.blur();
-      }
-    },
-    [
-      displaySearchList,
-      searchList.length,
-      displayHistoryList,
-      localData?.historyData?.length,
-    ],
-  );
 
   return (
     <>
@@ -228,7 +186,12 @@ export function SearchInput() {
           ) : null}
         </XStack>
 
-        <SearchPopover isOpen={isPopoverOpen}>
+        <SearchPopover
+          containerProps={{
+            $gtSm: { width: 384 },
+          }}
+          isOpen={isPopoverVisible}
+        >
           <ScrollView ref={scrollViewRef} maxHeight={310}>
             <Stack py="$2">
               <SearchResultContent
