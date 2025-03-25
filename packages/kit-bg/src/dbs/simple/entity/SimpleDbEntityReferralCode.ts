@@ -20,7 +20,7 @@ export class SimpleDbEntityReferralCode extends SimpleDbEntityBase<IReferralCode
     );
   }
 
-  async getReferralCode(): Promise<string> {
+  async getMyReferralCode(): Promise<string> {
     const rawData = await this.getRawData();
     return rawData?.myReferralCode ?? '';
   }

@@ -775,7 +775,19 @@ export function ApproveBaseStake({
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
-  const { shareReferRewards } = useReferFriends();
+  const { bindOrChangeInviteCode } = useReferFriends();
+
+  const { result: inviteCode, run: refetchInviteCode } = usePromiseResult(
+    async () => backgroundApiProxy.serviceReferralCode.getInviteCode(),
+    [],
+    {
+      initResult: '',
+    },
+  );
+
+  const handleBindOrChangeInviteCode = useCallback(() => {
+    void bindOrChangeInviteCode(refetchInviteCode);
+  }, [bindOrChangeInviteCode, refetchInviteCode]);
 
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
@@ -831,14 +843,14 @@ export function ApproveBaseStake({
     }
 
     items.push(
-      <CalculationListItem onPress={shareReferRewards}>
+      <CalculationListItem onPress={handleBindOrChangeInviteCode}>
         <CalculationListItem.Label size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.referral_your_code,
           })}
         </CalculationListItem.Label>
         <XStack alignItems="center" cursor="pointer" mr={-6}>
-          <SizableText size="$bodyMdMedium">GMGMGM</SizableText>
+          <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
           <Icon
             name="ChevronRightSmallOutline"
             size="$5"
@@ -850,16 +862,17 @@ export function ApproveBaseStake({
     return items;
   }, [
     amountValue,
-    daysSpent,
-    estReceiveToken,
-    estReceiveTokenRate,
-    estimateFeeResp,
-    intl,
-    shareReferRewards,
     showEstReceive,
-    showEstimateGasAlert,
-    totalAnnualRewardsFiatValue,
+    estReceiveToken,
+    estimateFeeResp,
     usePermit2Approve,
+    bindOrChangeInviteCode,
+    intl,
+    inviteCode,
+    estReceiveTokenRate,
+    totalAnnualRewardsFiatValue,
+    showEstimateGasAlert,
+    daysSpent,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (
