@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -91,12 +91,6 @@ export function SearchInput() {
       void refreshLocalData();
     }
   }, [refreshLocalData, isPopoverOpen]);
-
-  useEffect(() => {
-    if (!isPopoverOpen) {
-      resetSelectedIndex();
-    }
-  }, [isPopoverOpen, resetSelectedIndex]);
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
