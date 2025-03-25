@@ -35,12 +35,10 @@ export type IWithHardwareProcessingControlParams = {
   skipDeviceCancel?: boolean; // cancel device at end
   skipCloseHardwareUiStateDialog?: boolean; // close state dialog at end
   skipDeviceCancelAtFirst?: boolean;
-  skipWaitingAnimationAtFirst?: boolean;
 };
 
 export type IWithHardwareProcessingOptions = {
   deviceParams: IDeviceSharedCallParams | undefined;
-  debugMethodName?: string;
 } & IWithHardwareProcessingControlParams;
 
 export type ICloseHardwareUiStateDialogParams = {
@@ -283,9 +281,7 @@ class ServiceHardwareUI extends ServiceBase {
       skipDeviceCancel = false,
       skipCloseHardwareUiStateDialog = false,
       skipDeviceCancelAtFirst = true,
-      skipWaitingAnimationAtFirst,
       hideCheckingDeviceLoading,
-      debugMethodName,
     } = params;
     const device = deviceParams?.dbDevice;
     const connectId = device?.connectId;
