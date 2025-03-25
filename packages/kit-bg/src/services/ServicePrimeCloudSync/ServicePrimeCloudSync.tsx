@@ -133,6 +133,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   @backgroundMethod()
   async apiFetchSyncLock() {
     const client = await this.backgroundApi.servicePrime.getPrimeClient();
+    // TODO return pwdHash from server
     const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
     const result = await client.get<
       IApiClientResponse<{
@@ -155,19 +156,23 @@ class ServicePrimeCloudSync extends ServiceBase {
   } = {}) {
     const client = await this.backgroundApi.servicePrime.getPrimeClient();
     const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
+    const pwdHash = masterPasswordUUID || RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID;
     const result = await client.post<
       IApiClientResponse<{
         nonce: number; // TODO add nonce here
         serverData: ICloudSyncServerItemByDownloaded[];
+        pwdHash: string;
       }>
     >('/prime/v1/sync/download', {
       includeDeleted,
       start,
       limit,
-      pwdHash: masterPasswordUUID || RESET_CLOUD_SYNC_MASTER_PASSWORD_UUID,
+      pwdHash,
     });
-    console.log('prime cloud sync apiDownloadItems: ', result?.data?.data);
-    return result?.data?.data;
+    const data = result?.data?.data;
+    data.pwdHash = data.pwdHash || pwdHash;
+    console.log('prime cloud sync apiDownloadItems: ', data);
+    return data;
   }
 
   @backgroundMethod()
@@ -186,6 +191,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         diff: ICloudSyncServerItem[]; // TODO return server items
         updated: ICloudSyncServerItem[];
         obsoleted: string[]; //
+        pwdHash: string;
       }>
     >('/prime/v1/sync/check', {
       localData: items.map((item) => ({
@@ -201,8 +207,10 @@ class ServicePrimeCloudSync extends ServiceBase {
         EPrimeCloudSyncDataType.IndexedAccount,
       ],
     });
-    console.log('prime cloud sync apiCheck: ', result?.data?.data);
-    return result?.data?.data;
+    const data = result?.data?.data;
+    data.pwdHash = data.pwdHash || masterPasswordUUID;
+    console.log('prime cloud sync apiCheck: ', data);
+    return data;
   }
 
   async buildFlushLock({
@@ -607,10 +615,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     serverItems,
     shouldSyncToScene,
     syncCredential,
+    serverPwdHash,
   }: {
     serverItems: ICloudSyncServerItem[];
     shouldSyncToScene: boolean;
     syncCredential: ICloudSyncCredential | undefined;
+    serverPwdHash: string;
   }) {
     const localSyncItemsPromise: Promise<IDBCloudSyncItem>[] = serverItems.map(
       async (serverItem) =>
@@ -618,6 +628,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           serverItem,
           shouldDecrypt: false,
           syncCredential,
+          serverPwdHash,
         }),
     );
     const localItems: IDBCloudSyncItem[] = (
@@ -635,10 +646,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     deletedItemIds,
     shouldSyncToScene,
     syncCredential,
+    serverPwdHash,
   }: {
     deletedItemIds: string[];
     shouldSyncToScene: boolean;
     syncCredential: ICloudSyncCredential | undefined;
+    serverPwdHash: string;
   }) {
     const { records: items } = await localDb.getRecordsByIds({
       name: ELocalDBStoreNames.CloudSyncItem,
@@ -647,9 +660,10 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     await this.updateLocalItemsByServer({
       localItems: items.filter(Boolean).map((item) => {
-        const newItem = {
+        const newItem: IDBCloudSyncItem = {
           ...item,
           isDeleted: true,
+          pwdHash: item.pwdHash || serverPwdHash,
         };
         cloudSyncItemBuilder.setDefaultPropsOfServerToLocalItem({
           localItem: newItem,
@@ -671,12 +685,14 @@ class ServicePrimeCloudSync extends ServiceBase {
     shouldSyncToScene: boolean;
   }) {
     await localDb.withTransaction(async (tx) => {
+      console.log('updateLocalItemsByServer', localItems);
       await localDb.txAddAndUpdateSyncItems({
         tx,
         items: localItems,
         // the data is already from the server, so it doesn't need to be uploaded back to the server
         skipUploadToServer: true,
       });
+      console.log('updateLocalItemsByServer sucess', localItems);
 
       return localItems;
     });
@@ -841,6 +857,7 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     // server obsoleted items, should be uploaded to server
     if (serverStatus.obsoleted.length) {
+      console.log('serverStatus.obsoleted', serverStatus.obsoleted);
       const itemsToUpload = localItems.filter((item) =>
         serverStatus.obsoleted.includes(item.id),
       );
@@ -854,29 +871,35 @@ class ServicePrimeCloudSync extends ServiceBase {
 
     // server diff items, should be compared with local items
     if (serverStatus.diff.length) {
+      console.log('serverStatus.diff', serverStatus.diff);
       // TODO server returns missing data details, only key
       await this.saveServerSyncItemsToLocal({
         serverItems: serverStatus.diff,
         shouldSyncToScene: true,
         syncCredential,
+        serverPwdHash: serverStatus.pwdHash,
       });
     }
 
     // server updated items, should be save to local
     if (serverStatus.updated.length) {
+      console.log('serverStatus.updated', serverStatus.updated);
       await this.saveServerSyncItemsToLocal({
         serverItems: serverStatus.updated,
         shouldSyncToScene: true,
         syncCredential,
+        serverPwdHash: serverStatus.pwdHash,
       });
     }
 
     // server deleted items, should be deleted from local
     if (serverStatus.deleted.length) {
+      console.log('serverStatus.deleted', serverStatus.deleted);
       await this.saveServerDeletedItemsToLocal({
         deletedItemIds: serverStatus.deleted,
         shouldSyncToScene: true,
         syncCredential,
+        serverPwdHash: serverStatus.pwdHash,
       });
     }
   }
@@ -1374,6 +1397,7 @@ class ServicePrimeCloudSync extends ServiceBase {
           serverItem,
           shouldDecrypt: true,
           syncCredential,
+          serverPwdHash: serverStatus.pwdHash,
         });
         const syncManager = this.getSyncManager(serverItem.dataType);
         const localItem = await localDb.getSyncItemSafe({
@@ -1461,10 +1485,12 @@ class ServicePrimeCloudSync extends ServiceBase {
     serverItem,
     shouldDecrypt,
     syncCredential,
+    serverPwdHash,
   }: {
     serverItem: ICloudSyncServerItem;
     shouldDecrypt?: boolean; // decrypt the data to rawDataJson
     syncCredential: ICloudSyncCredential | undefined;
+    serverPwdHash: string;
   }): Promise<IDBCloudSyncItem> {
     const localItem: IDBCloudSyncItem = {
       id: serverItem.key,
@@ -1475,7 +1501,7 @@ class ServicePrimeCloudSync extends ServiceBase {
       dataTime: serverItem.dataTimestamp,
       isDeleted: serverItem.isDeleted,
 
-      pwdHash: serverItem.pwdHash,
+      pwdHash: serverItem.pwdHash || serverPwdHash,
 
       localSceneUpdated: false, // server item
       serverUploaded: false,
@@ -1506,7 +1532,7 @@ class ServicePrimeCloudSync extends ServiceBase {
   @toastIfError()
   async decryptAllServerSyncItems() {
     await this.getSyncCredentialWithCache();
-    const { serverData: items } = await this.apiDownloadItems();
+    const { serverData: items, pwdHash } = await this.apiDownloadItems();
     const localItems: IDBCloudSyncItem[] = [];
     const syncCredential = await this.getSyncCredentialSafe();
     for (const item of items) {
@@ -1514,6 +1540,7 @@ class ServicePrimeCloudSync extends ServiceBase {
         serverItem: item,
         shouldDecrypt: true,
         syncCredential,
+        serverPwdHash: pwdHash,
       });
       localItems.push(localItem);
       if (localItem) {

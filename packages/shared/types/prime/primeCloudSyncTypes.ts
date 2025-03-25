@@ -47,7 +47,7 @@ export type ICloudSyncServerItem = {
   dataTimestamp: number | undefined;
   dataType: EPrimeCloudSyncDataType;
   isDeleted: boolean;
-  pwdHash: string;
+  pwdHash: string; // TODO server should return pwdHash
   key: string;
   // nonce: number;
   // userId: string; privy user id

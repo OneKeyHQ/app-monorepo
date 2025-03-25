@@ -436,6 +436,7 @@ class ServiceMasterPassword extends ServiceBase {
           'verifyMasterPassword ERROR: No lock of server to verify',
         );
       }
+      const { masterPasswordUUID } = await primeMasterPasswordPersistAtom.get();
 
       const localItem =
         await this.backgroundApi.servicePrimeCloudSync.convertServerItemToLocalItem(
@@ -443,6 +444,7 @@ class ServiceMasterPassword extends ServiceBase {
             serverItem: lock,
             shouldDecrypt: false,
             syncCredential,
+            serverPwdHash: masterPasswordUUID,
           },
         );
       if (!localItem) {
@@ -608,7 +610,7 @@ class ServiceMasterPassword extends ServiceBase {
         title: 'Encrypting data',
       },
       async () => {
-        const { serverData } =
+        const { serverData, pwdHash } =
           await this.backgroundApi.servicePrimeCloudSync.apiDownloadItems();
 
         newLocalItems = await Promise.all(
@@ -619,6 +621,7 @@ class ServiceMasterPassword extends ServiceBase {
                   serverItem: item,
                   shouldDecrypt: true,
                   syncCredential: oldSyncCredential,
+                  serverPwdHash: pwdHash,
                 },
               );
             if (!oldLocalItem.rawDataJson) {

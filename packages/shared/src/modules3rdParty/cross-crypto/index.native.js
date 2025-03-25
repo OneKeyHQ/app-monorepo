@@ -14,7 +14,8 @@ require('react-native-get-random-values');
 if (process.env.NODE_ENV !== 'production') {
   const getRandomValuesOld = global.crypto.getRandomValues;
   global.crypto.getRandomValues = function (...args) {
-    // sentry uuid / encodeSensitiveText
+    // - sentry component uuid
+    // - encodeSensitiveText
     console.log(
       '-------- call global.crypto.getRandomValues (native)',
       getRandomValuesOld,
