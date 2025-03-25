@@ -4,6 +4,7 @@ import { memo, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
+import type { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,6 +29,8 @@ export type IUIProviderProps = PropsWithChildren<{
   waitFontLoaded?: boolean;
 
   onLocaleChange?: (locale: ILocaleSymbol) => void;
+
+  HyperlinkText: typeof HyperlinkText;
 }>;
 export type IFontProviderProps = PropsWithChildren;
 
@@ -45,14 +48,16 @@ export function ConfigProvider({
   children,
   theme,
   locale,
+  HyperlinkText,
   onLocaleChange,
 }: IUIProviderProps) {
   const providerValue = useMemo(
     () => ({
       theme,
       locale,
+      HyperlinkText,
     }),
-    [theme, locale],
+    [theme, locale, HyperlinkText],
   );
 
   useAppearanceTheme(theme);

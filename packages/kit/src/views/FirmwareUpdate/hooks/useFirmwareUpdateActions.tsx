@@ -41,8 +41,14 @@ export function useFirmwareUpdateActions() {
 
   const openChangeLog = useCallback(
     ({ connectId }: { connectId: string | undefined }) => {
-      if (platformEnv.isExtensionUiPopup) {
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
         void openChangeLogOfExtension({ connectId });
+        if (platformEnv.isExtensionUiSidePanel) {
+          window.close();
+        }
         return;
       }
       navigation.push(EModalFirmwareUpdateRoutes.ChangeLog, {
@@ -57,8 +63,14 @@ export function useFirmwareUpdateActions() {
   */
   const openChangeLogModal = useCallback(
     ({ connectId }: { connectId: string | undefined }) => {
-      if (platformEnv.isExtensionUiPopup) {
+      if (
+        platformEnv.isExtensionUiPopup ||
+        platformEnv.isExtensionUiSidePanel
+      ) {
         void openChangeLogOfExtension({ connectId });
+        if (platformEnv.isExtensionUiSidePanel) {
+          window.close();
+        }
         return;
       }
 
