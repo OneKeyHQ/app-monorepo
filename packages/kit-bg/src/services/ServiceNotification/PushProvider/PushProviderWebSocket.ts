@@ -159,6 +159,7 @@ export class PushProviderWebSocket extends PushProviderBase {
             serverItems: payload.serverData,
             shouldSyncToScene: true,
             syncCredential,
+            serverPwdHash: syncCredential?.masterPasswordUUID || '', // TODO use serverPwdHash
           },
         );
       },
