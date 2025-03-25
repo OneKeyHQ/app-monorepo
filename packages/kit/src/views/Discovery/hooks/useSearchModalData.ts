@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -88,6 +88,20 @@ export function useSearchModalData(searchValue: string) {
     (localData?.bookmarkData ?? []).length > 0 && !displaySearchList;
   const displayHistoryList = (localData?.historyData ?? []).length > 0;
 
+  // Calculate total items
+  const totalItems = useMemo(() => {
+    const searchCount = displaySearchList ? searchList.length : 0;
+    const historyCount = displayHistoryList
+      ? localData?.historyData?.length || 0
+      : 0;
+    return searchCount + historyCount;
+  }, [
+    displaySearchList,
+    searchList.length,
+    displayHistoryList,
+    localData?.historyData?.length,
+  ]);
+
   return {
     localData: localData ?? null,
     refreshLocalData,
@@ -96,5 +110,7 @@ export function useSearchModalData(searchValue: string) {
     displayBookmarkList,
     displayHistoryList,
     SEARCH_ITEM_ID,
+    isEmpty: !displaySearchList && !displayBookmarkList && !displayHistoryList,
+    totalItems,
   };
 }
