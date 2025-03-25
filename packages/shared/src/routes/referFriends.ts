@@ -14,6 +14,14 @@ export type IModalReferFriendsParamList = {
   [EModalReferFriendsRoutes.HardwareSalesReward]: undefined;
   [EModalReferFriendsRoutes.OneKeyId]: undefined;
   [EModalReferFriendsRoutes.InviteReward]: undefined;
-  [EModalReferFriendsRoutes.EditAddress]: undefined;
+  [EModalReferFriendsRoutes.EditAddress]: {
+    onAddressAdded: ({
+      address,
+      networkId,
+    }: {
+      address: string;
+      networkId: string;
+    }) => void;
+  };
   [EModalReferFriendsRoutes.EarnReward]: undefined;
 };

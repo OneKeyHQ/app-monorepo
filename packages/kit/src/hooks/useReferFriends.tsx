@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { Share } from 'react-native';
 
 import {
   Dialog,
@@ -15,6 +15,7 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
@@ -135,6 +136,7 @@ export const useReferFriends = () => {
           void loginOneKeyId();
         }
       };
+      const sharedUrl = `https://onekey.so/r/${myReferralCode}`;
       Dialog.show({
         icon: 'GiftOutline',
         title: 'Referral and earn more!',
@@ -180,9 +182,19 @@ export const useReferFriends = () => {
                     icon="ShareOutline"
                     size="large"
                     iconColor="$iconSubdued"
-                    onPress={() =>
-                      copyText(`https://onekey.so/r/${myReferralCode}`)
-                    }
+                    onPress={() => {
+                      setTimeout(() => {
+                        void Share.share(
+                          platformEnv.isNativeIOS
+                            ? {
+                                url: sharedUrl,
+                              }
+                            : {
+                                message: sharedUrl,
+                              },
+                        );
+                      }, 300);
+                    }}
                   />
                 </XStack>
               </XStack>
@@ -199,7 +211,7 @@ export const useReferFriends = () => {
                   icon="Copy3Outline"
                   size="small"
                   iconColor="$iconSubdued"
-                  onPress={() => copyText('GMGMGM')}
+                  onPress={() => copyText(myReferralCode)}
                 />
               </XStack>
             </YStack>
@@ -213,7 +225,9 @@ export const useReferFriends = () => {
               <YStack>
                 <SizableText size="$headingMd">For You</SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  Unlock lifetime rewards from your friends’ fee sharing
+                  {intl.formatMessage({
+                    id: ETranslations.earn_referral_for_you_reward,
+                  })}
                 </SizableText>
               </YStack>
             </XStack>
@@ -222,7 +236,11 @@ export const useReferFriends = () => {
                 <Icon name="PeopleLikeOutline" color="$iconInfo" size={20} />
               </XStack>
               <YStack>
-                <SizableText size="$headingMd">For Your Friend</SizableText>
+                <SizableText size="$headingMd">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_intro_for_your_friend,
+                  })}
+                </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
                   Get yield boost
                 </SizableText>

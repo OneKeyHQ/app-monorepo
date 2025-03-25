@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import type {
@@ -30,13 +31,22 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  useAccountSelectorActions,
+  useActiveAccount,
+} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import type {
+  EModalReferFriendsRoutes,
+  IModalReferFriendsParamList,
+} from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+
+import type { RouteProp } from '@react-navigation/native';
 
 type IFormValues = {
   networkId: string;
@@ -44,6 +54,14 @@ type IFormValues = {
 };
 
 function BasicEditAddress() {
+  const route =
+    useRoute<
+      RouteProp<
+        IModalReferFriendsParamList,
+        EModalReferFriendsRoutes.EditAddress
+      >
+    >();
+  const onAddressAdded = route.params?.onAddressAdded;
   const intl = useIntl();
   const media = useMedia();
   const navigation = useAppNavigation();
@@ -153,6 +171,7 @@ function BasicEditAddress() {
   //     })();
   //   }, [validateFn]);
 
+  const accountInfo = useActiveAccount({ num: 0 });
   const isEnable = useMemo(() => {
     // filter out error parameters from different segments.
     const errors = Object.values(form.formState.errors);
@@ -162,42 +181,40 @@ function BasicEditAddress() {
     return !addressValue.pending && form.formState.isValid;
   }, [addressValue.pending, form.formState]);
 
+  const { result: addressBookEnabledNetworkIds } = usePromiseResult(
+    async () => {
+      const networks =
+        await backgroundApiProxy.serviceNetwork.getAddressBookEnabledNetworks();
+      return networks.map((o) => o.id);
+    },
+    [],
+    { initResult: [] },
+  );
+
+  const addressInputAccountSelectorArgs = useMemo<{ num: number } | undefined>(
+    () =>
+      accountInfo?.activeAccount?.network?.id &&
+      addressBookEnabledNetworkIds.includes(
+        accountInfo.activeAccount.network.id,
+      )
+        ? { num: 0, clearNotMatch: true }
+        : undefined,
+    [accountInfo?.activeAccount?.network?.id, addressBookEnabledNetworkIds],
+  );
+
   onSubmitRef.current = useCallback(
     async (formContext: UseFormReturn<IFormValues>) => {
       const values = formContext.getValues();
-      const data: {
-        name?: string;
-        input: string;
-        networkId: string;
-        deriveType?: IAccountDeriveTypes;
-      } = {
-        input: values.addressValue.resolved ?? '',
-        networkId: values.networkId ?? '',
-      };
-      const r = await backgroundApiProxy.serviceAccount.addWatchingAccount(
-        data,
-      );
 
-      const accountId = r?.accounts?.[0]?.id;
-      if (accountId) {
-        Toast.success({
-          title: intl.formatMessage({ id: ETranslations.global_success }),
+      navigation.pop();
+      setTimeout(() => {
+        onAddressAdded?.({
+          address: values.addressValue.resolved ?? '',
+          networkId: values.networkId ?? '',
         });
-      }
-
-      void actions.current.updateSelectedAccountForSingletonAccount({
-        num: 0,
-        networkId: values.networkId,
-        walletId: WALLET_TYPE_WATCHING,
-        othersWalletAccountId: accountId,
-      });
-      navigation.popStack();
-
-      defaultLogger.account.wallet.importWallet({
-        importMethod: 'address',
       });
     },
-    [actions, intl, navigation],
+    [navigation, onAddressAdded],
   );
 
   return (
@@ -231,6 +248,15 @@ function BasicEditAddress() {
           >
             <AddressInput
               enableAddressBook
+              enableWalletName
+              enableVerifySendFundToSelf
+              enableAddressInteractionStatus
+              enableAddressContract
+              enableAllowListValidation
+              accountSelector={addressInputAccountSelectorArgs}
+              accountId={accountInfo?.activeAccount?.account?.id}
+              contacts
+              enableNameResolve
               placeholder={intl.formatMessage({
                 id: ETranslations.form_address_placeholder,
               })}

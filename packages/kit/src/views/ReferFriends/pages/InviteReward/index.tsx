@@ -1,7 +1,7 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
+import { Share, StyleSheet } from 'react-native';
 
 import {
   Accordion,
@@ -24,6 +24,7 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 function ShareCode() {
@@ -48,6 +49,10 @@ function ShareCode() {
     navigation.push(EModalReferFriendsRoutes.YourReferred);
   }, [navigation]);
   const intl = useIntl();
+  const sharedUrl = useMemo(
+    () => `https://onekey.so/r/${myReferralCode}`,
+    [myReferralCode],
+  );
   return (
     <YStack px="$5" pt="$6" pb="$8">
       <YStack>
@@ -96,7 +101,9 @@ function ShareCode() {
               icon="Copy3Outline"
               size="large"
               iconColor="$iconSubdued"
-              onPress={handleCopy}
+              onPress={() => {
+                copyText(sharedUrl);
+              }}
             />
             <IconButton
               title={intl.formatMessage({ id: ETranslations.global_copy })}
@@ -104,7 +111,19 @@ function ShareCode() {
               icon="ShareOutline"
               size="large"
               iconColor="$iconSubdued"
-              onPress={handleCopy}
+              onPress={() => {
+                setTimeout(() => {
+                  void Share.share(
+                    platformEnv.isNativeIOS
+                      ? {
+                          url: sharedUrl,
+                        }
+                      : {
+                          message: sharedUrl,
+                        },
+                  );
+                }, 300);
+              }}
             />
           </XStack>
         </XStack>
@@ -120,7 +139,17 @@ function Dashboard() {
   const currencySymbol = settings.currencyInfo.symbol;
 
   const toEditAddressPage = useCallback(() => {
-    navigation.push(EModalReferFriendsRoutes.EditAddress);
+    navigation.push(EModalReferFriendsRoutes.EditAddress, {
+      onAddressAdded: ({
+        address,
+        networkId,
+      }: {
+        address: string;
+        networkId: string;
+      }) => {
+        alert(`address-networkId: ${address}, ${networkId}`);
+      },
+    });
   }, [navigation]);
 
   const toEarnRewardPage = useCallback(() => {
@@ -254,7 +283,7 @@ function Dashboard() {
             </XStack>
             <Progress value={1} width="100%" size="medium" />
           </YStack>
-          <XStack pt="$4">
+          <XStack pt="$4" gap="$2">
             <Token size="xs" networkId="evm--1" />
             <SizableText size="$bodyMd">
               <NumberSizeableText
