@@ -245,15 +245,11 @@ function Dashboard() {
                 })}
               </SizableText>
               <SizableText size="$bodyMd" color="$textSubdued">
-                `
-                {intl.formatMessage({
+                {`${intl.formatMessage({
                   id: ETranslations.referral_sales_level_sliver,
-                })}
-                ($
-                {intl.formatMessage({
+                })}(${intl.formatMessage({
                   id: ETranslations.referral_sales_level_upgrade,
-                })}
-                )`
+                })})`}
               </SizableText>
             </XStack>
             <Progress value={1} width="100%" size="medium" />

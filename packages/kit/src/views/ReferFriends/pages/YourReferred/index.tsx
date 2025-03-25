@@ -1,15 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing, Keyboard } from 'react-native';
 
 import { Empty, Page, SizableText, Tab, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import useHomePageWidth from '../../../Home/hooks/useHomePageWidth';
-
-let CONTENT_ITEM_WIDTH: Animated.Value | undefined;
 
 function EmptyData() {
   const intl = useIntl();
@@ -42,11 +37,6 @@ function HardwareSales() {
 
 export default function YourReferred() {
   const intl = useIntl();
-  const { screenWidth, pageWidth } = useHomePageWidth();
-  if (CONTENT_ITEM_WIDTH == null) {
-    CONTENT_ITEM_WIDTH = new Animated.Value(pageWidth);
-  }
-
   const tabs = useMemo(
     () => [
       {
@@ -70,17 +60,6 @@ export default function YourReferred() {
   );
 
   const onRefresh = useCallback(() => {}, []);
-  useEffect(() => {
-    if (!CONTENT_ITEM_WIDTH) {
-      return;
-    }
-    Animated.timing(CONTENT_ITEM_WIDTH, {
-      toValue: pageWidth,
-      duration: 400,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: false,
-    }).start();
-  }, [pageWidth]);
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -102,8 +81,6 @@ export default function YourReferred() {
           }
           initialScrollIndex={0}
           initialHeaderHeight={220}
-          contentItemWidth={CONTENT_ITEM_WIDTH}
-          contentWidth={screenWidth}
           showsVerticalScrollIndicator={false}
           onRefresh={onRefresh}
         />
