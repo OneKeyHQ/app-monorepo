@@ -270,7 +270,10 @@ export function SearchResultContent({
       searchList[selectedIndex]
     ) {
       handleSearchItemClick(searchList[selectedIndex]);
-    } else if (
+      return { type: 'search' };
+    }
+
+    if (
       selectedSection === 'bookmark' &&
       displayBookmarkList &&
       localData?.bookmarkData
@@ -279,7 +282,10 @@ export function SearchResultContent({
       if (adjustedIndex >= 0 && adjustedIndex < localData.bookmarkData.length) {
         handleBookmarkItemClick(localData.bookmarkData[adjustedIndex]);
       }
-    } else if (
+      return { type: 'bookmark' };
+    }
+
+    if (
       selectedSection === 'history' &&
       displayHistoryList &&
       localData?.historyData
@@ -288,7 +294,12 @@ export function SearchResultContent({
       if (adjustedIndex >= 0 && adjustedIndex < localData.historyData.length) {
         handleHistoryItemClick(localData.historyData[adjustedIndex]);
       }
+      return { type: 'history' };
     }
+
+    return {
+      type: 'null',
+    };
   }, [
     selectedSection,
     displaySearchList,
