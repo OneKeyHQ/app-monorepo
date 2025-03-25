@@ -122,7 +122,9 @@ export const useReferFriends = () => {
       const isBindInviteCode =
         await backgroundApiProxy.serviceReferralCode.isBindInviteCode();
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-      const text = 'GMGMGM';
+      const myReferralCode =
+        (await backgroundApiProxy.serviceReferralCode.getMyReferralCode()) ||
+        'TEST_CODE';
 
       const handleConfirm = () => {
         if (isLogin) {
@@ -141,7 +143,11 @@ export const useReferFriends = () => {
         renderContent: isLogin ? (
           <YStack gap="$5">
             <YStack gap="$2">
-              <SizableText size="$bodyMdMedium">Referral link</SizableText>
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.earn_referral_your_referral_link,
+                })}
+              </SizableText>
               <XStack
                 borderColor="rgba(0, 0, 0, 0.13)"
                 bg="$bgDisabled"
@@ -153,7 +159,7 @@ export const useReferFriends = () => {
                 borderRadius="$2.5"
               >
                 <SizableText size="$bodyLg" flexShrink={1}>
-                  onekey.so/r/GMGMGM
+                  {`onekey.so/r/${myReferralCode}`}
                 </SizableText>
                 <XStack ai="center" gap="$2.5">
                   <IconButton
@@ -164,7 +170,7 @@ export const useReferFriends = () => {
                     icon="Copy3Outline"
                     size="large"
                     iconColor="$iconSubdued"
-                    onPress={() => copyText(text)}
+                    onPress={() => copyText(myReferralCode)}
                   />
                   <IconButton
                     title={intl.formatMessage({
@@ -174,15 +180,19 @@ export const useReferFriends = () => {
                     icon="ShareOutline"
                     size="large"
                     iconColor="$iconSubdued"
-                    onPress={() => copyText('onekey.so/r/GMGMGM')}
+                    onPress={() =>
+                      copyText(`https://onekey.so/r/${myReferralCode}`)
+                    }
                   />
                 </XStack>
               </XStack>
             </YStack>
             <YStack gap="$1">
-              <SizableText size="$bodyMdMedium">Referral code</SizableText>
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({ id: ETranslations.referral_your_code })}
+              </SizableText>
               <XStack gap="$3" ai="center">
-                <SizableText size="$headingXl">{text}</SizableText>
+                <SizableText size="$headingXl">{myReferralCode}</SizableText>
                 <IconButton
                   title={intl.formatMessage({ id: ETranslations.global_copy })}
                   variant="tertiary"

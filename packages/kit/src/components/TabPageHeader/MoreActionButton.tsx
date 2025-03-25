@@ -191,7 +191,9 @@ export function MoreActionButton() {
               testID: 'onekey_id',
             },
             {
-              label: 'Refer a friend',
+              label: intl.formatMessage({
+                id: ETranslations.sidebar_refer_a_friend,
+              }),
               icon: 'GiftOutline',
               onPress: toReferFriendsPage,
               testID: 'refer-a-friend',

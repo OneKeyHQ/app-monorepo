@@ -48,7 +48,11 @@ export default function ReferAFriend() {
   const navigation = useAppNavigation();
   return (
     <Page scrollEnabled>
-      <Page.Header title="Refer a friend" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.sidebar_refer_a_friend,
+        })}
+      />
       <Page.Body>
         <YStack>
           <Image

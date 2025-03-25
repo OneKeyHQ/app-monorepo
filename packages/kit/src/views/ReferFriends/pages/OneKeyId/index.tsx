@@ -145,7 +145,9 @@ export default function OneKeyId() {
                   <Icon name="GiftSolid" color="$purple12" size="$6" />
                 </XStack>
               }
-              title="Refer a friend"
+              title={intl.formatMessage({
+                id: ETranslations.sidebar_refer_a_friend,
+              })}
               subtitle="Invite friends to earn rewards"
               onPress={toInviteRewardPage}
             >

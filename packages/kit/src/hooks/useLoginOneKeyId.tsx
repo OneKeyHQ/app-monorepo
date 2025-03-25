@@ -42,7 +42,9 @@ export const useLoginOneKeyId = () => {
         renderContent: (
           <PrimeLoginEmailDialogV2
             title={intl.formatMessage({ id: ETranslations.prime_signup_login })}
-            description="OneKey ID is all you need to access all OneKey services and earn referral rewards."
+            description={intl.formatMessage({
+              id: ETranslations.prime_onekeyid_continue_description,
+            })}
             onComplete={() => {
               void loginDialog.close();
             }}

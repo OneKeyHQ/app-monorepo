@@ -177,7 +177,9 @@ function BottomMenu() {
         onPress={toReferFriendsPage}
         selected={false}
         icon="GiftOutline"
-        label="Refer a friend"
+        label={intl.formatMessage({
+          id: ETranslations.sidebar_refer_a_friend,
+        })}
         testID="refer-a-friend"
       />
       <DesktopTabItem

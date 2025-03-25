@@ -18,20 +18,31 @@ import {
   YStack,
   useClipboard,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
 function ShareCode() {
-  const text = 'GMGMGM';
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
 
+  const { result: myReferralCode } = usePromiseResult(
+    async () =>
+      (await backgroundApiProxy.serviceReferralCode.getMyReferralCode()) ||
+      'TEST_CODE',
+    [],
+    {
+      initResult: '',
+    },
+  );
+
   const handleCopy = useCallback(() => {
-    copyText(text);
-  }, [copyText]);
+    copyText(myReferralCode);
+  }, [copyText, myReferralCode]);
 
   const toYourReferredPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.YourReferred);
@@ -41,14 +52,16 @@ function ShareCode() {
     <YStack px="$5" pt="$6" pb="$8">
       <YStack>
         <XStack jc="space-between">
-          <SizableText size="$headingMd">Your referral code</SizableText>
+          <SizableText size="$headingMd">
+            {intl.formatMessage({ id: ETranslations.referral_your_code })}
+          </SizableText>
           <Button
             onPress={toYourReferredPage}
             variant="tertiary"
             iconAfter="ChevronRightOutline"
             jc="center"
           >
-            Referred
+            {intl.formatMessage({ id: ETranslations.referral_referred })}
           </Button>
         </XStack>
         <XStack gap="$3" pt="$2" ai="center">
@@ -74,7 +87,7 @@ function ShareCode() {
           borderRadius="$2.5"
         >
           <SizableText size="$bodyLg" flexShrink={1}>
-            onekey.so/r/GMGMGM
+            {`onekey.so/r/${myReferralCode}`}
           </SizableText>
           <XStack ai="center" gap="$2.5">
             <IconButton
