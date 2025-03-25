@@ -670,6 +670,7 @@ class ServiceHardware extends ServiceBase {
             connectId,
             params: {
               retryCount: 0,
+              skipWebDevicePrompt: true,
             },
           }); // TODO move to sdk.cancel()
         }
