@@ -127,8 +127,7 @@ export const useReferFriends = () => {
                   icon="ShareOutline"
                   size="large"
                   iconColor="$iconSubdued"
-                  onPress={() => copyText('onekey.so/r/
-                    ')}
+                  onPress={() => copyText('onekey.so/r/GMGMGM')}
                 />
               </XStack>
             </XStack>
