@@ -4,10 +4,13 @@ import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
 
 import {
+  Alert,
   AnimatePresence,
+  Divider,
   Empty,
   Icon,
   Image,
+  NumberSizeableText,
   Page,
   SectionList,
   SizableText,
@@ -16,6 +19,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -59,41 +63,74 @@ export default function EarnReward() {
     ),
     [intl],
   );
+
+  const [, setIsShowAlert] = useState(true);
+  const [settings] = useSettingsPersistAtom();
+  const currencySymbol = settings.currencyInfo.symbol;
+
+  const hideAlert = useCallback(() => {
+    setIsShowAlert(false);
+  }, []);
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.referral_earn_reward })}
       />
       <Page.Body>
-        <SectionList
-          ListHeaderComponent={
-            <YStack px="$5">
-              <SizableText size="$bodyLg">
+        <YStack>
+          <Alert
+            closable
+            description={intl.formatMessage({
+              id: ETranslations.referral_earn_reward_tips,
+            })}
+            type="info"
+            mx="$5"
+            onClose={hideAlert}
+          />
+          <YStack p="$5" pt="$2.5">
+            <SizableText size="$bodyLg">
+              {intl.formatMessage({
+                id: ETranslations.referral_reward_undistributed,
+              })}
+            </SizableText>
+            <NumberSizeableText
+              size="$heading5xl"
+              formatter="balance"
+              formatterOptions={{ currency: currencySymbol }}
+            >
+              20.45
+            </NumberSizeableText>
+            <SizableText mt="$1">
+              {intl.formatMessage({
+                id: ETranslations.referral_reward_undistributed,
+              })}
+              <NumberSizeableText
+                size="$bodyMdMedium"
+                formatter="balance"
+                formatterOptions={{ currency: currencySymbol }}
+              >
+                245
+              </NumberSizeableText>
+              <SizableText size="$bodyLg" color="$textSubdued">
                 {intl.formatMessage({
-                  id: ETranslations.referral_referred_total,
+                  id: ETranslations.referral_total_reward,
                 })}
               </SizableText>
-              <SizableText size="$heading5xl">245</SizableText>
-              <XStack jc="space-between" h={38} ai="center">
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.referral_order_info,
-                  })}
-                </SizableText>
-                <SizableText size="$bodyMd" color="$textSubdued">
-                  {intl.formatMessage({
-                    id: ETranslations.earn_rewards,
-                  })}
-                </SizableText>
-              </XStack>
+            </SizableText>
+            <YStack>
+              <Divider />
+              <Empty
+                icon="GiftOutline"
+                title={intl.formatMessage({
+                  id: ETranslations.referral_referred_empty,
+                })}
+                description={intl.formatMessage({
+                  id: ETranslations.referral_referred_empty_desc,
+                })}
+              />
             </YStack>
-          }
-          sections={sections}
-          renderSectionHeader={renderSectionHeader}
-          estimatedItemSize={44}
-          renderItem={renderItem}
-          ItemSeparatorComponent={ItemSeparatorComponent}
-        />
+          </YStack>
+        </YStack>
       </Page.Body>
     </Page>
   );
