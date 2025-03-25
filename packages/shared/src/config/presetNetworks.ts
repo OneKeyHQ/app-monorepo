@@ -2945,8 +2945,8 @@ export const getNetworksSupportMevProtection = memoFn(
       logoURI: 'https://uni.onekey-asset.com/static/logo/mev_blocker.png',
     },
     [bsc.id]: {
-      name: 'BLOXROUTE',
-      logoURI: 'https://uni.onekey-asset.com/static/logo/bloxroute.png',
+      name: 'Block Razor',
+      logoURI: 'https://uni.onekey-asset.com/static/logo/block_razor.png',
     },
   }),
 );
