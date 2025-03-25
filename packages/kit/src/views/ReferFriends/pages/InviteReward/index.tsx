@@ -65,7 +65,7 @@ function ShareCode() {
           </Button>
         </XStack>
         <XStack gap="$3" pt="$2" ai="center">
-          <SizableText size="$heading4xl">{text}</SizableText>
+          <SizableText size="$heading4xl">{myReferralCode}</SizableText>
           <IconButton
             title={intl.formatMessage({ id: ETranslations.global_copy })}
             variant="tertiary"
