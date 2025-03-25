@@ -61,19 +61,29 @@ export default function EarnReward() {
   );
   return (
     <Page scrollEnabled>
-      <Page.Header title="EarnReward" />
+      <Page.Header
+        title={intl.formatMessage({ id: ETranslations.referral_earn_reward })}
+      />
       <Page.Body>
         <SectionList
           ListHeaderComponent={
             <YStack px="$5">
-              <SizableText size="$bodyLg">Total</SizableText>
+              <SizableText size="$bodyLg">
+                {intl.formatMessage({
+                  id: ETranslations.referral_referred_total,
+                })}
+              </SizableText>
               <SizableText size="$heading5xl">245</SizableText>
               <XStack jc="space-between" h={38} ai="center">
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  Order info
+                  {intl.formatMessage({
+                    id: ETranslations.referral_order_info,
+                  })}
                 </SizableText>
                 <SizableText size="$bodyMd" color="$textSubdued">
-                  Rewards
+                  {intl.formatMessage({
+                    id: ETranslations.earn_rewards,
+                  })}
                 </SizableText>
               </XStack>
             </YStack>
