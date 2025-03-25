@@ -92,12 +92,6 @@ export function SearchInput() {
     }
   }, [refreshLocalData, isPopoverOpen]);
 
-  useEffect(() => {
-    if (!isPopoverOpen) {
-      resetSelectedIndex();
-    }
-  }, [isPopoverOpen, resetSelectedIndex]);
-
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
   }, []);
