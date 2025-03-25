@@ -12,10 +12,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
-
-import { useReferFriends } from '../../../../hooks/useReferFriends';
 
 enum EPhaseState {
   next = 'next',
