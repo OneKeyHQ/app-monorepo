@@ -21,35 +21,37 @@ export function usePrivyUniversalV2(): IUsePrivyUniversalV2 {
     return undefined;
   }, [user]);
 
-  return {
-    useLoginWithEmail: (args) => {
-      const { onComplete, onError } = args || {};
-      const { sendCode, loginWithCode, state } = useLoginWithEmail({
-        onLoginSuccess: () => {
-          onComplete?.();
-        },
-        onError,
-      });
+  return useMemo(() => {
+    return {
+      useLoginWithEmail: (args) => {
+        const { onComplete, onError } = args || {};
+        const { sendCode, loginWithCode, state } = useLoginWithEmail({
+          onLoginSuccess: () => {
+            onComplete?.();
+          },
+          onError,
+        });
 
-      return {
-        state,
-        sendCode: async (...sendCodeArgs) => {
-          await sendCode(...sendCodeArgs);
-        },
-        loginWithCode: async (...loginWithCodeArgs) => {
-          await loginWithCode(...loginWithCodeArgs);
-        },
-      };
-    },
-    logout,
-    isReady,
-    getAccessToken,
-    authenticated,
-    user: authenticated
-      ? {
-          id: user?.id || '',
-          email: userEmail || '',
-        }
-      : undefined,
-  };
+        return {
+          state,
+          sendCode: async (...sendCodeArgs) => {
+            await sendCode(...sendCodeArgs);
+          },
+          loginWithCode: async (...loginWithCodeArgs) => {
+            await loginWithCode(...loginWithCodeArgs);
+          },
+        };
+      },
+      logout,
+      isReady,
+      getAccessToken,
+      authenticated,
+      privyUser: authenticated
+        ? {
+            id: user?.id || '',
+            email: userEmail || '',
+          }
+        : undefined,
+    };
+  }, [authenticated, getAccessToken, isReady, logout, user?.id, userEmail]);
 }
