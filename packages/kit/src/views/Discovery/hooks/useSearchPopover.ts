@@ -110,7 +110,7 @@ export function useSearchPopover({
 
   const handleSearchBarPress = useCallback(() => {
     // only on mobile
-    if (!platformEnv.isDesktop) {
+    if (!platformEnv.isDesktop && !platformEnv.isExtension) {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
       });
