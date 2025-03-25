@@ -66,11 +66,12 @@ class ServicePrime extends ServiceBase {
         const errorCode: number | undefined = (
           error as { data: { code: number } }
         )?.data?.code;
-        if ([90_002, 90_003].includes(errorCode)) {
+        // TODO 90_002 sdk refresh token required
+        // TODO 90_003 user login required
+        if ([90_002, 90_003, 90_008].includes(errorCode)) {
           appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
           throw new OneKeyErrorPrimeLoginInvalidToken();
         }
-
         if ([90_004].includes(errorCode)) {
           appEventBus.emit(EAppEventBusNames.PrimeExceedDeviceLimit, undefined);
           throw new OneKeyErrorPrimeLoginExceedDeviceLimit();
@@ -123,18 +124,29 @@ class ServicePrime extends ServiceBase {
   }
 
   @backgroundMethod()
-  async apiLogoutPrimeUserDevice({ instanceId }: { instanceId: string }) {
+  async apiLogoutPrimeUserDevice({
+    instanceId,
+    accessToken,
+  }: {
+    instanceId: string;
+    accessToken: string;
+  }) {
+    if (accessToken) {
+      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
+    }
     const client = await this.getPrimeClient();
     // TODO 404 not found
     await client.post(`/prime/v1/user/device/${instanceId}`);
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
-    if (authToken) {
-      await this.apiLogin({ accessToken: authToken });
+    if (instanceId) {
+      await this.apiLogin({ accessToken });
     }
   }
 
   @backgroundMethod()
-  async apiGetPrimeUserDevices() {
+  async apiGetPrimeUserDevices({ accessToken }: { accessToken?: string } = {}) {
+    if (accessToken) {
+      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
+    }
     const client = await this.getPrimeClient();
     const result = await client.get<
       IApiClientResponse<
@@ -157,11 +169,13 @@ class ServicePrime extends ServiceBase {
     serverUserInfo: IPrimeServerUserInfo | undefined;
   }> {
     console.log('servicePrime.apiFetchPrimeUserInfo');
+    await this.loginMutex.waitForUnlock();
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
       await this.setPrimePersistAtomNotLoggedIn();
+      const localUserInfo = await primePersistAtom.get();
       return {
-        userInfo: await primePersistAtom.get(),
+        userInfo: localUserInfo,
         serverUserInfo: undefined,
       };
     }
@@ -199,6 +213,21 @@ class ServicePrime extends ServiceBase {
       primeSubscription: undefined,
       subscriptionManageUrl: undefined,
     }));
+  }
+
+  @backgroundMethod()
+  async isPrimeLoggedIn() {
+    const { isLoggedIn } = await primePersistAtom.get();
+    return Boolean(isLoggedIn);
+  }
+
+  @backgroundMethod()
+  async isPrimeSubscriptionActive() {
+    if (!(await this.isPrimeLoggedIn())) {
+      return false;
+    }
+    const { primeSubscription } = await primePersistAtom.get();
+    return Boolean(primeSubscription?.isActive);
   }
 
   @backgroundMethod()
