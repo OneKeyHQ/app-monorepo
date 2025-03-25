@@ -103,7 +103,7 @@ export function SearchInput() {
   }, []);
 
   useShortcuts(EShortcutEvents.NewTab, () => {
-    if (platformEnv.isDesktop) {
+    if (platformEnv.isDesktop || platformEnv.isExtension) {
       // focus on search input
       inputRef.current?.focus();
     } else {
@@ -141,7 +141,7 @@ export function SearchInput() {
         >
           <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 
-          {platformEnv.isDesktop ? (
+          {platformEnv.isDesktop || platformEnv.isExtension ? (
             <Input
               ref={inputRef}
               containerProps={{
