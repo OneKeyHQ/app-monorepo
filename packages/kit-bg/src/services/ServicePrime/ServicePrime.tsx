@@ -83,6 +83,7 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async apiLogin({ accessToken }: { accessToken: string }) {
+    console.log('servicePrime.apiLogin');
     if (accessToken) {
       await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken || '');
     }
@@ -138,6 +139,7 @@ class ServicePrime extends ServiceBase {
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
   }> {
+    console.log('servicePrime.apiFetchPrimeUserInfo');
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
       await this.setPrimePersistAtomNotLoggedIn();
@@ -172,6 +174,7 @@ class ServicePrime extends ServiceBase {
   }
 
   async setPrimePersistAtomNotLoggedIn() {
+    console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(() => ({
       isLoggedIn: false,
       privyUserId: undefined,
