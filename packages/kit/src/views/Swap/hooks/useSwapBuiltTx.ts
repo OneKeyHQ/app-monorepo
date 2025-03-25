@@ -555,9 +555,7 @@ export function useSwapBuildTx() {
                     ...(selectQuoteRes.protocol !== EProtocolOfExchange.LIMIT
                       ? {
                           slippage:
-                            selectQuoteRes.slippage ??
-                            selectQuoteRes.autoSuggestedSlippage ??
-                            slippageItem.value,
+                            selectQuoteRes.slippage ?? slippageItem.value,
                         }
                       : {}),
                     ...(swapUseInstantRate.rate &&
@@ -866,10 +864,7 @@ export function useSwapBuildTx() {
               ...res,
               result: {
                 ...res.result,
-                slippage:
-                  selectQuoteRes.slippage ??
-                  selectQuoteRes.autoSuggestedSlippage ??
-                  slippageItem.value,
+                slippage: res.result.slippage ?? slippageItem.value,
               },
             },
           };
