@@ -1,3 +1,3 @@
 export { OtpInput } from './OtpInput';
 
-export type { IOtpInputProps, IOptTheme, IOtpInputRef } from './OtpInput';
+export type { IOtpInputProps, IOtpTheme, IOtpInputRef } from './OtpInput';

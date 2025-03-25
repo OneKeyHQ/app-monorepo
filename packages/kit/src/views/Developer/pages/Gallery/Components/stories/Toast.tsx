@@ -40,7 +40,7 @@ const ToastGallery = () => (
                 Toast.success({
                   title: 'url!',
                   message:
-                    'look, <url href="https://onekey.so">OneKey</url> here. aaa',
+                    'look, <url>https://onekey.so<underline>here</underline></url>. OneKey.',
                 });
               }}
             >

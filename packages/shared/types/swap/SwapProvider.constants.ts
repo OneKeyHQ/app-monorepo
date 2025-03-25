@@ -112,6 +112,8 @@ export enum ESwapProvider {
   Swap1inchFusion = 'Swap1inchFusion',
 }
 
+export const mevSwapNetworks = ['evm--1', 'evm--56', 'sui--mainnet'];
+
 export const swapDefaultSetTokens: Record<
   string,
   {

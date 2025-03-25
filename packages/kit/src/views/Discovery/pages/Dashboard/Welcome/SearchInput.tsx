@@ -1,8 +1,18 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Icon, SizableText, Stack, XStack } from '@onekeyhq/components';
+import {
+  Icon,
+  Input,
+  ScrollView,
+  SizableText,
+  Stack,
+  View,
+  XStack,
+  useShortcuts,
+} from '@onekeyhq/components';
+import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -10,58 +20,198 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
+import { SearchResultContent } from '../../../components/SearchResultContent';
+import { useSearchModalData } from '../../../hooks/useSearchModalData';
+import { useSearchPopover } from '../../../hooks/useSearchPopover';
+
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
+import { SearchPopover } from './SearchPopover';
+
+import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
+import type { TextInput } from 'react-native';
 
 export function SearchInput() {
   const intl = useIntl();
-
+  const [searchValue, setSearchValue] = useState('');
+  const searchResultRef = useRef<ISearchResultContentRef>(null);
+  const scrollViewRef = useRef<IScrollViewRef>(null);
+  const inputRef = useRef<TextInput>(null);
   const navigation = useAppNavigation();
-  const handleSearchBarPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [navigation]);
+
+  const {
+    localData,
+    searchList,
+    displaySearchList,
+    displayHistoryList,
+    SEARCH_ITEM_ID,
+    refreshLocalData,
+    totalItems,
+  } = useSearchModalData(searchValue);
+
+  const {
+    handleInputBlur,
+    handleKeyDown,
+    handleSearchBarPress,
+    isPopoverOpen,
+    isPopoverVisible,
+    resetSelectedIndex,
+    selectedIndex,
+    setIsPopoverOpen,
+  } = useSearchPopover({
+    scrollViewRef,
+    totalItems,
+    searchValue,
+    onEnterPress: () => {
+      if (searchResultRef.current) {
+        searchResultRef.current.openSelectedItem();
+        setIsPopoverOpen(false);
+      }
+    },
+    onEscape: () => {
+      setIsPopoverOpen(false);
+      inputRef.current?.blur();
+    },
+    displaySearchList: Boolean(displaySearchList),
+    displayHistoryList: Boolean(displayHistoryList),
+  });
+
+  useEffect(() => {
+    if (platformEnv.isDesktop) {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 200);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isPopoverOpen) {
+      void refreshLocalData();
+    }
+  }, [refreshLocalData, isPopoverOpen]);
+
+  useEffect(() => {
+    if (!isPopoverOpen) {
+      resetSelectedIndex();
+    }
+  }, [isPopoverOpen, resetSelectedIndex]);
+
+  const handleInputChange = useCallback((text: string) => {
+    setSearchValue(text);
+  }, []);
+
+  useShortcuts(EShortcutEvents.NewTab, () => {
+    if (platformEnv.isDesktop) {
+      // focus on search input
+      inputRef.current?.focus();
+    } else {
+      navigation.pushModal(EModalRoutes.DiscoveryModal, {
+        screen: EDiscoveryModalRoutes.SearchModal,
+      });
+    }
+  });
 
   return (
-    <XStack
-      testID="search-input"
-      gap="$2"
-      position="relative"
-      width="100%"
-      backgroundColor="$bgStrong"
-      borderRadius="$full"
-      alignItems="center"
-      hoverStyle={{
-        cursor: 'pointer',
-        opacity: 0.8,
-      }}
-      pressStyle={{
-        opacity: 1,
-      }}
-      onPress={handleSearchBarPress}
-      p="$3"
-      $gtSm={{
-        w: 384,
-      }}
-    >
-      <Icon name="SearchOutline" size="$5" color="$textSubdued" />
+    <>
+      <View position="relative" width="100%">
+        <XStack
+          testID="search-input"
+          gap="$2"
+          position="relative"
+          width="100%"
+          backgroundColor="$bgStrong"
+          borderRadius="$full"
+          alignItems="center"
+          borderWidth={2}
+          borderColor={isPopoverOpen ? '$focusRing' : 'transparent'}
+          hoverStyle={{
+            cursor: 'pointer',
+            opacity: 0.8,
+          }}
+          pressStyle={{
+            opacity: 1,
+          }}
+          onPress={handleSearchBarPress}
+          px="$3"
+          $gtSm={{
+            w: 384,
+          }}
+        >
+          <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 
-      <Stack flex={1}>
-        <SizableText size="$bodyLg" color="$textPlaceholder">
-          {intl.formatMessage({
-            id: ETranslations.browser_search_dapp_or_enter_url,
-          })}
-        </SizableText>
-      </Stack>
+          {platformEnv.isDesktop ? (
+            <Input
+              ref={inputRef}
+              containerProps={{
+                flex: 1,
+                borderWidth: 0,
+                bg: 'transparent',
+                p: 0,
+              }}
+              InputComponentStyle={{
+                p: 0,
+                bg: 'transparent',
+              }}
+              // @ts-expect-error
+              onKeyPress={handleKeyDown}
+              testID="search-input"
+              placeholder={intl.formatMessage({
+                id: ETranslations.browser_search_dapp_or_enter_url,
+              })}
+              size="large"
+              value={searchValue}
+              onChangeText={handleInputChange}
+              onFocus={() => {
+                setIsPopoverOpen(true);
+              }}
+              onBlur={handleInputBlur}
+            />
+          ) : (
+            <Stack py="$3" flex={1}>
+              <SizableText size="$bodyLg" color="$textPlaceholder">
+                {intl.formatMessage({
+                  id: ETranslations.browser_search_dapp_or_enter_url,
+                })}
+              </SizableText>
+            </Stack>
+          )}
 
-      {platformEnv.isDesktop ? (
-        <XStack gap="$1">
-          <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
-          <KeyboardShortcutKey label="T" />
+          {platformEnv.isDesktop ? (
+            <XStack gap="$1" pointerEvents="none">
+              <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
+              <KeyboardShortcutKey label="T" />
+            </XStack>
+          ) : null}
         </XStack>
-      ) : null}
-    </XStack>
+
+        <SearchPopover
+          containerProps={{
+            $gtSm: { width: 384 },
+          }}
+          isOpen={isPopoverVisible}
+        >
+          <ScrollView ref={scrollViewRef} maxHeight={310}>
+            <Stack py="$2">
+              <SearchResultContent
+                searchValue={searchValue}
+                localData={localData}
+                searchList={searchList}
+                displaySearchList={displaySearchList}
+                displayBookmarkList={false}
+                displayHistoryList={displayHistoryList}
+                SEARCH_ITEM_ID={SEARCH_ITEM_ID}
+                selectedIndex={selectedIndex}
+                innerRef={searchResultRef}
+                onItemClick={() => {
+                  setIsPopoverOpen(false);
+                }}
+              />
+            </Stack>
+          </ScrollView>
+        </SearchPopover>
+      </View>
+    </>
   );
 }

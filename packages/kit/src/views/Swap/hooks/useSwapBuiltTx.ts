@@ -460,21 +460,14 @@ export function useSwapBuildTx() {
             let dataMessage = unSignedMessage;
             if (!dataMessage && unSignedData) {
               let validTo = unSignedOrder.validTo;
-              const quoteResultEstimatedTimeBN = new BigNumber(
-                selectQuote?.expirationTime ?? 0,
-              );
               const swapLimitExpirationTimeValueBN = new BigNumber(
                 swapLimitExpirationTime.value,
               );
-              if (
-                selectQuote?.expirationTime &&
-                !quoteResultEstimatedTimeBN.eq(swapLimitExpirationTimeValueBN)
-              ) {
-                validTo = new BigNumber(unSignedOrder.validTo)
-                  .minus(quoteResultEstimatedTimeBN)
-                  .plus(swapLimitExpirationTimeValueBN)
-                  .toNumber();
-              }
+              const now = Math.floor(Date.now() / 1000); // 获取当前秒级时间戳
+              validTo = new BigNumber(now)
+                .plus(swapLimitExpirationTimeValueBN)
+                .decimalPlaces(0)
+                .toNumber();
               let finalBuyAmount = unSignedOrder.buyAmount;
               let finalSellAmount = unSignedOrder.sellAmount;
               if (

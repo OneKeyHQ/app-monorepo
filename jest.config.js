@@ -76,7 +76,6 @@ module.exports = async () => {
       'packages/core/src/chains/ltc',
       'packages/core/src/chains/near',
       'packages/core/src/chains/nexa',
-      'packages/core/src/chains/sol',
       'packages/core/src/chains/stc',
       'packages/core/src/chains/tron',
       'packages/core/src/chains/xmr',

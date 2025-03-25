@@ -2,6 +2,7 @@ export interface IDiscoveryHomePageData {
   banners: IDiscoveryBanner[];
   categories: ICategory[];
   trending: IDApp[];
+  hot?: IDApp[];
 }
 
 export interface IDiscoveryBanner {
