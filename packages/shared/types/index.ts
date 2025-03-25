@@ -106,3 +106,9 @@ export enum ETxActionComponentType {
   ListView = 'ListView',
   DetailView = 'DetailView',
 }
+
+export enum EHardwareTransportType {
+  BLE = 'ble',
+  WEBUSB = 'webusb',
+  Bridge = 'bridge',
+}

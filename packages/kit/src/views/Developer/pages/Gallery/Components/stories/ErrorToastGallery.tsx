@@ -185,6 +185,14 @@ function Demo1() {
       >
         调用 background 不显示 toast5
       </Button>
+      <Button
+        onPress={async () => {
+          const ctx = await backgroundApiProxy.serviceDemo.demoErrorWithUrl();
+          console.log(ctx);
+        }}
+      >
+        调用 background 显示 url
+      </Button>
     </Stack>
   );
 }

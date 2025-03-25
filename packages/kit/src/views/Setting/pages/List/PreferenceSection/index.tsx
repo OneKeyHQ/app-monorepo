@@ -1,6 +1,5 @@
-import { useCallback, useContext, useEffect, useMemo } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 
-import { noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import type { ISelectItem } from '@onekeyhq/components';
