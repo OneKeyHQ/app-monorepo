@@ -84,10 +84,6 @@ export function useSearchPopover({
     [totalItems, onEnterPress, onEscape],
   );
 
-  const resetSelectedIndex = () => {
-    setSelectedIndex(-1);
-  };
-
   const isPopoverVisible = useMemo(
     () =>
       isPopoverOpen && searchValue && searchValue.length > 0
@@ -95,6 +91,16 @@ export function useSearchPopover({
         : false,
     [isPopoverOpen, searchValue, displaySearchList, displayHistoryList],
   );
+
+  const resetSelectedIndex = useCallback(() => {
+    setSelectedIndex(-1);
+  }, []);
+
+  useEffect(() => {
+    if (!isPopoverOpen) {
+      resetSelectedIndex();
+    }
+  }, [isPopoverOpen, resetSelectedIndex]);
 
   const handleInputBlur = useCallback(() => {
     setTimeout(() => {
