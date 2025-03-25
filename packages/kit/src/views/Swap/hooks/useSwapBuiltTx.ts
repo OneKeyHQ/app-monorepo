@@ -90,8 +90,9 @@ export function useSwapBuildTx() {
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
-  const [, setSwapFromTokenAmount] = useSwapFromTokenAmountAtom();
-  const [, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
+  const [fromTokenAmount, setSwapFromTokenAmount] =
+    useSwapFromTokenAmountAtom();
+  const [toTokenAmount, setSwapToTokenAmount] = useSwapToTokenAmountAtom();
   const [, setSwapShouldRefreshQuote] = useSwapShouldRefreshQuoteAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
@@ -480,8 +481,12 @@ export function useSwapBuildTx() {
                     : fromToken.decimals;
                 const finalAmountBN = new BigNumber(
                   selectQuote?.kind === ESwapQuoteKind.SELL
-                    ? swapLimitPriceToAmount
-                    : swapLimitPriceFromAmount,
+                    ? swapLimitPriceToAmount ??
+                      toTokenAmount.value ??
+                      unSignedOrder.buyAmount
+                    : swapLimitPriceFromAmount ??
+                      fromTokenAmount.value ??
+                      unSignedOrder.sellAmount,
                 ).shiftedBy(decimals);
                 if (selectQuote?.kind === ESwapQuoteKind.SELL) {
                   finalBuyAmount = finalAmountBN.toFixed();
@@ -895,7 +900,9 @@ export function useSwapBuildTx() {
     swapLimitPriceFromAmount,
     swapLimitPriceToAmount,
     swapLimitPartiallyFillObj.value,
-    swapUseInstantRate,
+    toTokenAmount.value,
+    fromTokenAmount.value,
+    swapUseInstantRate.rate,
     navigationToMessageConfirm,
     swapTypeSwitch,
     intl,
@@ -1026,6 +1033,7 @@ export function useSwapBuildTx() {
                 useAddress: swapFromAddressInfo.address ?? '',
                 spenderAddress: allowanceInfo.allowanceTarget,
                 status: ESwapApproveTransactionStatus.PENDING,
+                kind: selectQuote?.kind ?? ESwapQuoteKind.SELL,
                 resetApproveValue,
                 resetApproveIsMax: isMax,
               },
