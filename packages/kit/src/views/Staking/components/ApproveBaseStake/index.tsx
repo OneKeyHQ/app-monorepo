@@ -834,7 +834,7 @@ export function ApproveBaseStake({
       <CalculationListItem onPress={shareReferRewards}>
         <CalculationListItem.Label size="$bodyMd">
           {intl.formatMessage({
-            id: ETranslations.global_est_network_fee,
+            id: ETranslations.referral_your_code,
           })}
         </CalculationListItem.Label>
         <XStack alignItems="center" cursor="pointer" mr={-6}>

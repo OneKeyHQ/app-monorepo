@@ -174,9 +174,12 @@ export const useReferFriends = () => {
         </YStack>
       ),
       showCancelButton: !isBindInviteCode,
+      dismissOnOverlayPress: !isBindInviteCode,
       onCancelText: 'Add invite code',
       onCancel: () => {
-        bindInviteCode();
+        if (!isBindInviteCode) {
+          bindInviteCode();
+        }
       },
       onConfirmText: isLogin ? 'View rewards' : 'Join',
       onConfirm: handleConfirm,
