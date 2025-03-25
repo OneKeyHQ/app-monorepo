@@ -348,9 +348,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
 
           const newActiveTab = tabs[newActiveTabIndex];
 
-          if (newActiveTab.id === activeTabId) {
+          // if current active tab is not in tabs, set it to the first tab
+          const hasCurrentActiveTab = tabs.find((t) => t.isActive);
+
+          if (hasCurrentActiveTab) {
             return;
           }
+
           newActiveTab.isActive = true;
           this.setCurrentWebTab.call(set, newActiveTab.id);
         };
