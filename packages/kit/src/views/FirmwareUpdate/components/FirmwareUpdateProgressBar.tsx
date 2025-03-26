@@ -289,6 +289,14 @@ export function FirmwareUpdateProgressBar({
             }),
         },
         {
+          type: [
+            EFirmwareUpdateTipMessages.SelectDeviceInBootloaderForWebDevice,
+          ],
+          progress: () => 11,
+          desc: () =>
+            'The device is in Bootloader mode. Click the button below to grant USB access to proceed with the installation package transfer.',
+        },
+        {
           type: [EFirmwareUpdateTipMessages.GoToBootloaderSuccess],
           progress: () => 12,
           desc: () =>
@@ -413,7 +421,11 @@ export function FirmwareUpdateProgressBar({
   }, [firmwareType, prevFirmwareType, retryInfo]);
 
   useEffect(() => {
-    if (stepInfo?.step === EFirmwareUpdateSteps.updateStart || !firmwareType) {
+    if (
+      (stepInfo?.step === EFirmwareUpdateSteps.updateStart || !firmwareType) &&
+      stepInfo?.step !==
+        EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice
+    ) {
       setDesc(defaultDesc());
     }
   }, [defaultDesc, firmwareType, stepInfo?.step]);

@@ -241,11 +241,7 @@ enum EConnectionStatus {
   searching = 'searching',
   listing = 'listing',
 }
-function ConnectByUSBOrBLE({
-  toOneKeyHardwareWalletPage,
-}: {
-  toOneKeyHardwareWalletPage: () => void;
-}) {
+function ConnectByUSBOrBLE() {
   const intl = useIntl();
   const isFocused = useIsFocused();
   const searchStateRef = useRef<'start' | 'stop'>('stop');
@@ -586,6 +582,7 @@ function ConnectByUSBOrBLE({
         navigation.pop();
         throw error;
       } finally {
+        setIsChecking(false);
         const connectId = device.connectId || '';
         await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
           connectId,
@@ -683,6 +680,9 @@ function ConnectByUSBOrBLE({
                 isFirmwareVerified: checked,
                 features,
               });
+            },
+            onClose: () => {
+              setIsChecking(false);
             },
           });
           return;
@@ -1147,7 +1147,6 @@ function ConnectByUSBOrBLE({
 }
 
 export function ConnectYourDevicePage() {
-  const navigation = useAppNavigation();
   const intl = useIntl();
   const route =
     useRoute<
@@ -1159,8 +1158,7 @@ export function ConnectYourDevicePage() {
     channel ?? EConnectDeviceChannel.usbOrBle,
   );
 
-  const { headerRight, toOneKeyHardwareWalletPage } =
-    useBuyOneKeyHeaderRightButton();
+  const { headerRight } = useBuyOneKeyHeaderRightButton();
 
   return (
     <Page>
@@ -1193,9 +1191,7 @@ export function ConnectYourDevicePage() {
         <Divider />
 
         {tabValue === EConnectDeviceChannel.usbOrBle ? (
-          <ConnectByUSBOrBLE
-            toOneKeyHardwareWalletPage={toOneKeyHardwareWalletPage}
-          />
+          <ConnectByUSBOrBLE />
         ) : null}
 
         {tabValue === EConnectDeviceChannel.qr ? (
