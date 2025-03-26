@@ -13,13 +13,12 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
@@ -33,7 +32,6 @@ function PrimeUserInfoMoreButtonDropDownMenu({
   const { logout, user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
-  const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { getCustomerInfo } = usePrimePayment();
   const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
@@ -79,7 +77,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
                 Toast.message({
                   title: 'Please try again later',
                 });
-                await Promise.all([fetchPrimeUserInfo(), getCustomerInfo()]);
+                await Promise.all([
+                  backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo(),
+                  getCustomerInfo(),
+                ]);
               }
             }}
           />

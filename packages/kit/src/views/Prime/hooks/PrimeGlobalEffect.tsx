@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 
 // import { useUpdateEffect } from '@onekeyhq/components';
 import {
@@ -14,6 +14,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady/GlobalJotaiReady';
 import { usePrevious } from '../../../hooks/usePrevious';
 
+import { usePrimeAuthV2 } from './usePrimeAuthV2';
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
 
 function PrimeGlobalEffectView() {
@@ -21,8 +22,25 @@ function PrimeGlobalEffectView() {
   const [primeInitAtom, setPrimeInitAtom] = usePrimeInitAtom();
 
   // https://github.com/privy-io/create-next-app/blob/main/pages/index.tsx
-  const { isReady, logout, authenticated, getAccessToken, privyUser } =
-    usePrivyUniversalV2();
+  const { authenticated, getAccessToken, privyUser } = usePrivyUniversalV2();
+
+  const { isReady, user, logout } = usePrimeAuthV2();
+
+  const autoRefreshPrimeUserInfo = useCallback(async () => {
+    if (isReady && user?.privyUserId && user?.isLoggedInOnServer) {
+      const accessToken =
+        await backgroundApiProxy.simpleDb.prime.getAuthToken();
+
+      // only fetch user info if accessToken is valid (server api login success)
+      if (accessToken) {
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+      }
+    }
+  }, [isReady, user?.privyUserId, user?.isLoggedInOnServer]);
+
+  useEffect(() => {
+    void autoRefreshPrimeUserInfo();
+  }, [autoRefreshPrimeUserInfo]);
 
   useEffect(() => {
     void (async () => {
@@ -39,6 +57,7 @@ function PrimeGlobalEffectView() {
       if (!accessToken) {
         await backgroundApiProxy.simpleDb.prime.saveAuthToken('');
       }
+      // Do not save accessToken here, apiLogin() will save it
 
       if (accessToken) {
         setPrimePersistAtom((v) => ({
@@ -48,12 +67,7 @@ function PrimeGlobalEffectView() {
           privyUserId: privyUser?.id,
         }));
       } else {
-        setPrimePersistAtom((v) => ({
-          ...v,
-          isLoggedIn: false,
-          email: undefined,
-          privyUserId: undefined,
-        }));
+        await backgroundApiProxy.servicePrime.setPrimePersistAtomNotLoggedIn();
       }
 
       setPrimeInitAtom((v) => ({
