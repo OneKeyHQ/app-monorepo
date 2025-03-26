@@ -390,15 +390,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
     const deviceType = await deviceUtils.getDeviceTypeFromFeatures({
       features,
     });
-    let deviceName = await deviceUtils.buildDeviceName({ features });
-    const dbDeviceName = (
-      await localDb.getDeviceByQuery({
-        connectId: originalConnectId,
-      })
-    )?.name;
-    if (dbDeviceName) {
-      deviceName = `${deviceName} (${dbDeviceName})`;
-    }
+    const deviceName = await deviceUtils.buildDeviceName({ features });
+    const deviceBleName = deviceUtils.buildDeviceBleName({ features });
 
     const totalPhase: Array<IDeviceFirmwareType | undefined> = [
       bootloader?.hasUpgrade ? 'bootloader' : undefined,
@@ -418,6 +411,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
       features,
       deviceType,
       deviceName,
+      deviceBleName,
       deviceUUID,
       hasUpgrade,
       isBootloaderMode: features

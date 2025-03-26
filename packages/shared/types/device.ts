@@ -95,6 +95,7 @@ export type ICheckAllFirmwareReleaseResult = {
   deviceType: IDeviceType | undefined;
   deviceUUID: string;
   deviceName: string | undefined;
+  deviceBleName: string | undefined;
   updatingConnectId: string | undefined;
   originalConnectId: string | undefined;
   updateInfos: {

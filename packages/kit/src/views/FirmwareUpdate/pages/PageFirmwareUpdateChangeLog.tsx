@@ -24,7 +24,11 @@ import {
   FirmwareUpdateExitPrevent,
   ForceExtensionUpdatingFromExpandTab,
 } from '../components/FirmwareUpdateExitPrevent';
-import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
+import {
+  FirmwareUpdatePageHeader,
+  FirmwareUpdatePageHeaderTitle,
+  FirmwareUpdatePageLayout,
+} from '../components/FirmwareUpdatePageLayout';
 import { FirmwareUpdateWarningMessage } from '../components/FirmwareUpdateWarningMessage';
 
 function PageFirmwareUpdateChangeLog() {
@@ -72,6 +76,7 @@ function PageFirmwareUpdateChangeLog() {
         } else {
           //
         }
+        console.log('======>>>>>>changelog result: ', r);
         return r;
       } catch (error) {
         setStepInfo({
@@ -138,7 +143,13 @@ function PageFirmwareUpdateChangeLog() {
         await backgroundApiProxy.serviceFirmwareUpdate.exitUpdateWorkflow();
       }}
     >
-      <FirmwareUpdatePageLayout>
+      <FirmwareUpdatePageLayout
+        headerTitle={
+          <FirmwareUpdatePageHeader
+            headerTitle={<FirmwareUpdatePageHeaderTitle result={result} />}
+          />
+        }
+      >
         <ForceExtensionUpdatingFromExpandTab />
         {content}
       </FirmwareUpdatePageLayout>
