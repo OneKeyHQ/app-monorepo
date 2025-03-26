@@ -98,7 +98,7 @@ export default function OneKeyId() {
                 items={[
                   {
                     icon: 'LogoutOutline',
-                    testID: 'copy-recovery-phrase-button',
+                    testID: 'logout-button',
                     onPress: () => {
                       navigation.pop();
                       void logout();
