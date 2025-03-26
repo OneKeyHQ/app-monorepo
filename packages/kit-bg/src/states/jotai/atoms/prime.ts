@@ -13,6 +13,7 @@ export const {
   persist: true,
   initialValue: {
     isLoggedIn: false,
+    isLoggedInOnServer: false,
     email: undefined,
     privyUserId: undefined,
     primeSubscription: undefined,

@@ -14,6 +14,7 @@ import {
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -26,6 +27,7 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
@@ -61,6 +63,12 @@ function WalletActionSend() {
 
   const handleOnSend = useCallback(async () => {
     if (!network) return;
+
+    defaultLogger.wallet.walletActions.actionSend({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
 
     const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
       networkId: network.id,
@@ -175,9 +183,10 @@ function WalletActionSend() {
       },
     });
   }, [
-    account,
     network,
-    indexedAccount,
+    wallet?.type,
+    wallet?.id,
+    account?.id,
     vaultSettings?.isSingleToken,
     navigation,
     intl,
@@ -186,7 +195,7 @@ function WalletActionSend() {
     map,
     tokenListState,
     deriveInfoItems.length,
-    wallet?.id,
+    indexedAccount?.id,
   ]);
 
   return (
@@ -198,53 +207,52 @@ function WalletActionSend() {
   );
 }
 
-function WalletActionSwap({
-  networkId,
-  accountId,
-}: {
-  networkId?: string;
-  accountId?: string;
-}) {
+function WalletActionSwap() {
+  const {
+    activeAccount: { account, network, wallet },
+  } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const vaultSettings = usePromiseResult(async () => {
     const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: networkId ?? '',
+      networkId: network?.id ?? '',
     });
     return settings;
-  }, [networkId]).result;
+  }, [network?.id]).result;
   const handleOnSwap = useCallback(() => {
+    defaultLogger.wallet.walletActions.actionSwap({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        importNetworkId: networkId,
+        importNetworkId: network?.id ?? '',
+        swapSource: ESwapSource.WALLET_HOME,
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation, network?.id, wallet?.type]);
   return (
     <RawActions.Swap
       onPress={handleOnSwap}
       label={intl.formatMessage({ id: ETranslations.global_trade })}
       disabled={
         vaultSettings?.disabledSwapAction ||
-        accountUtils.isUrlAccountFn({ accountId })
+        accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' })
       }
     />
   );
 }
 
 function WalletActions({ ...rest }: IXStackProps) {
-  const {
-    activeAccount: { network, account },
-  } = useActiveAccount({ num: 0 });
-
   return (
     <RawActions {...rest}>
       <ReviewControl>
         <WalletActionBuy />
       </ReviewControl>
-      <WalletActionSwap networkId={network?.id} accountId={account?.id} />
+      <WalletActionSwap />
       <WalletActionSend />
       <WalletActionReceive />
       <WalletActionMore />

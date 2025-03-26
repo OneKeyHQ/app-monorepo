@@ -19,6 +19,7 @@ import { SwapScope } from './scopes/swap';
 import { TokenScope } from './scopes/token';
 import { TransactionScope } from './scopes/transaction';
 import { UpdateScope } from './scopes/update';
+import { WalletScope } from './scopes/wallet';
 
 export class DefaultLogger {
   account = new AccountScope();
@@ -58,6 +59,8 @@ export class DefaultLogger {
   market = new MarketScope();
 
   scanQrCode = new ScanQrCodeScope();
+
+  wallet = new WalletScope();
 }
 
 const defaultLogger = new DefaultLogger();

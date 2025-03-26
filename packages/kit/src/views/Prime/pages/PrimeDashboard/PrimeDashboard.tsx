@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
+import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -15,11 +16,11 @@ import {
   YStack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimeLoginDialog } from '../../hooks/usePrimeLoginDialog';
 
@@ -89,16 +90,19 @@ export default function PrimeDashboard() {
   const { user, isLoggedIn, isPrimeSubscriptionActive, logout } =
     usePrimeAuthV2();
   const { top } = useSafeAreaInsets();
-  const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
   const mobileTopValue = isMobile ? top + 25 : '$10';
 
   const { showLoginDialog } = usePrimeLoginDialog();
 
+  const isFocused = useIsFocused();
+
   useEffect(() => {
-    void fetchPrimeUserInfo();
-  }, [fetchPrimeUserInfo]);
+    if (isFocused) {
+      void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+    }
+  }, [isFocused]);
 
   const shouldShowConfirmButton = useMemo(() => {
     if (!isLoggedIn) {
