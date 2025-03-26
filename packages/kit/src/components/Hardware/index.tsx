@@ -58,7 +58,7 @@ export const confirmOnDeviceToastSample = async () => {
     children: <ConfirmOnDeviceToastContent deviceType={EDeviceType.Pro} />,
     dismissOnOverlayPress: false,
     disableSwipeGesture: false,
-    onClose: async (params) => {
+    onClose: async () => {
       console.log('close ConfirmOnDeviceToastContent');
     },
   });
