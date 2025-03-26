@@ -112,6 +112,9 @@ export function PrimeLoginContainer() {
     const fn = () => {
       navigation.pushFullModal(EModalRoutes.PrimeModal, {
         screen: EPrimePages.PrimeDeviceLimit,
+        params: {
+          isExceedDeviceLimit: true,
+        },
       });
     };
     appEventBus.on(EAppEventBusNames.PrimeExceedDeviceLimit, fn);

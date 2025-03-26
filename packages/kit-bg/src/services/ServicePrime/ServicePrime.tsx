@@ -91,6 +91,7 @@ class ServicePrime extends ServiceBase {
       if (!accessToken) {
         return;
       }
+      // clear simpleDb authToken first, use custom header instead
       await this.backgroundApi.simpleDb.prime.saveAuthToken('');
       const client = await this.getPrimeClient();
       try {
@@ -103,7 +104,13 @@ class ServicePrime extends ServiceBase {
             },
           },
         );
+        // only save authToken if api login success
         await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
+
+        await primePersistAtom.set((v) => ({
+          ...v,
+          isLoggedInOnServer: true,
+        }));
       } catch (error) {
         await this.backgroundApi.simpleDb.prime.saveAuthToken('');
         throw error;
@@ -131,12 +138,20 @@ class ServicePrime extends ServiceBase {
     instanceId: string;
     accessToken: string;
   }) {
-    if (accessToken) {
-      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
-    }
+    // eslint-disable-next-line no-param-reassign
+    accessToken =
+      accessToken || (await this.backgroundApi.simpleDb.prime.getAuthToken());
     const client = await this.getPrimeClient();
     // TODO 404 not found
-    await client.post(`/prime/v1/user/device/${instanceId}`);
+    await client.post(
+      `/prime/v1/user/device/${instanceId}`,
+      {},
+      {
+        headers: {
+          'X-Onekey-Request-Token': `${accessToken}`,
+        },
+      },
+    );
     if (instanceId) {
       await this.apiLogin({ accessToken });
     }
@@ -144,10 +159,10 @@ class ServicePrime extends ServiceBase {
 
   @backgroundMethod()
   async apiGetPrimeUserDevices({ accessToken }: { accessToken?: string } = {}) {
-    if (accessToken) {
-      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
-    }
     const client = await this.getPrimeClient();
+    // eslint-disable-next-line no-param-reassign
+    accessToken =
+      accessToken || (await this.backgroundApi.simpleDb.prime.getAuthToken());
     const result = await client.get<
       IApiClientResponse<
         Array<{
@@ -158,7 +173,11 @@ class ServicePrime extends ServiceBase {
           deviceName: string;
         }>
       >
-    >('/prime/v1/user/devices');
+    >('/prime/v1/user/devices', {
+      headers: {
+        'X-Onekey-Request-Token': `${accessToken}`,
+      },
+    });
     const devices = result?.data?.data;
     return devices;
   }
@@ -174,6 +193,10 @@ class ServicePrime extends ServiceBase {
     if (!authToken) {
       await this.setPrimePersistAtomNotLoggedIn();
       const localUserInfo = await primePersistAtom.get();
+
+      // clear privy login token cache
+      appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
+
       return {
         userInfo: localUserInfo,
         serverUserInfo: undefined,
@@ -196,6 +219,7 @@ class ServicePrime extends ServiceBase {
     await primePersistAtom.set((v) => ({
       ...v,
       isLoggedIn: true,
+      isLoggedInOnServer: true,
       primeSubscription,
     }));
     return {
@@ -208,6 +232,7 @@ class ServicePrime extends ServiceBase {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(() => ({
       isLoggedIn: false,
+      isLoggedInOnServer: false,
       privyUserId: undefined,
       email: undefined,
       primeSubscription: undefined,
