@@ -28,6 +28,7 @@ import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletAction
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
@@ -36,7 +37,10 @@ import {
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
 
@@ -138,6 +142,11 @@ function TokenDetailsHeader(props: IProps) {
 
   const createSwapActionHandler = useCallback(
     (actionType?: ESwapTabSwitchType) => async () => {
+      defaultLogger.wallet.walletActions.actionSwap({
+        walletType: wallet?.type ?? '',
+        networkId: network?.id ?? '',
+        source: 'tokenDetails',
+      });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
         params: {
@@ -156,19 +165,22 @@ function TokenDetailsHeader(props: IProps) {
           ...(actionType && {
             swapTabSwitchType: actionType,
           }),
+          swapSource: ESwapSource.TOKEN_DETAIL,
         },
       });
     },
     [
-      navigation,
+      wallet?.type,
+      network?.id,
       network?.logoURI,
+      navigation,
       networkId,
       tokenInfo.address,
-      tokenInfo.decimals,
-      tokenInfo.isNative,
-      tokenInfo.logoURI,
-      tokenInfo.name,
       tokenInfo.symbol,
+      tokenInfo.isNative,
+      tokenInfo.decimals,
+      tokenInfo.name,
+      tokenInfo.logoURI,
       deriveType,
     ],
   );
@@ -177,6 +189,11 @@ function TokenDetailsHeader(props: IProps) {
   const handleOnBridge = createSwapActionHandler(ESwapTabSwitchType.BRIDGE);
 
   const handleSendPress = useCallback(() => {
+    defaultLogger.wallet.walletActions.actionSend({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'tokenDetails',
+    });
     navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
       screen: EModalSignatureConfirmRoutes.TxDataInput,
       params: {
@@ -191,9 +208,11 @@ function TokenDetailsHeader(props: IProps) {
     accountId,
     isAllNetworks,
     navigation,
+    network?.id,
     networkId,
     tokenDetails?.info,
     tokenInfo,
+    wallet?.type,
   ]);
 
   const isReceiveDisabled = useMemo(
@@ -275,6 +294,7 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                source="tokenDetails"
               />
             </ReviewControl>
 
@@ -292,18 +312,28 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                source="tokenDetails"
               />
             </ReviewControl>
             <RawActions.Send onPress={handleSendPress} />
             <RawActions.Receive
               disabled={isReceiveDisabled}
-              onPress={() => handleOnReceive(tokenInfo)}
+              onPress={() => {
+                defaultLogger.wallet.walletActions.actionReceive({
+                  walletType: wallet?.type ?? '',
+                  networkId: network?.id ?? '',
+                  source: 'tokenDetails',
+                });
+                handleOnReceive(tokenInfo);
+              }}
             />
             <WalletActionEarn
               accountId={accountId}
               tokenAddress={tokenInfo.address}
               networkId={networkId}
               indexedAccountId={indexedAccountId}
+              walletType={wallet?.type}
+              source="tokenDetails"
             />
             <Stack w={50} />
           </RawActions>

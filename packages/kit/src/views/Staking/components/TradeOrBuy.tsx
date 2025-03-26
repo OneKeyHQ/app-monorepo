@@ -6,10 +6,12 @@ import type { IPageNavigationProp } from '@onekeyhq/components';
 import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -48,6 +50,11 @@ function BasicTradeOrBuy({
       isSupportSwap,
       tokenAddress: token.address,
     });
+    defaultLogger.wallet.walletActions.actionSwap({
+      walletType: wallet?.type ?? '',
+      networkId,
+      source: 'earn',
+    });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
@@ -59,9 +66,10 @@ function BasicTradeOrBuy({
         },
         importFromToken,
         swapTabSwitchType,
+        swapSource: ESwapSource.EARN,
       },
     });
-  }, [navigation, networkId, token]);
+  }, [navigation, networkId, token, wallet?.type]);
 
   const isHiddenComponent = networkId === networkIdsMap.cosmoshub;
 
@@ -89,6 +97,7 @@ function BasicTradeOrBuy({
           accountId={accountId}
           walletType={wallet?.type}
           tokenAddress={token.address}
+          source="earn"
         />
       </XStack>
     </XStack>

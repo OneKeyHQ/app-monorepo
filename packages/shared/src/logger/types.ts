@@ -28,6 +28,7 @@ export enum EScopeName {
   fiatCrypto = 'fiatCrypto',
   accountSelector = 'accountSelector',
   scanQrCode = 'scanQrCode',
+  wallet = 'wallet',
 }
 export interface IScope {
   getName: () => EScopeName;
