@@ -155,7 +155,7 @@ export default function ReferAFriend() {
                           {
                             RebateRate: (
                               <SizableText size="$bodyMd" color="$textInfo">
-                                5% off
+                                5%
                               </SizableText>
                             ),
                           },
