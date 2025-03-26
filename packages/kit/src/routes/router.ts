@@ -16,20 +16,14 @@ const buildPermissionRouter = () => {
       import('@onekeyhq/kit/src/views/Permission/PromptWebDeviceAccessPage'),
   );
   return [
-    {
-      name: ERootRoutes.PermissionWebDevice,
-      component: PromptWebDeviceAccessPage,
-      rewrite: '/permission/web-device',
-      exact: true,
-    },
-    // platformEnv.isExtension
-    //   ? {
-    //       name: ERootRoutes.PermissionWebUSB,
-    //       component: WebUSB,
-    //       rewrite: '/permission/web-usb',
-    //       exact: true,
-    //     }
-    //   : undefined,
+    platformEnv.isExtension
+      ? {
+          name: ERootRoutes.PermissionWebDevice,
+          component: PromptWebDeviceAccessPage,
+          rewrite: '/permission/web-device',
+          exact: true,
+        }
+      : undefined,
   ].filter(Boolean);
 };
 

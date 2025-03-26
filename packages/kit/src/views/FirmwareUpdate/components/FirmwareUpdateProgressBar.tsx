@@ -294,7 +294,9 @@ export function FirmwareUpdateProgressBar({
           ],
           progress: () => 11,
           desc: () =>
-            'The device is in Bootloader mode. Click the button below to grant USB access to proceed with the installation package transfer.',
+            intl.formatMessage({
+              id: ETranslations.firmware_update_grant_usb_instruction,
+            }),
         },
         {
           type: [EFirmwareUpdateTipMessages.GoToBootloaderSuccess],
