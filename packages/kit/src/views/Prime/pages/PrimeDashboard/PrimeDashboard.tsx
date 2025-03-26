@@ -21,6 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
+import { usePrimeLoginDialog } from '../../hooks/usePrimeLoginDialog';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
@@ -93,6 +94,8 @@ export default function PrimeDashboard() {
   const isMobile = isNative || isWebMobile;
   const mobileTopValue = isMobile ? top + 25 : '$10';
 
+  const { showLoginDialog } = usePrimeLoginDialog();
+
   useEffect(() => {
     void fetchPrimeUserInfo();
   }, [fetchPrimeUserInfo]);
@@ -107,18 +110,9 @@ export default function PrimeDashboard() {
     return false;
   }, [isLoggedIn, isPrimeSubscriptionActive]);
 
-  const subscribe = useCallback(() => {
+  const subscribe = useCallback(async () => {
     if (!isLoggedIn) {
-      const loginDialog = Dialog.show({
-        renderContent: (
-          <PrimeLoginEmailDialogV2
-            onComplete={() => {
-              void loginDialog.close();
-            }}
-          />
-        ),
-      });
-
+      await showLoginDialog();
       return;
     }
 
@@ -131,7 +125,7 @@ export default function PrimeDashboard() {
         />
       ),
     });
-  }, [isLoggedIn]);
+  }, [isLoggedIn, showLoginDialog]);
 
   return (
     <>

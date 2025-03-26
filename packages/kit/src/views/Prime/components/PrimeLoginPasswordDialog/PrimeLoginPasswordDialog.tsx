@@ -95,9 +95,9 @@ export function PrimeLoginPasswordDialog({
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: formData.password,
           });
-        await backgroundApiProxy.servicePrime.ensurePrimeLoginValidPassword(
-          encodedPassword,
-        );
+        // await backgroundApiProxy.serviceMasterPassword.ensurePrimeLoginValidPassword(
+        //   encodedPassword,
+        // );
         await backgroundApiProxy.servicePrime.resolvePrimeLoginPasswordDialog({
           promiseId,
           password: encodedPassword,
@@ -114,8 +114,9 @@ export function PrimeLoginPasswordDialog({
     let title = 'Welcome back';
     let description = `Manage your OneKey ID <email>${email}</email>`;
     if (isRegister) {
-      title = 'Sign up OneKey ID';
-      description = `<email>${email}</email> is not registered yet, we will create a new account for you.`;
+      title = 'Setup OneKey ID Master Password';
+      description = 'Please enter a password to secure your sync data';
+      // description = `<email>${email}</email> is not registered yet, we will create a new account for you.`;
     }
     return {
       title,
@@ -152,12 +153,12 @@ export function PrimeLoginPasswordDialog({
                       size="small"
                       variant="tertiary"
                       onPress={async () => {
-                        await backgroundApiProxy.servicePrime.startForgetPassword(
-                          {
-                            passwordDialogPromiseId: promiseId,
-                            email,
-                          },
-                        );
+                        // await backgroundApiProxy.serviceMasterPassword.startForgetPassword(
+                        //   {
+                        //     passwordDialogPromiseId: promiseId,
+                        //     email,
+                        //   },
+                        // );
                       }}
                     >
                       Forget password?
@@ -193,14 +194,38 @@ export function PrimeLoginPasswordDialog({
                 }}
               />
             </Form.Field>
-            {/* {isRegister ? (
-              <Input
-                secureTextEntry
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-              />
-            ) : null} */}
+            {isRegister ? (
+              <Form.Field
+                name="confirmPassword"
+                label="Confirm Password"
+                rules={{
+                  validate: isRegister
+                    ? async (value) => {
+                        if (form.getValues().password !== value) {
+                          return 'Password does not match';
+                        }
+                        return true;
+                      }
+                    : (value) => {
+                        if (!value) {
+                          return false;
+                        }
+                        return true;
+                      },
+                  onChange: () => {
+                    void form.trigger('confirmPassword');
+                  },
+                }}
+              >
+                <Input
+                  allowSecureTextEye
+                  placeholder="Confirm Password"
+                  onSubmitEditing={() => {
+                    void submit();
+                  }}
+                />
+              </Form.Field>
+            ) : null}
 
             {isRegister ? (
               <Stack>
