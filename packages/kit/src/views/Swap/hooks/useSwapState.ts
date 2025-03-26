@@ -288,6 +288,9 @@ export function useSwapActionState() {
           new BigNumber(swapUseLimitPrice.rate ?? 0).isNaN()
         ) {
           infoRes.disable = true;
+          infoRes.label = intl.formatMessage({
+            id: ETranslations.limit_enter_price,
+          });
         }
       }
       if (
