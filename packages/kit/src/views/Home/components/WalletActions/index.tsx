@@ -32,6 +32,7 @@ import { RawActions } from './RawActions';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionReceive } from './WalletActionReceive';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 function WalletActionSend() {
   const navigation =
@@ -219,6 +220,7 @@ function WalletActionSwap({
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
         importNetworkId: networkId,
+        swapSource: ESwapSource.WALLET_HOME,
       },
     });
   }, [navigation, networkId]);

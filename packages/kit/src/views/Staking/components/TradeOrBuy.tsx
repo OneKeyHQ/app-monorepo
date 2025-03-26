@@ -17,6 +17,7 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 function BasicTradeOrBuy({
   token,
@@ -59,6 +60,7 @@ function BasicTradeOrBuy({
         },
         importFromToken,
         swapTabSwitchType,
+        swapSource: ESwapSource.STAKING,
       },
     });
   }, [navigation, networkId, token]);

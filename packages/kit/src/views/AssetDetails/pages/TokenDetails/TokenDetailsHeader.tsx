@@ -36,7 +36,10 @@ import {
 import { listItemPressStyle } from '@onekeyhq/shared/src/style';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletActionEarn';
 
@@ -156,6 +159,7 @@ function TokenDetailsHeader(props: IProps) {
           ...(actionType && {
             swapTabSwitchType: actionType,
           }),
+          swapSource: ESwapSource.TOKEN_DETAIL,
         },
       });
     },
