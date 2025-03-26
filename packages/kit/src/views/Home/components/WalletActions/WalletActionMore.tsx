@@ -37,6 +37,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { RawActions } from './RawActions';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();
@@ -96,6 +97,11 @@ export function WalletActionMore() {
   }, [network?.id]).result;
 
   const handleCopyAddress = useCallback(() => {
+    defaultLogger.wallet.walletActions.actionCopyAddress({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
     if (isAllNetworkEnabled) {
       void handleAllNetworkCopyAddress();
     } else if (wallet?.type === WALLET_TYPE_HW) {
@@ -132,6 +138,11 @@ export function WalletActionMore() {
   ]);
 
   const handleSellToken = useCallback(async () => {
+    defaultLogger.wallet.walletActions.actionSell({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
     if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
         networkId: network?.id ?? '',
@@ -199,6 +210,11 @@ export function WalletActionMore() {
   }, [network?.isCustomNetwork, network?.explorerURL]).result;
 
   const handleViewInExplorer = useCallback(async () => {
+    defaultLogger.wallet.walletActions.actionViewInExplorer({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
     if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
         networkId: network?.id ?? '',
@@ -348,6 +364,11 @@ export function WalletActionMore() {
           label: 'Export Public Key',
           icon: 'MinusLargeOutline',
           onPress: () => {
+            defaultLogger.wallet.walletActions.actionExportPublicKey({
+              walletType: wallet?.type ?? '',
+              networkId: network?.id ?? '',
+              source: 'homePage',
+            });
             void exportAccountCredentialKey({
               keyType: ECoreApiExportedSecretKeyType.publicKey,
             });
@@ -357,6 +378,11 @@ export function WalletActionMore() {
           label: 'Export xpub',
           icon: 'MinusLargeOutline',
           onPress: () => {
+            defaultLogger.wallet.walletActions.actionExportXpub({
+              walletType: wallet?.type ?? '',
+              networkId: network?.id ?? '',
+              source: 'homePage',
+            });
             void exportAccountCredentialKey({
               keyType: ECoreApiExportedSecretKeyType.xpub,
             });
@@ -366,6 +392,11 @@ export function WalletActionMore() {
           label: 'Export Private Key',
           icon: 'MinusLargeOutline',
           onPress: () => {
+            defaultLogger.wallet.walletActions.actionExportPrivateKey({
+              walletType: wallet?.type ?? '',
+              networkId: network?.id ?? '',
+              source: 'homePage',
+            });
             void exportAccountCredentialKey({
               keyType: ECoreApiExportedSecretKeyType.privateKey,
             });
@@ -375,6 +406,11 @@ export function WalletActionMore() {
           label: 'Export xprvt',
           icon: 'MinusLargeOutline',
           onPress: () => {
+            defaultLogger.wallet.walletActions.actionExportXprvt({
+              walletType: wallet?.type ?? '',
+              networkId: network?.id ?? '',
+              source: 'homePage',
+            });
             void exportAccountCredentialKey({
               keyType: ECoreApiExportedSecretKeyType.xprvt,
             });

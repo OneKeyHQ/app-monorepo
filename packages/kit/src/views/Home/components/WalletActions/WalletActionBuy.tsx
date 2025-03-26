@@ -17,6 +17,7 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { RawActions } from './RawActions';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function WalletActionBuy() {
   const {
@@ -52,6 +53,12 @@ export function WalletActionBuy() {
 
   const handleBuyToken = useCallback(async () => {
     if (isBuyDisabled) return;
+
+    defaultLogger.wallet.walletActions.actionBuy({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
 
     if (vaultSettings?.isSingleToken) {
       const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
