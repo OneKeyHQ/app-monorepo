@@ -1,7 +1,6 @@
 import { Button, Dialog, XStack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useFetchPrimeUserInfo } from '@onekeyhq/kit/src/views/Prime/hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimeAuthV2';
 import { usePrimePayment } from '@onekeyhq/kit/src/views/Prime/hooks/usePrimePayment';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
@@ -20,7 +19,6 @@ export function PrimeDebugPanel({
 }) {
   const { getAccessToken, logout, isReady, authenticated } = usePrimeAuthV2();
   const { getCustomerInfo } = usePrimePayment();
-  const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const navigation = useAppNavigation();
 
   return (
@@ -61,7 +59,9 @@ export function PrimeDebugPanel({
       </Button>
       <Button
         onPress={() => {
-          void fetchPrimeUserInfo().then(showDebugMessageByDialog);
+          void backgroundApiProxy.servicePrime
+            .apiFetchPrimeUserInfo()
+            .then(showDebugMessageByDialog);
         }}
       >
         ServerPrimeUserInfo
