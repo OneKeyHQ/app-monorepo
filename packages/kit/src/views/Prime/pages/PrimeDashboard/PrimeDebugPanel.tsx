@@ -68,15 +68,6 @@ export function PrimeDebugPanel({
       </Button>
       <Button
         onPress={() => {
-          void backgroundApiProxy.servicePrime
-            .apiGetPrimeUserDevices()
-            .then(console.log);
-        }}
-      >
-        UserDevices
-      </Button>
-      <Button
-        onPress={() => {
           navigation.pushFullModal(EModalRoutes.PrimeModal, {
             screen: EPrimePages.PrimeDeviceLimit,
           });

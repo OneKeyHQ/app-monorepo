@@ -13,8 +13,8 @@ import perfUtils from '@onekeyhq/shared/src/utils/debug/perfUtils';
 import { createPromiseTarget } from '@onekeyhq/shared/src/utils/promiseUtils';
 import type { IPrimeUserInfo } from '@onekeyhq/shared/types/prime/primeTypes';
 
-import { usePrimePaymentWebApiKey } from './usePrimePaymentWebApiKey';
-import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
+import { usePrimeAuthV2 } from './usePrimeAuthV2';
+import { getPrimePaymentWebApiKey } from './usePrimePaymentWebApiKey';
 
 import type {
   IPackage,
@@ -24,20 +24,20 @@ import type {
 import type { CustomerInfo, PurchaseParams } from '@revenuecat/purchases-js';
 
 export function usePrimePayment(): IUsePrimePayment {
-  const { user, isReady: isAuthReady } = usePrivyUniversalV2();
+  const { user, isReady: isAuthReady } = usePrimeAuthV2();
   const [, setPrimePersistAtom] = usePrimePersistAtom();
-  const apiKey = usePrimePaymentWebApiKey();
   const isReady = isAuthReady;
   const configureDonePromise = useRef(createPromiseTarget<boolean>());
 
   const getCustomerInfo = useCallback(async () => {
+    const apiKey = await getPrimePaymentWebApiKey();
     if (!isReady) {
       throw new Error('PrimeAuth Not ready');
     }
     if (!apiKey) {
       throw new Error('No REVENUECAT api key found');
     }
-    if (!user?.id) {
+    if (!user?.privyUserId) {
       throw new Error('User not logged in');
     }
 
@@ -47,13 +47,13 @@ export function usePrimePayment(): IUsePrimePayment {
     // TODO how to configure another userId when user login with another account
     // https://www.revenuecat.com/docs/customers/user-ids#logging-in-with-a-custom-app-user-id
 
-    Purchases.configure(apiKey, user?.id || '');
+    Purchases.configure(apiKey, user?.privyUserId || '');
 
     const customerInfo: CustomerInfo =
       await Purchases.getSharedInstance().getCustomerInfo();
 
     const appUserId = Purchases.getSharedInstance().getAppUserId();
-    if (appUserId !== user?.id) {
+    if (appUserId !== user?.privyUserId) {
       throw new Error('AppUserId not match');
     }
 
@@ -89,15 +89,15 @@ export function usePrimePayment(): IUsePrimePayment {
 
     configureDonePromise.current.resolveTarget(true);
     return customerInfo;
-  }, [apiKey, isReady, setPrimePersistAtom, user?.id]);
+  }, [isReady, setPrimePersistAtom, user?.privyUserId]);
 
   useEffect(() => {
     void (async () => {
-      if (isReady && user?.id) {
+      if (isReady && user?.privyUserId) {
         await getCustomerInfo();
       }
     })();
-  }, [getCustomerInfo, isReady, user?.id]);
+  }, [getCustomerInfo, isReady, user?.privyUserId]);
 
   const getPackagesWeb = useCallback(async () => {
     await configureDonePromise.current.ready;

@@ -8,7 +8,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
-import { usePrimePaymentWebApiKey } from '../../hooks/usePrimePaymentWebApiKey';
+import { getPrimePaymentWebApiKey } from '../../hooks/usePrimePaymentWebApiKey';
 
 import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 
@@ -20,10 +20,10 @@ export function usePurchasePackageWebview({
   const navigation = useAppNavigation();
   const { user } = usePrimeAuthV2();
   const intl = useIntl();
-  const apiKey = usePrimePaymentWebApiKey();
 
   const purchasePackageWebview = useCallback(async () => {
     navigation.popStack();
+    const apiKey = await getPrimePaymentWebApiKey();
 
     openUrlUtils.openUrlByWebviewPro({
       url: '',
@@ -45,7 +45,6 @@ export function usePurchasePackageWebview({
     user?.email,
     selectedSubscriptionPeriod,
     intl.locale,
-    apiKey,
   ]);
 
   return purchasePackageWebview;
