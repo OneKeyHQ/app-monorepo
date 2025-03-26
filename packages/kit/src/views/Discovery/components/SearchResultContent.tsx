@@ -270,7 +270,10 @@ export function SearchResultContent({
       searchList[selectedIndex]
     ) {
       handleSearchItemClick(searchList[selectedIndex]);
-    } else if (
+      return { type: 'search' };
+    }
+
+    if (
       selectedSection === 'bookmark' &&
       displayBookmarkList &&
       localData?.bookmarkData
@@ -279,7 +282,10 @@ export function SearchResultContent({
       if (adjustedIndex >= 0 && adjustedIndex < localData.bookmarkData.length) {
         handleBookmarkItemClick(localData.bookmarkData[adjustedIndex]);
       }
-    } else if (
+      return { type: 'bookmark' };
+    }
+
+    if (
       selectedSection === 'history' &&
       displayHistoryList &&
       localData?.historyData
@@ -288,20 +294,39 @@ export function SearchResultContent({
       if (adjustedIndex >= 0 && adjustedIndex < localData.historyData.length) {
         handleHistoryItemClick(localData.historyData[adjustedIndex]);
       }
+      return { type: 'history' };
     }
+
+    if (searchValue) {
+      handleSearchItemClick({
+        dappId: SEARCH_ITEM_ID,
+        name: searchValue,
+        logo: '',
+        description: '',
+        url: searchValue,
+        networkIds: [],
+        tags: [],
+      });
+      return { type: 'search' };
+    }
+
+    return { type: 'null' };
   }, [
     selectedSection,
     displaySearchList,
-    displayBookmarkList,
-    displayHistoryList,
     searchList,
-    localData,
     selectedIndex,
-    getAdjustedBookmarkIndex,
-    getAdjustedHistoryIndex,
+    displayBookmarkList,
+    localData?.bookmarkData,
+    localData?.historyData,
+    displayHistoryList,
+    searchValue,
     handleSearchItemClick,
+    getAdjustedBookmarkIndex,
     handleBookmarkItemClick,
+    getAdjustedHistoryIndex,
     handleHistoryItemClick,
+    SEARCH_ITEM_ID,
   ]);
 
   // Expose functions to parent components

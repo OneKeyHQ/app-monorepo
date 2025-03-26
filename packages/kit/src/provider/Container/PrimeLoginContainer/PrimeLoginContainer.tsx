@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import type { IDialogInstance } from '@onekeyhq/components';
-import { Dialog } from '@onekeyhq/components';
+import { Dialog, Stack } from '@onekeyhq/components';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { usePrimeLoginDialogAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
@@ -14,8 +14,8 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { PrimeDeviceLogoutAlertDialog } from '../../../views/Prime/components/PrimeDeviceLogoutAlertDialog';
-import { PrimeLoginEmailCodeDialog } from '../../../views/Prime/components/PrimeLoginEmailCodeDialog';
-import { PrimeLoginEmailDialog } from '../../../views/Prime/components/PrimeLoginEmailDialog';
+// import { PrimeLoginEmailCodeDialog } from '../../../views/Prime/components/PrimeLoginEmailCodeDialog';
+// import { PrimeLoginEmailDialog } from '../../../views/Prime/components/PrimeLoginEmailDialog';
 import { PrimeLoginPasswordDialog } from '../../../views/Prime/components/PrimeLoginPasswordDialog';
 
 // TODO rename to PrimeDialogContainer
@@ -44,7 +44,8 @@ export function PrimeLoginContainer() {
         await emailDialogRef.current?.close();
         emailDialogRef.current = Dialog.show({
           renderContent: (
-            <PrimeLoginEmailDialog promiseId={promptPrimeLoginEmailDialog} />
+            <Stack />
+            // <PrimeLoginEmailDialog promiseId={promptPrimeLoginEmailDialog} />
           ),
           onClose: async () => {
             await backgroundApiProxy.servicePrime.cancelPrimeLogin({
@@ -89,9 +90,10 @@ export function PrimeLoginContainer() {
         await emailCodeDialogRef.current?.close();
         emailCodeDialogRef.current = Dialog.show({
           renderContent: (
-            <PrimeLoginEmailCodeDialog
-              promiseId={promptPrimeLoginEmailCodeDialog?.promiseId}
-            />
+            <Stack />
+            // <PrimeLoginEmailCodeDialog
+            //   promiseId={promptPrimeLoginEmailCodeDialog?.promiseId}
+            // />
           ),
           onClose: async () => {
             await backgroundApiProxy.servicePrime.cancelPrimeLogin({

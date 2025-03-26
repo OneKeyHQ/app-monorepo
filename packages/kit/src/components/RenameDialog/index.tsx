@@ -128,7 +128,6 @@ export function RenameInputWithNameSelector({
       }
       return false;
     }, [indexedAccount]);
-  const intl = useIntl();
 
   return (
     <>

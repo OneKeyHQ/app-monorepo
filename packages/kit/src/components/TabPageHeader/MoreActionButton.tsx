@@ -22,6 +22,8 @@ import {
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
+import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 
@@ -99,6 +101,8 @@ export function MoreActionButton() {
     [openAddressBook],
   );
 
+  const { toReferFriendsPage } = useReferFriends();
+  const { loginOneKeyId } = useLoginOneKeyId();
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       const routeInfo = {
@@ -177,6 +181,24 @@ export function MoreActionButton() {
             },
             ...popupMenu,
           ].filter(Boolean),
+        },
+        {
+          items: [
+            {
+              label: 'OneKey ID',
+              icon: 'PeopleOutline',
+              onPress: loginOneKeyId,
+              testID: 'onekey_id',
+            },
+            {
+              label: intl.formatMessage({
+                id: ETranslations.id_refer_a_friend,
+              }),
+              icon: 'GiftOutline',
+              onPress: toReferFriendsPage,
+              testID: 'refer-a-friend',
+            },
+          ],
         },
         {
           items: [

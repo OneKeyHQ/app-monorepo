@@ -99,6 +99,16 @@ function HeaderLeftToolBarInput({
     }
   });
 
+  useShortcutsOnRouteFocused(EShortcutEvents.Refresh, () => {
+    if (platformEnv.isDesktop) {
+      inputRef.current?.blur();
+
+      if (hiddenHttpsUrl) {
+        setInternalValue(hiddenHttpsUrl);
+      }
+    }
+  });
+
   return (
     <Stack flex={1}>
       <Input
@@ -190,6 +200,7 @@ function HeaderLeftToolBarInput({
         <ScrollView ref={scrollViewRef} maxHeight={310}>
           <Stack py="$2">
             <SearchResultContent
+              useCurrentWindow
               searchValue={searchValue}
               localData={localData}
               searchList={searchList}

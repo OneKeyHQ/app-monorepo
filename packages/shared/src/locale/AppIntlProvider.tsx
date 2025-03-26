@@ -6,7 +6,6 @@ import { RawIntlProvider } from 'react-intl';
 import { appLocale } from './appLocale';
 import { LOCALES } from './localeJsonMap';
 
-import type { ETranslations } from './enum/translations';
 import type { ILocaleJSONSymbol, ILocaleSymbol } from './type';
 import type { ResolvedIntlConfig } from '@formatjs/intl';
 

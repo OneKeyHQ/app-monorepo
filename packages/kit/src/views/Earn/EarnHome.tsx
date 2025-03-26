@@ -14,6 +14,9 @@ import {
   Badge,
   Banner,
   Button,
+  Dialog,
+  HeaderButtonGroup,
+  HeaderIconButton,
   Icon,
   IconButton,
   Image,
@@ -29,6 +32,7 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
@@ -50,12 +54,12 @@ import type {
   IEarnRewardUnit,
 } from '@onekeyhq/shared/types/staking';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useReferFriends } from '../../hooks/useReferFriends';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
@@ -886,11 +890,34 @@ function BasicEarnHome() {
   }, [earnBanners, media.gtLg, onBannerPress]);
 
   const isLoading = !!isFetchingAccounts;
+
+  const { shareReferRewards } = useReferFriends();
+
+  const handleShareReferRewards = useCallback(() => {
+    void shareReferRewards();
+  }, [shareReferRewards]);
+
+  const renderCustomHeaderRight = useCallback(
+    () => (
+      <HeaderButtonGroup
+        testID="ear-Page-Header-Right"
+        className="app-region-no-drag"
+      >
+        <HeaderIconButton
+          title={intl.formatMessage({ id: ETranslations.global_profit })}
+          icon="GiftOutline"
+          onPress={handleShareReferRewards}
+        />
+      </HeaderButtonGroup>
+    ),
+    [intl, handleShareReferRewards],
+  );
+
   return (
     <Page fullPage>
       <TabPageHeader
         sceneName={EAccountSelectorSceneName.home}
-        showHeaderRight={false}
+        showCustomHeaderRight={renderCustomHeaderRight}
       />
       <Page.Body>
         <ScrollView

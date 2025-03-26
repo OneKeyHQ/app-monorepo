@@ -115,7 +115,6 @@ function BasicAccountAvatar({
   loadingProps,
   fallback,
   fallbackProps,
-  circular,
   networkId,
   ...restProps
 }: IAccountAvatarProps) {

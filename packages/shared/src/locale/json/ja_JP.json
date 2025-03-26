@@ -1854,7 +1854,7 @@
   "receive_token_list_footer_text": "トークンが見つからない場合は検索してみてください",
   "referral.earn_reward": "報酬を獲得する",
   "referral.earn_reward_desc": "Earnを利用した友人から。",
-  "referral.earn_reward_tips": "報酬は月に一度配布されます。",
+  "referral.earn_reward_tips": "報酬は来月の10日までにあなたのウォレットに配布されます。",
   "referral.faqs": "よくある質問",
   "referral.faqs_a1": "友達を招待して、Earnまたはハードウェアウォレットの購入にリファラルコードを使用してもらい、報酬を獲得しましょう。報酬は決済後約1か月であなたの報酬アドレスに送信されます。",
   "referral.faqs_a2": "不正使用を防ぐため、報酬は約30日後に請求できます。それまでの間、対応するモジュールをクリックして詳細を確認できます。",

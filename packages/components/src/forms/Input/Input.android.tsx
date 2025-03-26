@@ -1,9 +1,10 @@
 import { useRef } from 'react';
 
-import TextInput from './TextInput';
 import { styled, useComposedRefs } from '@tamagui/core';
 import { defaultStyles, useInputProps } from 'tamagui';
 import { inputSizeVariant } from 'tamagui/src/helpers/inputHelpers';
+
+import TextInput from './TextInput';
 
 import type { InputExtraProps } from 'tamagui';
 

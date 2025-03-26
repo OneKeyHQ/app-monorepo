@@ -1,5 +1,5 @@
 import type { ForwardedRef } from 'react';
-import { forwardRef, useCallback } from 'react';
+import { forwardRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -12,8 +12,6 @@ import {
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 
 import type { IntlShape } from 'react-intl';
 

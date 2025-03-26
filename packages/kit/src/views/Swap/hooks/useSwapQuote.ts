@@ -228,7 +228,7 @@ export function useSwapQuote() {
         activeAccountRef.current?.accountInfo?.account?.id,
         swapApprovingTransaction.blockNumber,
         undefined,
-        ESwapQuoteKind.SELL,
+        swapApprovingTransaction.kind ?? ESwapQuoteKind.SELL,
         undefined,
         swapToAddressInfoRef.current.address,
       );
