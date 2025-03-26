@@ -1,0 +1,315 @@
+import { useCallback, useMemo, useState } from 'react';
+
+import { useIntl } from 'react-intl';
+import { Share, StyleSheet } from 'react-native';
+
+import {
+  Dialog,
+  Icon,
+  IconButton,
+  OTPInput,
+  SizableText,
+  XStack,
+  YStack,
+  useClipboard,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalReferFriendsRoutes,
+  EModalRoutes,
+} from '@onekeyhq/shared/src/routes';
+
+import useAppNavigation from './useAppNavigation';
+import { useLoginOneKeyId } from './useLoginOneKeyId';
+
+const NUMBER_OF_DIGITS = 6;
+function InviteCode({
+  onSuccess,
+  onFail,
+}: {
+  onSuccess?: () => void;
+  onFail?: () => void;
+}) {
+  const intl = useIntl();
+  const [verificationCode, setVerificationCode] = useState('');
+  const handleConfirm = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceReferralCode.bindInviteCode(
+        verificationCode,
+      );
+      onSuccess?.();
+    } catch {
+      onFail?.();
+    }
+  }, [onFail, onSuccess, verificationCode]);
+  return (
+    <YStack>
+      <OTPInput
+        autoFocus
+        status="normal"
+        numberOfDigits={NUMBER_OF_DIGITS}
+        value={verificationCode}
+        onTextChange={(value) => {
+          setVerificationCode(value.toUpperCase());
+        }}
+      />
+      <SizableText mt="$3" size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({
+          id: ETranslations.earn_referral_enter_invite_code_note,
+        })}
+      </SizableText>
+      <Dialog.Footer
+        showCancelButton={false}
+        confirmButtonProps={{
+          disabled: verificationCode.length !== NUMBER_OF_DIGITS,
+        }}
+        onConfirm={handleConfirm}
+        onConfirmText={intl.formatMessage({ id: ETranslations.global_confirm })}
+      />
+    </YStack>
+  );
+}
+
+export const useReferFriends = () => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { loginOneKeyId } = useLoginOneKeyId();
+
+  const toInviteRewardPage = useCallback(async () => {
+    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+    if (isLogin) {
+      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+        screen: EModalReferFriendsRoutes.InviteReward,
+      });
+    } else {
+      void loginOneKeyId();
+    }
+  }, [loginOneKeyId, navigation]);
+
+  const toReferFriendsPage = useCallback(async () => {
+    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+    if (isLogin) {
+      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+        screen: EModalReferFriendsRoutes.InviteReward,
+      });
+    } else {
+      navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+        screen: EModalReferFriendsRoutes.ReferAFriend,
+      });
+    }
+  }, [navigation]);
+  const bindInviteCode = useCallback(
+    (onSuccess?: () => void, onFail?: () => void) => {
+      Dialog.confirm({
+        showExitButton: false,
+        icon: 'InputOutline',
+        title: intl.formatMessage({
+          id: ETranslations.earn_referral_enter_invite_code_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.earn_referral_enter_invite_code_subtitle,
+        }),
+        renderContent: <InviteCode onSuccess={onSuccess} onFail={onFail} />,
+      });
+    },
+    [intl],
+  );
+
+  const changeInviteCode = useCallback(
+    (onSuccess?: () => void, onFail?: () => void) => {
+      Dialog.confirm({
+        showExitButton: false,
+        icon: 'InputOutline',
+        title: intl.formatMessage({
+          id: ETranslations.earn_referral_change_invite_code_title,
+        }),
+        description: intl.formatMessage({
+          id: ETranslations.earn_referral_enter_invite_code_note,
+        }),
+        renderContent: <InviteCode onSuccess={onSuccess} onFail={onFail} />,
+      });
+    },
+    [intl],
+  );
+
+  const { copyText } = useClipboard();
+
+  const shareReferRewards = useCallback(
+    async (onSuccess?: () => void, onFail?: () => void) => {
+      const isBindInviteCode =
+        await backgroundApiProxy.serviceReferralCode.isBindInviteCode();
+      const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+      const myReferralCode =
+        (await backgroundApiProxy.serviceReferralCode.getMyReferralCode()) ||
+        'TEST_CODE';
+
+      const handleConfirm = () => {
+        if (isLogin) {
+          navigation.pushModal(EModalRoutes.ReferFriendsModal, {
+            screen: EModalReferFriendsRoutes.ReferAFriend,
+          });
+        } else {
+          void loginOneKeyId();
+        }
+      };
+      const sharedUrl = `https://onekey.so/r/${myReferralCode}`;
+      Dialog.show({
+        icon: 'GiftOutline',
+        title: 'Referral and earn more!',
+        description:
+          'Invite friends to deposit in Supported Vaults and earn more rewards.',
+        renderContent: isLogin ? (
+          <YStack gap="$5">
+            <YStack gap="$2">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({
+                  id: ETranslations.earn_referral_your_referral_link,
+                })}
+              </SizableText>
+              <XStack
+                borderColor="rgba(0, 0, 0, 0.13)"
+                bg="$bgDisabled"
+                px="$3"
+                py="$1.5"
+                borderWidth={StyleSheet.hairlineWidth}
+                jc="space-between"
+                ai="center"
+                borderRadius="$2.5"
+              >
+                <SizableText size="$bodyLg" flexShrink={1}>
+                  {`onekey.so/r/${myReferralCode}`}
+                </SizableText>
+                <XStack ai="center" gap="$2.5">
+                  <IconButton
+                    title={intl.formatMessage({
+                      id: ETranslations.global_copy,
+                    })}
+                    variant="tertiary"
+                    icon="Copy3Outline"
+                    size="large"
+                    iconColor="$iconSubdued"
+                    onPress={() => copyText(myReferralCode)}
+                  />
+                  {platformEnv.isNative ? (
+                    <IconButton
+                      title={intl.formatMessage({
+                        id: ETranslations.global_copy,
+                      })}
+                      variant="tertiary"
+                      icon="ShareOutline"
+                      size="large"
+                      iconColor="$iconSubdued"
+                      onPress={() => {
+                        setTimeout(() => {
+                          void Share.share(
+                            platformEnv.isNativeIOS
+                              ? {
+                                  url: sharedUrl,
+                                }
+                              : {
+                                  message: sharedUrl,
+                                },
+                          );
+                        }, 300);
+                      }}
+                    />
+                  ) : null}
+                </XStack>
+              </XStack>
+            </YStack>
+            <YStack gap="$1">
+              <SizableText size="$bodyMdMedium">
+                {intl.formatMessage({ id: ETranslations.referral_your_code })}
+              </SizableText>
+              <XStack gap="$3" ai="center">
+                <SizableText size="$headingXl">{myReferralCode}</SizableText>
+                <IconButton
+                  title={intl.formatMessage({ id: ETranslations.global_copy })}
+                  variant="tertiary"
+                  icon="Copy3Outline"
+                  size="small"
+                  iconColor="$iconSubdued"
+                  onPress={() => copyText(myReferralCode)}
+                />
+              </XStack>
+            </YStack>
+          </YStack>
+        ) : (
+          <YStack gap="$5">
+            <XStack gap="$4">
+              <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgSuccess">
+                <Icon name="PeopleOutline" color="$iconSuccess" size={20} />
+              </XStack>
+              <YStack>
+                <SizableText size="$headingMd">For You</SizableText>
+                <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.earn_referral_for_you_reward,
+                  })}
+                </SizableText>
+              </YStack>
+            </XStack>
+            <XStack gap="$4">
+              <XStack h={42} w={42} p={9} borderRadius={13} bg="$bgInfo">
+                <Icon name="PeopleLikeOutline" color="$iconInfo" size={20} />
+              </XStack>
+              <YStack>
+                <SizableText size="$headingMd">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_intro_for_your_friend,
+                  })}
+                </SizableText>
+                <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
+                  Get yield boost
+                </SizableText>
+              </YStack>
+            </XStack>
+          </YStack>
+        ),
+        showCancelButton: !isBindInviteCode,
+        dismissOnOverlayPress: !isBindInviteCode,
+        onCancelText: 'Add invite code',
+        onCancel: () => {
+          if (!isBindInviteCode) {
+            bindInviteCode(onSuccess, onFail);
+          }
+        },
+        onConfirmText: isLogin ? 'View rewards' : 'Join',
+        onConfirm: handleConfirm,
+      });
+    },
+    [bindInviteCode, copyText, intl, loginOneKeyId, navigation],
+  );
+
+  const bindOrChangeInviteCode = useCallback(
+    async (onSuccess?: () => void, onFail?: () => void) => {
+      const isBindInviteCode =
+        await backgroundApiProxy.serviceReferralCode.isBindInviteCode();
+      if (isBindInviteCode) {
+        changeInviteCode(onSuccess, onFail);
+      } else {
+        void shareReferRewards(onSuccess, onFail);
+      }
+    },
+    [changeInviteCode, shareReferRewards],
+  );
+
+  return useMemo(
+    () => ({
+      toReferFriendsPage,
+      bindInviteCode,
+      shareReferRewards,
+      bindOrChangeInviteCode,
+      toInviteRewardPage,
+    }),
+    [
+      toReferFriendsPage,
+      bindInviteCode,
+      shareReferRewards,
+      bindOrChangeInviteCode,
+      toInviteRewardPage,
+    ],
+  );
+};
