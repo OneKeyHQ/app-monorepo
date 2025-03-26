@@ -55,6 +55,14 @@ export enum ESwapQuoteKind {
   BUY = 'buy',
 }
 
+export enum ESwapSource {
+  WALLET_TAB = 'wallet_tab',
+  WALLET_HOME = 'wallet_home',
+  TOKEN_DETAIL = 'token_detail',
+  EARN = 'earn',
+  MARKET = 'market',
+}
+
 export enum ETokenRiskLevel {
   UNKNOWN = 0,
   BENIGN = 1,
