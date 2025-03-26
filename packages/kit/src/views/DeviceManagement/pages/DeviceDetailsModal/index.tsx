@@ -114,6 +114,7 @@ function DeviceDetailsModalCmp() {
       onContinue: async ({ checked }) => {
         console.log(checked);
       },
+      onClose: async () => {},
     });
   }, [result?.device, showFirmwareVerifyDialog]);
 
