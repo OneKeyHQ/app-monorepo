@@ -25,6 +25,7 @@ import {
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFiatCryptoRoutes,
@@ -37,7 +38,6 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { RawActions } from './RawActions';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function WalletActionMore() {
   const [devSettings] = useDevSettingsPersistAtom();

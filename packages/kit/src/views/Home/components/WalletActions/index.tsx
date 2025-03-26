@@ -14,6 +14,7 @@ import {
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -26,14 +27,13 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
 import { WalletActionBuy } from './WalletActionBuy';
 import { WalletActionMore } from './WalletActionMore';
 import { WalletActionReceive } from './WalletActionReceive';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 function WalletActionSend() {
   const navigation =

@@ -6,6 +6,7 @@ import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accoun
 import { useAllTokenListMapAtom } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { useFiatCrypto } from '@onekeyhq/kit/src/views/FiatCrypto/hooks';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalFiatCryptoRoutes,
@@ -17,7 +18,6 @@ import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
 import { RawActions } from './RawActions';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function WalletActionBuy() {
   const {

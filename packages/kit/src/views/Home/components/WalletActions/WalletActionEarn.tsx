@@ -3,10 +3,10 @@ import { useCallback } from 'react';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { RawActions } from './RawActions';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function WalletActionEarn(props: {
   accountId: string;

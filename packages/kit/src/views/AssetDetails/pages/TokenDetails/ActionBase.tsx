@@ -4,13 +4,13 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ActionItem } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { useSupportToken } from '../../../FiatCrypto/hooks';
 
 import type { IActionBaseProps } from './type';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export const ActionBase = ({
   networkId,

@@ -8,9 +8,9 @@ import {
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { RawActions } from './RawActions';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 function WalletActionReceive() {
   const {

@@ -10,6 +10,7 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
+import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -17,7 +18,6 @@ import useAppNavigation from '../../../hooks/useAppNavigation';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 import ActionBuy from '../../AssetDetails/pages/TokenDetails/ActionBuy';
 import { HomeTokenListProviderMirror } from '../../Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
 
 function BasicTradeOrBuy({
   token,

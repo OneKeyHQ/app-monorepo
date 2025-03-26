@@ -28,6 +28,7 @@ import { RawActions } from '@onekeyhq/kit/src/views/Home/components/WalletAction
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import {
   EModalRoutes,
   EModalSignatureConfirmRoutes,
@@ -46,7 +47,6 @@ import { WalletActionEarn } from '../../../Home/components/WalletActions/WalletA
 import ActionBuy from './ActionBuy';
 import ActionSell from './ActionSell';
 import { useTokenDetailsContext } from './TokenDetailsContext';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 function TokenDetailsHeader(props: IProps) {
   const {
