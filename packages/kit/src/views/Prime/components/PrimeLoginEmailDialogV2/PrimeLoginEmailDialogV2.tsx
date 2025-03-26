@@ -14,8 +14,10 @@ import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 export function PrimeLoginEmailDialogV2(props: {
   onComplete: () => void;
   onLoginSuccess?: () => void;
+  title?: string;
+  description?: string;
 }) {
-  const { onComplete, onLoginSuccess } = props;
+  const { onComplete, onLoginSuccess, title, description } = props;
 
   const { getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
