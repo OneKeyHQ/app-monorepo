@@ -8,12 +8,18 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
-  const { onComplete } = props;
-  const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
+export function PrimeLoginEmailDialogV2(props: {
+  onComplete: () => void;
+  onLoginSuccess?: () => void;
+  title?: string;
+  description?: string;
+}) {
+  const { onComplete, onLoginSuccess, title, description } = props;
+
+  const { getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
       const token = await getAccessToken();
@@ -50,6 +56,7 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
               email={data.email}
               onLoginSuccess={() => {
                 void dialog.close();
+                onLoginSuccess?.();
               }}
             />
           ),
@@ -71,21 +78,23 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
         throw error;
       }
     },
-    [form, loginWithCode, onComplete, sendCode],
+    [form, loginWithCode, onComplete, onLoginSuccess, sendCode],
   );
 
   return (
     <Stack>
       <Dialog.Icon icon="EmailOutline" />
       <Dialog.Title>
-        {intl.formatMessage({
-          id: ETranslations.prime_signup_login,
-        })}
+        {title ||
+          intl.formatMessage({
+            id: ETranslations.prime_signup_login,
+          })}
       </Dialog.Title>
       <Dialog.Description>
-        {intl.formatMessage({
-          id: ETranslations.prime_onekeyid_continue_description,
-        })}
+        {description ||
+          intl.formatMessage({
+            id: ETranslations.prime_onekeyid_continue_description,
+          })}
       </Dialog.Description>
       <Stack pt="$4">
         <Form form={form}>
