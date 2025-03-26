@@ -294,6 +294,7 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                source="tokenDetails"
               />
             </ReviewControl>
 
@@ -311,6 +312,7 @@ function TokenDetailsHeader(props: IProps) {
                 accountId={accountId}
                 walletType={wallet?.type}
                 tokenAddress={tokenInfo.address}
+                source="tokenDetails"
               />
             </ReviewControl>
             <RawActions.Send onPress={handleSendPress} />

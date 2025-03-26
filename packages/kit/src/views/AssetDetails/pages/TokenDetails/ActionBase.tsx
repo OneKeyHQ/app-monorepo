@@ -22,6 +22,7 @@ export const ActionBase = ({
   walletType,
   disabled,
   hiddenIfDisabled,
+  source,
   ...rest
 }: IActionBaseProps) => {
   const [loading, setLoading] = useState(false);
@@ -50,13 +51,13 @@ export const ActionBase = ({
       defaultLogger.wallet.walletActions.actionBuy({
         walletType: walletType ?? '',
         networkId: networkId ?? '',
-        source: 'tokenDetails',
+        source,
       });
     } else if (type === 'sell') {
       defaultLogger.wallet.walletActions.actionSell({
         walletType: walletType ?? '',
         networkId: networkId ?? '',
-        source: 'tokenDetails',
+        source,
       });
     }
 
@@ -76,7 +77,7 @@ export const ActionBase = ({
     } finally {
       setLoading(false);
     }
-  }, [type, walletType, networkId, tokenAddress, accountId]);
+  }, [type, walletType, networkId, tokenAddress, accountId, source]);
   if (hiddenIfDisabled && isDisabled) {
     return null;
   }
