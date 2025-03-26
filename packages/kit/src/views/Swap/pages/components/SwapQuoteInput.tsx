@@ -190,8 +190,10 @@ const SwapQuoteInput = ({
         <IconButton
           alignSelf="center"
           bg="$bgSubdued"
-          icon="SwitchVerOutline"
-          iconColor="$iconSubdued"
+          icon="SwapVerOutline"
+          iconProps={{
+            color: '$icon',
+          }}
           size="medium"
           disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}

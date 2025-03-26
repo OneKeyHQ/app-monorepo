@@ -121,7 +121,7 @@ function ActionSwap(props: IActionItemsProps) {
   return (
     <ActionItem
       label={intl.formatMessage({ id: ETranslations.global_swap })}
-      icon="SwitchHorOutline"
+      icon="SwapHorOutline"
       {...props}
     />
   );

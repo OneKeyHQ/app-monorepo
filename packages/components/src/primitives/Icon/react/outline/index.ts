@@ -714,6 +714,8 @@ export { default as Sun } from './Sun';
 export { default as Sunrise } from './Sunrise';
 export { default as Sunset } from './Sunset';
 export { default as SuqarePlaceholder } from './SuqarePlaceholder';
+export { default as SwapHor } from './SwapHor';
+export { default as SwapVer } from './SwapVer';
 export { default as SwitchHor } from './SwitchHor';
 export { default as SwitchVer } from './SwitchVer';
 export { default as Switch } from './Switch';
