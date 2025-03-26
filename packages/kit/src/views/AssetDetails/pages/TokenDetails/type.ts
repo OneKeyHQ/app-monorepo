@@ -10,6 +10,7 @@ export type IActionProps = PropsWithChildren<{
   tokenAddress: string;
   accountId: string;
   walletType: string | undefined;
+  source: 'homePage' | 'tokenDetails' | 'earn' | 'swap';
 }> &
   Partial<IActionItemsProps>;
 
@@ -22,5 +23,6 @@ export type IActionBaseProps = PropsWithChildren<{
   icon: IKeyOfIcons;
   walletType: string | undefined;
   hiddenIfDisabled?: boolean;
+  source: 'homePage' | 'tokenDetails' | 'earn' | 'swap';
 }> &
   Partial<IActionItemsProps>;
