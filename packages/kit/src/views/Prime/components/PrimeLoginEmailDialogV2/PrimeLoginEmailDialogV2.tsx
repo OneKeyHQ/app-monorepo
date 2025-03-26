@@ -11,8 +11,11 @@ import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
-  const { onComplete } = props;
+export function PrimeLoginEmailDialogV2(props: {
+  onComplete: () => void;
+  onLoginSuccess?: () => void;
+}) {
+  const { onComplete, onLoginSuccess } = props;
 
   const { getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
