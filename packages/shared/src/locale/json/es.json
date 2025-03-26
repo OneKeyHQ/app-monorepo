@@ -1428,6 +1428,7 @@
   "limit.cancel_order_content": "¿Está seguro de que desea cancelar el pedido {orderID}",
   "limit.cancel_order_off_chain_tip": "Esta es una cancelación <underline>fuera de la cadena</underline>. Requiere una firma y es gratuita.",
   "limit.cancel_order_title": "Cancelar pedido",
+  "limit.enter_price": "Ingrese un precio",
   "limit.est_fee": "Cuota est.",
   "limit.est_to": "Estimado a",
   "limit.fill_at": "Rellena en",

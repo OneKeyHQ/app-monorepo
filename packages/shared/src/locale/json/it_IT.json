@@ -1428,6 +1428,7 @@
   "limit.cancel_order_content": "Sei sicuro di voler annullare l'ordine {orderID}",
   "limit.cancel_order_off_chain_tip": "Questa è una cancellazione <underline>off-chain</underline>. Richiede una firma ed è gratuita.",
   "limit.cancel_order_title": "Annulla ordine",
+  "limit.enter_price": "Inserisci un prezzo",
   "limit.est_fee": "Tariffa stimata",
   "limit.est_to": "Previsto per",
   "limit.fill_at": "Riempi a",

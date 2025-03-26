@@ -1433,6 +1433,7 @@
   limit_cancel_order_content = 'limit.cancel_order_content',
   limit_cancel_order_off_chain_tip = 'limit.cancel_order_off_chain_tip',
   limit_cancel_order_title = 'limit.cancel_order_title',
+  limit_enter_price = 'limit.enter_price',
   limit_est_fee = 'limit.est_fee',
   limit_est_to = 'limit.est_to',
   limit_fill_at = 'limit.fill_at',

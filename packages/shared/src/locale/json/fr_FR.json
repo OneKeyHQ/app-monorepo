@@ -1428,6 +1428,7 @@
   "limit.cancel_order_content": "Êtes-vous sûr de vouloir annuler la commande {orderID}",
   "limit.cancel_order_off_chain_tip": "Ceci est une annulation <underline>hors chaîne</underline>. Elle nécessite une signature et est gratuite.",
   "limit.cancel_order_title": "Annuler la commande",
+  "limit.enter_price": "Entrez un prix",
   "limit.est_fee": "Frais estimés",
   "limit.est_to": "Est. à",
   "limit.fill_at": "Remplit à",

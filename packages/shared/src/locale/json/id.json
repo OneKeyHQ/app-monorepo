@@ -1428,6 +1428,7 @@
   "limit.cancel_order_content": "Apakah Anda yakin ingin membatalkan pesanan {orderID}",
   "limit.cancel_order_off_chain_tip": "Ini adalah pembatalan <underline>off-chain</underline>. Ini memerlukan tanda tangan dan gratis.",
   "limit.cancel_order_title": "Batalkan pesanan",
+  "limit.enter_price": "Masukkan harga",
   "limit.est_fee": "Perkiraan biaya",
   "limit.est_to": "Est. sampai",
   "limit.fill_at": "Mengisi di",

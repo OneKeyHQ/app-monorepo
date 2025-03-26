@@ -1428,6 +1428,7 @@
   "limit.cancel_order_content": "Are you sure you want to cancel order {orderID}",
   "limit.cancel_order_off_chain_tip": "This is an <underline>off-chain</underline> cancellation. It requires a signature and are free.",
   "limit.cancel_order_title": "Cancel order",
+  "limit.enter_price": "Enter a price",
   "limit.est_fee": "Est. fee",
   "limit.est_to": "Est. to",
   "limit.fill_at": "Fills at",

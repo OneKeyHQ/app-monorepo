@@ -1428,6 +1428,7 @@
   "limit.cancel_order_content": "주문 {orderID}을(를) 취소하시겠습니까?",
   "limit.cancel_order_off_chain_tip": "이것은 <underline>오프체인</underline> 취소입니다. 서명이 필요하며 무료입니다.",
   "limit.cancel_order_title": "주문 취소",
+  "limit.enter_price": "가격을 입력하세요",
   "limit.est_fee": "예상 수수료",
   "limit.est_to": "추정",
   "limit.fill_at": "채우기 위치",

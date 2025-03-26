@@ -1428,6 +1428,7 @@
   "limit.cancel_order_content": "Bạn có chắc chắn muốn hủy đơn hàng {orderID} không",
   "limit.cancel_order_off_chain_tip": "Đây là một thao tác hủy <underline>ngoài chuỗi</underline>. Nó yêu cầu chữ ký và không mất phí.",
   "limit.cancel_order_title": "Hủy đơn hàng",
+  "limit.enter_price": "Nhập giá",
   "limit.est_fee": "Phí ước tính",
   "limit.est_to": "Ước tính đến",
   "limit.fill_at": "Lấp đầy tại",

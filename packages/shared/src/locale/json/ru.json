@@ -1428,6 +1428,7 @@
   "limit.cancel_order_content": "Вы уверены, что хотите отменить заказ {orderID}",
   "limit.cancel_order_off_chain_tip": "Это <underline>внецепочная</underline> отмена. Она требует подписи и не требует платы за сеть.",
   "limit.cancel_order_title": "Отменить заказ",
+  "limit.enter_price": "Введите цену",
   "limit.est_fee": "Ориентировочная плата",
   "limit.est_to": "Приблиз. к",
   "limit.fill_at": "Заполняет в",
