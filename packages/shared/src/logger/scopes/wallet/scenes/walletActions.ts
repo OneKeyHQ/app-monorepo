@@ -34,7 +34,7 @@ export class WalletActionsScene extends BaseScene {
   }
 
   @LogToServer()
-  public actionStake(params: IWalletActionBaseParams) {
+  public actionEarn(params: IWalletActionBaseParams) {
     return params;
   }
 

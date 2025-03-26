@@ -6,14 +6,24 @@ import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 
 import { RawActions } from './RawActions';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export function WalletActionEarn(props: {
   accountId: string;
   tokenAddress: string;
   networkId: string;
   indexedAccountId: string | undefined;
+  walletType: string | undefined;
+  source: 'homePage' | 'tokenDetails';
 }) {
-  const { accountId, tokenAddress, networkId, indexedAccountId } = props;
+  const {
+    accountId,
+    tokenAddress,
+    networkId,
+    indexedAccountId,
+    walletType,
+    source,
+  } = props;
 
   const navigation = useAppNavigation();
 
@@ -46,6 +56,12 @@ export function WalletActionEarn(props: {
       return;
     }
 
+    defaultLogger.wallet.walletActions.actionEarn({
+      walletType: walletType ?? '',
+      networkId,
+      source,
+    });
+
     navigation.pushModal(EModalRoutes.StakingModal, {
       screen: EModalStakingRoutes.AssetProtocolList,
       params: { networkId, accountId, symbol, indexedAccountId, filter: true },
@@ -54,8 +70,10 @@ export function WalletActionEarn(props: {
     result?.symbolInfo?.symbol,
     networkId,
     accountId,
-    indexedAccountId,
+    walletType,
+    source,
     navigation,
+    indexedAccountId,
   ]);
 
   return (

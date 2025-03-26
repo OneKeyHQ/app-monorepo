@@ -10,6 +10,7 @@ import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { useSupportToken } from '../../../FiatCrypto/hooks';
 
 import type { IActionBaseProps } from './type';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 export const ActionBase = ({
   networkId,
@@ -44,6 +45,21 @@ export const ActionBase = ({
 
   const handlePress = useCallback(async () => {
     setLoading(true);
+
+    if (type === 'buy') {
+      defaultLogger.wallet.walletActions.actionBuy({
+        walletType: walletType ?? '',
+        networkId: networkId ?? '',
+        source: 'tokenDetails',
+      });
+    } else if (type === 'sell') {
+      defaultLogger.wallet.walletActions.actionSell({
+        walletType: walletType ?? '',
+        networkId: networkId ?? '',
+        source: 'tokenDetails',
+      });
+    }
+
     try {
       const { url } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
@@ -60,7 +76,7 @@ export const ActionBase = ({
     } finally {
       setLoading(false);
     }
-  }, [networkId, tokenAddress, type, accountId]);
+  }, [type, walletType, networkId, tokenAddress, accountId]);
   if (hiddenIfDisabled && isDisabled) {
     return null;
   }
