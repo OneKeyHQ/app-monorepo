@@ -131,9 +131,6 @@ export const useReferFriends = () => {
         title: intl.formatMessage({
           id: ETranslations.earn_referral_change_invite_code_title,
         }),
-        description: intl.formatMessage({
-          id: ETranslations.earn_referral_enter_invite_code_note,
-        }),
         renderContent: <InviteCode onSuccess={onSuccess} onFail={onFail} />,
       });
     },
