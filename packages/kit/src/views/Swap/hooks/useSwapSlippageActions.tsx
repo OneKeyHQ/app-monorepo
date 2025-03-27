@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useMemo, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -6,12 +6,18 @@ import type { IDialogInstance } from '@onekeyhq/components';
 import { Dialog } from '@onekeyhq/components';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { mevSwapNetworks } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapSlippageSegmentKey,
+} from '@onekeyhq/shared/types/swap/types';
 
 import { useSwapSlippageDialogOpeningAtom } from '../../../states/jotai/contexts/swap';
 import SwapSlippageContentContainer from '../pages/components/SwapSlippageContentContainer';
 
+import { useSwapAddressInfo } from './useSwapAccount';
 import { useSwapSlippagePercentageModeInfo } from './useSwapState';
 
 export function useSwapSlippageActions() {
@@ -19,6 +25,20 @@ export function useSwapSlippageActions() {
   const { slippageItem, autoValue } = useSwapSlippagePercentageModeInfo();
   const [, setSwapSlippageDialogOpening] = useSwapSlippageDialogOpeningAtom();
   const [, setSettings] = useSettingsAtom();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const isMEV = useMemo(() => {
+    return (
+      !accountUtils.isExternalWallet({
+        walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+      }) &&
+      mevSwapNetworks.includes(
+        swapFromAddressInfo.accountInfo?.network?.id ?? '',
+      )
+    );
+  }, [
+    swapFromAddressInfo.accountInfo?.wallet?.id,
+    swapFromAddressInfo.accountInfo?.network?.id,
+  ]);
   const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   const slippageOnSave = useCallback(
     (item: ISwapSlippageSegmentItem, close: IDialogInstance['close']) => {
@@ -42,6 +62,7 @@ export function useSwapSlippageActions() {
           swapSlippage={slippageItem}
           autoValue={autoValue}
           onSave={slippageOnSave}
+          isMEV={isMEV}
         />
       ),
       onOpen: () => {
@@ -54,6 +75,7 @@ export function useSwapSlippageActions() {
   }, [
     autoValue,
     intl,
+    isMEV,
     setSwapSlippageDialogOpening,
     slippageItem,
     slippageOnSave,
