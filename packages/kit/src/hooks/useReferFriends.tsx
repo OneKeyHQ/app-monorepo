@@ -48,6 +48,7 @@ function InviteCode({
   return (
     <YStack>
       <OTPInput
+        type="alphanumeric"
         autoFocus
         status="normal"
         numberOfDigits={NUMBER_OF_DIGITS}
@@ -57,6 +58,7 @@ function InviteCode({
             value
               .slice(0, 6)
               .replace(/[^A-Za-z0-9]/g, '')
+              .replace(/\s/g, '')
               .toUpperCase(),
           );
         }}
