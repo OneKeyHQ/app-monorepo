@@ -40,6 +40,7 @@ const HardwareBridgeListItems = () => {
       >
         <ListItem.IconButton
           disabled
+          pointerEvents="none"
           icon="ArrowTopRightOutline"
           iconProps={{
             color: '$iconActive',
@@ -226,9 +227,9 @@ export const AdvancedSection = () => {
       {platformEnv.isExtension || platformEnv.isWeb ? (
         <HardwareTransportTypeListItem />
       ) : null}
-      {platformEnv.isExtension || platformEnv.isWeb ? (
-        <HardwareBridgeListItems />
-      ) : null}
+      {/* {platformEnv.isExtension || platformEnv.isWeb ? ( */}
+      <HardwareBridgeListItems />
+      {/* ) : null} */}
     </Section>
   );
 };
