@@ -41,11 +41,11 @@ In the same manner as the [Ethereum Bug Bounty Program](https://bounty.ethereum.
 It is at the *sole discretion of OneKey* to decide whether or not a bug report qualifies for a bounty, and to determine the severity of the issue
 
 
-* *P0*: $5,000 USD
-* *P1*: $2,500 USD
-* *P2*: $1,000 USD
-* *P3*: $500 USD
-* *P4*: $250 USD
+* *P0*: $10,000 USD
+* *P1*: $5,000 USD
+* *P2*: $2,000 USD
+* *P3*: $1000 USD
+* *P4*: $500 USD
 
 
 ### Severity levels based on

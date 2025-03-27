@@ -29,6 +29,7 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
@@ -774,6 +775,20 @@ export function ApproveBaseStake({
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
+  const { bindOrChangeInviteCode } = useReferFriends();
+
+  const { result: inviteCode, run: refetchInviteCode } = usePromiseResult(
+    async () => backgroundApiProxy.serviceReferralCode.getInviteCode(),
+    [],
+    {
+      initResult: '',
+    },
+  );
+
+  const handleBindOrChangeInviteCode = useCallback(() => {
+    void bindOrChangeInviteCode(refetchInviteCode);
+  }, [bindOrChangeInviteCode, refetchInviteCode]);
+
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
     if (Number(amountValue) <= 0) {
@@ -826,18 +841,38 @@ export function ApproveBaseStake({
         />,
       );
     }
+
+    items.push(
+      <CalculationListItem onPress={handleBindOrChangeInviteCode}>
+        <CalculationListItem.Label size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.referral_your_code,
+          })}
+        </CalculationListItem.Label>
+        <XStack alignItems="center" cursor="pointer" mr={-6}>
+          <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        </XStack>
+      </CalculationListItem>,
+    );
     return items;
   }, [
     amountValue,
-    daysSpent,
-    estReceiveToken,
-    estReceiveTokenRate,
-    estimateFeeResp,
-    intl,
     showEstReceive,
-    showEstimateGasAlert,
-    totalAnnualRewardsFiatValue,
+    estReceiveToken,
+    estimateFeeResp,
     usePermit2Approve,
+    handleBindOrChangeInviteCode,
+    intl,
+    inviteCode,
+    estReceiveTokenRate,
+    totalAnnualRewardsFiatValue,
+    showEstimateGasAlert,
+    daysSpent,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (

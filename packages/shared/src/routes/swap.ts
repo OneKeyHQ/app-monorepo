@@ -3,6 +3,7 @@ import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type {
   EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapSource,
   ESwapTabSwitchType,
   IFetchLimitOrderRes,
   ISwapNetwork,
@@ -30,6 +31,7 @@ export type IModalSwapParamList = {
     importNetworkId?: string;
     swapTabSwitchType?: ESwapTabSwitchType;
     importDeriveType?: IAccountDeriveTypes;
+    swapSource?: ESwapSource;
   };
   [EModalSwapRoutes.SwapTokenSelect]: {
     type: ESwapDirectionType;
