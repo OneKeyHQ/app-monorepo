@@ -78,12 +78,12 @@ function ChangeLogSection({
       <Accordion.Trigger
         unstyled
         alignItems="center"
-        alignSelf="flex-start"
+        alignSelf="stretch"
         flexDirection="row"
         justifyContent="space-between"
-        w="100%"
         px="$5"
         py="$0"
+        borderRadius="$1"
         borderWidth={0}
         bg="$transparent"
         hoverStyle={{
@@ -113,6 +113,7 @@ function ChangeLogSection({
                 <FirmwareVersionProgressText
                   fromVersion={updateInfo?.fromVersion}
                   toVersion={updateInfo?.toVersion}
+                  githubReleaseUrl={updateInfo?.githubReleaseUrl}
                   active={open}
                 />
               </XStack>

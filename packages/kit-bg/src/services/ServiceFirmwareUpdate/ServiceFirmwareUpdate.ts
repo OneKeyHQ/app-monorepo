@@ -37,6 +37,7 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
+  IAllDeviceVerifyVersions,
   IBleFirmwareReleasePayload,
   IBleFirmwareUpdateInfo,
   IBootloaderReleasePayload,
@@ -403,6 +404,36 @@ class ServiceFirmwareUpdate extends ServiceBase {
       await this.detectMap.deleteUpdateInfo({
         connectId: originalConnectId,
       });
+    }
+
+    let serverVersionInfos: IAllDeviceVerifyVersions | undefined;
+    const defaultVersion = '0.0.0';
+    const versionInfosFromBackend =
+      await this.backgroundApi.serviceHardware.hardwareVerifyManager.fetchFirmwareVerifyHash(
+        {
+          deviceType,
+          firmwareVersion: firmware?.hasUpgrade
+            ? firmware.toVersion
+            : defaultVersion,
+          bluetoothVersion: ble?.hasUpgrade ? ble.toVersion : defaultVersion,
+          bootloaderVersion: bootloader?.hasUpgrade
+            ? bootloader.toVersion
+            : defaultVersion,
+        },
+      );
+    if (Array.isArray(versionInfosFromBackend)) {
+      serverVersionInfos = deviceUtils.parseServerVersionInfos({
+        serverVerifyInfos: versionInfosFromBackend,
+      });
+      if (firmware?.hasUpgrade && serverVersionInfos.firmware.releaseUrl) {
+        firmware.githubReleaseUrl = serverVersionInfos.firmware.releaseUrl;
+      }
+      if (ble?.hasUpgrade && serverVersionInfos.bluetooth.releaseUrl) {
+        ble.githubReleaseUrl = serverVersionInfos.bluetooth.releaseUrl;
+      }
+      if (bootloader?.hasUpgrade && serverVersionInfos.bootloader.releaseUrl) {
+        bootloader.githubReleaseUrl = serverVersionInfos.bootloader.releaseUrl;
+      }
     }
 
     return {

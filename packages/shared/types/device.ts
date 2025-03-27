@@ -80,6 +80,7 @@ type IFirmwareUpdateInfoBase<T> = {
   toVersion: string;
   changelog: IFirmwareChangeLog | undefined;
   releasePayload: T;
+  githubReleaseUrl?: string;
 };
 export type IFirmwareUpdateInfo =
   IFirmwareUpdateInfoBase<IFirmwareReleasePayload>;

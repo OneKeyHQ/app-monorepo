@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import semver from 'semver';
 
-import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
+import { Anchor, Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function FirmwareVersionProgressBar({
@@ -45,10 +45,12 @@ export function FirmwareVersionProgressBar({
 export function FirmwareVersionProgressText({
   fromVersion = '',
   toVersion = '',
+  githubReleaseUrl = '',
   active,
 }: {
   fromVersion?: string;
   toVersion?: string;
+  githubReleaseUrl?: string;
   active: boolean;
 }) {
   const intl = useIntl();
@@ -76,12 +78,27 @@ export function FirmwareVersionProgressText({
         {versionValid(fromVersion) ? fromVersion : unknownMessage}
       </SizableText>
       <Icon name="ArrowRightSolid" size="$4" color="$text" />
-      <SizableText
-        size="$bodyLgMedium"
-        color={active ? '$text' : '$textSubdued'}
-      >
-        {toVersion?.length > 0 ? toVersion : unknownMessage}
-      </SizableText>
+      {githubReleaseUrl ? (
+        <Anchor
+          href={githubReleaseUrl}
+          color="$textSuccess"
+          size="$bodyLgMedium"
+          target="_blank"
+          textDecorationLine="underline"
+          onPress={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          {toVersion?.length > 0 ? toVersion : unknownMessage}
+        </Anchor>
+      ) : (
+        <SizableText
+          size="$bodyLgMedium"
+          color={active ? '$text' : '$textSubdued'}
+        >
+          {toVersion?.length > 0 ? toVersion : unknownMessage}
+        </SizableText>
+      )}
     </>
   );
 }
