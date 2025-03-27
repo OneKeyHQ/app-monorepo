@@ -6,6 +6,8 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EDiscoveryModalRoutes } from '@onekeyhq/shared/src/routes/discovery';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 
+import { useSearchPopoverFeatureFlag } from './useSearchPopoverFeatureFlag';
+
 const ITEM_HEIGHT = 48; // Height of each item in the search results
 
 interface IUseSearchPopoverProps {
@@ -29,6 +31,7 @@ export function useSearchPopover({
   displaySearchList,
   displayHistoryList,
 }: IUseSearchPopoverProps) {
+  const searchPopoverFeatureFlag = useSearchPopoverFeatureFlag();
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
 
@@ -116,12 +119,12 @@ export function useSearchPopover({
 
   const handleSearchBarPress = useCallback(() => {
     // only on mobile
-    if (!platformEnv.isDesktop && !platformEnv.isExtension) {
+    if (!searchPopoverFeatureFlag) {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
       });
     }
-  }, [navigation]);
+  }, [navigation, searchPopoverFeatureFlag]);
 
   return {
     handleSearchBarPress,
