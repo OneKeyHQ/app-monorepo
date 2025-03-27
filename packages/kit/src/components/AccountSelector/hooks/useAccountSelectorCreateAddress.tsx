@@ -179,7 +179,7 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
-          const { wallet: walletCreated } = await createQrWalletByAccount({
+          await createQrWalletByAccount({
             walletId: account.walletId,
             networkId: account.networkId,
             indexedAccountId: account.indexedAccountId,
