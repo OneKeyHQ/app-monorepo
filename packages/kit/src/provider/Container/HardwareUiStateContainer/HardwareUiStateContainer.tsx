@@ -241,6 +241,7 @@ function HardwareSingletonDialogCmp(
     connectId,
     defaultLoadingView,
     intl,
+    serviceAccount,
     serviceHardwareUI,
     state?.connectId,
     state?.payload,
