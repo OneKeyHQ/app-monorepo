@@ -2,7 +2,6 @@ import { useCallback, useEffect } from 'react';
 
 import { isEmpty } from 'lodash';
 
-import type { ITabPageProps } from '@onekeyhq/components';
 import type { ISimpleDBLocalTokens } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityLocalTokens';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import perfUtils, {
@@ -15,7 +14,7 @@ import { useAllNetworkRequests } from '../../../hooks/useAllNetwork';
 import { useAccountOverviewStateAtom } from '../../../states/jotai/contexts/accountOverview';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
 
-export function TokenListContainerPerfTest(props: ITabPageProps) {
+export function TokenListContainerPerfTest() {
   const {
     activeAccount: { account, network, wallet },
   } = useActiveAccount({ num: 0 });
