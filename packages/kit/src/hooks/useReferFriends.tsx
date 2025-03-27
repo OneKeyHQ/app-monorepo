@@ -14,6 +14,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -155,11 +156,18 @@ export const useReferFriends = () => {
         }
       };
       const sharedUrl = `https://onekey.so/r/${myReferralCode}`;
-      Dialog.show({
+      const dialog = Dialog.show({
         icon: 'GiftOutline',
-        title: 'Referral and earn more!',
-        description:
-          'Invite friends to deposit in Supported Vaults and earn more rewards.',
+        title: intl.formatMessage({ id: ETranslations.earn_referral_title }),
+        description: (
+          <HyperlinkText
+            size="$bodyMd"
+            translationId={ETranslations.earn_referral_subtitle}
+            onAction={() => {
+              void dialog.close();
+            }}
+          />
+        ),
         renderContent: isLogin ? (
           <YStack gap="$5">
             <YStack gap="$2">
