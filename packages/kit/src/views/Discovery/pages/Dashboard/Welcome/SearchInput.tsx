@@ -26,6 +26,7 @@ import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum
 import { SearchResultContent } from '../../../components/SearchResultContent';
 import { useSearchModalData } from '../../../hooks/useSearchModalData';
 import { useSearchPopover } from '../../../hooks/useSearchPopover';
+import { useSearchPopoverFeatureFlag } from '../../../hooks/useSearchPopoverFeatureFlag';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
@@ -34,6 +35,7 @@ import type { ISearchResultContentRef } from '../../../components/SearchResultCo
 import type { TextInput } from 'react-native';
 
 export function SearchInput() {
+  const searchPopoverFeatureFlag = useSearchPopoverFeatureFlag();
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
   const searchResultRef = useRef<ISearchResultContentRef>(null);
@@ -57,21 +59,23 @@ export function SearchInput() {
     handleSearchBarPress,
     isPopoverOpen,
     isPopoverVisible,
-    resetSelectedIndex,
     selectedIndex,
     setIsPopoverOpen,
   } = useSearchPopover({
     scrollViewRef,
     totalItems,
     searchValue,
+    refreshLocalData,
     onEnterPress: () => {
       if (searchResultRef.current) {
         searchResultRef.current.openSelectedItem();
         setIsPopoverOpen(false);
+
+        // clear search value when create new tab
+        setSearchValue('');
       }
     },
     onEscape: () => {
-      setIsPopoverOpen(false);
       inputRef.current?.blur();
     },
     displaySearchList: Boolean(displaySearchList),
@@ -86,18 +90,12 @@ export function SearchInput() {
     }
   }, []);
 
-  useEffect(() => {
-    if (isPopoverOpen) {
-      void refreshLocalData();
-    }
-  }, [refreshLocalData, isPopoverOpen]);
-
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
   }, []);
 
   useShortcuts(EShortcutEvents.NewTab, () => {
-    if (platformEnv.isDesktop || platformEnv.isExtension) {
+    if (searchPopoverFeatureFlag) {
       // focus on search input
       inputRef.current?.focus();
     } else {
@@ -135,7 +133,7 @@ export function SearchInput() {
         >
           <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 
-          {platformEnv.isDesktop || platformEnv.isExtension ? (
+          {searchPopoverFeatureFlag ? (
             <Input
               ref={inputRef}
               containerProps={{
@@ -172,7 +170,7 @@ export function SearchInput() {
             </Stack>
           )}
 
-          {platformEnv.isDesktop ? (
+          {searchPopoverFeatureFlag ? (
             <XStack gap="$1" pointerEvents="none">
               <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
               <KeyboardShortcutKey label="T" />

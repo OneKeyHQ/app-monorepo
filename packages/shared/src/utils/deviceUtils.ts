@@ -259,8 +259,11 @@ async function buildDeviceName({
 function buildDeviceBleName({
   features,
 }: {
-  features: IOneKeyDeviceFeatures;
+  features: IOneKeyDeviceFeatures | undefined;
 }): string | undefined {
+  if (!features) {
+    return undefined;
+  }
   return features.ble_name;
 }
 

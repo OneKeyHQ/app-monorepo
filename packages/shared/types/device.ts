@@ -252,6 +252,8 @@ export enum EFirmwareUpdateTipMessages {
 
   FirmwareEraseSuccess = 'FirmwareEraseSuccess',
 
+  SelectDeviceInBootloaderForWebDevice = 'SelectDeviceInBootloaderForWebDevice',
+
   // Touch & Pro only
   CheckLatestUiResource = 'CheckLatestUiResource',
   DownloadLatestUiResource = 'DownloadLatestUiResource',

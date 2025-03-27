@@ -66,16 +66,7 @@ const SwapSlippageTriggerContainer = ({
         mevSwapNetworks.includes(
           swapFromAddressInfo.accountInfo?.network?.id ?? '',
         ) ? (
-          <Badge gap="$1" badgeSize="sm" badgeType="success" h="$5">
-            <Icon
-              name="ShieldCheckDoneOutline"
-              color="$textSuccess"
-              size="$4"
-            />
-            <Badge.Text size="$bodySmMedium" color="$textSuccess">
-              MEV
-            </Badge.Text>
-          </Badge>
+          <Icon name="ShieldCheckDoneSolid" size="$4" color="$iconSuccess" />
         ) : null}
         <SizableText
           size="$bodyMdMedium"

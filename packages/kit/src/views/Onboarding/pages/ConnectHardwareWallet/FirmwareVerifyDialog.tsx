@@ -920,10 +920,12 @@ export function useFirmwareVerifyDialog() {
       device,
       features,
       onContinue,
+      onClose,
     }: {
       device: SearchDevice | IDBDevice;
       features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
+      onClose: () => Promise<void> | void;
     }) => {
       console.log('====> features: ', features);
       // use old features to quick check if need new version
@@ -956,6 +958,7 @@ export function useFirmwareVerifyDialog() {
           />
         ),
         async onClose() {
+          await onClose?.();
           if (device.connectId) {
             await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
               {
