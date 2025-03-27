@@ -18,6 +18,7 @@ const jsRules = {
   'react/jsx-props-no-spreading': 'off',
   'react/jsx-no-leaked-render': ['error', { 'validStrategies': ['ternary'] }],
   'react/no-unused-prop-types': 'off',
+  'arrow-body-style': 'off',
   'prefer-destructuring': 'off',
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-key': 'error',

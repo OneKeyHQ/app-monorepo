@@ -5,6 +5,7 @@ import { StyleSheet } from 'react-native';
 
 import {
   Button,
+  Icon,
   Image,
   SizableText,
   Stack,
@@ -42,11 +43,7 @@ export default function PromptWebDeviceAccessPage() {
       <Stack ai="center" width={337} gap="$5">
         {/* Logo */}
         <Stack mt="$5" alignSelf="flex-start">
-          <Image
-            source={require('@onekeyhq/kit/assets/logo-mark.svg')}
-            size="$7"
-            tintColor="white"
-          />
+          <Icon name="LogoCircularIllus" size="$7" color="$bgPrimary" />
         </Stack>
 
         <YStack gap="$2.5">

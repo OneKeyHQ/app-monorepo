@@ -49,6 +49,7 @@ import type ServicePrime from '../services/ServicePrime';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
+import type ServiceReferralCode from '../services/ServiceReferralCode';
 import type ServiceScanQRCode from '../services/ServiceScanQRCode';
 import type ServiceSend from '../services/ServiceSend';
 import type ServiceSetting from '../services/ServiceSetting';
@@ -254,6 +255,10 @@ class BackgroundApiProxy
   serviceSignatureConfirm = this._createProxyService(
     'serviceSignatureConfirm',
   ) as ServiceSignatureConfirm;
+
+  serviceReferralCode = this._createProxyService(
+    'serviceReferralCode',
+  ) as ServiceReferralCode;
 }
 
 export default BackgroundApiProxy;

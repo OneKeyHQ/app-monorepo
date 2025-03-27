@@ -58,6 +58,7 @@ export function Verification({ device }: { device?: IDBDevice | undefined }) {
           onContinue: async ({ checked }) => {
             console.log(checked);
           },
+          onClose: async () => {},
         });
         // setTimeout(async () => {
         //   // TODO: dialog.close().then(() => doDomeThing())

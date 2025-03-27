@@ -16,6 +16,7 @@ import type { ITabPageHeaderProp } from './type';
 export function TabPageHeader({
   sceneName,
   showHeaderRight,
+  showCustomHeaderRight,
 }: ITabPageHeaderProp) {
   useDebugComponentRemountLog({
     name: `web TabPageHeader:${sceneName}:${String(showHeaderRight)}`,
@@ -50,7 +51,7 @@ export function TabPageHeader({
       <Page.Header
         headerTitle={renderHeaderTitle}
         headerLeft={renderHeaderLeft}
-        headerRight={renderHeaderRight}
+        headerRight={showCustomHeaderRight || renderHeaderRight}
       />
     </>
   );

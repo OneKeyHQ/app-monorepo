@@ -22,6 +22,7 @@ import { ModalNotificationsRouter } from '../../views/Notifications/router';
 import { OnboardingRouter } from '../../views/Onboarding/router';
 import { PrimeRouter } from '../../views/Prime/router';
 import { ModalReceiveStack } from '../../views/Receive/router';
+import { ReferFriendsRouter } from '../../views/ReferFriends/router';
 import { ScanQrCodeModalRouter } from '../../views/ScanQrCode/router';
 import { ModalSendStack } from '../../views/Send/router';
 import { ShortcutsModalRouter } from '../../views/Shortcuts/router';
@@ -167,6 +168,10 @@ const router: IModalRootNavigatorConfig<EModalRoutes>[] = [
   {
     name: EModalRoutes.DeviceManagementModal,
     children: DeviceManagementStacks,
+  },
+  {
+    name: EModalRoutes.ReferFriendsModal,
+    children: ReferFriendsRouter,
   },
 ];
 

@@ -9,11 +9,11 @@ import {
   Stack,
   YStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
@@ -25,7 +25,6 @@ import type { ISubscriptionPeriod } from '../../hooks/usePrimePaymentTypes';
 export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
   const { onPurchase } = props;
   const intl = useIntl();
-  const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { user } = usePrimeAuthV2();
   const [selectedSubscriptionPeriod, setSelectedSubscriptionPeriod] =
     useState<ISubscriptionPeriod>('P1Y');
@@ -98,10 +97,9 @@ export const PrimePurchaseDialog = (props: { onPurchase: () => void }) => {
         // });
       }
     } finally {
-      await fetchPrimeUserInfo();
+      await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
     }
   }, [
-    fetchPrimeUserInfo,
     handleNativePurchase,
     intl,
     onPurchase,

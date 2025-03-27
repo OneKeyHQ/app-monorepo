@@ -62,6 +62,7 @@ function DAppAccountListInitFromHome({
               sceneNum: 0,
             },
             num, // TODO multiple account selector of wallet connect
+            withNetworkSync: true,
           });
         }
       } finally {

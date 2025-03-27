@@ -8,12 +8,7 @@ import {
   PRIVY_MOBILE_CLIENT_ID,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 
-import { usePrivyAuthSyncToAtom } from '../hooks/usePrivyAuthSyncToAtom';
-
-function PrivyAuthSyncToAtom() {
-  usePrivyAuthSyncToAtom();
-  return null;
-}
+import { PrimeGlobalEffect } from '../hooks/PrimeGlobalEffect';
 
 export function PrivyProvider({ children }: { children: React.ReactNode }) {
   const appId = PRIVY_APP_ID;
@@ -28,7 +23,7 @@ export function PrivyProvider({ children }: { children: React.ReactNode }) {
   return (
     <PrivyProviderBase appId={appId} clientId={clientId}>
       <PrivyElements />
-      <PrivyAuthSyncToAtom />
+      <PrimeGlobalEffect />
       {children}
     </PrivyProviderBase>
   );

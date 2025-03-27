@@ -24,7 +24,10 @@ import type {
   IMarketTokenDetail,
 } from '@onekeyhq/shared/types/market';
 import { getNetworkIdBySymbol } from '@onekeyhq/shared/types/market/marketProvider.constants';
-import { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
@@ -175,6 +178,8 @@ export const useMarketTradeActions = (token: IMarketTokenDetail | null) => {
       const navigateToSwapPage = (
         params: IModalSwapParamList[EModalSwapRoutes.SwapMainLand],
       ) => {
+        params.swapSource = ESwapSource.MARKET;
+
         if (mode === 'modal') {
           navigation.replace(EModalSwapRoutes.SwapMainLand, params);
         } else {

@@ -1,3 +1,4 @@
+import { Semaphore } from 'async-mutex';
 import { isString } from 'lodash';
 
 import { ensureSensitiveTextEncoded } from '@onekeyhq/core/src/secret';
@@ -65,11 +66,12 @@ class ServicePrime extends ServiceBase {
         const errorCode: number | undefined = (
           error as { data: { code: number } }
         )?.data?.code;
-        if ([90_002, 90_003].includes(errorCode)) {
+        // TODO 90_002 sdk refresh token required
+        // TODO 90_003 user login required
+        if ([90_002, 90_003, 90_008].includes(errorCode)) {
           appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
           throw new OneKeyErrorPrimeLoginInvalidToken();
         }
-
         if ([90_004].includes(errorCode)) {
           appEventBus.emit(EAppEventBusNames.PrimeExceedDeviceLimit, undefined);
           throw new OneKeyErrorPrimeLoginExceedDeviceLimit();
@@ -81,43 +83,86 @@ class ServicePrime extends ServiceBase {
     return this._primeAuthClient;
   }
 
+  loginMutex = new Semaphore(1);
+
   @backgroundMethod()
   async apiLogin({ accessToken }: { accessToken: string }) {
-    if (accessToken) {
-      await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken || '');
-    }
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
-    if (!authToken) {
-      return;
-    }
-    const client = await this.getPrimeClient();
-    await client.post('/prime/v1/user/login');
+    await this.loginMutex.runExclusive(async () => {
+      if (!accessToken) {
+        return;
+      }
+      // clear simpleDb authToken first, use custom header instead
+      await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+      const client = await this.getPrimeClient();
+      try {
+        await client.post(
+          '/prime/v1/user/login',
+          {},
+          {
+            headers: {
+              'X-Onekey-Request-Token': `${accessToken}`,
+            },
+          },
+        );
+        // only save authToken if api login success
+        await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
+
+        await primePersistAtom.set((v) => ({
+          ...v,
+          isLoggedInOnServer: true,
+        }));
+      } catch (error) {
+        await this.backgroundApi.simpleDb.prime.saveAuthToken('');
+        throw error;
+      }
+    });
   }
 
   @backgroundMethod()
   async apiLogout() {
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
+      await this.setPrimePersistAtomNotLoggedIn();
       return;
     }
     const client = await this.getPrimeClient();
     await client.post('/prime/v1/user/logout');
+    await this.setPrimePersistAtomNotLoggedIn();
   }
 
   @backgroundMethod()
-  async apiLogoutPrimeUserDevice({ instanceId }: { instanceId: string }) {
+  async apiLogoutPrimeUserDevice({
+    instanceId,
+    accessToken,
+  }: {
+    instanceId: string;
+    accessToken: string;
+  }) {
+    // eslint-disable-next-line no-param-reassign
+    accessToken =
+      accessToken || (await this.backgroundApi.simpleDb.prime.getAuthToken());
     const client = await this.getPrimeClient();
     // TODO 404 not found
-    await client.post(`/prime/v1/user/device/${instanceId}`);
-    const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
-    if (authToken) {
-      await this.apiLogin({ accessToken: authToken });
+    await client.post(
+      `/prime/v1/user/device/${instanceId}`,
+      {},
+      {
+        headers: {
+          'X-Onekey-Request-Token': `${accessToken}`,
+        },
+      },
+    );
+    if (instanceId) {
+      await this.apiLogin({ accessToken });
     }
   }
 
   @backgroundMethod()
-  async apiGetPrimeUserDevices() {
+  async apiGetPrimeUserDevices({ accessToken }: { accessToken?: string } = {}) {
     const client = await this.getPrimeClient();
+    // eslint-disable-next-line no-param-reassign
+    accessToken =
+      accessToken || (await this.backgroundApi.simpleDb.prime.getAuthToken());
     const result = await client.get<
       IApiClientResponse<
         Array<{
@@ -128,7 +173,11 @@ class ServicePrime extends ServiceBase {
           deviceName: string;
         }>
       >
-    >('/prime/v1/user/devices');
+    >('/prime/v1/user/devices', {
+      headers: {
+        'X-Onekey-Request-Token': `${accessToken}`,
+      },
+    });
     const devices = result?.data?.data;
     return devices;
   }
@@ -138,11 +187,18 @@ class ServicePrime extends ServiceBase {
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
   }> {
+    console.log('servicePrime.apiFetchPrimeUserInfo');
+    await this.loginMutex.waitForUnlock();
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
       await this.setPrimePersistAtomNotLoggedIn();
+      const localUserInfo = await primePersistAtom.get();
+
+      // clear privy login token cache
+      appEventBus.emit(EAppEventBusNames.PrimeLoginInvalidToken, undefined);
+
       return {
-        userInfo: await primePersistAtom.get(),
+        userInfo: localUserInfo,
         serverUserInfo: undefined,
       };
     }
@@ -163,6 +219,7 @@ class ServicePrime extends ServiceBase {
     await primePersistAtom.set((v) => ({
       ...v,
       isLoggedIn: true,
+      isLoggedInOnServer: true,
       primeSubscription,
     }));
     return {
@@ -172,13 +229,30 @@ class ServicePrime extends ServiceBase {
   }
 
   async setPrimePersistAtomNotLoggedIn() {
+    console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(() => ({
       isLoggedIn: false,
+      isLoggedInOnServer: false,
       privyUserId: undefined,
       email: undefined,
       primeSubscription: undefined,
       subscriptionManageUrl: undefined,
     }));
+  }
+
+  @backgroundMethod()
+  async isPrimeLoggedIn() {
+    const { isLoggedIn } = await primePersistAtom.get();
+    return Boolean(isLoggedIn);
+  }
+
+  @backgroundMethod()
+  async isPrimeSubscriptionActive() {
+    if (!(await this.isPrimeLoggedIn())) {
+      return false;
+    }
+    const { primeSubscription } = await primePersistAtom.get();
+    return Boolean(primeSubscription?.isActive);
   }
 
   @backgroundMethod()
@@ -547,6 +621,12 @@ class ServicePrime extends ServiceBase {
       id: promiseId,
       error,
     });
+  }
+
+  @backgroundMethod()
+  async isLoggedIn() {
+    const { isLoggedIn } = await primePersistAtom.get();
+    return isLoggedIn;
   }
 }
 

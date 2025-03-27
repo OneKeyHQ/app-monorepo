@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { useReceiveToken } from '@onekeyhq/kit/src/hooks/useReceiveToken';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -8,6 +8,7 @@ import {
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import { RawActions } from './RawActions';
 
@@ -47,10 +48,19 @@ function WalletActionReceive() {
     isMultipleDerive: deriveInfoItems.length > 1,
   });
 
+  const handleReceiveOnPress = useCallback(() => {
+    defaultLogger.wallet.walletActions.actionReceive({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
+    handleOnReceive();
+  }, [wallet?.type, network?.id, handleOnReceive]);
+
   return (
     <RawActions.Receive
       disabled={isReceiveDisabled}
-      onPress={() => handleOnReceive()}
+      onPress={handleReceiveOnPress}
     />
   );
 }
