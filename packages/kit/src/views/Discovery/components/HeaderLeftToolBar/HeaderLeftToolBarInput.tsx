@@ -88,9 +88,10 @@ function HeaderLeftToolBarInput({
         searchResultRef.current.openSelectedItem();
         setIsPopoverOpen(false);
       }
+
+      inputRef.current?.blur();
     },
     onEscape: () => {
-      setIsPopoverOpen(false);
       inputRef.current?.blur();
     },
   });

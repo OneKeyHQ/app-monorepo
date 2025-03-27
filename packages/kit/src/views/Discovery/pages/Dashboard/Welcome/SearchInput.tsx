@@ -74,7 +74,6 @@ export function SearchInput() {
       }
     },
     onEscape: () => {
-      setIsPopoverOpen(false);
       inputRef.current?.blur();
     },
     displaySearchList: Boolean(displaySearchList),
