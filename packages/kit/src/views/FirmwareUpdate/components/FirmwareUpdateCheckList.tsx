@@ -43,13 +43,13 @@ export function FirmwareUpdateCheckList({
       emoji: '📲',
       value: false,
     },
-    {
-      label: intl.formatMessage({
-        id: ETranslations.update_device_fully_charged,
-      }),
-      emoji: '🔋',
-      value: false,
-    },
+    // {
+    //   label: intl.formatMessage({
+    //     id: ETranslations.update_device_fully_charged,
+    //   }),
+    //   emoji: '🔋',
+    //   value: false,
+    // },
     ...(platformEnv.isNative
       ? []
       : [
@@ -151,6 +151,7 @@ export function FirmwareUpdateCheckList({
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_continue,
         })}
+        showCancelButton={false}
       />
     </Stack>
   );
