@@ -172,6 +172,7 @@ const SwapInputContainer = ({
             onPress={onRateDifferencePress}
             {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
               textDecorationLine: 'underline',
+              textDecorationStyle: 'dotted',
             })}
           >
             {rateDifference.value}

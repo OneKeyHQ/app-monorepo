@@ -18,8 +18,12 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { Section } from '@onekeyhq/kit/src/components/Section';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { WebEmbedDevConfig } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/WebEmbed';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  appUpdatePersistAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
+import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IBackgroundMethodWithDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { isCorrectDevOnlyPassword } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import {
@@ -63,6 +67,8 @@ let correctDevOnlyPwd = '';
 if (process.env.NODE_ENV !== 'production') {
   correctDevOnlyPwd = `${formatDateFns(new Date(), 'yyyyMMdd')}-onekey-debug`;
 }
+
+const APP_VERSION = platformEnv.version ?? '1.0.0';
 
 export function showDevOnlyPasswordDialog({
   title,
@@ -346,6 +352,23 @@ export const DevSettingsSection = () => {
         />
       </ListItem>
       <AutoUpdateSection />
+      <SectionPressItem
+        title="重置 App 为初次更新状态"
+        testID="reset-app-to-fresh-state"
+        onPress={() => {
+          Dialog.show({
+            title: '重置 App 为初次更新状态',
+            description: '重置后 App 将恢复到初次更新状态',
+            onConfirm: async () => {
+              await appUpdatePersistAtom.set((prev) => ({
+                ...prev,
+                latestVersion: APP_VERSION,
+                status: EAppUpdateStatus.ready,
+              }));
+            },
+          });
+        }}
+      />
       <SectionPressItem
         title="Export Accounts Data"
         onPress={() => {

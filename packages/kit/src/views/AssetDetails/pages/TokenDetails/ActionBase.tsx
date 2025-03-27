@@ -4,6 +4,7 @@ import { Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ActionItem } from '@onekeyhq/kit/src/views/Home/components/WalletActions/RawActions';
 import { WALLET_TYPE_WATCHING } from '@onekeyhq/shared/src/consts/dbConsts';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
@@ -21,6 +22,7 @@ export const ActionBase = ({
   walletType,
   disabled,
   hiddenIfDisabled,
+  source,
   ...rest
 }: IActionBaseProps) => {
   const [loading, setLoading] = useState(false);
@@ -44,6 +46,21 @@ export const ActionBase = ({
 
   const handlePress = useCallback(async () => {
     setLoading(true);
+
+    if (type === 'buy') {
+      defaultLogger.wallet.walletActions.actionBuy({
+        walletType: walletType ?? '',
+        networkId: networkId ?? '',
+        source,
+      });
+    } else if (type === 'sell') {
+      defaultLogger.wallet.walletActions.actionSell({
+        walletType: walletType ?? '',
+        networkId: networkId ?? '',
+        source,
+      });
+    }
+
     try {
       const { url } =
         await backgroundApiProxy.serviceFiatCrypto.generateWidgetUrl({
@@ -60,7 +77,7 @@ export const ActionBase = ({
     } finally {
       setLoading(false);
     }
-  }, [networkId, tokenAddress, type, accountId]);
+  }, [type, walletType, networkId, tokenAddress, accountId, source]);
   if (hiddenIfDisabled && isDisabled) {
     return null;
   }

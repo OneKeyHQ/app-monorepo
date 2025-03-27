@@ -51,10 +51,11 @@ export function PaginationButton({
     >
       <IconButton
         disabled={!isVisible}
-        variant="primary"
+        variant="secondary"
         icon={icon}
         onPress={onPress}
         iconProps={hoverOpacity}
+        theme="light"
       />
     </Animated.View>
   );
