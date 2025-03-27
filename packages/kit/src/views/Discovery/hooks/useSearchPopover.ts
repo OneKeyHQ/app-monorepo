@@ -11,6 +11,7 @@ import { useSearchPopoverFeatureFlag } from './useSearchPopoverFeatureFlag';
 const ITEM_HEIGHT = 48; // Height of each item in the search results
 
 interface IUseSearchPopoverProps {
+  refreshLocalData: () => void;
   scrollViewRef: React.RefObject<IScrollViewRef>;
   totalItems: number;
   onEnterPress?: () => void;
@@ -21,6 +22,7 @@ interface IUseSearchPopoverProps {
 }
 
 export function useSearchPopover({
+  refreshLocalData,
   scrollViewRef,
   totalItems,
   onEnterPress,
@@ -110,6 +112,10 @@ export function useSearchPopover({
       setIsPopoverOpen(false);
     }, 200);
   }, [setIsPopoverOpen]);
+
+  useEffect(() => {
+    void refreshLocalData?.();
+  }, [refreshLocalData, isPopoverOpen]);
 
   const handleSearchBarPress = useCallback(() => {
     // only on mobile
