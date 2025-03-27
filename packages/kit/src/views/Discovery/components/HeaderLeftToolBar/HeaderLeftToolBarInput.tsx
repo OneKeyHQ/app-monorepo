@@ -74,7 +74,7 @@ function HeaderLeftToolBarInput({
     selectedIndex,
     handleKeyDown,
     handleInputBlur,
-    isPopoverOpen,
+    isPopoverVisible,
     setIsPopoverOpen,
   } = useSearchPopover({
     refreshLocalData,
@@ -203,7 +203,7 @@ function HeaderLeftToolBarInput({
         containerProps={{
           px: 24,
         }}
-        isOpen={isPopoverOpen}
+        isOpen={isPopoverVisible}
       >
         <ScrollView ref={scrollViewRef} maxHeight={310}>
           <Stack py="$2">
