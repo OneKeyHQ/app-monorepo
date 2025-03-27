@@ -1,6 +1,7 @@
 import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import { Page, SizableText, Stack, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
@@ -56,9 +57,11 @@ export const FirmwareUpdatePageFooter = Page.Footer;
 export function FirmwareUpdatePageLayout({
   children,
   headerTitle,
+  containerStyle,
 }: {
   children: React.ReactNode;
   headerTitle?: React.ReactNode;
+  containerStyle?: IStackProps;
 }) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const navigation = useAppNavigation();
@@ -67,7 +70,11 @@ export function FirmwareUpdatePageLayout({
   return (
     <Stack>
       <FirmwareUpdatePageHeader headerTitle={headerTitle} />
-      <Page.Body>{children}</Page.Body>
+      <Page.Body>
+        <Stack p="$5" {...containerStyle}>
+          {children}
+        </Stack>
+      </Page.Body>
     </Stack>
   );
 }

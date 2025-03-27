@@ -1,20 +1,16 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
   Accordion,
   Divider,
   Icon,
-  IconButton,
   Markdown,
   SizableText,
   Stack,
   XStack,
-  YStack,
 } from '@onekeyhq/components';
-import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EFirmwareUpdateSteps,
@@ -218,10 +214,8 @@ export function FirmwareChangeLogView({
           onConfirmClick?.();
         }}
       />
-      <Stack>
-        <FirmwareUpdateIntroduction />
-        <FirmwareChangeLogContentView result={result} />
-      </Stack>
+      <FirmwareUpdateIntroduction />
+      <FirmwareChangeLogContentView result={result} />
     </>
   );
 }

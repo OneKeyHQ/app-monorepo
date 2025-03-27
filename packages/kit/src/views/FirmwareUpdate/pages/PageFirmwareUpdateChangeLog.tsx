@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 
-import { Page, Stack } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
@@ -149,6 +149,9 @@ function PageFirmwareUpdateChangeLog() {
             headerTitle={<FirmwareUpdatePageHeaderTitle result={result} />}
           />
         }
+        containerStyle={{
+          p: stepInfo.step === EFirmwareUpdateSteps.error ? '$5' : 0,
+        }}
       >
         <ForceExtensionUpdatingFromExpandTab />
         {content}
