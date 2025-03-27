@@ -57,7 +57,6 @@ export function SearchInput() {
     handleSearchBarPress,
     isPopoverOpen,
     isPopoverVisible,
-    resetSelectedIndex,
     selectedIndex,
     setIsPopoverOpen,
   } = useSearchPopover({
