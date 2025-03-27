@@ -32,10 +32,11 @@ const SwapCommonInfoItemTitleContent = ({
       <Popover
         title={title}
         renderTrigger={
-          <IconButton
-            variant="tertiary"
-            size="small"
-            icon="InfoCircleOutline"
+          <Icon
+            name="InfoCircleOutline"
+            size="$4"
+            cursor="pointer"
+            color="$iconSubdued"
           />
         }
         renderContent={<Stack>{questionMarkContent}</Stack>}
@@ -44,7 +45,7 @@ const SwapCommonInfoItemTitleContent = ({
     [questionMarkContent, title],
   );
   return (
-    <XStack>
+    <XStack alignItems="center">
       <SizableText
         userSelect="none"
         mr="$1"
