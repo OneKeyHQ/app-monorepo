@@ -325,7 +325,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { tabId, entry } = payload;
       delete webviewRefs[tabId];
       const { tabs } = get(webTabsAtom());
-      const activeTabId = get(activeTabIdAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
         const closedTab = tabs[targetIndex];

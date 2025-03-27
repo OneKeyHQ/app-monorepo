@@ -30,9 +30,6 @@ export const useWebSiteHandler = () => {
 
   return useCallback(
     (props: IHandleWebSiteParams) => {
-      console.log('IHandleWebSiteParams', props);
-      console.log('IHandleWebSiteParams', activeTabId);
-
       const {
         webSite,
         dApp,
