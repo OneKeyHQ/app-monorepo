@@ -163,6 +163,7 @@ export const useReferFriends = () => {
           <HyperlinkText
             size="$bodyMd"
             translationId={ETranslations.earn_referral_subtitle}
+            underlineTextProps={{ color: '$textInfo' }}
             onAction={() => {
               void dialog.close();
             }}
