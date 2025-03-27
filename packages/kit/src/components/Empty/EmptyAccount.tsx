@@ -21,7 +21,7 @@ type IProps = {
 const num = 0;
 
 function EmptyAccount(props: IProps) {
-  const { name, chain, type, autoCreateAddress, createAllDeriveTypes } = props;
+  const { autoCreateAddress, createAllDeriveTypes } = props;
   const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
 
@@ -30,7 +30,6 @@ function EmptyAccount(props: IProps) {
     let title = intl.formatMessage({ id: ETranslations.wallet_no_address });
     let description: string | undefined;
     if (activeAccount?.canCreateAddress) {
-      const showDerivationType = activeAccount.deriveInfoItems.length > 1;
       description = intl.formatMessage({
         id: ETranslations.wallet_no_address_desc,
       });

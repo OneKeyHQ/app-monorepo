@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, rootNavigationRef } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';

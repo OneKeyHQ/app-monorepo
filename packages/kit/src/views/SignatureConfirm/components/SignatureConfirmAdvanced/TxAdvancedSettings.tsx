@@ -50,7 +50,7 @@ const showNonceFaq = () => {
   });
 };
 
-const showHexDataFaq = () => {
+export const showHexDataFaq = () => {
   Dialog.show({
     title: appLocale.intl.formatMessage({
       id: ETranslations.global_hex_data_default,
