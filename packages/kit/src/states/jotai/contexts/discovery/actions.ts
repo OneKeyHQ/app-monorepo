@@ -674,11 +674,16 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const maybeDeepLink =
           !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
 
-        const isNewTab =
+        const currentTab = this.getWebTabById.call(set, tabId ?? '');
+        let isNewTab =
           typeof isNewWindow === 'boolean'
             ? isNewWindow
             : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
               browserTypeHandler === 'MultiTabBrowser';
+
+        if (currentTab?.type === 'home') {
+          isNewTab = false;
+        }
 
         const bookmarks = await this.getBookmarkData.call(set);
         const isBookmark = bookmarks?.some((item) =>
@@ -691,6 +696,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             favicon,
             isBookmark,
             siteMode,
+            type: 'normal',
           });
         } else {
           this.setWebTabData.call(set, {
@@ -699,6 +705,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             title,
             favicon,
             isBookmark,
+            type: 'normal',
           });
         }
 
@@ -716,6 +723,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             }, 1000);
           }
         }
+
         return true;
       }
       return false;
@@ -801,16 +809,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           }
         }
         this.setDisplayHomePage.call(set, false);
-
-        const currentTab = this.getWebTabById.call(set, tabId ?? '');
-
-        if (currentTab?.type === 'home') {
-          this.setWebTabData.call(set, {
-            id: tabId,
-            type: 'normal',
-          });
-        }
-
         void this.openMatchDApp.call(set, {
           webSite,
           dApp,
