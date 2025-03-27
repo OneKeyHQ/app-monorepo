@@ -26,6 +26,7 @@ import {
   EModalRoutes,
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
@@ -95,6 +96,9 @@ function DeviceManagementListModal() {
       return (
         <ListItem
           title={item.wallet.name}
+          subtitle={deviceUtils.buildDeviceBleName({
+            features: item.device?.featuresInfo,
+          })}
           drillIn
           renderAvatar={() => <WalletAvatar {...walletAvatarProps} />}
           onPress={() => {
