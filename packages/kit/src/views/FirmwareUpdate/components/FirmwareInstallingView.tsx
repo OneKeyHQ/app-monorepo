@@ -16,7 +16,7 @@ import type {
 import { FirmwareUpdateDone } from './FirmwareUpdateDone';
 import { FirmwareUpdateErrors } from './FirmwareUpdateErrors';
 import { FirmwareUpdateProgressBar } from './FirmwareUpdateProgressBar';
-import { FirmwareUpdateWalletProfile } from './FirmwareUpdateWalletProfile';
+import { FirmwareUpdateWalletProfile } from './FirmwareUpdateIntroduction';
 
 export function FirmwareInstallingViewBase({
   result,

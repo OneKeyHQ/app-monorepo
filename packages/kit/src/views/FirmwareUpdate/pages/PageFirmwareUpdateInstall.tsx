@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, Stack } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
@@ -131,8 +131,10 @@ function PageFirmwareUpdateInstall() {
       }}
     >
       <FirmwareUpdatePageLayout>
-        <ForceExtensionUpdatingFromExpandTab />
-        {content}
+        <Stack p="$5">
+          <ForceExtensionUpdatingFromExpandTab />
+          {content}
+        </Stack>
       </FirmwareUpdatePageLayout>
     </Page>
   );

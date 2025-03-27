@@ -3,7 +3,7 @@ import { useCallback } from 'react';
 import { useIntl } from 'react-intl';
 import semver from 'semver';
 
-import { Badge, Icon, XStack } from '@onekeyhq/components';
+import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 export function FirmwareVersionProgressBar({
@@ -39,5 +39,49 @@ export function FirmwareVersionProgressBar({
         {toVersion?.length > 0 ? toVersion : unknownMessage}
       </Badge>
     </XStack>
+  );
+}
+
+export function FirmwareVersionProgressText({
+  fromVersion = '',
+  toVersion = '',
+  active,
+}: {
+  fromVersion?: string;
+  toVersion?: string;
+  active: boolean;
+}) {
+  const intl = useIntl();
+  const unknownMessage = intl.formatMessage({
+    id: ETranslations.global_unknown,
+  });
+
+  const versionValid = useCallback((version: string | undefined) => {
+    if (!version) return false;
+    if (semver.valid(version)) {
+      if (semver.eq(version, '0.0.0')) {
+        return false;
+      }
+      return true;
+    }
+    return false;
+  }, []);
+
+  return (
+    <>
+      <SizableText
+        size="$bodyLgMedium"
+        color={active ? '$text' : '$textSubdued'}
+      >
+        {versionValid(fromVersion) ? fromVersion : unknownMessage}
+      </SizableText>
+      <Icon name="ArrowRightSolid" size="$4" color="$text" />
+      <SizableText
+        size="$bodyLgMedium"
+        color={active ? '$text' : '$textSubdued'}
+      >
+        {toVersion?.length > 0 ? toVersion : unknownMessage}
+      </SizableText>
+    </>
   );
 }

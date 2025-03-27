@@ -67,9 +67,7 @@ export function FirmwareUpdatePageLayout({
   return (
     <Stack>
       <FirmwareUpdatePageHeader headerTitle={headerTitle} />
-      <Page.Body>
-        <Stack p="$5">{children}</Stack>
-      </Page.Body>
+      <Page.Body>{children}</Page.Body>
     </Stack>
   );
 }

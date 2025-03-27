@@ -1,6 +1,6 @@
 import { useMemo, useRef } from 'react';
 
-import { Page } from '@onekeyhq/components';
+import { Page, Stack } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
