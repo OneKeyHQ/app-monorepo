@@ -29,15 +29,20 @@ export const useWebSiteHandler = () => {
   const { activeTabId } = useActiveTabId();
 
   return useCallback(
-    ({
-      webSite,
-      dApp,
-      useSystemBrowser,
-      shouldPopNavigation,
-      enterMethod,
-      useCurrentWindow,
-      tabId,
-    }: IHandleWebSiteParams) => {
+    (props: IHandleWebSiteParams) => {
+      console.log('IHandleWebSiteParams', props);
+      console.log('IHandleWebSiteParams', activeTabId);
+
+      const {
+        webSite,
+        dApp,
+        useSystemBrowser,
+        shouldPopNavigation,
+        enterMethod,
+        useCurrentWindow,
+        tabId,
+      } = props;
+
       const isDapp = !!dApp;
       const url = isDapp ? dApp?.url : webSite?.url;
       const title = isDapp ? dApp?.name : webSite?.title;

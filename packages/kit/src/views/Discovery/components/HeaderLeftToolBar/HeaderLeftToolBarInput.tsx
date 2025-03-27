@@ -67,6 +67,7 @@ function HeaderLeftToolBarInput({
     displayHistoryList,
     SEARCH_ITEM_ID,
     totalItems,
+    refreshLocalData,
   } = useSearchModalData(searchValue);
 
   const {
@@ -76,6 +77,7 @@ function HeaderLeftToolBarInput({
     isPopoverOpen,
     setIsPopoverOpen,
   } = useSearchPopover({
+    refreshLocalData,
     scrollViewRef,
     totalItems,
     searchValue,
@@ -110,7 +112,13 @@ function HeaderLeftToolBarInput({
   });
 
   return (
-    <Stack flex={1}>
+    <Stack
+      flex={1}
+      onPress={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <Input
         ref={inputRef}
         containerProps={{ mx: '$6', flex: 1 } as any}

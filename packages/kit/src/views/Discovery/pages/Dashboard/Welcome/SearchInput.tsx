@@ -57,17 +57,20 @@ export function SearchInput() {
     handleSearchBarPress,
     isPopoverOpen,
     isPopoverVisible,
-    resetSelectedIndex,
     selectedIndex,
     setIsPopoverOpen,
   } = useSearchPopover({
     scrollViewRef,
     totalItems,
     searchValue,
+    refreshLocalData,
     onEnterPress: () => {
       if (searchResultRef.current) {
         searchResultRef.current.openSelectedItem();
         setIsPopoverOpen(false);
+
+        // clear search value when create new tab
+        setSearchValue('');
       }
     },
     onEscape: () => {
@@ -85,12 +88,6 @@ export function SearchInput() {
       }, 200);
     }
   }, []);
-
-  useEffect(() => {
-    if (isPopoverOpen) {
-      void refreshLocalData();
-    }
-  }, [refreshLocalData, isPopoverOpen]);
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
