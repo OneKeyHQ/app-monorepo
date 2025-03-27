@@ -141,11 +141,12 @@ function TokenDetailsHeader(props: IProps) {
   }, [isLoadingTokenDetails, tokenDetailsContext, accountId]);
 
   const createSwapActionHandler = useCallback(
-    (actionType?: ESwapTabSwitchType) => async () => {
-      defaultLogger.wallet.walletActions.actionSwap({
+    (actionType: ESwapTabSwitchType) => async () => {
+      defaultLogger.wallet.walletActions.actionTrade({
         walletType: wallet?.type ?? '',
         networkId: network?.id ?? '',
         source: 'tokenDetails',
+        tradeType: actionType,
       });
       navigation.pushModal(EModalRoutes.SwapModal, {
         screen: EModalSwapRoutes.SwapMainLand,
