@@ -92,7 +92,7 @@ const SecureQRToastBase = ({
                 drawType={drawType}
                 value={value}
                 valueUr={valueUr}
-                size={200}
+                size={256}
               />
             </Stack>
           </Stack>
