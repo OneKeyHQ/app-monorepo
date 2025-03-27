@@ -67,15 +67,17 @@ function HeaderLeftToolBarInput({
     displayHistoryList,
     SEARCH_ITEM_ID,
     totalItems,
+    refreshLocalData,
   } = useSearchModalData(searchValue);
 
   const {
     selectedIndex,
     handleKeyDown,
     handleInputBlur,
-    isPopoverOpen,
+    isPopoverVisible,
     setIsPopoverOpen,
   } = useSearchPopover({
+    refreshLocalData,
     scrollViewRef,
     totalItems,
     searchValue,
@@ -86,9 +88,10 @@ function HeaderLeftToolBarInput({
         searchResultRef.current.openSelectedItem();
         setIsPopoverOpen(false);
       }
+
+      inputRef.current?.blur();
     },
     onEscape: () => {
-      setIsPopoverOpen(false);
       inputRef.current?.blur();
     },
   });
@@ -110,7 +113,13 @@ function HeaderLeftToolBarInput({
   });
 
   return (
-    <Stack flex={1}>
+    <Stack
+      flex={1}
+      onPress={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+    >
       <Input
         ref={inputRef}
         containerProps={{ mx: '$6', flex: 1 } as any}
@@ -195,7 +204,7 @@ function HeaderLeftToolBarInput({
         containerProps={{
           px: 24,
         }}
-        isOpen={isPopoverOpen}
+        isOpen={isPopoverVisible}
       >
         <ScrollView ref={scrollViewRef} maxHeight={310}>
           <Stack py="$2">
