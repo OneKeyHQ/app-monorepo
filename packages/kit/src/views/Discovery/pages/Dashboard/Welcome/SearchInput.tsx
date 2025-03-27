@@ -26,6 +26,7 @@ import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum
 import { SearchResultContent } from '../../../components/SearchResultContent';
 import { useSearchModalData } from '../../../hooks/useSearchModalData';
 import { useSearchPopover } from '../../../hooks/useSearchPopover';
+import { useSearchPopoverFeatureFlag } from '../../../hooks/useSearchPopoverFeatureFlag';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
@@ -34,6 +35,7 @@ import type { ISearchResultContentRef } from '../../../components/SearchResultCo
 import type { TextInput } from 'react-native';
 
 export function SearchInput() {
+  const searchPopoverFeatureFlag = useSearchPopoverFeatureFlag();
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
   const searchResultRef = useRef<ISearchResultContentRef>(null);
@@ -93,7 +95,7 @@ export function SearchInput() {
   }, []);
 
   useShortcuts(EShortcutEvents.NewTab, () => {
-    if (platformEnv.isDesktop || platformEnv.isExtension) {
+    if (searchPopoverFeatureFlag) {
       // focus on search input
       inputRef.current?.focus();
     } else {
@@ -131,7 +133,7 @@ export function SearchInput() {
         >
           <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 
-          {platformEnv.isDesktop || platformEnv.isExtension ? (
+          {searchPopoverFeatureFlag ? (
             <Input
               ref={inputRef}
               containerProps={{
@@ -168,7 +170,7 @@ export function SearchInput() {
             </Stack>
           )}
 
-          {platformEnv.isDesktop ? (
+          {searchPopoverFeatureFlag ? (
             <XStack gap="$1" pointerEvents="none">
               <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
               <KeyboardShortcutKey label="T" />
