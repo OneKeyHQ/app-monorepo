@@ -1,5 +1,11 @@
 import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
-import { Children, cloneElement, isValidElement, useCallback } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useMemo,
+} from 'react';
 
 import { Controller, FormProvider, useFormContext } from 'react-hook-form';
 import { useIntl } from 'react-intl';
@@ -168,9 +174,14 @@ function Field({
   const error = errors[name] as unknown as Error & {
     translationId: ETranslations;
   };
-  // if (error) {
-  //   debugger;
-  // }
+
+  const descriptionElement = useMemo(() => {
+    return typeof description === 'string' ? (
+      <FieldDescription>{description}</FieldDescription>
+    ) : (
+      description
+    );
+  }, [description]);
   return (
     <Controller
       name={name}
@@ -189,24 +200,27 @@ function Field({
             alignItems={horizontal ? 'center' : undefined}
             mb={horizontal ? '$1.5' : undefined}
           >
-            {label ? (
-              <XStack
-                mb={horizontal ? undefined : '$1.5'}
-                justifyContent="space-between"
-              >
-                <XStack>
-                  <Label htmlFor={name}>{label}</Label>
-                  {optional ? (
-                    <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
-                      {`(${intl.formatMessage({
-                        id: ETranslations.form_optional_indicator,
-                      })})`}
-                    </SizableText>
-                  ) : null}
+            <YStack>
+              {label ? (
+                <XStack
+                  mb={horizontal ? undefined : '$1.5'}
+                  justifyContent="space-between"
+                >
+                  <XStack>
+                    <Label htmlFor={name}>{label}</Label>
+                    {optional ? (
+                      <SizableText size="$bodyMd" color="$textSubdued" pl="$1">
+                        {`(${intl.formatMessage({
+                          id: ETranslations.form_optional_indicator,
+                        })})`}
+                      </SizableText>
+                    ) : null}
+                  </XStack>
+                  {renderLabelAddon()}
                 </XStack>
-                {renderLabelAddon()}
-              </XStack>
-            ) : null}
+              ) : null}
+              {horizontal ? descriptionElement : null}
+            </YStack>
             {Children.map(children as ReactNode[], (child) =>
               isValidElement(child)
                 ? cloneElement(child, getChildProps(child, field, error))
@@ -244,11 +258,7 @@ function Field({
               </SizableText>
             ) : null}
           </HeightTransition>
-          {typeof description === 'string' ? (
-            <FieldDescription>{description}</FieldDescription>
-          ) : (
-            description
-          )}
+          {horizontal ? null : descriptionElement}
         </Fieldset>
       )}
     />
