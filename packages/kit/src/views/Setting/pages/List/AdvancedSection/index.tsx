@@ -227,9 +227,9 @@ export const AdvancedSection = () => {
       {platformEnv.isExtension || platformEnv.isWeb ? (
         <HardwareTransportTypeListItem />
       ) : null}
-      {/* {platformEnv.isExtension || platformEnv.isWeb ? ( */}
-      <HardwareBridgeListItems />
-      {/* ) : null} */}
+      {platformEnv.isExtension || platformEnv.isWeb ? (
+        <HardwareBridgeListItems />
+      ) : null}
     </Section>
   );
 };
