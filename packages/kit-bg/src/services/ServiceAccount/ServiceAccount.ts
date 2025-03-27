@@ -2277,7 +2277,7 @@ class ServiceAccount extends ServiceBase {
           if (cachedHiddenWalletOptions) {
             await this.setWalletTempStatus({
               walletId: dbWallet.wallet.id,
-              isTemp: !!cachedHiddenWalletOptions?.hideImmediately,
+              isTemp: !cachedHiddenWalletOptions?.hideImmediately,
             });
           }
         }
