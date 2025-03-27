@@ -27,7 +27,10 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
@@ -221,10 +224,11 @@ function WalletActionSwap() {
     return settings;
   }, [network?.id]).result;
   const handleOnSwap = useCallback(() => {
-    defaultLogger.wallet.walletActions.actionSwap({
+    defaultLogger.wallet.walletActions.actionTrade({
       walletType: wallet?.type ?? '',
       networkId: network?.id ?? '',
       source: 'homePage',
+      tradeType: ESwapTabSwitchType.SWAP,
     });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,

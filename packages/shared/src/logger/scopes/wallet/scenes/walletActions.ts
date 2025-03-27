@@ -1,3 +1,5 @@
+import type { ESwapTabSwitchType } from '@onekeyhq/shared/types/swap/types';
+
 import { BaseScene } from '../../../base/baseScene';
 import { LogToLocal, LogToServer } from '../../../base/decorators';
 
@@ -19,7 +21,11 @@ export class WalletActionsScene extends BaseScene {
   }
 
   @LogToServer()
-  public actionSwap(params: IWalletActionBaseParams) {
+  public actionTrade(
+    params: IWalletActionBaseParams & {
+      tradeType: ESwapTabSwitchType;
+    },
+  ) {
     return params;
   }
 
