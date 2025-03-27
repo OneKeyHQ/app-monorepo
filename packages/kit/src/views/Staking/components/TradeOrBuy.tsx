@@ -11,7 +11,10 @@ import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import { getImportFromToken } from '@onekeyhq/shared/types/earn/earnProvider.constants';
-import { ESwapSource } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -50,10 +53,11 @@ function BasicTradeOrBuy({
       isSupportSwap,
       tokenAddress: token.address,
     });
-    defaultLogger.wallet.walletActions.actionSwap({
+    defaultLogger.wallet.walletActions.actionTrade({
       walletType: wallet?.type ?? '',
       networkId,
       source: 'earn',
+      tradeType: ESwapTabSwitchType.SWAP,
     });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
