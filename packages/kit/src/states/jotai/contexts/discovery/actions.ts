@@ -805,23 +805,18 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const currentTab = this.getWebTabById.call(set, tabId ?? '');
 
         if (currentTab?.type === 'home') {
-          const url = webSite?.url || dApp?.url;
-          const title = webSite?.title || dApp?.name;
-
           this.setWebTabData.call(set, {
             id: tabId,
             type: 'normal',
-            url,
-            title,
-          });
-        } else {
-          void this.openMatchDApp.call(set, {
-            webSite,
-            dApp,
-            isNewWindow,
-            tabId,
           });
         }
+
+        void this.openMatchDApp.call(set, {
+          webSite,
+          dApp,
+          isNewWindow,
+          tabId,
+        });
       }, delayTime);
 
       if (switchToMultiTabBrowser || platformEnv.isDesktop) {
