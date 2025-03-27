@@ -63,14 +63,17 @@ export function SearchInput() {
     scrollViewRef,
     totalItems,
     searchValue,
+    refreshLocalData,
     onEnterPress: () => {
       if (searchResultRef.current) {
         searchResultRef.current.openSelectedItem();
         setIsPopoverOpen(false);
+
+        // clear search value when create new tab
+        setSearchValue('');
       }
     },
     onEscape: () => {
-      setIsPopoverOpen(false);
       inputRef.current?.blur();
     },
     displaySearchList: Boolean(displaySearchList),
@@ -84,12 +87,6 @@ export function SearchInput() {
       }, 200);
     }
   }, []);
-
-  useEffect(() => {
-    if (isPopoverOpen) {
-      void refreshLocalData();
-    }
-  }, [refreshLocalData, isPopoverOpen]);
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
