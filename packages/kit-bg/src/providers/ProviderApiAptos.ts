@@ -10,6 +10,7 @@ import {
 } from '@aptos-labs/ts-sdk';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { deserializeTransactionPayload } from '@onekeyfe/onekey-aptos-provider';
 import { get, isArray } from 'lodash';
 
 import {
@@ -191,23 +192,35 @@ class ProviderApiAptos extends ProviderApiBase {
   @providerApiMethod()
   public async signAndSubmitTransaction(
     request: IJsBridgeMessagePayload,
-    params: IEncodedTxAptos,
+    params: string,
   ): Promise<string> {
     defaultLogger.discovery.dapp.dappRequest({ request });
-    const encodeTx = params;
 
     const accounts = await this.getAccountsInfo(request);
     if (!accounts || accounts.length === 0) {
       throw new Error('No accounts');
     }
-
     const { account, accountInfo } = accounts[0];
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const payload = deserializeTransactionPayload(params);
+    const vault = await this.getAptosVault(request);
+
+    if (get(payload, 'type', null) === 'script_payload') {
+      throw web3Errors.rpc.invalidParams();
+    }
+
+    const rawTx = await buildSimpleTransaction(vault.client, account.address, {
+      payload,
+    });
+
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: {
-          ...encodeTx,
-          ...encodeTx.payload,
+          bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
+          max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
+          gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
         },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
@@ -254,7 +267,6 @@ class ProviderApiAptos extends ProviderApiBase {
 
     if (get(payload, 'entryFunction', null)) {
       return {
-        type: 'entry_function_payload',
         bcsTxn: hexBcsTxn,
       };
     }
@@ -348,14 +360,27 @@ class ProviderApiAptos extends ProviderApiBase {
   @providerApiMethod()
   public async signTransaction(
     request: IJsBridgeMessagePayload,
-    params: IEncodedTxAptos,
+    params: string,
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const payload = deserializeTransactionPayload(params);
+    const vault = await this.getAptosVault(request);
+
+    const rawTx = await buildSimpleTransaction(vault.client, account.address, {
+      payload,
+    });
+
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: params,
+        encodedTx: {
+          bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
+          max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
+          gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
+        },
         signOnly: true,
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
@@ -432,20 +457,26 @@ class ProviderApiAptos extends ProviderApiBase {
   ): Promise<AptosSignAndSubmitTransactionOutput> {
     const { account, accountInfo } = await this._getAccount(request);
 
-    const input = JSON.parse(params) as AptosSignAndSubmitTransactionInput;
+    const input = JSON.parse(params) as {
+      payload: string;
+      maxGasAmount: AptosSignAndSubmitTransactionInput['maxGasAmount'];
+      gasUnitPrice: AptosSignAndSubmitTransactionInput['gasUnitPrice'];
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call
+    const payload = deserializeTransactionPayload(input.payload);
     const vault = await this.getAptosVault(request);
 
-    const rawTx = await buildSimpleTransaction(
-      vault.client,
-      account.address,
-      input,
-    );
+    const rawTx = await buildSimpleTransaction(vault.client, account.address, {
+      payload,
+      maxGasAmount: input.maxGasAmount,
+      gasUnitPrice: input.gasUnitPrice,
+    });
 
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
         encodedTx: {
-          type: 'entry_function_payload',
           bcsTxn: rawTx.bcsToHex().toStringWithoutPrefix(),
           max_gas_amount: rawTx.rawTransaction.max_gas_amount.toString(),
           gas_unit_price: rawTx.rawTransaction.gas_unit_price.toString(),
@@ -510,10 +541,12 @@ class ProviderApiAptos extends ProviderApiBase {
   ): Promise<string> {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const encodeTx: IEncodedTxAptos = {
-      type: 'entry_function_payload',
-      function: params.func,
-      arguments: params.args,
-      type_arguments: params.type_args,
+      payload: {
+        type: 'entry_function_payload',
+        function: params.func,
+        arguments: params.args,
+        type_arguments: params.type_args,
+      },
     };
 
     const { account, accountInfo } = await this._getAccount(request);
@@ -540,7 +573,7 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     const { account, accountInfo } = await this._getAccount(request);
 
-    const encodeTx = generateTransferCreateCollection(
+    const encodeTxPayload = generateTransferCreateCollection(
       params.name,
       params.description,
       params.uri,
@@ -549,7 +582,9 @@ class ProviderApiAptos extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: encodeTx,
+        encodedTx: {
+          payload: encodeTxPayload,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
@@ -577,7 +612,7 @@ class ProviderApiAptos extends ProviderApiBase {
   ) {
     defaultLogger.discovery.dapp.dappRequest({ request });
     const { account, accountInfo } = await this._getAccount(request);
-    const encodeTx = generateTransferCreateNft(
+    const encodeTxPayload = generateTransferCreateNft(
       account.address,
       params.collectionName,
       params.name,
@@ -596,7 +631,9 @@ class ProviderApiAptos extends ProviderApiBase {
     const result =
       await this.backgroundApi.serviceDApp.openSignAndSendTransactionModal({
         request,
-        encodedTx: encodeTx,
+        encodedTx: {
+          payload: encodeTxPayload,
+        },
         accountId: account.id,
         networkId: accountInfo?.networkId ?? '',
       });
