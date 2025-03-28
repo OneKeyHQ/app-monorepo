@@ -904,7 +904,7 @@ function BasicEarnHome() {
         className="app-region-no-drag"
       >
         <HeaderIconButton
-          title={intl.formatMessage({ id: ETranslations.global_profit })}
+          title={intl.formatMessage({ id: ETranslations.referral_title })}
           icon="GiftOutline"
           onPress={handleShareReferRewards}
         />
