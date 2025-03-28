@@ -414,19 +414,13 @@ const SwapActionsState = ({
             title={intl.formatMessage({ id: ETranslations.global_approve })}
             placement="top-start"
             renderContent={
-              <SizableText
-                size="$bodyLg"
-                $gtMd={{
-                  size: '$bodyMd',
-                  pt: '$5',
-                }}
-                pb="$5"
-                px="$5"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_swap_steps_1_approve_dialog,
-                })}
-              </SizableText>
+              <Stack p="$3">
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_page_swap_steps_1_approve_dialog,
+                  })}
+                </SizableText>
+              </Stack>
             }
             renderTrigger={
               <XStack
@@ -435,17 +429,19 @@ const SwapActionsState = ({
                   opacity: 0.5,
                 }}
               >
-                <SizableText size="$bodyMdMedium" pr="$1">
+                <SizableText
+                  size="$bodyMdMedium"
+                  pr="$1"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  textDecorationColor="$textSubdued"
+                  cursor="pointer"
+                >
                   {intl.formatMessage(
                     { id: ETranslations.swap_page_swap_steps_1 },
                     { tokenSymbol: fromToken?.symbol ?? '' },
                   )}
                 </SizableText>
-                <Icon
-                  size="$5"
-                  color="$iconSubdued"
-                  name="QuestionmarkOutline"
-                />
               </XStack>
             }
           />

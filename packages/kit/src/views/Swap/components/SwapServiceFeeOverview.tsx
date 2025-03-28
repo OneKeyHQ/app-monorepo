@@ -65,7 +65,7 @@ export function SwapServiceFeeOverview({
         name: 'oneKey',
         fee: serviceFee,
         // color: '#202020',
-        color: '$bgInverse',
+        color: '#44D62C',
         icon: require('@onekeyhq/kit/assets/logo.png'),
       },
     ],
