@@ -1652,7 +1652,7 @@ export default class ServiceSwap extends ServiceBase {
       return res.data.data;
     } catch (error) {
       console.error(error);
-      return [];
+      throw error;
     }
   }
 
