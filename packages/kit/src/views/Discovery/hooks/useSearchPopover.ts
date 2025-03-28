@@ -56,6 +56,7 @@ export function useSearchPopover({
     if (scrollViewRef.current) {
       scrollViewRef.current.scrollTo({
         y: 0,
+        animated: false,
       });
     }
   }, [searchValue, scrollViewRef]);
