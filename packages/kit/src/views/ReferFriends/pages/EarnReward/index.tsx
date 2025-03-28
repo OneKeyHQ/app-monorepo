@@ -1,27 +1,21 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 import { useIntl } from 'react-intl';
-import { Animated, Easing, Keyboard } from 'react-native';
 
 import {
   Alert,
-  AnimatePresence,
   Divider,
   Empty,
-  Icon,
-  Image,
   NumberSizeableText,
   Page,
   SectionList,
   SizableText,
   Stack,
-  Tab,
   XStack,
   YStack,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 type ISectionListItem = {
   title?: string;
