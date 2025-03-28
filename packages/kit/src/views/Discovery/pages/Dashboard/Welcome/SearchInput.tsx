@@ -202,6 +202,7 @@ export function SearchInput() {
                 selectedIndex={selectedIndex}
                 innerRef={searchResultRef}
                 onItemClick={() => {
+                  setSearchValue('');
                   setIsPopoverOpen(false);
                 }}
               />
