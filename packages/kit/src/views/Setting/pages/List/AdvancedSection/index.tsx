@@ -40,6 +40,7 @@ const HardwareBridgeListItems = () => {
       >
         <ListItem.IconButton
           disabled
+          pointerEvents="none"
           icon="ArrowTopRightOutline"
           iconProps={{
             color: '$iconActive',

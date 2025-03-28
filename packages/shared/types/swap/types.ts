@@ -731,12 +731,20 @@ export interface ISwapTxHistory {
 
 export const LIMIT_PRICE_DEFAULT_DECIMALS = 6;
 
+export interface ISwapCowSwapOrderFee {
+  fullFeeAmount?: string;
+  networkFee?: string;
+  partnerFee?: string;
+  kind: ESwapQuoteKind;
+}
+
 export interface IFetchLimitOrderRes {
   orderId: string;
   provider: string;
   status: ESwapLimitOrderStatus;
   fromTokenInfo: ISwapToken;
   kind: ESwapQuoteKind;
+  totalFee?: ISwapCowSwapOrderFee;
   toTokenInfo: ISwapToken;
   payAddress: string;
   receiveAddress: string;
