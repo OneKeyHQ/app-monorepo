@@ -213,7 +213,7 @@ function HeaderLeftToolBarInput({
         <ScrollView ref={scrollViewRef} maxHeight={310}>
           <Stack py="$2">
             <SearchResultContent
-              useCurrentWindow
+              useCurrentWindow={!isPinned}
               searchValue={searchValue}
               localData={localData}
               searchList={searchList}
