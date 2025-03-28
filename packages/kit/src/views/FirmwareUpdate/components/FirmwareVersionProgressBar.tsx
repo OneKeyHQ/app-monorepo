@@ -1,10 +1,6 @@
-import { useCallback } from 'react';
-
-import { useIntl } from 'react-intl';
-import semver from 'semver';
-
 import { Anchor, Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
-import { ETranslations } from '@onekeyhq/shared/src/locale';
+
+import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 
 export function FirmwareVersionProgressBar({
   fromVersion = '',
@@ -13,22 +9,7 @@ export function FirmwareVersionProgressBar({
   fromVersion?: string;
   toVersion?: string;
 }) {
-  const intl = useIntl();
-  const unknownMessage = intl.formatMessage({
-    id: ETranslations.global_unknown,
-  });
-
-  const versionValid = useCallback((version: string | undefined) => {
-    if (!version) return false;
-    if (semver.valid(version)) {
-      if (semver.eq(version, '0.0.0')) {
-        return false;
-      }
-      return true;
-    }
-    return false;
-  }, []);
-
+  const { versionValid, unknownMessage } = useFirmwareVersionValid();
   return (
     <XStack gap="$2.5" alignItems="center">
       <Badge badgeType="default" badgeSize="lg">
@@ -53,22 +34,7 @@ export function FirmwareVersionProgressText({
   githubReleaseUrl?: string;
   active: boolean;
 }) {
-  const intl = useIntl();
-  const unknownMessage = intl.formatMessage({
-    id: ETranslations.global_unknown,
-  });
-
-  const versionValid = useCallback((version: string | undefined) => {
-    if (!version) return false;
-    if (semver.valid(version)) {
-      if (semver.eq(version, '0.0.0')) {
-        return false;
-      }
-      return true;
-    }
-    return false;
-  }, []);
-
+  const { versionValid, unknownMessage } = useFirmwareVersionValid();
   return (
     <>
       <SizableText
@@ -77,7 +43,11 @@ export function FirmwareVersionProgressText({
       >
         {versionValid(fromVersion) ? fromVersion : unknownMessage}
       </SizableText>
-      <Icon name="ArrowRightSolid" size="$4" color="$text" />
+      <Icon
+        name="ArrowRightSolid"
+        size="$4"
+        color={active ? '$text' : '$textSubdued'}
+      />
       {githubReleaseUrl ? (
         <Anchor
           href={githubReleaseUrl}

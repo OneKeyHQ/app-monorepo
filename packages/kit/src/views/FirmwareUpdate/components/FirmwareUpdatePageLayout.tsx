@@ -47,7 +47,7 @@ export function FirmwareUpdatePageHeader({
               id: ETranslations.update_hardware_update,
             })
       }
-      headerTitle={() => headerTitle}
+      headerTitle={headerTitle ? () => headerTitle : undefined}
     />
   );
 }

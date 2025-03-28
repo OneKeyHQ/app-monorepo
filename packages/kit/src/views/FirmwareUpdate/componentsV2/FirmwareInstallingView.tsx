@@ -13,8 +13,9 @@ import type {
   ICheckAllFirmwareReleaseResult,
 } from '@onekeyhq/shared/types/device';
 
-import { FirmwareUpdateDone } from './FirmwareUpdateDone';
-import { FirmwareUpdateErrors } from './FirmwareUpdateErrors';
+import { FirmwareUpdateDone } from '../components/FirmwareUpdateDone';
+import { FirmwareUpdateErrors } from '../components/FirmwareUpdateErrors';
+
 import { FirmwareUpdateProgressBar } from './FirmwareUpdateProgressBar';
 
 export function FirmwareInstallingViewBase({
@@ -45,6 +46,7 @@ export function FirmwareInstallingViewBase({
     }
     return (
       <FirmwareUpdateProgressBar
+        result={result}
         lastFirmwareTipMessage={tipMessage}
         isDone={isDone}
         key={progressBarKey}
