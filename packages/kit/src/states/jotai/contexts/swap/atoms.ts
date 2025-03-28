@@ -463,8 +463,15 @@ export const {
       toToken,
     })
   ) {
-    const fromPriceBN = new BigNumber(fromTokenPriceInfo.price);
-    const toPriceBN = new BigNumber(toTokenPriceInfo.price);
+    const fromPriceBN = new BigNumber(
+      fromTokenPriceInfo.price ? fromTokenPriceInfo.price : '0',
+    );
+    const toPriceBN = new BigNumber(
+      toTokenPriceInfo.price ? toTokenPriceInfo.price : '0',
+    );
+    if (fromPriceBN.isZero() || toPriceBN.isZero()) {
+      return {};
+    }
     const rate = fromPriceBN
       .div(toPriceBN)
       .decimalPlaces(

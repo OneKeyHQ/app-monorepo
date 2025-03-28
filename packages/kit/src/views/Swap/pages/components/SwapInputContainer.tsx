@@ -251,7 +251,6 @@ const SwapInputContainer = ({
       fromInputHasError.hasBalanceError,
     [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
   );
-
   const readOnly = useMemo(() => {
     if (direction === ESwapDirectionType.TO) {
       return (
@@ -263,7 +262,6 @@ const SwapInputContainer = ({
     }
     return false;
   }, [direction, swapTypeSwitch, fromToken, toToken]);
-
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
@@ -305,7 +303,7 @@ const SwapInputContainer = ({
         }}
         inputProps={{
           placeholder: '0.0',
-          readOnly: readOnly || inputIsLoading,
+          readonly: readOnly || inputIsLoading,
           color: inputIsLoading ? '$textPlaceholder' : undefined,
           style:
             !platformEnv.isNative && readOnly
