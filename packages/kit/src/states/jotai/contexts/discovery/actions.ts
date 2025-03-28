@@ -674,14 +674,14 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const maybeDeepLink =
           !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
 
-        const currentTab = this.getWebTabById.call(set, tabId ?? '');
+        const thisTab = this.getWebTabById.call(set, tabId ?? '');
         let isNewTab =
           typeof isNewWindow === 'boolean'
             ? isNewWindow
             : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
               browserTypeHandler === 'MultiTabBrowser';
 
-        if (currentTab?.type === 'home') {
+        if (thisTab?.type === 'home') {
           isNewTab = false;
         }
 
