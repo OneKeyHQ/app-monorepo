@@ -51,16 +51,6 @@ export function useSearchPopover({
     }
   }, [selectedIndex, scrollViewRef]);
 
-  // Reset scroll position when search value changes
-  useEffect(() => {
-    if (scrollViewRef.current) {
-      scrollViewRef.current.scrollTo({
-        y: 0,
-        animated: false,
-      });
-    }
-  }, [searchValue, scrollViewRef]);
-
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -102,7 +92,12 @@ export function useSearchPopover({
 
   useEffect(() => {
     resetSelectedIndex();
-  }, [isPopoverOpen, resetSelectedIndex, searchValue]);
+
+    scrollViewRef.current?.scrollTo({
+      y: 0,
+      animated: false,
+    });
+  }, [isPopoverOpen, resetSelectedIndex, scrollViewRef, searchValue]);
 
   const handleInputBlur = useCallback(() => {
     setTimeout(() => {
