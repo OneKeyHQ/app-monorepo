@@ -2,11 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EDiscoveryModalRoutes } from '@onekeyhq/shared/src/routes/discovery';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes/modal';
 
-import { useSearchPopoverFeatureFlag } from './useSearchPopoverFeatureFlag';
+import { useSearchPopoverUIFeatureFlag } from './useSearchPopoverFeatureFlag';
 
 const ITEM_HEIGHT = 48; // Height of each item in the search results
 
@@ -31,10 +30,9 @@ export function useSearchPopover({
   displaySearchList,
   displayHistoryList,
 }: IUseSearchPopoverProps) {
-  const searchPopoverFeatureFlag = useSearchPopoverFeatureFlag();
+  const searchPopoverUIFeatureFlag = useSearchPopoverUIFeatureFlag();
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-
   const navigation = useAppNavigation();
 
   // Scroll to selected item
@@ -119,12 +117,12 @@ export function useSearchPopover({
 
   const handleSearchBarPress = useCallback(() => {
     // only on mobile
-    if (!searchPopoverFeatureFlag) {
+    if (!searchPopoverUIFeatureFlag) {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
       });
     }
-  }, [navigation, searchPopoverFeatureFlag]);
+  }, [navigation, searchPopoverUIFeatureFlag]);
 
   return {
     handleSearchBarPress,

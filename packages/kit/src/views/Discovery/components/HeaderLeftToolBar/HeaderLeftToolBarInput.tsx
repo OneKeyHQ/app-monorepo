@@ -11,6 +11,10 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useSearchModalData } from '../../hooks/useSearchModalData';
 import { useSearchPopover } from '../../hooks/useSearchPopover';
+import {
+  useSearchPopoverShortcutsFeatureFlag,
+  useSearchPopoverUIFeatureFlag,
+} from '../../hooks/useSearchPopoverFeatureFlag';
 import { SearchPopover } from '../../pages/Dashboard/Welcome/SearchPopover';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
@@ -97,9 +101,7 @@ function HeaderLeftToolBarInput({
   });
 
   useShortcutsOnRouteFocused(EShortcutEvents.ChangeCurrentTabUrl, () => {
-    if (platformEnv.isDesktop) {
-      inputRef.current?.focus();
-    }
+    inputRef.current?.focus();
   });
 
   useShortcutsOnRouteFocused(EShortcutEvents.Refresh, () => {
