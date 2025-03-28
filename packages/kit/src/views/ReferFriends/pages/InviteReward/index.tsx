@@ -173,7 +173,11 @@ function Dashboard() {
         gap="$4"
       >
         <XStack ai="center" jc="space-between">
-          <SizableText size="$headingMd">Total Rewards</SizableText>
+          <SizableText size="$headingMd">
+            {intl.formatMessage({
+              id: ETranslations.referral_total_reward,
+            })}
+          </SizableText>
           <NumberSizeableText
             color="$textSuccess"
             formatter="balance"

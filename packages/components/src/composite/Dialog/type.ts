@@ -56,7 +56,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
 export type IDialogHeaderProps = PropsWithChildren<{
   icon?: IKeyOfIcons;
   title?: string;
-  description?: string;
+  description?: string | ReactElement;
   showExitButton?: boolean;
   tone?: 'default' | 'destructive' | 'warning' | 'success';
   renderIcon?: ReactElement;
@@ -76,7 +76,7 @@ interface IBasicDialogProps extends TMDialogProps {
   icon?: IKeyOfIcons;
   renderIcon?: ReactElement;
   title?: string;
-  description?: string;
+  description?: string | ReactElement;
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
   renderContent?: ReactNode;

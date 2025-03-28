@@ -50,7 +50,7 @@ export function TabPageHeader({
         <View>
           <HeaderTitle sceneName={sceneName} />
         </View>
-        {showHeaderRight ? headerRight : null}
+        {showHeaderRight || showCustomHeaderRight ? headerRight : null}
       </XStack>
     </>
   );

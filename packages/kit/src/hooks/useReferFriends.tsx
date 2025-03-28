@@ -14,6 +14,7 @@ import {
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -47,12 +48,19 @@ function InviteCode({
   return (
     <YStack>
       <OTPInput
+        type="alphanumeric"
         autoFocus
         status="normal"
         numberOfDigits={NUMBER_OF_DIGITS}
         value={verificationCode}
         onTextChange={(value) => {
-          setVerificationCode(value.toUpperCase());
+          setVerificationCode(
+            value
+              .slice(0, 6)
+              .replace(/[^A-Za-z0-9]/g, '')
+              .replace(/\s/g, '')
+              .toUpperCase(),
+          );
         }}
       />
       <SizableText mt="$3" size="$bodyMd" color="$textSubdued">
@@ -108,9 +116,14 @@ export const useReferFriends = () => {
         title: intl.formatMessage({
           id: ETranslations.earn_referral_enter_invite_code_title,
         }),
-        description: intl.formatMessage({
-          id: ETranslations.earn_referral_enter_invite_code_subtitle,
-        }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.earn_referral_enter_invite_code_subtitle,
+          },
+          {
+            number: '3%',
+          },
+        ),
         renderContent: <InviteCode onSuccess={onSuccess} onFail={onFail} />,
       });
     },
@@ -124,9 +137,6 @@ export const useReferFriends = () => {
         icon: 'InputOutline',
         title: intl.formatMessage({
           id: ETranslations.earn_referral_change_invite_code_title,
-        }),
-        description: intl.formatMessage({
-          id: ETranslations.earn_referral_enter_invite_code_note,
         }),
         renderContent: <InviteCode onSuccess={onSuccess} onFail={onFail} />,
       });
@@ -155,11 +165,19 @@ export const useReferFriends = () => {
         }
       };
       const sharedUrl = `https://onekey.so/r/${myReferralCode}`;
-      Dialog.show({
+      const dialog = Dialog.show({
         icon: 'GiftOutline',
-        title: 'Referral and earn more!',
-        description:
-          'Invite friends to deposit in Supported Vaults and earn more rewards.',
+        title: intl.formatMessage({ id: ETranslations.earn_referral_title }),
+        description: (
+          <HyperlinkText
+            size="$bodyMd"
+            translationId={ETranslations.earn_referral_subtitle}
+            underlineTextProps={{ color: '$textInfo' }}
+            onAction={() => {
+              void dialog.close();
+            }}
+          />
+        ),
         renderContent: isLogin ? (
           <YStack gap="$5">
             <YStack gap="$2">
@@ -243,7 +261,11 @@ export const useReferFriends = () => {
                 <Icon name="PeopleOutline" color="$iconSuccess" size={20} />
               </XStack>
               <YStack>
-                <SizableText size="$headingMd">For You</SizableText>
+                <SizableText size="$headingMd">
+                  {intl.formatMessage({
+                    id: ETranslations.referral_intro_for_you,
+                  })}
+                </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
                   {intl.formatMessage({
                     id: ETranslations.earn_referral_for_you_reward,
@@ -262,21 +284,32 @@ export const useReferFriends = () => {
                   })}
                 </SizableText>
                 <SizableText mt="$1" size="$bodyMd" color="$textSubdued">
-                  Get yield boost
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.earn_referral_for_your_friend_reward,
+                    },
+                    {
+                      number: '3%',
+                    },
+                  )}
                 </SizableText>
               </YStack>
             </XStack>
           </YStack>
         ),
-        showCancelButton: !isBindInviteCode,
+        showCancelButton: !isLogin || !isBindInviteCode,
         dismissOnOverlayPress: !isBindInviteCode,
-        onCancelText: 'Add invite code',
+        onCancelText: intl.formatMessage({
+          id: ETranslations.earn_referral_add_invite_code,
+        }),
         onCancel: () => {
-          if (!isBindInviteCode) {
-            bindInviteCode(onSuccess, onFail);
-          }
+          bindInviteCode(onSuccess, onFail);
         },
-        onConfirmText: isLogin ? 'View rewards' : 'Join',
+        onConfirmText: intl.formatMessage({
+          id: isLogin
+            ? ETranslations.earn_referral_view_rewards
+            : ETranslations.global_join,
+        }),
         onConfirm: handleConfirm,
       });
     },
