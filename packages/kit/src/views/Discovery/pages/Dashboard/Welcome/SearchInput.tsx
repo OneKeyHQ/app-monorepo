@@ -14,11 +14,13 @@ import {
 } from '@onekeyhq/components';
 import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
@@ -47,6 +49,12 @@ export function SearchInput() {
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const inputRef = useRef<TextInput>(null);
   const navigation = useAppNavigation();
+
+  const focusInputWithDelay = useCallback(() => {
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 200);
+  }, []);
 
   const {
     localData,
@@ -89,11 +97,15 @@ export function SearchInput() {
 
   useEffect(() => {
     if (platformEnv.isDesktop) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 200);
+      focusInputWithDelay();
     }
-  }, []);
+  }, [focusInputWithDelay]);
+
+  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
+    if (isFocus && inputRef.current) {
+      focusInputWithDelay();
+    }
+  });
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
@@ -101,8 +113,7 @@ export function SearchInput() {
 
   useShortcuts(EShortcutEvents.NewTab, () => {
     if (searchPopoverShortcutsFeatureFlag) {
-      // focus on search input
-      inputRef.current?.focus();
+      focusInputWithDelay();
     } else {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
