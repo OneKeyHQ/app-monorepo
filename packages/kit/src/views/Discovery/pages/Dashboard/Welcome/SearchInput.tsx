@@ -101,10 +101,8 @@ export function SearchInput() {
     }
   }, [focusInputWithDelay]);
 
-  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
-    if (isFocus && inputRef.current) {
-      focusInputWithDelay();
-    }
+  useListenTabFocusState(ETabRoutes.Discovery, () => {
+    focusInputWithDelay();
   });
 
   const handleInputChange = useCallback((text: string) => {
