@@ -38,6 +38,7 @@ export function Switch({
   return (
     <TMSwitch
       tag="span"
+      flexShrink={0}
       unstyled
       checked={checked}
       defaultChecked={defaultChecked}
