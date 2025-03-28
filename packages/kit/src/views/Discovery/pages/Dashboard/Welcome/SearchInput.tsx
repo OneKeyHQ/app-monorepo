@@ -14,11 +14,13 @@ import {
 } from '@onekeyhq/components';
 import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
@@ -26,7 +28,10 @@ import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum
 import { SearchResultContent } from '../../../components/SearchResultContent';
 import { useSearchModalData } from '../../../hooks/useSearchModalData';
 import { useSearchPopover } from '../../../hooks/useSearchPopover';
-import { useSearchPopoverFeatureFlag } from '../../../hooks/useSearchPopoverFeatureFlag';
+import {
+  useSearchPopoverShortcutsFeatureFlag,
+  useSearchPopoverUIFeatureFlag,
+} from '../../../hooks/useSearchPopoverFeatureFlag';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
@@ -35,13 +40,21 @@ import type { ISearchResultContentRef } from '../../../components/SearchResultCo
 import type { TextInput } from 'react-native';
 
 export function SearchInput() {
-  const searchPopoverFeatureFlag = useSearchPopoverFeatureFlag();
+  const searchPopoverShortcutsFeatureFlag =
+    useSearchPopoverShortcutsFeatureFlag();
+  const searchPopoverUIFeatureFlag = useSearchPopoverUIFeatureFlag();
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const inputRef = useRef<TextInput>(null);
   const navigation = useAppNavigation();
+
+  const focusInputWithDelay = useCallback(() => {
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 200);
+  }, []);
 
   const {
     localData,
@@ -84,20 +97,21 @@ export function SearchInput() {
 
   useEffect(() => {
     if (platformEnv.isDesktop) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 200);
+      focusInputWithDelay();
     }
-  }, []);
+  }, [focusInputWithDelay]);
+
+  useListenTabFocusState(ETabRoutes.Discovery, () => {
+    focusInputWithDelay();
+  });
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
   }, []);
 
   useShortcuts(EShortcutEvents.NewTab, () => {
-    if (searchPopoverFeatureFlag) {
-      // focus on search input
-      inputRef.current?.focus();
+    if (searchPopoverShortcutsFeatureFlag) {
+      focusInputWithDelay();
     } else {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
@@ -133,7 +147,7 @@ export function SearchInput() {
         >
           <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 
-          {searchPopoverFeatureFlag ? (
+          {searchPopoverUIFeatureFlag ? (
             <Input
               ref={inputRef}
               containerProps={{
@@ -170,7 +184,7 @@ export function SearchInput() {
             </Stack>
           )}
 
-          {searchPopoverFeatureFlag ? (
+          {searchPopoverShortcutsFeatureFlag ? (
             <XStack gap="$1" pointerEvents="none">
               <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
               <KeyboardShortcutKey label="T" />
@@ -197,6 +211,7 @@ export function SearchInput() {
                 selectedIndex={selectedIndex}
                 innerRef={searchResultRef}
                 onItemClick={() => {
+                  setSearchValue('');
                   setIsPopoverOpen(false);
                 }}
               />
