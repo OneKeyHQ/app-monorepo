@@ -195,12 +195,13 @@ function Field({
           {...(display ? { display } : {})}
         >
           <Stack
+            gap={horizontal ? '$1' : undefined}
             flexDirection={horizontal ? 'row' : 'column'}
             jc={horizontal ? 'space-between' : undefined}
             alignItems={horizontal ? 'center' : undefined}
             mb={horizontal ? '$1.5' : undefined}
           >
-            <YStack>
+            <YStack flexShrink={horizontal ? 1 : undefined}>
               {label ? (
                 <XStack
                   mb={horizontal ? undefined : '$1.5'}
