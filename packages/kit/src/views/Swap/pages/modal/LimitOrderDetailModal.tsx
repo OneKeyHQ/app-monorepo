@@ -441,7 +441,9 @@ const LimitOrderDetailModal = () => {
                   <SizableText
                     size="$bodyMdMedium"
                     textDecorationLine="underline"
-                    textDecorationStyle="dashed"
+                    textDecorationStyle="dotted"
+                    textDecorationColor="$textSubdued"
+                    cursor="pointer"
                   >
                     {intl.formatMessage({
                       id: ETranslations.limit_fill_at,
@@ -449,14 +451,16 @@ const LimitOrderDetailModal = () => {
                   </SizableText>
                 }
                 renderContent={
-                  <SizableText p="$2" size="$bodyMdMedium">
-                    {intl.formatMessage({
-                      id: ETranslations.limit_fill_at_popover,
-                    })}
-                  </SizableText>
+                  <Stack p="$3">
+                    <SizableText size="$bodyMd">
+                      {intl.formatMessage({
+                        id: ETranslations.limit_fill_at_popover,
+                      })}
+                    </SizableText>
+                  </Stack>
                 }
               />
-              <SizableText size="$bodySm" color="$textSubdued" flex={1}>
+              <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
                 {`${estimationRunPriceFormat.formattedValue} ${
                   orderItemState?.toTokenInfo?.symbol ?? '-'
                 } (${difValuePercentLabel})`}

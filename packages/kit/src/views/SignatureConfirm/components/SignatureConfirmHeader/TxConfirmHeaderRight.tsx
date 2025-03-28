@@ -4,6 +4,7 @@ import { find } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
+  Button,
   HeaderButtonGroup,
   HeaderIconButton,
   Image,
@@ -67,7 +68,16 @@ function TxConfirmHeaderRight(props: {
     <HeaderButtonGroup>
       <Popover
         title={intl.formatMessage({ id: ETranslations.mev_protection_label })}
-        renderTrigger={<HeaderIconButton icon="ShieldCheckDoneOutline" />}
+        renderTrigger={
+          <Button
+            variant="tertiary"
+            icon="ShieldCheckDoneSolid"
+            iconColor="$iconSuccess"
+            size="medium"
+          >
+            MEV
+          </Button>
+        }
         renderContent={
           <YStack p="$5" pt={gtMd ? '$5' : '$0'} gap="$2">
             {gtMd ? (
