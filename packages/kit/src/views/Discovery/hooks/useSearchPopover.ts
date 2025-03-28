@@ -100,10 +100,8 @@ export function useSearchPopover({
   }, []);
 
   useEffect(() => {
-    if (!isPopoverOpen) {
-      resetSelectedIndex();
-    }
-  }, [isPopoverOpen, resetSelectedIndex]);
+    resetSelectedIndex();
+  }, [isPopoverOpen, resetSelectedIndex, searchValue]);
 
   const handleInputBlur = useCallback(() => {
     setTimeout(() => {
