@@ -98,7 +98,7 @@ export function FirmwareUpdateProgressBarView({
   const intl = useIntl();
 
   return (
-    <Stack py="$9">
+    <Stack pt="$9" pb="$3">
       <SizableText size="$heading2xl" mt="$3" mb="$5">
         Installing firmware
       </SizableText>
@@ -133,7 +133,7 @@ export function FirmwareUpdateProgressBarView({
   );
 }
 
-export function FirmwareUpdateProgressBar({
+export function FirmwareUpdateProgressBarV2({
   result,
   lastFirmwareTipMessage,
   isDone,

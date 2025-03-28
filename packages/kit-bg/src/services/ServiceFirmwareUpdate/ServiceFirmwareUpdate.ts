@@ -47,6 +47,7 @@ import type {
   IFirmwareChangeLog,
   IFirmwareReleasePayload,
   IFirmwareUpdateInfo,
+  IFirmwareUpdateV3VersionParams,
   IHardwareBridgeReleasePayload,
   IOneKeyDeviceFeatures,
   IResourceUpdateInfo,
@@ -1377,6 +1378,65 @@ class ServiceFirmwareUpdate extends ServiceBase {
     );
   }
 
+  @backgroundMethod()
+  @toastIfError()
+  async startUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
+    await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+      async () => {
+        appEventBus.emit(EAppEventBusNames.BeginFirmwareUpdate, undefined);
+        // await other hardware task stop processing
+        await timerUtils.wait(3000);
+
+        // pre checking
+        await this.validateMnemonicBackuped(params);
+        await this.validateUSBConnection(params);
+        // must before validateMinVersionAllowed, go to https://help.onekey.so/
+        await this.validateShouldUpdateFullResource(params);
+        // go to https://firmware.onekey.so/
+        await this.validateMinVersionAllowed(params);
+        await this.validateDeviceBattery(params);
+        await this.validateShouldUpdateBridge(params);
+
+        // ** clear all retry tasks
+        await this.updateTasksClear('startUpdateWorkflow');
+
+        await this.cancelUpdateWorkflowIfExit();
+
+        const deviceType = params?.releaseResult?.deviceType;
+        // if (deviceType !== EDeviceType.Pro) {
+        //   throw new Error('Do not support update firmware for this device');
+        // }
+
+        await this.startUpdateFirmwareTaskForNewBootVersion(params);
+
+        serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', params);
+
+        await firmwareUpdateRetryAtom.set(undefined);
+        if (params.releaseResult.originalConnectId) {
+          await this.waitDeviceRestart({
+            actionType: 'done',
+            releaseResult: params.releaseResult,
+          });
+          await this.detectMap.deleteUpdateInfo({
+            connectId: params.releaseResult.originalConnectId,
+          });
+          await this.backgroundApi.serviceHardware.updateDeviceVersionAfterFirmwareUpdate(
+            params,
+          );
+          appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
+        }
+      },
+      {
+        deviceParams: {
+          dbDevice: {} as any,
+        },
+        skipDeviceCancel: true,
+        hideCheckingDeviceLoading: true,
+        debugMethodName: 'startUpdateWorkflowV2',
+      },
+    );
+  }
+
   async startUpdateBootloaderTask(params: IUpdateFirmwareWorkflowParams) {
     const firmwareUpdateInfo = params?.releaseResult?.updateInfos?.firmware;
     const firmwareToVersion = firmwareUpdateInfo?.toVersion;
@@ -1559,6 +1619,79 @@ class ServiceFirmwareUpdate extends ServiceBase {
     }
 
     return { error: null, needUpdate: false };
+  }
+
+  async startUpdateFirmwareTaskForNewBootVersion(
+    params: IUpdateFirmwareWorkflowParams,
+  ) {
+    const { releaseResult } = params;
+    const { updateInfos } = releaseResult;
+
+    const updateParams: IFirmwareUpdateV3VersionParams = {
+      connectId: releaseResult.updatingConnectId,
+      bleVersion: updateInfos.ble?.hasUpgrade
+        ? updateInfos.ble?.toVersion
+        : undefined,
+      firmwareVersion: updateInfos.firmware?.hasUpgrade
+        ? updateInfos.firmware?.toVersion
+        : undefined,
+      bootloaderVersion: updateInfos.bootloader?.hasUpgrade
+        ? updateInfos.bootloader?.toVersion
+        : undefined,
+    };
+    return this.createRunTaskWithRetry({
+      fn: async () => this.updatingFirmwareV3(updateParams),
+    });
+  }
+
+  async updatingFirmwareV3(
+    params: IFirmwareUpdateV3VersionParams,
+  ): Promise<Success> {
+    const hardwareSDK = await this.getSDKInstance();
+
+    return this.withFirmwareUpdateEvents(async () => {
+      const { connectId, bleVersion, firmwareVersion, bootloaderVersion } =
+        params;
+      await firmwareUpdateStepInfoAtom.set({
+        step: EFirmwareUpdateSteps.installing,
+        payload: {
+          installingTarget: {} as any,
+          // totalPhase: workflowParams.releaseResult.totalPhase,
+          // currentPhase: firmwareType,
+          // updateInfo,
+        },
+      });
+
+      const convertVersion = (version?: string) => {
+        if (version && semver.valid(version)) {
+          return version.split('.').map((v) => parseInt(v, 10));
+        }
+        return undefined;
+      };
+
+      try {
+        const result = await convertDeviceResponse(async () =>
+          // @ts-expect-error
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
+          hardwareSDK.firmwareUpdateV3(
+            deviceUtils.getUpdatingConnectId({ connectId }),
+            {
+              platform: platformEnv.symbol ?? 'web',
+              bleVersion: convertVersion(bleVersion),
+              firmwareVersion: convertVersion(firmwareVersion),
+              bootloaderVersion: convertVersion(bootloaderVersion),
+            },
+          ),
+        );
+
+        // 升级成功埋点数据
+        return result as Success;
+      } catch (error) {
+        // 埋点数据
+        console.log('updatingFirmwareV3 error: ', error);
+        throw error;
+      }
+    });
   }
 
   async validateShouldUpdateFullResource(

@@ -14,9 +14,9 @@ import type {
 } from '@onekeyhq/shared/types/device';
 
 import { FirmwareUpdateDone } from '../components/FirmwareUpdateDone';
-import { FirmwareUpdateErrors } from '../components/FirmwareUpdateErrors';
 
-import { FirmwareUpdateProgressBar } from './FirmwareUpdateProgressBar';
+import { FirmwareUpdateErrorV2 } from './FirmwareUpdateErrorV2';
+import { FirmwareUpdateProgressBarV2 } from './FirmwareUpdateProgressBarV2';
 
 export function FirmwareInstallingViewBase({
   result,
@@ -36,27 +36,39 @@ export function FirmwareInstallingViewBase({
       return <FirmwareUpdateDone result={result} />;
     }
     if (retryInfo) {
-      return (
-        <FirmwareUpdateErrors.InstallingErrors
+      // return (
+      //   <FirmwareUpdateErrors.InstallingErrors
+      //     retryInfo={retryInfo}
+      //     result={result}
+      //     lastFirmwareTipMessage={tipMessage}
+      //   />
+      // );
+      // TODO: add error view
+      console.log(
+        'FirmwareInstallingViewBase ====>>>>: retryInfo: ',
+        retryInfo,
+      );
+    }
+    return (
+      <>
+        <FirmwareUpdateProgressBarV2
+          result={result}
+          lastFirmwareTipMessage={tipMessage}
+          isDone={isDone}
+          key={progressBarKey}
+        />
+        <FirmwareUpdateErrorV2
           retryInfo={retryInfo}
           result={result}
           lastFirmwareTipMessage={tipMessage}
         />
-      );
-    }
-    return (
-      <FirmwareUpdateProgressBar
-        result={result}
-        lastFirmwareTipMessage={tipMessage}
-        isDone={isDone}
-        key={progressBarKey}
-      />
+      </>
     );
   }, [isDone, progressBarKey, result, retryInfo, tipMessage]);
   return <Stack>{content}</Stack>;
 }
 
-export function FirmwareInstallingView({
+export function FirmwareInstallingViewV2({
   result,
   isDone,
 }: {

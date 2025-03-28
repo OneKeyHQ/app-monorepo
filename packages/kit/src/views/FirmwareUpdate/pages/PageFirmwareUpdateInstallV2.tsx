@@ -19,7 +19,7 @@ import {
   ForceExtensionUpdatingFromExpandTab,
 } from '../components/FirmwareUpdateExitPrevent';
 import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
-import { FirmwareInstallingView } from '../componentsV2/FirmwareInstallingView';
+import { FirmwareInstallingViewV2 } from '../componentsV2/FirmwareInstallingViewV2';
 import { FirmwareUpdateAlertInfoMessage } from '../componentsV2/FirmwareUpdateAlertInfoMessage';
 
 function PageFirmwareUpdateInstallV2() {
@@ -62,8 +62,8 @@ function PageFirmwareUpdateInstallV2() {
               <FirmwareUpdateExitPrevent />
             </>
           ) : null}
-          {/* FirmwareInstallingView ->  FirmwareInstallingViewBase -> FirmwareUpdateProgressBar */}
-          <FirmwareInstallingView result={result} isDone={isDone} />
+          {/* FirmwareInstallingViewV2 ->  FirmwareInstallingViewBase -> FirmwareUpdateProgressBar */}
+          <FirmwareInstallingViewV2 result={result} isDone={isDone} />
         </>
       );
     }

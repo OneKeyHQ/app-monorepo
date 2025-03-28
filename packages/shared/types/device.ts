@@ -351,3 +351,10 @@ export type IDeviceVersionCacheInfo = {
   onekey_boot_version: string | undefined;
   bootloader_version: string | undefined;
 };
+
+export type IFirmwareUpdateV3VersionParams = {
+  connectId: string | undefined;
+  bleVersion: string | undefined;
+  firmwareVersion: string | undefined;
+  bootloaderVersion: string | undefined;
+};
