@@ -681,7 +681,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
               browserTypeHandler === 'MultiTabBrowser';
 
-        if (thisTab.type === 'home' || thisTab.isPinned) {
+        if (thisTab.type === 'home') {
           isNewTab = false;
         }
 
