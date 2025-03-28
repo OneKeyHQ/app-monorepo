@@ -76,7 +76,7 @@ function HardwareSingletonDialogCmp(
   const action = state?.action;
   const connectId = state?.connectId || '';
   // state?.payload?.deviceType
-  const { serviceHardwareUI } = backgroundApiProxy;
+  const { serviceHardwareUI, serviceAccount } = backgroundApiProxy;
   const intl = useIntl();
   const [showCloseButton, setIsShowExitButton] = useState(false);
 
@@ -182,13 +182,25 @@ function HardwareSingletonDialogCmp(
 
     // EnterPassphrase on App
     if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
+      const saveCachedHiddenWalletOptions = async ({
+        hideImmediately,
+      }: {
+        hideImmediately: boolean;
+      }) => {
+        await serviceAccount.setCachedHiddenWalletOptions(connectId, {
+          hideImmediately,
+        });
+      };
       title = intl.formatMessage({
         id: ETranslations.global_enter_passphrase,
       });
       content = (
         <EnterPhase
           isSingleInput={!!state?.payload?.passphraseState}
-          onConfirm={async ({ passphrase }) => {
+          onConfirm={async ({ passphrase, hideImmediately }) => {
+            await saveCachedHiddenWalletOptions({
+              hideImmediately,
+            });
             await serviceHardwareUI.sendPassphraseToDevice({
               passphrase,
             });
@@ -203,7 +215,10 @@ function HardwareSingletonDialogCmp(
             // TODO skip show loading dialog if custom dialog is shown
             // ETranslations.onboarding_finalize_generating_accounts
           }}
-          switchOnDevice={async () => {
+          switchOnDevice={async ({ hideImmediately }) => {
+            await saveCachedHiddenWalletOptions({
+              hideImmediately,
+            });
             await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
           }}
         />
@@ -226,6 +241,7 @@ function HardwareSingletonDialogCmp(
     connectId,
     defaultLoadingView,
     intl,
+    serviceAccount,
     serviceHardwareUI,
     state?.connectId,
     state?.payload,

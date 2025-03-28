@@ -198,7 +198,7 @@ const AmountInputGallery = () => (
             valueProps={{}}
             inputProps={{
               placeholder: '0',
-              readOnly: true,
+              readonly: true,
             }}
             tokenSelectorTriggerProps={{
               selectedTokenImageUri:
