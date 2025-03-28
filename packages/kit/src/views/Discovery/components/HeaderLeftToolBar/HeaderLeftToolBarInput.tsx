@@ -57,6 +57,8 @@ function HeaderLeftToolBarInput({
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const inputRef = useRef<TextInput>(null);
   const { hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
+  const searchPopoverShortcutsFeatureFlag =
+    useSearchPopoverShortcutsFeatureFlag();
 
   useEffect(() => {
     if (hiddenHttpsUrl) {
@@ -101,11 +103,13 @@ function HeaderLeftToolBarInput({
   });
 
   useShortcutsOnRouteFocused(EShortcutEvents.ChangeCurrentTabUrl, () => {
-    inputRef.current?.focus();
+    if (searchPopoverShortcutsFeatureFlag) {
+      inputRef.current?.focus();
+    }
   });
 
   useShortcutsOnRouteFocused(EShortcutEvents.Refresh, () => {
-    if (platformEnv.isDesktop) {
+    if (searchPopoverShortcutsFeatureFlag) {
       inputRef.current?.blur();
 
       if (hiddenHttpsUrl) {
