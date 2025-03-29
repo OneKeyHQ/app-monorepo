@@ -35,8 +35,8 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
 import type {
-  EFirmwareUpdateTipMessages,
   ICheckAllFirmwareReleaseResult,
   IDeviceFirmwareType,
 } from '@onekeyhq/shared/types/device';
@@ -58,6 +58,22 @@ interface IFirmwareUpdateVersions {
   type: string;
   info: IFirmwareUpdateVersionInfo;
 }
+
+type IProgressType =
+  | EFirmwareUpdateTipMessages
+  | 'checking'
+  | 'installing'
+  | 'done';
+
+type IProgressConfigItem = {
+  type: IProgressType[];
+  progress: () => number;
+  progressMax?: () => number;
+  //   title: (type: IProgressType) => string;
+  desc: () => string;
+};
+
+const checkingMaxProgress = 10;
 
 function FirmwareUpdateVersionItem({
   title,
@@ -92,15 +108,21 @@ function FirmwareUpdateVersionItem({
 
 export function FirmwareUpdateProgressBarView({
   versions,
+  title,
+  progress,
+  desc,
 }: {
   versions: IFirmwareUpdateVersions[];
+  title: string;
+  progress: number | null | undefined;
+  desc: string;
 }) {
   const intl = useIntl();
 
   return (
     <Stack pt="$9" pb="$3">
       <SizableText size="$heading2xl" mt="$3" mb="$5">
-        Installing firmware
+        {title}
       </SizableText>
       {/* Version View */}
       <Stack
@@ -124,10 +146,10 @@ export function FirmwareUpdateProgressBarView({
         ))}
       </Stack>
       <Stack mt="$12" mb="$3">
-        <Progress size="medium" value={10} />
+        <Progress size="medium" value={progress} />
       </Stack>
       <SizableText size="$bodyLg" color="$textSubdued">
-        Downloading...
+        {desc}
       </SizableText>
     </Stack>
   );
@@ -143,6 +165,183 @@ export function FirmwareUpdateProgressBarV2({
   isDone?: boolean;
 }) {
   const intl = useIntl();
+  const [stepInfo, setStepInfo] = useFirmwareUpdateStepInfoAtom();
+  const [state] = useHardwareUiStateAtom();
+  const [stateFull] = useHardwareUiStateCompletedAtom();
+  const [progress, setProgress] = useState(1);
+  const [retryInfo] = useFirmwareUpdateRetryAtom();
+
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
+
+  const progressMaxRef = useRef(checkingMaxProgress);
+
+  const defaultDesc = useCallback(
+    () => intl.formatMessage({ id: ETranslations.global_checking_device }),
+    [intl],
+  );
+  const [desc, setDesc] = useState(defaultDesc());
+
+  const firmwareProgress = state?.payload?.firmwareProgress;
+  const firmwareProgressType = state?.payload?.firmwareProgressType;
+  const firmwareTipMessage = state?.payload?.firmwareTipData?.message;
+
+  const firmwareProgressRef = useRef(firmwareProgress);
+  firmwareProgressRef.current = firmwareProgress;
+
+  const updateProgress = useCallback(
+    (type: IProgressType) => {
+      const progressConfig: IProgressConfigItem[] = [
+        {
+          type: ['checking'],
+          progress: () => 1,
+          progressMax: () => checkingMaxProgress,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_checking_device_if_no_restart,
+            }),
+        },
+        {
+          type: [EFirmwareUpdateTipMessages.StartDownloadFirmware],
+          progress: () => 5,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_downloading,
+            }),
+        },
+        {
+          type: [EFirmwareUpdateTipMessages.AutoRebootToBootloader],
+          progress: () => 10,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_reboot_to_bootloader_mode,
+            }),
+        },
+        {
+          type: [
+            EFirmwareUpdateTipMessages.SelectDeviceInBootloaderForWebDevice,
+          ],
+          progress: () => 11,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.firmware_update_grant_usb_instruction,
+            }),
+        },
+        {
+          type: [EFirmwareUpdateTipMessages.StartTransferData],
+          progress: () => 50,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_transferring_data,
+            }),
+        },
+        {
+          type: [EFirmwareUpdateTipMessages.ConfirmOnDevice],
+          progress: () => 90,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_installing,
+            }),
+        },
+        {
+          type: ['installing'],
+          progress: () => {
+            const startAt = 50;
+            let newProgress =
+              startAt +
+              (firmwareProgressRef.current ?? 0) * ((100 - startAt) / 100);
+            if (newProgress >= 90) {
+              newProgress = 90;
+            }
+            return newProgress;
+          },
+          desc: () => {
+            return intl.formatMessage({
+              id: ETranslations.update_installing,
+            });
+          },
+        },
+        {
+          type: [EFirmwareUpdateTipMessages.FirmwareUpdateCompleted],
+          progress: () => 99,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.firmware_update_status_validating,
+            }),
+        },
+        {
+          type: ['done'],
+          progress: () => 100,
+          desc: () =>
+            intl.formatMessage({
+              id: ETranslations.update_update_completed,
+            }),
+        },
+      ];
+
+      const index = progressConfig.findIndex((c) => c.type.includes(type));
+      if (index >= 0) {
+        const item = progressConfig[index];
+        const itemProgress = item.progress();
+
+        const currentProgress = progressRef.current;
+        setProgress(() => {
+          const newProgress = Math.max(itemProgress, currentProgress);
+          console.log('setProgress>>>>', {
+            newProgress,
+            itemProgress,
+            currentProgress,
+            type,
+          });
+          progressRef.current = newProgress;
+          return newProgress;
+        });
+
+        setDesc(item.desc());
+        const nextItem = progressConfig[index + 1];
+        const maxProgress = item?.progressMax?.() ?? nextItem?.progress();
+        if (maxProgress) {
+          progressMaxRef.current = maxProgress;
+        } else {
+          progressMaxRef.current = 99;
+        }
+      }
+    },
+    [intl],
+  );
+
+  const updateProgressRef = useRef(updateProgress);
+  updateProgressRef.current = updateProgress;
+
+  useEffect(() => {
+    if (lastFirmwareTipMessage) {
+      updateProgressRef.current(lastFirmwareTipMessage);
+    }
+  }, [lastFirmwareTipMessage]);
+
+  useEffect(() => {
+    if (isDone) {
+      setTimeout(() => {
+        updateProgressRef.current('done');
+      }, 1000);
+    }
+  }, [isDone]);
+
+  const installProgressList = useRef<string[]>([]);
+  useEffect(() => {
+    if (firmwareTipMessage) {
+      installProgressList.current.push(firmwareTipMessage);
+    }
+  }, [firmwareTipMessage]);
+
+  useEffect(() => {
+    if (
+      isNumber(firmwareProgress) &&
+      firmwareProgressType === 'installingFirmware'
+    ) {
+      updateProgressRef.current('installing');
+    }
+  }, [firmwareProgress, firmwareProgressType]);
 
   useEffect(() => {
     console.log('FirmwareUpdateProgressBar: =>>>> result: ', result);
@@ -192,9 +391,78 @@ export function FirmwareUpdateProgressBarV2({
     return versions;
   }, [result, intl]);
 
+  const previousStepInfo = useRef(stepInfo);
+  useEffect(() => {
+    const fn = () => {
+      previousStepInfo.current = stepInfo;
+      setStepInfo({
+        step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice,
+        payload: undefined,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.RequestDeviceInBootloaderForWebDevice, fn);
+    return () => {
+      appEventBus.off(
+        EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+        fn,
+      );
+    };
+  }, [setStepInfo, stepInfo]);
+
+  const renderGrantUSBAccessButton = useCallback(() => {
+    if (
+      stepInfo?.step ===
+      EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice
+    ) {
+      return (
+        <FirmwareUpdatePromptBootloaderWebDevice
+          previousStepInfo={previousStepInfo.current}
+        />
+      );
+    }
+  }, [stepInfo?.step, previousStepInfo]);
+
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const debugInfo = useMemo(() => {
+    if (process.env.NODE_ENV !== 'production') {
+      return (
+        <Stack my="$6">
+          <Button
+            size="small"
+            onPress={() => {
+              setShowDebugInfo((v) => !v);
+            }}
+          >
+            ProgressDebugInfo ({parseInt(progress.toFixed(), 10)}%)
+          </Button>
+          {showDebugInfo ? (
+            <Stack>
+              <SizableText>
+                lastTipMessage:
+                {lastFirmwareTipMessage} ({firmwareProgress ?? '--'}%)
+              </SizableText>
+
+              {installProgressList.current.map((item, index) => (
+                <SizableText key={index}>
+                  {index + 1}. {item}
+                </SizableText>
+              ))}
+            </Stack>
+          ) : null}
+        </Stack>
+      );
+    }
+  }, [firmwareProgress, lastFirmwareTipMessage, progress, showDebugInfo]);
+
   return (
     <Stack>
-      <FirmwareUpdateProgressBarView versions={upgradeVersions} />
+      <FirmwareUpdateProgressBarView
+        versions={upgradeVersions}
+        title="Installing firmware"
+        progress={progress}
+        desc={desc}
+      />
+      {debugInfo}
     </Stack>
   );
 }

@@ -60,6 +60,7 @@ export type IHardwareUiPayload = {
     message: EFirmwareUpdateTipMessages | string;
   };
   firmwareProgress?: number;
+  firmwareProgressType?: 'transferData' | 'installingFirmware';
   rawPayload: any;
 };
 export type IHardwareUiState = {

@@ -36,14 +36,6 @@ export function FirmwareInstallingViewBase({
       return <FirmwareUpdateDone result={result} />;
     }
     if (retryInfo) {
-      // return (
-      //   <FirmwareUpdateErrors.InstallingErrors
-      //     retryInfo={retryInfo}
-      //     result={result}
-      //     lastFirmwareTipMessage={tipMessage}
-      //   />
-      // );
-      // TODO: add error view
       console.log(
         'FirmwareInstallingViewBase ====>>>>: retryInfo: ',
         retryInfo,
