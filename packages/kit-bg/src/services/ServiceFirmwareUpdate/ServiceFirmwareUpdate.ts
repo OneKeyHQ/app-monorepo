@@ -1671,7 +1671,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       try {
         const result = await convertDeviceResponse(async () =>
-          // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
           hardwareSDK.firmwareUpdateV3(
             deviceUtils.getUpdatingConnectId({ connectId }),

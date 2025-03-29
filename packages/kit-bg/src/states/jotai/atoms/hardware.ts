@@ -71,6 +71,7 @@ export type IHardwareUiState = {
 export enum EFirmwareUpdateSteps {
   init = 'init',
   error = 'error', // error occurred in whole update process, installing phase error will use retry
+  checkReleaseError = 'checkReleaseError', // check release error
   showChangeLog = 'showChangeLog',
   showCheckList = 'showCheckList',
   updateStart = 'updateStart', // updateStart
@@ -85,6 +86,12 @@ export type IFirmwareUpdateStepInfo =
     }
   | {
       step: EFirmwareUpdateSteps.error;
+      payload: {
+        error: IOneKeyError;
+      };
+    }
+  | {
+      step: EFirmwareUpdateSteps.checkReleaseError;
       payload: {
         error: IOneKeyError;
       };

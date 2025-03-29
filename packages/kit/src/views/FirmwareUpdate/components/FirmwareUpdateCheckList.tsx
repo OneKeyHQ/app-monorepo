@@ -13,6 +13,7 @@ import { toPlainErrorObject } from '@onekeyhq/shared/src/errors/utils/errorUtils
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalFirmwareUpdateRoutes } from '@onekeyhq/shared/src/routes';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
@@ -113,9 +114,35 @@ export function FirmwareUpdateCheckList({
                     },
                   });
 
-                  navigation.navigate(EModalFirmwareUpdateRoutes.Install, {
-                    result,
-                  });
+                  const useV2FirmwareUpdateFlow =
+                    await deviceUtils.shouldUseV2FirmwareUpdateFlow({
+                      features: result?.features,
+                    });
+                  if (useV2FirmwareUpdateFlow) {
+                    navigation.navigate(EModalFirmwareUpdateRoutes.InstallV2, {
+                      result,
+                    });
+                    setWorkflowIsRunning(true);
+                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflowV2(
+                      {
+                        backuped: true,
+                        usbConnected: true,
+                        releaseResult: result,
+                      },
+                    );
+                  } else {
+                    navigation.navigate(EModalFirmwareUpdateRoutes.Install, {
+                      result,
+                    });
+                    setWorkflowIsRunning(true);
+                    await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
+                      {
+                        backuped: true,
+                        usbConnected: true,
+                        releaseResult: result,
+                      },
+                    );
+                  }
 
                   // navigation.dispatch(
                   //   StackActions.replace(EModalFirmwareUpdateRoutes.Install, {
@@ -123,14 +150,6 @@ export function FirmwareUpdateCheckList({
                   //   }),
                   // );
 
-                  setWorkflowIsRunning(true);
-                  await backgroundApiProxy.serviceFirmwareUpdate.startUpdateWorkflow(
-                    {
-                      backuped: true,
-                      usbConnected: true,
-                      releaseResult: result,
-                    },
-                  );
                   setStepInfo({
                     step: EFirmwareUpdateSteps.updateDone,
                     payload: undefined,

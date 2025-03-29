@@ -80,7 +80,7 @@ function PageFirmwareUpdateChangeLog() {
         return r;
       } catch (error) {
         setStepInfo({
-          step: EFirmwareUpdateSteps.error,
+          step: EFirmwareUpdateSteps.checkReleaseError,
           payload: {
             error: toPlainErrorObject(error as any),
           },
@@ -106,7 +106,10 @@ function PageFirmwareUpdateChangeLog() {
         </>
       );
     }
-    if (stepInfo.step === EFirmwareUpdateSteps.error) {
+    if (
+      stepInfo.step === EFirmwareUpdateSteps.error ||
+      stepInfo.step === EFirmwareUpdateSteps.checkReleaseError
+    ) {
       return (
         <>
           <FirmwareUpdateWarningMessage />
@@ -146,11 +149,17 @@ function PageFirmwareUpdateChangeLog() {
       <FirmwareUpdatePageLayout
         headerTitle={
           <FirmwareUpdatePageHeader
-            headerTitle={<FirmwareUpdatePageHeaderTitle result={result} />}
+            headerTitle={
+              stepInfo.step === EFirmwareUpdateSteps.showChangeLog ||
+              stepInfo.step === EFirmwareUpdateSteps.showCheckList ? (
+                <FirmwareUpdatePageHeaderTitle result={result} />
+              ) : undefined
+            }
           />
         }
         containerStyle={{
-          p: stepInfo.step === EFirmwareUpdateSteps.error ? '$5' : 0,
+          p:
+            stepInfo.step === EFirmwareUpdateSteps.checkReleaseError ? '$5' : 0,
         }}
       >
         <ForceExtensionUpdatingFromExpandTab />
