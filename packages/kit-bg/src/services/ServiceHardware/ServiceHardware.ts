@@ -35,7 +35,6 @@ import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
-  IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
@@ -486,9 +485,8 @@ class ServiceHardware extends ServiceBase {
   }
 
   @backgroundMethod()
-  async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
-    const sdk = await this.getSDKInstance();
-    sdk.emit(eventMessage.event, eventMessage);
+  async init() {
+    await this.getSDKInstance();
   }
 
   // startDeviceScan

@@ -30,6 +30,7 @@ class ServiceBootstrap extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.initAnalytics();
     }
     void this.saveDevModeToSyncStorage();
+    void this.backgroundApi.serviceHardware.init();
   }
 
   async saveDevModeToSyncStorage() {

@@ -77,6 +77,7 @@ import type {
   IPromiseContainerResolve,
 } from '../ServicePromise';
 import type {
+  BleReleaseInfoPayload,
   CoreApi,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
@@ -335,19 +336,22 @@ class ServiceFirmwareUpdate extends ServiceBase {
         },
       });
 
+    const releaseInfo = await this.baseCheckAllFirmwareRelease({
+      connectId: originalConnectId,
+    });
+
     const firmware = await this.checkFirmwareRelease({
       connectId: updatingConnectId,
       features,
+      firmwareReleasePayload:
+        releaseInfo.firmware as unknown as IFirmwareReleasePayload,
     });
 
     let ble;
     let bootloader;
     let bridge;
     if (firmware?.hasUpgrade && firmware.toVersion) {
-      bridge = await this.checkBridgeRelease({
-        connectId: updatingConnectId,
-        willUpdateFirmwareVersion: firmware.toVersion,
-      });
+      bridge = releaseInfo.bridge as unknown as IHardwareBridgeReleasePayload;
 
       const mockShouldUpdateBridge =
         await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
@@ -359,12 +363,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
       }
 
       // TODO only check bootloader upgrade？
-      if (!bridge?.shouldUpdate) {
+      if (!bridge?.shouldUpdate && releaseInfo.bootloader) {
         bootloader = await this.checkBootloaderRelease({
           connectId: updatingConnectId,
-          willUpdateFirmwareVersion: firmware.toVersion,
           features,
           firmwareUpdateInfo: firmware,
+          bootloaderReleasePayload:
+            releaseInfo.bootloader as unknown as IBootloaderReleasePayload,
         });
       }
     }
@@ -373,6 +378,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
       ble = await this.checkBLEFirmwareRelease({
         connectId: updatingConnectId,
         features,
+        bleReleasePayload:
+          releaseInfo.ble as unknown as IBleFirmwareReleasePayload,
       });
     }
 
@@ -464,23 +471,14 @@ class ServiceFirmwareUpdate extends ServiceBase {
   async checkFirmwareRelease({
     connectId,
     features,
+    firmwareReleasePayload,
   }: {
     connectId: string | undefined;
     features: IOneKeyDeviceFeatures;
+    firmwareReleasePayload: IFirmwareReleasePayload;
   }): Promise<IFirmwareUpdateInfo> {
-    const hardwareSDK = await this.getSDKInstance();
-    // "DeviceNotFound" if device with connectId not connected
-    // "NotInBootLoaderMode" if device in boot mode
-    // "NewFirmwareForceUpdate" if device in boot mode, and call getAddress method
-    const result = await convertDeviceResponse(() =>
-      // method fail if device on boot mode
-      hardwareSDK.checkFirmwareRelease(
-        deviceUtils.getUpdatingConnectId({ connectId }),
-      ),
-    );
-
     const releasePayload: IFirmwareReleasePayload = {
-      ...result,
+      ...firmwareReleasePayload,
       features,
       connectId, // set connectId as result missing features, but events include
     };
@@ -492,23 +490,38 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
-  async checkBLEFirmwareRelease({
+  async baseCheckAllFirmwareRelease({
     connectId,
-    features,
   }: {
     connectId: string | undefined;
-    features: IOneKeyDeviceFeatures;
-  }): Promise<IBleFirmwareUpdateInfo> {
+  }) {
     const hardwareSDK = await this.getSDKInstance();
+    const checkBridgeRelease = await this._hasUseBridge();
     const result = await convertDeviceResponse(() =>
       // method fail if device on boot mode
-      hardwareSDK.checkBLEFirmwareRelease(
+      hardwareSDK.checkAllFirmwareRelease(
         deviceUtils.getUpdatingConnectId({ connectId }),
+        {
+          checkBridgeRelease,
+        },
       ),
     );
 
+    return result;
+  }
+
+  @backgroundMethod()
+  async checkBLEFirmwareRelease({
+    connectId,
+    features,
+    bleReleasePayload,
+  }: {
+    connectId: string | undefined;
+    features: IOneKeyDeviceFeatures;
+    bleReleasePayload: IBleFirmwareReleasePayload;
+  }): Promise<IBleFirmwareUpdateInfo> {
     const releasePayload: IBleFirmwareReleasePayload = {
-      ...result,
+      ...bleReleasePayload,
       features,
       connectId,
     };
@@ -523,27 +536,16 @@ class ServiceFirmwareUpdate extends ServiceBase {
   @backgroundMethod()
   async checkBootloaderRelease({
     connectId,
-    willUpdateFirmwareVersion,
     features,
     firmwareUpdateInfo,
+    bootloaderReleasePayload,
   }: {
     connectId: string | undefined;
-    willUpdateFirmwareVersion: string;
     features: IOneKeyDeviceFeatures;
     firmwareUpdateInfo: IFirmwareUpdateInfo;
+    bootloaderReleasePayload: IBootloaderReleasePayload;
   }): Promise<IBootloaderUpdateInfo> {
-    const hardwareSDK = await this.getSDKInstance();
-    const releasePayload = await convertDeviceResponse(() =>
-      hardwareSDK?.checkBootloaderRelease(
-        deviceUtils.getUpdatingConnectId({ connectId }),
-        {
-          willUpdateFirmwareVersion,
-        },
-      ),
-    );
-    // releasePayload?.release
-    // TODO type mismatch
-    const usedReleasePayload = releasePayload as IBootloaderReleasePayload;
+    const usedReleasePayload = bootloaderReleasePayload;
 
     const { bootloaderVersion } = await deviceUtils.getDeviceVersion({
       features,
@@ -1112,30 +1114,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
     );
   }
 
-  @backgroundMethod()
-  async checkBridgeRelease({
-    connectId,
-    willUpdateFirmwareVersion,
-  }: {
-    connectId: string | undefined;
-    willUpdateFirmwareVersion: string;
-  }): Promise<IHardwareBridgeReleasePayload | undefined> {
-    if (!(await this._hasUseBridge())) {
-      return undefined;
-    }
-    const hardwareSDK = await this.getSDKInstance();
-    const releaseInfo = await convertDeviceResponse(() =>
-      hardwareSDK?.checkBridgeRelease(
-        deviceUtils.getUpdatingConnectId({ connectId }),
-        {
-          willUpdateFirmwareVersion,
-        },
-      ),
-    );
-    // releaseInfo?.releaseVersion;
-    return releaseInfo ?? undefined;
-  }
-
   updateTasks: Record<number | string, IUpdateFirmwareTaskFn> = {};
 
   updateTasksAdd({
@@ -1285,7 +1263,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
         await this.cancelUpdateWorkflowIfExit();
         if (params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade) {
           await waitRebootDelayForNextPhase();
-
           await this.startUpdateBootloaderTask(params);
 
           shouldRebootAfterUpdate = true;
@@ -1452,11 +1429,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
       });
 
     // TODO move to fn
+    const releaseInfo = await this.baseCheckAllFirmwareRelease({
+      connectId: params?.releaseResult?.updatingConnectId,
+    });
     const updateInfo = await this.checkBootloaderRelease({
       features,
       connectId: params.releaseResult.updatingConnectId,
-      willUpdateFirmwareVersion: firmwareToVersion,
       firmwareUpdateInfo,
+      bootloaderReleasePayload:
+        releaseInfo.bootloader as unknown as IBootloaderReleasePayload,
     });
     // TODO mock boot re-update
     // if (release) {
@@ -1649,6 +1630,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<Success> {
     const hardwareSDK = await this.getSDKInstance();
 
+    // @ts-expect-error
     return this.withFirmwareUpdateEvents(async () => {
       const { connectId, bleVersion, firmwareVersion, bootloaderVersion } =
         params;
@@ -1671,6 +1653,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       try {
         const result = await convertDeviceResponse(async () =>
+          // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
           hardwareSDK.firmwareUpdateV3(
             deviceUtils.getUpdatingConnectId({ connectId }),
@@ -1684,7 +1667,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         );
 
         // 升级成功埋点数据
-        return result as Success;
+        return result;
       } catch (error) {
         // 埋点数据
         console.log('updatingFirmwareV3 error: ', error);
