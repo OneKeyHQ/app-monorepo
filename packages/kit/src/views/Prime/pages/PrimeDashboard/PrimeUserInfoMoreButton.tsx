@@ -25,9 +25,11 @@ import { usePrimePayment } from '../../hooks/usePrimePayment';
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
   doPurchase,
+  onLogoutSuccess,
 }: {
   handleActionListClose: () => void;
   doPurchase?: () => Promise<void>;
+  onLogoutSuccess?: () => Promise<void>;
 }) {
   const { logout, user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
@@ -115,7 +117,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
             onConfirmText: intl.formatMessage({
               id: ETranslations.prime_log_out,
             }),
-            onConfirm: () => logout(),
+            onConfirm: async () => {
+              await logout();
+              await onLogoutSuccess?.();
+            },
           });
         }}
       />
@@ -125,8 +130,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
 
 export function PrimeUserInfoMoreButton({
   doPurchase,
+  onLogoutSuccess,
 }: {
   doPurchase?: () => Promise<void>;
+  onLogoutSuccess?: () => Promise<void>;
 }) {
   const intl = useIntl();
   const renderItems = useCallback(
@@ -139,9 +146,10 @@ export function PrimeUserInfoMoreButton({
       <PrimeUserInfoMoreButtonDropDownMenu
         handleActionListClose={handleActionListClose}
         doPurchase={doPurchase}
+        onLogoutSuccess={onLogoutSuccess}
       />
     ),
-    [doPurchase],
+    [doPurchase, onLogoutSuccess],
   );
   return (
     <ActionList

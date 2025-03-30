@@ -187,7 +187,7 @@ class ServicePrime extends ServiceBase {
     userInfo: IPrimeUserInfo;
     serverUserInfo: IPrimeServerUserInfo | undefined;
   }> {
-    console.log('servicePrime.apiFetchPrimeUserInfo');
+    console.log('call servicePrime.apiFetchPrimeUserInfo');
     await this.loginMutex.waitForUnlock();
     const authToken = await this.backgroundApi.simpleDb.prime.getAuthToken();
     if (!authToken) {
@@ -228,6 +228,7 @@ class ServicePrime extends ServiceBase {
     };
   }
 
+  @backgroundMethod()
   async setPrimePersistAtomNotLoggedIn() {
     console.log('servicePrime.setPrimePersistAtomNotLoggedIn');
     await primePersistAtom.set(() => ({
