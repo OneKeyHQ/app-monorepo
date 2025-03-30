@@ -2,7 +2,14 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
+import {
+  Badge,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import {
   useRateDifferenceAtom,
   useSwapSelectFromTokenAtom,
@@ -56,9 +63,51 @@ const LimitInfoContainer = () => {
           <SizableText size="$bodyMd" color={color}>
             (
           </SizableText>
-          <SizableText size="$bodyMd" color={color}>
-            {rateDifference.value}
-          </SizableText>
+          <Popover
+            renderTrigger={
+              <SizableText
+                size="$bodyMd"
+                color={color}
+                textDecorationLine="underline"
+                textDecorationStyle="dotted"
+                textDecorationColor={color}
+                cursor="pointer"
+              >
+                {rateDifference.value}
+              </SizableText>
+            }
+            title={intl.formatMessage({
+              id: ETranslations.limit_price_trigger,
+            })}
+            renderContent={
+              <Stack p="$3">
+                {rateDifference.value.startsWith('+') ? (
+                  <SizableText size="$bodyMd">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.limit_price_trigger_des_up,
+                      },
+                      {
+                        num: rateDifference.value,
+                      },
+                    )}
+                  </SizableText>
+                ) : (
+                  <SizableText size="$bodyMd">
+                    {intl.formatMessage(
+                      {
+                        id: ETranslations.limit_price_trigger_des_down,
+                      },
+                      {
+                        num: rateDifference.value,
+                      },
+                    )}
+                  </SizableText>
+                )}
+              </Stack>
+            }
+          />
+
           <SizableText size="$bodyMd" color={color}>
             )
           </SizableText>
@@ -66,7 +115,7 @@ const LimitInfoContainer = () => {
       );
     }
     return null;
-  }, [rateDifference, swapTypeSwitch]);
+  }, [rateDifference, swapTypeSwitch, intl]);
 
   return (
     <YStack gap="$2" p="$4" bg="$bgSubdued" borderRadius="$3">
