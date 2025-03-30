@@ -63,12 +63,15 @@ export function PrimeLoginEmailDialogV2(props: {
               loginWithCode={loginWithCode}
               email={data.email}
               onLoginSuccess={async () => {
-                const token = await getAccessToken();
-                await backgroundApiProxy.servicePrime.apiLogin({
-                  accessToken: token || '',
-                });
-                await onLoginSuccess?.();
-                await dialog.close();
+                try {
+                  const token = await getAccessToken();
+                  await backgroundApiProxy.servicePrime.apiLogin({
+                    accessToken: token || '',
+                  });
+                  await onLoginSuccess?.();
+                } finally {
+                  await dialog.close();
+                }
               }}
             />
           ),
