@@ -75,6 +75,23 @@ type IProgressConfigItem = {
 
 const checkingMaxProgress = 10;
 
+const calculateProgressInRange = ({
+  startAt,
+  maxAt,
+  currentProgress,
+}: {
+  startAt: number;
+  maxAt: number;
+  currentProgress: number | null | undefined;
+}) => {
+  let newProgress =
+    startAt + (currentProgress ?? 0) * ((maxAt - startAt) / 100);
+  if (newProgress >= maxAt) {
+    newProgress = maxAt;
+  }
+  return newProgress;
+};
+
 function FirmwareUpdateVersionItem({
   title,
   fromVersion,
@@ -229,32 +246,25 @@ export function FirmwareUpdateProgressBarV2({
         },
         {
           type: [EFirmwareUpdateTipMessages.StartTransferData],
-          progress: () => 50,
+          progress: () =>
+            calculateProgressInRange({
+              startAt: 12,
+              maxAt: 50,
+              currentProgress: firmwareProgressRef.current,
+            }),
           desc: () =>
             intl.formatMessage({
               id: ETranslations.update_transferring_data,
             }),
         },
         {
-          type: [EFirmwareUpdateTipMessages.ConfirmOnDevice],
-          progress: () => 90,
-          desc: () =>
-            intl.formatMessage({
-              id: ETranslations.update_installing,
-            }),
-        },
-        {
           type: ['installing'],
-          progress: () => {
-            const startAt = 50;
-            let newProgress =
-              startAt +
-              (firmwareProgressRef.current ?? 0) * ((100 - startAt) / 100);
-            if (newProgress >= 90) {
-              newProgress = 90;
-            }
-            return newProgress;
-          },
+          progress: () =>
+            calculateProgressInRange({
+              startAt: 50,
+              maxAt: 90,
+              currentProgress: firmwareProgressRef.current,
+            }),
           desc: () => {
             return intl.formatMessage({
               id: ETranslations.update_installing,
@@ -335,11 +345,12 @@ export function FirmwareUpdateProgressBarV2({
   }, [firmwareTipMessage]);
 
   useEffect(() => {
-    if (
-      isNumber(firmwareProgress) &&
-      firmwareProgressType === 'installingFirmware'
-    ) {
-      updateProgressRef.current('installing');
+    if (isNumber(firmwareProgress)) {
+      updateProgressRef.current(
+        firmwareProgressType === 'installingFirmware'
+          ? 'installing'
+          : EFirmwareUpdateTipMessages.StartTransferData,
+      );
     }
   }, [firmwareProgress, firmwareProgressType]);
 
