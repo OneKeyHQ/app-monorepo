@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { manipulateAsync } from 'expo-image-manipulator';
 import { useIntl } from 'react-intl';
@@ -6,13 +6,7 @@ import { StyleSheet } from 'react-native';
 import { captureRef } from 'react-native-view-shot';
 
 import type { IStackProps } from '@onekeyhq/components';
-import {
-  IconButton,
-  SizableText,
-  Stack,
-  Toast,
-  useClipboard,
-} from '@onekeyhq/components';
+import { IconButton, Stack, Toast, useClipboard } from '@onekeyhq/components';
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -41,7 +35,6 @@ import {
   useDisabledAddedNewTab,
   useDisplayHomePageFlag,
   useWebTabDataById,
-  useWebTabs,
 } from '../../hooks/useWebTabs';
 import { captureViewRefs, webviewRefs } from '../../utils/explorerUtils';
 import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
@@ -111,7 +104,6 @@ function MobileBrowserBottomBar({
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
   const { tab } = useWebTabDataById(id);
-  const { tabs } = useWebTabs();
 
   useEffect(() => {
     if (tab?.url) {
@@ -306,7 +298,7 @@ function MobileBrowserBottomBar({
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <TabCountButton takeScreenshot={takeScreenshot} />
+        <TabCountButton />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions

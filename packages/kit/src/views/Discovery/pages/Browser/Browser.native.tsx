@@ -32,6 +32,7 @@ import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import TabCountButton from '../../components/MobileBrowser/TabCountButton';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
@@ -193,9 +194,11 @@ function MobileBrowser() {
           >
             <BrowserTitle />
 
-            <Stack position="absolute" right={0}>
+            <XStack gap="$2" position="absolute" right={0}>
               <HistoryIconButton />
-            </Stack>
+
+              <TabCountButton />
+            </XStack>
           </XStack>
         )}
         <HeaderRightToolBar />

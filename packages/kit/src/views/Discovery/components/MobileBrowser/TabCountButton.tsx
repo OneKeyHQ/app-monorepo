@@ -9,23 +9,27 @@ import {
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
 
-import { useDisplayHomePageFlag, useWebTabs } from '../../hooks/useWebTabs';
+import {
+  useActiveTabId,
+  useDisplayHomePageFlag,
+  useWebTabs,
+} from '../../hooks/useWebTabs';
 
-interface ITabCountButtonProps {
-  takeScreenshot?: () => Promise<boolean>;
-}
+import { useTakeScreenshot } from './MobileBrowserBottomBar';
 
-function TabCountButton({ takeScreenshot }: ITabCountButtonProps) {
+function TabCountButton() {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
+  const { activeTabId } = useActiveTabId();
   const tabCount = useMemo(() => tabs.length, [tabs]);
+  const takeScreenshot = useTakeScreenshot(activeTabId);
 
   const navigation =
     useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
 
   const handleShowTabList = useCallback(async () => {
     try {
-      if (!displayHomePage && takeScreenshot) {
+      if (!displayHomePage) {
         await takeScreenshot();
       }
     } catch (e) {
