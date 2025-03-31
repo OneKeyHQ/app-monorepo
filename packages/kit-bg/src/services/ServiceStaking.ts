@@ -5,6 +5,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -584,9 +585,12 @@ class ServiceStaking extends ServiceBase {
       accounts: [],
     };
     const tokensResponse = await client.post<{
+      code: string;
+      message?: string;
       data: { tokens: IEarnAccountToken[] };
     }>(`/earn/v1/recommend`, { accounts: params });
 
+    this.handleServerError(tokensResponse.data);
     const tokens =
       tokensResponse?.data.data.tokens?.map((item, index) => ({
         ...item,
@@ -733,11 +737,26 @@ class ServiceStaking extends ServiceBase {
   async getAvailableAssets() {
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
+      message?: string;
+      code: string;
       data: {
         assets: IAvailableAsset[];
       };
     }>(`/earn/v1/available-assets`);
+
+    this.handleServerError(resp.data);
     return resp.data.data.assets;
+  }
+
+  handleServerError(error: { code?: string | number; message?: string }) {
+    if (error.code !== undefined && Number(error.code) !== 0 && error.message) {
+      throw new OneKeyServerApiError({
+        autoToast: true,
+        disableFallbackMessage: true,
+        code: Number(error.code),
+        message: error.message,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -782,6 +801,7 @@ class ServiceStaking extends ServiceBase {
       },
     });
     const { code, message } = result.data;
+    this.handleServerError({ code, message });
     return Number(code) === 0 ? '' : message;
   }
 
