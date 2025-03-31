@@ -11,6 +11,7 @@ import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useSearchModalData } from '../../hooks/useSearchModalData';
 import { useSearchPopover } from '../../hooks/useSearchPopover';
+import { useSearchPopoverShortcutsFeatureFlag } from '../../hooks/useSearchPopoverFeatureFlag';
 import { SearchPopover } from '../../pages/Dashboard/Welcome/SearchPopover';
 import { formatHiddenHttpsUrl } from '../../utils/explorerUtils';
 import { DappInfoPopoverContent } from '../DappInfoPopoverContent';
@@ -53,10 +54,13 @@ function HeaderLeftToolBarInput({
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const inputRef = useRef<TextInput>(null);
   const { hiddenHttpsUrl } = formatHiddenHttpsUrl(url);
+  const searchPopoverShortcutsFeatureFlag =
+    useSearchPopoverShortcutsFeatureFlag();
 
   useEffect(() => {
     if (hiddenHttpsUrl) {
       setInternalValue(hiddenHttpsUrl);
+      setSearchValue(hiddenHttpsUrl);
     }
   }, [hiddenHttpsUrl]);
 
@@ -97,13 +101,13 @@ function HeaderLeftToolBarInput({
   });
 
   useShortcutsOnRouteFocused(EShortcutEvents.ChangeCurrentTabUrl, () => {
-    if (platformEnv.isDesktop) {
+    if (searchPopoverShortcutsFeatureFlag) {
       inputRef.current?.focus();
     }
   });
 
   useShortcutsOnRouteFocused(EShortcutEvents.Refresh, () => {
-    if (platformEnv.isDesktop) {
+    if (searchPopoverShortcutsFeatureFlag) {
       inputRef.current?.blur();
 
       if (hiddenHttpsUrl) {
@@ -209,7 +213,7 @@ function HeaderLeftToolBarInput({
         <ScrollView ref={scrollViewRef} maxHeight={310}>
           <Stack py="$2">
             <SearchResultContent
-              useCurrentWindow
+              useCurrentWindow={!isPinned}
               searchValue={searchValue}
               localData={localData}
               searchList={searchList}

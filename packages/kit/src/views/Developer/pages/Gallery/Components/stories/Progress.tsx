@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Button, Progress, XStack, YStack } from '@onekeyhq/components';
+import { Button, Progress, YStack } from '@onekeyhq/components';
 
 import { Layout } from './utils/Layout';
 
@@ -25,11 +25,11 @@ const ProgressGallery = () => (
     componentName="Progress"
     elements={[
       {
-        title: 'Default',
+        title: 'Interactive Progress Bar',
         element: <ProgressDemo />,
       },
       {
-        title: '0',
+        title: 'Progress Bar Variations',
         element: (
           <YStack gap="$2">
             <Progress animated value={0} w={50} />
@@ -41,6 +41,15 @@ const ProgressGallery = () => (
             <Progress value={60} />
             <Progress value={80} />
             <Progress value={100} />
+          </YStack>
+        ),
+      },
+      {
+        title: 'Progress Bar Colors',
+        element: (
+          <YStack gap="$5">
+            <Progress progressColor="$textSuccess" value={60} h={20} />
+            <Progress indicatorColor="$textSuccess" value={60} h={10} />
           </YStack>
         ),
       },

@@ -167,7 +167,9 @@ function BottomMenu() {
       bg="$bgSidebar"
     >
       <DesktopTabItem
-        onPress={loginOneKeyId}
+        onPress={async () => {
+          await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+        }}
         selected={false}
         icon="PeopleOutline"
         label="OneKey ID"

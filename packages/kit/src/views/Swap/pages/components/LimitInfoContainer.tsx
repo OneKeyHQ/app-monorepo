@@ -3,9 +3,15 @@ import { useCallback, useMemo } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
-import { Badge, SizableText, XStack, YStack } from '@onekeyhq/components';
 import {
-  useRateDifferenceAtom,
+  Badge,
+  Popover,
+  SizableText,
+  Stack,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
+import {
   useSwapLimitPriceMarketPriceAtom,
   useSwapLimitPriceUseRateAtom,
   useSwapSelectFromTokenAtom,
@@ -71,9 +77,40 @@ const LimitInfoContainer = () => {
           <SizableText size="$bodyMd" color={color}>
             (
           </SizableText>
-          <SizableText size="$bodyMd" color={color}>
-            {`${rateDifferenceValue}%`}
-          </SizableText>
+          <Popover
+            renderTrigger={
+              <SizableText
+                size="$bodyMd"
+                color={color}
+                textDecorationLine="underline"
+                textDecorationStyle="dotted"
+                textDecorationColor={color}
+                cursor="pointer"
+              >
+                {`${rateDifferenceValue}%`}
+              </SizableText>
+            }
+            title={intl.formatMessage({
+              id: ETranslations.limit_price_trigger,
+            })}
+            renderContent={
+              <Stack p="$3">
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage(
+                    {
+                      id: rateDifference.gt(0)
+                        ? ETranslations.limit_price_trigger_des_up
+                        : ETranslations.limit_price_trigger_des_down,
+                    },
+                    {
+                      num: `${rateDifferenceValue}%`,
+                    },
+                  )}
+                </SizableText>
+              </Stack>
+            }
+          />
+
           <SizableText size="$bodyMd" color={color}>
             )
           </SizableText>
@@ -85,6 +122,7 @@ const LimitInfoContainer = () => {
     swapLimitPriceMarketPrice.rate,
     swapLimitPriceUseRate.rate,
     swapTypeSwitch,
+    intl,
   ]);
 
   return (
