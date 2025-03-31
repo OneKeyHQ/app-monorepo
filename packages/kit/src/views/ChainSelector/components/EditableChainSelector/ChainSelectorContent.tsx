@@ -24,10 +24,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -56,6 +58,7 @@ const ListEmptyComponent = () => {
 
 const ListHeaderComponent = ({ walletId }: { walletId?: string }) => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const { allNetworkItem, searchText } = useContext(
     EditableChainSelectorContext,
   );
@@ -115,6 +118,13 @@ const ListHeaderComponent = ({ walletId }: { walletId?: string }) => {
                   },
                 ),
                 trailingIcon: 'ChevronRightSmallOutline',
+                onPress: () => {
+                  if (walletId) {
+                    navigation.push(EChainSelectorPages.AllNetworksManager, {
+                      walletId,
+                    });
+                  }
+                },
               },
             ]}
           />
