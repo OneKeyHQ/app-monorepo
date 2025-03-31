@@ -12,6 +12,7 @@ import { StyleSheet } from 'react-native';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
+  Divider,
   Empty,
   Icon,
   Page,
@@ -21,8 +22,10 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
@@ -37,6 +40,7 @@ import type {
   IEditableChainSelectorContext,
   IEditableChainSelectorSection,
 } from './type';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();
@@ -50,14 +54,71 @@ const ListEmptyComponent = () => {
   );
 };
 
-const ListHeaderComponent = () => {
+const ListHeaderComponent = ({ walletId }: { walletId?: string }) => {
+  const intl = useIntl();
   const { allNetworkItem, searchText } = useContext(
     EditableChainSelectorContext,
   );
+
+  const enabledNetworksCompatibleWithAccountId = usePromiseResult(
+    async () => {
+      const { enabledNetworks, disabledNetworks } =
+        await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+      const { networks } =
+        await backgroundApiProxy.serviceNetwork.getAllNetworks({
+          clearCache: true,
+          excludeTestNetwork: true,
+          excludeAllNetworkItem: true,
+        });
+      const enabledNetworkIds = networks
+        .filter((n) =>
+          isEnabledNetworksInAllNetworks({
+            networkId: n.id,
+            disabledNetworks,
+            enabledNetworks,
+            isTestnet: n.isTestnet,
+          }),
+        )
+        .map((n) => n.id);
+
+      const compatibleNetworks =
+        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+          {
+            walletId,
+            networkIds: enabledNetworkIds,
+          },
+        );
+
+      return compatibleNetworks.mainnetItems;
+    },
+    [walletId],
+    {
+      initResult: [],
+    },
+  ).result;
+
   return (
     <Stack mt="$2">
       {!allNetworkItem || searchText?.trim() ? null : (
-        <EditableListItem item={allNetworkItem} isEditable={false} />
+        <Stack>
+          <EditableListItem
+            item={allNetworkItem}
+            isEditable={false}
+            actions={[
+              {
+                title: intl.formatMessage(
+                  {
+                    id: ETranslations.network_enabled_count,
+                  },
+                  {
+                    'count': enabledNetworksCompatibleWithAccountId.length,
+                  },
+                ),
+                trailingIcon: 'ChevronRightSmallOutline',
+              },
+            ]}
+          />
+        </Stack>
       )}
     </Stack>
   );
@@ -71,6 +132,7 @@ type IEditableChainSelectorContentProps = {
   frequentlyUsedItems: IServerNetwork[];
   allNetworkItem?: IServerNetwork;
   networkId?: string;
+  walletId?: string;
   onPressItem?: (network: IServerNetwork) => void;
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
@@ -86,6 +148,7 @@ export const EditableChainSelectorContent = ({
   onAddCustomNetwork,
   onEditCustomNetwork,
   networkId,
+  walletId,
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
@@ -402,7 +465,7 @@ export const EditableChainSelectorContent = ({
                 }
                 return layoutList[index];
               }}
-              ListHeaderComponent={ListHeaderComponent}
+              ListHeaderComponent={<ListHeaderComponent walletId={walletId} />}
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={
                 <>

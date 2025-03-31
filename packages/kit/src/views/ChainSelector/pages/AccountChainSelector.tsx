@@ -75,6 +75,7 @@ const EditableAccountChainSelector = ({
 
   return (
     <EditableChainSelector
+      walletId={wallet?.id}
       networkId={network?.id}
       mainnetItems={chainSelectorNetworks.mainnetItems}
       testnetItems={chainSelectorNetworks.testnetItems}

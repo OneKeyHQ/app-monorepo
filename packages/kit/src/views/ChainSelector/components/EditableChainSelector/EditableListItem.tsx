@@ -2,7 +2,7 @@ import { useCallback, useContext, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { XStack } from '@onekeyhq/components';
+import { Button, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,6 +20,12 @@ type IEditableListItemProps = {
   isCustomNetworkEditable?: boolean;
   drag?: () => void;
   dragProps?: Record<string, any>;
+  actions?: {
+    leadingIcon?: IKeyOfIcons;
+    trailingIcon?: IKeyOfIcons;
+    title?: string;
+    onPress?: () => void;
+  }[];
 };
 
 const EditableListItemPinOrNot = ({ item }: { item: IServerNetworkMatch }) => {
@@ -76,6 +82,7 @@ export const EditableListItem = ({
   isDraggable,
   isEditable = true,
   isCustomNetworkEditable,
+  actions,
 }: IEditableListItemProps) => {
   const intl = useIntl();
   const { isEditMode, networkId, onPressItem, onEditCustomNetwork } =
@@ -110,6 +117,18 @@ export const EditableListItem = ({
       disabled={isDisabled}
     >
       <XStack gap="$5">
+        {actions?.map((action) => (
+          <Button
+            key={action.title}
+            size="small"
+            variant="secondary"
+            icon={action.leadingIcon}
+            iconAfter={action.trailingIcon}
+            onPress={action.onPress}
+          >
+            {action.title}
+          </Button>
+        ))}
         {isCustomNetworkEditable && isEditMode && !isDisabled ? (
           <ListItem.IconButton
             icon="PencilOutline"
