@@ -728,6 +728,7 @@ export function useSwapBuildTx() {
           quoteResultCtx: selectQuoteRes?.quoteResultCtx,
           protocol: selectQuoteRes.protocol ?? EProtocolOfExchange.SWAP,
           kind: selectQuoteRes.kind ?? ESwapQuoteKind.SELL,
+          walletType: swapFromAddressInfo.accountInfo?.wallet?.type,
         });
         let skipSendTransAction = false;
         if (res) {
@@ -888,6 +889,7 @@ export function useSwapBuildTx() {
     swapFromAddressInfo.address,
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
+    swapFromAddressInfo.accountInfo?.wallet?.type,
     swapToAddressInfo.address,
     swapToAddressInfo.accountInfo?.account?.id,
     checkOtherFee,
