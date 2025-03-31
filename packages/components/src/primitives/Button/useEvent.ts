@@ -25,7 +25,7 @@ function debounceEventHandler(
     // Track button click event if trackingId is provided
     if (trackingId) {
       analytics.trackEvent('button_click', {
-        button_id: trackingId,
+        button_track_id: trackingId,
       });
     }
 
