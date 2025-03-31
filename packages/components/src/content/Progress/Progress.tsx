@@ -1,4 +1,4 @@
-import * as React from 'react';
+import { useState } from 'react';
 
 import { getVariableValue, styled } from '@tamagui/core';
 import { createContextScope } from '@tamagui/create-context';
@@ -170,7 +170,7 @@ const Progress = withStaticProperties(
     const max = isValidMaxNumber(maxProp) ? maxProp : DEFAULT_MAX;
     const value = isValidValueNumber(valueProp, max) ? valueProp : null;
     const valueLabel = isNumber(value) ? getValueLabel(value, max) : undefined;
-    const [width, setWidth] = React.useState(0);
+    const [width, setWidth] = useState(0);
 
     return (
       <ProgressProvider
