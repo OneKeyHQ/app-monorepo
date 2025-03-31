@@ -390,7 +390,7 @@ export function EnterPhase({
         });
       },
     }),
-    [intl, isSingleInput, onConfirm, settings.hideImmediately],
+    [intl, isSingleInput, onConfirm, settings.hiddenWalletImmediately],
   );
   const form = useForm<IEnterPhaseFormValues>(formOption);
 
