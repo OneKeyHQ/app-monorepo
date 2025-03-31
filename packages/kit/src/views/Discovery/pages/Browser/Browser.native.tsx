@@ -197,7 +197,7 @@ function MobileBrowser() {
             <XStack gap="$2" position="absolute" right={0}>
               <HistoryIconButton />
 
-              <TabCountButton />
+              <TabCountButton testID="browser-header-tabs" />
             </XStack>
           </XStack>
         )}

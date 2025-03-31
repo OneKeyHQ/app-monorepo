@@ -17,7 +17,11 @@ import {
 
 import { useTakeScreenshot } from './MobileBrowserBottomBar';
 
-function TabCountButton() {
+interface ITabCountButtonProps {
+  testID: string;
+}
+
+function TabCountButton({ testID }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -50,7 +54,7 @@ function TabCountButton() {
       onPress={() => {
         void handleShowTabList();
       }}
-      testID="browser-bar-tabs"
+      testID={testID}
     >
       <Stack
         minWidth="$5"

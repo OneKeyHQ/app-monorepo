@@ -255,7 +255,7 @@ function MobileBrowserBottomBar({
   return (
     <Stack
       flexDirection="row"
-      bg="$red3"
+      bg="$bgApp"
       h={BROWSER_BOTTOM_BAR_HEIGHT}
       zIndex={1}
       borderTopWidth={StyleSheet.hairlineWidth}
@@ -298,7 +298,7 @@ function MobileBrowserBottomBar({
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <TabCountButton />
+        <TabCountButton testID="browser-bar-tabs" />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
