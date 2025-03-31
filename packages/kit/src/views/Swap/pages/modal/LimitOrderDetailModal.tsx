@@ -525,7 +525,8 @@ const LimitOrderDetailModal = () => {
           <Progress
             h="$1"
             w={gtMd ? 200 : 250}
-            colors={['$neutral5', '$textSuccess']}
+            progressColor="$neutral5"
+            indicatorColor="$textSuccess"
             value={Number(sellPercentage)}
           />
           <SizableText size="$bodySm" color="$textSubdued">
