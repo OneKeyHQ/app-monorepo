@@ -1,6 +1,7 @@
 import BigNumber from 'bignumber.js';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
   backgroundMethod,
@@ -66,6 +67,23 @@ import type {
   IAddEarnOrderParams,
   IEarnOrderItem,
 } from '../dbs/simple/entity/SimpleDbEntityEarnOrders';
+
+interface ICheckAmountResponse {
+  code: number;
+  message: string;
+}
+
+interface IRecommendResponse {
+  code: string;
+  message?: string;
+  data: { tokens: IEarnAccountToken[] };
+}
+
+interface IAvailableAssetsResponse {
+  code: string;
+  message?: string;
+  data: { assets: IAvailableAsset[] };
+}
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -584,13 +602,15 @@ class ServiceStaking extends ServiceBase {
     const result: IEarnAccountTokenResponse = {
       accounts: [],
     };
-    const tokensResponse = await client.post<{
-      code: string;
-      message?: string;
-      data: { tokens: IEarnAccountToken[] };
-    }>(`/earn/v1/recommend`, { accounts: params });
+    const tokensResponse = await client.post<
+      IRecommendResponse,
+      IAxiosResponse<IRecommendResponse>
+    >(`/earn/v1/recommend`, { accounts: params });
 
-    this.handleServerError(tokensResponse.data);
+    this.handleServerError({
+      ...tokensResponse.data,
+      requestId: tokensResponse.$requestId,
+    });
     const tokens =
       tokensResponse?.data.data.tokens?.map((item, index) => ({
         ...item,
@@ -692,7 +712,6 @@ class ServiceStaking extends ServiceBase {
           hasClaimableAssets: false,
         },
       );
-    // const resp = response.data.data;
 
     return {
       totalFiatValue: totalFiatValue.toFixed(),
@@ -736,25 +755,30 @@ class ServiceStaking extends ServiceBase {
   @backgroundMethod()
   async getAvailableAssets() {
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
-    const resp = await client.get<{
-      message?: string;
-      code: string;
-      data: {
-        assets: IAvailableAsset[];
-      };
-    }>(`/earn/v1/available-assets`);
+    const resp = await client.get<
+      IAvailableAssetsResponse,
+      IAxiosResponse<IAvailableAssetsResponse>
+    >(`/earn/v1/available-assets`);
 
-    this.handleServerError(resp.data);
+    this.handleServerError({
+      ...resp.data,
+      requestId: resp.$requestId,
+    });
     return resp.data.data.assets;
   }
 
-  handleServerError(error: { code?: string | number; message?: string }) {
-    if (error.code !== undefined && Number(error.code) !== 0 && error.message) {
+  handleServerError(data: {
+    code?: string | number;
+    message?: string;
+    requestId?: string;
+  }) {
+    if (data.code !== undefined && Number(data.code) !== 0 && data.message) {
       throw new OneKeyServerApiError({
         autoToast: true,
         disableFallbackMessage: true,
-        code: Number(error.code),
-        message: error.message,
+        code: Number(data.code),
+        message: data.message,
+        requestId: data.requestId,
       });
     }
   }
@@ -785,10 +809,10 @@ class ServiceStaking extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
-    const result = await client.get<{
-      code: number;
-      message: string;
-    }>(`/earn/v1/check-amount`, {
+    const result = await client.get<
+      ICheckAmountResponse,
+      IAxiosResponse<ICheckAmountResponse>
+    >(`/earn/v1/check-amount`, {
       params: {
         networkId,
         accountAddress: account.address,
@@ -801,7 +825,11 @@ class ServiceStaking extends ServiceBase {
       },
     });
     const { code, message } = result.data;
-    this.handleServerError({ code, message });
+    this.handleServerError({
+      code,
+      message,
+      requestId: result.$requestId,
+    });
     return Number(code) === 0 ? '' : message;
   }
 
