@@ -7,9 +7,7 @@ import { captureRef } from 'react-native-view-shot';
 
 import type { IStackProps } from '@onekeyhq/components';
 import { IconButton, Stack, Toast, useClipboard } from '@onekeyhq/components';
-import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useBrowserBookmarkAction,
@@ -20,11 +18,6 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
@@ -32,7 +25,6 @@ import { BROWSER_BOTTOM_BAR_HEIGHT } from '../../config/Animation.constants';
 import { THUMB_CROP_SIZE } from '../../config/TabList.constants';
 import useBrowserOptionsAction from '../../hooks/useBrowserOptionsAction';
 import {
-  useDisabledAddedNewTab,
   useDisplayHomePageFlag,
   useWebTabDataById,
 } from '../../hooks/useWebTabs';
@@ -41,6 +33,7 @@ import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 import { showTabBar } from '../../utils/tabBarUtils';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
+import RefreshButton from './RefreshButton';
 import TabCountButton from './TabCountButton';
 
 import type { ESiteMode } from '../../types';
@@ -100,9 +93,6 @@ function MobileBrowserBottomBar({
   ...rest
 }: IMobileBrowserBottomBarProps) {
   const intl = useIntl();
-  const navigation =
-    useAppNavigation<IPageNavigationProp<IDiscoveryModalParamList>>();
-
   const { tab } = useWebTabDataById(id);
 
   useEffect(() => {
@@ -131,34 +121,9 @@ function MobileBrowserBottomBar({
   const { displayHomePage } = useDisplayHomePageFlag();
   const { setPinnedTab, setCurrentWebTab, closeWebTab, setSiteMode } =
     useBrowserTabActions().current;
-  const { disabledAddedNewTab } = useDisabledAddedNewTab();
   const { addBrowserBookmark, removeBrowserBookmark } =
     useBrowserBookmarkAction().current;
   const { handleShareUrl } = useBrowserOptionsAction();
-
-  const takeScreenshot = useTakeScreenshot(id);
-
-  const handleAddNewTab = useCallback(async () => {
-    if (disabledAddedNewTab) {
-      Toast.message({
-        title: intl.formatMessage(
-          { id: ETranslations.explore_toast_tab_limit_reached },
-          { number: '20' },
-        ),
-      });
-      return;
-    }
-    try {
-      if (!displayHomePage) {
-        await takeScreenshot();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [disabledAddedNewTab, navigation, displayHomePage, takeScreenshot, intl]);
 
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
@@ -252,6 +217,7 @@ function MobileBrowserBottomBar({
 
   const disabledGoBack = displayHomePage || !tab?.canGoBack;
   const disabledGoForward = displayHomePage ? true : !tab?.canGoForward;
+
   return (
     <Stack
       flexDirection="row"
@@ -294,14 +260,9 @@ function MobileBrowserBottomBar({
       </Stack>
 
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <IconButton
-          variant="tertiary"
-          size="medium"
-          icon="RefreshCwOutline"
-          onPress={handleRefresh}
-          testID="browser-bar-refresh"
-        />
+        <RefreshButton onRefresh={handleRefresh} />
       </Stack>
+
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
           disabled={displayHomePage}
