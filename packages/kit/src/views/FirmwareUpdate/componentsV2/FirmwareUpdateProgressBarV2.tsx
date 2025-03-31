@@ -169,7 +169,11 @@ export function FirmwareUpdateProgressBarView({
           ))}
         </Stack>
         <Stack mt="$12" mb="$3">
-          <Progress size="medium" value={progress} />
+          <Progress
+            size="medium"
+            value={progress}
+            indicatorColor="$bgSuccessStrong"
+          />
         </Stack>
         <SizableText size="$bodyLg" color="$textSubdued">
           {desc}
