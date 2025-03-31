@@ -579,7 +579,7 @@ class ServiceStaking extends ServiceBase {
       publicKey?: string;
     }[],
   ) {
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const result: IEarnAccountTokenResponse = {
       accounts: [],
     };
@@ -649,7 +649,7 @@ class ServiceStaking extends ServiceBase {
     assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccountsParams(params);
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const overviewData = (
       await Promise.allSettled(
         accounts.map((account) =>
@@ -731,7 +731,7 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getAvailableAssets() {
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const resp = await client.get<{
       data: {
         assets: IAvailableAsset[];
