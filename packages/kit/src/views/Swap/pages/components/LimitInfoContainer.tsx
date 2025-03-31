@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,7 +12,8 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import {
-  useRateDifferenceAtom,
+  useSwapLimitPriceMarketPriceAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTypeSwitchAtom,
@@ -29,7 +31,8 @@ const LimitInfoContainer = () => {
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
-  const [rateDifference] = useRateDifferenceAtom();
+  const [swapLimitPriceUseRate] = useSwapLimitPriceUseRateAtom();
+  const [swapLimitPriceMarketPrice] = useSwapLimitPriceMarketPriceAtom();
   const {
     onLimitRateChange,
     limitPriceUseRate,
@@ -50,12 +53,23 @@ const LimitInfoContainer = () => {
   );
 
   const valueMoreComponent = useMemo(() => {
-    if (rateDifference && swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+    if (
+      swapLimitPriceMarketPrice.rate &&
+      swapLimitPriceUseRate.rate &&
+      swapTypeSwitch === ESwapTabSwitchType.LIMIT
+    ) {
+      const useRateBN = new BigNumber(swapLimitPriceUseRate.rate);
+      const marketPriceBN = new BigNumber(swapLimitPriceMarketPrice.rate);
+      const rateDifference = useRateBN.minus(marketPriceBN).div(marketPriceBN);
+      const rateDifferenceValue = rateDifference.multipliedBy(100).toFixed(2);
+      if (new BigNumber(rateDifferenceValue).eq(0)) {
+        return null;
+      }
       let color = '$textSubdued';
-      if (rateDifference.value.startsWith('-')) {
+      if (rateDifference.lt(0)) {
         color = '$textCritical';
       }
-      if (rateDifference.value.startsWith('+')) {
+      if (rateDifference.gt(0)) {
         color = '$textSuccess';
       }
       return (
@@ -73,7 +87,7 @@ const LimitInfoContainer = () => {
                 textDecorationColor={color}
                 cursor="pointer"
               >
-                {rateDifference.value}
+                {`${rateDifferenceValue}%`}
               </SizableText>
             }
             title={intl.formatMessage({
@@ -81,29 +95,18 @@ const LimitInfoContainer = () => {
             })}
             renderContent={
               <Stack p="$3">
-                {rateDifference.value.startsWith('+') ? (
-                  <SizableText size="$bodyMd">
-                    {intl.formatMessage(
-                      {
-                        id: ETranslations.limit_price_trigger_des_up,
-                      },
-                      {
-                        num: rateDifference.value,
-                      },
-                    )}
-                  </SizableText>
-                ) : (
-                  <SizableText size="$bodyMd">
-                    {intl.formatMessage(
-                      {
-                        id: ETranslations.limit_price_trigger_des_down,
-                      },
-                      {
-                        num: rateDifference.value,
-                      },
-                    )}
-                  </SizableText>
-                )}
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage(
+                    {
+                      id: rateDifference.gt(0)
+                        ? ETranslations.limit_price_trigger_des_up
+                        : ETranslations.limit_price_trigger_des_down,
+                    },
+                    {
+                      num: `${rateDifferenceValue}%`,
+                    },
+                  )}
+                </SizableText>
               </Stack>
             }
           />
@@ -115,7 +118,12 @@ const LimitInfoContainer = () => {
       );
     }
     return null;
-  }, [rateDifference, swapTypeSwitch, intl]);
+  }, [
+    swapLimitPriceMarketPrice.rate,
+    swapLimitPriceUseRate.rate,
+    swapTypeSwitch,
+    intl,
+  ]);
 
   return (
     <YStack gap="$2" p="$4" bg="$bgSubdued" borderRadius="$3">
