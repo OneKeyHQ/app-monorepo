@@ -507,6 +507,7 @@ export function FirmwareUpdateProgressBarV2({
         desc={desc}
         isDone={isDone}
       />
+      {renderGrantUSBAccessButton()}
       {debugInfo}
     </Stack>
   );
