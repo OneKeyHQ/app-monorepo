@@ -345,8 +345,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             newActiveTabIndex = 0;
           }
 
-          const newActiveTab = tabs[newActiveTabIndex];
-
           // if current active tab is not in tabs, set it to the first tab
           const hasCurrentActiveTab = tabs.find((t) => t.isActive);
 
@@ -354,8 +352,13 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             return;
           }
 
-          newActiveTab.isActive = true;
-          this.setCurrentWebTab.call(set, newActiveTab.id);
+          // get the new active tab
+          const newActiveTab = tabs[newActiveTabIndex];
+
+          if (newActiveTab) {
+            newActiveTab.isActive = true;
+            this.setCurrentWebTab.call(set, newActiveTab.id);
+          }
         };
 
         // Refresh the list after closing WebView in Electron to improve list fluidity

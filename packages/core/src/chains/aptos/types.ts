@@ -13,9 +13,9 @@
 export type IPayloadType = 'entry_function_payload';
 
 export type ITxPayload = {
-  type: IPayloadType;
+  type: 'entry_function_payload';
   function?: string;
-  arguments?: any[];
+  arguments: any[];
   type_arguments?: any[];
   code?: any[];
 };
@@ -27,13 +27,15 @@ export type IEncodedTxAptos = {
   gas_unit_price?: string;
   expiration_timestamp_secs?: string;
   chain_id?: number;
-  bcsTxn?: string;
   forcePendingTx?: boolean;
+
+  // payload is equal to bcsTxn
   payload?: ITxPayload;
+  bcsTxn?: string;
 
   // From dApp, not edit tx
   disableEditTx?: boolean;
-} & ITxPayload;
+};
 
 export interface ISignMessagePayload {
   address?: boolean; // Should we include the address of the account in the message
