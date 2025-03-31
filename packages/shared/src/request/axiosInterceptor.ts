@@ -115,8 +115,6 @@ axios.interceptors.response.use(
         responseCode: data.code,
         responseErrorMessage: data.code !== 0 ? data.message : '',
       });
-    }
-    if (config.headers[HEADER_REQUEST_ID_KEY]) {
       (response as IAxiosResponse<any>).$requestId =
         config.headers[HEADER_REQUEST_ID_KEY];
     }
