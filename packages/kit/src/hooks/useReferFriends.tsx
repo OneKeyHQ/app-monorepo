@@ -92,7 +92,7 @@ export const useReferFriends = () => {
         screen: EModalReferFriendsRoutes.InviteReward,
       });
     } else {
-      void loginOneKeyId();
+      void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
     }
   }, [loginOneKeyId, navigation]);
 
@@ -161,7 +161,7 @@ export const useReferFriends = () => {
             screen: EModalReferFriendsRoutes.ReferAFriend,
           });
         } else {
-          void loginOneKeyId();
+          void loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
         }
       };
       const sharedUrl = `https://onekey.so/r/${myReferralCode}`;

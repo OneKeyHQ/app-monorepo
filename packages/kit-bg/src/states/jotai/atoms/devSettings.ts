@@ -52,7 +52,8 @@ export const {
       disableSolanaPriorityFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
-      showPrimeTest: true,
+      showPrimeTest: false,
+      usePrimeSandboxPayment: false,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,

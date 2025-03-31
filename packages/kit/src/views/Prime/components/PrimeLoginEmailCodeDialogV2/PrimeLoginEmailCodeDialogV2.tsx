@@ -20,7 +20,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
-  onLoginSuccess?: () => void;
+  onLoginSuccess?: () => void | Promise<void>;
 }) {
   const { email, sendCode, loginWithCode, onLoginSuccess } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
@@ -92,7 +92,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
       });
 
       setState({ status: 'done' });
-      onLoginSuccess?.();
+      await onLoginSuccess?.();
     } catch (error) {
       console.error('prime login error', error);
       setState({ status: 'error' });
@@ -172,9 +172,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_next,
         })}
-        onConfirm={({ preventClose }) => {
+        onConfirm={async ({ preventClose }) => {
           preventClose();
-          void handleConfirm();
+          await handleConfirm();
         }}
       />
     </Stack>

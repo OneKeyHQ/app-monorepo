@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useIsFocused } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -18,11 +18,12 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { LazyLoadPage } from '@onekeyhq/kit/src/components/LazyLoadPage';
+import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
-import { usePrimeLoginDialog } from '../../hooks/usePrimeLoginDialog';
 
 import { PrimeBenefitsList } from './PrimeBenefitsList';
 import { PrimeDebugPanel } from './PrimeDebugPanel';
@@ -32,13 +33,6 @@ import { PrimeUserInfo } from './PrimeUserInfo';
 const PrimePurchaseDialog = LazyLoadPage(
   () => import('../../components/PrimePurchaseDialog/PrimePurchaseDialog'),
   100,
-  true,
-);
-
-const PrimeLoginEmailDialogV2 = LazyLoadPage(
-  () =>
-    import('../../components/PrimeLoginEmailDialogV2/PrimeLoginEmailDialogV2'),
-  0,
   true,
 );
 
@@ -94,14 +88,25 @@ export default function PrimeDashboard() {
   const isMobile = isNative || isWebMobile;
   const mobileTopValue = isMobile ? top + 25 : '$10';
 
-  const { showLoginDialog } = usePrimeLoginDialog();
+  const { loginOneKeyId } = useLoginOneKeyId();
 
   const isFocused = useIsFocused();
+  const isFocusedRef = useRef(isFocused);
+  isFocusedRef.current = isFocused;
 
   useEffect(() => {
-    if (isFocused) {
-      void backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
-    }
+    const fn = async () => {
+      // isFocused won't be triggered when Login Dialog is open or closed
+      if (isFocused) {
+        await timerUtils.wait(600);
+        if (!isFocusedRef.current) {
+          // may be blurred when auto navigate to Device Limit Page
+          return;
+        }
+        await backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo();
+      }
+    };
+    void fn();
   }, [isFocused]);
 
   const shouldShowConfirmButton = useMemo(() => {
@@ -116,7 +121,7 @@ export default function PrimeDashboard() {
 
   const subscribe = useCallback(async () => {
     if (!isLoggedIn) {
-      await showLoginDialog();
+      await loginOneKeyId();
       return;
     }
 
@@ -129,7 +134,7 @@ export default function PrimeDashboard() {
         />
       ),
     });
-  }, [isLoggedIn, showLoginDialog]);
+  }, [isLoggedIn, loginOneKeyId]);
 
   return (
     <>
