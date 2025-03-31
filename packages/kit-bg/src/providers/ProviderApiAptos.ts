@@ -10,6 +10,7 @@ import {
 } from '@aptos-labs/ts-sdk';
 import { web3Errors } from '@onekeyfe/cross-inpage-provider-errors';
 import { IInjectedProviderNames } from '@onekeyfe/cross-inpage-provider-types';
+import { deserializeTransactionPayload } from '@onekeyfe/onekey-aptos-provider-utils';
 import { get, isArray } from 'lodash';
 
 import {
@@ -28,7 +29,6 @@ import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
 import { EMessageTypesAptos } from '@onekeyhq/shared/types/message';
 
 import { vaultFactory } from '../vaults/factory';
-import { deserializeTransactionPayload } from '../vaults/impls/aptos/sdkAptos/serializer';
 import {
   APTOS_SIGN_MESSAGE_PREFIX,
   buildSimpleTransaction,
