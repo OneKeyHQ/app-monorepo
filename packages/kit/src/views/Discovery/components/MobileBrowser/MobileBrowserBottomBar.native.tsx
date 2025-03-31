@@ -288,17 +288,19 @@ function MobileBrowserBottomBar({
           testID="browser-bar-go-forward"
         />
       </Stack>
-      <Stack flex={1} alignItems="center" justifyContent="center">
-        <IconButton
-          variant="secondary"
-          size="medium"
-          icon="PlusLargeOutline"
-          onPress={handleAddNewTab}
-          testID="browser-bar-add"
-        />
-      </Stack>
+
       <Stack flex={1} alignItems="center" justifyContent="center">
         <TabCountButton testID="browser-bar-tabs" />
+      </Stack>
+
+      <Stack flex={1} alignItems="center" justifyContent="center">
+        <IconButton
+          variant="tertiary"
+          size="medium"
+          icon="RefreshCwOutline"
+          onPress={handleRefresh}
+          testID="browser-bar-refresh"
+        />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
