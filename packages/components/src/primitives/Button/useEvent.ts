@@ -11,7 +11,7 @@ function debounceEventHandler(
   onPress: ((event: GestureResponderEvent) => void) | null | undefined,
   onPressDebounce: number,
   stopPropagation: boolean,
-  trackID?: string,
+  trackingId?: string,
 ) {
   if (!onPress) {
     return undefined;
@@ -22,10 +22,10 @@ function debounceEventHandler(
       e.stopPropagation();
     }
 
-    // Track button click event if trackID is provided
-    if (trackID) {
+    // Track button click event if trackingId is provided
+    if (trackingId) {
       analytics.trackEvent('button_click', {
-        button_id: trackID,
+        button_id: trackingId,
       });
     }
 
@@ -39,11 +39,20 @@ export const useSharedPress = ({
   onLongPress,
   stopPropagation = true,
   trackID,
+  testID,
 }: IButtonProps) => {
+  // Use testID as fallback for trackID
+  const trackingId = trackID || testID;
+
   const handlePress = useMemo(
     () =>
-      debounceEventHandler(onPress, onPressDebounce, stopPropagation, trackID),
-    [onPress, onPressDebounce, stopPropagation, trackID],
+      debounceEventHandler(
+        onPress,
+        onPressDebounce,
+        stopPropagation,
+        trackingId,
+      ),
+    [onPress, onPressDebounce, stopPropagation, trackingId],
   );
 
   const handleLongPress = useCallback(
@@ -52,16 +61,16 @@ export const useSharedPress = ({
         event.stopPropagation();
       }
 
-      // Track long press event if trackID is provided
-      if (trackID) {
+      // Track long press event if trackingId is provided
+      if (trackingId) {
         analytics.trackEvent('button_long_press', {
-          button_id: trackID,
+          button_id: trackingId,
         });
       }
 
       onLongPress?.(event);
     },
-    [onLongPress, stopPropagation, trackID],
+    [onLongPress, stopPropagation, trackingId],
   );
   return {
     onPress: handlePress,
