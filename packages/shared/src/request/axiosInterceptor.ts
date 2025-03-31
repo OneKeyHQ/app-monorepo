@@ -25,6 +25,7 @@ import {
   getRequestHeaders,
 } from './Interceptor';
 
+import type { IAxiosResponse } from '../appApiClient/appApiClient';
 import type { AxiosInstance, AxiosRequestConfig } from 'axios';
 
 const refreshNetInfo = debounce(() => {
@@ -114,6 +115,8 @@ axios.interceptors.response.use(
         responseCode: data.code,
         responseErrorMessage: data.code !== 0 ? data.message : '',
       });
+      (response as IAxiosResponse<any>).$requestId =
+        config.headers[HEADER_REQUEST_ID_KEY];
     }
     return response;
   },
