@@ -1,16 +1,15 @@
-import { type PropsWithChildren, useCallback } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
 import {
-  ActionList,
   Badge,
   Icon,
   IconButton,
   LinearGradient,
   Page,
   SizableText,
+  Stack,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -19,25 +18,15 @@ import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
-import { usePrimeAuthV2 } from '../../../Prime/hooks/usePrimeAuthV2';
-
-function Tag({ children }: PropsWithChildren) {
-  return (
-    <XStack bg="$bgStrong" borderRadius="$1">
-      <SizableText color="$textSubdued" size="$bodySmMedium" px="$2" py="$0.5">
-        {children}
-      </SizableText>
-    </XStack>
-  );
-}
+import { PrimeUserInfo } from '../../../Prime/pages/PrimeDashboard/PrimeUserInfo';
 
 export default function OneKeyId() {
-  const { isLoggedIn, user, logout } = usePrimeAuthV2();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const toInviteRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.InviteReward);
   }, [navigation]);
+
   return (
     <Page scrollEnabled>
       <Page.Header title="OneKey ID" />
@@ -67,50 +56,13 @@ export default function OneKeyId() {
               })}
             </SizableText>
           </YStack>
-          <XStack
-            m="$5"
-            p="$4"
-            borderRadius="$3"
-            jc="space-between"
-            borderWidth={StyleSheet.hairlineWidth}
-            borderColor="$borderSubdued"
-            shadowColor="rgba(0, 0, 0, 0.09)"
-            shadowOffset={{ width: 0, height: 1 }}
-            shadowOpacity={1}
-            shadowRadius={2}
-            elevation={0.5}
-          >
-            <XStack gap="$2">
-              <Icon size="$5" name="PeopleOutline" color="$iconSubdued" />
-              <SizableText size="$bodyMdMedium">{user.email}</SizableText>
-            </XStack>
-            <XStack gap="$2">
-              <Tag>free</Tag>
-              <ActionList
-                title={intl.formatMessage({ id: ETranslations.global_more })}
-                renderTrigger={
-                  <IconButton
-                    icon="DotHorOutline"
-                    variant="tertiary"
-                    size="small"
-                  />
-                }
-                items={[
-                  {
-                    icon: 'LogoutOutline',
-                    testID: 'logout-button',
-                    onPress: () => {
-                      navigation.pop();
-                      void logout();
-                    },
-                    label: intl.formatMessage({
-                      id: ETranslations.prime_log_out,
-                    }),
-                  },
-                ]}
-              />
-            </XStack>
-          </XStack>
+          <Stack p="$5">
+            <PrimeUserInfo
+              onLogoutSuccess={async () => {
+                navigation.popStack();
+              }}
+            />
+          </Stack>
           <YStack>
             <ListItem
               userSelect="none"
