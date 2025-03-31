@@ -87,15 +87,17 @@ function PrimeGlobalEffectView() {
 
   useEffect(() => {
     const fn = async () => {
-      // If the server returns that the login is invalid, call the privy sdk logout
-      await logout();
+      if (authenticated) {
+        // If the server returns that the login is invalid, call the privy sdk logout
+        await logout();
+      }
       await backgroundApiProxy.simpleDb.prime.saveAuthToken('');
     };
     appEventBus.on(EAppEventBusNames.PrimeLoginInvalidToken, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeLoginInvalidToken, fn);
     };
-  }, [logout]);
+  }, [logout, authenticated]);
 
   // const isActive = primePersistAtom.primeSubscription?.isActive;
   // useUpdateEffect(() => {

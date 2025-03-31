@@ -187,7 +187,9 @@ export function MoreActionButton() {
             {
               label: 'OneKey ID',
               icon: 'PeopleOutline',
-              onPress: loginOneKeyId,
+              onPress: async () => {
+                await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+              },
               testID: 'onekey_id',
             },
             {
