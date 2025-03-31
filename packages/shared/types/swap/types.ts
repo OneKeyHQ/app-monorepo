@@ -552,6 +552,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   provider: string;
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
+  walletType?: string;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
