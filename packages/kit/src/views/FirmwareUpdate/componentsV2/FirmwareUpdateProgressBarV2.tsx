@@ -128,47 +128,54 @@ export function FirmwareUpdateProgressBarView({
   title,
   progress,
   desc,
+  isDone,
 }: {
   versions: IFirmwareUpdateVersions[];
   title: string;
   progress: number | null | undefined;
   desc: string;
+  isDone?: boolean;
 }) {
-  const intl = useIntl();
-
   return (
-    <Stack pt="$9" pb="$3">
-      <SizableText size="$heading2xl" mt="$3" mb="$5">
-        {title}
-      </SizableText>
-      {/* Version View */}
-      <Stack
-        bg="$bgSubdued"
-        borderRadius="$2"
-        borderWidth={StyleSheet.hairlineWidth}
-        borderColor="$borderSubdued"
-        px="$4"
-        py="$2"
-        gap="$2"
-      >
-        {versions.map((version, index) => (
-          <Fragment key={version.type}>
-            <FirmwareUpdateVersionItem
-              title={version.type}
-              fromVersion={version.info.fromVersion}
-              toVersion={version.info.toVersion}
-            />
-            {index < versions.length - 1 ? <Divider /> : null}
-          </Fragment>
-        ))}
+    <>
+      {isDone ? (
+        <Stack pt="$6">
+          <Icon name="CheckRadioSolid" color="$iconSuccess" size="$12" />
+        </Stack>
+      ) : null}
+      <Stack pt={isDone ? '$3' : '$9'} pb="$3">
+        <SizableText size="$heading2xl" mt="$3" mb="$5">
+          {title}
+        </SizableText>
+        {/* Version View */}
+        <Stack
+          bg="$bgSubdued"
+          borderRadius="$2"
+          borderWidth={StyleSheet.hairlineWidth}
+          borderColor="$borderSubdued"
+          px="$4"
+          py="$2"
+          gap="$2"
+        >
+          {versions.map((version, index) => (
+            <Fragment key={version.type}>
+              <FirmwareUpdateVersionItem
+                title={version.type}
+                fromVersion={version.info.fromVersion}
+                toVersion={version.info.toVersion}
+              />
+              {index < versions.length - 1 ? <Divider /> : null}
+            </Fragment>
+          ))}
+        </Stack>
+        <Stack mt="$12" mb="$3">
+          <Progress size="medium" value={progress} />
+        </Stack>
+        <SizableText size="$bodyLg" color="$textSubdued">
+          {desc}
+        </SizableText>
       </Stack>
-      <Stack mt="$12" mb="$3">
-        <Progress size="medium" value={progress} />
-      </Stack>
-      <SizableText size="$bodyLg" color="$textSubdued">
-        {desc}
-      </SizableText>
-    </Stack>
+    </>
   );
 }
 
@@ -284,7 +291,7 @@ export function FirmwareUpdateProgressBarV2({
           progress: () => 100,
           desc: () =>
             intl.formatMessage({
-              id: ETranslations.update_update_completed,
+              id: ETranslations.firmware_update_status_completed,
             }),
         },
       ];
@@ -469,9 +476,16 @@ export function FirmwareUpdateProgressBarV2({
     <Stack>
       <FirmwareUpdateProgressBarView
         versions={upgradeVersions}
-        title="Installing firmware"
+        title={
+          isDone
+            ? intl.formatMessage({
+                id: ETranslations.update_all_updates_complete,
+              })
+            : 'Installing firmware'
+        }
         progress={progress}
         desc={desc}
+        isDone={isDone}
       />
       {debugInfo}
     </Stack>

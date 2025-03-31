@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Page } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
   useFirmwareUpdateStepInfoAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EModalFirmwareUpdateRoutes,
   IModalFirmwareUpdateParamList,
@@ -18,18 +21,24 @@ import {
   FirmwareUpdateExitPrevent,
   ForceExtensionUpdatingFromExpandTab,
 } from '../components/FirmwareUpdateExitPrevent';
-import { FirmwareUpdatePageLayout } from '../components/FirmwareUpdatePageLayout';
+import {
+  FirmwareUpdatePageFooter,
+  FirmwareUpdatePageLayout,
+} from '../components/FirmwareUpdatePageLayout';
 import { FirmwareInstallingViewV2 } from '../componentsV2/FirmwareInstallingViewV2';
 import { FirmwareUpdateAlertInfoMessage } from '../componentsV2/FirmwareUpdateAlertInfoMessage';
+import { useFirmwareUpdateActions } from '../hooks/useFirmwareUpdateActions';
 
 function PageFirmwareUpdateInstallV2() {
   const route = useAppRoute<
     IModalFirmwareUpdateParamList,
     EModalFirmwareUpdateRoutes.InstallV2
   >();
+  const intl = useIntl();
   const { result } = route.params;
 
   const navigation = useAppNavigation();
+  const actions = useFirmwareUpdateActions();
   const [stepInfo] = useFirmwareUpdateStepInfoAtom();
 
   /*
@@ -58,12 +67,22 @@ function PageFirmwareUpdateInstallV2() {
         <>
           {!isDone ? (
             <>
-              <FirmwareUpdateAlertInfoMessage />
               <FirmwareUpdateExitPrevent />
+              <FirmwareUpdateAlertInfoMessage />
             </>
           ) : null}
           {/* FirmwareInstallingViewV2 ->  FirmwareInstallingViewBase -> FirmwareUpdateProgressBar */}
           <FirmwareInstallingViewV2 result={result} isDone={isDone} />
+          {isDone ? (
+            <FirmwareUpdatePageFooter
+              onConfirmText={intl.formatMessage({
+                id: ETranslations.global_close,
+              })}
+              onConfirm={() => {
+                actions.closeUpdateModal();
+              }}
+            />
+          ) : null}
         </>
       );
     }
@@ -80,7 +99,7 @@ function PageFirmwareUpdateInstallV2() {
         <FirmwareLatestVersionInstalled />
       </>
     );
-  }, [stepInfo.step, result, navigation]);
+  }, [stepInfo.step, result, navigation, intl, actions]);
 
   return (
     <Page

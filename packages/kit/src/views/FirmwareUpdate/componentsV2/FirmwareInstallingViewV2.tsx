@@ -13,8 +13,6 @@ import type {
   ICheckAllFirmwareReleaseResult,
 } from '@onekeyhq/shared/types/device';
 
-import { FirmwareUpdateDone } from '../components/FirmwareUpdateDone';
-
 import { FirmwareUpdateErrorV2 } from './FirmwareUpdateErrorV2';
 import { FirmwareUpdateProgressBarV2 } from './FirmwareUpdateProgressBarV2';
 
@@ -32,9 +30,6 @@ export function FirmwareInstallingViewBase({
   progressBarKey?: number;
 }) {
   const content = useMemo(() => {
-    if (isDone) {
-      return <FirmwareUpdateDone result={result} />;
-    }
     if (retryInfo) {
       console.log(
         'FirmwareInstallingViewBase ====>>>>: retryInfo: ',

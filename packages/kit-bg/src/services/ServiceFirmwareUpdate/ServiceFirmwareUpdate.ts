@@ -1380,9 +1380,9 @@ class ServiceFirmwareUpdate extends ServiceBase {
         await this.cancelUpdateWorkflowIfExit();
 
         const deviceType = params?.releaseResult?.deviceType;
-        // if (deviceType !== EDeviceType.Pro) {
-        //   throw new Error('Do not support update firmware for this device');
-        // }
+        if (deviceType !== EDeviceType.Pro) {
+          throw new Error('Do not support update firmware for this device');
+        }
 
         await this.startUpdateFirmwareTaskForNewBootVersion(params);
 
@@ -1630,7 +1630,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
   ): Promise<Success> {
     const hardwareSDK = await this.getSDKInstance();
 
-    // @ts-expect-error
     return this.withFirmwareUpdateEvents(async () => {
       const { connectId, bleVersion, firmwareVersion, bootloaderVersion } =
         params;
@@ -1653,7 +1652,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       try {
         const result = await convertDeviceResponse(async () =>
-          // @ts-expect-error
           // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
           hardwareSDK.firmwareUpdateV3(
             deviceUtils.getUpdatingConnectId({ connectId }),
