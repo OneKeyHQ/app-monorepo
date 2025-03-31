@@ -66,12 +66,7 @@ function MobileBrowser() {
   });
 
   const { displayHomePage } = useDisplayHomePageFlag();
-
-  const displayBottomBar = useMemo(() => {
-    if (!displayHomePage) return true;
-    if (displayHomePage && tabs.length > 0) return true;
-    return false;
-  }, [displayHomePage, tabs]);
+  const displayBottomBar = !displayHomePage;
 
   const { setDisplayHomePage } = useBrowserTabActions().current;
   const firstRender = useRef(true);

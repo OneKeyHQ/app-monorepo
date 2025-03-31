@@ -48,6 +48,7 @@ import { getScreenshotPath, saveScreenshot } from '../../utils/screenshot';
 import { showTabBar } from '../../utils/tabBarUtils';
 
 import MobileBrowserBottomOptions from './MobileBrowserBottomOptions';
+import TabCountButton from './TabCountButton';
 
 import type { ESiteMode } from '../../types';
 import type WebView from 'react-native-webview';
@@ -143,22 +144,7 @@ function MobileBrowserBottomBar({
     useBrowserBookmarkAction().current;
   const { handleShareUrl } = useBrowserOptionsAction();
 
-  const tabCount = useMemo(() => tabs.length, [tabs]);
-
   const takeScreenshot = useTakeScreenshot(id);
-
-  const handleShowTabList = useCallback(async () => {
-    try {
-      if (!displayHomePage) {
-        await takeScreenshot();
-      }
-    } catch (e) {
-      console.error(e);
-    }
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.MobileTabList,
-    });
-  }, [takeScreenshot, navigation, displayHomePage]);
 
   const handleAddNewTab = useCallback(async () => {
     if (disabledAddedNewTab) {
@@ -277,7 +263,7 @@ function MobileBrowserBottomBar({
   return (
     <Stack
       flexDirection="row"
-      bg="$bgApp"
+      bg="$red3"
       h={BROWSER_BOTTOM_BAR_HEIGHT}
       zIndex={1}
       borderTopWidth={StyleSheet.hairlineWidth}
@@ -320,31 +306,7 @@ function MobileBrowserBottomBar({
         />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
-        <Stack
-          p="$3"
-          borderRadius="$full"
-          pressStyle={{
-            bg: '$bgActive',
-          }}
-          onPress={() => {
-            void handleShowTabList();
-          }}
-          testID="browser-bar-tabs"
-        >
-          <Stack
-            minWidth="$5"
-            minHeight="$5"
-            borderRadius="$1"
-            borderWidth="$0.5"
-            borderColor="$iconSubdued"
-            alignItems="center"
-            justifyContent="center"
-          >
-            <SizableText size="$bodySmMedium" color="$iconSubdued">
-              {tabCount}
-            </SizableText>
-          </Stack>
-        </Stack>
+        <TabCountButton takeScreenshot={takeScreenshot} />
       </Stack>
       <Stack flex={1} alignItems="center" justifyContent="center">
         <MobileBrowserBottomOptions
