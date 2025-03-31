@@ -12,18 +12,17 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import {
+  Anchor,
   Button,
   Divider,
   Icon,
   Progress,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
 } from '@onekeyhq/components';
 import {
   EFirmwareUpdateSteps,
-  EHardwareUiStateAction,
   useFirmwareUpdateRetryAtom,
   useFirmwareUpdateStepInfoAtom,
   useHardwareUiStateAtom,
@@ -34,17 +33,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import { EFirmwareUpdateTipMessages } from '@onekeyhq/shared/types/device';
-import type {
-  ICheckAllFirmwareReleaseResult,
-  IDeviceFirmwareType,
-} from '@onekeyhq/shared/types/device';
+import type { ICheckAllFirmwareReleaseResult } from '@onekeyhq/shared/types/device';
 
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { usePrevious } from '../../../hooks/usePrevious';
 import { FirmwareUpdatePromptBootloaderWebDevice } from '../components/FirmwareUpdatePromptBootloaderWebDevice';
-import { FirmwareVersionProgressBar } from '../components/FirmwareVersionProgressBar';
 import { useFirmwareVersionValid } from '../hooks/useFirmwareVersionValid';
 
 interface IFirmwareUpdateVersionInfo {
@@ -52,6 +44,7 @@ interface IFirmwareUpdateVersionInfo {
   toVersion: string;
   hasUpgrade: boolean;
   title: string;
+  githubReleaseUrl?: string;
 }
 
 interface IFirmwareUpdateVersions {
@@ -96,10 +89,14 @@ function FirmwareUpdateVersionItem({
   title,
   fromVersion,
   toVersion,
+  githubReleaseUrl,
+  isDone,
 }: {
   title: string;
   fromVersion: string;
   toVersion: string;
+  githubReleaseUrl?: string;
+  isDone?: boolean;
 }) {
   const { versionValid, unknownMessage } = useFirmwareVersionValid();
   return (
@@ -114,10 +111,24 @@ function FirmwareUpdateVersionItem({
         <SizableText size="$bodyMd" color="$textSubdued">
           →
         </SizableText>
-        {/* <Icon name="→" size="$5" color="$textSubdued" /> */}
-        <SizableText size="$bodyMd" color="$textSubdued">
-          {versionValid(toVersion) ? toVersion : unknownMessage}
-        </SizableText>
+        {isDone && githubReleaseUrl ? (
+          <Anchor
+            href={githubReleaseUrl}
+            color="$textSuccess"
+            size="$bodyMd"
+            target="_blank"
+            textDecorationLine="underline"
+            onPress={(e) => {
+              e.stopPropagation();
+            }}
+          >
+            {versionValid(toVersion) ? toVersion : unknownMessage}
+          </Anchor>
+        ) : (
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {versionValid(toVersion) ? toVersion : unknownMessage}
+          </SizableText>
+        )}
       </XStack>
     </XStack>
   );
@@ -160,9 +171,11 @@ export function FirmwareUpdateProgressBarView({
           {versions.map((version, index) => (
             <Fragment key={version.type}>
               <FirmwareUpdateVersionItem
+                isDone={isDone}
                 title={version.type}
                 fromVersion={version.info.fromVersion}
                 toVersion={version.info.toVersion}
+                githubReleaseUrl={version.info.githubReleaseUrl}
               />
               {index < versions.length - 1 ? <Divider /> : null}
             </Fragment>
@@ -382,6 +395,7 @@ export function FirmwareUpdateProgressBarV2({
           fromVersion: result.updateInfos.firmware.fromVersion ?? '',
           toVersion: result.updateInfos.firmware.toVersion ?? '',
           hasUpgrade: true,
+          githubReleaseUrl: result.updateInfos.firmware.githubReleaseUrl,
         },
       });
     }
@@ -394,6 +408,7 @@ export function FirmwareUpdateProgressBarV2({
           fromVersion: result.updateInfos.bootloader.fromVersion ?? '',
           toVersion: result.updateInfos.bootloader.toVersion ?? '',
           hasUpgrade: true,
+          githubReleaseUrl: result.updateInfos.bootloader.githubReleaseUrl,
         },
       });
     }
@@ -406,6 +421,7 @@ export function FirmwareUpdateProgressBarV2({
           fromVersion: result.updateInfos.ble.fromVersion ?? '',
           toVersion: result.updateInfos.ble.toVersion ?? '',
           hasUpgrade: true,
+          githubReleaseUrl: result.updateInfos.ble.githubReleaseUrl,
         },
       });
     }
