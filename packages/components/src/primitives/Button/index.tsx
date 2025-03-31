@@ -44,11 +44,6 @@ export interface IButtonProps extends ThemeableStackProps {
    */
   childrenAsText?: boolean;
   textEllipsis?: boolean;
-  /**
-   * Unique identifier for tracking/analytics purposes.
-   */
-  trackID?: string;
-  testID?: string;
 }
 
 const BUTTON_VARIANTS: Record<
@@ -203,8 +198,6 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
     variant = 'secondary',
     childrenAsText = true,
     textEllipsis,
-    trackID,
-    testID,
     ...rest
   } = useProps(props, {});
 
@@ -222,9 +215,6 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
 
   const { onPress, onLongPress } = useSharedPress(rest);
 
-  // Use testID as fallback for trackID
-  const trackingId = trackID || testID;
-
   return (
     <ButtonFrame
       ref={ref}
@@ -236,8 +226,6 @@ const ButtonComponent = ButtonFrame.styleable<IButtonProps>((props, ref) => {
       borderCurve="continuous"
       disabled={!!disabled || !!loading}
       aria-disabled={!!disabled || !!loading}
-      data-track-id={trackingId}
-      testID={testID}
       {...sharedFrameStyles}
       hoverStyle={{
         ...sharedFrameStyles.hoverStyle,
