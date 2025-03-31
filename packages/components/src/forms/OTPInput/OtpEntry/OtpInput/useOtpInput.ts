@@ -46,10 +46,15 @@ export const useOtpInput = ({
   const handleTextChange = (value: string) => {
     if (type && regexMap[type].test(value)) return;
     if (disabled) return;
-    setText(value);
-    onTextChange?.(value);
-    if (value.length === numberOfDigits) {
-      onFilled?.(value);
+    const v = value
+      .slice(0, numberOfDigits)
+      .replace(/[^A-Za-z0-9]/g, '')
+      .replace(/\s/g, '')
+      .toUpperCase();
+    setText(v);
+    onTextChange?.(v);
+    if (v.length === numberOfDigits) {
+      onFilled?.(v);
       if (blurOnFilled) {
         inputRef.current?.blur();
       }
