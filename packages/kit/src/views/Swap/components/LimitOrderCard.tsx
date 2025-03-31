@@ -277,7 +277,8 @@ const LimitOrderCard = ({
           <Progress
             w={progressWidth}
             h="$1"
-            colors={['$neutral5', '$textSuccess']}
+            progressColor="$neutral5"
+            indicatorColor="$textSuccess"
             value={Number(sellPercentage)}
           />
           <SizableText size="$bodySm" color="$textSubdued">
