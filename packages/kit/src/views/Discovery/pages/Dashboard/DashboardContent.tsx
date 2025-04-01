@@ -81,21 +81,10 @@ function DashboardContent({
     },
   );
 
-  const { result: trendingData } = usePromiseResult<any[]>(
-    async () => {
-      const data =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      return data.trending || [];
-    },
-    [],
-    {
-      watchLoading: true,
-    },
-  );
-
   // Check if both bookmarks and trending have no data
   const hasBookmarks = (bookmarksData && bookmarksData.length > 0) || false;
-  const hasTrending = (trendingData && trendingData.length > 0) || false;
+  const hasTrending =
+    (homePageData?.trending && homePageData.trending.length > 0) || false;
   const showDiveInDescription = !hasBookmarks && !hasTrending;
 
   const content = useMemo(
@@ -124,14 +113,23 @@ function DashboardContent({
 
               {/* here is trending */}
               <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
-                <TrendingSection />
+                <TrendingSection
+                  data={homePageData?.trending || []}
+                  isLoading={!!isLoading}
+                />
               </Stack>
             </>
           )}
         </Stack>
       </>
     ),
-    [homePageData?.banners, hasActiveBanners, isLoading, showDiveInDescription],
+    [
+      hasActiveBanners,
+      homePageData?.banners,
+      homePageData?.trending,
+      isLoading,
+      showDiveInDescription,
+    ],
   );
 
   if (platformEnv.isNative) {
