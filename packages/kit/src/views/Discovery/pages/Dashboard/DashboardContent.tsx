@@ -106,7 +106,7 @@ function DashboardContent({
 
         <Stack alignItems="center">
           {!isLoading && showDiveInDescription ? (
-            <DiveInContent />
+            <DiveInContent onReload={refresh} />
           ) : (
             <>
               {hasBookmarks ? (
@@ -136,6 +136,7 @@ function DashboardContent({
       homePageData?.trending,
       isLoading,
       showDiveInDescription,
+      refresh,
     ],
   );
 
