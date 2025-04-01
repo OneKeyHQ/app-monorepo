@@ -792,11 +792,9 @@ export function EnumBasicDialogContentContainer({
                   })}
                 ({errorObj.code || 'unknown'})
               </Dialog.Title>
-              <Dialog.Description>
-                {intl.formatMessage({
-                  id: ETranslations.global_unknown_error_retry_message,
-                })}
-              </Dialog.Description>
+              <Dialog.HyperlinkTextDescription
+                translationId={ETranslations.global_unknown_error_retry_message}
+              />
             </Dialog.Header>
             <Button
               $md={
