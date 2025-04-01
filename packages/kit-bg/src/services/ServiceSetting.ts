@@ -527,6 +527,22 @@ class ServiceSetting extends ServiceBase {
     }
     return EHardwareTransportType.Bridge;
   }
+
+  @backgroundMethod()
+  public async getHiddenWalletImmediately() {
+    const { hiddenWalletImmediately } = await settingsPersistAtom.get();
+    return hiddenWalletImmediately === undefined
+      ? true
+      : hiddenWalletImmediately;
+  }
+
+  @backgroundMethod()
+  public async setHiddenWalletImmediately(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      hiddenWalletImmediately: value,
+    }));
+  }
 }
 
 export default ServiceSetting;

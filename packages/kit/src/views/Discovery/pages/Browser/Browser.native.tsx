@@ -32,6 +32,7 @@ import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import TabCountButton from '../../components/MobileBrowser/TabCountButton';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
@@ -66,12 +67,7 @@ function MobileBrowser() {
   });
 
   const { displayHomePage } = useDisplayHomePageFlag();
-
-  const displayBottomBar = useMemo(() => {
-    if (!displayHomePage) return true;
-    if (displayHomePage && tabs.length > 0) return true;
-    return false;
-  }, [displayHomePage, tabs]);
+  const displayBottomBar = !displayHomePage;
 
   const { setDisplayHomePage } = useBrowserTabActions().current;
   const firstRender = useRef(true);
@@ -198,9 +194,13 @@ function MobileBrowser() {
           >
             <BrowserTitle />
 
-            <Stack position="absolute" right={0}>
-              <HistoryIconButton />
-            </Stack>
+            <XStack gap="$2" position="absolute" right={0} alignItems="center">
+              <Stack>
+                <HistoryIconButton />
+              </Stack>
+
+              <TabCountButton testID="browser-header-tabs" />
+            </XStack>
           </XStack>
         )}
         <HeaderRightToolBar />

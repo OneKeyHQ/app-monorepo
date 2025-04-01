@@ -9,6 +9,7 @@ import {
   SignedTransaction,
   SimpleTransaction,
   TransactionPayloadEntryFunction,
+  TransactionPayloadScript,
   U64,
   postAptosFullNode,
 } from '@aptos-labs/ts-sdk';
@@ -146,7 +147,7 @@ export default class VaultAptos extends VaultBase {
       .toFixed(0);
 
     const encodedTx: IEncodedTxAptos = {
-      ...generateTransferCoin(
+      payload: generateTransferCoin(
         to,
         amountValue,
         tokenInfo.isNative ? '' : tokenInfo.address,
@@ -368,6 +369,20 @@ export default class VaultAptos extends VaultBase {
         }
 
         break;
+      case payload instanceof TransactionPayloadScript:
+        actionType = EDecodedTxActionType.FUNCTION_CALL;
+        actions.push({
+          type: EDecodedTxActionType.FUNCTION_CALL,
+          direction: EDecodedTxDirection.OTHER,
+          functionCall: {
+            from: senderAddress,
+            to: '',
+            functionName: 'Script_Payload',
+            args:
+              payload.script.args?.map((a) => a.bcsToHex().toString()) ?? [],
+          },
+        });
+        break;
       default:
         actionType = EDecodedTxActionType.UNKNOWN;
         break;
@@ -398,7 +413,7 @@ export default class VaultAptos extends VaultBase {
     const { unsignedTx } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxAptos;
     const { swapInfo, stakingInfo } = unsignedTx;
-    const { type, function: fun } = encodedTx;
+    const { payload } = encodedTx;
     const account = await this.getAccount();
     if (!encodedTx?.sender) {
       encodedTx.sender = account.address;
@@ -408,14 +423,16 @@ export default class VaultAptos extends VaultBase {
     let gasPrice = encodedTx.gas_unit_price;
 
     let action: IDecodedTxAction | null = null;
-    const [toAddress] = encodedTx.arguments || [];
 
-    if (swapInfo) {
+    if (swapInfo && !!payload) {
+      // OneKey Client Swap
+      const [toAddress] = payload.arguments || [];
       action = await this.buildInternalSwapAction({
         swapInfo,
         swapToAddress: toAddress,
       });
-    } else if (stakingInfo) {
+    } else if (stakingInfo && !!payload) {
+      const [toAddress] = payload.arguments || [];
       const accountAddress = await this.getAccountAddress();
       action = await this.buildInternalStakingAction({
         accountAddress,
@@ -430,7 +447,12 @@ export default class VaultAptos extends VaultBase {
       action = actions[0];
       gasLimit = rawTxn.max_gas_amount.toString();
       gasPrice = rawTxn.gas_unit_price.toString();
-    } else {
+    } else if (payload) {
+      const { type } = payload;
+      const fun =
+        payload.type === 'entry_function_payload'
+          ? payload?.function
+          : undefined;
       const actionType = getTransactionTypeByPayload({
         type: type ?? 'entry_function_payload',
         function_name: fun,
@@ -439,7 +461,7 @@ export default class VaultAptos extends VaultBase {
       // fungible assets transfer
       if (fun === APTOS_TRANSFER_FUNGIBLE_FUNC) {
         const { sender } = encodedTx;
-        const [tokenAddress, to, amountValue] = encodedTx.arguments || [];
+        const [tokenAddress, to, amountValue] = payload.arguments || [];
 
         const tokenInfo = await this.backgroundApi.serviceToken.getToken({
           networkId: network.id,
@@ -471,8 +493,8 @@ export default class VaultAptos extends VaultBase {
         }
       } else if (actionType === EDecodedTxActionType.ASSET_TRANSFER) {
         const { sender } = encodedTx;
-        const [coinType] = encodedTx.type_arguments || [];
-        const [to, amountValue] = encodedTx.arguments || [];
+        const [coinType] = payload?.type_arguments || [];
+        const [to, amountValue] = payload?.arguments || [];
         const tokenInfo = await this.backgroundApi.serviceToken.getToken({
           networkId: network.id,
           accountId: this.accountId,
@@ -509,7 +531,7 @@ export default class VaultAptos extends VaultBase {
             to: '',
             functionName: fun ?? '',
             args:
-              encodedTx.arguments?.map((a) => {
+              payload?.arguments?.map((a) => {
                 if (
                   typeof a === 'string' ||
                   typeof a === 'number' ||
@@ -690,13 +712,15 @@ export default class VaultAptos extends VaultBase {
       });
     }
     // max native token transfer update
+    const { payload } = encodedTx;
     if (
       nativeAmountInfo &&
+      payload?.type === 'entry_function_payload' &&
       [
         APTOS_NATIVE_TRANSFER_FUNC,
         APTOS_TRANSFER_FUNC,
         APTOS_NATIVE_TRANSFER_FUNC_LEGACY,
-      ].includes(encodedTx?.function ?? '') &&
+      ].includes(payload?.function ?? '') &&
       unsignedTx.transfersInfo
     ) {
       const decimals = unsignedTx.transfersInfo[0].tokenInfo?.decimals ?? 0;
@@ -704,8 +728,8 @@ export default class VaultAptos extends VaultBase {
         .shiftedBy(decimals)
         .toFixed(0, BigNumber.ROUND_FLOOR);
 
-      const [to] = encodedTx.arguments || [];
-      encodedTx.arguments = [to, amount];
+      const [to] = payload.arguments || [];
+      payload.arguments = [to, amount];
     }
 
     this._updateExpirationTimestampSecs(encodedTx);

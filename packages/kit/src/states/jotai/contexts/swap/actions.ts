@@ -405,7 +405,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           slippagePercentage,
           autoSlippage,
           blockNumber,
-          receivingAddress: receivingAddress ?? address,
+          receivingAddress,
           accountId,
           protocol,
           userMarketPriceRate: limitUserMarketPrice.rate,
@@ -662,7 +662,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         kind,
         toTokenAmount,
         protocol,
-        receivingAddress: receivingAddress ?? address,
+        receivingAddress,
         userMarketPriceRate: limitUserMarketPrice.rate,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {
