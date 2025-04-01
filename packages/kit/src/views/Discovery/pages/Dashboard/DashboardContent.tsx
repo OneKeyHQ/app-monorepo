@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import pRetry from 'p-retry';
+
 import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -31,10 +33,20 @@ function DashboardContent({
     run,
   } = usePromiseResult(
     async () => {
-      const homePageResponse =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      setIsRefreshing(false);
-      return homePageResponse;
+      try {
+        const result = await pRetry(
+          () =>
+            backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
+          {
+            retries: 3,
+          },
+        );
+        return result;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsRefreshing(false);
+      }
     },
     [],
     {
