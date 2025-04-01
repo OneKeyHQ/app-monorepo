@@ -44,6 +44,10 @@ export interface IButtonProps extends ThemeableStackProps {
    */
   childrenAsText?: boolean;
   textEllipsis?: boolean;
+  /**
+   * Unique identifier for tracking/analytics purposes.
+   */
+  trackID?: string;
 }
 
 const BUTTON_VARIANTS: Record<
