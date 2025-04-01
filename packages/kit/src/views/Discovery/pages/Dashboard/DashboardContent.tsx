@@ -1,5 +1,7 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 
+import pRetry from 'p-retry';
+
 import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
@@ -31,10 +33,20 @@ function DashboardContent({
     run,
   } = usePromiseResult(
     async () => {
-      const homePageResponse =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      setIsRefreshing(false);
-      return homePageResponse;
+      try {
+        const result = await pRetry(
+          () =>
+            backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
+          {
+            retries: 3,
+          },
+        );
+        return result;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsRefreshing(false);
+      }
     },
     [],
     {
@@ -69,21 +81,10 @@ function DashboardContent({
     },
   );
 
-  const { result: trendingData } = usePromiseResult<any[]>(
-    async () => {
-      const data =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      return data.trending || [];
-    },
-    [],
-    {
-      watchLoading: true,
-    },
-  );
-
   // Check if both bookmarks and trending have no data
   const hasBookmarks = (bookmarksData && bookmarksData.length > 0) || false;
-  const hasTrending = (trendingData && trendingData.length > 0) || false;
+  const hasTrending =
+    (homePageData?.trending && homePageData.trending.length > 0) || false;
   const showDiveInDescription = !hasBookmarks && !hasTrending;
 
   const content = useMemo(
@@ -99,27 +100,44 @@ function DashboardContent({
               />
             ) : null
           }
+          discoveryData={{ hot: homePageData?.trending }}
+          isLoading={!!isLoading}
         />
 
         <Stack alignItems="center">
-          {showDiveInDescription ? (
-            <DiveInContent />
+          {!isLoading && showDiveInDescription ? (
+            <DiveInContent onReload={refresh} />
           ) : (
             <>
-              <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
-                <BookmarksSection key="BookmarksSection" />
-              </Stack>
+              {hasBookmarks ? (
+                <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+                  <BookmarksSection key="BookmarksSection" />
+                </Stack>
+              ) : null}
 
-              {/* here is trending */}
-              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
-                <TrendingSection />
-              </Stack>
+              {hasTrending ? (
+                <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+                  <TrendingSection
+                    data={homePageData?.trending || []}
+                    isLoading={!!isLoading}
+                  />
+                </Stack>
+              ) : null}
             </>
           )}
         </Stack>
       </>
     ),
-    [homePageData?.banners, hasActiveBanners, isLoading, showDiveInDescription],
+    [
+      hasActiveBanners,
+      hasBookmarks,
+      hasTrending,
+      homePageData?.banners,
+      homePageData?.trending,
+      isLoading,
+      showDiveInDescription,
+      refresh,
+    ],
   );
 
   if (platformEnv.isNative) {

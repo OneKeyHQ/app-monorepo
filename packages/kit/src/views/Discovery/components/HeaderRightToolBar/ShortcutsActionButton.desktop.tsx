@@ -106,7 +106,13 @@ export function ShortcutsActionButton() {
           ].filter(Boolean) as IActionListItemProps[],
         },
       ]}
-      renderTrigger={<IconButton variant="tertiary" icon="DotHorOutline" />}
+      renderTrigger={
+        <IconButton
+          variant="tertiary"
+          icon="DotHorOutline"
+          testID="browser-shortcuts-button"
+        />
+      }
     />
   );
 }
