@@ -154,16 +154,6 @@ export type IAddHDOrHWAccountsResult = {
 
 @backgroundClass()
 class ServiceAccount extends ServiceBase {
-  cachedHiddenWalletOptions: Record<
-    string,
-    {
-      timestamp: number;
-      options: {
-        hideImmediately: boolean;
-      };
-    }
-  > = {};
-
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
 
@@ -2200,38 +2190,6 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setCachedHiddenWalletOptions(
-    connectId: string,
-    options: {
-      hideImmediately: boolean;
-    },
-  ) {
-    this.cachedHiddenWalletOptions[connectId] = {
-      timestamp: Date.now(),
-      options,
-    };
-  }
-
-  @backgroundMethod()
-  async getCachedHiddenWalletOptions(connectId: string) {
-    // Clean up all cached data older than 5 minutes
-    const now = Date.now();
-    const expirationTime = 5 * 60 * 1000; // 5 minutes in milliseconds
-
-    Object.keys(this.cachedHiddenWalletOptions).forEach((key) => {
-      const item = this.cachedHiddenWalletOptions[key];
-      if (now - item.timestamp >= expirationTime) {
-        delete this.cachedHiddenWalletOptions[key];
-      }
-    });
-    const cached = this.cachedHiddenWalletOptions[connectId];
-    if (cached) {
-      return cached.options;
-    }
-    return undefined;
-  }
-
-  @backgroundMethod()
   @toastIfError()
   async createHWHiddenWallet({
     walletId,
@@ -2272,14 +2230,12 @@ class ServiceAccount extends ServiceBase {
         });
 
         if (dbWallet?.wallet.id) {
-          const cachedHiddenWalletOptions =
-            await this.getCachedHiddenWalletOptions(connectId);
-          if (cachedHiddenWalletOptions) {
-            await this.setWalletTempStatus({
-              walletId: dbWallet.wallet.id,
-              isTemp: !cachedHiddenWalletOptions?.hideImmediately,
-            });
-          }
+          const hiddenWalletImmediately =
+            await this.backgroundApi.serviceSetting.getHiddenWalletImmediately();
+          await this.setWalletTempStatus({
+            walletId: dbWallet.wallet.id,
+            isTemp: !hiddenWalletImmediately,
+          });
         }
 
         return dbWallet;
