@@ -70,7 +70,9 @@ export function DappInfoPopoverContent({
         <>
           <SizableText size="$bodyMd" flex={1}>
             {intl.formatMessage({
-              id: ETranslations.dapp_connect_verified_site,
+              id: providerNames
+                ? ETranslations.dapp_connect_verified_site
+                : ETranslations.global_unknown,
             })}
           </SizableText>
           {providerNames ? (
