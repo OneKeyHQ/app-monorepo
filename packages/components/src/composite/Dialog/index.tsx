@@ -64,6 +64,7 @@ import type {
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
+import type { GestureResponderEvent } from 'react-native';
 
 export * from './hooks';
 export type {
@@ -136,8 +137,8 @@ function DialogFrame({
 
   useBackHandler(handleBackPress);
 
-  const handleEscapeKeyDown = useCallback(() => {
-    return { defaultPrevented: true };
+  const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
+    event.preventDefault();
   }, []);
 
   const handleCancelButtonPress = useCallback(async () => {
@@ -270,7 +271,7 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
-              onEscapeKeyDown={handleEscapeKeyDown}
+              onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}
               animateOnly={['transform', 'opacity']}
