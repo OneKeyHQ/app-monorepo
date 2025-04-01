@@ -100,10 +100,12 @@ function DashboardContent({
               />
             ) : null
           }
+          discoveryData={{ hot: homePageData?.trending }}
+          isLoading={!!isLoading}
         />
 
         <Stack alignItems="center">
-          {showDiveInDescription ? (
+          {!isLoading && showDiveInDescription ? (
             <DiveInContent />
           ) : (
             <>
