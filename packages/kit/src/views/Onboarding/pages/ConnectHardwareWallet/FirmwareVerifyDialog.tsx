@@ -795,7 +795,9 @@ export function EnumBasicDialogContentContainer({
                   }
                   defaultMessage={errorObj.message}
                 />
-                ({errorObj.code || 'unknown'})
+                <SizableText size="$headingXl">
+                  ({errorObj.code || 'unknown'})
+                </SizableText>
               </Dialog.Title>
               <Dialog.HyperlinkTextDescription
                 translationId={ETranslations.global_unknown_error_retry_message}

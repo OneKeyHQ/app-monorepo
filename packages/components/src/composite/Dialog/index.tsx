@@ -136,6 +136,10 @@ function DialogFrame({
 
   useBackHandler(handleBackPress);
 
+  const handleEscapeKeyDown = useCallback(() => {
+    return { defaultPrevented: true };
+  }, []);
+
   const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
     cancel?.(() => onClose());
@@ -266,6 +270,7 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
+              onEscapeKeyDown={handleEscapeKeyDown}
               key="content"
               testID={testID}
               animateOnly={['transform', 'opacity']}

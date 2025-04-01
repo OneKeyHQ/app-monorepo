@@ -106,6 +106,10 @@ function BasicShowToaster(
   // when Stack's pointerEvents is set to 'auto',
   //  if there is no click event assigned, clicks will pass through on Android.
   const handleNoop = useCallback(() => {}, []);
+  const handleEscapeKeyDown = useCallback(() => {
+    return { defaultPrevented: true };
+  }, []);
+
   return (
     <>
       <ToastViewport
@@ -131,6 +135,7 @@ function BasicShowToaster(
 
       <Toast
         unstyled
+        onEscapeKeyDown={handleEscapeKeyDown}
         onSwipeEnd={handleSwipeEnd}
         justifyContent="center"
         open={isOpen}
