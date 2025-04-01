@@ -410,6 +410,7 @@ const SwapActionsState = ({
           gap="$1"
           {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
         >
+          <SizableText size="$bodyMd">1.</SizableText>
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_approve })}
             placement="top-start"
@@ -450,7 +451,7 @@ const SwapActionsState = ({
             {intl.formatMessage({
               id:
                 swapType === ESwapTabSwitchType.LIMIT
-                  ? ETranslations.limit_place_order
+                  ? ETranslations.limit_place_order_step_2
                   : ETranslations.swap_page_swap_steps_2,
             })}
           </SizableText>
