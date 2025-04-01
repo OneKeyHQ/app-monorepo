@@ -17,6 +17,7 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -786,10 +787,14 @@ export function EnumBasicDialogContentContainer({
             <Dialog.Header>
               <Dialog.Icon tone="warning" icon="ErrorOutline" />
               <Dialog.Title>
-                {errorObj.message ||
-                  intl.formatMessage({
-                    id: ETranslations.global_unknown_error,
-                  })}
+                <HyperlinkText
+                  size="$headingXl"
+                  translationId={
+                    (errorObj.message as ETranslations) ||
+                    ETranslations.global_unknown_error
+                  }
+                  defaultMessage={errorObj.message}
+                />
                 ({errorObj.code || 'unknown'})
               </Dialog.Title>
               <Dialog.HyperlinkTextDescription
