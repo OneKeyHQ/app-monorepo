@@ -49,9 +49,6 @@ const LimitOrderOpenItem = ({
         bg: '$bgStrongActive',
       }}
       onPress={() => {
-        if (swapLimitOrdersLoading) {
-          return;
-        }
         navigation.pushModal(EModalRoutes.SwapModal, {
           screen: EModalSwapRoutes.SwapHistoryList,
           params: {

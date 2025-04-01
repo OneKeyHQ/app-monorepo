@@ -2335,7 +2335,7 @@
   "swap_page.swap": "兌換",
   "swap_page.swap_button": "交換",
   "swap_page.swap_steps_1": "1. 授權 {tokenSymbol}",
-  "swap_page.swap_steps_1_approve_dialog": "授予提供者權限，從您的錢包中交換該代幣。",
+  "swap_page.swap_steps_1_approve_dialog": "授權該渠道商從您的錢包中兌換該代币",
   "swap_page.swap_steps_2": "2. 交換",
   "swap_page.to": "到",
   "swap_page.toast.address_generated": "地址已創建",
