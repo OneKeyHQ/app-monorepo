@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 
 import { debounce } from 'lodash';
 
-import { analytics } from '@onekeyhq/shared/src/analytics';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IButtonProps } from '..';
 import type { GestureResponderEvent } from 'react-native';
@@ -22,10 +22,9 @@ function debounceEventHandler(
       e.stopPropagation();
     }
 
-    // Track button click event if trackingId is provided
     if (trackingId) {
-      analytics.trackEvent('button_click', {
-        button_track_id: trackingId,
+      defaultLogger.ui.button.click({
+        trackId: trackingId,
       });
     }
 
@@ -61,10 +60,9 @@ export const useSharedPress = ({
         event.stopPropagation();
       }
 
-      // Track long press event if trackingId is provided
       if (trackingId) {
-        analytics.trackEvent('button_long_press', {
-          button_id: trackingId,
+        defaultLogger.ui.button.longPress({
+          trackId: trackingId,
         });
       }
 
