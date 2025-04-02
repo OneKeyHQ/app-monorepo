@@ -14,17 +14,16 @@ export const parsePayUrl = (url: string) => {
     const params = qs.parse(query || '') as {
       address: string;
     };
-    const address = params.address || '';
-    return {
-      address,
-      networkName,
-      targetAddress,
-      functionName,
-    };
+    const address = params.address;
+
+    if (address && networkName && targetAddress && functionName) {
+      return {
+        address,
+        networkName,
+        targetAddress,
+        functionName,
+      };
+    }
   }
-  const [networkName, address] = url.split(':');
-  return {
-    address,
-    networkName,
-  };
+  return undefined;
 };

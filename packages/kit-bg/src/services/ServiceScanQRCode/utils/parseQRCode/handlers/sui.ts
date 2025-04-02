@@ -8,17 +8,36 @@ import type { IQRCodeHandler, ISuiValue } from '../type';
 const sui: IQRCodeHandler<ISuiValue> = async (value, options) => {
   const urlValue = options?.urlResult;
   if (urlValue && /sui/i.test(urlValue.data.urlSchema)) {
-    const { address, targetAddress } = parsePayUrl(urlValue.data.url);
-    return {
-      type: EQRCodeHandlerType.SUI,
-      data: {
-        network: await options?.backgroundApi?.serviceNetwork?.getNetwork?.({
-          networkId: getNetworkIdsMap().sui,
-        }),
+    const network = await options?.backgroundApi?.serviceNetwork?.getNetwork?.({
+      networkId: getNetworkIdsMap().sui,
+    });
+    const result = parsePayUrl(urlValue.data.url);
+    if (result) {
+      const { address, targetAddress } = result;
+      return {
+        type: EQRCodeHandlerType.SUI,
+        data: {
+          network,
+          address,
+          targetAddress,
+        },
+      };
+    }
+    const [, address] = urlValue.data.url.split('sui:');
+    const validateResult =
+      await options?.backgroundApi?.serviceValidator?.localValidateAddress?.({
+        networkId: getNetworkIdsMap().sui,
         address,
-        targetAddress,
-      },
-    };
+      });
+    if (validateResult?.isValid) {
+      return {
+        type: EQRCodeHandlerType.SUI,
+        data: {
+          address,
+          network,
+        },
+      };
+    }
   }
   return null;
 };

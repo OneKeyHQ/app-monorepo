@@ -13,17 +13,22 @@ const solana: IQRCodeHandler<ISolanaValue> = async (value, options) => {
   const urlValue = options?.urlResult;
   if (urlValue && /solana/i.test(urlValue.data.urlSchema)) {
     if (isPayUrl(urlValue.data.url)) {
-      const { address, targetAddress } = parsePayUrl(urlValue.data.url);
-      return {
-        type: EQRCodeHandlerType.SOLANA,
-        data: {
-          network: await options?.backgroundApi?.serviceNetwork?.getNetwork?.({
-            networkId: getNetworkIdsMap().sol,
-          }),
-          address,
-          targetAddress,
-        },
-      };
+      const result = parsePayUrl(urlValue.data.url);
+      if (result) {
+        const { address, targetAddress } = result;
+        return {
+          type: EQRCodeHandlerType.SOLANA,
+          data: {
+            network: await options?.backgroundApi?.serviceNetwork?.getNetwork?.(
+              {
+                networkId: getNetworkIdsMap().sol,
+              },
+            ),
+            address,
+            targetAddress,
+          },
+        };
+      }
     }
     const solanaValue = urlValue.data.urlParamList;
     // eslint-disable-next-line spellcheck/spell-checker

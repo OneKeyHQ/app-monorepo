@@ -378,12 +378,29 @@ describe('useParseQRCode', () => {
 
   it('should parse as sui', async () => {
     expect(
-      await parse('sui:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN'),
+      await parse(
+        'sui:0xa81a127f6ff77741f7de50bb5f8d633d23d987e6038c4fa3817b165aeef3756e',
+        {
+          backgroundApi: {
+            // @ts-ignore
+            serviceValidator: {
+              localValidateAddress: () =>
+                Promise.resolve({
+                  isValid: true,
+                  normalizedAddress: '',
+                  displayAddress: '',
+                }),
+            },
+          },
+          handlers: PARSE_HANDLER_NAMES.all,
+        },
+      ),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.SUI,
         data: expect.objectContaining({
-          address: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+          address:
+            '0xa81a127f6ff77741f7de50bb5f8d633d23d987e6038c4fa3817b165aeef3756e',
         }),
       }),
     );
@@ -404,11 +421,7 @@ describe('useParseQRCode', () => {
     );
     expect(await parse('sui:/transfer?address=0x123456')).toEqual(
       expect.objectContaining({
-        type: EQRCodeHandlerType.SUI,
-        data: expect.objectContaining({
-          targetAddress: '',
-          address: '0x123456',
-        }),
+        type: EQRCodeHandlerType.UNKNOWN,
       }),
     );
   });
