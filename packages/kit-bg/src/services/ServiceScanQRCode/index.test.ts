@@ -375,6 +375,74 @@ describe('useParseQRCode', () => {
       }),
     );
   });
+
+  it('should parse as sui', async () => {
+    const options = {
+      backgroundApi: {
+        serviceValidator: {
+          localValidateAddress: () =>
+            Promise.resolve({
+              isValid: true,
+              normalizedAddress: '',
+              displayAddress: '',
+            }),
+        },
+      },
+      handlers: PARSE_HANDLER_NAMES.all,
+    };
+    expect(
+      await parse(
+        'sui:0xa81a127f6ff77741f7de50bb5f8d633d23d987e6038c4fa3817b165aeef3756e',
+        // @ts-ignore
+        options,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SUI,
+        data: expect.objectContaining({
+          address:
+            '0xa81a127f6ff77741f7de50bb5f8d633d23d987e6038c4fa3817b165aeef3756e',
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'sui:0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC/transfer?address=0x325564989ad708fe26aa263286b0e8fb0ab922c6c518210e8b1e060fa2ed6bd8',
+        // @ts-ignore
+        options,
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SUI,
+        data: expect.objectContaining({
+          targetAddress:
+            '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+          address:
+            '0x325564989ad708fe26aa263286b0e8fb0ab922c6c518210e8b1e060fa2ed6bd8',
+        }),
+      }),
+    );
+    expect(
+      await parse('sui:/transfer?address=0x123456', {
+        backgroundApi: {
+          // @ts-ignore
+          serviceValidator: {
+            localValidateAddress: () =>
+              Promise.resolve({
+                isValid: false,
+                normalizedAddress: '',
+                displayAddress: '',
+              }),
+          },
+        },
+        handlers: PARSE_HANDLER_NAMES.all,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.UNKNOWN,
+      }),
+    );
+  });
   it('should parse as url', async () => {
     expect(await parse('https://www.google.com/search?q=onekey')).toEqual(
       expect.objectContaining({
