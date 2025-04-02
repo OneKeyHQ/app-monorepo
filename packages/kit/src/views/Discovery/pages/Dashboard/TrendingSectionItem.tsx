@@ -10,12 +10,14 @@ export function TrendingSectionItem({
   url,
   dApp,
   handleOpenWebSite,
+  isLoading,
 }: {
   logo?: string;
   title: string;
   url: string;
   dApp: IDApp;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+  isLoading?: boolean;
 }) {
   return (
     <DiscoveryItemCard
@@ -24,6 +26,7 @@ export function TrendingSectionItem({
       url={url}
       dApp={dApp}
       handleOpenWebSite={handleOpenWebSite}
+      isLoading={isLoading}
     />
   );
 }

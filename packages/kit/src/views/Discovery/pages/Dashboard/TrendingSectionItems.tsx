@@ -11,10 +11,12 @@ import type { IMatchDAppItemType } from '../../types';
 export function TrendingSectionItems({
   dataSource,
   handleOpenWebSite,
+  isLoading,
   ...restProps
 }: IYStackProps & {
   dataSource: IDApp[];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+  isLoading?: boolean;
 }) {
   const [numberOfItems, setNumberOfItems] = useState(0);
   const media = useMedia();
@@ -44,6 +46,7 @@ export function TrendingSectionItems({
             title={dApp.name}
             url={dApp.url}
             dApp={dApp}
+            isLoading={isLoading}
             handleOpenWebSite={handleOpenWebSite}
           />
         </YStack>
