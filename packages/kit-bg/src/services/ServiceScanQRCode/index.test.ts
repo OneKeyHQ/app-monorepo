@@ -423,11 +423,20 @@ describe('useParseQRCode', () => {
       }),
     );
     expect(
-      await parse(
-        'sui:/transfer?address=0x123456',
-        // @ts-ignore
-        options,
-      ),
+      await parse('sui:/transfer?address=0x123456', {
+        backgroundApi: {
+          // @ts-ignore
+          serviceValidator: {
+            localValidateAddress: () =>
+              Promise.resolve({
+                isValid: false,
+                normalizedAddress: '',
+                displayAddress: '',
+              }),
+          },
+        },
+        handlers: PARSE_HANDLER_NAMES.all,
+      }),
     ).toEqual(
       expect.objectContaining({
         type: EQRCodeHandlerType.UNKNOWN,
