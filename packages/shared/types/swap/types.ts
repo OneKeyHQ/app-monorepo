@@ -223,6 +223,7 @@ export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
   provider: string;
+  providerName: string;
   quoteId: string;
   useAddress: string;
   spenderAddress: string;
@@ -468,6 +469,7 @@ export enum ESwapFetchCancelCause {
 export interface ISwapState {
   label: string;
   isLoading: boolean;
+  approving: boolean;
   isWrapped?: boolean;
   isApprove?: boolean;
   disabled: boolean;

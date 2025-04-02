@@ -16,6 +16,7 @@ export interface IDiscoveryItemCardProps {
   title: string;
   url: string;
   dApp?: IDApp;
+  isLoading?: boolean;
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
 }
 
@@ -24,8 +25,24 @@ export function DiscoveryItemCard({
   title,
   url,
   dApp,
+  isLoading,
   handleOpenWebSite,
 }: IDiscoveryItemCardProps) {
+  if (isLoading) {
+    return (
+      <Stack
+        py="$2"
+        gap="$3"
+        justifyContent="center"
+        alignItems="center"
+        userSelect="none"
+      >
+        <Skeleton width="$14" height="$14" borderRadius="$4" />
+        <Skeleton width="$20" height="$4" borderRadius="$1" />
+      </Stack>
+    );
+  }
+
   return (
     <Stack
       py="$2"
