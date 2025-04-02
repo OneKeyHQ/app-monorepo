@@ -15,6 +15,7 @@ import perfUtils, {
 import networkUtils, {
   isEnabledNetworksInAllNetworks,
 } from '@onekeyhq/shared/src/utils/networkUtils';
+import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 
 import ServiceBase from '../ServiceBase';
 
@@ -175,12 +176,16 @@ class ServiceAllNetwork extends ServiceBase {
       fetchAllNetworkAccounts || networkUtils.isAllNetwork({ networkId });
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAccount');
-
-    // single network account or all network mocked account
-    const networkAccount = await this.backgroundApi.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
+    let networkAccount: INetworkAccount | undefined;
+    try {
+      // single network account or all network mocked account
+      networkAccount = await this.backgroundApi.serviceAccount.getAccount({
+        accountId,
+        networkId,
+      });
+    } catch (error) {
+      console.log('getAccount error', error);
+    }
 
     defaultLogger.account.allNetworkAccountPerf.consoleLog('getAccount done');
 
@@ -190,7 +195,7 @@ class ServiceAllNetwork extends ServiceBase {
     const dbAccounts = await this.getAllNetworkDbAccounts({
       networkId,
       singleNetworkDeriveType,
-      indexedAccountId: indexedAccountId ?? networkAccount.indexedAccountId,
+      indexedAccountId: indexedAccountId ?? networkAccount?.indexedAccountId,
       othersWalletAccountId: accountId,
       fetchAllNetworkAccounts,
     });

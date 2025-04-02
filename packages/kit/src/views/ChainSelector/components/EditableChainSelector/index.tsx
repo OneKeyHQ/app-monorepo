@@ -12,6 +12,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from './ChainSelectorContent';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 type IEditableChainSelectorProps = {
   mainnetItems: IServerNetwork[];
@@ -72,7 +73,10 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
     <Page
       safeAreaEnabled={false}
       onClose={() => {
-        if (allNetworksChanged.current) {
+        if (
+          allNetworksChanged.current &&
+          networkUtils.isAllNetwork({ networkId })
+        ) {
           appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
         }
       }}
