@@ -23,7 +23,6 @@ export function TrendingSection({
   data = [],
   isLoading = false,
 }: ITrendingSectionProps) {
-  console.log('isLoading', isLoading);
   const intl = useIntl();
   const handleWebSite = useWebSiteHandler();
   const dataSource = useMemo<IDApp[]>(() => data ?? [], [data]);
