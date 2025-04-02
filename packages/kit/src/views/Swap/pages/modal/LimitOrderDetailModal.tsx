@@ -520,7 +520,7 @@ const LimitOrderDetailModal = () => {
         .toFixed(2);
     }
     return (
-      <YStack gap="$0.5" flex={1}>
+      <YStack gap="$1" flex={1}>
         <XStack alignItems="center" gap="$2" flex={1}>
           <Progress
             h="$1"
