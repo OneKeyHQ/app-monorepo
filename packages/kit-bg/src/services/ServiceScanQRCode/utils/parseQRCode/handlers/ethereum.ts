@@ -50,6 +50,7 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
       address: sendAddress,
       id: chainId,
       network,
+      targetAddress,
     };
     if (nativeAmount && network) {
       ethereumValue.amount = chainValueUtils.convertGweiToAmount({
