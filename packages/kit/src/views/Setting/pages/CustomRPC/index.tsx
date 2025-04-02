@@ -456,6 +456,7 @@ function CustomRPC() {
                     destructive: true,
                     icon: 'DeleteOutline',
                     onPress: async () => onDeleteCustomRpc(item),
+                    disabled: item.isCustomNetwork,
                   },
                 ]}
               />
