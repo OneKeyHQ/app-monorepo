@@ -111,7 +111,31 @@ export function ImportWalletOptions() {
   };
 
   const options: IOptionSection[] = [
+    ...(!platformEnv.isWeb
+      ? [
+          {
+            sectionTitle: intl.formatMessage({
+              id: ETranslations.global_transfer,
+            }),
+            data: [
+              {
+                icon: 'MultipleDevicesOutline',
+                title: intl.formatMessage({
+                  id: ETranslations.global_transfer,
+                }),
+                description: intl.formatMessage({
+                  id: ETranslations.onboarding_transfer_desc,
+                }),
+                onPress: handleImportFromCloud,
+              } as IOptionItem,
+            ],
+          },
+        ]
+      : []),
     {
+      sectionTitle: intl.formatMessage({
+        id: ETranslations.global_restore,
+      }),
       data: [
         {
           title: intl.formatMessage({
@@ -163,40 +187,6 @@ export function ImportWalletOptions() {
           },
           testID: 'import-recovery-phrase',
         },
-        {
-          title: intl.formatMessage({ id: ETranslations.global_private_key }),
-          icon: 'Key2Outline',
-          onPress: handleImportPrivateKeyPress,
-          testID: 'import-private-key',
-        },
-      ],
-    },
-    {
-      data: [
-        {
-          title: intl.formatMessage({
-            id: ETranslations.global_watch_only_address,
-          }),
-          icon: 'EyeOutline',
-          onPress: handleImportAddressPress,
-          testID: 'import-address',
-        },
-      ],
-    },
-    {
-      data: [
-        !platformEnv.isWeb
-          ? ({
-              icon: 'MultipleDevicesOutline',
-              title: intl.formatMessage({
-                id: ETranslations.global_transfer,
-              }),
-              description: intl.formatMessage({
-                id: ETranslations.onboarding_transfer_desc,
-              }),
-              onPress: handleImportFromCloud,
-            } as IOptionItem)
-          : null,
         ...(platformEnv.isNative
           ? [
               {
@@ -240,6 +230,32 @@ export function ImportWalletOptions() {
           : null,
       ].filter(Boolean),
     },
+    {
+      sectionTitle: intl.formatMessage({ id: ETranslations.global_import }),
+      data: [
+        {
+          title: intl.formatMessage({ id: ETranslations.global_private_key }),
+          icon: 'Key2Outline',
+          onPress: handleImportPrivateKeyPress,
+          testID: 'import-private-key',
+        },
+      ],
+    },
+    {
+      sectionTitle: intl.formatMessage({
+        id: ETranslations.global_watch_only,
+      }),
+      data: [
+        {
+          title: intl.formatMessage({
+            id: ETranslations.global_address,
+          }),
+          icon: 'EyeOutline',
+          onPress: handleImportAddressPress,
+          testID: 'import-address',
+        },
+      ],
+    },
   ];
 
   return (
@@ -252,10 +268,10 @@ export function ImportWalletOptions() {
       <Page.Body>
         {options.map(({ sectionTitle, data }, index) => (
           <Stack key={sectionTitle || index}>
+            {index !== 0 ? <Divider m="$5" /> : null}
             {sectionTitle ? (
               <SectionList.SectionHeader title={sectionTitle} />
             ) : null}
-            {index !== 0 ? <Divider m="$5" /> : null}
             {data.map(
               ({
                 badge,
@@ -276,22 +292,20 @@ export function ImportWalletOptions() {
                   isLoading={isLoading}
                   testID={testID}
                 >
-                  <Stack py="$2">
-                    <Icon
-                      color="$iconSubdued"
-                      name={icon}
-                      flexShrink={0}
-                      {...(iconColor && {
-                        color: iconColor,
-                      })}
-                    />
-                  </Stack>
+                  <Icon
+                    color="$iconSubdued"
+                    name={icon}
+                    flexShrink={0}
+                    {...(iconColor && {
+                      color: iconColor,
+                    })}
+                  />
                   <ListItem.Text
                     userSelect="none"
                     flex={1}
                     primary={
                       <Stack flexDirection="row" alignItems="center" gap="$1.5">
-                        <SizableText>{title}</SizableText>
+                        <SizableText size="$bodyLgMedium">{title}</SizableText>
                         {badge}
                       </Stack>
                     }
