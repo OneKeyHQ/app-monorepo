@@ -1,7 +1,10 @@
 import { createContext, memo, useContext, useEffect, useMemo } from 'react';
 
+import type { IHyperlinkTextProps } from '@onekeyhq/kit/src/components/HyperlinkText';
+
 import { IconButton } from '../../actions/IconButton';
 import { RichSizeableText } from '../../content/RichSizeableText';
+import { useSettingConfig } from '../../hocs/Provider/hooks/useProviderValue';
 import { Heading, Icon, SizableText, Stack } from '../../primitives';
 
 import type { IDialogHeaderContextType, IDialogHeaderProps } from './type';
@@ -84,8 +87,18 @@ export function DialogDescription(props: ISizableTextProps) {
   return <SizableText size="$bodyLg" mt="$1.5" {...props} />;
 }
 
+/**
+ * @deprecated Use DialogHyperlinkTextDescription instead
+ */
 export function DialogRichDescription(props: IRichSizeableTextProps) {
   return <RichSizeableText size="$bodyLg" mt="$1.5" {...props} />;
+}
+
+export function DialogHyperlinkTextDescription(props: IHyperlinkTextProps) {
+  const { HyperlinkText } = useSettingConfig();
+  return HyperlinkText ? (
+    <HyperlinkText size="$bodyLg" mt="$1.5" {...props} />
+  ) : null;
 }
 
 function BasicDialogHeader({ onClose }: { onClose: () => void }) {
