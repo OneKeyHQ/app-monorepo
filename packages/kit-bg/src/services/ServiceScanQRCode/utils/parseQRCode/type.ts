@@ -15,6 +15,7 @@ export interface IChainValue extends IBaseValue {
   amount?: string;
   network?: IServerNetwork;
   paramList?: { [key: string]: string };
+  targetAddress?: string;
 }
 export interface IBitcoinValue extends IChainValue {
   // Label for that address (e.g. name of receiver)

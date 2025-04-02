@@ -33,7 +33,6 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
-import { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
@@ -173,6 +172,28 @@ const useParseQRCode = () => {
               });
               break;
             }
+
+            if (chainValue.targetAddress) {
+              const networkId = network?.id ?? '';
+              const nativeToken =
+                await backgroundApiProxy.serviceToken.getToken({
+                  networkId,
+                  accountId: account.id,
+                  tokenIdOnNetwork: chainValue.targetAddress,
+                });
+              navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+                screen: EModalSignatureConfirmRoutes.TxDataInput,
+                params: {
+                  accountId: account.id,
+                  networkId,
+                  isNFT: false,
+                  token: nativeToken,
+                  address: chainValue.address,
+                },
+              });
+              break;
+            }
+
             if (account.impl !== network.impl) {
               showCopyDialog(value);
               break;
