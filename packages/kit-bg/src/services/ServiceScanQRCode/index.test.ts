@@ -402,6 +402,15 @@ describe('useParseQRCode', () => {
         }),
       }),
     );
+    expect(await parse('sui:/transfer?address=0x123456')).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SUI,
+        data: expect.objectContaining({
+          targetAddress: '',
+          address: '0x123456',
+        }),
+      }),
+    );
   });
   it('should parse as url', async () => {
     expect(await parse('https://www.google.com/search?q=onekey')).toEqual(
