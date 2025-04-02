@@ -54,6 +54,7 @@ import type { ISendTxOnSuccessData } from '@onekeyhq/shared/types/tx';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { useSignatureConfirm } from '../../../hooks/useSignatureConfirm';
 import {
+  useSwapApprovingAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
@@ -88,6 +89,7 @@ export function useSwapBuildTx() {
   const [, setSwapQuoteResultList] = useSwapQuoteListAtom();
   const [, setSwapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [, setSwapBuildTxFetching] = useSwapBuildTxFetchingAtom();
+  const [, setSwapApproving] = useSwapApprovingAtom();
   const [inAppNotificationAtom, setInAppNotificationAtom] =
     useInAppNotificationAtom();
   const [fromTokenAmount, setSwapFromTokenAmount] =
@@ -1005,7 +1007,7 @@ export function useSwapBuildTx() {
           }
         } else {
           try {
-            setSwapBuildTxFetching(true);
+            setSwapApproving(true);
             const approveInfo: IApproveInfo = {
               owner: swapFromAddressInfo.address,
               spender: allowanceInfo.allowanceTarget,
@@ -1023,6 +1025,7 @@ export function useSwapBuildTx() {
               ...pre,
               swapApprovingTransaction: {
                 provider: selectQuote?.info.provider,
+                providerName: selectQuote?.info.providerName,
                 fromToken,
                 toToken,
                 quoteId: selectQuote?.quoteId ?? '',
@@ -1042,7 +1045,7 @@ export function useSwapBuildTx() {
               onCancel: cancelApproveTx,
             });
           } catch (e) {
-            setSwapBuildTxFetching(false);
+            setSwapApproving(false);
           }
         }
       }
@@ -1060,6 +1063,7 @@ export function useSwapBuildTx() {
       navigationToTxConfirm,
       handleBuildTxSuccess,
       cancelBuildTx,
+      setSwapApproving,
       syncRecentTokenPairs,
       slippageItem.value,
       isFirstTimeSwap,
