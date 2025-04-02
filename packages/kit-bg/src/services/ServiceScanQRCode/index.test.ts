@@ -375,6 +375,34 @@ describe('useParseQRCode', () => {
       }),
     );
   });
+
+  it('should parse as sui', async () => {
+    expect(
+      await parse('sui:mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN'),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SUI,
+        data: expect.objectContaining({
+          address: 'mvines9iiHiQTysrwkJjGf2gb9Ex9jXJX8ns3qwf2kN',
+        }),
+      }),
+    );
+    expect(
+      await parse(
+        'sui:0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC/transfer?address=0x325564989ad708fe26aa263286b0e8fb0ab922c6c518210e8b1e060fa2ed6bd8',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        type: EQRCodeHandlerType.SUI,
+        data: expect.objectContaining({
+          targetAddress:
+            '0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC',
+          address:
+            '0x325564989ad708fe26aa263286b0e8fb0ab922c6c518210e8b1e060fa2ed6bd8',
+        }),
+      }),
+    );
+  });
   it('should parse as url', async () => {
     expect(await parse('https://www.google.com/search?q=onekey')).toEqual(
       expect.objectContaining({
