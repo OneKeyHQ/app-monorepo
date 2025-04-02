@@ -19,6 +19,7 @@ import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -128,7 +129,7 @@ function DownloadButton() {
 function BottomMenu() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-
+  const [devSettings] = useDevSettingsPersistAtom();
   const openSettingPage = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
@@ -166,24 +167,28 @@ function BottomMenu() {
       borderTopColor="$borderSubdued"
       bg="$bgSidebar"
     >
-      <DesktopTabItem
-        onPress={async () => {
-          await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-        }}
-        selected={false}
-        icon="PeopleOutline"
-        label="OneKey ID"
-        testID="onekey_id"
-      />
-      <DesktopTabItem
-        onPress={toReferFriendsPage}
-        selected={false}
-        icon="GiftOutline"
-        label={intl.formatMessage({
-          id: ETranslations.id_refer_a_friend,
-        })}
-        testID="refer-a-friend"
-      />
+      {devSettings.settings?.showOneKeyId ? (
+        <DesktopTabItem
+          onPress={async () => {
+            await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+          }}
+          selected={false}
+          icon="PeopleOutline"
+          label="OneKey ID"
+          testID="onekey_id"
+        />
+      ) : null}
+      {devSettings.settings?.showOneKeyId ? (
+        <DesktopTabItem
+          onPress={toReferFriendsPage}
+          selected={false}
+          icon="GiftOutline"
+          label={intl.formatMessage({
+            id: ETranslations.id_refer_a_friend,
+          })}
+          testID="refer-a-friend"
+        />
+      ) : null}
       <DesktopTabItem
         onPress={openDeviceManagementPage}
         selected={false}

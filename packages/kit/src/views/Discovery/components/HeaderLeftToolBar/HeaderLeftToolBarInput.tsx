@@ -1,12 +1,13 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { ColorTokens, IScrollViewRef, Icon } from '@onekeyhq/components';
 import { Input, Popover, ScrollView, Stack } from '@onekeyhq/components';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useShortcutsOnRouteFocused } from '@onekeyhq/kit/src/hooks/useShortcutsOnRouteFocused';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import { useSearchModalData } from '../../hooks/useSearchModalData';
@@ -34,6 +35,7 @@ interface IHeaderLeftToolBarInputProps {
     onPress?: () => void;
   };
   hostSecurity: any;
+  isLoading?: boolean;
 }
 
 function HeaderLeftToolBarInput({
@@ -45,6 +47,7 @@ function HeaderLeftToolBarInput({
   onPinnedPress,
   inputProps,
   hostSecurity,
+  isLoading,
 }: IHeaderLeftToolBarInputProps) {
   const intl = useIntl();
   const [dappInfoIsOpen, setDappInfoIsOpen] = useState(false);
@@ -57,12 +60,22 @@ function HeaderLeftToolBarInput({
   const searchPopoverShortcutsFeatureFlag =
     useSearchPopoverShortcutsFeatureFlag();
 
-  useEffect(() => {
+  const resetInputToUrl = useCallback(() => {
     if (hiddenHttpsUrl) {
       setInternalValue(hiddenHttpsUrl);
       setSearchValue(hiddenHttpsUrl);
     }
   }, [hiddenHttpsUrl]);
+
+  useEffect(() => {
+    resetInputToUrl();
+  }, [resetInputToUrl]);
+
+  useEffect(() => {
+    if (isLoading) {
+      resetInputToUrl();
+    }
+  }, [isLoading, resetInputToUrl]);
 
   const {
     localData,
@@ -114,6 +127,10 @@ function HeaderLeftToolBarInput({
         setInternalValue(hiddenHttpsUrl);
       }
     }
+  });
+
+  useListenTabFocusState(ETabRoutes.Discovery, () => {
+    resetInputToUrl();
   });
 
   return (
