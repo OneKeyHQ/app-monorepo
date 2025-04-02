@@ -609,7 +609,10 @@ const LimitOrderDetailModal = () => {
             />
           </InfoItemGroup>
           <Divider mx="$5" />
-          <InfoItemGroup flexDirection={gtMd ? 'row' : 'column'}>
+          <InfoItemGroup
+            flexDirection={gtMd ? 'row' : 'column'}
+            flexWrap={gtMd ? 'wrap' : 'unset'}
+          >
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.Limit_limit_price,
