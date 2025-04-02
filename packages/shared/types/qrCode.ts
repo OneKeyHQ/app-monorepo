@@ -3,6 +3,7 @@ export enum EQRCodeHandlerType {
   BITCOIN = 'BITCOIN',
   ETHEREUM = 'ETHEREUM',
   SOLANA = 'SOLANA',
+  SUI = 'SUI',
   LIGHTNING_NETWORK = 'LIGHTNING_NETWORK',
   URL = 'URL',
   WALLET_CONNECT = 'WALLET_CONNECT',
@@ -25,7 +26,7 @@ export enum EQRCodeHandlerNames {
   urlAccount = 'urlAccount',
   marketDetail = 'marketDetail',
   sendProtection = 'sendProtection',
-  tokenUri = 'tokenUri',
+  sui = 'sui',
 }
 
 export const PARSE_HANDLER_NAMES = {
@@ -39,7 +40,7 @@ export const PARSE_HANDLER_NAMES = {
     EQRCodeHandlerNames.urlAccount,
     EQRCodeHandlerNames.marketDetail,
     EQRCodeHandlerNames.sendProtection,
-    EQRCodeHandlerNames.tokenUri,
+    EQRCodeHandlerNames.sui,
   ],
   animation: [EQRCodeHandlerNames.animation],
   none: [],

@@ -1,6 +1,8 @@
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
 
+import { isPayUrl, parsePayUrl } from './utils';
+
 import type { IQRCodeHandler, ISolanaValue } from '../type';
 
 // eslint-disable-next-line spellcheck/spell-checker
@@ -10,6 +12,19 @@ import type { IQRCodeHandler, ISolanaValue } from '../type';
 const solana: IQRCodeHandler<ISolanaValue> = async (value, options) => {
   const urlValue = options?.urlResult;
   if (urlValue && /solana/i.test(urlValue.data.urlSchema)) {
+    if (isPayUrl(urlValue.data.url)) {
+      const { address, targetAddress } = parsePayUrl(urlValue.data.url);
+      return {
+        type: EQRCodeHandlerType.SOLANA,
+        data: {
+          network: await options?.backgroundApi?.serviceNetwork?.getNetwork?.({
+            networkId: getNetworkIdsMap().sol,
+          }),
+          address,
+          targetAddress,
+        },
+      };
+    }
     const solanaValue = urlValue.data.urlParamList;
     // eslint-disable-next-line spellcheck/spell-checker
     solanaValue.splToken = solanaValue['spl-token'];

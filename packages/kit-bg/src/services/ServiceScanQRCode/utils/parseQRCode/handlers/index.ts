@@ -7,7 +7,7 @@ import marketDetail from './marketDetail';
 import migrate from './migrate';
 import sendProtection from './sendProtection';
 import solana from './solana';
-import tokenUri from './tokenURI';
+import sui from './sui';
 import urlAccount from './urlAccount';
 import walletconnect from './walletconnect';
 
@@ -21,5 +21,5 @@ export const PARSE_HANDLERS = {
   [EQRCodeHandlerNames.urlAccount]: urlAccount,
   [EQRCodeHandlerNames.marketDetail]: marketDetail,
   [EQRCodeHandlerNames.sendProtection]: sendProtection,
-  [EQRCodeHandlerNames.tokenUri]: tokenUri,
+  [EQRCodeHandlerNames.sui]: sui,
 };

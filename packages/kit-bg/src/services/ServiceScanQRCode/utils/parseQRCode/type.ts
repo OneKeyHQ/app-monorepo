@@ -50,6 +50,8 @@ export interface ISolanaValue extends Omit<IChainValue, 'address'> {
   message?: string;
   memo?: string;
 }
+export type ISuiValue = IChainValue;
+
 export interface ILightningNetworkValue extends IBaseValue {
   tag?: string;
   k1?: string;
@@ -70,13 +72,6 @@ export interface IMarketDetailValue extends IBaseValue {
 
 export interface IMigrateValue extends IBaseValue {
   address?: string;
-}
-
-export interface ITokenUriValue extends IBaseValue {
-  networkId: string;
-  tokenIdOnNetwork: string;
-  address: string;
-  action: string;
 }
 
 export interface IAnimationValue extends IBaseValue {
