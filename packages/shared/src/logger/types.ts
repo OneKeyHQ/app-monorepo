@@ -29,6 +29,7 @@ export enum EScopeName {
   accountSelector = 'accountSelector',
   scanQrCode = 'scanQrCode',
   wallet = 'wallet',
+  ui = 'ui',
 }
 export interface IScope {
   getName: () => EScopeName;
