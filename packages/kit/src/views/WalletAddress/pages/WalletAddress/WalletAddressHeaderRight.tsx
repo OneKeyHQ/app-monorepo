@@ -1,4 +1,4 @@
-import { memo, useContext } from 'react';
+import { memo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,10 +13,12 @@ import {
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworksPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EChainSelectorPages, EModalRoutes } from '@onekeyhq/shared/src/routes';
-
-import { WalletAddressContext } from './WalletAddressContext';
 
 const Content = ({
   walletId,
@@ -33,8 +35,6 @@ const Content = ({
     useAllNetworksPersistAtom();
 
   const navigation = useAppNavigation();
-  const { refreshLocalData, allNetworksStateInit } =
-    useContext(WalletAddressContext);
   return (
     <YStack py="$2.5">
       <ListItem
@@ -65,10 +65,10 @@ const Content = ({
               walletId,
               indexedAccountId,
               onNetworksChanged: async () => {
-                setTimeout(() => {
-                  allNetworksStateInit.current = false;
-                  refreshLocalData();
-                }, 1000);
+                appEventBus.emit(
+                  EAppEventBusNames.EnabledNetworksChanged,
+                  undefined,
+                );
               },
             },
           });

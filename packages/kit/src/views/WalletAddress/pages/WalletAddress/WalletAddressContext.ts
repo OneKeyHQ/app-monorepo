@@ -12,12 +12,13 @@ export type IWalletAddressContext = {
   refreshLocalData: () => void;
   accountsCreated: boolean;
   setAccountsCreated: (accountsCreated: boolean) => void;
-  initAllNetworksState: IAllNetworksDBStruct;
+  originalAllNetworksState: IAllNetworksDBStruct;
   isAllNetworksEnabled: Record<string, boolean>;
   setIsAllNetworksEnabled: React.Dispatch<
     React.SetStateAction<Record<string, boolean>>
   >;
   allNetworksStateInit: React.MutableRefObject<boolean>;
+  originalAllNetworksStateInit: React.MutableRefObject<boolean>;
 };
 export const WalletAddressContext = createContext<IWalletAddressContext>({
   networkAccountMap: {},
@@ -25,7 +26,7 @@ export const WalletAddressContext = createContext<IWalletAddressContext>({
   accountId: '',
   indexedAccountId: '',
   refreshLocalData: () => {},
-  initAllNetworksState: {
+  originalAllNetworksState: {
     enabledNetworks: {},
     disabledNetworks: {},
   },
@@ -34,4 +35,5 @@ export const WalletAddressContext = createContext<IWalletAddressContext>({
   isAllNetworksEnabled: {},
   setIsAllNetworksEnabled: () => {},
   allNetworksStateInit: { current: false },
+  originalAllNetworksStateInit: { current: false },
 });

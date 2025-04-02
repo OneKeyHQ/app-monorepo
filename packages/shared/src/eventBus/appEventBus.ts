@@ -111,6 +111,7 @@ export enum EAppEventBusNames {
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
   RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
+  EnabledNetworksChanged = 'EnabledNetworksChanged',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -325,6 +326,7 @@ export interface IAppEventBusPayload {
     uiRequestType: EHardwareUiStateAction;
   };
   [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
+  [EAppEventBusNames.EnabledNetworksChanged]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

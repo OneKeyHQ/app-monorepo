@@ -625,11 +625,18 @@ function WalletAddress({
   testnetItems: IServerNetwork[];
   frequentlyUsedNetworks: IServerNetwork[];
 }) {
-  const { initAllNetworksState, accountsCreated, allNetworksStateInit } =
-    useContext(WalletAddressContext);
+  const {
+    originalAllNetworksState,
+    accountsCreated,
+    allNetworksStateInit,
+    originalAllNetworksStateInit,
+  } = useContext(WalletAddressContext);
 
   const onClose = useCallback(async () => {
-    if (!allNetworksStateInit.current) {
+    if (
+      !allNetworksStateInit.current ||
+      !originalAllNetworksStateInit.current
+    ) {
       return;
     }
 
@@ -639,12 +646,12 @@ function WalletAddress({
       accountsCreated ||
       differenceBy(
         Object.entries(latestAllNetworksState.disabledNetworks),
-        Object.entries(initAllNetworksState.disabledNetworks),
+        Object.entries(originalAllNetworksState.disabledNetworks),
         ([networkId]) => networkId,
       ).length > 0 ||
       differenceBy(
         Object.entries(latestAllNetworksState.enabledNetworks),
-        Object.entries(initAllNetworksState.enabledNetworks),
+        Object.entries(originalAllNetworksState.enabledNetworks),
         ([networkId]) => networkId,
       ).length > 0
     ) {
@@ -654,8 +661,9 @@ function WalletAddress({
   }, [
     accountsCreated,
     allNetworksStateInit,
-    initAllNetworksState.disabledNetworks,
-    initAllNetworksState.enabledNetworks,
+    originalAllNetworksState.disabledNetworks,
+    originalAllNetworksState.enabledNetworks,
+    originalAllNetworksStateInit,
   ]);
 
   return (
@@ -702,6 +710,12 @@ function WalletAddressPageMainView({
   >({});
 
   const allNetworksStateInit = useRef(false);
+  const originalAllNetworksStateInit = useRef(false);
+  const [originalAllNetworksState, setOriginalAllNetworksState] =
+    useState<IAllNetworksDBStruct>({
+      disabledNetworks: {},
+      enabledNetworks: {},
+    });
 
   const {
     result,
@@ -761,6 +775,12 @@ function WalletAddressPageMainView({
       perf.done();
 
       log('fetchBaseData');
+
+      if (!originalAllNetworksStateInit.current) {
+        setOriginalAllNetworksState(allNetworksState);
+        originalAllNetworksStateInit.current = true;
+      }
+
       return {
         networksAccount,
         networks,
@@ -825,6 +845,17 @@ function WalletAddressPageMainView({
     excludeTestNetwork,
   ]);
 
+  useEffect(() => {
+    const refresh = async () => {
+      allNetworksStateInit.current = false;
+      await refreshLocalData({ alwaysSetState: true });
+    };
+    appEventBus.on(EAppEventBusNames.EnabledNetworksChanged, refresh);
+    return () => {
+      appEventBus.off(EAppEventBusNames.EnabledNetworksChanged, refresh);
+    };
+  }, [refreshLocalData]);
+
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { checkDeps } = useDebugHooksDepsChangedChecker(
     'WalletAddressContextCalculate',
@@ -864,7 +895,7 @@ function WalletAddressPageMainView({
     const contextData: IWalletAddressContext = {
       networkAccountMap,
       networkDeriveTypeMap,
-      initAllNetworksState: result.allNetworksState,
+      originalAllNetworksState,
       accountId,
       indexedAccountId,
       refreshLocalData,
@@ -873,11 +904,12 @@ function WalletAddressPageMainView({
       isAllNetworksEnabled,
       setIsAllNetworksEnabled,
       allNetworksStateInit,
+      originalAllNetworksStateInit,
     };
     return contextData;
   }, [
     // checkDeps,
-    result.allNetworksState,
+    originalAllNetworksState,
     result.networksAccount,
     accountId,
     indexedAccountId,
