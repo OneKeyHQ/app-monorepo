@@ -107,35 +107,6 @@ const useParseQRCode = () => {
             screen: EModalSettingRoutes.SettingProtectModal,
           });
           break;
-        // case EQRCodeHandlerType.TOKEN_URI:
-        //   {
-        //     const account = options?.account;
-        //     if (!account) {
-        //       console.error('missing the account in the useParseQRCode.start');
-        //       break;
-        //     }
-        //     const chainValue = result.data as ITokenUriValue;
-        //     const networkId = chainValue?.networkId;
-        //     if (!networkId) {
-        //       break;
-        //     }
-        //     const nativeToken = await backgroundApiProxy.serviceToken.getToken({
-        //       networkId,
-        //       accountId: account.id,
-        //       tokenIdOnNetwork: chainValue.tokenIdOnNetwork,
-        //     });
-        //     navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-        //       screen: EModalSignatureConfirmRoutes.TxDataInput,
-        //       params: {
-        //         accountId: account.id,
-        //         networkId,
-        //         isNFT: false,
-        //         token: nativeToken,
-        //         address: chainValue.address,
-        //       },
-        //     });
-        //   }
-        //   break;
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:
