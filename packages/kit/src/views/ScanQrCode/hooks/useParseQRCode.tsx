@@ -83,6 +83,7 @@ const useParseQRCode = () => {
       if (!options?.autoHandleResult) {
         return result;
       }
+
       switch (result.type) {
         case EQRCodeHandlerType.URL_ACCOUNT: {
           const urlAccountData = result.data as IUrlAccountValue;
@@ -110,6 +111,7 @@ const useParseQRCode = () => {
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:
         case EQRCodeHandlerType.SOLANA:
+        case EQRCodeHandlerType.SUI:
           {
             const account = options?.account;
             if (!account) {
@@ -142,31 +144,53 @@ const useParseQRCode = () => {
               });
               break;
             }
-            if (account.impl !== network.impl) {
-              showCopyDialog(value);
-              break;
-            }
-            navigation.pushModal(EModalRoutes.AssetSelectorModal, {
-              screen: EAssetSelectorRoutes.TokenSelector,
-              params: {
-                networkId: network.id,
-                accountId: account.id,
 
-                tokens: options?.tokens,
-                onSelect: async (token) => {
-                  await timerUtils.wait(600);
-                  navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-                    screen: EModalSignatureConfirmRoutes.TxDataInput,
-                    params: {
-                      accountId: account.id,
-                      networkId: network.id,
-                      isNFT: false,
-                      token,
-                      address: chainValue?.address,
-                      amount: chainValue?.amount,
+            const networkId = network?.id ?? '';
+            const getAccountIdOnNetwork = async () => {
+              if (account.indexedAccountId) {
+                const { accounts } =
+                  await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
+                    {
+                      indexedAccountId: account.indexedAccountId,
                     },
-                  });
-                },
+                  );
+                const networkAccount = accounts.find(
+                  (item) => item.impl === network.impl,
+                );
+                if (networkAccount) {
+                  return networkAccount.id;
+                }
+              }
+            };
+            let accountId = account.id;
+            if (account.impl !== network.impl) {
+              const newAccountId = await getAccountIdOnNetwork();
+              if (newAccountId) {
+                accountId = newAccountId;
+              } else {
+                showCopyDialog(value);
+                break;
+              }
+            }
+            const nativeToken = chainValue.targetAddress
+              ? await backgroundApiProxy.serviceToken.getToken({
+                  networkId,
+                  accountId,
+                  tokenIdOnNetwork: chainValue.targetAddress,
+                })
+              : await backgroundApiProxy.serviceToken.getNativeToken({
+                  networkId: network.id,
+                  accountId: account.id,
+                });
+            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+              screen: EModalSignatureConfirmRoutes.TxDataInput,
+              params: {
+                accountId,
+                networkId,
+                isNFT: false,
+                token: nativeToken,
+                address: chainValue.address,
+                amount: chainValue?.amount,
               },
             });
           }

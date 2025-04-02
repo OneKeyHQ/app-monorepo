@@ -15,6 +15,7 @@ export interface IChainValue extends IBaseValue {
   amount?: string;
   network?: IServerNetwork;
   paramList?: { [key: string]: string };
+  targetAddress?: string;
 }
 export interface IBitcoinValue extends IChainValue {
   // Label for that address (e.g. name of receiver)
@@ -49,6 +50,8 @@ export interface ISolanaValue extends Omit<IChainValue, 'address'> {
   message?: string;
   memo?: string;
 }
+export type ISuiValue = IChainValue;
+
 export interface ILightningNetworkValue extends IBaseValue {
   tag?: string;
   k1?: string;
@@ -70,6 +73,7 @@ export interface IMarketDetailValue extends IBaseValue {
 export interface IMigrateValue extends IBaseValue {
   address?: string;
 }
+
 export interface IAnimationValue extends IBaseValue {
   partIndexes: number[];
   partSize: number;
