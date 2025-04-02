@@ -33,6 +33,7 @@ import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
   useSwapAlertsAtom,
+  useSwapApprovingAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
@@ -176,6 +177,7 @@ export function useSwapActionState() {
   const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [approving] = useSwapApprovingAtom();
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
@@ -245,10 +247,20 @@ export function useSwapActionState() {
       infoRes.disable = true;
     }
 
-    if (quoteLoading || quoteEventFetching) {
-      infoRes.label = intl.formatMessage({
-        id: ETranslations.swap_page_button_fetching_quotes,
-      });
+    if (quoteLoading || quoteEventFetching || approving || buildTxFetching) {
+      if (approving) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_btn_approving,
+        });
+      } else if (buildTxFetching) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_btn_building,
+        });
+      } else {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_fetching_quotes,
+        });
+      }
     } else {
       if (isCrossChain && fromToken && toToken) {
         infoRes.label = intl.formatMessage({
@@ -346,6 +358,7 @@ export function useSwapActionState() {
     return infoRes;
   }, [
     hasError,
+    buildTxFetching,
     quoteCurrentSelect,
     alerts.states,
     swapTypeSwitchValue,
@@ -356,6 +369,7 @@ export function useSwapActionState() {
     isRefreshQuote,
     quoteLoading,
     quoteEventFetching,
+    approving,
     isCrossChain,
     fromToken,
     toToken,
@@ -367,8 +381,10 @@ export function useSwapActionState() {
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
+    approving,
     noConnectWallet: actionInfo.noConnectWallet,
-    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
+    disabled:
+      actionInfo.disable || quoteLoading || quoteEventFetching || approving,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,
