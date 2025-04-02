@@ -3,7 +3,7 @@ import { useCallback, useContext, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import type { IKeyOfIcons } from '@onekeyhq/components';
-import { Button, XStack } from '@onekeyhq/components';
+import { Button, SizableText, XStack } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -114,22 +114,38 @@ export const EditableListItem = ({
           size="$8"
         />
       }
+      renderItemText={(textProps) => (
+        <ListItem.Text
+          {...textProps}
+          primary={
+            <XStack alignItems="center" gap="$3">
+              <SizableText size="$bodyLgMedium">
+                {item.isAllNetworks
+                  ? intl.formatMessage({
+                      id: ETranslations.global_all_networks,
+                    })
+                  : item.name}
+              </SizableText>
+              {actions?.map((action) => (
+                <Button
+                  key={action.title}
+                  size="small"
+                  variant="secondary"
+                  icon={action.leadingIcon}
+                  iconAfter={action.trailingIcon}
+                  onPress={action.onPress}
+                >
+                  {action.title}
+                </Button>
+              ))}
+            </XStack>
+          }
+        />
+      )}
       onPress={onPress}
       disabled={isDisabled}
     >
       <XStack gap="$5">
-        {actions?.map((action) => (
-          <Button
-            key={action.title}
-            size="small"
-            variant="secondary"
-            icon={action.leadingIcon}
-            iconAfter={action.trailingIcon}
-            onPress={action.onPress}
-          >
-            {action.title}
-          </Button>
-        ))}
         {isCustomNetworkEditable && isEditMode && !isDisabled ? (
           <ListItem.IconButton
             icon="PencilOutline"
