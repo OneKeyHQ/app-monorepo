@@ -32,7 +32,8 @@ export function useToPromptWebDeviceAccessPage() {
     () => async () => {
       if (
         platformEnv.isExtensionUiPopup ||
-        platformEnv.isExtensionUiSidePanel
+        platformEnv.isExtensionUiSidePanel ||
+        platformEnv.isExtensionUiStandaloneWindow
       ) {
         await backgroundApiProxy.serviceApp.openExtensionExpandTab({
           routes: 'permission/web-device',
