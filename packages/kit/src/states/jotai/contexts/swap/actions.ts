@@ -66,6 +66,7 @@ import {
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
+  swapApprovingAtom,
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
@@ -385,6 +386,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
+      set(swapApprovingAtom(), false);
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       try {
         if (!loadingDelayEnable) {
@@ -647,6 +649,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
+      set(swapApprovingAtom(), false);
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       set(swapQuoteFetchingAtom(), true);
       const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
