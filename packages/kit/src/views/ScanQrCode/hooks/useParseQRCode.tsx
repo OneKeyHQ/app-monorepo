@@ -121,11 +121,11 @@ const useParseQRCode = () => {
             if (!networkId) {
               break;
             }
-            const nativeToken =
-              await backgroundApiProxy.serviceToken.getNativeToken({
-                networkId,
-                accountId: account.id,
-              });
+            const nativeToken = await backgroundApiProxy.serviceToken.getToken({
+              networkId,
+              accountId: account.id,
+              tokenIdOnNetwork: chainValue.tokenIdOnNetwork,
+            });
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
               screen: EModalSignatureConfirmRoutes.TxDataInput,
               params: {
@@ -133,6 +133,7 @@ const useParseQRCode = () => {
                 networkId,
                 isNFT: false,
                 token: nativeToken,
+                address: chainValue.address,
               },
             });
           }

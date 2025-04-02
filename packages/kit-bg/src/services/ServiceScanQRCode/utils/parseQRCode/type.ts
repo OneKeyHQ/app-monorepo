@@ -73,6 +73,7 @@ export interface IMigrateValue extends IBaseValue {
 
 export interface ITokenUriValue extends IBaseValue {
   networkId: string;
+  tokenIdOnNetwork: string;
   address: string;
   action: string;
 }

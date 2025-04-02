@@ -13,29 +13,24 @@ const tokenURI: IQRCodeHandler<ITokenUriValue> = async (value) => {
     const [pathNetwork, action] = path.split('/');
     const pathSegments = pathNetwork.split(':');
     const networkString = pathSegments[0];
-    const contractAddress = pathSegments.slice(1).join(':');
+    const tokenIdOnNetwork = pathSegments.slice(1).join(':');
     const blockChain = blockChains[networkString as keyof typeof blockChains];
     if (blockChain) {
-      const asset =
-        blockChain.assets[contractAddress as keyof typeof blockChain.assets];
-      if (asset) {
-        const queryParams = qs.parse(query || '') as {
-          address: string;
-        };
-        const address = queryParams.address || '';
-
-        return {
-          type: EQRCodeHandlerType.TOKEN_URI,
-          data: {
-            networkId: blockChain.networkId,
-            address,
-            action,
-          },
-        };
-      }
+      const params = qs.parse(query || '') as {
+        address: string;
+      };
+      const address = params.address || '';
+      return {
+        type: EQRCodeHandlerType.TOKEN_URI,
+        data: {
+          networkId: blockChain.networkId,
+          tokenIdOnNetwork,
+          address,
+          action,
+        },
+      };
     }
   }
-
   return null;
 };
 
