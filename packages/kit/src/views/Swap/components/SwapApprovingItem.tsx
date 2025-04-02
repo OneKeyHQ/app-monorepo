@@ -46,6 +46,7 @@ const SwapApprovingItem = ({
 
   const startProgress = useCallback(
     (duration?: number) => {
+      progressAnim.setValue(0);
       Animated.timing(progressAnim, {
         toValue: progress,
         duration: duration || 1000 * estTime,
