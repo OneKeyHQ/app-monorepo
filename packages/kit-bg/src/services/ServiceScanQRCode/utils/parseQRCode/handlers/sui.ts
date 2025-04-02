@@ -11,8 +11,16 @@ const sui: IQRCodeHandler<ISuiValue> = async (value, options) => {
     const network = await options?.backgroundApi?.serviceNetwork?.getNetwork?.({
       networkId: getNetworkIdsMap().sui,
     });
+    const checkAddress = async (addr: string) => {
+      const validateResult =
+        await options?.backgroundApi?.serviceValidator?.localValidateAddress?.({
+          networkId: network?.id ?? '',
+          address: addr,
+        });
+      return validateResult?.isValid;
+    };
     const result = parsePayUrl(urlValue.data.url);
-    if (result) {
+    if (result && (await checkAddress(result.address))) {
       const { address, targetAddress } = result;
       return {
         type: EQRCodeHandlerType.SUI,
@@ -24,12 +32,7 @@ const sui: IQRCodeHandler<ISuiValue> = async (value, options) => {
       };
     }
     const [, address] = urlValue.data.url.split('sui:');
-    const validateResult =
-      await options?.backgroundApi?.serviceValidator?.localValidateAddress?.({
-        networkId: getNetworkIdsMap().sui,
-        address,
-      });
-    if (validateResult?.isValid) {
+    if (await checkAddress(address)) {
       return {
         type: EQRCodeHandlerType.SUI,
         data: {
