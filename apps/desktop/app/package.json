@@ -7,6 +7,6 @@
   "author": "OneKey <hi@onekey.so>",
   "dependencies": {
     "electron-check-biometric-auth-changed": "0.0.6",
-    "electron-windows-security": "0.0.6"
+    "electron-windows-security": "0.0.7"
   }
 }
