@@ -18,6 +18,7 @@ import type {
   IChainValue,
   IMarketDetailValue,
   IQRCodeHandlerParse,
+  ITokenUriValue,
   IUrlAccountValue,
   IWalletConnectValue,
 } from '@onekeyhq/kit-bg/src/services/ServiceScanQRCode/utils/parseQRCode/type';
@@ -32,6 +33,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
@@ -106,6 +108,34 @@ const useParseQRCode = () => {
           navigation.pushModal(EModalRoutes.SettingModal, {
             screen: EModalSettingRoutes.SettingProtectModal,
           });
+          break;
+        case EQRCodeHandlerType.TOKEN_URI:
+          {
+            const account = options?.account;
+            if (!account) {
+              console.error('missing the account in the useParseQRCode.start');
+              break;
+            }
+            const chainValue = result.data as ITokenUriValue;
+            const networkId = chainValue?.networkId;
+            if (!networkId) {
+              break;
+            }
+            const nativeToken =
+              await backgroundApiProxy.serviceToken.getNativeToken({
+                networkId,
+                accountId: account.id,
+              });
+            navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+              screen: EModalSignatureConfirmRoutes.TxDataInput,
+              params: {
+                accountId: account.id,
+                networkId,
+                isNFT: false,
+                token: nativeToken,
+              },
+            });
+          }
           break;
         case EQRCodeHandlerType.BITCOIN:
         case EQRCodeHandlerType.ETHEREUM:
