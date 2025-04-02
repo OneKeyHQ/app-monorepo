@@ -18,6 +18,9 @@ import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
+import type { DismissableProps } from '@tamagui/dismissable';
+import type { GestureResponderEvent } from 'react-native';
+
 export type IShowToasterProps = PropsWithChildren<{
   onClose?: (extra?: { flag?: string }) => Promise<void> | void;
   dismissOnOverlayPress?: boolean;
@@ -106,6 +109,10 @@ function BasicShowToaster(
   // when Stack's pointerEvents is set to 'auto',
   //  if there is no click event assigned, clicks will pass through on Android.
   const handleNoop = useCallback(() => {}, []);
+  const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
+    event.preventDefault();
+  }, []);
+
   return (
     <>
       <ToastViewport
@@ -131,6 +138,7 @@ function BasicShowToaster(
 
       <Toast
         unstyled
+        onEscapeKeyDown={handleEscapeKeyDown as any}
         onSwipeEnd={handleSwipeEnd}
         justifyContent="center"
         open={isOpen}

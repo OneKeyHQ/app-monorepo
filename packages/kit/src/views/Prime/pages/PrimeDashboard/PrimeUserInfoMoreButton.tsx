@@ -112,7 +112,7 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               id: ETranslations.prime_onekeyid_log_out,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_onekeyid_log_out_decription,
+              id: ETranslations.prime_onekeyid_log_out_description,
             }),
             onConfirmText: intl.formatMessage({
               id: ETranslations.prime_log_out,
