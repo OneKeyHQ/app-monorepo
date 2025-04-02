@@ -1,9 +1,13 @@
 import type { FC } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, Page } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
@@ -53,6 +57,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
 }) => {
   const intl = useIntl();
   const [isEditMode, setIsEditMode] = useState(false);
+  const allNetworksChanged = useRef(false);
   const headerRight = useMemo(
     () => () =>
       getHeaderRightComponent(
@@ -64,7 +69,14 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
     [intl, isEditMode],
   );
   return (
-    <Page safeAreaEnabled={false}>
+    <Page
+      safeAreaEnabled={false}
+      onClose={() => {
+        if (allNetworksChanged.current) {
+          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+        }
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_networks })}
         headerRight={headerRight}
@@ -85,6 +97,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           onEditCustomNetwork={onEditCustomNetwork}
           allNetworkItem={allNetworkItem}
           onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
+          allNetworksChanged={allNetworksChanged}
         />
       </Page.Body>
     </Page>

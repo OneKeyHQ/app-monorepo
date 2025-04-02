@@ -18,6 +18,8 @@ export const AllNetworksManagerContext = createContext<{
     }>
   >;
   enabledNetworks: IServerNetworkMatch[];
+  searchKey: string;
+  setSearchKey: React.Dispatch<React.SetStateAction<string>>;
 }>({
   networks: {
     mainNetworks: [],
@@ -29,4 +31,6 @@ export const AllNetworksManagerContext = createContext<{
   },
   setNetworksState: () => {},
   enabledNetworks: [],
+  searchKey: '',
+  setSearchKey: () => {},
 });

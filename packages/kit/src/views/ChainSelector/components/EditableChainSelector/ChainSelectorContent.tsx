@@ -60,10 +60,12 @@ const ListHeaderComponent = ({
   walletId,
   accountId,
   indexedAccountId,
+  allNetworksChanged,
 }: {
   walletId?: string;
   accountId?: string;
   indexedAccountId?: string;
+  allNetworksChanged?: React.MutableRefObject<boolean>;
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -71,42 +73,42 @@ const ListHeaderComponent = ({
     EditableChainSelectorContext,
   );
 
-  const enabledNetworksCompatibleWithAccountId = usePromiseResult(
-    async () => {
-      const { enabledNetworks, disabledNetworks } =
-        await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
-      const { networks } =
-        await backgroundApiProxy.serviceNetwork.getAllNetworks({
-          clearCache: true,
-          excludeTestNetwork: true,
-          excludeAllNetworkItem: true,
-        });
-      const enabledNetworkIds = networks
-        .filter((n) =>
-          isEnabledNetworksInAllNetworks({
-            networkId: n.id,
-            disabledNetworks,
-            enabledNetworks,
-            isTestnet: n.isTestnet,
-          }),
-        )
-        .map((n) => n.id);
+  const { result: enabledNetworksCompatibleWithAccountId, run } =
+    usePromiseResult(
+      async () => {
+        const { enabledNetworks, disabledNetworks } =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeTestNetwork: true,
+            excludeAllNetworkItem: true,
+          });
+        const enabledNetworkIds = networks
+          .filter((n) =>
+            isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              disabledNetworks,
+              enabledNetworks,
+              isTestnet: n.isTestnet,
+            }),
+          )
+          .map((n) => n.id);
 
-      const compatibleNetworks =
-        await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          {
-            walletId,
-            networkIds: enabledNetworkIds,
-          },
-        );
+        const compatibleNetworks =
+          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+            {
+              walletId,
+              networkIds: enabledNetworkIds,
+            },
+          );
 
-      return compatibleNetworks.mainnetItems;
-    },
-    [walletId],
-    {
-      initResult: [],
-    },
-  ).result;
+        return compatibleNetworks.mainnetItems;
+      },
+      [walletId],
+      {
+        initResult: [],
+      },
+    );
 
   return (
     <Stack mt="$4">
@@ -132,6 +134,12 @@ const ListHeaderComponent = ({
                       walletId,
                       accountId,
                       indexedAccountId,
+                      onNetworksChanged: async () => {
+                        if (allNetworksChanged) {
+                          allNetworksChanged.current = true;
+                        }
+                        await run();
+                      },
                     });
                   }
                 },
@@ -160,6 +168,7 @@ type IEditableChainSelectorContentProps = {
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
+  allNetworksChanged?: React.MutableRefObject<boolean>;
 };
 
 export const EditableChainSelectorContent = ({
@@ -177,6 +186,7 @@ export const EditableChainSelectorContent = ({
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
+  allNetworksChanged,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -495,6 +505,7 @@ export const EditableChainSelectorContent = ({
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
+                  allNetworksChanged={allNetworksChanged}
                 />
               }
               renderSectionHeader={renderSectionHeader}

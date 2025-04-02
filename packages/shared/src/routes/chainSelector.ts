@@ -42,5 +42,6 @@ export type IChainSelectorParamList = {
     walletId: string;
     accountId?: string;
     indexedAccountId?: string;
+    onNetworksChanged?: () => Promise<void>;
   };
 };

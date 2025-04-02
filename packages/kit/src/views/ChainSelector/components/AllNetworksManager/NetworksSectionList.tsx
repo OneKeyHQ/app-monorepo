@@ -1,9 +1,9 @@
-import { useCallback, useContext, useRef, useState } from 'react';
+import { useCallback, useContext, useRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import type { IListViewRef } from '@onekeyhq/components';
-import { SearchBar, SectionList, Stack } from '@onekeyhq/components';
+import { Empty, SearchBar, SectionList, Stack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
@@ -18,11 +18,24 @@ import type {
   IServerNetworkMatch,
 } from '../../types';
 
+const ListEmptyComponent = () => {
+  const intl = useIntl();
+  return (
+    <Empty
+      icon="SearchOutline"
+      title={intl.formatMessage({
+        id: ETranslations.global_no_results,
+      })}
+    />
+  );
+};
+
 function NetworksSectionList() {
   const intl = useIntl();
-  const [searchKey, setSearchKey] = useState('');
 
-  const { networks } = useContext(AllNetworksManagerContext);
+  const { networks, searchKey, setSearchKey } = useContext(
+    AllNetworksManagerContext,
+  );
 
   const listRef = useRef<IListViewRef<any> | null>(null);
 
@@ -73,24 +86,28 @@ function NetworksSectionList() {
         />
       </Stack>
       <Stack flex={1}>
-        <SectionList
-          ref={listRef}
-          contentContainerStyle={
-            platformEnv.isNative
-              ? undefined
-              : {
-                  minHeight: '100vh',
-                }
-          }
-          estimatedItemSize={48}
-          sections={sections}
-          keyExtractor={(item) => (item as IServerNetworkMatch).id}
-          renderSectionHeader={renderSectionHeader}
-          ListHeaderComponent={NetworkListHeader}
-          renderItem={({ item }: { item: IServerNetworkMatch }) => (
-            <NetworkListItem network={item} />
-          )}
-        />
+        {sections.length > 0 ? (
+          <SectionList
+            ref={listRef}
+            contentContainerStyle={
+              platformEnv.isNative
+                ? undefined
+                : {
+                    minHeight: '100vh',
+                  }
+            }
+            estimatedItemSize={48}
+            sections={sections}
+            keyExtractor={(item) => (item as IServerNetworkMatch).id}
+            renderSectionHeader={renderSectionHeader}
+            ListHeaderComponent={NetworkListHeader}
+            renderItem={({ item }: { item: IServerNetworkMatch }) => (
+              <NetworkListItem network={item} />
+            )}
+          />
+        ) : (
+          <ListEmptyComponent />
+        )}
       </Stack>
     </Stack>
   );

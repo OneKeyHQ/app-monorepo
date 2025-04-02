@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
@@ -36,7 +36,8 @@ function AllNetworksManager() {
       RouteProp<IChainSelectorParamList, EChainSelectorPages.AllNetworksManager>
     >();
 
-  const { accountId, walletId, indexedAccountId } = route.params;
+  const { accountId, walletId, indexedAccountId, onNetworksChanged } =
+    route.params;
 
   const [networksState, setNetworksState] = useState<{
     enabledNetworks: Record<string, boolean>;
@@ -53,10 +54,17 @@ function AllNetworksManager() {
     frequentlyUsedNetworks: [],
   });
 
+  const enabledNetworksInit = useRef(false);
+
+  const [originalEnabledNetworks, setOriginalEnabledNetworks] = useState<
+    IServerNetworkMatch[]
+  >([]);
   const [enabledNetworks, setEnabledNetworks] = useState<IServerNetworkMatch[]>(
     [],
   );
   const [isLoading, setIsLoading] = useState(false);
+
+  const [searchKey, setSearchKey] = useState('');
 
   const contextValue = useMemo(
     () => ({
@@ -64,8 +72,10 @@ function AllNetworksManager() {
       networksState,
       setNetworksState,
       enabledNetworks,
+      searchKey,
+      setSearchKey,
     }),
-    [networks, networksState, setNetworksState, enabledNetworks],
+    [networks, networksState, setNetworksState, enabledNetworks, searchKey],
   );
 
   useEffect(() => {
@@ -78,6 +88,10 @@ function AllNetworksManager() {
       }),
     );
     setEnabledNetworks(result);
+    if (!enabledNetworksInit.current && result.length > 0) {
+      setOriginalEnabledNetworks(result);
+      enabledNetworksInit.current = true;
+    }
   }, [networksState, networks.mainNetworks]);
 
   usePromiseResult(async () => {
@@ -185,8 +199,6 @@ function AllNetworksManager() {
       }
     }
 
-    debugger;
-
     if (enabledNetworksWithoutAccount.length > 0) {
       await createAddress({
         num: 0,
@@ -200,9 +212,21 @@ function AllNetworksManager() {
       });
     }
 
-    setIsLoading(false);
-
     navigation.pop();
+
+    if (
+      enabledNetworksWithoutAccount.length > 0 ||
+      !(
+        enabledNetworks.length === originalEnabledNetworks.length &&
+        enabledNetworks.every(
+          (network, index) => network.id === originalEnabledNetworks[index].id,
+        )
+      )
+    ) {
+      void onNetworksChanged?.();
+    }
+
+    setIsLoading(false);
   }, [
     accountId,
     createAddress,
@@ -211,6 +235,8 @@ function AllNetworksManager() {
     navigation,
     networksState.disabledNetworks,
     networksState.enabledNetworks,
+    onNetworksChanged,
+    originalEnabledNetworks,
     walletId,
   ]);
 
