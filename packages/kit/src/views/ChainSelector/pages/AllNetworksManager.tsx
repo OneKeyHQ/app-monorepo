@@ -214,6 +214,23 @@ function AllNetworksManager() {
     walletId,
   ]);
 
+  const confirmButtonText = useMemo(() => {
+    if (enabledNetworks.length > 0) {
+      return intl.formatMessage(
+        {
+          id: ETranslations.network_enable_count,
+        },
+        {
+          count: enabledNetworks.length,
+        },
+      );
+    }
+
+    return intl.formatMessage({
+      id: ETranslations.network_none_selected,
+    });
+  }, [enabledNetworks.length, intl]);
+
   return (
     <AllNetworksManagerContext.Provider value={contextValue}>
       <Page safeAreaEnabled>
@@ -226,14 +243,7 @@ function AllNetworksManager() {
         </Page.Body>
         <Page.Footer>
           <Page.FooterActions
-            onConfirmText={intl.formatMessage(
-              {
-                id: ETranslations.network_enable_count,
-              },
-              {
-                count: enabledNetworks.length,
-              },
-            )}
+            onConfirmText={confirmButtonText}
             confirmButtonProps={{
               loading: isLoading,
               disabled: (() => {
