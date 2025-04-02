@@ -1,11 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
-import { isNil } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import { SizableText, Skeleton, Stack } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import type { IDApp } from '@onekeyhq/shared/types/discovery';
@@ -17,23 +14,19 @@ import { TrendingSectionItems } from './TrendingSectionItems';
 
 import type { IMatchDAppItemType } from '../../types';
 
-export function TrendingSection() {
-  const { result: trendingData } = usePromiseResult<IDApp[]>(
-    async () => {
-      const data =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      return data.trending || [];
-    },
-    [],
-    {
-      watchLoading: true,
-    },
-  );
+interface ITrendingSectionProps {
+  data: IDApp[];
+  isLoading: boolean;
+}
+
+export function TrendingSection({
+  data = [],
+  isLoading = false,
+}: ITrendingSectionProps) {
   const intl = useIntl();
   const handleWebSite = useWebSiteHandler();
-  const dataSource = useMemo<IDApp[]>(() => trendingData ?? [], [trendingData]);
+  const dataSource = useMemo<IDApp[]>(() => data ?? [], [data]);
 
-  const isLoadingTrending = isNil(trendingData);
   const hasTrendingItems = dataSource.length > 0;
 
   const handleOpenWebSite = useCallback(
@@ -72,7 +65,7 @@ export function TrendingSection() {
           borderCurve="continuous"
           justifyContent="center"
         >
-          {isLoadingTrending ? (
+          {isLoading ? (
             <Skeleton w="100%" />
           ) : (
             <SizableText

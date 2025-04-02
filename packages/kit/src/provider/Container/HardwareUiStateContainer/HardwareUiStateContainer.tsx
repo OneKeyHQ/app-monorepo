@@ -76,7 +76,7 @@ function HardwareSingletonDialogCmp(
   const action = state?.action;
   const connectId = state?.connectId || '';
   // state?.payload?.deviceType
-  const { serviceHardwareUI, serviceAccount } = backgroundApiProxy;
+  const { serviceHardwareUI, serviceSetting } = backgroundApiProxy;
   const intl = useIntl();
   const [showCloseButton, setIsShowExitButton] = useState(false);
 
@@ -187,9 +187,7 @@ function HardwareSingletonDialogCmp(
       }: {
         hideImmediately: boolean;
       }) => {
-        await serviceAccount.setCachedHiddenWalletOptions(connectId, {
-          hideImmediately,
-        });
+        await serviceSetting.setHiddenWalletImmediately(hideImmediately);
       };
       title = intl.formatMessage({
         id: ETranslations.global_enter_passphrase,
@@ -241,8 +239,8 @@ function HardwareSingletonDialogCmp(
     connectId,
     defaultLoadingView,
     intl,
-    serviceAccount,
     serviceHardwareUI,
+    serviceSetting,
     state?.connectId,
     state?.payload,
   ]);

@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
 
 import { Skeleton, Stack, XStack, useMedia } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { DefaultTitle } from './DefaultTitle';
@@ -116,18 +114,16 @@ function DappSideDisplay({
   );
 }
 
-export function Welcome({ banner }: { banner: React.ReactNode }) {
+export function Welcome({
+  banner,
+  discoveryData,
+  isLoading,
+}: {
+  banner: React.ReactNode;
+  discoveryData: { hot?: Array<{ logo?: string; url?: string }> };
+  isLoading: boolean;
+}) {
   const media = useMedia();
-
-  // Fetch discovery data
-  const { result: discoveryData, isLoading } = usePromiseResult(
-    async () =>
-      backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
-    [],
-    {
-      watchLoading: true,
-    },
-  );
 
   // Use the 'hot' data instead of finding the "Onekey hot" category
   const dapps = useMemo(() => discoveryData?.hot || [], [discoveryData]);
