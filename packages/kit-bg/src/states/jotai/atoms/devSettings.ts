@@ -25,6 +25,7 @@ export interface IDevSettings {
   // show trading view
   showTradingView?: boolean;
   showPrimeTest?: boolean;
+  showOneKeyId?: boolean;
   usePrimeSandboxPayment?: boolean;
   autoNavigation?: {
     enabled: boolean;
@@ -53,6 +54,7 @@ export const {
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
       showPrimeTest: false,
+      showOneKeyId: false,
       usePrimeSandboxPayment: false,
       autoNavigation: {
         enabled: false,
