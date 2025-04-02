@@ -1021,6 +1021,12 @@ export function useSwapBuildTx() {
               },
               swapApproveRes: selectQuote,
             };
+            await navigationToTxConfirm({
+              approvesInfo: [approveInfo],
+              isInternalSwap: true,
+              onSuccess: handleApproveTxSuccess,
+              onCancel: cancelApproveTx,
+            });
             setInAppNotificationAtom((pre) => ({
               ...pre,
               swapApprovingTransaction: {
@@ -1038,12 +1044,6 @@ export function useSwapBuildTx() {
                 resetApproveIsMax: isMax,
               },
             }));
-            await navigationToTxConfirm({
-              approvesInfo: [approveInfo],
-              isInternalSwap: true,
-              onSuccess: handleApproveTxSuccess,
-              onCancel: cancelApproveTx,
-            });
           } catch (e) {
             setSwapApproving(false);
           }

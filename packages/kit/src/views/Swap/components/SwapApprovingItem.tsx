@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
-import { MotiView } from 'moti';
 import { useIntl } from 'react-intl';
+import { Animated } from 'react-native';
 
 import { SizableText, XStack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -32,7 +32,6 @@ const SwapApprovingItem = ({
   const intl = useIntl();
   const themeVariant = useThemeVariant();
   const [containerWidth, setContainerWidth] = useState(0);
-  const [currentProgress, setCurrentProgress] = useState(0);
   const isResetApprove = useMemo(() => {
     return new BigNumber(approvingTransaction?.amount ?? '0').isZero();
   }, [approvingTransaction]);
@@ -42,28 +41,36 @@ const SwapApprovingItem = ({
     }
     return approvingIntervalSecondsDefault;
   }, [approvingTransaction]);
-  const [animationDuration, setAnimationDuration] = useState(1000 * estTime);
 
-  // 开始动画
+  const progressAnim = useMemo(() => new Animated.Value(0), []);
+
   const startProgress = useCallback(
     (duration?: number) => {
-      setAnimationDuration(duration || 1000 * estTime);
-      setCurrentProgress(progress);
+      progressAnim.setValue(0);
+      Animated.timing(progressAnim, {
+        toValue: progress,
+        duration: duration || 1000 * estTime,
+        useNativeDriver: false,
+      }).start();
     },
-    [estTime, progress],
+    [estTime, progress, progressAnim],
   );
 
-  // 回退动画
   const revertProgress = useCallback(() => {
-    setAnimationDuration(1000);
-    setCurrentProgress(0);
-  }, []);
+    Animated.timing(progressAnim, {
+      toValue: 0,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start();
+  }, [progressAnim]);
 
-  // 立即完成
   const completeProgress = useCallback(() => {
-    setAnimationDuration(1000);
-    setCurrentProgress(1);
-  }, []);
+    Animated.timing(progressAnim, {
+      toValue: 1,
+      duration: 1000,
+      useNativeDriver: false,
+    }).start();
+  }, [progressAnim]);
 
   useEffect(() => {
     if (
@@ -104,26 +111,20 @@ const SwapApprovingItem = ({
       position="relative"
       overflow="hidden"
       onLayout={(e) => {
-        const width = e.nativeEvent.layout.width;
+        const width = e.nativeEvent.layout.width + 10;
         setContainerWidth(width);
       }}
     >
-      <MotiView
-        from={{
-          width: 0,
-        }}
-        animate={{
-          width: containerWidth * currentProgress,
-        }}
-        transition={{
-          type: 'timing',
-          duration: animationDuration,
-        }}
+      <Animated.View
         style={{
           position: 'absolute',
           left: 0,
           top: 0,
           bottom: 0,
+          width: progressAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0, containerWidth],
+          }),
           backgroundColor: '#44D62C80',
           opacity: 0.2,
         }}
@@ -147,7 +148,11 @@ const SwapApprovingItem = ({
               : intl.formatMessage(
                   { id: ETranslations.swap_approve_token },
                   {
-                    num: approvingTransaction?.amount,
+                    num: approvingTransaction?.resetApproveIsMax
+                      ? intl.formatMessage({
+                          id: ETranslations.approve_edit_unlimited_amount,
+                        })
+                      : approvingTransaction?.amount,
                     token: approvingTransaction?.fromToken.symbol,
                   },
                 )}
