@@ -7148,7 +7148,7 @@ __metadata:
     adm-zip: "npm:^0.5.10"
     concurrently: "npm:8.2.2"
     cross-env: "npm:^7.0.3"
-    electron: "npm:30.5.1"
+    electron: "npm:31.7.7"
     electron-builder: "npm:26.0.9"
     electron-check-biometric-auth-changed: "npm:0.0.6"
     electron-context-menu: "npm:^3.5.0"
