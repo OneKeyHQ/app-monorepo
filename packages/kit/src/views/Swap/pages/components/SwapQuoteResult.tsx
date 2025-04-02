@@ -15,11 +15,11 @@ import {
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
+  useSwapApprovingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitExpirationTimeAtom,
   useSwapLimitPartiallyFillAtom,
   useSwapProviderSupportReceiveAddressAtom,
-  useSwapQuoteEventTotalCountAtom,
   useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
@@ -27,6 +27,7 @@ import {
   useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -44,6 +45,7 @@ import {
 
 import LimitExpirySelect from '../../components/LimitExpirySelect';
 import LimitPartialFillSelect from '../../components/LimitPartialFillSelect';
+import SwapApprovingItem from '../../components/SwapApprovingItem';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
@@ -77,7 +79,8 @@ const SwapQuoteResult = ({
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
   const [swapQuoteList] = useSwapQuoteListAtom();
-  const [swapQuoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
+  const [approving, setSwapApprovingAtom] = useSwapApprovingAtom();
+  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
   const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
     useSwapLimitExpirationTimeAtom();
   const [swapProviderSupportReceiveAddress] =
@@ -327,6 +330,17 @@ const SwapQuoteResult = ({
     new BigNumber(fromTokenAmount.value).isZero()
   ) {
     return null;
+  }
+  if (swapApprovingTransaction && approving) {
+    return (
+      <SwapApprovingItem
+        approvingTransaction={swapApprovingTransaction}
+        progress={1}
+        onComplete={() => {
+          setSwapApprovingAtom(false);
+        }}
+      />
+    );
   }
   if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
     if (quoting || swapQuoteLoading) {
