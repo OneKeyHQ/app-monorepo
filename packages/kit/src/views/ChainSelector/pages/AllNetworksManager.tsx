@@ -106,13 +106,13 @@ function AllNetworksManager() {
 
   const renderHeaderTitle = useCallback(() => {
     return (
-      <YStack>
+      <YStack alignItems="center" justifyContent="center">
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.global_all_networks })}
         </SizableText>
         <SizableText size="$bodySm" color="$textSubdued">
           {intl.formatMessage({
-            id: ETranslations.global_all_networks,
+            id: ETranslations.network_selection_prompt,
           })}
         </SizableText>
       </YStack>

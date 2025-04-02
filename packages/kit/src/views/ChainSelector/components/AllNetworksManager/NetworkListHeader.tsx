@@ -1,11 +1,15 @@
 import { memo, useContext, useMemo } from 'react';
 
+import { useIntl } from 'react-intl';
+
 import { Switch } from '@onekeyhq/components';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import { ETranslations } from '@onekeyhq/shared/src/locale';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
 
 function NetworkListHeader() {
+  const intl = useIntl();
   const { networks, enabledNetworks, setNetworksState } = useContext(
     AllNetworksManagerContext,
   );
@@ -24,7 +28,11 @@ function NetworkListHeader() {
   }, [networks.mainNetworks]);
 
   return (
-    <ListItem title="Enable all">
+    <ListItem
+      title={intl.formatMessage({
+        id: ETranslations.global_enable_all,
+      })}
+    >
       <Switch
         value={isAllNetworksEnabled}
         onChange={(value) => {
