@@ -145,6 +145,10 @@ const useParseQRCode = () => {
             }
 
             if (chainValue.targetAddress) {
+              if (account.impl !== network.impl) {
+                showCopyDialog(value);
+                break;
+              }
               const networkId = network?.id ?? '';
               const nativeToken =
                 await backgroundApiProxy.serviceToken.getToken({
