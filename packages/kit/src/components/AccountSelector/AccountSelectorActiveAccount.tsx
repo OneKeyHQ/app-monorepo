@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -8,7 +8,6 @@ import {
   IconButton,
   NATIVE_HIT_SLOP,
   SizableText,
-  Skeleton,
   Tooltip,
   XStack,
   useClipboard,
@@ -16,10 +15,6 @@ import {
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAllNetworkCopyAddressHandler } from '@onekeyhq/kit/src/views/WalletAddress/hooks/useAllNetworkCopyAddressHandler';
 import { ALL_NETWORK_ACCOUNT_MOCK_ADDRESS } from '@onekeyhq/shared/src/consts/addresses';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -27,143 +22,59 @@ import {
   EModalReceiveRoutes,
   EModalRoutes,
   EModalWalletAddressRoutes,
-  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
-import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useListenTabFocusState from '../../hooks/useListenTabFocusState';
-import { usePromiseResult } from '../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../hooks/useShortcutsOnRouteFocused';
-import {
-  useAccountOverviewStateAtom,
-  useAllNetworksStateStateAtom,
-} from '../../states/jotai/contexts/accountOverview';
 import {
   useActiveAccount,
   useSelectedAccount,
 } from '../../states/jotai/contexts/accountSelector';
-import { Spotlight } from '../Spotlight';
 
 import { AccountSelectorCreateAddressButton } from './AccountSelectorCreateAddressButton';
 
 const AllNetworkAccountSelector = ({ num }: { num: number }) => {
-  const intl = useIntl();
   const { activeAccount } = useActiveAccount({ num });
-  const shouldClearAllNetworksCache = useRef(false);
-  const [allNetworksState] = useAllNetworksStateStateAtom();
-  const [overviewState] = useAccountOverviewStateAtom();
 
-  const [isFocus, setIsFocus] = useState(false);
   const { isAllNetworkEnabled, handleAllNetworkCopyAddress } =
     useAllNetworkCopyAddressHandler({
       activeAccount,
     });
-  useListenTabFocusState(
-    ETabRoutes.Home,
-    async (focus: boolean, hideByModal: boolean) => {
-      setIsFocus(!hideByModal);
-    },
-  );
-
-  const { result: allNetworksCount, run } = usePromiseResult(async () => {
-    const { network, wallet } = activeAccount;
-    if (!network?.isAllNetworks) return null;
-
-    if (shouldClearAllNetworksCache.current) {
-      await backgroundApiProxy.serviceNetwork.clearNetworkVaultSettingsCache();
-    }
-
-    const { networkIds } =
-      await backgroundApiProxy.serviceNetwork.getAllNetworkIds({
-        clearCache: shouldClearAllNetworksCache.current,
-        excludeTestNetwork: true,
-      });
-    const { networkIdsCompatible } =
-      await backgroundApiProxy.serviceNetwork.getNetworkIdsCompatibleWithWalletId(
-        {
-          walletId: wallet?.id,
-          networkIds,
-        },
-      );
-
-    shouldClearAllNetworksCache.current = false;
-    return networkIdsCompatible.length;
-  }, [activeAccount]);
-
-  useEffect(() => {
-    const reloadAllNetworks = () => {
-      shouldClearAllNetworksCache.current = true;
-      void run();
-    };
-    appEventBus.on(
-      EAppEventBusNames.NetworkDeriveTypeChanged,
-      reloadAllNetworks,
-    );
-    appEventBus.on(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
-    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
-    return () => {
-      appEventBus.off(
-        EAppEventBusNames.NetworkDeriveTypeChanged,
-        reloadAllNetworks,
-      );
-      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, reloadAllNetworks);
-      appEventBus.off(EAppEventBusNames.AccountDataUpdate, reloadAllNetworks);
-    };
-  }, [run]);
 
   if (!isAllNetworkEnabled) {
     return null;
   }
 
   return (
-    <Spotlight
-      delayMs={150}
-      isVisible={isFocus ? !platformEnv.isE2E : undefined}
-      message={intl.formatMessage({
-        id: ETranslations.spotlight_enable_network_message,
-      })}
-      tourName={ESpotlightTour.createAllNetworks}
+    <XStack
+      gap="$2"
+      p="$1"
+      m="$-1"
+      borderRadius="$2"
+      hoverStyle={{
+        bg: '$bgHover',
+      }}
+      pressStyle={{
+        bg: '$bgActive',
+      }}
+      focusVisibleStyle={{
+        outlineColor: '$focusRing',
+        outlineWidth: 2,
+        outlineStyle: 'solid',
+        outlineOffset: 0,
+      }}
+      hitSlop={{
+        right: 8,
+        bottom: 8,
+        top: 8,
+      }}
+      userSelect="none"
+      onPress={() => handleAllNetworkCopyAddress(true)}
     >
-      <XStack
-        gap="$2"
-        p="$1"
-        m="$-1"
-        borderRadius="$2"
-        hoverStyle={{
-          bg: '$bgHover',
-        }}
-        pressStyle={{
-          bg: '$bgActive',
-        }}
-        focusVisibleStyle={{
-          outlineColor: '$focusRing',
-          outlineWidth: 2,
-          outlineStyle: 'solid',
-          outlineOffset: 0,
-        }}
-        hitSlop={{
-          right: 8,
-          bottom: 8,
-          top: 8,
-        }}
-        userSelect="none"
-        onPress={() => handleAllNetworkCopyAddress(true)}
-      >
-        <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
-        {overviewState.initialized ? (
-          <SizableText size="$bodyMd">
-            {`${allNetworksState.visibleCount ?? 0} / ${allNetworksCount ?? 0}`}
-          </SizableText>
-        ) : (
-          <Skeleton.BodyMd />
-        )}
-      </XStack>
-      {/* <SizableText size="$bodyMd">{activeAccount?.account?.id}</SizableText> */}
-    </Spotlight>
+      <Icon size="$5" name="Copy3Outline" color="$iconSubdued" />
+    </XStack>
   );
 
   // const visible = isFirstVisit && isFocus;
