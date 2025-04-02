@@ -22361,16 +22361,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"electron@npm:30.5.1":
-  version: 30.5.1
-  resolution: "electron@npm:30.5.1"
+"electron@npm:31.7.7":
+  version: 31.7.7
+  resolution: "electron@npm:31.7.7"
   dependencies:
     "@electron/get": "npm:^2.0.0"
     "@types/node": "npm:^20.9.0"
     extract-zip: "npm:^2.0.1"
   bin:
     electron: cli.js
-  checksum: 10/2dd971883bcaae63e63ae2549aa029922f4935816d71b8a52b5d3ee2f2f242cf0236d7284778902d8a0cebdd8b75cf9ece1523e687b1ade81aeb000126ebaa19
+  checksum: 10/18305f258de6611867853b399c0d78b09651cc3452150b0a14b33863323a36fdbb29df70b440a7f75ff7db8ebd2132043cbe64804f6f5a191f830af10375d646
   languageName: node
   linkType: hard
 

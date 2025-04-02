@@ -260,7 +260,7 @@
     "@metamask/eth-sig-util": "5.1.0",
     "@polkadot/util": "12.6.2",
     "@polkadot/util-crypto": "12.6.2",
-    "electron": "30.5.1",
+    "electron": "31.7.7",
     "@walletconnect/universal-provider": "2.11.2",
     "@walletconnect/core": "2.11.2",
     "fs": "npm:@favware/skip-dependency@1.2.1",
