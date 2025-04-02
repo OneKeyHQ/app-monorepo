@@ -66,6 +66,14 @@ function AllNetworksManager() {
 
   const [searchKey, setSearchKey] = useState('');
 
+  const [enabledNetworksWithoutAccount, setEnabledNetworksWithoutAccount] =
+    useState<
+      {
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }[]
+    >([]);
+
   const contextValue = useMemo(
     () => ({
       networks,
@@ -158,7 +166,7 @@ function AllNetworksManager() {
       }
     }
 
-    const enabledNetworksWithoutAccount: {
+    const enabledNetworksWithoutAccountTemp: {
       networkId: string;
       deriveType: IAccountDeriveTypes;
     }[] = [];
@@ -191,7 +199,7 @@ function AllNetworksManager() {
         const deriveType = deriveTypes[j];
         const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
         if (!networkAccount) {
-          enabledNetworksWithoutAccount.push({
+          enabledNetworksWithoutAccountTemp.push({
             networkId: network.id,
             deriveType,
           });
@@ -199,7 +207,9 @@ function AllNetworksManager() {
       }
     }
 
-    if (enabledNetworksWithoutAccount.length > 0) {
+    setEnabledNetworksWithoutAccount(enabledNetworksWithoutAccountTemp);
+
+    if (enabledNetworksWithoutAccountTemp.length > 0) {
       await createAddress({
         num: 0,
         account: {
@@ -208,14 +218,14 @@ function AllNetworksManager() {
           indexedAccountId,
           deriveType: 'default',
         },
-        customNetworks: enabledNetworksWithoutAccount,
+        customNetworks: enabledNetworksWithoutAccountTemp,
       });
     }
 
     navigation.pop();
 
     if (
-      enabledNetworksWithoutAccount.length > 0 ||
+      enabledNetworksWithoutAccountTemp.length > 0 ||
       !(
         enabledNetworks.length === originalEnabledNetworks.length &&
         enabledNetworks.every(
@@ -241,6 +251,12 @@ function AllNetworksManager() {
   ]);
 
   const confirmButtonText = useMemo(() => {
+    if (isLoading && enabledNetworksWithoutAccount.length > 0) {
+      return intl.formatMessage({
+        id: ETranslations.global_creating_address,
+      });
+    }
+
     if (enabledNetworks.length > 0) {
       return intl.formatMessage(
         {
@@ -255,7 +271,12 @@ function AllNetworksManager() {
     return intl.formatMessage({
       id: ETranslations.network_none_selected,
     });
-  }, [enabledNetworks.length, intl]);
+  }, [
+    enabledNetworks.length,
+    enabledNetworksWithoutAccount.length,
+    intl,
+    isLoading,
+  ]);
 
   return (
     <AllNetworksManagerContext.Provider value={contextValue}>
