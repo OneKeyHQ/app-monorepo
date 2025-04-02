@@ -1,17 +1,24 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import { Page, SizableText, YStack } from '@onekeyhq/components';
+import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
+import type { IAllNetworkAccountInfo } from '@onekeyhq/kit-bg/src/services/ServiceAllNetwork/ServiceAllNetwork';
+import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   EChainSelectorPages,
   IChainSelectorParamList,
 } from '@onekeyhq/shared/src/routes';
 import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { AllNetworksManagerContext } from '../components/AllNetworksManager/AllNetworksManagerContext';
 import NetworksSectionList from '../components/AllNetworksManager/NetworksSectionList';
@@ -21,13 +28,15 @@ import type { RouteProp } from '@react-navigation/core';
 
 function AllNetworksManager() {
   const intl = useIntl();
+  const navigation = useAppNavigation();
+  const { createAddress } = useAccountSelectorCreateAddress();
 
   const route =
     useRoute<
       RouteProp<IChainSelectorParamList, EChainSelectorPages.AllNetworksManager>
     >();
 
-  const { walletId } = route.params;
+  const { accountId, walletId, indexedAccountId } = route.params;
 
   const [networksState, setNetworksState] = useState<{
     enabledNetworks: Record<string, boolean>;
@@ -44,25 +53,32 @@ function AllNetworksManager() {
     frequentlyUsedNetworks: [],
   });
 
+  const [enabledNetworks, setEnabledNetworks] = useState<IServerNetworkMatch[]>(
+    [],
+  );
+  const [isLoading, setIsLoading] = useState(false);
+
   const contextValue = useMemo(
     () => ({
       networks,
       networksState,
       setNetworksState,
+      enabledNetworks,
     }),
-    [networks, networksState, setNetworksState],
+    [networks, networksState, setNetworksState, enabledNetworks],
   );
 
-  const enabledNetworksCount = useMemo(() => {
-    return networks.mainNetworks.filter((network) =>
+  useEffect(() => {
+    const result = networks.mainNetworks.filter((network) =>
       isEnabledNetworksInAllNetworks({
         networkId: network.id,
         enabledNetworks: networksState.enabledNetworks,
         disabledNetworks: networksState.disabledNetworks,
         isTestnet: network.isTestnet,
       }),
-    ).length;
-  }, [networks, networksState]);
+    );
+    setEnabledNetworks(result);
+  }, [networksState, networks.mainNetworks]);
 
   usePromiseResult(async () => {
     const [allNetworksState, { networks: allNetworks }] = await Promise.all([
@@ -77,6 +93,7 @@ function AllNetworksManager() {
     const compatibleNetworks =
       await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
         {
+          accountId,
           walletId,
           networkIds: allNetworks.map((network) => network.id),
         },
@@ -85,7 +102,7 @@ function AllNetworksManager() {
       mainNetworks: compatibleNetworks.mainnetItems,
       frequentlyUsedNetworks: compatibleNetworks.frequentlyUsedItems,
     });
-  }, [walletId]);
+  }, [accountId, walletId]);
 
   const renderHeaderTitle = useCallback(() => {
     return (
@@ -101,6 +118,102 @@ function AllNetworksManager() {
       </YStack>
     );
   }, [intl]);
+
+  const handleEnableAllNetworks = useCallback(async () => {
+    setIsLoading(true);
+    await backgroundApiProxy.serviceAllNetwork.updateAllNetworksState({
+      enabledNetworks: networksState.enabledNetworks,
+      disabledNetworks: networksState.disabledNetworks,
+    });
+
+    const { accountsInfo } =
+      await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
+        accountId: accountId ?? '',
+        indexedAccountId,
+        networkId: getNetworkIdsMap().onekeyall,
+        deriveType: undefined,
+        excludeTestNetwork: true,
+      });
+
+    const networkAccountMap: Record<string, IAllNetworkAccountInfo> = {};
+    for (let i = 0; i < accountsInfo.length; i += 1) {
+      const item = accountsInfo[i];
+      const { networkId, deriveType, dbAccount } = item;
+      if (dbAccount) {
+        networkAccountMap[`${networkId}_${deriveType ?? ''}`] = item;
+      }
+    }
+
+    const enabledNetworksWithoutAccount: {
+      networkId: string;
+      deriveType: IAccountDeriveTypes;
+    }[] = [];
+
+    for (let i = 0; i < enabledNetworks.length; i += 1) {
+      const deriveTypes: IAccountDeriveTypes[] = [];
+      const network = enabledNetworks[i];
+      const vaultSettings =
+        await backgroundApiProxy.serviceNetwork.getVaultSettings({
+          networkId: network.id,
+        });
+
+      if (vaultSettings.createAllDeriveTypeAccountsByDefault) {
+        const deriveInfoItems =
+          await backgroundApiProxy.serviceNetwork.getDeriveInfoItemsOfNetwork({
+            networkId: network.id,
+          });
+        deriveTypes.push(
+          ...deriveInfoItems.map((item) => item.value as IAccountDeriveTypes),
+        );
+      } else {
+        deriveTypes.push(
+          await backgroundApiProxy.serviceNetwork.getGlobalDeriveTypeOfNetwork({
+            networkId: network.id,
+          }),
+        );
+      }
+
+      for (let j = 0; j < deriveTypes.length; j += 1) {
+        const deriveType = deriveTypes[j];
+        const networkAccount = networkAccountMap[`${network.id}_${deriveType}`];
+        if (!networkAccount) {
+          enabledNetworksWithoutAccount.push({
+            networkId: network.id,
+            deriveType,
+          });
+        }
+      }
+    }
+
+    debugger;
+
+    if (enabledNetworksWithoutAccount.length > 0) {
+      await createAddress({
+        num: 0,
+        account: {
+          walletId,
+          networkId: getNetworkIdsMap().onekeyall,
+          indexedAccountId,
+          deriveType: 'default',
+        },
+        customNetworks: enabledNetworksWithoutAccount,
+      });
+    }
+
+    setIsLoading(false);
+
+    navigation.pop();
+  }, [
+    accountId,
+    createAddress,
+    enabledNetworks,
+    indexedAccountId,
+    navigation,
+    networksState.disabledNetworks,
+    networksState.enabledNetworks,
+    walletId,
+  ]);
+
   return (
     <AllNetworksManagerContext.Provider value={contextValue}>
       <Page safeAreaEnabled>
@@ -118,17 +231,22 @@ function AllNetworksManager() {
                 id: ETranslations.network_enable_count,
               },
               {
-                count: enabledNetworksCount,
+                count: enabledNetworks.length,
               },
             )}
             confirmButtonProps={{
+              loading: isLoading,
               disabled: (() => {
-                if (enabledNetworksCount <= 0) {
+                if (enabledNetworks.length <= 0) {
+                  return true;
+                }
+                if (isLoading) {
                   return true;
                 }
                 return false;
               })(),
             }}
+            onConfirm={handleEnableAllNetworks}
           />
         </Page.Footer>
       </Page>
@@ -136,4 +254,18 @@ function AllNetworksManager() {
   );
 }
 
-export default memo(AllNetworksManager);
+const AllNetworksManagerMemo = memo(AllNetworksManager);
+
+export default function AllNetworksManagerPage() {
+  return (
+    <AccountSelectorProviderMirror
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+      enabledNum={[0]}
+    >
+      <AllNetworksManagerMemo />
+    </AccountSelectorProviderMirror>
+  );
+}

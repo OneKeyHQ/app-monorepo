@@ -15,6 +15,8 @@ type IEditableChainSelectorProps = {
   unavailableItems: IServerNetwork[];
   frequentlyUsedItems: IServerNetwork[];
   allNetworkItem?: IServerNetwork;
+  accountId?: string;
+  indexedAccountId?: string;
   networkId?: string;
   walletId?: string;
   onPressItem?: (network: IServerNetwork) => void;
@@ -39,6 +41,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   testnetItems,
   unavailableItems,
   frequentlyUsedItems,
+  accountId,
+  indexedAccountId,
   walletId,
   networkId,
   onPressItem,
@@ -70,6 +74,8 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           isEditMode={isEditMode}
           frequentlyUsedItems={frequentlyUsedItems}
           unavailableItems={unavailableItems}
+          accountId={accountId}
+          indexedAccountId={indexedAccountId}
           walletId={walletId}
           networkId={networkId}
           mainnetItems={mainnetItems}

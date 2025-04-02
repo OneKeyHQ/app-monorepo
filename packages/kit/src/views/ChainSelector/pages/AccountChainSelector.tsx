@@ -57,7 +57,7 @@ const EditableAccountChainSelector = ({
   onEditCustomNetwork,
 }: IAccountChainSelectorProps) => {
   const {
-    activeAccount: { network, account, wallet },
+    activeAccount: { network, account, wallet, indexedAccount },
   } = useActiveAccount({ num });
   const { result: chainSelectorNetworks, run: refreshLocalData } =
     usePromiseResult(
@@ -77,6 +77,8 @@ const EditableAccountChainSelector = ({
     <EditableChainSelector
       walletId={wallet?.id}
       networkId={network?.id}
+      accountId={account?.id}
+      indexedAccountId={indexedAccount?.id}
       mainnetItems={chainSelectorNetworks.mainnetItems}
       testnetItems={chainSelectorNetworks.testnetItems}
       unavailableItems={chainSelectorNetworks.unavailableItems}

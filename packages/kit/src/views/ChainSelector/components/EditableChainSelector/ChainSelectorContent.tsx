@@ -37,7 +37,7 @@ import { useFuseSearch } from '../../hooks/useFuseSearch';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import { CELL_HEIGHT } from './type';
+import { CELL_HEIGHT, HEADER_HEIGHT } from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -56,7 +56,15 @@ const ListEmptyComponent = () => {
   );
 };
 
-const ListHeaderComponent = ({ walletId }: { walletId?: string }) => {
+const ListHeaderComponent = ({
+  walletId,
+  accountId,
+  indexedAccountId,
+}: {
+  walletId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
+}) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const { allNetworkItem, searchText } = useContext(
@@ -101,7 +109,7 @@ const ListHeaderComponent = ({ walletId }: { walletId?: string }) => {
   ).result;
 
   return (
-    <Stack mt="$2">
+    <Stack mt="$4">
       {!allNetworkItem || searchText?.trim() ? null : (
         <Stack>
           <EditableListItem
@@ -122,12 +130,15 @@ const ListHeaderComponent = ({ walletId }: { walletId?: string }) => {
                   if (walletId) {
                     navigation.push(EChainSelectorPages.AllNetworksManager, {
                       walletId,
+                      accountId,
+                      indexedAccountId,
                     });
                   }
                 },
               },
             ]}
           />
+          <Divider m="$5" />
         </Stack>
       )}
     </Stack>
@@ -143,6 +154,8 @@ type IEditableChainSelectorContentProps = {
   allNetworkItem?: IServerNetwork;
   networkId?: string;
   walletId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
   onPressItem?: (network: IServerNetwork) => void;
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
@@ -159,6 +172,8 @@ export const EditableChainSelectorContent = ({
   onEditCustomNetwork,
   networkId,
   walletId,
+  accountId,
+  indexedAccountId,
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
@@ -279,7 +294,7 @@ export const EditableChainSelectorContent = ({
   }, [tempFrequentlyUsedItems]);
 
   const layoutList = useMemo(() => {
-    let offset = 8 + (showAllNetworkHeader ? CELL_HEIGHT : 0);
+    let offset = 16 + (showAllNetworkHeader ? HEADER_HEIGHT : 0);
     const layouts: { offset: number; length: number; index: number }[] = [];
     sections.forEach((section, sectionIndex) => {
       if (sectionIndex !== 0) {
@@ -297,7 +312,7 @@ export const EditableChainSelectorContent = ({
       layouts.push({ offset, length: footerHeight, index: layouts.length });
       offset += footerHeight;
     });
-    layouts.push({ offset, length: 8, index: layouts.length });
+    layouts.push({ offset, length: 16, index: layouts.length });
     return layouts;
   }, [sections, showAllNetworkHeader]);
 
@@ -469,13 +484,19 @@ export const EditableChainSelectorContent = ({
                 if (index === -1) {
                   return {
                     index,
-                    offset: showAllNetworkHeader ? 56 : 0,
+                    offset: showAllNetworkHeader ? HEADER_HEIGHT : 0,
                     length: 0,
                   };
                 }
                 return layoutList[index];
               }}
-              ListHeaderComponent={<ListHeaderComponent walletId={walletId} />}
+              ListHeaderComponent={
+                <ListHeaderComponent
+                  walletId={walletId}
+                  accountId={accountId}
+                  indexedAccountId={indexedAccountId}
+                />
+              }
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={
                 <>

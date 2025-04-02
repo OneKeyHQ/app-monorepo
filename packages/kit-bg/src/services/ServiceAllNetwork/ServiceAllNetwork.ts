@@ -49,6 +49,7 @@ export type IAllNetworkAccountsParams = {
   fetchAllNetworkAccounts?: boolean;
   networksEnabledOnly?: boolean;
   excludeTestNetwork?: boolean;
+  indexedAccountId?: string;
 };
 export type IAllNetworkAccountsParamsForApi = {
   networkId: string;
@@ -167,6 +168,7 @@ class ServiceAllNetwork extends ServiceBase {
       fetchAllNetworkAccounts,
       networksEnabledOnly,
       excludeTestNetwork = true,
+      indexedAccountId,
     } = params;
 
     const isAllNetwork =
@@ -188,7 +190,7 @@ class ServiceAllNetwork extends ServiceBase {
     const dbAccounts = await this.getAllNetworkDbAccounts({
       networkId,
       singleNetworkDeriveType,
-      indexedAccountId: networkAccount.indexedAccountId,
+      indexedAccountId: indexedAccountId ?? networkAccount.indexedAccountId,
       othersWalletAccountId: accountId,
       fetchAllNetworkAccounts,
     });

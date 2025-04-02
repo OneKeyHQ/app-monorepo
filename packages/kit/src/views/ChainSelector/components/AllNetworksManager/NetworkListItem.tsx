@@ -34,35 +34,22 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
       }
       title={network.name}
       titleMatch={network.titleMatch}
-      testID={`select-item-${network.id}`}
+      testID={`all-networks-manager-item-${network.id}`}
     >
       <Switch
         size="large"
         value={isEnabledInAllNetworks}
         onChange={(value) => {
-          if (value) {
-            setNetworksState((prev) => ({
-              enabledNetworks: {
-                ...prev.enabledNetworks,
-                [network.id]: true,
-              },
-              disabledNetworks: {
-                ...prev.disabledNetworks,
-                [network.id]: false,
-              },
-            }));
-          } else {
-            setNetworksState((prev) => ({
-              enabledNetworks: {
-                ...prev.enabledNetworks,
-                [network.id]: false,
-              },
-              disabledNetworks: {
-                ...prev.disabledNetworks,
-                [network.id]: true,
-              },
-            }));
-          }
+          setNetworksState((prev) => ({
+            enabledNetworks: {
+              ...prev.enabledNetworks,
+              [network.id]: value,
+            },
+            disabledNetworks: {
+              ...prev.disabledNetworks,
+              [network.id]: !value,
+            },
+          }));
         }}
       />
     </ListItem>

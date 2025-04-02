@@ -40,5 +40,7 @@ export type IChainSelectorParamList = {
   };
   [EChainSelectorPages.AllNetworksManager]: {
     walletId: string;
+    accountId?: string;
+    indexedAccountId?: string;
   };
 };

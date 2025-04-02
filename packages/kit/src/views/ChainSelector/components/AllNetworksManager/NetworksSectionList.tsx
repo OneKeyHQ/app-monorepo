@@ -10,6 +10,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
 
 import { AllNetworksManagerContext } from './AllNetworksManagerContext';
+import NetworkListHeader from './NetworkListHeader';
 import NetworkListItem from './NetworkListItem';
 
 import type {
@@ -45,7 +46,7 @@ function NetworksSectionList() {
     <Stack flex={1}>
       <Stack px="$5">
         <SearchBar
-          testID="chain-selector"
+          testID="all-networks-manager-search-bar"
           placeholder={intl.formatMessage({
             id: ETranslations.global_search,
           })}
@@ -85,6 +86,7 @@ function NetworksSectionList() {
           sections={sections}
           keyExtractor={(item) => (item as IServerNetworkMatch).id}
           renderSectionHeader={renderSectionHeader}
+          ListHeaderComponent={NetworkListHeader}
           renderItem={({ item }: { item: IServerNetworkMatch }) => (
             <NetworkListItem network={item} />
           )}

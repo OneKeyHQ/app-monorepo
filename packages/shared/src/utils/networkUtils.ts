@@ -135,7 +135,7 @@ export function isEnabledNetworksInAllNetworks({
     return !!enabledNetworks[networkId];
   }
 
-  if (getNetworkImpl({ networkId }) === IMPL_EVM) {
+  if (isEvmNetwork({ networkId })) {
     if (defaultEnabledEVMNetworkIds.includes(networkId)) {
       return !disabledNetworks[networkId];
     }

@@ -17,6 +17,7 @@ export const AllNetworksManagerContext = createContext<{
       disabledNetworks: Record<string, boolean>;
     }>
   >;
+  enabledNetworks: IServerNetworkMatch[];
 }>({
   networks: {
     mainNetworks: [],
@@ -27,4 +28,5 @@ export const AllNetworksManagerContext = createContext<{
     disabledNetworks: {},
   },
   setNetworksState: () => {},
+  enabledNetworks: [],
 });
