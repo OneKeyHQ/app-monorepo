@@ -5,11 +5,7 @@ export interface IButtonClickParams {
   /**
    * Button tracking ID or testID for identification
    */
-  id?: string;
-  /**
-   * Component or screen where the button was clicked
-   */
-  source?: string;
+  trackId?: string;
   /**
    * Additional custom properties
    */
