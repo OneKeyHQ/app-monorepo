@@ -39,10 +39,6 @@ export function DiscoveryItemCard({
       >
         <Skeleton width="$14" height="$14" borderRadius="$3" />
         <Skeleton width="$20" height="$4" borderRadius="$1" />
-
-        <SizableText size="$bodyLgMedium" textAlign="center">
-          Loading...
-        </SizableText>
       </Stack>
     );
   }
