@@ -38,6 +38,7 @@ import {
   formatStakingDistanceToNowStrict,
 } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -121,6 +122,7 @@ export function ApproveBaseStake({
   estReceiveTokenRate = '1',
 }: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -841,24 +843,25 @@ export function ApproveBaseStake({
         />,
       );
     }
-
-    items.push(
-      <CalculationListItem onPress={handleBindOrChangeInviteCode}>
-        <CalculationListItem.Label size="$bodyMd">
-          {intl.formatMessage({
-            id: ETranslations.referral_your_code,
-          })}
-        </CalculationListItem.Label>
-        <XStack alignItems="center" cursor="pointer" mr={-6}>
-          <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
-          <Icon
-            name="ChevronRightSmallOutline"
-            size="$5"
-            color="$iconSubdued"
-          />
-        </XStack>
-      </CalculationListItem>,
-    );
+    if (devSettings.settings?.showOneKeyId) {
+      items.push(
+        <CalculationListItem onPress={handleBindOrChangeInviteCode}>
+          <CalculationListItem.Label size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.referral_your_code,
+            })}
+          </CalculationListItem.Label>
+          <XStack alignItems="center" cursor="pointer" mr={-6}>
+            <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </XStack>
+        </CalculationListItem>,
+      );
+    }
     return items;
   }, [
     amountValue,
@@ -866,13 +869,14 @@ export function ApproveBaseStake({
     estReceiveToken,
     estimateFeeResp,
     usePermit2Approve,
-    handleBindOrChangeInviteCode,
+    devSettings.settings?.showOneKeyId,
     intl,
-    inviteCode,
     estReceiveTokenRate,
     totalAnnualRewardsFiatValue,
     showEstimateGasAlert,
     daysSpent,
+    handleBindOrChangeInviteCode,
+    inviteCode,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (

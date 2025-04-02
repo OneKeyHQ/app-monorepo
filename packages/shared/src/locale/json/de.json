@@ -1440,7 +1440,7 @@
   "interact_with_contract": "Interagieren mit (An)",
   "lighting_invoice": "Blitzrechnung",
   "limit.cancel_order_content": "Sind Sie sicher, dass Sie die Bestellung {orderID} stornieren möchten?",
-  "limit.cancel_order_off_chain_tip": "Dies ist eine <underline>off-chain</underline> Stornierung. Es erfordert eine Signatur und ist kostenlos.",
+  "limit.cancel_order_off_chain_tip": "Dies ist eine Off-Chain-Stornierung. Sie erfordert eine Signatur und ist kostenlos.",
   "limit.cancel_order_title": "Bestellung stornieren",
   "limit.enter_price": "Geben Sie einen Preis ein",
   "limit.est_fee": "Geschätzte Gebühr",

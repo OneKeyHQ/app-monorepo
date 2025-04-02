@@ -1440,7 +1440,7 @@
   "interact_with_contract": "(से) संवाद करें",
   "lighting_invoice": "लाइटनिंग इनवॉइस",
   "limit.cancel_order_content": "क्या आप वाकई {orderID} ऑर्डर रद्द करना चाहते हैं",
-  "limit.cancel_order_off_chain_tip": "यह एक <underline>ऑफ-चेन</underline> रद्दीकरण है। इसके लिए एक हस्ताक्षर की आवश्यकता होती है और यह मुफ्त है।",
+  "limit.cancel_order_off_chain_tip": "यह एक ऑफ-चेन रद्दीकरण है। इसके लिए एक हस्ताक्षर की आवश्यकता होती है और यह निःशुल्क है।",
   "limit.cancel_order_title": "ऑर्डर रद्द करें",
   "limit.enter_price": "एक मूल्य दर्ज करें",
   "limit.est_fee": "अनुमानित शुल्क",

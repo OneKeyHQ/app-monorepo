@@ -1440,7 +1440,7 @@
   "interact_with_contract": "Взаємодіяти з (До)",
   "lighting_invoice": "Рахунок-фактура за блискавку",
   "limit.cancel_order_content": "Ви впевнені, що хочете скасувати замовлення {orderID}",
-  "limit.cancel_order_off_chain_tip": "Це <underline>позаланцюгове</underline> скасування. Воно вимагає підпису і є безкоштовним.",
+  "limit.cancel_order_off_chain_tip": "Це скасування поза мережею. Воно вимагає підпису та є безкоштовним.",
   "limit.cancel_order_title": "Скасувати замовлення",
   "limit.enter_price": "Введіть ціну",
   "limit.est_fee": "Орієнтовна плата",

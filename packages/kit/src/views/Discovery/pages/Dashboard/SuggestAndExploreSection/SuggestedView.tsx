@@ -69,6 +69,7 @@ export function SuggestedView({
                 icon="InfoCircleOutline"
                 variant="tertiary"
                 size="small"
+                testID="suggested-category-info-button"
                 onPress={() => {
                   const dialog = Dialog.show({
                     icon: 'InfoCircleOutline',

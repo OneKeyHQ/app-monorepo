@@ -195,6 +195,7 @@ function BasicFind({ id }: { id: string }) {
                 variant="tertiary"
                 icon="ChevronTopSmallOutline"
                 size="small"
+                testID="browser-find-prev-button"
                 onPress={handleFindPrev}
               />
               <IconButton
@@ -202,12 +203,14 @@ function BasicFind({ id }: { id: string }) {
                 variant="tertiary"
                 icon="ChevronDownSmallOutline"
                 size="small"
+                testID="browser-find-next-button"
                 onPress={handleFindNext}
               />
               <IconButton
                 variant="tertiary"
                 icon="CrossedSmallSolid"
                 size="small"
+                testID="browser-find-close-button"
                 onPress={handleClose}
               />
             </XStack>

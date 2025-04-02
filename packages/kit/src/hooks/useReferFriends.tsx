@@ -54,13 +54,7 @@ function InviteCode({
         numberOfDigits={NUMBER_OF_DIGITS}
         value={verificationCode}
         onTextChange={(value) => {
-          setVerificationCode(
-            value
-              .slice(0, 6)
-              .replace(/[^A-Za-z0-9]/g, '')
-              .replace(/\s/g, '')
-              .toUpperCase(),
-          );
+          setVerificationCode(value);
         }}
       />
       <SizableText mt="$3" size="$bodyMd" color="$textSubdued">

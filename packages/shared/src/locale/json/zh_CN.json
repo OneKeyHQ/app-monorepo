@@ -1440,7 +1440,7 @@
   "interact_with_contract": "交互地址 (至)",
   "lighting_invoice": "闪电发票",
   "limit.cancel_order_content": "请确定要取消订单 {orderID} 吗",
-  "limit.cancel_order_off_chain_tip": "通过<underline>链下签名</underline>进行取消，该操作不需要网络费",
+  "limit.cancel_order_off_chain_tip": "通过链下签名进行取消，该操作不需要网络费",
   "limit.cancel_order_title": "取消订单",
   "limit.enter_price": "输入价格",
   "limit.est_fee": "预估费用",

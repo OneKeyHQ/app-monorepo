@@ -94,6 +94,7 @@ function HistoryListModal() {
             <IconButton
               variant="tertiary"
               icon="BroomOutline"
+              testID="history-clear-all-button"
               title={intl.formatMessage({
                 id: ETranslations.explore_remove_all,
               })}

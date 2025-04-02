@@ -1440,7 +1440,7 @@
   "interact_with_contract": "ติดต่อกับ (ถึง)",
   "lighting_invoice": "ใบแจ้งหนี้แสงฟ้า",
   "limit.cancel_order_content": "คุณแน่ใจหรือว่าต้องการยกเลิกคำสั่งซื้อ {orderID}",
-  "limit.cancel_order_off_chain_tip": "นี่คือการยกเลิก <underline>off-chain</underline> ซึ่งต้องการลายเซ็นและไม่มีค่าใช้จ่าย",
+  "limit.cancel_order_off_chain_tip": "นี่คือการยกเลิกนอกเชน ต้องการลายเซ็นและไม่มีค่าใช้จ่าย",
   "limit.cancel_order_title": "ยกเลิกคำสั่งซื้อ",
   "limit.enter_price": "กรุณาใส่ราคา",
   "limit.est_fee": "ค่าธรรมเนียมโดยประมาณ",

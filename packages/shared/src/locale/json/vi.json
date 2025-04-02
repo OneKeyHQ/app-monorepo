@@ -1440,7 +1440,7 @@
   "interact_with_contract": "Tương tác với (Đến)",
   "lighting_invoice": "Hóa đơn Lightning",
   "limit.cancel_order_content": "Bạn có chắc chắn muốn hủy đơn hàng {orderID} không",
-  "limit.cancel_order_off_chain_tip": "Đây là một thao tác hủy <underline>ngoài chuỗi</underline>. Nó yêu cầu chữ ký và không mất phí.",
+  "limit.cancel_order_off_chain_tip": "Đây là một hủy bỏ ngoài chuỗi. Nó yêu cầu một chữ ký và miễn phí.",
   "limit.cancel_order_title": "Hủy đơn hàng",
   "limit.enter_price": "Nhập giá",
   "limit.est_fee": "Phí ước tính",
