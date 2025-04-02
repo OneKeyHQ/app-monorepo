@@ -35,6 +35,13 @@ export type IEncodedTxAptos = {
 
   // From dApp, not edit tx
   disableEditTx?: boolean;
+
+  // @deprecated
+  type?: string;
+  function?: string;
+  arguments?: any[];
+  type_arguments?: any[];
+  code?: any[];
 };
 
 export interface ISignMessagePayload {
