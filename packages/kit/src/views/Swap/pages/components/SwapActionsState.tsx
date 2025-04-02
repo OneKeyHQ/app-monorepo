@@ -566,7 +566,7 @@ const SwapActionsState = ({
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
         >
-          {quoting || swapActionState.isLoading || quoteLoading ? (
+          {quoting || quoteLoading ? (
             <LottieView
               source={
                 themeVariant === 'light'
