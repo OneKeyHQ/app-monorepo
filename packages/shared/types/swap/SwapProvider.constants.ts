@@ -116,6 +116,9 @@ export enum ESwapProvider {
 
 export const mevSwapNetworks = ['evm--1', 'evm--56', 'sui--mainnet'];
 
+export const approvingIntervalSecondsDefault = 8;
+export const approvingIntervalSecondsEth = 20;
+
 export const swapDefaultSetTokens: Record<
   string,
   {

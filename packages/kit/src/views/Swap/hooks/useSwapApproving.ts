@@ -11,7 +11,10 @@ import type { ISwapApproveTransaction } from '@onekeyhq/shared/types/swap/types'
 import { ESwapApproveTransactionStatus } from '@onekeyhq/shared/types/swap/types';
 
 import useListenTabFocusState from '../../../hooks/useListenTabFocusState';
-import { useSwapActions } from '../../../states/jotai/contexts/swap';
+import {
+  useSwapActions,
+  useSwapApprovingAtom,
+} from '../../../states/jotai/contexts/swap';
 
 import { useSwapBuildTx } from './useSwapBuiltTx';
 
@@ -21,6 +24,7 @@ export function useSwapApproving() {
     useSwapActions().current;
   const [{ swapApprovingTransaction }, setInAppNotificationAtom] =
     useInAppNotificationAtom();
+  const [, setSwapApprovingAtom] = useSwapApprovingAtom();
   const swapApprovingTxRef = useRef<ISwapApproveTransaction | undefined>();
   if (swapApprovingTxRef.current !== swapApprovingTransaction) {
     swapApprovingTxRef.current = swapApprovingTransaction;
@@ -48,6 +52,7 @@ export function useSwapApproving() {
     if (
       swapApprovingTransaction?.status === ESwapApproveTransactionStatus.FAILED
     ) {
+      setSwapApprovingAtom(false);
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.swap_page_toast_approve_failed,
@@ -56,6 +61,7 @@ export function useSwapApproving() {
     } else if (
       swapApprovingTransaction?.status === ESwapApproveTransactionStatus.CANCEL
     ) {
+      setSwapApprovingAtom(false);
       Toast.error({
         title: intl.formatMessage({
           id: ETranslations.swap_page_toast_approve_canceled,
@@ -95,6 +101,7 @@ export function useSwapApproving() {
     cleanApprovingInterval,
     intl,
     setInAppNotificationAtom,
+    setSwapApprovingAtom,
     swapApprovingTransaction?.resetApproveIsMax,
     swapApprovingTransaction?.resetApproveValue,
     swapApprovingTransaction?.status,

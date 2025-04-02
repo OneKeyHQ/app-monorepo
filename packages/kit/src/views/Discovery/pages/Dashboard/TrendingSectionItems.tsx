@@ -11,13 +11,35 @@ import type { IMatchDAppItemType } from '../../types';
 export function TrendingSectionItems({
   dataSource,
   handleOpenWebSite,
+  isLoading,
   ...restProps
 }: IYStackProps & {
   dataSource: IDApp[];
   handleOpenWebSite: ({ dApp, webSite }: IMatchDAppItemType) => void;
+  isLoading?: boolean;
 }) {
   const [numberOfItems, setNumberOfItems] = useState(0);
   const media = useMedia();
+
+  const innerDataSource =
+    dataSource.length > 0
+      ? dataSource
+      : Array<IDApp>(14)
+          .fill({
+            dappId: '',
+            logo: '',
+            name: '',
+            url: '',
+            description: '',
+            networkIds: [],
+            tags: [],
+          })
+          .map((item, index) => {
+            return {
+              ...item,
+              dappId: `dapp-${index}`,
+            };
+          });
 
   useEffect(() => {
     const calculateNumberOfItems = () => {
@@ -31,7 +53,7 @@ export function TrendingSectionItems({
 
   return (
     <YStack flexDirection="row" flexWrap="wrap" {...restProps}>
-      {dataSource.slice(0, numberOfItems).map((dApp, index) => (
+      {innerDataSource.slice(0, numberOfItems).map((dApp, index) => (
         <YStack
           key={dApp.dappId || index}
           width="25%"
@@ -44,6 +66,7 @@ export function TrendingSectionItems({
             title={dApp.name}
             url={dApp.url}
             dApp={dApp}
+            isLoading={isLoading}
             handleOpenWebSite={handleOpenWebSite}
           />
         </YStack>
