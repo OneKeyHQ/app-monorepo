@@ -18,6 +18,7 @@ import { StakingScope } from './scopes/staking';
 import { SwapScope } from './scopes/swap';
 import { TokenScope } from './scopes/token';
 import { TransactionScope } from './scopes/transaction';
+import { UIScope } from './scopes/ui';
 import { UpdateScope } from './scopes/update';
 import { WalletScope } from './scopes/wallet';
 
@@ -61,6 +62,8 @@ export class DefaultLogger {
   scanQrCode = new ScanQrCodeScope();
 
   wallet = new WalletScope();
+
+  ui = new UIScope();
 }
 
 const defaultLogger = new DefaultLogger();

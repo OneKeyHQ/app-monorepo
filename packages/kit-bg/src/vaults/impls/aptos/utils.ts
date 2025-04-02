@@ -495,7 +495,7 @@ export async function generateUnsignedTransaction(
       bufferUtils.hexToBytes(encodedTx.bcsTxn),
     );
     rawTxn = SimpleTransaction.deserialize(deserializer);
-  } else if (encodedTx.payload) {
+  } else if (encodedTx.payload || (!!encodedTx.type && !!encodedTx.function)) {
     let txData: InputGenerateTransactionPayloadData | undefined;
 
     const { max_gas_amount, expiration_timestamp_secs, payload } = encodedTx;
@@ -503,8 +503,13 @@ export async function generateUnsignedTransaction(
     let gasUnitPrice: string | undefined = encodedTx.gas_unit_price;
     let expireTimestamp: string | undefined = expiration_timestamp_secs;
 
-    if (payload.type === 'entry_function_payload') {
-      const { function: func, arguments: args, type_arguments } = payload;
+    const type = payload?.type ?? encodedTx.type;
+
+    if (type === 'entry_function_payload') {
+      const func = payload?.function ?? encodedTx.function;
+      const args = payload?.arguments ?? encodedTx.arguments;
+      const typeArguments = payload?.type_arguments ?? encodedTx.type_arguments;
+
       if (!func) {
         throw new OneKeyError('generate transaction error: function is empty');
       }
@@ -522,7 +527,7 @@ export async function generateUnsignedTransaction(
       txData = {
         function: func as `${string}::${string}::${string}`,
         functionArguments: args || [],
-        typeArguments: type_arguments || [],
+        typeArguments: typeArguments || [],
         abi,
       };
     } else {
