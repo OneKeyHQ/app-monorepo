@@ -16,12 +16,18 @@ export class ButtonScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
   public click(params: IButtonClickParams) {
-    return params;
+    return {
+      type: 'click',
+      ...params,
+    };
   }
 
   @LogToServer()
   @LogToLocal()
   public longPress(params: IButtonClickParams) {
-    return params;
+    return {
+      type: 'longPress',
+      ...params,
+    };
   }
 }

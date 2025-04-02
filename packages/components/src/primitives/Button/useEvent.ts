@@ -2,7 +2,6 @@ import { useCallback, useMemo } from 'react';
 
 import { debounce } from 'lodash';
 
-import { analytics } from '@onekeyhq/shared/src/analytics';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 
 import type { IButtonProps } from '..';
@@ -25,10 +24,6 @@ function debounceEventHandler(
 
     if (trackingId) {
       defaultLogger.ui.button.click({
-        trackId: trackingId,
-      });
-
-      analytics.trackEvent('button_click', {
         trackId: trackingId,
       });
     }
@@ -67,10 +62,6 @@ export const useSharedPress = ({
 
       if (trackingId) {
         defaultLogger.ui.button.longPress({
-          trackId: trackingId,
-        });
-
-        analytics.trackEvent('button_long_press', {
           trackId: trackingId,
         });
       }
