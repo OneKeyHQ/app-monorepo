@@ -69,7 +69,13 @@ function HeaderLeftToolBarInput({
 
   useEffect(() => {
     resetInputToUrl();
-  }, [resetInputToUrl, isLoading]);
+  }, [resetInputToUrl]);
+
+  useEffect(() => {
+    if (isLoading) {
+      resetInputToUrl();
+    }
+  }, [isLoading, resetInputToUrl]);
 
   const {
     localData,
