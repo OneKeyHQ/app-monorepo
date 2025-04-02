@@ -17,6 +17,8 @@ import { useWindowDimensions } from 'react-native';
 import { useMedia } from 'tamagui';
 import { useThrottledCallback } from 'use-debounce';
 
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
 import { useBackHandler } from '../../../hooks';
 import { Stack, YStack } from '../../../primitives/Stack';
 
@@ -192,6 +194,22 @@ function ModalNavigator({
     e?.stopPropagation();
   }, []);
 
+  const isPagePressIn = useRef(false);
+
+  const onPageContainerPressIn = useCallback(() => {
+    if (!isPagePressIn.current) {
+      handleBackdropClick();
+    }
+  }, [handleBackdropClick]);
+
+  const onPageContainerPressOut = useCallback(() => {
+    isPagePressIn.current = false;
+  }, []);
+
+  const onPagePressIn = useCallback(() => {
+    isPagePressIn.current = true;
+  }, []);
+
   state.routes.forEach((route, routeIndex) => {
     const routeDescriptor = descriptors[route.key];
     // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -228,7 +246,9 @@ function ModalNavigator({
           justifyContent: 'center',
           alignItems: 'center',
         }}
-        onPressIn={handleBackdropClick}
+        onPress={platformEnv.isNative ? handleBackdropClick : undefined}
+        onPressIn={platformEnv.isNative ? undefined : onPageContainerPressIn}
+        onPressOut={platformEnv.isNative ? undefined : onPageContainerPressOut}
       >
         {currentRouteIndex <= 1 ? (
           <YStack
@@ -244,7 +264,8 @@ function ModalNavigator({
         ) : null}
 
         <Stack
-          onPressIn={stopPropagation}
+          onPress={platformEnv.isNative ? stopPropagation : undefined}
+          onPressIn={platformEnv.isNative ? undefined : onPagePressIn}
           testID="APP-Modal-Screen"
           className="app-region-no-drag"
           bg="$bgApp"
