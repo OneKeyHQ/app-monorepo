@@ -144,22 +144,41 @@ const useParseQRCode = () => {
               break;
             }
 
+            const networkId = network?.id ?? '';
             if (chainValue.targetAddress) {
+              let accountId = account.id;
               if (account.impl !== network.impl) {
-                showCopyDialog(value);
-                break;
+                if (account.indexedAccountId) {
+                  const { accounts } =
+                    await backgroundApiProxy.serviceAccount.getAccountsInSameIndexedAccountId(
+                      {
+                        indexedAccountId: account.indexedAccountId,
+                      },
+                    );
+                  const networkAccount = accounts.find(
+                    (item) => item.impl === network.impl,
+                  );
+                  if (networkAccount) {
+                    accountId = networkAccount.id;
+                  } else {
+                    showCopyDialog(value);
+                    break;
+                  }
+                } else {
+                  showCopyDialog(value);
+                  break;
+                }
               }
-              const networkId = network?.id ?? '';
               const nativeToken =
                 await backgroundApiProxy.serviceToken.getToken({
                   networkId,
-                  accountId: account.id,
+                  accountId,
                   tokenIdOnNetwork: chainValue.targetAddress,
                 });
               navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
                 screen: EModalSignatureConfirmRoutes.TxDataInput,
                 params: {
-                  accountId: account.id,
+                  accountId,
                   networkId,
                   isNFT: false,
                   token: nativeToken,
