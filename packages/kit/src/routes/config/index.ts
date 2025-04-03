@@ -15,7 +15,6 @@ import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
-import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { rootRouter, useRootRouter } from '../router';
 
 import { registerDeepLinking } from './deeplink';
@@ -140,7 +139,6 @@ const useBuildLinking = (): LinkingOptions<any> => {
 export const useRouterConfig = () => {
   const routerRef = useRouterEventsRef();
   const linking = useBuildLinking();
-
   return useMemo(() => {
     // Execute it before component mount.
     registerDeepLinking();
