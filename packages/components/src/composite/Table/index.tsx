@@ -1,4 +1,4 @@
-import type { PropsWithChildren, ReactElement } from 'react';
+import type { PropsWithChildren, ReactElement, RefObject } from 'react';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { StyleSheet } from 'react-native';
@@ -130,6 +130,7 @@ function TableRow<T>({
   showSkeleton = false,
   draggable = false,
   isActive = false,
+  scrollAtRef,
 }: {
   columns: ITableProps<T>['columns'];
   dataSet?: Record<string, any>;
@@ -143,6 +144,7 @@ function TableRow<T>({
   rowProps?: ITableProps<T>['rowProps'];
   showSkeleton?: boolean;
   isActive?: boolean;
+  scrollAtRef?: RefObject<number>;
 }) {
   const { md } = useMedia();
   const onRowEvents = useMemo(() => onRow?.(item, index), [index, item, onRow]);
@@ -169,7 +171,10 @@ function TableRow<T>({
       if (draggable) {
         drag?.();
         setTimeout(() => {
-          if (globalRef.translationY === 0) {
+          if (
+            globalRef.translationY === 0 &&
+            Date.now() - (scrollAtRef?.current || 0) > 100
+          ) {
             Haptics.impact(ImpactFeedbackStyle.Medium);
             globalRef.reset();
             onRowEvents?.onLongPress?.();
@@ -181,7 +186,7 @@ function TableRow<T>({
     } else if (getTimeDiff() >= 350) {
       onRowEvents?.onLongPress?.();
     }
-  }, [drag, draggable, getTimeDiff, onRowEvents]);
+  }, [drag, draggable, getTimeDiff, scrollAtRef, onRowEvents]);
 
   const nativeScaleAnimationProps: IStackProps = platformEnv.isNativeIOS
     ? {
@@ -446,12 +451,14 @@ function BasicTable<T>({
   const listViewRef = useRef<IListViewRef<unknown> | null>(null);
   const isShowBackToTopButtonRef = useRef(isShowBackToTopButton);
   isShowBackToTopButtonRef.current = isShowBackToTopButton;
+  const scrollAtRef = useRef(0);
 
   const handleScrollOffsetChange = useCallback((offset: number) => {
     const isShow = offset > 0;
     if (isShowBackToTopButtonRef.current !== isShow) {
       setIsShowBackToTopButton(isShow);
     }
+    scrollAtRef.current = Date.now();
   }, []);
 
   const handleScroll = useCallback(
@@ -471,6 +478,7 @@ function BasicTable<T>({
     ({ item, index }: ListRenderItemInfo<T>) => (
       <TableRow
         pressStyle
+        scrollAtRef={scrollAtRef}
         item={item}
         index={index}
         columns={columns}
@@ -526,6 +534,7 @@ function BasicTable<T>({
         draggable={draggable}
         dataSet={dragProps}
         drag={drag}
+        scrollAtRef={scrollAtRef}
         item={item}
         index={index}
         columns={columns}
@@ -545,10 +554,8 @@ function BasicTable<T>({
           stickyHeaderHiddenOnScroll={stickyHeaderHiddenOnScroll}
           // @ts-ignore
           estimatedListSize={estimatedListSize}
-          onScrollOffsetChange={
-            showBackToTopButton ? handleScrollOffsetChange : undefined
-          }
-          onScroll={showBackToTopButton ? handleScroll : undefined}
+          onScrollOffsetChange={handleScrollOffsetChange}
+          onScroll={handleScroll}
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={renderSortableItem}
@@ -580,7 +587,7 @@ function BasicTable<T>({
           estimatedItemSize={estimatedItemSize}
           // @ts-ignore
           estimatedListSize={estimatedListSize}
-          onScroll={showBackToTopButton ? handleScroll : undefined}
+          onScroll={handleScroll}
           scrollEventThrottle={100}
           data={dataSource}
           renderItem={handleRenderItem}
@@ -601,7 +608,6 @@ function BasicTable<T>({
       contentContainerStyle,
       stickyHeaderHiddenOnScroll,
       estimatedListSize,
-      showBackToTopButton,
       handleScrollOffsetChange,
       handleScroll,
       dataSource,
