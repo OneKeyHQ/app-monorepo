@@ -485,19 +485,20 @@ export function EnterPhase({
             />
           </Form.Field>
         ) : null}
-
-        <Form.Field
-          horizontal
-          name="hideImmediately"
-          label={intl.formatMessage({
-            id: ETranslations.form_keep_hidden_wallet_label,
-          })}
-          description={intl.formatMessage({
-            id: ETranslations.form_keep_hidden_wallet_label_desc,
-          })}
-        >
-          <Switch size={ESwitchSize.small} />
-        </Form.Field>
+        {!isSingleInput ? (
+          <Form.Field
+            horizontal
+            name="hideImmediately"
+            label={intl.formatMessage({
+              id: ETranslations.form_keep_hidden_wallet_label,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.form_keep_hidden_wallet_label_desc,
+            })}
+          >
+            <Switch size={ESwitchSize.small} />
+          </Form.Field>
+        ) : null}
       </Form>
       {/* TODO: add loading state while waiting for result */}
       <Button

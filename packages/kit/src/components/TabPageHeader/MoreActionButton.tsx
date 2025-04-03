@@ -11,6 +11,7 @@ import {
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -31,6 +32,7 @@ import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 function MoreActionButtonCmp() {
+  const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onLock = useOnLock();
@@ -186,24 +188,26 @@ function MoreActionButtonCmp() {
           ].filter(Boolean),
         },
         {
-          items: [
-            {
-              label: 'OneKey ID',
-              icon: 'PeopleOutline',
-              onPress: async () => {
-                await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-              },
-              testID: 'onekey_id',
-            },
-            {
-              label: intl.formatMessage({
-                id: ETranslations.id_refer_a_friend,
-              }),
-              icon: 'GiftOutline',
-              onPress: toReferFriendsPage,
-              testID: 'refer-a-friend',
-            },
-          ],
+          items: devSettings.settings?.showOneKeyId
+            ? [
+                {
+                  label: 'OneKey ID',
+                  icon: 'PeopleOutline',
+                  onPress: async () => {
+                    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+                  },
+                  testID: 'onekey_id',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.id_refer_a_friend,
+                  }),
+                  icon: 'GiftOutline',
+                  onPress: toReferFriendsPage,
+                  testID: 'refer-a-friend',
+                },
+              ]
+            : [],
         },
         {
           items: [

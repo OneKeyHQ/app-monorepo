@@ -9,6 +9,7 @@ import {
   useDownloadPackage,
 } from '@onekeyhq/kit/src/components/UpdateReminder/hooks';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EAppUpdateRoutes } from '@onekeyhq/shared/src/routes/appUpdate';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
@@ -32,7 +33,9 @@ export const UpdatePreviewActionButton: IUpdatePreviewActionButton = ({
       if (appUpdateInfo.data.storeUrl) {
         openUrlExternal(appUpdateInfo.data.storeUrl);
       } else if (appUpdateInfo.data.downloadUrl) {
-        void downloadPackage();
+        if (appUpdateInfo.data.status === EAppUpdateStatus.notify) {
+          void downloadPackage();
+        }
         navigation.push(EAppUpdateRoutes.DownloadVerify, {
           isForceUpdate,
         });
