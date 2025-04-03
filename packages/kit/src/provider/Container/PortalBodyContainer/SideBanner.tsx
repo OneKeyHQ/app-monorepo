@@ -129,34 +129,9 @@ function DownloadButton() {
 function BottomMenu() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-  const [devSettings] = useDevSettingsPersistAtom();
   const openSettingPage = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
-    });
-  }, [appNavigation]);
-
-  const openAddressBookPage = useShowAddressBook({
-    useNewModal: true,
-  });
-
-  const { toReferFriendsPage } = useReferFriends();
-  const { loginOneKeyId } = useLoginOneKeyId();
-
-  const openDeviceManagementPage = useCallback(async () => {
-    const allHwQrWallet =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-        filterHiddenWallet: true,
-      });
-    if (Object.keys(allHwQrWallet).length > 0) {
-      appNavigation.pushModal(EModalRoutes.DeviceManagementModal, {
-        screen: EModalDeviceManagementRoutes.DeviceListModal,
-      });
-      return;
-    }
-
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.DeviceManagementGuide,
     });
   }, [appNavigation]);
 
