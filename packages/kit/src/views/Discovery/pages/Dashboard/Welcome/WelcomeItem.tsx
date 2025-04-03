@@ -45,7 +45,6 @@ const ANIMATION_SHADOW_OPACITY = 0.25;
 const HOVER_TRANSITION_DURATION = 300;
 const HOVER_SCALE_FACTOR = 1.2;
 
-const SHADOW_OFFSET = { width: 0, height: 12 };
 const BASE_SHADOW_RADIUS = 32;
 const BASE_ELEVATION = 10;
 
@@ -256,8 +255,10 @@ export const WelcomeItem = memo(
         { rotate: `${rotate.value}deg` },
         { scale: scale.value },
       ],
+      style: {
+        shadowOffset: { width: 0, height: 12 },
+      },
       shadowColor,
-      shadowOffset: SHADOW_OFFSET,
       shadowOpacity: shadowOpacity.value * scale.value,
       shadowRadius: BASE_SHADOW_RADIUS,
       elevation: BASE_ELEVATION * scale.value,
