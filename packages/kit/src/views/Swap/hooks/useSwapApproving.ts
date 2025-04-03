@@ -128,8 +128,6 @@ export function useSwapApproving() {
             ESwapApproveTransactionStatus.PENDING
         ) {
           void approvingStateAction();
-        } else {
-          cleanApprovingInterval();
         }
       }
     },
