@@ -30,6 +30,7 @@ import type {
 import type { AvatarImage, GetProps, TamaguiElement } from 'tamagui';
 
 export interface IDesktopTabItemProps {
+  size?: 'small' | 'medium';
   icon?: IKeyOfIcons;
   showAvatar?: boolean;
   avatarSrc?: GetProps<typeof AvatarImage>['src'];
@@ -83,6 +84,7 @@ export function DesktopTabItem(
     onPress,
     onClose,
     shortcutKey,
+    size = 'medium',
     ...rest
   } = props;
 
@@ -124,7 +126,7 @@ export function DesktopTabItem(
     () => (
       <XStack
         alignItems="center"
-        py="$2"
+        py={size === 'small' ? '$1.5' : '$2'}
         $gtMd={{
           flexDirection: 'row',
           px: '$2',
@@ -224,6 +226,7 @@ export function DesktopTabItem(
       rest,
       selected,
       showAvatar,
+      size,
     ],
   );
   return (
