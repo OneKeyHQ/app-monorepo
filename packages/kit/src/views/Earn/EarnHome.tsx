@@ -915,12 +915,18 @@ function BasicEarnHome() {
     [intl, handleShareReferRewards],
   );
 
+  const headerRight = useMemo(
+    () =>
+      devSettings.settings?.showOneKeyId
+        ? renderCustomHeaderRight()
+        : undefined,
+    [devSettings.settings?.showOneKeyId, renderCustomHeaderRight],
+  );
+
   return (
     <Page fullPage>
       <TabPageHeader showHeaderRight sceneName={EAccountSelectorSceneName.earn}>
-        {devSettings.settings?.showOneKeyId
-          ? renderCustomHeaderRight()
-          : undefined}
+        {headerRight}
       </TabPageHeader>
       <Page.Body>
         <ScrollView
