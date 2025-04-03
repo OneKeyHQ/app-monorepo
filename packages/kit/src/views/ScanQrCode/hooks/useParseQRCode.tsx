@@ -174,23 +174,22 @@ const useParseQRCode = () => {
               }
             }
 
-            let nativeToken: IToken | null;
+            let token: IToken | null;
             if (chainValue.tokenAddress) {
-              nativeToken = await backgroundApiProxy.serviceToken.getToken({
+              token = await backgroundApiProxy.serviceToken.getToken({
                 networkId,
                 accountId,
                 tokenIdOnNetwork: chainValue.tokenAddress,
               });
-              if (!nativeToken) {
+              if (!token) {
                 showCopyDialog(value);
                 break;
               }
             } else {
-              nativeToken =
-                await backgroundApiProxy.serviceToken.getNativeToken({
-                  networkId: network.id,
-                  accountId: account.id,
-                });
+              token = await backgroundApiProxy.serviceToken.getNativeToken({
+                networkId: network.id,
+                accountId: account.id,
+              });
             }
 
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
@@ -199,7 +198,7 @@ const useParseQRCode = () => {
                 accountId,
                 networkId,
                 isNFT: false,
-                token: nativeToken,
+                token,
                 address: chainValue.address,
                 amount: chainValue?.amount,
               },
