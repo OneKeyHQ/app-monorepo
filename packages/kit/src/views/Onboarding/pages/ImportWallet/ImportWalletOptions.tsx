@@ -111,7 +111,7 @@ export function ImportWalletOptions() {
   };
 
   const options: IOptionSection[] = [
-    ...(!platformEnv.isWeb
+    ...(!platformEnv.isWeb && platformEnv.isDev
       ? [
           {
             sectionTitle: intl.formatMessage({
