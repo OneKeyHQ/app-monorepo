@@ -167,7 +167,7 @@ function BottomMenu() {
       borderTopColor="$borderSubdued"
       bg="$bgSidebar"
     >
-      {devSettings.settings?.showOneKeyId ? (
+      {/* {devSettings.settings?.showOneKeyId ? (
         <DesktopTabItem
           onPress={async () => {
             await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
@@ -177,8 +177,8 @@ function BottomMenu() {
           label="OneKey ID"
           testID="onekey_id"
         />
-      ) : null}
-      {devSettings.settings?.showOneKeyId ? (
+      ) : null} */}
+      {/* {devSettings.settings?.showOneKeyId ? (
         <DesktopTabItem
           onPress={toReferFriendsPage}
           selected={false}
@@ -188,8 +188,8 @@ function BottomMenu() {
           })}
           testID="refer-a-friend"
         />
-      ) : null}
-      <DesktopTabItem
+      ) : null} */}
+      {/* <DesktopTabItem
         onPress={openDeviceManagementPage}
         selected={false}
         icon="OnekeyDeviceCustom"
@@ -197,8 +197,8 @@ function BottomMenu() {
           id: ETranslations.global_my_onekey,
         })}
         testID="my-onekey"
-      />
-      <DesktopTabItem
+      /> */}
+      {/* <DesktopTabItem
         onPress={openAddressBookPage}
         selected={false}
         icon="ContactsOutline"
@@ -206,7 +206,7 @@ function BottomMenu() {
           id: ETranslations.address_book_title,
         })}
         testID="address-book"
-      />
+      /> */}
       <DesktopTabItem
         onPress={openSettingPage}
         selected={false}
