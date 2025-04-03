@@ -109,11 +109,14 @@ export function HeaderRight({
 
     const moreActionButton = (
       <Stack flexDirection="row" alignItems="center" gap="$4">
-        <Stack
-          height="$4"
-          borderRightWidth={1}
-          borderRightColor="$borderSubdued"
-        />
+        {sceneName === EAccountSelectorSceneName.home ||
+        sceneName === EAccountSelectorSceneName.discover ? (
+          <Stack
+            height="$4"
+            borderRightWidth={1}
+            borderRightColor="$borderSubdued"
+          />
+        ) : null}
         <MoreActionButton key="more-action" />
       </Stack>
     );
@@ -128,7 +131,10 @@ export function HeaderRight({
     }
 
     // notifications is not supported on web currently
-    if (platformEnv.isWeb && !devSettings.enabled) {
+    if (
+      (platformEnv.isWeb && !devSettings.enabled) ||
+      sceneName !== EAccountSelectorSceneName.home
+    ) {
       notificationsButton = null;
     }
 

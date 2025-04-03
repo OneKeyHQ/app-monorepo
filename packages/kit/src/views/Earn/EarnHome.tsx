@@ -918,7 +918,8 @@ function BasicEarnHome() {
   return (
     <Page fullPage>
       <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
+        showHeaderRight
+        sceneName={EAccountSelectorSceneName.earn}
         showCustomHeaderRight={
           devSettings.settings?.showOneKeyId
             ? renderCustomHeaderRight
