@@ -406,7 +406,7 @@ function CustomRPC() {
           renderItem={({ item }) => (
             <ListItem testID="CustomRpcItemContainer">
               <Switch
-                disabled={item.isCustomNetwork}
+                disabled={item.network.isCustomNetwork}
                 size={ESwitchSize.small}
                 value={item.enabled}
                 onChange={() => onToggleCustomRpcEnabledState(item)}
@@ -456,7 +456,7 @@ function CustomRPC() {
                     destructive: true,
                     icon: 'DeleteOutline',
                     onPress: async () => onDeleteCustomRpc(item),
-                    disabled: item.isCustomNetwork,
+                    disabled: item.network.isCustomNetwork,
                   },
                 ]}
               />

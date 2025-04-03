@@ -32,6 +32,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
@@ -172,23 +173,32 @@ const useParseQRCode = () => {
                 break;
               }
             }
-            const nativeToken = chainValue.targetAddress
-              ? await backgroundApiProxy.serviceToken.getToken({
-                  networkId,
-                  accountId,
-                  tokenIdOnNetwork: chainValue.targetAddress,
-                })
-              : await backgroundApiProxy.serviceToken.getNativeToken({
-                  networkId: network.id,
-                  accountId: account.id,
-                });
+
+            let token: IToken | null;
+            if (chainValue.tokenAddress) {
+              token = await backgroundApiProxy.serviceToken.getToken({
+                networkId,
+                accountId,
+                tokenIdOnNetwork: chainValue.tokenAddress,
+              });
+              if (!token) {
+                showCopyDialog(value);
+                break;
+              }
+            } else {
+              token = await backgroundApiProxy.serviceToken.getNativeToken({
+                networkId: network.id,
+                accountId: account.id,
+              });
+            }
+
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
               screen: EModalSignatureConfirmRoutes.TxDataInput,
               params: {
                 accountId,
                 networkId,
                 isNFT: false,
-                token: nativeToken,
+                token,
                 address: chainValue.address,
                 amount: chainValue?.amount,
               },

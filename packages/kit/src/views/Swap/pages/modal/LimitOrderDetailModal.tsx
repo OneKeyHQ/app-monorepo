@@ -634,6 +634,7 @@ const LimitOrderDetailModal = () => {
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_surplus,
                 })}
+                compactAll
                 renderContent={`${surplus} ${
                   orderItemState.kind === ESwapQuoteKind.SELL
                     ? orderItemState.toTokenInfo.symbol

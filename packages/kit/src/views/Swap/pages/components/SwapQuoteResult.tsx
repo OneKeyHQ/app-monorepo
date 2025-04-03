@@ -335,7 +335,6 @@ const SwapQuoteResult = ({
     return (
       <SwapApprovingItem
         approvingTransaction={swapApprovingTransaction}
-        progress={1}
         onComplete={() => {
           setSwapApprovingAtom(false);
         }}
