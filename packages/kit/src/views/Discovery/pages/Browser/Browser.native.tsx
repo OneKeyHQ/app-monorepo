@@ -69,6 +69,12 @@ function MobileBrowser() {
   const { displayHomePage } = useDisplayHomePageFlag();
   const displayBottomBar = !displayHomePage;
 
+  useEffect(() => {
+    if (!tabs?.length) {
+      showTabBar();
+    }
+  }, [tabs]);
+
   const { setDisplayHomePage } = useBrowserTabActions().current;
   const firstRender = useRef(true);
   useEffect(() => {
