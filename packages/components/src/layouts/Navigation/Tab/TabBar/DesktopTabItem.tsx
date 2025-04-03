@@ -124,7 +124,7 @@ export function DesktopTabItem(
     () => (
       <XStack
         alignItems="center"
-        py="$1.5"
+        py="$2"
         $gtMd={{
           flexDirection: 'row',
           px: '$2',
