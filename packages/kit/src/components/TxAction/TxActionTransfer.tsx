@@ -155,6 +155,14 @@ function buildTransferChangeInfo({
   let changeSymbol = '';
   let changeDescription = '';
 
+  if (transfers.length === 0) {
+    return {
+      change,
+      changeSymbol,
+      changeDescription,
+    };
+  }
+
   if (isUTXO) {
     if (transfers.length > 1) {
       const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
@@ -168,7 +176,7 @@ function buildTransferChangeInfo({
         changeDescription = intl.formatMessage(
           { id: ETranslations.symbol_and_more },
           {
-            symbol: transfers[0].symbol,
+            symbol: transfers[0]?.symbol ?? '',
           },
         );
         return {
@@ -181,10 +189,10 @@ function buildTransferChangeInfo({
 
     const amountBN = new BigNumber(nativeAmount ?? 0).abs();
     change = amountBN.toFixed();
-    changeSymbol = transfers[0].symbol;
-    changeDescription = isNil(transfers[0].price)
+    changeSymbol = transfers[0]?.symbol ?? '';
+    changeDescription = isNil(transfers[0]?.price)
       ? ''
-      : amountBN.multipliedBy(transfers[0].price).toFixed();
+      : amountBN.multipliedBy(transfers[0]?.price ?? 0).toFixed();
     return {
       change: `${changePrefix}${change}`,
       changeSymbol,
@@ -194,13 +202,15 @@ function buildTransferChangeInfo({
 
   if (transfers.length === 1) {
     if (transfers[0].amount) {
-      const amountBN = new BigNumber(transfers[0].amount).abs();
+      const amountBN = new BigNumber(transfers[0]?.amount ?? 0).abs();
       change = amountBN.toFixed();
-      changeDescription = isNil(transfers[0].price)
+      changeDescription = isNil(transfers[0]?.price)
         ? ''
-        : amountBN.multipliedBy(transfers[0].price ?? 0).toFixed();
+        : amountBN.multipliedBy(transfers[0]?.price ?? 0).toFixed();
     }
-    changeSymbol = transfers[0].isNFT ? transfers[0].name : transfers[0].symbol;
+    changeSymbol = transfers[0]?.isNFT
+      ? transfers[0]?.name ?? ''
+      : transfers[0]?.symbol ?? '';
   } else {
     const tokens = uniq(map(transfers, 'tokenIdOnNetwork'));
     if (tokens.length === 1) {
@@ -209,11 +219,11 @@ function buildTransferChangeInfo({
         new BigNumber(0),
       );
       change = totalAmountBN.toFixed();
-      changeSymbol = transfers[0].symbol;
+      changeSymbol = transfers[0]?.symbol ?? '';
 
-      changeDescription = isNil(transfers[0].price)
+      changeDescription = isNil(transfers[0]?.price)
         ? ''
-        : totalAmountBN.multipliedBy(transfers[0].price ?? 0).toFixed();
+        : totalAmountBN.multipliedBy(transfers[0]?.price ?? 0).toFixed();
     } else {
       const transfersWithNFT = transfers.filter((send) => send.isNFT);
       const transfersWithToken = transfers.filter((send) => !send.isNFT);
@@ -227,12 +237,14 @@ function buildTransferChangeInfo({
         changeDescription = intl.formatMessage(
           { id: ETranslations.symbol_and_more },
           {
-            symbol: transfersWithToken[0].symbol,
+            symbol: transfersWithToken[0]?.symbol ?? '',
           },
         );
       } else if (transfersWithNFT.length === 1) {
-        change = new BigNumber(transfersWithNFT[0].amount).abs().toFixed();
-        changeSymbol = transfersWithNFT[0].name;
+        change = new BigNumber(transfersWithNFT[0]?.amount ?? 0)
+          .abs()
+          .toFixed();
+        changeSymbol = transfersWithNFT[0]?.name ?? '';
       } else {
         const totalNFTs = transfersWithNFT
           .reduce(
@@ -245,7 +257,7 @@ function buildTransferChangeInfo({
         changeDescription = intl.formatMessage(
           { id: ETranslations.symbol_and_more },
           {
-            symbol: transfersWithNFT[0].name,
+            symbol: transfersWithNFT[0]?.name ?? '',
           },
         );
       }
@@ -447,6 +459,8 @@ function TxActionTransferListView(props: ITxActionProps) {
 
   if (!label && actions[0]?.assetTransfer?.isInternalSwap) {
     title = intl.formatMessage({ id: ETranslations.global_swap });
+  } else if (!label && actions[0]?.assetTransfer?.isInternalStaking) {
+    title = actions[0]?.assetTransfer?.internalStakingLabel ?? '';
   }
 
   return (
