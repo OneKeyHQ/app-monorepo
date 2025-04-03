@@ -3,7 +3,12 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { SizableText, Stack, useMedia } from '@onekeyhq/components';
+import {
+  SizableText,
+  Stack,
+  useIsIpadLandscape,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -24,19 +29,6 @@ import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHea
 
 import { MoreActionButton } from './MoreActionButton';
 
-
-const ReactMoreActionButton2 = platformEnv.isNativeIOSPad
-  ? () => {
-      const isIpadLandscape = useIsIpadLandscape();
-      return isIpadLandscape ? null : <MoreActionButton key="more-action" />;
-    }
-  : () => {
-      const media = useMedia();
-      return media.gtMd && !platformEnv.isNativeAndroid ? null : (
-        <MoreActionButton key="more-action" />
-      );
-    };
-
 export function HeaderRight({
   sceneName,
   children,
@@ -49,6 +41,7 @@ export function HeaderRight({
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
+  const isIpadLandscape = useIsIpadLandscape();
 
   const openNotificationsModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {
@@ -56,7 +49,6 @@ export function HeaderRight({
     });
   }, [navigation]);
 
-  const isShowGtMdItem = media.gtMd && !platformEnv.isNativeAndroid;
   const items = useMemo(() => {
     const primeButton =
       devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
@@ -117,7 +109,10 @@ export function HeaderRight({
       </Stack>
     );
     const moreActionButton =
-      sceneName === EAccountSelectorSceneName.home || media.gtMd ? (
+      (platformEnv.isNativeIOSPad && !isIpadLandscape) ||
+      platformEnv.isNativeAndroid ||
+      sceneName === EAccountSelectorSceneName.home ||
+      media.gtMd ? (
         <Stack flexDirection="row" alignItems="center" gap="$4">
           {children ? (
             <Stack
@@ -155,17 +150,16 @@ export function HeaderRight({
       moreActionButton,
     ].filter(Boolean);
   }, [
-    badge,
-    children,
     devSettings.enabled,
     devSettings?.settings?.showPrimeTest,
-    firstTimeGuideOpened,
     intl,
-    media.gtMd,
-    isShowGtMdItem,
-    onScanButtonPressed,
     openNotificationsModal,
+    firstTimeGuideOpened,
+    badge,
+    isIpadLandscape,
     sceneName,
+    media.gtMd,
+    children,
   ]);
 
   return (
