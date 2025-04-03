@@ -44,7 +44,6 @@ export function DappInfoPopoverContent({
 }) {
   const intl = useIntl();
   const { securityElement, securityStatus } = useMemo(() => {
-    console.log('hostSecurity----', hostSecurity);
     if (hostSecurity?.level === EHostSecurityLevel.Unknown) {
       return {
         securityStatus: EHostSecurityLevel.Unknown,
