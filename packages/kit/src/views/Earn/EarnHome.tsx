@@ -915,16 +915,19 @@ function BasicEarnHome() {
     [intl, handleShareReferRewards],
   );
 
+  const headerRight = useMemo(
+    () =>
+      devSettings.settings?.showOneKeyId
+        ? renderCustomHeaderRight()
+        : undefined,
+    [devSettings.settings?.showOneKeyId, renderCustomHeaderRight],
+  );
+
   return (
     <Page fullPage>
-      <TabPageHeader
-        sceneName={EAccountSelectorSceneName.home}
-        showCustomHeaderRight={
-          devSettings.settings?.showOneKeyId
-            ? renderCustomHeaderRight
-            : undefined
-        }
-      />
+      <TabPageHeader showHeaderRight sceneName={EAccountSelectorSceneName.earn}>
+        {headerRight}
+      </TabPageHeader>
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$5' }}

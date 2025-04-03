@@ -13,11 +13,6 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import {
   useDevSettingsPersistAtom,
   useNotificationsAtom,
@@ -31,72 +26,30 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
-import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 
 import { MoreActionButton } from './MoreActionButton';
-import { UniversalSearchInput } from './UniversalSearchInput';
-
-const ReactMoreActionButton = platformEnv.isNativeIOSPad
-  ? () => {
-      const isIpadLandscape = useIsIpadLandscape();
-      return isIpadLandscape ? null : <MoreActionButton key="more-action" />;
-    }
-  : () => {
-      const media = useMedia();
-      return media.gtMd && !platformEnv.isNativeAndroid ? null : (
-        <MoreActionButton key="more-action" />
-      );
-    };
 
 export function HeaderRight({
   sceneName,
+  children,
 }: {
   sceneName: EAccountSelectorSceneName;
+  children?: ReactNode;
 }) {
+  const media = useMedia();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
+  const isIpadLandscape = useIsIpadLandscape();
 
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
-  const onScanButtonPressed = useCallback(
-    () =>
-      scanQrCode.start({
-        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-        autoHandleResult: true,
-        account,
-        tokens: {
-          data: allTokens.tokens,
-          keys: allTokens.keys,
-          map,
-        },
-      }),
-    [scanQrCode, account, allTokens, map],
-  );
-
-  const media = useMedia();
   const openNotificationsModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
     });
   }, [navigation]);
 
-  const isShowGtMdItem = media.gtMd && !platformEnv.isNativeAndroid;
   const items = useMemo(() => {
-    const scanButton = isShowGtMdItem ? (
-      <HeaderIconButton
-        key="scan"
-        title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
-        icon="ScanOutline"
-        onPress={onScanButtonPressed}
-      />
-    ) : null;
-
     const primeButton =
       devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
         <PrimeHeaderIconButtonLazy key="prime" visible />
@@ -155,12 +108,23 @@ export function HeaderRight({
         ) : null}
       </Stack>
     );
+    const moreActionButton =
+      (platformEnv.isNativeIOSPad && !isIpadLandscape) ||
+      sceneName === EAccountSelectorSceneName.home ||
+      platformEnv.isNativeAndroid ||
+      media.gtMd ? (
+        <Stack flexDirection="row" alignItems="center" gap="$4">
+          {children ? (
+            <Stack
+              height="$4"
+              borderRightWidth={1}
+              borderRightColor="$borderSubdued"
+            />
+          ) : null}
 
-    const moreActionButton = <ReactMoreActionButton />;
-
-    const searchInput = isShowGtMdItem ? (
-      <UniversalSearchInput key="searchInput" />
-    ) : null;
+          <MoreActionButton key="more-action" />
+        </Stack>
+      ) : null;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
@@ -171,35 +135,33 @@ export function HeaderRight({
       ].filter(Boolean);
     }
 
-    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [primeButton, notificationsButton, moreActionButton].filter(
-        Boolean,
-      );
-    }
-
     // notifications is not supported on web currently
-    if (platformEnv.isWeb && !devSettings.enabled) {
+    if (
+      (platformEnv.isWeb && !devSettings.enabled) ||
+      sceneName !== EAccountSelectorSceneName.home
+    ) {
       notificationsButton = null;
     }
 
     return [
       primeButton,
-      scanButton,
       notificationsButton,
+      children,
       moreActionButton,
-      searchInput,
     ].filter(Boolean);
   }, [
-    badge,
     devSettings.enabled,
     devSettings?.settings?.showPrimeTest,
-    firstTimeGuideOpened,
     intl,
-    isShowGtMdItem,
-    onScanButtonPressed,
     openNotificationsModal,
+    firstTimeGuideOpened,
+    badge,
+    isIpadLandscape,
     sceneName,
+    media.gtMd,
+    children,
   ]);
+
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
