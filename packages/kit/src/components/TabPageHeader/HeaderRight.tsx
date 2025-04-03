@@ -21,6 +21,7 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import useAppNavigation from '../../hooks/useAppNavigation';
@@ -31,9 +32,11 @@ import { MoreActionButton } from './MoreActionButton';
 
 export function HeaderRight({
   sceneName,
+  tabRoute,
   children,
 }: {
   sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
   children?: ReactNode;
 }) {
   const media = useMedia();
@@ -110,7 +113,7 @@ export function HeaderRight({
     );
     const moreActionButton =
       (platformEnv.isNativeIOSPad && !isIpadLandscape) ||
-      sceneName === EAccountSelectorSceneName.home ||
+      tabRoute === ETabRoutes.Home ||
       platformEnv.isNativeAndroid ||
       media.gtMd ? (
         <Stack flexDirection="row" alignItems="center" gap="$4">
@@ -138,7 +141,7 @@ export function HeaderRight({
     // notifications is not supported on web currently
     if (
       (platformEnv.isWeb && !devSettings.enabled) ||
-      sceneName !== EAccountSelectorSceneName.home
+      (tabRoute && tabRoute !== ETabRoutes.Home)
     ) {
       notificationsButton = null;
     }
@@ -158,6 +161,7 @@ export function HeaderRight({
     badge,
     isIpadLandscape,
     sceneName,
+    tabRoute,
     media.gtMd,
     children,
   ]);

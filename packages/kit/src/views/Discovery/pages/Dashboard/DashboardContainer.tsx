@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import { HeaderRight } from '@onekeyhq/kit/src/components/TabPageHeader/HeaderRight';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
@@ -19,7 +20,10 @@ function Dashboard() {
       !platformEnv.isExtension && !platformEnv.isWeb
         ? () => {
             return (
-              <HeaderRight sceneName={EAccountSelectorSceneName.discover}>
+              <HeaderRight
+                sceneName={EAccountSelectorSceneName.discover}
+                tabRoute={ETabRoutes.Discovery}
+              >
                 <HistoryIconButton />
               </HeaderRight>
             );

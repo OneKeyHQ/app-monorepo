@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { Stack } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { TabPageHeader } from '../../../components/TabPageHeader';
@@ -12,7 +13,10 @@ export function MarketHomeHeader() {
   const content = useMemo(
     () => (
       <>
-        <TabPageHeader sceneName={EAccountSelectorSceneName.home} />
+        <TabPageHeader
+          sceneName={EAccountSelectorSceneName.home}
+          tabRoute={ETabRoutes.Market}
+        />
         <Stack px="$5" pt={platformEnv.isNativeIOSPad ? '$6' : '$3'} pb="$3">
           <MarketHomeHeaderSearchBar />
         </Stack>

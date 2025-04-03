@@ -14,7 +14,6 @@ import {
   Badge,
   Banner,
   Button,
-  Dialog,
   HeaderButtonGroup,
   HeaderIconButton,
   Icon,
@@ -27,7 +26,6 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
@@ -42,7 +40,11 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -925,7 +927,11 @@ function BasicEarnHome() {
 
   return (
     <Page fullPage>
-      <TabPageHeader showHeaderRight sceneName={EAccountSelectorSceneName.earn}>
+      <TabPageHeader
+        showHeaderRight
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Earn}
+      >
         {headerRight}
       </TabPageHeader>
       <Page.Body>
