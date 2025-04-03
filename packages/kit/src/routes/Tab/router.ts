@@ -85,16 +85,6 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           children: marketRouters,
         },
         {
-          name: ETabRoutes.Earn,
-          tabBarIcon: (focused?: boolean) =>
-            focused ? 'CoinsSolid' : 'CoinsOutline',
-          translationId: ETranslations.global_earn,
-          freezeOnBlur: Boolean(params?.freezeOnBlur),
-          rewrite: '/earn',
-          exact: true,
-          children: earnRouters,
-        },
-        {
           name: ETabRoutes.Swap,
           tabBarIcon: (focused?: boolean) =>
             focused ? 'SwapHorSolid' : 'SwapHorOutline',
@@ -103,6 +93,16 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           rewrite: '/swap',
           exact: true,
           children: swapRouters,
+        },
+        {
+          name: ETabRoutes.Earn,
+          tabBarIcon: (focused?: boolean) =>
+            focused ? 'CoinsSolid' : 'CoinsOutline',
+          translationId: ETranslations.global_earn,
+          freezeOnBlur: Boolean(params?.freezeOnBlur),
+          rewrite: '/earn',
+          exact: true,
+          children: earnRouters,
         },
         isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
         platformEnv.isDev

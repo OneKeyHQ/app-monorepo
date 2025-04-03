@@ -3,7 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Divider, SizableText, Stack, useMedia } from '@onekeyhq/components';
+import { SizableText, Stack, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -70,15 +70,6 @@ export function HeaderRight({
   }, [navigation]);
 
   const items = useMemo(() => {
-    const scanButton = media.gtMd ? (
-      <HeaderIconButton
-        key="scan"
-        title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
-        icon="ScanOutline"
-        onPress={onScanButtonPressed}
-      />
-    ) : null;
-
     const primeButton =
       devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
         <PrimeHeaderIconButtonLazy key="prime" visible />
@@ -161,12 +152,6 @@ export function HeaderRight({
       ].filter(Boolean);
     }
 
-    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [primeButton, notificationsButton, moreActionButton].filter(
-        Boolean,
-      );
-    }
-
     // notifications is not supported on web currently
     if (platformEnv.isWeb && !devSettings.enabled) {
       notificationsButton = null;
@@ -174,7 +159,6 @@ export function HeaderRight({
 
     return [
       primeButton,
-      scanButton,
       notificationsButton,
       searchInput,
       moreActionButton,
@@ -186,7 +170,6 @@ export function HeaderRight({
     firstTimeGuideOpened,
     intl,
     media.gtMd,
-    onScanButtonPressed,
     openNotificationsModal,
     sceneName,
   ]);
