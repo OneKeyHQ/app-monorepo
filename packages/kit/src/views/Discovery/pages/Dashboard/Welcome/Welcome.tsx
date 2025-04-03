@@ -173,11 +173,13 @@ export function Welcome({
   return (
     <XStack width="100%" $gtSm={{ justifyContent: 'center' }}>
       {/* Left side with logo items */}
-      <DappSideDisplay
-        items={LEFT_SIDE_ITEMS}
-        shuffledDapps={shuffledDapps}
-        sideStackProps={sideStackProps}
-      />
+      {!platformEnv.isNativeAndroid ? (
+        <DappSideDisplay
+          items={LEFT_SIDE_ITEMS}
+          shuffledDapps={shuffledDapps}
+          sideStackProps={sideStackProps}
+        />
+      ) : null}
 
       {/* Center content */}
       <Stack
