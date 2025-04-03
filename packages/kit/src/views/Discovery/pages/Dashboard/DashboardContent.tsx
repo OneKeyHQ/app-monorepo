@@ -115,14 +115,12 @@ function DashboardContent({
                 </Stack>
               ) : null}
 
-              {hasTrending ? (
-                <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
-                  <TrendingSection
-                    data={homePageData?.trending || []}
-                    isLoading={!!isLoading}
-                  />
-                </Stack>
-              ) : null}
+              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+                <TrendingSection
+                  data={homePageData?.trending || []}
+                  isLoading={!!isLoading}
+                />
+              </Stack>
             </>
           )}
         </Stack>
@@ -131,7 +129,6 @@ function DashboardContent({
     [
       hasActiveBanners,
       hasBookmarks,
-      hasTrending,
       homePageData?.banners,
       homePageData?.trending,
       isLoading,

@@ -20,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
+  useDecodedTxsAtom,
   useExtraFeeInfoAtom,
   useIsSinglePresetAtom,
   useNativeTokenInfoAtom,
@@ -95,6 +96,7 @@ function TxFeeInfo(props: IProps) {
   const [sendTxStatus] = useSendTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const [extraFeeInfo] = useExtraFeeInfoAtom();
+  const [{ decodedTxs }] = useDecodedTxsAtom();
   const {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
@@ -966,10 +968,17 @@ function TxFeeInfo(props: IProps) {
       nativeTokenInfo.balance ?? 0,
     );
 
-    updateSendTxStatus({
-      isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
+    const decodedTx = decodedTxs[0];
+
+    let isInsufficientNativeBalance = false;
+    if (!decodedTx.isPsbt) {
+      isInsufficientNativeBalance = nativeTokenTransferAmountToUpdate.isMaxSend
         ? false
-        : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0),
+        : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0);
+    }
+
+    updateSendTxStatus({
+      isInsufficientNativeBalance,
       fillUpNativeBalance: fillUpNativeBalance
         .sd(4, BigNumber.ROUND_UP)
         .toFixed(),
@@ -980,6 +989,7 @@ function TxFeeInfo(props: IProps) {
         .toFixed(),
     });
   }, [
+    decodedTxs,
     extraFeeInfo.feeNative,
     nativeTokenInfo,
     nativeTokenInfo.balance,

@@ -27,8 +27,6 @@ export function TrendingSection({
   const handleWebSite = useWebSiteHandler();
   const dataSource = useMemo<IDApp[]>(() => data ?? [], [data]);
 
-  const hasTrendingItems = dataSource.length > 0;
-
   const handleOpenWebSite = useCallback(
     ({ dApp, webSite }: IMatchDAppItemType) => {
       handleWebSite({
@@ -51,33 +49,11 @@ export function TrendingSection({
         </DashboardSectionHeader.Heading>
       </DashboardSectionHeader>
 
-      {hasTrendingItems ? (
-        <TrendingSectionItems
-          dataSource={dataSource}
-          handleOpenWebSite={handleOpenWebSite}
-        />
-      ) : (
-        <Stack
-          bg="$bgSubdued"
-          py="$6"
-          flex={1}
-          borderRadius="$3"
-          borderCurve="continuous"
-          justifyContent="center"
-        >
-          {isLoading ? (
-            <Skeleton w="100%" />
-          ) : (
-            <SizableText
-              size="$bodyLg"
-              color="$textDisabled"
-              textAlign="center"
-            >
-              No trending apps
-            </SizableText>
-          )}
-        </Stack>
-      )}
+      <TrendingSectionItems
+        isLoading={isLoading}
+        dataSource={dataSource}
+        handleOpenWebSite={handleOpenWebSite}
+      />
     </Stack>
   );
 }

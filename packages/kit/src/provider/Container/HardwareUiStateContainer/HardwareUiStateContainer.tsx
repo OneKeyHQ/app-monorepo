@@ -644,7 +644,8 @@ function HardwareUiStateContainerCmpControlled() {
                 try {
                   const promptWebUsbDeviceAccessFn =
                     platformEnv.isExtensionUiPopup ||
-                    platformEnv.isExtensionUiSidePanel
+                    platformEnv.isExtensionUiSidePanel ||
+                    platformEnv.isExtensionUiStandaloneWindow
                       ? toPromptWebDeviceAccessPage
                       : promptWebUsbDeviceAccess;
                   const result = await promptWebUsbDeviceAccessFn();
