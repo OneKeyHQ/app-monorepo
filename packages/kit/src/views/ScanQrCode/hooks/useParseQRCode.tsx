@@ -129,7 +129,6 @@ const useParseQRCode = () => {
                 networkId: network?.id ?? '',
               });
             if (isSingleToken) {
-              rootNavigationRef?.current?.goBack();
               const nativeToken =
                 await backgroundApiProxy.serviceToken.getNativeToken({
                   networkId: network.id,
@@ -170,7 +169,6 @@ const useParseQRCode = () => {
               if (newAccountId) {
                 accountId = newAccountId;
               } else {
-                rootNavigationRef?.current?.goBack();
                 showCopyDialog(value);
                 break;
               }
@@ -184,7 +182,6 @@ const useParseQRCode = () => {
                 tokenIdOnNetwork: chainValue.tokenAddress,
               });
               if (!token) {
-                rootNavigationRef?.current?.goBack();
                 showCopyDialog(value);
                 break;
               }
@@ -194,7 +191,7 @@ const useParseQRCode = () => {
                 accountId: account.id,
               });
             }
-            rootNavigationRef?.current?.goBack();
+
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
               screen: EModalSignatureConfirmRoutes.TxDataInput,
               params: {
