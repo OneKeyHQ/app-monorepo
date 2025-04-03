@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -20,13 +20,11 @@ import { useThemeVariant } from '../../../hooks/useThemeVariant';
 
 interface ISwapApprovingItemProps {
   approvingTransaction?: ISwapApproveTransaction;
-  progress: number;
   onComplete?: () => void;
 }
 
 const SwapApprovingItem = ({
   approvingTransaction,
-  progress = 1,
   onComplete,
 }: ISwapApprovingItemProps) => {
   const intl = useIntl();
@@ -34,43 +32,48 @@ const SwapApprovingItem = ({
   const [containerWidth, setContainerWidth] = useState(0);
   const isResetApprove = useMemo(() => {
     return new BigNumber(approvingTransaction?.amount ?? '0').isZero();
-  }, [approvingTransaction]);
+  }, [approvingTransaction?.amount]);
   const estTime = useMemo(() => {
     if (approvingTransaction?.fromToken.networkId === 'evm--1') {
       return approvingIntervalSecondsEth;
     }
     return approvingIntervalSecondsDefault;
-  }, [approvingTransaction]);
+  }, [approvingTransaction?.fromToken.networkId]);
 
-  const progressAnim = useMemo(() => new Animated.Value(0), []);
+  const progressAnim = useRef(new Animated.Value(0));
 
   const startProgress = useCallback(
     (duration?: number) => {
-      progressAnim.setValue(0);
-      Animated.timing(progressAnim, {
-        toValue: progress,
+      progressAnim.current.setValue(0);
+      Animated.timing(progressAnim.current, {
+        toValue: 1,
         duration: duration || 1000 * estTime,
         useNativeDriver: false,
       }).start();
     },
-    [estTime, progress, progressAnim],
+    [estTime],
   );
 
   const revertProgress = useCallback(() => {
-    Animated.timing(progressAnim, {
+    Animated.timing(progressAnim.current, {
       toValue: 0,
       duration: 1000,
       useNativeDriver: false,
     }).start();
-  }, [progressAnim]);
+  }, []);
 
   const completeProgress = useCallback(() => {
-    Animated.timing(progressAnim, {
+    Animated.timing(progressAnim.current, {
       toValue: 1,
       duration: 1000,
       useNativeDriver: false,
     }).start();
-  }, [progressAnim]);
+  }, []);
+
+  const onCompleteRef = useRef(onComplete);
+  if (onCompleteRef.current !== onComplete) {
+    onCompleteRef.current = onComplete;
+  }
 
   useEffect(() => {
     if (
@@ -79,9 +82,9 @@ const SwapApprovingItem = ({
     ) {
       startProgress();
     } else if (
-      approvingTransaction?.txId &&
-      (approvingTransaction?.status === ESwapApproveTransactionStatus.FAILED ||
-        approvingTransaction?.status === ESwapApproveTransactionStatus.CANCEL)
+      !approvingTransaction?.txId ||
+      approvingTransaction?.status === ESwapApproveTransactionStatus.FAILED ||
+      approvingTransaction?.status === ESwapApproveTransactionStatus.CANCEL
     ) {
       revertProgress();
     } else if (
@@ -89,18 +92,47 @@ const SwapApprovingItem = ({
       approvingTransaction?.status === ESwapApproveTransactionStatus.SUCCESS
     ) {
       completeProgress();
-      setTimeout(() => {
-        onComplete?.();
-      }, 1000);
+      if (!approvingTransaction?.resetApproveValue) {
+        setTimeout(() => {
+          onCompleteRef.current?.();
+        }, 1000);
+      }
     }
   }, [
-    approvingTransaction,
+    approvingTransaction?.txId,
+    approvingTransaction?.status,
+    approvingTransaction?.resetApproveValue,
     startProgress,
     revertProgress,
     completeProgress,
-    onComplete,
   ]);
 
+  const approveLabel = useMemo(() => {
+    if (isResetApprove) {
+      return intl.formatMessage(
+        { id: ETranslations.global_revoke_approve },
+        { symbol: approvingTransaction?.fromToken.symbol },
+      );
+    }
+    if (approvingTransaction?.resetApproveIsMax) {
+      return `${intl.formatMessage({
+        id: ETranslations.approve_edit_unlimited_amount,
+      })} ${approvingTransaction?.fromToken.symbol}`;
+    }
+    return intl.formatMessage(
+      { id: ETranslations.swap_approve_token },
+      {
+        num: approvingTransaction?.amount,
+        token: approvingTransaction?.fromToken.symbol,
+      },
+    );
+  }, [
+    isResetApprove,
+    approvingTransaction?.resetApproveIsMax,
+    approvingTransaction?.amount,
+    approvingTransaction?.fromToken.symbol,
+    intl,
+  ]);
   return (
     <XStack
       borderRadius="$2"
@@ -121,7 +153,7 @@ const SwapApprovingItem = ({
           left: 0,
           top: 0,
           bottom: 0,
-          width: progressAnim.interpolate({
+          width: progressAnim.current.interpolate({
             inputRange: [0, 1],
             outputRange: [0, containerWidth],
           }),
@@ -138,24 +170,7 @@ const SwapApprovingItem = ({
         />
         <YStack>
           <SizableText size="$bodyMd" maxWidth={182}>
-            {isResetApprove
-              ? intl.formatMessage(
-                  { id: ETranslations.global_revoke_approve },
-                  {
-                    symbol: approvingTransaction?.fromToken.symbol,
-                  },
-                )
-              : intl.formatMessage(
-                  { id: ETranslations.swap_approve_token },
-                  {
-                    num: approvingTransaction?.resetApproveIsMax
-                      ? intl.formatMessage({
-                          id: ETranslations.approve_edit_unlimited_amount,
-                        })
-                      : approvingTransaction?.amount,
-                    token: approvingTransaction?.fromToken.symbol,
-                  },
-                )}
+            {approveLabel}
           </SizableText>
           <SizableText size="$bodySm" color="$textSubdued">
             {`to ${approvingTransaction?.providerName ?? ''}`}
