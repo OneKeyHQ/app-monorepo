@@ -18,6 +18,7 @@ import { useTheme } from 'tamagui';
 import appGlobals from '@onekeyhq/shared/src/appGlobals';
 import { updateRootViewBackgroundColor } from '@onekeyhq/shared/src/modules3rdParty/rootview-background';
 import { navigationIntegration } from '@onekeyhq/shared/src/modules3rdParty/sentry';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { useSettingConfig } from '../../../hocs/Provider/hooks/useProviderValue';
 
@@ -55,6 +56,14 @@ export const useOnRouterChange = (callback: IRouterChangeEvent) => {
   }, []);
 };
 
+const useUpdateRootViewBackgroundColor = platformEnv.isNative
+  ? (color: string) => {
+      useEffect(() => {
+        updateRootViewBackgroundColor(color);
+      }, [color]);
+    }
+  : () => {};
+
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
   const handleReady = useCallback(() => {
     navigationIntegration.registerNavigationContainer(rootNavigationRef);
@@ -62,9 +71,7 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
   const { theme: themeName } = useSettingConfig();
   const theme = useTheme();
 
-  useEffect(() => {
-    updateRootViewBackgroundColor(theme.bgApp.val);
-  }, [theme.bgApp.val]);
+  useUpdateRootViewBackgroundColor(theme.bgApp.val);
 
   const themeOptions = useMemo(() => {
     return {
