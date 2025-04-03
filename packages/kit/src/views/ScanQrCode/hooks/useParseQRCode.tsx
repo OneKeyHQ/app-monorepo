@@ -175,11 +175,11 @@ const useParseQRCode = () => {
             }
 
             let nativeToken: IToken | null;
-            if (chainValue.targetAddress) {
+            if (chainValue.tokenAddress) {
               nativeToken = await backgroundApiProxy.serviceToken.getToken({
                 networkId,
                 accountId,
-                tokenIdOnNetwork: chainValue.targetAddress,
+                tokenIdOnNetwork: chainValue.tokenAddress,
               });
               if (!nativeToken) {
                 showCopyDialog(value);
