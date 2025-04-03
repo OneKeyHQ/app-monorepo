@@ -103,8 +103,8 @@ export function HeaderRight({
       </Stack>
     );
 
-    const moreActionButton = sceneName === EAccountSelectorSceneName.home ||
-      media.gtMd || (
+    const moreActionButton =
+      sceneName === EAccountSelectorSceneName.home || media.gtMd ? (
         <Stack flexDirection="row" alignItems="center" gap="$4">
           {children ? (
             <Stack
@@ -116,7 +116,7 @@ export function HeaderRight({
 
           <MoreActionButton key="more-action" />
         </Stack>
-      );
+      ) : null;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
