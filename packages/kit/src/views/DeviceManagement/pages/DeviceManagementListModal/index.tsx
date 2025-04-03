@@ -21,10 +21,12 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalDeviceManagementRoutes,
   EModalRoutes,
   EOnboardingPages,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
@@ -71,9 +73,22 @@ function DeviceManagementListModal() {
   }, [refreshHwQrWalletList]);
 
   const onAddDevice = useCallback(async () => {
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectYourDevice,
-    });
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+        routes: [
+          ERootRoutes.Modal,
+          EModalRoutes.OnboardingModal,
+          EOnboardingPages.ConnectYourDevice,
+        ],
+      });
+      if (platformEnv.isExtensionUiSidePanel) {
+        window.close();
+      }
+    } else {
+      appNavigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.ConnectYourDevice,
+      });
+    }
   }, [appNavigation]);
 
   const onWalletPressed = useCallback(
