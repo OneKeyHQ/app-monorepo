@@ -38,7 +38,7 @@ export interface IToastBaseProps extends IToastProps {
 
 const iconMap = {
   success: <Icon name="CheckRadioSolid" color="$iconSuccess" size="$5" />,
-  error: <Icon name="XCircleSolid" color="$iconCritical" size="$5" />,
+  error: <Icon name="ErrorSolid" color="$iconCritical" size="$5" />,
   info: <Icon name="InfoCircleSolid" color="$iconInfo" size="$5" />,
   warning: <Icon name="ErrorSolid" color="$iconCaution" size="$5" />,
 };
