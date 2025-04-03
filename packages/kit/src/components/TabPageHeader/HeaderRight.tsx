@@ -43,7 +43,9 @@ const ReactMoreActionButton = platformEnv.isNativeIOSPad
     }
   : () => {
       const media = useMedia();
-      return media.gtMd ? null : <MoreActionButton key="more-action" />;
+      return media.gtMd && !platformEnv.isNativeAndroid ? null : (
+        <MoreActionButton key="more-action" />
+      );
     };
 
 export function HeaderRight({
@@ -84,8 +86,9 @@ export function HeaderRight({
     });
   }, [navigation]);
 
+  const isShowGtMdItem = media.gtMd && !platformEnv.isNativeAndroid;
   const items = useMemo(() => {
-    const scanButton = media.gtMd ? (
+    const scanButton = isShowGtMdItem ? (
       <HeaderIconButton
         key="scan"
         title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
@@ -155,7 +158,7 @@ export function HeaderRight({
 
     const moreActionButton = <ReactMoreActionButton />;
 
-    const searchInput = media.gtMd ? (
+    const searchInput = isShowGtMdItem ? (
       <UniversalSearchInput key="searchInput" />
     ) : null;
 
@@ -192,7 +195,7 @@ export function HeaderRight({
     devSettings?.settings?.showPrimeTest,
     firstTimeGuideOpened,
     intl,
-    media.gtMd,
+    isShowGtMdItem,
     onScanButtonPressed,
     openNotificationsModal,
     sceneName,
