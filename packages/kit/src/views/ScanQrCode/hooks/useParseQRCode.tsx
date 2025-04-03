@@ -32,6 +32,7 @@ import {
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import { EQRCodeHandlerType } from '@onekeyhq/shared/types/qrCode';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { urlAccountNavigation } from '../../Home/pages/urlAccount/urlAccountUtils';
 import { marketNavigation } from '../../Market/marketUtils';
@@ -172,16 +173,26 @@ const useParseQRCode = () => {
                 break;
               }
             }
-            const nativeToken = chainValue.targetAddress
-              ? await backgroundApiProxy.serviceToken.getToken({
-                  networkId,
-                  accountId,
-                  tokenIdOnNetwork: chainValue.targetAddress,
-                })
-              : await backgroundApiProxy.serviceToken.getNativeToken({
+
+            let nativeToken: IToken | null;
+            if (chainValue.targetAddress) {
+              nativeToken = await backgroundApiProxy.serviceToken.getToken({
+                networkId,
+                accountId,
+                tokenIdOnNetwork: chainValue.targetAddress,
+              });
+              if (!nativeToken) {
+                showCopyDialog(value);
+                break;
+              }
+            } else {
+              nativeToken =
+                await backgroundApiProxy.serviceToken.getNativeToken({
                   networkId: network.id,
                   accountId: account.id,
                 });
+            }
+
             navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
               screen: EModalSignatureConfirmRoutes.TxDataInput,
               params: {
