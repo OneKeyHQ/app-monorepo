@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 
 import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
+import { HeaderRight } from '@onekeyhq/kit/src/components/TabPageHeader/HeaderRight';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import { HeaderRight } from '../../../../components/TabPageHeader/HeaderRight';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';

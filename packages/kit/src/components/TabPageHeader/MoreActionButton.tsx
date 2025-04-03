@@ -10,6 +10,7 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -20,14 +21,16 @@ import {
   EOnboardingPages,
 } from '@onekeyhq/shared/src/routes';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
+import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-export function MoreActionButton() {
+function MoreActionButtonCmp() {
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onLock = useOnLock();
@@ -233,5 +236,21 @@ export function MoreActionButton() {
         },
       ]}
     />
+  );
+}
+
+export function MoreActionButton() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+    >
+      <HomeTokenListProviderMirror>
+        <MoreActionButtonCmp />
+      </HomeTokenListProviderMirror>
+    </AccountSelectorProviderMirror>
   );
 }
