@@ -30,8 +30,6 @@ export function HeaderRight({
 }: {
   sceneName: EAccountSelectorSceneName;
 }) {
-  console.log('sceneName', sceneName);
-
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
@@ -104,19 +102,21 @@ export function HeaderRight({
       </Stack>
     );
 
-    const moreActionButton = <MoreActionButton key="more-action" />;
-
-    const searchInput = media.gtMd ? (
-      <Stack flexDirection="row" alignItems="center" gap="$4">
+    const searchInput =
+      media.gtMd && sceneName === EAccountSelectorSceneName.home ? (
         <UniversalSearchInput key="searchInput" />
+      ) : null;
 
+    const moreActionButton = (
+      <Stack flexDirection="row" alignItems="center" gap="$4">
         <Stack
           height="$4"
           borderRightWidth={1}
           borderRightColor="$borderSubdued"
         />
+        <MoreActionButton key="more-action" />;
       </Stack>
-    ) : null;
+    );
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
