@@ -114,7 +114,7 @@ export function HeaderRight({
           borderRightWidth={1}
           borderRightColor="$borderSubdued"
         />
-        <MoreActionButton key="more-action" />;
+        <MoreActionButton key="more-action" />
       </Stack>
     );
 
