@@ -970,11 +970,13 @@ function TxFeeInfo(props: IProps) {
 
     const decodedTx = decodedTxs[0];
 
-    let isInsufficientNativeBalance = false;
-    if (!decodedTx.isPsbt) {
-      isInsufficientNativeBalance = nativeTokenTransferAmountToUpdate.isMaxSend
+    let isInsufficientNativeBalance =
+      nativeTokenTransferAmountToUpdate.isMaxSend
         ? false
         : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0);
+
+    if (decodedTx && decodedTx.isPsbt) {
+      isInsufficientNativeBalance = false;
     }
 
     updateSendTxStatus({
