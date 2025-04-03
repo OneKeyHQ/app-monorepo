@@ -8,11 +8,6 @@ import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import {
   useDevSettingsPersistAtom,
   useNotificationsAtom,
@@ -26,7 +21,6 @@ import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
-import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 
 import { MoreActionButton } from './MoreActionButton';
 import { UniversalSearchInput } from './UniversalSearchInput';
@@ -38,29 +32,8 @@ export function HeaderRight({
 }) {
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
-
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
-  const onScanButtonPressed = useCallback(
-    () =>
-      scanQrCode.start({
-        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-        autoHandleResult: true,
-        account,
-        tokens: {
-          data: allTokens.tokens,
-          keys: allTokens.keys,
-          map,
-        },
-      }),
-    [scanQrCode, account, allTokens, map],
-  );
 
   const media = useMedia();
   const openNotificationsModal = useCallback(async () => {
