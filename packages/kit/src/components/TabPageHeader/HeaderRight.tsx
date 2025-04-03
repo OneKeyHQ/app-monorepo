@@ -30,6 +30,8 @@ export function HeaderRight({
 }: {
   sceneName: EAccountSelectorSceneName;
 }) {
+  console.log('sceneName', sceneName);
+
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
