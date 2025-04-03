@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { Page, Stack } from '@onekeyhq/components';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HeaderLeft } from '../../../components/TabPageHeader/HeaderLeft';
@@ -15,7 +16,10 @@ export function MarketHomeHeader() {
   );
   const renderHeaderRight = useCallback(
     () => (
-      <HeaderRight sceneName={EAccountSelectorSceneName.market}>
+      <HeaderRight
+        sceneName={EAccountSelectorSceneName.home}
+        tabRoute={ETabRoutes.Market}
+      >
         <Stack width={184}>
           <MarketHomeHeaderSearchBar />
         </Stack>

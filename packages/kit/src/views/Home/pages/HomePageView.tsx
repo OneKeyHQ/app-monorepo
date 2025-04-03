@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -266,7 +267,13 @@ export function HomePageView({
 
   const renderHomePage = useCallback(() => {
     if (!ready) {
-      return <TabPageHeader showHeaderRight sceneName={sceneName} />;
+      return (
+        <TabPageHeader
+          showHeaderRight
+          sceneName={sceneName}
+          tabRoute={ETabRoutes.Home}
+        />
+      );
     }
 
     let content = (
@@ -281,7 +288,11 @@ export function HomePageView({
     }
     return (
       <>
-        <TabPageHeader showHeaderRight sceneName={sceneName}>
+        <TabPageHeader
+          showHeaderRight
+          sceneName={sceneName}
+          tabRoute={ETabRoutes.Home}
+        >
           {media.gtMd && sceneName === EAccountSelectorSceneName.home ? (
             <UniversalSearchInput key="searchInput" />
           ) : null}
