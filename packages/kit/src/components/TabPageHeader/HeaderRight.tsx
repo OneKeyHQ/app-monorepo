@@ -31,7 +31,6 @@ export function HeaderRight({
   sceneName: EAccountSelectorSceneName;
   children?: ReactNode;
 }) {
-  console.log('children', children);
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();

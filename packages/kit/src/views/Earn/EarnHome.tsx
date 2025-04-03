@@ -917,15 +917,11 @@ function BasicEarnHome() {
 
   return (
     <Page fullPage>
-      <TabPageHeader
-        showHeaderRight
-        sceneName={EAccountSelectorSceneName.earn}
-        showCustomHeaderRight={
-          devSettings.settings?.showOneKeyId
-            ? renderCustomHeaderRight
-            : undefined
-        }
-      />
+      <TabPageHeader showHeaderRight sceneName={EAccountSelectorSceneName.earn}>
+        {devSettings.settings?.showOneKeyId
+          ? renderCustomHeaderRight()
+          : undefined}
+      </TabPageHeader>
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$5' }}
