@@ -81,10 +81,12 @@ async function hardwareEvmSignTransaction({
 
   const value = encodedTx.value ?? '0x0';
   const data = encodedTx.data ?? '0x';
+  const to = encodedTx.to ?? '';
 
   if (isEip1559) {
     const txToSignEIP1559: EVMTransactionEIP1559 = {
       ...omit(encodedTx, 'from'),
+      to,
       value,
       data,
       chainId,
@@ -98,6 +100,7 @@ async function hardwareEvmSignTransaction({
   } else {
     const txToSignNormal: EVMTransaction = {
       ...omit(encodedTx, 'from'),
+      to,
       value,
       data,
       chainId,
