@@ -15,6 +15,7 @@ import type { ITabPageHeaderProp } from './type';
 
 export function TabPageHeader({
   sceneName,
+  tabRoute,
   showHeaderRight,
   showCustomHeaderRight,
   children,
@@ -35,11 +36,13 @@ export function TabPageHeader({
       showHeaderRight && config ? (
         <HomeTokenListProviderMirror>
           <AccountSelectorProviderMirror enabledNum={[0]} config={config}>
-            <HeaderRight sceneName={sceneName}>{children}</HeaderRight>
+            <HeaderRight sceneName={sceneName} tabRoute={tabRoute}>
+              {children}
+            </HeaderRight>
           </AccountSelectorProviderMirror>
         </HomeTokenListProviderMirror>
       ) : null,
-    [children, config, sceneName, showHeaderRight],
+    [children, config, sceneName, showHeaderRight, tabRoute],
   );
 
   const renderHeaderTitle = useCallback(

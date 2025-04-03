@@ -1,14 +1,17 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
 import pRetry from 'p-retry';
 
 import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useBannerData } from '../../hooks/useBannerData';
+import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { DashboardBanner } from './Banner';
 import { BookmarksSection } from './BookmarksSection';
@@ -65,7 +68,7 @@ function DashboardContent({
   const { hasActiveBanners } = useBannerData(homePageData?.banners || []);
 
   // Add usePromiseResult hooks to get bookmark and trending data
-  const { result: bookmarksData } = usePromiseResult(
+  const { result: bookmarksData, run: refreshBookmarks } = usePromiseResult(
     async () => {
       const bookmarks =
         await backgroundApiProxy.serviceDiscovery.getBookmarkData({
@@ -80,6 +83,22 @@ function DashboardContent({
       watchLoading: true,
     },
   );
+
+  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
+    if (isFocus) {
+      // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
+      setTimeout(() => {
+        void refreshBookmarks();
+      });
+    }
+  });
+
+  const { displayHomePage } = useDisplayHomePageFlag();
+  useEffect(() => {
+    if (displayHomePage && platformEnv.isNative) {
+      void refreshBookmarks();
+    }
+  }, [displayHomePage, refreshBookmarks]);
 
   // Check if both bookmarks and trending have no data
   const hasBookmarks = bookmarksData && bookmarksData.length > 0;

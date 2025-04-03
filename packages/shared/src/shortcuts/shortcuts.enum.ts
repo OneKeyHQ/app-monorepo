@@ -84,17 +84,17 @@ export const shortcutsMap: Record<
     keys: [shortcutsKeys.CmdOrCtrl, '1'],
     desc: 'Wallet Tab',
   },
-  [EShortcutEvents.TabEarn]: {
+  [EShortcutEvents.TabMarket]: {
     keys: [shortcutsKeys.CmdOrCtrl, '2'],
-    desc: 'Earn Tab',
+    desc: 'Market Tab',
   },
   [EShortcutEvents.TabSwap]: {
     keys: [shortcutsKeys.CmdOrCtrl, '3'],
     desc: 'Swap Tab',
   },
-  [EShortcutEvents.TabMarket]: {
+  [EShortcutEvents.TabEarn]: {
     keys: [shortcutsKeys.CmdOrCtrl, '4'],
-    desc: 'Market Tab',
+    desc: 'Earn Tab',
   },
   [EShortcutEvents.TabBrowser]: {
     keys: [shortcutsKeys.CmdOrCtrl, '5'],
