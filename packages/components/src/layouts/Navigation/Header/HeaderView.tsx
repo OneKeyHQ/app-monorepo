@@ -117,6 +117,7 @@ function HeaderView({
       <Stack
         alignItems="center"
         bg={headerTransparent ? 'transparent' : '$bgApp'}
+        bg="red"
         style={
           headerTransparent && !platformEnv.isNativeAndroid
             ? { position: 'absolute', right: 0, left: 0 }
