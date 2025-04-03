@@ -376,6 +376,7 @@ function DesktopCustomTabBar() {
                 ) : null}
               </XStack>
               <DesktopTabItem
+                size="small"
                 key="AddTabButton"
                 label={intl.formatMessage({
                   id: ETranslations.explore_new_tab,
