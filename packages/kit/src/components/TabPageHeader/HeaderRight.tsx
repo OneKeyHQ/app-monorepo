@@ -110,8 +110,8 @@ export function HeaderRight({
     );
     const moreActionButton =
       (platformEnv.isNativeIOSPad && !isIpadLandscape) ||
-      (platformEnv.isNativeAndroid && media.gtMd) ||
       sceneName === EAccountSelectorSceneName.home ||
+      platformEnv.isNativeAndroid ||
       media.gtMd ? (
         <Stack flexDirection="row" alignItems="center" gap="$4">
           {children ? (
