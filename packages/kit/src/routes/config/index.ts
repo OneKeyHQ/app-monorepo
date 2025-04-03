@@ -4,11 +4,10 @@ import { useMemo } from 'react';
 import { getPathFromState as getPathFromStateDefault } from '@react-navigation/core';
 import { createURL } from 'expo-linking';
 
-import type { INavigationContainerProps } from '@onekeyhq/components';
 import {
+  type INavigationContainerProps,
   rootNavigationRef,
   useRouterEventsRef,
-  useThemeValue,
 } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes';
@@ -16,6 +15,7 @@ import { getExtensionIndexHtml } from '@onekeyhq/shared/src/utils/extUtils';
 import type { IScreenPathConfig } from '@onekeyhq/shared/src/utils/routeUtils';
 import { buildAllowList } from '@onekeyhq/shared/src/utils/routeUtils';
 
+import { useThemeVariant } from '../../hooks/useThemeVariant';
 import { rootRouter, useRootRouter } from '../router';
 
 import { registerDeepLinking } from './deeplink';
@@ -140,19 +140,11 @@ const useBuildLinking = (): LinkingOptions<any> => {
 export const useRouterConfig = () => {
   const routerRef = useRouterEventsRef();
   const linking = useBuildLinking();
-  const bgAppColor = useThemeValue('bgApp');
+
   return useMemo(() => {
     // Execute it before component mount.
     registerDeepLinking();
     return {
-      theme: {
-        dark: false,
-        colors: {
-          background: bgAppColor,
-          card: bgAppColor,
-          border: bgAppColor,
-        },
-      },
       routerConfig: rootRouter,
       containerProps: {
         documentTitle: {
@@ -164,5 +156,5 @@ export const useRouterConfig = () => {
         linking,
       } as INavigationContainerProps,
     };
-  }, [bgAppColor, linking, routerRef]);
+  }, [linking, routerRef]);
 };
