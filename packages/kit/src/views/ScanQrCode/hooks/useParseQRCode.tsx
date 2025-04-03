@@ -124,28 +124,6 @@ const useParseQRCode = () => {
             if (!network) {
               break;
             }
-            const { isSingleToken } =
-              await backgroundApiProxy.serviceNetwork.getVaultSettings({
-                networkId: network?.id ?? '',
-              });
-            if (isSingleToken) {
-              rootNavigationRef?.current?.goBack();
-              const nativeToken =
-                await backgroundApiProxy.serviceToken.getNativeToken({
-                  networkId: network.id,
-                  accountId: account.id,
-                });
-              navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-                screen: EModalSignatureConfirmRoutes.TxDataInput,
-                params: {
-                  accountId: account.id,
-                  networkId: network.id,
-                  isNFT: false,
-                  token: nativeToken,
-                },
-              });
-              break;
-            }
 
             const networkId = network?.id ?? '';
             const getAccountIdOnNetwork = async () => {
