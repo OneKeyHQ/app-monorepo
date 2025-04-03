@@ -3,12 +3,7 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import {
-  SizableText,
-  Stack,
-  useIsIpadLandscape,
-  useMedia,
-} from '@onekeyhq/components';
+import { Divider, SizableText, Stack, useMedia } from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
@@ -35,16 +30,6 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 
 import { MoreActionButton } from './MoreActionButton';
 import { UniversalSearchInput } from './UniversalSearchInput';
-
-const ReactMoreActionButton = platformEnv.isNativeIOSPad
-  ? () => {
-      const isIpadLandscape = useIsIpadLandscape();
-      return isIpadLandscape ? null : <MoreActionButton key="more-action" />;
-    }
-  : () => {
-      const media = useMedia();
-      return media.gtMd ? null : <MoreActionButton key="more-action" />;
-    };
 
 export function HeaderRight({
   sceneName,
@@ -153,10 +138,18 @@ export function HeaderRight({
       </Stack>
     );
 
-    const moreActionButton = <ReactMoreActionButton />;
+    const moreActionButton = <MoreActionButton key="more-action" />;
 
     const searchInput = media.gtMd ? (
-      <UniversalSearchInput key="searchInput" />
+      <Stack flexDirection="row" alignItems="center" gap="$4">
+        <UniversalSearchInput key="searchInput" />
+
+        <Stack
+          height="$4"
+          borderRightWidth={1}
+          borderRightColor="$borderSubdued"
+        />
+      </Stack>
     ) : null;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
@@ -183,8 +176,8 @@ export function HeaderRight({
       primeButton,
       scanButton,
       notificationsButton,
-      moreActionButton,
       searchInput,
+      moreActionButton,
     ].filter(Boolean);
   }, [
     badge,
