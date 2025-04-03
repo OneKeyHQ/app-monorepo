@@ -21,13 +21,13 @@ const sui: IQRCodeHandler<ISuiValue> = async (value, options) => {
     };
     const result = parsePayUrl(urlValue.data.url);
     if (result && (await checkAddress(result.address))) {
-      const { address, targetAddress } = result;
+      const { address, tokenAddress } = result;
       return {
         type: EQRCodeHandlerType.SUI,
         data: {
           network,
           address,
-          targetAddress,
+          tokenAddress,
         },
       };
     }

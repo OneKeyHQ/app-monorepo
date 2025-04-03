@@ -21,7 +21,7 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-call
   const parseValue = ethParser(value);
   const {
-    target_address: targetAddress,
+    target_address: tokenAddress,
     function_name: functionName,
     chain_id: chainId = '1',
     parameters: { address, uint256, value: amountValue } = {
@@ -36,9 +36,9 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
   if (functionName === 'transfer' && address) {
     nativeAmount = uint256;
     sendAddress = address;
-  } else if (targetAddress) {
+  } else if (tokenAddress) {
     nativeAmount = amountValue;
-    sendAddress = targetAddress;
+    sendAddress = tokenAddress;
   }
   if (sendAddress) {
     const networkList =
@@ -50,7 +50,7 @@ const ethereum: IQRCodeHandler<IEthereumValue> = async (value, options) => {
       address: sendAddress,
       id: chainId,
       network,
-      targetAddress,
+      tokenAddress,
     };
     if (nativeAmount && network) {
       ethereumValue.amount = chainValueUtils.convertGweiToAmount({

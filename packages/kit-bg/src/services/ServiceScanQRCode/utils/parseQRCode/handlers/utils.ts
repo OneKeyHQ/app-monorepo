@@ -10,17 +10,17 @@ export const parsePayUrl = (url: string) => {
     const [pathNetwork, functionName] = path.split('/');
     const pathSegments = pathNetwork.split(':');
     const networkName = pathSegments[0];
-    const targetAddress = pathSegments.slice(1).join(':');
+    const tokenAddress = pathSegments.slice(1).join(':');
     const params = qs.parse(query || '') as {
       address: string;
     };
     const address = params.address;
 
-    if (address && networkName && targetAddress && functionName) {
+    if (address && networkName && tokenAddress && functionName) {
       return {
         address,
         networkName,
-        targetAddress,
+        tokenAddress,
         functionName,
       };
     }
