@@ -1731,7 +1731,7 @@ const sei: IServerNetwork = {
   'impl': 'evm',
   'chainId': '1329',
   'id': 'evm--1329',
-  'name': 'Sei Network',
+  'name': 'Sei',
   'symbol': 'SEI',
   'code': 'sei',
   'shortcode': 'sei',
