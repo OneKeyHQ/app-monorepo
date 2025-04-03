@@ -21,7 +21,7 @@ public class RootViewBackgroundModule extends ReactContextBaseJavaModule {
 
     @Override
     public String getName() {
-        return "RootViewBackgroundModule";
+        return "RootViewBackground";
     }
 
     public void log(String name, String msg) {
