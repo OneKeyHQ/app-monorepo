@@ -10,6 +10,7 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -28,6 +29,7 @@ import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 
 export function MoreActionButton() {
+  const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onLock = useOnLock();
@@ -182,7 +184,7 @@ export function MoreActionButton() {
             ...popupMenu,
           ].filter(Boolean),
         },
-        {
+        devSettings.settings?.showOneKeyId && {
           items: [
             {
               label: 'OneKey ID',
@@ -231,7 +233,7 @@ export function MoreActionButton() {
             },
           ],
         },
-      ]}
+      ].filter(Boolean)}
     />
   );
 }
