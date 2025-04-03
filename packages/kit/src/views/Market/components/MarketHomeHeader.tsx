@@ -4,6 +4,7 @@ import { Page, Stack } from '@onekeyhq/components';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import { HeaderLeft } from '../../../components/TabPageHeader/HeaderLeft';
+import { HeaderRight } from '../../../components/TabPageHeader/HeaderRight';
 
 import { MarketHomeHeaderSearchBar } from './MarketHomeHeaderSearchBar';
 
@@ -14,9 +15,11 @@ export function MarketHomeHeader() {
   );
   const renderHeaderRight = useCallback(
     () => (
-      <Stack width={280}>
-        <MarketHomeHeaderSearchBar />
-      </Stack>
+      <HeaderRight sceneName={EAccountSelectorSceneName.market}>
+        <Stack width={184}>
+          <MarketHomeHeaderSearchBar />
+        </Stack>
+      </HeaderRight>
     ),
     [],
   );

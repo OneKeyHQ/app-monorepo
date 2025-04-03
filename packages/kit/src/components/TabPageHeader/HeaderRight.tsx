@@ -23,19 +23,20 @@ import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccoun
 import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 
 import { MoreActionButton } from './MoreActionButton';
-import { UniversalSearchInput } from './UniversalSearchInput';
 
 export function HeaderRight({
   sceneName,
+  children,
 }: {
   sceneName: EAccountSelectorSceneName;
+  children?: ReactNode;
 }) {
+  console.log('children', children);
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
 
-  const media = useMedia();
   const openNotificationsModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
@@ -102,15 +103,9 @@ export function HeaderRight({
       </Stack>
     );
 
-    const searchInput =
-      media.gtMd && sceneName === EAccountSelectorSceneName.home ? (
-        <UniversalSearchInput key="searchInput" />
-      ) : null;
-
     const moreActionButton = (
       <Stack flexDirection="row" alignItems="center" gap="$4">
-        {sceneName === EAccountSelectorSceneName.home ||
-        sceneName === EAccountSelectorSceneName.discover ? (
+        {children ? (
           <Stack
             height="$4"
             borderRightWidth={1}
@@ -141,16 +136,16 @@ export function HeaderRight({
     return [
       primeButton,
       notificationsButton,
-      searchInput,
+      children,
       moreActionButton,
     ].filter(Boolean);
   }, [
     badge,
+    children,
     devSettings.enabled,
     devSettings?.settings?.showPrimeTest,
     firstTimeGuideOpened,
     intl,
-    media.gtMd,
     openNotificationsModal,
     sceneName,
   ]);
