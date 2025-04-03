@@ -182,11 +182,15 @@ function HardwareSingletonDialogCmp(
 
     // EnterPassphrase on App
     if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
+      const isSingleInput = !!state?.payload?.passphraseState;
       const saveCachedHiddenWalletOptions = async ({
         hideImmediately,
       }: {
         hideImmediately: boolean;
       }) => {
+        if (isSingleInput) {
+          return;
+        }
         await serviceSetting.setHiddenWalletImmediately(hideImmediately);
       };
       title = intl.formatMessage({
@@ -194,7 +198,7 @@ function HardwareSingletonDialogCmp(
       });
       content = (
         <EnterPhase
-          isSingleInput={!!state?.payload?.passphraseState}
+          isSingleInput={isSingleInput}
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
               hideImmediately,
