@@ -822,6 +822,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     quote.quoteId === preApproveTx.quoteId,
                 );
                 set(swapQuoteListAtom(), [...updateQuoteList]);
+                if (updateQuoteList.length > 0) {
+                  set(swapQuoteEventTotalCountAtom(), {
+                    count: updateQuoteList.length,
+                    eventId: updateQuoteList[0].eventId,
+                  });
+                }
               }
               await backgroundApiProxy.serviceSwap.setApprovingTransaction(
                 newApproveTx,

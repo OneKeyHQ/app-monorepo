@@ -24,6 +24,19 @@ import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHea
 
 import { MoreActionButton } from './MoreActionButton';
 
+
+const ReactMoreActionButton2 = platformEnv.isNativeIOSPad
+  ? () => {
+      const isIpadLandscape = useIsIpadLandscape();
+      return isIpadLandscape ? null : <MoreActionButton key="more-action" />;
+    }
+  : () => {
+      const media = useMedia();
+      return media.gtMd && !platformEnv.isNativeAndroid ? null : (
+        <MoreActionButton key="more-action" />
+      );
+    };
+
 export function HeaderRight({
   sceneName,
   children,
@@ -43,6 +56,7 @@ export function HeaderRight({
     });
   }, [navigation]);
 
+  const isShowGtMdItem = media.gtMd && !platformEnv.isNativeAndroid;
   const items = useMemo(() => {
     const primeButton =
       devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
@@ -102,7 +116,6 @@ export function HeaderRight({
         ) : null}
       </Stack>
     );
-
     const moreActionButton =
       sceneName === EAccountSelectorSceneName.home || media.gtMd ? (
         <Stack flexDirection="row" alignItems="center" gap="$4">
@@ -149,6 +162,8 @@ export function HeaderRight({
     firstTimeGuideOpened,
     intl,
     media.gtMd,
+    isShowGtMdItem,
+    onScanButtonPressed,
     openNotificationsModal,
     sceneName,
   ]);

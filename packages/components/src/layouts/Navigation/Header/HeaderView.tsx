@@ -57,7 +57,6 @@ function HeaderView({
     headerSearchBarOptions,
     headerTitleStyle,
   } = options || {};
-
   const theme = useTheme();
   const state = navigation?.getState();
   const canGoBack = headerBack !== undefined;
@@ -98,17 +97,18 @@ function HeaderView({
 
   const { gtMd } = useMedia();
 
+  const isGtMd = gtMd && !platformEnv.isNativeAndroid;
   const layout = useMemo(() => {
     if (platformEnv.isNative) {
       return undefined;
     }
     if (isModelScreen) {
-      return gtMd
+      return isGtMd
         ? ({ width: 640 } as Layout)
         : ({ width: window.innerWidth } as Layout);
     }
     return undefined;
-  }, [gtMd, isModelScreen]);
+  }, [isGtMd, isModelScreen]);
   if (!headerShown) {
     return null;
   }
@@ -126,17 +126,23 @@ function HeaderView({
         // borderBottomColor="$borderSubdued"
         pointerEvents="box-none"
         {...(!isModelScreen && {
-          $gtMd: {
-            flexDirection: 'row',
-          },
+          $gtMd: platformEnv.isNativeAndroid
+            ? undefined
+            : {
+                flexDirection: 'row',
+              },
         })}
       >
         <Stack
           alignSelf="stretch"
           px="$5"
-          $gtMd={{
-            flex: 1,
-          }}
+          $gtMd={
+            platformEnv.isNativeAndroid
+              ? undefined
+              : {
+                  flex: 1,
+                }
+          }
         >
           <Header
             layout={layout}
