@@ -1699,6 +1699,62 @@ const rsk: IServerNetwork = {
   'backendIndex': false,
 };
 
+const berachain: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '80094',
+  'id': 'evm--80094',
+  'name': 'Berachain',
+  'symbol': 'BERA',
+  'code': 'bera',
+  'shortcode': 'bera',
+  'shortname': 'bera',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': true,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/berachain.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
+const sei: IServerNetwork = {
+  'impl': 'evm',
+  'chainId': '1329',
+  'id': 'evm--1329',
+  'name': 'Sei',
+  'symbol': 'SEI',
+  'code': 'sei',
+  'shortcode': 'sei',
+  'shortname': 'sei',
+  'decimals': 18,
+  'feeMeta': {
+    'decimals': 9,
+    'symbol': 'Gwei',
+    'isEIP1559FeeEnabled': false,
+    'isWithL1BaseFee': false,
+  },
+  'status': ENetworkStatus.LISTED,
+  'isTestnet': false,
+  'extensions': {
+    'position': 999,
+    'isTokenSupported': true,
+    'isNFTEnabled': false,
+  },
+  'logoURI': 'https://uni.onekey-asset.com/static/chain/sei.png',
+  'defaultEnabled': false,
+  'backendIndex': false,
+};
+
 const btc: IServerNetwork = {
   'chainId': '0',
   'code': 'btc',
@@ -2864,6 +2920,8 @@ export const getPresetNetworks = memoFn((): IServerNetwork[] => {
     sonic,
     hsk,
     rsk,
+    berachain,
+    sei,
 
     // cosmos
     celestia,
