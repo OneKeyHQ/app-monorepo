@@ -31,6 +31,7 @@ export function HeaderRight({
   sceneName: EAccountSelectorSceneName;
   children?: ReactNode;
 }) {
+  const media = useMedia();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
@@ -102,18 +103,20 @@ export function HeaderRight({
       </Stack>
     );
 
-    const moreActionButton = (
-      <Stack flexDirection="row" alignItems="center" gap="$4">
-        {children ? (
-          <Stack
-            height="$4"
-            borderRightWidth={1}
-            borderRightColor="$borderSubdued"
-          />
-        ) : null}
-        <MoreActionButton key="more-action" />
-      </Stack>
-    );
+    const moreActionButton = sceneName === EAccountSelectorSceneName.home ||
+      media.gtMd || (
+        <Stack flexDirection="row" alignItems="center" gap="$4">
+          {children ? (
+            <Stack
+              height="$4"
+              borderRightWidth={1}
+              borderRightColor="$borderSubdued"
+            />
+          ) : null}
+
+          <MoreActionButton key="more-action" />
+        </Stack>
+      );
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
@@ -145,9 +148,11 @@ export function HeaderRight({
     devSettings?.settings?.showPrimeTest,
     firstTimeGuideOpened,
     intl,
+    media.gtMd,
     openNotificationsModal,
     sceneName,
   ]);
+
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"
