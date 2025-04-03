@@ -82,9 +82,9 @@ function DashboardContent({
   );
 
   // Check if both bookmarks and trending have no data
-  const hasBookmarks = (bookmarksData && bookmarksData.length > 0) || false;
+  const hasBookmarks = bookmarksData && bookmarksData.length > 0;
   const hasTrending =
-    (homePageData?.trending && homePageData.trending.length > 0) || false;
+    homePageData?.trending && homePageData.trending.length > 0;
   const showDiveInDescription = !hasBookmarks && !hasTrending;
 
   const content = useMemo(

@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
 
-import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Icon, Page, Stack, Tab, YStack, useMedia } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -18,6 +18,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -261,6 +262,8 @@ export function HomePageView({
     network?.id,
   ]);
 
+  const media = useMedia();
+
   const renderHomePage = useCallback(() => {
     if (!ready) {
       return <TabPageHeader showHeaderRight sceneName={sceneName} />;
@@ -278,7 +281,11 @@ export function HomePageView({
     }
     return (
       <>
-        <TabPageHeader showHeaderRight sceneName={sceneName} />
+        <TabPageHeader showHeaderRight sceneName={sceneName}>
+          {media.gtMd && sceneName === EAccountSelectorSceneName.home ? (
+            <UniversalSearchInput key="searchInput" />
+          ) : null}
+        </TabPageHeader>
         <Page.Body>
           <NetworkAlert />
           {
@@ -294,7 +301,7 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, renderHomePageContent]);
+  }, [ready, wallet, sceneName, media.gtMd, renderHomePageContent]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,

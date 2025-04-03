@@ -28,7 +28,7 @@ export function UniversalSearchInput() {
   useShortcutsOnRouteFocused(SEARCH_IN_PAGE_KEY, toUniversalSearchPage);
 
   return (
-    <XStack w={280}>
+    <XStack w={184}>
       <Input
         leftIconName="SearchOutline"
         containerProps={{ w: '100%' }}
