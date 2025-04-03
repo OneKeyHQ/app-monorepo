@@ -18,24 +18,13 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalDeviceManagementRoutes,
-  EModalRoutes,
-  EModalSettingRoutes,
-  EOnboardingPages,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useLoginOneKeyId } from '../../../hooks/useLoginOneKeyId';
-import { useReferFriends } from '../../../hooks/useReferFriends';
 
 import type { GestureResponderEvent } from 'react-native';
 
