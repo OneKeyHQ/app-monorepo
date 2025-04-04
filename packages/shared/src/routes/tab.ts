@@ -1,5 +1,6 @@
 import type { IDemoDeveloperTabParamList } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 import type {
+  IModalDeviceManagementParamList,
   IMultiTabBrowserParamList,
   ITabDiscoveryParamList,
   ITabHomeParamList,
@@ -19,6 +20,7 @@ export enum ETabRoutes {
   Earn = 'Earn',
   Swap = 'Swap',
   MultiTabBrowser = 'MultiTabBrowser',
+  DeviceManagement = 'DeviceManagement',
 }
 
 export type ITabStackParamList = {
@@ -30,4 +32,5 @@ export type ITabStackParamList = {
   [ETabRoutes.Market]: ITabMarketParamList;
   [ETabRoutes.Swap]: ITabSwapParamList;
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
+  [ETabRoutes.DeviceManagement]: IModalDeviceManagementParamList;
 };

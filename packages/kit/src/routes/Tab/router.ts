@@ -1,14 +1,26 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { getTokenValue, useMedia } from '@onekeyhq/components';
+import {
+  getTokenValue,
+  rootNavigationRef,
+  useMedia,
+} from '@onekeyhq/components';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalDeviceManagementRoutes,
+  EModalRoutes,
+  EOnboardingPages,
+  ERootRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import useAppNavigation from '../../hooks/useAppNavigation';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 
@@ -50,7 +62,7 @@ const getDiscoverRouterConfig = (
 };
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
-  const { md } = useMedia();
+  const { md, gtMd } = useMedia();
 
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
 
@@ -61,6 +73,34 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       !(platformEnv.isExtensionUiSidePanel && md),
     [isShowDesktopDiscover, md],
   );
+
+  const toMyOneKeyModal = useCallback(async () => {
+    try {
+      const allHwQrWallet =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: true,
+        });
+      if (Object.keys(allHwQrWallet).length > 0) {
+        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+          screen: EModalRoutes.DeviceManagementModal,
+          params: {
+            screen: EModalDeviceManagementRoutes.DeviceListModal,
+          },
+        });
+        return;
+      }
+
+      rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+        screen: EModalRoutes.OnboardingModal,
+        params: {
+          screen: EOnboardingPages.DeviceManagementGuide,
+        },
+      });
+    } catch (error) {
+      console.error('Failed to handle device management:', error);
+    }
+  }, []);
+
   return useMemo(
     () =>
       [
@@ -104,6 +144,15 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: earnRouters,
         },
+        gtMd
+          ? {
+              name: ETabRoutes.DeviceManagement,
+              tabBarIcon: (focused?: boolean) => 'OnekeyDeviceCustom',
+              translationId: ETranslations.global_my_onekey,
+              onPress: toMyOneKeyModal,
+              children: null,
+            }
+          : undefined,
         isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
         platformEnv.isDev
           ? {
@@ -137,7 +186,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       ].filter<ITabNavigatorConfig<ETabRoutes>>(
         (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
       ),
-    [isShowDesktopDiscover, isShowMDDiscover, params],
+    [gtMd, isShowDesktopDiscover, isShowMDDiscover, params, toMyOneKeyModal],
   );
 };
 

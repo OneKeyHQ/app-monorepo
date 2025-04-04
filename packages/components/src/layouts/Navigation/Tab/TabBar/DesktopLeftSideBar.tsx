@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
 import { CommonActions } from '@react-navigation/native';
 import { MotiView } from 'moti';
@@ -14,7 +14,15 @@ import useProviderSideBarValue from '@onekeyhq/components/src/hocs/Provider/hook
 import { useSafeAreaInsets } from '@onekeyhq/components/src/hooks';
 import type { IKeyOfIcons } from '@onekeyhq/components/src/primitives';
 import { Icon, XStack, YStack } from '@onekeyhq/components/src/primitives';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EModalDeviceManagementRoutes,
+  EModalRoutes,
+  EOnboardingPages,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import { type EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 
 import HeaderCollapseButton from '../../Header/HeaderCollapseButton';
@@ -51,6 +59,7 @@ function TabItemView({
     // Avoid icon jitter during lazy loading by prefetching icons.
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
+
   const contentMemo = useMemo(
     () => (
       <DesktopTabItem
@@ -98,9 +107,33 @@ export function DesktopLeftSideBar({
 
   const { gtMd } = useMedia();
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
+  const appNavigation = useAppNavigation();
+
+  const toMyOneKeyModal = useCallback(async () => {
+    try {
+      const allHwQrWallet =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: true,
+        });
+      if (Object.keys(allHwQrWallet).length > 0) {
+        appNavigation.pushModal(EModalRoutes.DeviceManagementModal, {
+          screen: EModalDeviceManagementRoutes.DeviceListModal,
+        });
+        return;
+      }
+
+      appNavigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.DeviceManagementGuide,
+      });
+    } catch (error) {
+      console.error('Failed to handle device management:', error);
+    }
+  }, [appNavigation]);
+
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
+        console.log('routeName', route);
         const focus = index === state.index;
         const { options } = descriptors[route.key];
         const onPress = () => {
@@ -133,7 +166,11 @@ export function DesktopLeftSideBar({
           <TabItemView
             key={route.key}
             route={route}
-            onPress={onPress}
+            onPress={
+              route.name === ETabRoutes.DeviceManagement
+                ? toMyOneKeyModal
+                : onPress
+            }
             isActive={focus}
             options={options}
             isCollapse={isCollapse}
@@ -146,10 +183,11 @@ export function DesktopLeftSideBar({
       state.key,
       descriptors,
       isShowWebTabBar,
+      gtMd,
       extraConfig?.name,
+      toMyOneKeyModal,
       isCollapse,
       navigation,
-      gtMd,
     ],
   );
 
