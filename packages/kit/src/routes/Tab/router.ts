@@ -1,26 +1,15 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
-import {
-  getTokenValue,
-  rootNavigationRef,
-  useMedia,
-} from '@onekeyhq/components';
+import { getTokenValue, useMedia } from '@onekeyhq/components';
 import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
+import { useToMyOneKeyModalByRootNavigation } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalDeviceManagementRoutes,
-  EModalRoutes,
-  EOnboardingPages,
-  ERootRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import useAppNavigation from '../../hooks/useAppNavigation';
 import { developerRouters } from '../../views/Developer/router';
 import { homeRouters } from '../../views/Home/router';
 
@@ -74,32 +63,7 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
     [isShowDesktopDiscover, md],
   );
 
-  const toMyOneKeyModal = useCallback(async () => {
-    try {
-      const allHwQrWallet =
-        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-          filterHiddenWallet: true,
-        });
-      if (Object.keys(allHwQrWallet).length > 0) {
-        rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
-          screen: EModalRoutes.DeviceManagementModal,
-          params: {
-            screen: EModalDeviceManagementRoutes.DeviceListModal,
-          },
-        });
-        return;
-      }
-
-      rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
-        screen: EModalRoutes.OnboardingModal,
-        params: {
-          screen: EOnboardingPages.DeviceManagementGuide,
-        },
-      });
-    } catch (error) {
-      console.error('Failed to handle device management:', error);
-    }
-  }, []);
+  const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
 
   return useMemo(
     () =>
@@ -147,9 +111,9 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
         gtMd
           ? {
               name: ETabRoutes.DeviceManagement,
-              tabBarIcon: (focused?: boolean) => 'OnekeyDeviceCustom',
+              tabBarIcon: () => 'OnekeyDeviceCustom',
               translationId: ETranslations.global_my_onekey,
-              onPress: toMyOneKeyModal,
+              tabbarOnPress: toMyOneKeyModal,
               children: null,
             }
           : undefined,

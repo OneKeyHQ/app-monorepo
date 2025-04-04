@@ -1,0 +1,74 @@
+import { useCallback } from 'react';
+
+import { rootNavigationRef } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  EModalDeviceManagementRoutes,
+  EModalRoutes,
+  EOnboardingPages,
+  ERootRoutes,
+} from '@onekeyhq/shared/src/routes';
+
+import useAppNavigation from '../../../hooks/useAppNavigation';
+
+type IDeviceManagementDestination = {
+  modalRoute: EModalRoutes;
+  screen: EModalDeviceManagementRoutes | EOnboardingPages;
+} | null;
+
+async function getDeviceManagementDestination(): Promise<IDeviceManagementDestination> {
+  try {
+    const allHwQrWallet =
+      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+        filterHiddenWallet: true,
+      });
+
+    // determine the navigation target based on the query result
+    if (Object.keys(allHwQrWallet).length > 0) {
+      return {
+        modalRoute: EModalRoutes.DeviceManagementModal,
+        screen: EModalDeviceManagementRoutes.DeviceListModal,
+      };
+    }
+
+    return {
+      modalRoute: EModalRoutes.OnboardingModal,
+      screen: EOnboardingPages.DeviceManagementGuide,
+    };
+  } catch (error) {
+    console.error('Failed to handle device management:', error);
+    return null;
+  }
+}
+
+// use useAppNavigation to navigate
+export function useToMyOneKeyModal() {
+  const navigation = useAppNavigation();
+
+  return useCallback(async () => {
+    const destination = await getDeviceManagementDestination();
+    if (!destination) return;
+
+    const { modalRoute, screen } = destination;
+    navigation.pushModal(modalRoute, {
+      // @ts-expect-error
+      screen,
+    });
+  }, [navigation]);
+}
+
+// use rootNavigationRef to navigate
+export function useToMyOneKeyModalByRootNavigation() {
+  return useCallback(async () => {
+    const destination = await getDeviceManagementDestination();
+    if (!destination) return;
+
+    const { modalRoute, screen } = destination;
+    rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+      screen: modalRoute,
+      params: {
+        screen,
+      },
+    });
+  }, []);
+}
