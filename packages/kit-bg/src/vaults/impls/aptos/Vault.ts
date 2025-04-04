@@ -789,14 +789,14 @@ export default class VaultAptos extends VaultBase {
   override async buildEstimateFeeParams({
     encodedTx,
   }: {
-    encodedTx: IEncodedTx | undefined;
+    encodedTx: IEncodedTxAptos | undefined;
   }) {
     if (!encodedTx) {
       return { encodedTx };
     }
 
     let rawTx: SimpleTransaction;
-    const unSignedEncodedTx = encodedTx as IEncodedTxAptos;
+    const unSignedEncodedTx = encodedTx;
     const { bcsTxn } = unSignedEncodedTx;
     if (bcsTxn && !isEmpty(bcsTxn)) {
       const deserializer = new Deserializer(bufferUtils.hexToBytes(bcsTxn));
@@ -844,12 +844,17 @@ export default class VaultAptos extends VaultBase {
       bufferUtils.bytesToHex(invalidSigBytes),
     );
 
-    return {
+    const params = {
       encodedTx: {
-        ...(encodedTx as object),
+        ...encodedTx,
+        ...encodedTx.payload,
         rawSignTx,
-      } as unknown as IEncodedTx,
+      },
     };
+
+    delete params.encodedTx.payload;
+
+    return params;
   }
 
   override async attachFeeInfoToDAppEncodedTx(params: {
