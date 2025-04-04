@@ -10,7 +10,10 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
-import { useToMyOneKeyModal } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
+import {
+  useIsShowMyOneKeyOnTabbar,
+  useToMyOneKeyModal,
+} from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -70,6 +73,7 @@ function MoreActionButtonCmp() {
   );
 
   const toMyOneKeyModal = useToMyOneKeyModal();
+  const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
   const handleDeviceManagement = useCallback(
     async (close: () => void) => {
       close();
@@ -193,22 +197,35 @@ function MoreActionButtonCmp() {
             : [],
         },
         {
-          items: [
-            {
-              label: intl.formatMessage({ id: ETranslations.global_my_onekey }),
-              icon: 'OnekeyDeviceCustom',
-              onPress: handleDeviceManagement,
-              testID: 'my-onekey',
-            },
-            {
-              label: intl.formatMessage({
-                id: ETranslations.address_book_title,
-              }),
-              icon: 'ContactsOutline',
-              onPress: handleAddressBook,
-              testID: 'address-book',
-            },
-          ],
+          items: !isShowMyOneKeyOnTabbar
+            ? [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.global_my_onekey,
+                  }),
+                  icon: 'OnekeyDeviceCustom',
+                  onPress: handleDeviceManagement,
+                  testID: 'my-onekey',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.address_book_title,
+                  }),
+                  icon: 'ContactsOutline',
+                  onPress: handleAddressBook,
+                  testID: 'address-book',
+                },
+              ]
+            : [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.address_book_title,
+                  }),
+                  icon: 'ContactsOutline',
+                  onPress: handleAddressBook,
+                  testID: 'address-book',
+                },
+              ],
         },
         {
           items: [

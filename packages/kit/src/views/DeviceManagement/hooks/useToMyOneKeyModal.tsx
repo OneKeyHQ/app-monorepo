@@ -1,7 +1,12 @@
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { rootNavigationRef } from '@onekeyhq/components';
+import {
+  rootNavigationRef,
+  useIsIpadLandscape,
+  useMedia,
+} from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalDeviceManagementRoutes,
   EModalRoutes,
@@ -72,3 +77,15 @@ export function useToMyOneKeyModalByRootNavigation() {
     });
   }, []);
 }
+
+export const useIsShowMyOneKeyOnTabbar = () => {
+  const { gtMd } = useMedia();
+  const isIpadLandscape = useIsIpadLandscape();
+  return useMemo(
+    () =>
+      isIpadLandscape ||
+      platformEnv.isDesktop ||
+      (gtMd && !platformEnv.isNativeAndroid),
+    [gtMd, isIpadLandscape],
+  );
+};
