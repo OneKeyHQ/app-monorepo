@@ -1,10 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import {
-  rootNavigationRef,
-  useIsIpadLandscape,
-  useMedia,
-} from '@onekeyhq/components';
+import { rootNavigationRef, useMedia } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -80,12 +76,5 @@ export function useToMyOneKeyModalByRootNavigation() {
 
 export const useIsShowMyOneKeyOnTabbar = () => {
   const { gtMd } = useMedia();
-  const isIpadLandscape = useIsIpadLandscape();
-  return useMemo(
-    () =>
-      isIpadLandscape ||
-      platformEnv.isDesktop ||
-      (gtMd && !platformEnv.isNativeAndroid),
-    [gtMd, isIpadLandscape],
-  );
+  return useMemo(() => gtMd && !platformEnv.isNative, [gtMd]);
 };
