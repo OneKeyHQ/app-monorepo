@@ -10,17 +10,16 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import {
+  useIsShowMyOneKeyOnTabbar,
+  useToMyOneKeyModal,
+} from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalDeviceManagementRoutes,
-  EModalRoutes,
-  EModalSettingRoutes,
-  EOnboardingPages,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -73,29 +72,14 @@ function MoreActionButtonCmp() {
     [navigation],
   );
 
+  const toMyOneKeyModal = useToMyOneKeyModal();
+  const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
   const handleDeviceManagement = useCallback(
     async (close: () => void) => {
       close();
-      try {
-        const allHwQrWallet =
-          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-            filterHiddenWallet: true,
-          });
-        if (Object.keys(allHwQrWallet).length > 0) {
-          navigation.pushModal(EModalRoutes.DeviceManagementModal, {
-            screen: EModalDeviceManagementRoutes.DeviceListModal,
-          });
-          return;
-        }
-
-        navigation.pushModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.DeviceManagementGuide,
-        });
-      } catch (error) {
-        console.error('Failed to handle device management:', error);
-      }
+      void toMyOneKeyModal();
     },
-    [navigation],
+    [toMyOneKeyModal],
   );
 
   const handleAddressBook = useCallback(
@@ -213,22 +197,35 @@ function MoreActionButtonCmp() {
             : [],
         },
         {
-          items: [
-            {
-              label: intl.formatMessage({ id: ETranslations.global_my_onekey }),
-              icon: 'OnekeyDeviceCustom',
-              onPress: handleDeviceManagement,
-              testID: 'my-onekey',
-            },
-            {
-              label: intl.formatMessage({
-                id: ETranslations.address_book_title,
-              }),
-              icon: 'ContactsOutline',
-              onPress: handleAddressBook,
-              testID: 'address-book',
-            },
-          ],
+          items: !isShowMyOneKeyOnTabbar
+            ? [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.global_my_onekey,
+                  }),
+                  icon: 'OnekeyDeviceCustom',
+                  onPress: handleDeviceManagement,
+                  testID: 'my-onekey',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.address_book_title,
+                  }),
+                  icon: 'ContactsOutline',
+                  onPress: handleAddressBook,
+                  testID: 'address-book',
+                },
+              ]
+            : [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.address_book_title,
+                  }),
+                  icon: 'ContactsOutline',
+                  onPress: handleAddressBook,
+                  testID: 'address-book',
+                },
+              ],
         },
         {
           items: [

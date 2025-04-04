@@ -40,6 +40,7 @@ function TabItemView({
   options: BottomTabNavigationOptions & {
     actionList?: IActionListSection[];
     shortcutKey?: EShortcutEvents;
+    tabbarOnPress?: () => void;
   };
   isCollapse?: boolean;
 }) {
@@ -51,10 +52,11 @@ function TabItemView({
     // Avoid icon jitter during lazy loading by prefetching icons.
     void Icon.prefetch(activeIcon, inActiveIcon);
   }, [options]);
+
   const contentMemo = useMemo(
     () => (
       <DesktopTabItem
-        onPress={onPress}
+        onPress={options.tabbarOnPress ?? onPress}
         aria-current={isActive ? 'page' : undefined}
         selected={isActive}
         shortcutKey={options.shortcutKey}
@@ -98,6 +100,7 @@ export function DesktopLeftSideBar({
 
   const { gtMd } = useMedia();
   const isShowWebTabBar = platformEnv.isDesktop || platformEnv.isNativeIOS;
+
   const tabs = useMemo(
     () =>
       routes.map((route, index) => {
@@ -146,10 +149,10 @@ export function DesktopLeftSideBar({
       state.key,
       descriptors,
       isShowWebTabBar,
+      gtMd,
       extraConfig?.name,
       isCollapse,
       navigation,
-      gtMd,
     ],
   );
 

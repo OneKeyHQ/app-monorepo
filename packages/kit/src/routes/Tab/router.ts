@@ -5,6 +5,10 @@ import type {
   ITabNavigatorConfig,
   ITabNavigatorExtraConfig,
 } from '@onekeyhq/components/src/layouts/Navigation/Navigator/types';
+import {
+  useIsShowMyOneKeyOnTabbar,
+  useToMyOneKeyModalByRootNavigation,
+} from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { ETabRoutes } from '@onekeyhq/shared/src/routes';
@@ -50,7 +54,7 @@ const getDiscoverRouterConfig = (
 };
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
-  const { md } = useMedia();
+  const { md, gtMd } = useMedia();
 
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
 
@@ -61,6 +65,10 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       !(platformEnv.isExtensionUiSidePanel && md),
     [isShowDesktopDiscover, md],
   );
+
+  const toMyOneKeyModal = useToMyOneKeyModalByRootNavigation();
+  const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
+
   return useMemo(
     () =>
       [
@@ -104,6 +112,15 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
           exact: true,
           children: earnRouters,
         },
+        isShowMyOneKeyOnTabbar
+          ? {
+              name: ETabRoutes.DeviceManagement,
+              tabBarIcon: () => 'OnekeyDeviceCustom',
+              translationId: ETranslations.global_my_onekey,
+              tabbarOnPress: toMyOneKeyModal,
+              children: null,
+            }
+          : undefined,
         isShowMDDiscover ? getDiscoverRouterConfig(params) : undefined,
         platformEnv.isDev
           ? {
@@ -137,7 +154,13 @@ export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
       ].filter<ITabNavigatorConfig<ETabRoutes>>(
         (i): i is ITabNavigatorConfig<ETabRoutes> => !!i,
       ),
-    [isShowDesktopDiscover, isShowMDDiscover, params],
+    [
+      isShowDesktopDiscover,
+      isShowMDDiscover,
+      isShowMyOneKeyOnTabbar,
+      params,
+      toMyOneKeyModal,
+    ],
   );
 };
 
