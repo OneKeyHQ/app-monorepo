@@ -50,7 +50,7 @@ export function DiscoveryItemCard({
       justifyContent="center"
       alignItems="center"
       userSelect="none"
-      onPress={() => handleOpenWebSite({ dApp, webSite: { url, title } })}
+      onPress={() => handleOpenWebSite({ dApp, webSite: { url, title, logo } })}
     >
       <Image
         size="$14"

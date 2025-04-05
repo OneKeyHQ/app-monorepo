@@ -129,6 +129,10 @@ export function HeaderRight({
         </Stack>
       ) : null;
 
+    // const searchInput = media.gtMd ? (
+    //   <UniversalSearchInput key="searchInput" />
+    // ) : null;
+
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
         platformEnv.isNative ? null : (

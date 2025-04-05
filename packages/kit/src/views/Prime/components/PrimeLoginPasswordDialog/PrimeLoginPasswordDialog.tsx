@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
+import zxcvbn from 'zxcvbn';
+
 import {
   Button,
   Checkbox,
@@ -7,6 +9,7 @@ import {
   Form,
   Input,
   RichSizeableText,
+  SizableText,
   Stack,
   XStack,
   YStack,
@@ -14,6 +17,42 @@ import {
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import type { IPrimeLoginDialogAtomPasswordData } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+
+function PasswordStrengthBar({ score }: { score: number }) {
+  const getStrengthConfig = () => {
+    switch (score) {
+      case 2:
+        return { width: '40%', color: '$bgCriticalStrong', text: 'Weak' };
+      case 3:
+        return { width: '70%', color: '$bgInfoStrong', text: 'Good' };
+      case 4:
+        return { width: '100%', color: '$bgSuccessStrong', text: 'Strong' };
+      case 0:
+      case 1:
+      default:
+        return { width: '20%', color: '$bgCriticalStrong', text: 'Weak' };
+    }
+  };
+
+  const { width, color, text } = getStrengthConfig();
+
+  return (
+    <YStack gap="$2" py="$2">
+      <XStack h="$1" bg="$bgSubdued" borderRadius="$full">
+        <Stack
+          bg={color}
+          h="$1"
+          w={width}
+          borderRadius="$full"
+          // animate={{ type: 'spring' }}
+        />
+      </XStack>
+      <SizableText color={color} size="$bodyMd">
+        {text}
+      </SizableText>
+    </YStack>
+  );
+}
 
 export function PrimeLoginPasswordDialog({
   data,
@@ -40,47 +79,60 @@ export function PrimeLoginPasswordDialog({
     minNumberCharacter: boolean;
     minLetterCharacter: boolean;
     minSpecialCharacter: boolean;
+    score: number;
   }>({
     minLength: false,
     minNumberCharacter: false,
     minLetterCharacter: false,
     minSpecialCharacter: false,
+    score: 0, // 0-4
   });
 
-  const isValidPassword = useCallback((password: string) => {
-    let minLength = true;
-    let minNumberCharacter = true;
-    let minLetterCharacter = true;
-    let minSpecialCharacter = true;
+  const isValidPassword = useCallback(
+    (password: string) => {
+      let minLength = true;
+      let minNumberCharacter = true;
+      let minLetterCharacter = true;
+      let minSpecialCharacter = true;
+      let score = 0;
 
-    if (password.length < 8) {
-      minLength = false;
-    }
-    if (!/\d/.test(password)) {
-      minNumberCharacter = false;
-    }
-    if (!/[a-zA-Z]/.test(password)) {
-      minLetterCharacter = false;
-    }
-    // eslint-disable-next-line no-useless-escape
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]/.test(password)) {
-      minSpecialCharacter = false;
-    }
+      const zxcvbnUserInputs = [email.split('@')?.[0]].filter(Boolean);
+      // const zxcvbnUserInputs: string[] = [];
+      const result = zxcvbn(password, zxcvbnUserInputs);
+      score = result.score;
 
-    setPasswordVerifyState({
-      minLength,
-      minNumberCharacter,
-      minLetterCharacter,
-      minSpecialCharacter,
-    });
+      if (password.length < 12) {
+        minLength = false;
+      }
+      if (!/\d/.test(password)) {
+        minNumberCharacter = false;
+      }
+      if (!/[a-zA-Z]/.test(password)) {
+        minLetterCharacter = false;
+      }
+      // eslint-disable-next-line no-useless-escape
+      if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]/.test(password)) {
+        minSpecialCharacter = false;
+      }
 
-    return (
-      minLength &&
-      minNumberCharacter &&
-      minLetterCharacter &&
-      minSpecialCharacter
-    );
-  }, []);
+      setPasswordVerifyState({
+        minLength,
+        minNumberCharacter,
+        minLetterCharacter,
+        minSpecialCharacter,
+        score,
+      });
+
+      return (
+        minLength &&
+        minNumberCharacter &&
+        minLetterCharacter &&
+        minSpecialCharacter &&
+        score >= 3
+      );
+    },
+    [email],
+  );
 
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
@@ -95,9 +147,9 @@ export function PrimeLoginPasswordDialog({
           await backgroundApiProxy.servicePassword.encodeSensitiveText({
             text: formData.password,
           });
-        // await backgroundApiProxy.serviceMasterPassword.ensurePrimeLoginValidPassword(
-        //   encodedPassword,
-        // );
+        await backgroundApiProxy.serviceMasterPassword.ensurePrimeLoginValidPassword(
+          encodedPassword,
+        );
         await backgroundApiProxy.servicePrime.resolvePrimeLoginPasswordDialog({
           promiseId,
           password: encodedPassword,
@@ -153,12 +205,12 @@ export function PrimeLoginPasswordDialog({
                       size="small"
                       variant="tertiary"
                       onPress={async () => {
-                        // await backgroundApiProxy.serviceMasterPassword.startForgetPassword(
-                        //   {
-                        //     passwordDialogPromiseId: promiseId,
-                        //     email,
-                        //   },
-                        // );
+                        await backgroundApiProxy.serviceMasterPassword.startForgetPassword(
+                          {
+                            passwordDialogPromiseId: promiseId,
+                            email,
+                          },
+                        );
                       }}
                     >
                       Forget password?
@@ -230,7 +282,7 @@ export function PrimeLoginPasswordDialog({
             {isRegister ? (
               <Stack>
                 <Checkbox
-                  label="At least 8 characters"
+                  label="At least 12 characters"
                   value={passwordVerifyState.minLength}
                 />
                 <Checkbox
@@ -245,6 +297,7 @@ export function PrimeLoginPasswordDialog({
                   label="At least 1 special character"
                   value={passwordVerifyState.minSpecialCharacter}
                 />
+                <PasswordStrengthBar score={passwordVerifyState.score} />
               </Stack>
             ) : null}
           </Form>

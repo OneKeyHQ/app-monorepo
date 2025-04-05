@@ -19,6 +19,8 @@ import type {
   ILocalDBGetAllRecordsResult,
   ILocalDBGetRecordByIdParams,
   ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordsByIdsParams,
+  ILocalDBGetRecordsByIdsResult,
   ILocalDBGetRecordsCountParams,
   ILocalDBGetRecordsCountResult,
   ILocalDBRecord,
@@ -29,6 +31,8 @@ import type {
   ILocalDBTxGetAllRecordsResult,
   ILocalDBTxGetRecordByIdParams,
   ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordsByIdsParams,
+  ILocalDBTxGetRecordsByIdsResult,
   ILocalDBTxGetRecordsCountParams,
   ILocalDBTxRemoveRecordsParams,
   ILocalDBTxUpdateRecordsParams,
@@ -49,7 +53,7 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       await this.txRemoveRecords({
         tx,
         name,
-        recordPairs,
+        recordPairs: recordPairs.filter(Boolean),
       });
     });
   }
@@ -139,6 +143,18 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     );
   }
 
+  async getRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
+    return this.withTransaction(
+      async (tx) => {
+        const { records } = await this.txGetRecordsByIds({ ...params, tx });
+        return { records };
+      },
+      { readOnly: true },
+    );
+  }
+
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
@@ -173,25 +189,41 @@ export class RealmDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     });
   }
 
+  async txGetRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordsByIdsResult<T>> {
+    const { name, ids } = params;
+    let objList: Array<{ record: any } | null | undefined> = [];
+    objList = ids.map((id) => this._getObjectRecordById(name, id)) as any;
+
+    const recordPairs: ILocalDBRecordPair<T>[] = [];
+    const records: ILocalDBRecord<T>[] = [];
+    objList.forEach((obj) => {
+      recordPairs.push([obj ? obj.record : null, obj as any]);
+      records.push(obj ? obj.record : null);
+    });
+
+    return Promise.resolve({
+      recordPairs,
+      records,
+    });
+  }
+
   async txGetAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBTxGetAllRecordsParams<T>,
   ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const { name, ids, limit, offset } = params;
+    const { name, limit, offset } = params;
     let objList: Array<{ record: any } | null | undefined> = [];
 
-    if (ids) {
-      objList = ids.map((id) => this._getObjectRecordById(name, id)) as any;
-    } else {
-      const isSlice = isNumber(limit) && isNumber(offset);
-      const hasCreatedAtIndex = storeNameSupportCreatedAt.includes(name);
-      let items = this.realm.objects<IRealmDBSchemaMap[T]>(name);
-      if (isSlice && hasCreatedAtIndex) {
-        items = items
-          .sorted('createdAt', true)
-          .slice(offset, offset + limit) as any;
-      }
-      objList = items as any;
+    const isSlice = isNumber(limit) && isNumber(offset);
+    const hasCreatedAtIndex = storeNameSupportCreatedAt.includes(name);
+    let items = this.realm.objects<IRealmDBSchemaMap[T]>(name);
+    if (isSlice && hasCreatedAtIndex) {
+      items = items
+        .sorted('createdAt', true)
+        .slice(offset, offset + limit) as any;
     }
+    objList = items as any;
 
     const recordPairs: ILocalDBRecordPair<T>[] = [];
     const records: ILocalDBRecord<T>[] = [];

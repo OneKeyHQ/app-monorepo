@@ -193,6 +193,14 @@ function Demo1() {
       >
         调用 background 显示 url
       </Button>
+      <Button
+        onPress={async () => {
+          const ctx = await backgroundApiProxy.serviceDemo.demoError6();
+          console.log(ctx);
+        }}
+      >
+        调用 background 显示 IncorrectPassword
+      </Button>
     </Stack>
   );
 }

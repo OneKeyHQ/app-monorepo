@@ -53,7 +53,7 @@ function hexToDecimal(hex: string): string {
   return new BigNumber(hexUtils.addHexPrefix(hex)).toFixed();
 }
 
-export default { numberToHex, hexToDecimal };
+export default { numberToHex, hexToDecimal, fromBigIntHex, toBigIntHex };
 
 export { fromBigIntHex, toBigIntHex };
 

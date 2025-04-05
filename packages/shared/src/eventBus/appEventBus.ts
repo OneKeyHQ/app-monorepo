@@ -79,6 +79,8 @@ export enum EAppEventBusNames {
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
   SwitchMarketHomeTab = 'SwitchMarketHomeTab',
+  RefreshMarketWatchList = 'RefreshMarketWatchList',
+  RefreshCustomRpcList = 'RefreshCustomRpcList',
   ClearLocalHistoryPendingTxs = 'ClearLocalHistoryPendingTxs',
   TxFeeInfoChanged = 'TxFeeInfoChanged',
   SignatureConfirmContainerMounted = 'SignatureConfirmContainerMounted',
@@ -106,6 +108,7 @@ export enum EAppEventBusNames {
   PrimeLoginInvalidToken = 'PrimeLoginInvalidToken',
   PrimeExceedDeviceLimit = 'PrimeExceedDeviceLimit',
   PrimeDeviceLogout = 'PrimeDeviceLogout',
+  PrimeMasterPasswordInvalid = 'PrimeMasterPasswordInvalid',
   CreateAddressByDialog = 'CreateAddressByDialog',
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   HideTabBar = 'HideTabBar',
@@ -233,6 +236,8 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.SwitchMarketHomeTab]: {
     tabIndex: number;
   };
+  [EAppEventBusNames.RefreshMarketWatchList]: undefined;
+  [EAppEventBusNames.RefreshCustomRpcList]: undefined;
   [EAppEventBusNames.ClearLocalHistoryPendingTxs]: undefined;
   [EAppEventBusNames.TxFeeInfoChanged]: {
     feeSelectorItems: IFeeSelectorItem[];
@@ -316,6 +321,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.PrimeLoginInvalidToken]: undefined;
   [EAppEventBusNames.PrimeExceedDeviceLimit]: undefined;
   [EAppEventBusNames.PrimeDeviceLogout]: undefined;
+  [EAppEventBusNames.PrimeMasterPasswordInvalid]: undefined;
   [EAppEventBusNames.CheckAddressBeforeSending]: {
     promiseId: number;
     type: 'scam' | 'contract';

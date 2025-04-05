@@ -1,5 +1,6 @@
-import { isEmpty, isNil } from 'lodash';
+import { debounce, isEmpty, isNil } from 'lodash';
 
+import coreChainApi from '@onekeyhq/core/src/instance/coreChainApi';
 import type { IBip39RevealableSeedEncryptHex } from '@onekeyhq/core/src/secret';
 import {
   EMnemonicType,
@@ -88,6 +89,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
 import simpleDb from '../../dbs/simple/simpleDb';
+import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import { vaultFactory } from '../../vaults/factory';
 import { getVaultSettings } from '../../vaults/settings';
 import ServiceBase from '../ServiceBase';
@@ -105,6 +107,7 @@ import type {
   IDBIndexedAccount,
   IDBRemoveWalletParams,
   IDBSetAccountNameParams,
+  IDBSetUniversalIndexedAccountNameParams,
   IDBSetWalletNameAndAvatarParams,
   IDBUtxoAccount,
   IDBVariantAccount,
@@ -761,6 +764,7 @@ class ServiceAccount extends ServiceBase {
     importedCredential?: string;
   }) {
     const { walletId, accounts, importedCredential } = params;
+    const wallet = await this.getWalletSafe({ walletId });
     const shouldCreateIndexAccount =
       accountUtils.isHdWallet({ walletId }) ||
       accountUtils.isHwWallet({ walletId });
@@ -814,10 +818,21 @@ class ServiceAccount extends ServiceBase {
           (existsAccount) => existsAccount.id === account.id,
         );
         if (!isAccountExists) {
-          await this.setAccountName({
-            name: account.name,
-            indexedAccountId: account.indexedAccountId,
-          });
+          if (wallet?.xfp && account.indexedAccountId) {
+            await this.setUniversalIndexedAccountName({
+              name: account.name,
+              indexedAccountId: account.indexedAccountId,
+              index: accountUtils.parseIndexedAccountId({
+                indexedAccountId: account.indexedAccountId,
+              }).index,
+              walletXfp: wallet.xfp,
+            });
+          } else {
+            await this.setAccountName({
+              name: account.name,
+              indexedAccountId: account.indexedAccountId,
+            });
+          }
         }
       }
     }
@@ -1598,6 +1613,9 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async getDBAccountSafe({ accountId }: { accountId: string }) {
+    if (accountUtils.isAllNetworkMockAccount({ accountId })) {
+      return undefined;
+    }
     const account = await localDb.getAccountSafe({ accountId });
     return account;
   }
@@ -2168,6 +2186,43 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
+  async setUniversalIndexedAccountName(
+    params: IDBSetUniversalIndexedAccountNameParams,
+  ) {
+    const { index, walletXfp, name, ...others } = params;
+    if (!walletXfp) {
+      throw new Error(
+        'setUniversalIndexedAccountName ERROR: walletXfp is required',
+      );
+    }
+    const wallets = await localDb.getWalletsByXfp({ xfp: walletXfp });
+    let count = 0;
+    for (const wallet of wallets) {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId: wallet.id,
+        index,
+      });
+      await this.setAccountName({
+        name,
+        ...others,
+        indexedAccountId,
+        skipEventEmit: true,
+        skipSaveLocalSyncItem:
+          count === 0 ? params.skipSaveLocalSyncItem : true,
+        shouldCheckDuplicate:
+          indexedAccountId === params.indexedAccountId
+            ? params.shouldCheckDuplicate
+            : false,
+      });
+      count += 1;
+    }
+    if (wallets.length && !params.skipEventEmit) {
+      appEventBus.emit(EAppEventBusNames.AccountUpdate, undefined);
+    }
+  }
+
+  @backgroundMethod()
   async getWalletDeviceParams({
     walletId,
   }: {
@@ -2182,6 +2237,7 @@ class ServiceAccount extends ServiceBase {
     return {
       confirmOnDevice: EConfirmOnDeviceType.LastItem,
       dbDevice,
+      dbWallet: wallet,
       deviceCommonParams: {
         passphraseState: wallet?.passphraseState,
         useEmptyPassphrase: !wallet.passphraseState,
@@ -2227,6 +2283,7 @@ class ServiceAccount extends ServiceBase {
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
           features: dbDevice.featuresInfo || ({} as any),
           passphraseState,
+          fillingXfpByCallingSdk: true,
         });
 
         if (dbWallet?.wallet.id) {
@@ -2265,7 +2322,8 @@ class ServiceAccount extends ServiceBase {
   async createHWWallet(params: IDBCreateHwWalletParamsBase) {
     // createHWWallet
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
-      () => this.createHWWalletBase(params),
+      () =>
+        this.createHWWalletBase({ ...params, fillingXfpByCallingSdk: true }),
       {
         deviceParams: {
           dbDevice: params.device as IDBDevice,
@@ -2284,29 +2342,66 @@ class ServiceAccount extends ServiceBase {
 
   @backgroundMethod()
   async createHWWalletBase(params: IDBCreateHwWalletParams) {
-    const { features, passphraseState } = params;
+    const { features, passphraseState, fillingXfpByCallingSdk } = params;
     if (!features) {
       throw new Error('createHWWalletBase ERROR: features is required');
     }
+    const connectId = params.device.connectId ?? '';
+    const searchDeviceId = params.device.deviceId ?? '';
+    const deviceId = deviceUtils.getRawDeviceId({
+      device: params.device,
+      features,
+    });
+
+    console.log('createHWWalletBase paramsInfo', {
+      connectId,
+      deviceId,
+      searchDeviceId,
+    });
+
+    let xfp: string | undefined;
+    if (fillingXfpByCallingSdk) {
+      xfp = await this.backgroundApi.serviceHardware.getHwWalletXfp({
+        connectId,
+        deviceId,
+        passphraseState,
+      });
+      console.log('createHWWalletBase xfp', xfp, connectId, deviceId);
+    }
     const result = await localDb.createHwWallet({
       ...params,
+      xfp,
       passphraseState: passphraseState || '',
-      getFirstEvmAddressFn: () =>
-        this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet({
-          connectId: params.device.connectId ?? '',
-          deviceId: params.device.deviceId ?? '',
-          path: FIRST_EVM_ADDRESS_PATH,
-        }),
+      getFirstEvmAddressFn: async () => {
+        const r =
+          await this.backgroundApi.serviceHardware.getEvmAddressByStandardWallet(
+            {
+              connectId,
+              deviceId,
+              path: FIRST_EVM_ADDRESS_PATH,
+            },
+          );
+        return r;
+      },
     });
     appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
     return result;
   }
 
-  walletHashBuilder = (options: { realMnemonic: string }) => {
+  walletHashXfpBuilder = async (options: {
+    realMnemonic: string;
+  }): Promise<{
+    hash: string;
+    xfp: string;
+  }> => {
     const text = `${options.realMnemonic}--4863FBE1-7B9B-4006-91D0-24212CCCC375`;
     const buff = sha256(bufferUtils.toBuffer(text, 'utf8'));
-    const walletHash0 = bufferUtils.bytesToHex(buff);
-    return walletHash0;
+    const hash = bufferUtils.bytesToHex(buff);
+
+    const xfp = await coreChainApi.btc.hd.generateXfpFromMnemonic({
+      mnemonic: options.realMnemonic,
+    });
+    return { hash, xfp };
   };
 
   @backgroundMethod()
@@ -2331,9 +2426,9 @@ class ServiceAccount extends ServiceBase {
       throw new Error('TON mnemonic is not supported');
     }
 
-    await this.generateHDWalletsMissingHash({ password });
+    await this.generateMissingHDWalletHashAndXfp({ password });
 
-    const walletHash: string | undefined = this.walletHashBuilder({
+    const walletHashAndXfp = await this.walletHashXfpBuilder({
       realMnemonic,
     });
 
@@ -2348,7 +2443,13 @@ class ServiceAccount extends ServiceBase {
       throw new InvalidMnemonic();
     }
 
-    return this.createHDWalletWithRs({ rs, password, name, walletHash });
+    return this.createHDWalletWithRs({
+      rs,
+      password,
+      name,
+      walletHash: walletHashAndXfp.hash,
+      walletXfp: walletHashAndXfp.xfp,
+    });
   }
 
   @backgroundMethod()
@@ -2391,12 +2492,14 @@ class ServiceAccount extends ServiceBase {
     avatarInfo,
     name,
     walletHash,
+    walletXfp,
   }: {
     rs: string;
     password: string;
     avatarInfo?: IAvatarInfo;
     name?: string;
     walletHash: string;
+    walletXfp: string;
   }): Promise<{
     wallet: IDBWallet;
     indexedAccount?: IDBIndexedAccount;
@@ -2407,7 +2510,14 @@ class ServiceAccount extends ServiceBase {
     }
     ensureSensitiveTextEncoded(password);
 
-    if (walletHash) {
+    let shouldCheckDuplicate = true;
+
+    const devSettings = await devSettingsPersistAtom.get();
+    if (devSettings.enabled && devSettings.settings?.allowAddSameHDWallet) {
+      shouldCheckDuplicate = false;
+    }
+
+    if (walletHash && shouldCheckDuplicate) {
       // TODO performance issue
       const { wallets } = await this.getAllWallets();
       const existsSameHashWallet = wallets.find(
@@ -2440,6 +2550,7 @@ class ServiceAccount extends ServiceBase {
       avatar: avatarInfo ?? randomAvatar(),
       name,
       walletHash,
+      walletXfp,
     });
 
     await timerUtils.wait(100);
@@ -2492,10 +2603,13 @@ class ServiceAccount extends ServiceBase {
     }
 
     const result = await localDb.setWalletNameAndAvatar(params);
-    appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
-    appEventBus.emit(EAppEventBusNames.WalletRename, {
-      walletId: params.walletId,
-    });
+
+    if (!params.skipEmitEvent) {
+      appEventBus.emit(EAppEventBusNames.WalletUpdate, undefined);
+      appEventBus.emit(EAppEventBusNames.WalletRename, {
+        walletId: params.walletId,
+      });
+    }
 
     // Only proceed if the name is actually changing
     if (name && oldName && oldName !== name) {
@@ -3165,7 +3279,8 @@ class ServiceAccount extends ServiceBase {
     return undefined;
   }
 
-  async generateHDWalletsMissingHash({ password }: { password: string }) {
+  @backgroundMethod()
+  async generateMissingHDWalletHashAndXfp({ password }: { password: string }) {
     const { wallets } = await this.getAllWallets({ refillWalletInfo: false });
     const hdWallets = wallets.filter((wallet) =>
       accountUtils.isHdWallet({ walletId: wallet.id }),
@@ -3175,15 +3290,19 @@ class ServiceAccount extends ServiceBase {
     }
     let hdWalletsToProcess = [];
     const appStatus = await simpleDb.appStatus.getRawData();
-    if (!appStatus?.hdWalletHashGenerated) {
+    if (!appStatus?.hdWalletHashGenerated || !appStatus?.hdWalletXfpGenerated) {
       hdWalletsToProcess = hdWallets;
     } else {
-      hdWalletsToProcess = hdWallets.filter((wallet) => !wallet.hash);
+      hdWalletsToProcess = hdWallets.filter(
+        (wallet) => !wallet.hash || !wallet.xfp,
+      );
     }
     if (!hdWalletsToProcess?.length) {
       return;
     }
-    const walletsHashMap: { [walletId: string]: string } = {};
+    const walletsHashXfpMap: {
+      [walletId: string]: { hash: string; xfp: string };
+    } = {};
     for (const wallet of hdWalletsToProcess) {
       try {
         const credentialInfo = await localDb.getCredential(wallet.id);
@@ -3195,17 +3314,87 @@ class ServiceAccount extends ServiceBase {
           credentialInfo.credential,
           password,
         );
-        const walletHash = this.walletHashBuilder({ realMnemonic });
-        walletsHashMap[wallet.id] = walletHash;
+        const walletHashXfp = await this.walletHashXfpBuilder({ realMnemonic });
+        walletsHashXfpMap[wallet.id] = walletHashXfp;
       } catch (error) {
         console.error(error);
       }
     }
-    await localDb.updateWalletsHash(walletsHashMap);
+    await localDb.updateWalletsHashAndXfp(walletsHashXfpMap);
     await simpleDb.appStatus.setRawData((v) => ({
       ...v,
       hdWalletHashGenerated: true,
+      hdWalletXfpGenerated: true,
     }));
+  }
+
+  generateHwWalletsMissingXfpDebounced = debounce(
+    async ({
+      wallet,
+      connectId,
+      deviceId,
+    }: {
+      wallet: IDBWallet | undefined;
+      connectId: string | undefined;
+      deviceId: string | undefined;
+    }) => {
+      if (!wallet?.id) {
+        return;
+      }
+      if (wallet && wallet?.xfp) {
+        console.log('wallet already has xfp', wallet.xfp);
+        return;
+      }
+      if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
+        return;
+      }
+      if (!connectId) {
+        const device = await localDb.getWalletDeviceSafe({
+          dbWallet: wallet,
+          walletId: wallet?.id,
+        });
+        // eslint-disable-next-line no-param-reassign
+        connectId = device?.connectId;
+        // eslint-disable-next-line no-param-reassign
+        deviceId = device?.deviceId;
+      }
+
+      const xfp = await this.backgroundApi.serviceHardware.getHwWalletXfp({
+        connectId,
+        deviceId,
+        passphraseState: wallet?.passphraseState,
+      });
+      if (xfp) {
+        await localDb.updateWalletsHashAndXfp({
+          [wallet?.id]: {
+            xfp,
+          },
+        });
+      }
+      console.log('generateHwWalletsMissingXfp', { xfp, connectId, deviceId });
+    },
+    3000,
+    {
+      leading: false,
+      trailing: true,
+    },
+  );
+
+  @backgroundMethod()
+  async generateHwWalletsMissingXfp({
+    wallet,
+    connectId,
+    deviceId,
+  }: {
+    wallet: IDBWallet | undefined;
+    connectId: string;
+    deviceId: string | undefined;
+  }) {
+    await this.generateHwWalletsMissingXfpDebounced({
+      wallet,
+      connectId,
+      deviceId,
+    });
   }
 
   @backgroundMethod()
@@ -3238,6 +3427,62 @@ class ServiceAccount extends ServiceBase {
       );
     }
     return false;
+  }
+
+  async getLocalSameHDWallets({ password }: { password: string }) {
+    await this.generateMissingHDWalletHashAndXfp({ password });
+    const { wallets: allWallets } = await this.getAllWallets({
+      refillWalletInfo: true,
+    });
+    const sameWalletsMap: {
+      [walletHash: string]: IDBWallet[];
+    } = {};
+    for (const wallet of allWallets) {
+      const walletHash = wallet.hash;
+      if (walletHash) {
+        sameWalletsMap[walletHash] = sameWalletsMap[walletHash] || [];
+        sameWalletsMap[walletHash].push(wallet);
+      }
+    }
+    const sameWallets: Array<{ walletHash: string; wallets: IDBWallet[] }> = [];
+    Object.entries(sameWalletsMap).forEach(([walletHash, wallets]) => {
+      if (wallets.length >= 2) {
+        sameWallets.push({ walletHash, wallets });
+      }
+    });
+    return sameWallets;
+  }
+
+  @backgroundMethod()
+  async removeDuplicateHDWallets({
+    sameWallets,
+    selectedWalletsMap,
+  }: {
+    sameWallets: {
+      walletHash: string;
+      wallets: IDBWallet[];
+    }[];
+    selectedWalletsMap: {
+      [walletHash: string]: string; // walletId
+    };
+  }) {
+    const walletsToRemove: string[] = [];
+
+    for (const sameWallet of sameWallets) {
+      const selectedWalletId = selectedWalletsMap[sameWallet.walletHash];
+      if (selectedWalletId) {
+        for (const wallet of sameWallet.wallets) {
+          if (wallet.id !== selectedWalletId) {
+            walletsToRemove.push(wallet.id);
+          }
+        }
+      }
+    }
+
+    for (const walletId of walletsToRemove) {
+      await this.removeWallet({ walletId });
+    }
+    // await timerUtils.wait(3000);
   }
 }
 

@@ -7,6 +7,7 @@ import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type {
   IDBAccount,
   IDBIndexedAccount,
+  IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
@@ -18,11 +19,13 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 
 export function AccountRenameButton({
   name,
+  wallet,
   indexedAccount,
   account,
   onClose,
 }: {
   name: string;
+  wallet: IDBWallet | undefined;
   indexedAccount?: IDBIndexedAccount;
   account?: IDBAccount;
   onClose: () => void;
@@ -48,8 +51,10 @@ export function AccountRenameButton({
           },
           onSubmit: async (newName) => {
             if (indexedAccount?.id && newName) {
-              await serviceAccount.setAccountName({
+              await serviceAccount.setUniversalIndexedAccountName({
                 indexedAccountId: indexedAccount?.id,
+                index: indexedAccount?.index,
+                walletXfp: wallet?.xfp,
                 name: newName,
                 shouldCheckDuplicate: true,
               });

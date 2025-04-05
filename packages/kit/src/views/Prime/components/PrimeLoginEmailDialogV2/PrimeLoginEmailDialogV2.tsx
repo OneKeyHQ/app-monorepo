@@ -40,7 +40,6 @@ export function PrimeLoginEmailDialogV2(props: {
     defaultValues: { email: lastOneKeyIdLoginEmail || '' },
   });
 
-
   const submit = useCallback(
     async (options: { preventClose?: () => void } = {}) => {
       const { preventClose } = options;

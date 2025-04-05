@@ -242,6 +242,7 @@ export const WelcomeItem = memo(
           webSite: {
             url,
             title: url,
+            logo: undefined,
           },
           shouldPopNavigation: false,
           enterMethod: EEnterMethod.dashboard,
