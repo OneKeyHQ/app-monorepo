@@ -90,13 +90,11 @@ function MessageConfirmAlert(props: IProps) {
 
   const renderLocalParsedMessageAlert = useCallback(() => {
     if (isSignTypedDataV3orV4Method) {
-      let type: IAlertProps['type'] = showTakeRiskAlert
-        ? 'critical'
-        : 'default';
+      let type: IAlertProps['type'] = showTakeRiskAlert ? 'danger' : 'default';
       let messageType = 'signTypedData';
 
       if (isPermitSignMethod || isOrderSignMethod) {
-        type = showTakeRiskAlert ? 'critical' : 'warning';
+        type = showTakeRiskAlert ? 'danger' : 'warning';
         messageType = isPermitSignMethod ? 'permit' : 'order';
       }
 
@@ -148,7 +146,7 @@ function MessageConfirmAlert(props: IProps) {
           <Alert
             key={alert}
             description={alert}
-            type={showTakeRiskAlert ? 'critical' : 'warning'}
+            type={showTakeRiskAlert ? 'danger' : 'warning'}
             icon="InfoSquareOutline"
           />
         ))}
