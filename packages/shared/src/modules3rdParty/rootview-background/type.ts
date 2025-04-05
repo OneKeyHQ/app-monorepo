@@ -1,1 +1,4 @@
-export type IUpdateRootViewBackgroundColor = (color: string) => void;
+export type IUpdateRootViewBackgroundColor = (
+  color: string,
+  theme: string,
+) => void;

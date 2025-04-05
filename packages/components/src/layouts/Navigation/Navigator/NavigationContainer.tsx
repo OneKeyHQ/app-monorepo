@@ -56,13 +56,14 @@ export const useOnRouterChange = (callback: IRouterChangeEvent) => {
   }, []);
 };
 
-const useUpdateRootViewBackgroundColor = platformEnv.isNative
-  ? (color: string) => {
-      useEffect(() => {
-        updateRootViewBackgroundColor(color);
-      }, [color]);
-    }
-  : () => {};
+const useUpdateRootViewBackgroundColor = (
+  color: string,
+  theme: 'light' | 'dark',
+) => {
+  useEffect(() => {
+    updateRootViewBackgroundColor(color, theme);
+  }, [color, theme]);
+};
 
 export function NavigationContainer(props: IBasicNavigationContainerProps) {
   const handleReady = useCallback(() => {
@@ -71,7 +72,7 @@ export function NavigationContainer(props: IBasicNavigationContainerProps) {
   const { theme: themeName } = useSettingConfig();
   const theme = useTheme();
 
-  useUpdateRootViewBackgroundColor(theme.bgApp.val);
+  useUpdateRootViewBackgroundColor(theme.bgApp.val, themeName);
 
   const themeOptions = useMemo(() => {
     return {
