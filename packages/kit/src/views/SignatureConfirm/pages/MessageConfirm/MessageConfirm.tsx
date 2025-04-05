@@ -256,6 +256,10 @@ function MessageConfirm() {
                 messageDisplay={parsedMessage}
                 unsignedMessage={unsignedMessage}
                 isRiskSignMethod={isRiskSignMethod}
+                showContinueOperateLocal={showContinueOperate}
+                urlSecurityInfo={urlSecurityInfo}
+                isConfirmationRequired={isConfirmationRequired}
+                walletInternalSign={walletInternalSign}
               />
             ) : null}
             {showDAppSiteMark ? (
@@ -291,6 +295,9 @@ function MessageConfirm() {
     accountId,
     networkId,
     swapInfo,
+    showContinueOperate,
+    isConfirmationRequired,
+    walletInternalSign,
   ]);
 
   const handleOnClose = useCallback(

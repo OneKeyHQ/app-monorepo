@@ -2,7 +2,7 @@ import { cloneElement, useCallback, useContext, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
-import { createStyledContext, styled } from 'tamagui';
+import { createStyledContext, styled, useThemeName } from 'tamagui';
 
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -24,7 +24,8 @@ export type IAlertType =
   | 'warning'
   | 'critical'
   | 'success'
-  | 'default';
+  | 'default'
+  | 'danger';
 
 type IAlertActionProps = {
   primary: string;
@@ -81,6 +82,10 @@ const AlertFrame = styled(XStack, {
         backgroundColor: '$bgCriticalSubdued',
         borderColor: '$borderCriticalSubdued',
       },
+      danger: {
+        backgroundColor: '$bgCritical',
+        borderColor: '$borderCritical',
+      },
       success: {
         backgroundColor: '$bgSuccessSubdued',
         borderColor: '$borderSuccessSubdued',
@@ -108,6 +113,7 @@ const AlertIcon = (props: { children: any }) => {
     info: '$iconInfo',
     warning: '$iconCaution',
     critical: '$iconCritical',
+    danger: '$iconCritical',
     success: '$iconSuccess',
   };
   return cloneElement(props.children, {
@@ -136,6 +142,10 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
   }, [onCloseProp]);
 
   const intl = useIntl();
+  const isDanger = type === 'danger';
+  const themeName = useThemeName() as 'light' | 'dark';
+  const dangerTextColor =
+    themeName === 'light' ? '$textOnBrightColor' : '$textOnColor';
 
   if (!show) return null;
 
@@ -149,9 +159,19 @@ export const Alert = AlertFrame.styleable<IAlertProps>((props, ref) => {
         </Stack>
       ) : null}
       <YStack flex={1} gap="$1">
-        {title ? <SizableText size="$bodyMdMedium">{title}</SizableText> : null}
+        {title ? (
+          <SizableText
+            size="$bodyMdMedium"
+            color={isDanger ? dangerTextColor : undefined}
+          >
+            {title}
+          </SizableText>
+        ) : null}
         {description ? (
-          <SizableText size="$bodyMd" color="$textSubdued">
+          <SizableText
+            size="$bodyMd"
+            color={isDanger ? dangerTextColor : '$textSubdued'}
+          >
             {description}
           </SizableText>
         ) : null}
