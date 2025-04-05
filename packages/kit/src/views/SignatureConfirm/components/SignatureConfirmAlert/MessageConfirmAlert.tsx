@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import type { IAlertProps } from '@onekeyhq/components';
 import { Alert, YStack } from '@onekeyhq/components';
 import type { IUnsignedMessage } from '@onekeyhq/core/src/types';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   isPrimaryTypeOrderSign,
@@ -23,6 +24,8 @@ interface IProps {
 function MessageConfirmAlert(props: IProps) {
   const { messageDisplay, unsignedMessage, isRiskSignMethod } = props;
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const isStrictSignatureAlert = devSettings.settings?.strictSignatureAlert;
 
   const isSignTypedDataV3orV4Method =
     unsignedMessage.type === EMessageTypesEth.TYPED_DATA_V3 ||
@@ -33,11 +36,13 @@ function MessageConfirmAlert(props: IProps) {
 
   const renderLocalParsedMessageAlert = useCallback(() => {
     if (isSignTypedDataV3orV4Method) {
-      let type: IAlertProps['type'] = 'default';
+      let type: IAlertProps['type'] = isStrictSignatureAlert
+        ? 'critical'
+        : 'default';
       let messageType = 'signTypedData';
 
       if (isPermitSignMethod || isOrderSignMethod) {
-        type = 'warning';
+        type = isStrictSignatureAlert ? 'critical' : 'warning';
         messageType = isPermitSignMethod ? 'permit' : 'order';
       }
 
@@ -74,6 +79,7 @@ function MessageConfirmAlert(props: IProps) {
     isPermitSignMethod,
     isOrderSignMethod,
     intl,
+    isStrictSignatureAlert,
   ]);
 
   const renderMessageAlerts = useCallback(() => {
@@ -88,13 +94,17 @@ function MessageConfirmAlert(props: IProps) {
           <Alert
             key={alert}
             description={alert}
-            type="warning"
+            type={isStrictSignatureAlert ? 'critical' : 'warning'}
             icon="InfoSquareOutline"
           />
         ))}
       </YStack>
     );
-  }, [messageDisplay?.alerts, renderLocalParsedMessageAlert]);
+  }, [
+    messageDisplay?.alerts,
+    renderLocalParsedMessageAlert,
+    isStrictSignatureAlert,
+  ]);
 
   return renderMessageAlerts();
 }
