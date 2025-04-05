@@ -319,6 +319,13 @@ export const DevSettingsSection = () => {
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem
+        name="strictSignatureAlert"
+        title="严格的签名 Alert 展示"
+        subtitle="signTypedData 签名，红色 Alert"
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
 
       <ListItem
         title="Bg Api 可序列化检测"

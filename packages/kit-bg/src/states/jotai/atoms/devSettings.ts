@@ -27,6 +27,8 @@ export interface IDevSettings {
   showPrimeTest?: boolean;
   showOneKeyId?: boolean;
   usePrimeSandboxPayment?: boolean;
+  // strict signature alert display
+  strictSignatureAlert?: boolean;
   autoNavigation?: {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
@@ -56,6 +58,7 @@ export const {
       showPrimeTest: false,
       showOneKeyId: false,
       usePrimeSandboxPayment: false,
+      strictSignatureAlert: false,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,
