@@ -1,6 +1,6 @@
 import { sha512Sync } from '@onekeyhq/core/src/secret/hash';
 import {
-  type EPrimeCloudSyncDataType,
+  EPrimeCloudSyncDataType,
   PRIME_CLOUD_SYNC_CREATE_GENESIS_TIME,
 } from '@onekeyhq/shared/src/consts/primeConsts';
 import type {
@@ -11,6 +11,7 @@ import type {
   ICloudSyncKeyInfoWallet,
   ICloudSyncPayloadMap,
   ICloudSyncPayloadWallet,
+  ICloudSyncRawDataJson,
   ICloudSyncTargetMap,
   IExistingSyncItemsInfo,
 } from '@onekeyhq/shared/types/prime/primeCloudSyncTypes';
@@ -280,11 +281,15 @@ export abstract class CloudSyncFlowManagerBase<
 
     const syncCredential = await this.getSyncCredential();
 
+    const canSyncWithoutServer =
+      this.dataType === EPrimeCloudSyncDataType.IndexedAccount;
+
     for (const target of targets) {
       let existingSyncItem: IDBCloudSyncItem | undefined;
 
       if (
-        await this.backgroundApi.servicePrimeCloudSync.isCloudSyncIsAvailable()
+        canSyncWithoutServer ||
+        (await this.backgroundApi.servicePrimeCloudSync.isCloudSyncIsAvailable())
       ) {
         existingSyncItem = await this.txGetSyncItem({
           tx,
@@ -307,6 +312,26 @@ export abstract class CloudSyncFlowManagerBase<
           target,
         };
         existingSyncItems.push(existingSyncItem);
+      } else if (
+        canSyncWithoutServer &&
+        existingSyncItem &&
+        existingSyncItem.rawData
+      ) {
+        try {
+          const rawDataJson = JSON.parse(
+            existingSyncItem.rawData,
+          ) as ICloudSyncRawDataJson;
+          if (rawDataJson.payload) {
+            existingSyncItemsInfo[target.targetId] = {
+              syncPayload: rawDataJson.payload as any,
+              syncItem: existingSyncItem,
+              target,
+            };
+            existingSyncItems.push(existingSyncItem);
+          }
+        } catch (error) {
+          console.error('parse rawData error', error);
+        }
       } else {
         const newSyncItem = await this.buildSyncItem({
           syncCredential,
@@ -470,6 +495,7 @@ export abstract class CloudSyncFlowManagerBase<
             });
           if (
             existingSyncItem &&
+            syncCredential.masterPasswordUUID &&
             existingSyncItem.pwdHash === syncCredential.masterPasswordUUID
           ) {
             // pwdHash matched, do not need rebuild sync item

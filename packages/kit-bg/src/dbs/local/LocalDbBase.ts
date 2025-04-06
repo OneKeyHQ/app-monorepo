@@ -2823,7 +2823,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const syncItem = params.skipSaveLocalSyncItem
       ? undefined
       : await syncManagers.wallet.buildSyncItemByDBQuery({
-          dbRecord: wallet,
+          dbRecord: {
+            ...wallet,
+            name: walletName,
+            avatarInfo,
+            avatar: JSON.stringify(avatarInfo),
+          },
           // allDevices,
           syncCredential: await syncManagers.wallet.getSyncCredential(),
           isDeleted: false,
@@ -3712,18 +3717,23 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const indexedAccount = await this.getIndexedAccountSafe({
       id: indexedAccountId,
     });
-    let syncItemKey: string | undefined;
-    if (indexedAccount) {
-      const target = await syncManagers.indexedAccount.buildSyncTargetByDBQuery(
-        {
-          dbRecord: indexedAccount,
-        },
-      );
-      const keyInfo = await syncManagers.indexedAccount.buildSyncKeyAndPayload({
-        target,
-      });
-      syncItemKey = keyInfo.key;
-    }
+
+    const getSyncItemKeyFn = async () => {
+      let syncItemKey: string | undefined;
+      if (indexedAccount) {
+        const target =
+          await syncManagers.indexedAccount.buildSyncTargetByDBQuery({
+            dbRecord: indexedAccount,
+          });
+        const keyInfo =
+          await syncManagers.indexedAccount.buildSyncKeyAndPayload({
+            target,
+          });
+        syncItemKey = keyInfo.key;
+      }
+      return syncItemKey;
+    };
+    // const syncItemKey = await getSyncItemKeyFn();
 
     await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
@@ -3731,12 +3741,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.IndexedAccount,
         ids: [indexedAccountId],
       });
-      if (syncItemKey) {
-        await this.txRemoveCloudSyncPoolItems({
-          tx,
-          keys: [syncItemKey],
-        });
-      }
+
+      // keep sync item for same mnemonic wallet accounts creation
+      // if (syncItemKey) {
+      //   await this.txRemoveCloudSyncPoolItems({
+      //     tx,
+      //     keys: [syncItemKey],
+      //   });
+      // }
     });
   }
 
@@ -3977,7 +3989,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         if (account) {
           syncItem = await syncManagers.account.buildSyncItemByDBQuery({
             syncCredential: await syncManagers.account.getSyncCredential(),
-            dbRecord: account,
+            dbRecord: { ...account, name: params.name || account.name },
             isDeleted: false,
             dataTime: now,
           });
@@ -3991,7 +4003,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           syncItem = await syncManagers.indexedAccount.buildSyncItemByDBQuery({
             syncCredential:
               await syncManagers.indexedAccount.getSyncCredential(),
-            dbRecord: indexedAccount,
+            dbRecord: {
+              ...indexedAccount,
+              name: params.name || indexedAccount.name,
+            },
             isDeleted: false,
             dataTime: now,
           });

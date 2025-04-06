@@ -454,6 +454,16 @@ function DebugPanel() {
       >
         生成 HD 钱包 hash 和 xfp
       </Button>
+      <Button
+        onPress={async () => {
+          await backgroundApiProxy.serviceAccount.clearHDWalletHashAndXfp();
+          Toast.success({
+            title: 'success',
+          });
+        }}
+      >
+        清除所有钱包 hash 和 xfp
+      </Button>
     </YStack>
   );
 }

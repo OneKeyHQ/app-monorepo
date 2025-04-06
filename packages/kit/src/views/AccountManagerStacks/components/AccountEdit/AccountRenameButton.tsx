@@ -2,13 +2,13 @@ import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import type {
   IDBAccount,
   IDBIndexedAccount,
   IDBWallet,
 } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { showRenameDialog } from '@onekeyhq/kit/src/components/RenameDialog';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import {
   EChangeHistoryContentType,
@@ -51,10 +51,18 @@ export function AccountRenameButton({
           },
           onSubmit: async (newName) => {
             if (indexedAccount?.id && newName) {
+              await serviceAccount.generateWalletsMissingMetaWithUserInteraction(
+                {
+                  walletId: wallet?.id || '',
+                },
+              );
+              const walletNew = await serviceAccount.getWalletSafe({
+                walletId: wallet?.id || '',
+              });
               await serviceAccount.setUniversalIndexedAccountName({
                 indexedAccountId: indexedAccount?.id,
                 index: indexedAccount?.index,
-                walletXfp: wallet?.xfp,
+                walletXfp: walletNew?.xfp,
                 name: newName,
                 shouldCheckDuplicate: true,
               });

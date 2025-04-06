@@ -88,6 +88,7 @@ import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 
 import { EDBAccountType } from '../../dbs/local/consts';
 import localDb from '../../dbs/local/localDb';
+import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
 import simpleDb from '../../dbs/simple/simpleDb';
 import { devSettingsPersistAtom } from '../../states/jotai/atoms';
 import { vaultFactory } from '../../vaults/factory';
@@ -3280,6 +3281,32 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  async clearHDWalletHashAndXfp() {
+    await localDb.withTransaction(async (tx) => {
+      const { recordPairs } = await localDb.txGetAllRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+      });
+      await localDb.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.Wallet,
+        recordPairs,
+        updater: (record) => {
+          if (
+            accountUtils.isHdWallet({ walletId: record.id }) ||
+            accountUtils.isHwWallet({ walletId: record.id }) ||
+            accountUtils.isQrWallet({ walletId: record.id })
+          ) {
+            record.hash = undefined;
+            record.xfp = undefined;
+          }
+          return record;
+        },
+      });
+    });
+  }
+
+  @backgroundMethod()
   async generateMissingHDWalletHashAndXfp({ password }: { password: string }) {
     const { wallets } = await this.getAllWallets({ refillWalletInfo: false });
     const hdWallets = wallets.filter((wallet) =>
@@ -3328,51 +3355,53 @@ class ServiceAccount extends ServiceBase {
     }));
   }
 
-  generateHwWalletsMissingXfpDebounced = debounce(
-    async ({
-      wallet,
+  generateHwWalletsMissingXfpFn = async ({
+    wallet,
+    connectId,
+    deviceId,
+  }: {
+    wallet: IDBWallet | undefined;
+    connectId: string | undefined;
+    deviceId: string | undefined;
+  }) => {
+    if (!wallet?.id) {
+      return;
+    }
+    if (wallet && wallet?.xfp) {
+      console.log('wallet already has xfp', wallet.xfp);
+      return;
+    }
+    if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
+      return;
+    }
+    if (!connectId) {
+      const device = await localDb.getWalletDeviceSafe({
+        dbWallet: wallet,
+        walletId: wallet?.id,
+      });
+      // eslint-disable-next-line no-param-reassign
+      connectId = device?.connectId;
+      // eslint-disable-next-line no-param-reassign
+      deviceId = device?.deviceId;
+    }
+
+    const xfp = await this.backgroundApi.serviceHardware.getHwWalletXfp({
       connectId,
       deviceId,
-    }: {
-      wallet: IDBWallet | undefined;
-      connectId: string | undefined;
-      deviceId: string | undefined;
-    }) => {
-      if (!wallet?.id) {
-        return;
-      }
-      if (wallet && wallet?.xfp) {
-        console.log('wallet already has xfp', wallet.xfp);
-        return;
-      }
-      if (!accountUtils.isHwWallet({ walletId: wallet?.id })) {
-        return;
-      }
-      if (!connectId) {
-        const device = await localDb.getWalletDeviceSafe({
-          dbWallet: wallet,
-          walletId: wallet?.id,
-        });
-        // eslint-disable-next-line no-param-reassign
-        connectId = device?.connectId;
-        // eslint-disable-next-line no-param-reassign
-        deviceId = device?.deviceId;
-      }
-
-      const xfp = await this.backgroundApi.serviceHardware.getHwWalletXfp({
-        connectId,
-        deviceId,
-        passphraseState: wallet?.passphraseState,
+      passphraseState: wallet?.passphraseState,
+    });
+    if (xfp) {
+      await localDb.updateWalletsHashAndXfp({
+        [wallet?.id]: {
+          xfp,
+        },
       });
-      if (xfp) {
-        await localDb.updateWalletsHashAndXfp({
-          [wallet?.id]: {
-            xfp,
-          },
-        });
-      }
-      console.log('generateHwWalletsMissingXfp', { xfp, connectId, deviceId });
-    },
+    }
+    console.log('generateHwWalletsMissingXfp', { xfp, connectId, deviceId });
+  };
+
+  generateHwWalletsMissingXfpDebounced = debounce(
+    this.generateHwWalletsMissingXfpFn,
     3000,
     {
       leading: false,
@@ -3395,6 +3424,62 @@ class ServiceAccount extends ServiceBase {
       connectId,
       deviceId,
     });
+  }
+
+  @backgroundMethod()
+  async generateWalletsMissingMetaWithUserInteraction({
+    walletId,
+  }: {
+    walletId: string;
+  }) {
+    if (!walletId) {
+      return;
+    }
+    const wallet = await localDb.getWalletSafe({ walletId });
+    if (!wallet) {
+      return;
+    }
+
+    const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
+    if (isHdWallet) {
+      if (isHdWallet && wallet.hash && wallet.xfp) {
+        return;
+      }
+      const { password } =
+        await this.backgroundApi.servicePassword.promptPasswordVerify({});
+      if (!password) {
+        return;
+      }
+      await this.generateMissingHDWalletHashAndXfp({ password });
+    }
+
+    const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
+    if (isHwWallet) {
+      if (isHwWallet && wallet.xfp) {
+        return;
+      }
+      const device = await localDb.getWalletDeviceSafe({
+        dbWallet: wallet,
+        walletId: wallet?.id,
+      });
+      if (!device) {
+        return;
+      }
+      await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
+        async () => {
+          await this.generateHwWalletsMissingXfpFn({
+            wallet,
+            connectId: device?.connectId || '',
+            deviceId: device?.deviceId || '',
+          });
+        },
+        {
+          deviceParams: {
+            dbDevice: device,
+          },
+        },
+      );
+    }
   }
 
   @backgroundMethod()
