@@ -1114,10 +1114,12 @@ class ServiceHardware extends ServiceBase {
     connectId,
     deviceId,
     passphraseState,
+    throwError,
   }: {
     connectId: string | undefined | null;
     deviceId: string | undefined | null;
     passphraseState: string | undefined;
+    throwError: boolean;
   }): Promise<string | undefined> {
     if (!connectId) {
       return;
@@ -1140,6 +1142,9 @@ class ServiceHardware extends ServiceBase {
         return xfp;
       }
     } catch (error) {
+      if (throwError) {
+        throw error;
+      }
       console.error('getHwWalletXfp ERROR: ', error);
     } finally {
       await timerUtils.wait(600);

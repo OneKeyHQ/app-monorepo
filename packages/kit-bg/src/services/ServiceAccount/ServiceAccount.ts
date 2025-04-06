@@ -2366,6 +2366,7 @@ class ServiceAccount extends ServiceBase {
         connectId,
         deviceId,
         passphraseState,
+        throwError: true,
       });
       console.log('createHWWalletBase xfp', xfp, connectId, deviceId);
     }
@@ -3359,10 +3360,12 @@ class ServiceAccount extends ServiceBase {
     wallet,
     connectId,
     deviceId,
+    throwError,
   }: {
     wallet: IDBWallet | undefined;
     connectId: string | undefined;
     deviceId: string | undefined;
+    throwError?: boolean;
   }) => {
     if (!wallet?.id) {
       return;
@@ -3389,6 +3392,7 @@ class ServiceAccount extends ServiceBase {
       connectId,
       deviceId,
       passphraseState: wallet?.passphraseState,
+      throwError: throwError ?? false,
     });
     if (xfp) {
       await localDb.updateWalletsHashAndXfp({
@@ -3427,17 +3431,18 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
+  @toastIfError()
   async generateWalletsMissingMetaWithUserInteraction({
     walletId,
   }: {
     walletId: string;
   }) {
     if (!walletId) {
-      return;
+      throw new Error('walletId is required');
     }
     const wallet = await localDb.getWalletSafe({ walletId });
     if (!wallet) {
-      return;
+      throw new Error('wallet not found');
     }
 
     const isHdWallet = accountUtils.isHdWallet({ walletId: wallet.id });
@@ -3463,15 +3468,18 @@ class ServiceAccount extends ServiceBase {
         walletId: wallet?.id,
       });
       if (!device) {
-        return;
+        throw new Error('wallet associated device not found');
       }
       await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
         async () => {
+          await timerUtils.wait(1000);
           await this.generateHwWalletsMissingXfpFn({
             wallet,
             connectId: device?.connectId || '',
             deviceId: device?.deviceId || '',
+            throwError: true,
           });
+          await timerUtils.wait(1000);
         },
         {
           deviceParams: {
