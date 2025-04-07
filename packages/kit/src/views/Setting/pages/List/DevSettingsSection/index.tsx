@@ -330,7 +330,7 @@ export const DevSettingsSection = () => {
       <SectionFieldItem
         name="showCloudBackupSunsettingAlert"
         title="显示云备份下线提醒"
-        subtitle="展示云备份即将下线的提醒"
+        subtitle="Android & iOS"
       >
         <Switch
           size={ESwitchSize.small}
