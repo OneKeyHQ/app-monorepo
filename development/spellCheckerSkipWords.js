@@ -1,4 +1,5 @@
 module.exports = [
+  'Rabby',
   'mixpanel',
   'Mixpanel',
   'changelog',
