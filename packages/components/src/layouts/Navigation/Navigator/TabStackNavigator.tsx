@@ -97,6 +97,7 @@ export function TabStackNavigator<RouteName extends string>({
         tabBarLabel: intl.formatMessage({ id: options.translationId }),
         // @ts-expect-error BottomTabBar V7
         tabBarPosition,
+        tabbarOnPress: options.tabbarOnPress,
       }}
     >
       {children}
