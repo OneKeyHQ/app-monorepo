@@ -8,6 +8,7 @@ export enum EChainSelectorPages {
   AccountChainSelector = 'AccountChainSelector',
   ChainSelector = 'ChainSelector',
   AddCustomNetwork = 'AddCustomNetwork',
+  AllNetworksManager = 'AllNetworksManager',
 }
 export type IAccountChainSelectorRouteParams = IAccountSelectorRouteParams &
   IAccountSelectorAvailableNetworks & {
@@ -36,5 +37,11 @@ export type IChainSelectorParamList = {
     blockExplorerUrl?: string;
     onSuccess?: (network: IServerNetwork) => void;
     onDeleteSuccess?: () => void;
+  };
+  [EChainSelectorPages.AllNetworksManager]: {
+    walletId: string;
+    accountId?: string;
+    indexedAccountId?: string;
+    onNetworksChanged?: () => Promise<void>;
   };
 };
