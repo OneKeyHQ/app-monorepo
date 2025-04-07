@@ -1,6 +1,7 @@
 export interface IMarketCategory {
   categoryId: string;
   coingeckoIds: string[];
+  watchList?: IMarketWatchListItem[];
   name: string;
   type: string;
   recommendedTokens?: IMarketToken[];
@@ -23,6 +24,7 @@ export interface IMarketCustomToken {
 
 export interface IMarketToken {
   coingeckoId: string;
+  sortIndex?: number;
   name: string;
   serialNumber: number;
   price: number;
@@ -224,6 +226,7 @@ export interface IMarketDetailPool {
 
 export interface IMarketWatchListItem {
   coingeckoId: string;
+  sortIndex: number | undefined;
 }
 
 export interface IMarketWatchListData {

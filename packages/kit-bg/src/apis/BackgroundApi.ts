@@ -4,6 +4,7 @@
 // eslint-disable-next-line import/order
 
 import externalWalletFactory from '../connectors/externalWalletFactory';
+import localDb from '../dbs/local/localDb';
 import simpleDb from '../dbs/simple/simpleDb';
 import { vaultFactory } from '../vaults/factory';
 
@@ -16,10 +17,13 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     super();
     vaultFactory.setBackgroundApi(this);
     externalWalletFactory.setBackgroundApi(this);
+    localDb.setBackgroundApi(this);
     void this.serviceBootstrap.init();
   }
 
   simpleDb = simpleDb;
+
+  localDb = localDb;
   // validator = this.engine.validator;
 
   // vaultFactory = this.engine.vaultFactory;
@@ -334,6 +338,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
     return value;
   }
 
+  get servicePrimeCloudSync() {
+    const Service =
+      require('../services/ServicePrimeCloudSync') as typeof import('../services/ServicePrimeCloudSync');
+    const value = new Service.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'servicePrimeCloudSync', { value });
+    return value;
+  }
+
   get serviceQrWallet() {
     const Service =
       require('../services/ServiceQrWallet') as typeof import('../services/ServiceQrWallet');
@@ -415,9 +429,9 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
   }
 
   get serviceAddressBook() {
-    const ServiceAddressBook =
+    const Service =
       require('../services/ServiceAddressBook') as typeof import('../services/ServiceAddressBook');
-    const value = new ServiceAddressBook.default({
+    const value = new Service.default({
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceAddressBook', { value });
@@ -581,6 +595,16 @@ class BackgroundApi extends BackgroundApiBase implements IBackgroundApi {
       backgroundApi: this,
     });
     Object.defineProperty(this, 'serviceSignatureConfirm', { value });
+    return value;
+  }
+
+  get serviceMasterPassword() {
+    const ServiceMasterPassword =
+      require('../services/ServiceMasterPassword') as typeof import('../services/ServiceMasterPassword');
+    const value = new ServiceMasterPassword.default({
+      backgroundApi: this,
+    });
+    Object.defineProperty(this, 'serviceMasterPassword', { value });
     return value;
   }
 

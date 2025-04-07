@@ -211,7 +211,13 @@ module.exports = {
   ignorePatterns: [
     '*.wasm.bin',
     'apps/desktop/public/static/js-sdk*',
+    'packages/components/src/primitives/Icon/Icons.tsx',
     'packages/components/src/primitives/Icon/react/*',
+    'packages/shared/src/modules3rdParty/stripe-v3/*',
+    'packages/core/src/chains/xmr/sdkXmr/moneroCore/moneroCore.js',
+    'packages/shared/src/locale/enum/translations.ts',
+    'packages/shared/src/locale/localeJsonMap.ts',
+    'packages/shared/src/locale/json/*',
   ],
   env: {
     browser: true,

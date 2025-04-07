@@ -6,6 +6,7 @@ import type {
   IMnemonicFromEntropyAsyncParams,
   IMnemonicToSeedAsyncParams,
   ISecretPublicKeyInfoSerialized,
+  ISha512Params,
 } from '@onekeyhq/core/src/secret';
 import {
   batchGetPublicKeysAsync,
@@ -14,6 +15,7 @@ import {
   generateRootFingerprintHexAsync,
   mnemonicFromEntropyAsync,
   mnemonicToSeedAsync,
+  sha512Async,
   tonMnemonicToKeyPairFn,
   tonValidateMnemonicFn,
 } from '@onekeyhq/core/src/secret';
@@ -33,6 +35,10 @@ class WebEmbedApiSecret {
     },
   ): Promise<string> {
     return (await decryptAsync(params)).toString('hex');
+  }
+
+  async sha512Async(params: ISha512Params): Promise<string> {
+    return sha512Async(params);
   }
 
   async batchGetPublicKeys(

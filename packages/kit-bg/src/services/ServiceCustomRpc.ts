@@ -28,6 +28,8 @@ import { vaultFactory } from '../vaults/factory';
 
 import ServiceBase from './ServiceBase';
 
+import type { IDBCloudSyncItem } from '../dbs/local/types';
+
 @backgroundClass()
 class ServiceCustomRpc extends ServiceBase {
   private semaphore = new Semaphore(1);
@@ -36,43 +38,216 @@ class ServiceCustomRpc extends ServiceBase {
     super({ backgroundApi });
   }
 
+  async buildCustomRpcSyncItems({
+    customRpcItems,
+    isDeleted,
+  }: {
+    customRpcItems: IDBCustomRpc[];
+    isDeleted: boolean;
+  }) {
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+    const syncCredential =
+      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+
+    const syncItems = (
+      await Promise.all(
+        customRpcItems.map(async (customRpc) => {
+          return syncManagers.customRpc.buildSyncItemByDBQuery({
+            syncCredential,
+            dbRecord: customRpc,
+            dataTime: now,
+            isDeleted,
+          });
+        }),
+      )
+    ).filter(Boolean);
+    return syncItems;
+  }
+
+  async buildCustomNetworkSyncItems({
+    customNetworks,
+    isDeleted,
+  }: {
+    customNetworks: IServerNetwork[];
+    isDeleted: boolean;
+  }) {
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+    const syncCredential =
+      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+
+    const syncItems = (
+      await Promise.all(
+        customNetworks.map(async (customNetwork) => {
+          return syncManagers.customNetwork.buildSyncItemByDBQuery({
+            syncCredential,
+            dbRecord: customNetwork,
+            dataTime: now,
+            isDeleted,
+          });
+        }),
+      )
+    ).filter(Boolean);
+    return syncItems;
+  }
+
+  // TODO move to CloudSyncFlowManagerBase
+  async withCustomRpcCloudSync({
+    fn,
+    customRpcItems,
+    isDeleted,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    fn: () => Promise<void>;
+    customRpcItems: IDBCustomRpc[];
+    isDeleted: boolean;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    let syncItems: IDBCloudSyncItem[] = [];
+    if (!skipSaveLocalSyncItem) {
+      syncItems = await this.buildCustomRpcSyncItems({
+        customRpcItems,
+        isDeleted,
+      });
+    }
+    await this.backgroundApi.localDb.withTransaction(async (tx) => {
+      if (syncItems?.length) {
+        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
+          tx,
+          items: syncItems,
+        });
+      }
+      await fn();
+    });
+  }
+
+  async withCustomNetworkCloudSync({
+    fn,
+    customNetworks,
+    isDeleted,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    fn: () => Promise<void>;
+    customNetworks: IServerNetwork[];
+    isDeleted: boolean;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    let syncItems: IDBCloudSyncItem[] = [];
+    if (!skipSaveLocalSyncItem) {
+      syncItems = await this.buildCustomNetworkSyncItems({
+        customNetworks,
+        isDeleted,
+      });
+    }
+    await this.backgroundApi.localDb.withTransaction(async (tx) => {
+      if (syncItems?.length) {
+        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
+          tx,
+          items: syncItems,
+        });
+      }
+      await fn();
+    });
+  }
+
   /*= ===============================
    *       Custom RPC
    *============================== */
+
   @backgroundMethod()
-  public async addCustomRpc(params: IDBCustomRpc) {
-    return this.backgroundApi.simpleDb.customRpc.addCustomRpc({
-      rpcInfo: params,
+  public async addCustomRpc({
+    customRpc,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    customRpc: IDBCustomRpc;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    return this.withCustomRpcCloudSync({
+      fn: () =>
+        this.backgroundApi.simpleDb.customRpc.addCustomRpc({
+          rpcInfo: customRpc,
+        }),
+      customRpcItems: [customRpc],
+      isDeleted: false,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
     });
   }
 
   @backgroundMethod()
-  public async deleteCustomRpc(networkId: string) {
-    return this.backgroundApi.simpleDb.customRpc.deleteCustomRpc(networkId);
+  public async deleteCustomRpc({
+    customRpc,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    customRpc: IDBCustomRpc;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    return this.withCustomRpcCloudSync({
+      fn: () =>
+        this.backgroundApi.simpleDb.customRpc.deleteCustomRpc(
+          customRpc.networkId,
+        ),
+      customRpcItems: [customRpc],
+      isDeleted: true,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+    });
   }
 
   @backgroundMethod()
   public async updateCustomRpcEnabledStatus(params: {
     networkId: string;
     enabled: boolean;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
   }) {
-    return this.backgroundApi.simpleDb.customRpc.updateCustomRpcEnabledStatus(
-      params,
-    );
+    const { networkId, enabled, skipSaveLocalSyncItem, skipEventEmit } = params;
+    const customRpc = await this.getCustomRpcForNetwork(networkId);
+    if (!customRpc) {
+      return;
+    }
+    return this.withCustomRpcCloudSync({
+      fn: () =>
+        this.backgroundApi.simpleDb.customRpc.updateCustomRpcEnabledStatus(
+          params,
+        ),
+      customRpcItems: [{ ...customRpc, enabled }],
+      isDeleted: false,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+    });
   }
 
   @backgroundMethod()
   public async getAllCustomRpc(): Promise<ICustomRpcItem[]> {
     const result =
       await this.backgroundApi.simpleDb.customRpc.getAllCustomRpc();
-    const itemsWithNetwork = await Promise.all(
-      result.map(async (r) => ({
-        ...r,
-        network: await this.backgroundApi.serviceNetwork.getNetwork({
-          networkId: r.networkId,
+    const itemsWithNetwork = (
+      await Promise.all(
+        result.map(async (r) => {
+          const network =
+            await this.backgroundApi.serviceNetwork.getNetworkSafe({
+              networkId: r.networkId,
+            });
+          if (!network) {
+            return null;
+          }
+          return {
+            ...r,
+            network,
+          };
         }),
-      })),
-    );
+      )
+    ).filter(Boolean);
     return itemsWithNetwork.sort((a, b) =>
       (a.network?.name ?? '').localeCompare(b.network?.name ?? ''),
     );
@@ -116,6 +291,67 @@ class ServiceCustomRpc extends ServiceBase {
     };
   }
 
+  async upsertCustomNetworkInfo({
+    networkInfo,
+    rpcUrl,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    networkInfo: IServerNetwork;
+    rpcUrl: string;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    const networkId = networkInfo.id;
+
+    // Insert custom rpc
+    await this.addCustomRpc({
+      customRpc: {
+        networkId,
+        enabled: true,
+        rpc: rpcUrl,
+        isCustomNetwork: true,
+        updatedAt: undefined,
+      },
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+    });
+
+    await this.withCustomNetworkCloudSync({
+      fn: async () => {
+        // Insert native token
+        const nativeToken: IToken = {
+          decimals: 18,
+          name: networkInfo.symbol,
+          symbol: networkInfo.symbol,
+          address: '', // native token always be empty
+          logoURI: '',
+          isNative: true,
+        };
+        await this.backgroundApi.simpleDb.localTokens.updateTokens({
+          networkId,
+          tokens: [nativeToken],
+        });
+        // Insert custom network
+        await this.backgroundApi.simpleDb.customNetwork.upsertCustomNetwork({
+          networkInfo,
+        });
+
+        void this.backgroundApi.serviceNetwork.clearAllNetworksCache();
+        setTimeout(() => {
+          void this.backgroundApi.serviceNetwork.clearNetworkVaultSettingsCache();
+          if (!skipEventEmit) {
+            appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+          }
+        }, 500);
+      },
+      customNetworks: [networkInfo],
+      isDeleted: false,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+    });
+  }
+
   @backgroundMethod()
   public async upsertCustomNetwork(params: {
     networkName: string;
@@ -135,6 +371,7 @@ class ServiceCustomRpc extends ServiceBase {
     const networkId = accountUtils.buildCustomEvmNetworkId({
       chainId: chainId.toString(),
     });
+
     const networkInfo: IServerNetwork = {
       impl: IMPL_EVM,
       chainId: chainId.toString(),
@@ -160,58 +397,62 @@ class ServiceCustomRpc extends ServiceBase {
       explorerURL: params.blockExplorerUrl,
       isCustomNetwork: true,
     };
-    // Insert custom rpc
-    await this.addCustomRpc({
-      networkId,
-      enabled: true,
-      rpc: params.rpcUrl,
-      isCustomNetwork: true,
-    });
 
-    // Insert native token
-    const nativeToken: IToken = {
-      decimals: 18,
-      name: params.symbol,
-      symbol: params.symbol,
-      address: '', // native token always be empty
-      logoURI: '',
-      isNative: true,
-    };
-    await this.backgroundApi.simpleDb.localTokens.updateTokens({
-      networkId,
-      tokens: [nativeToken],
-    });
-
-    // Insert custom network
-    await this.backgroundApi.simpleDb.customNetwork.upsertCustomNetwork({
+    return this.upsertCustomNetworkInfo({
       networkInfo,
+      rpcUrl: params.rpcUrl,
     });
-
-    void this.backgroundApi.serviceNetwork.clearAllNetworksCache();
-    setTimeout(() => {
-      void this.backgroundApi.serviceNetwork.clearNetworkVaultSettingsCache();
-      appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
-    }, 500);
   }
 
   @backgroundMethod()
   public async deleteCustomNetwork(params: {
     networkId: string;
     replaceByServerNetwork?: boolean;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
   }) {
+    const { skipEventEmit, skipSaveLocalSyncItem } = params;
     if (params.replaceByServerNetwork) {
       await this.updateCustomRpcEnabledStatus({
         networkId: params.networkId,
         enabled: false,
+        skipEventEmit,
+        skipSaveLocalSyncItem,
       });
     } else {
-      await this.deleteCustomRpc(params.networkId);
+      const customRpc = await this.getCustomRpcForNetwork(params.networkId);
+      if (customRpc) {
+        await this.deleteCustomRpc({
+          customRpc,
+          skipEventEmit,
+          skipSaveLocalSyncItem,
+        });
+      }
     }
-    await this.backgroundApi.simpleDb.customNetwork.deleteCustomNetwork(params);
-    void this.backgroundApi.serviceNetwork.clearAllNetworksCache();
-    setTimeout(() => {
-      appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
-    }, 300);
+
+    const allCustomNetwork = await this.getAllCustomNetworks();
+    const customNetwork = allCustomNetwork.find(
+      (n) => n.id === params.networkId,
+    );
+    if (customNetwork) {
+      await this.withCustomNetworkCloudSync({
+        fn: async () => {
+          await this.backgroundApi.simpleDb.customNetwork.deleteCustomNetwork(
+            params,
+          );
+          void this.backgroundApi.serviceNetwork.clearAllNetworksCache();
+          setTimeout(() => {
+            if (!skipEventEmit) {
+              appEventBus.emit(EAppEventBusNames.AddedCustomNetwork, undefined);
+            }
+          }, 300);
+        },
+        customNetworks: [customNetwork],
+        isDeleted: true,
+        skipSaveLocalSyncItem,
+        skipEventEmit,
+      });
+    }
   }
 
   @backgroundMethod()

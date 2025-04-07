@@ -40,9 +40,7 @@ export function PrimeBenefitsList() {
         title="Sync"
         subtitle="Automatically back up app usage data, sync across devices."
         onPress={() => {
-          Toast.success({
-            title: 'Sync',
-          });
+          navigation.navigate(EPrimePages.PrimeCloudSync);
         }}
       />
       <PrimeBenefitsItem

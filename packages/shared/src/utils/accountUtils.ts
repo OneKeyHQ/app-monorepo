@@ -374,11 +374,6 @@ function isImportedAccount({ accountId }: { accountId: string }) {
   return isImportedWallet({ walletId });
 }
 
-function isAllNetworkMockedAccount({ accountId }: { accountId: string }) {
-  // TODO There may be a misjudgment.
-  return accountId.includes(`${SEPERATOR}${COINTYPE_ALLNETWORKS}/`);
-}
-
 function buildHDAccountId({
   networkImpl,
   walletId,
@@ -455,6 +450,16 @@ function parseIndexedAccountId({
     walletId: walletIdArr.join(''),
     index,
   };
+}
+
+function isAllNetworkMockAccount({ accountId }: { accountId: string }) {
+  const parsed = parseAccountId({ accountId });
+  if (parsed?.usedPath) {
+    const [coinType, index] = parsed.usedPath.split('/') || [];
+    const r = coinType === COINTYPE_ALLNETWORKS && !Number.isNaN(Number(index));
+    return r;
+  }
+  return false;
 }
 
 function buildAllNetworkIndexedAccountIdFromAccountId({
@@ -796,6 +801,8 @@ export default {
   isExternalAccount,
   isWatchingAccount,
   isImportedAccount,
+  isAllNetworkMockAccount,
+  isAllNetworkMockAddress,
   parseAccountId,
   parseIndexedAccountId,
   shortenAddress,
@@ -822,5 +829,4 @@ export default {
   buildTonMnemonicCredentialId,
   isTonMnemonicCredentialId,
   buildCustomEvmNetworkId,
-  isAllNetworkMockAddress,
 };

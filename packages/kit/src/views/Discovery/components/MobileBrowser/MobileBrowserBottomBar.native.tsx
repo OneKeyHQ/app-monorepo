@@ -121,15 +121,22 @@ function MobileBrowserBottomBar({
   const { displayHomePage } = useDisplayHomePageFlag();
   const { setPinnedTab, setCurrentWebTab, closeWebTab, setSiteMode } =
     useBrowserTabActions().current;
-  const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction().current;
+
+  const {
+    addOrUpdateBrowserBookmark: addBrowserBookmark,
+    removeBrowserBookmark,
+  } = useBrowserBookmarkAction().current;
   const { handleShareUrl } = useBrowserOptionsAction();
 
   const handleBookmarkPress = useCallback(
     (isBookmark: boolean) => {
       if (tab) {
         if (isBookmark) {
-          void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+          void addBrowserBookmark({
+            url: tab?.url,
+            title: tab?.title ?? '',
+            logo: undefined,
+          });
         } else {
           void removeBrowserBookmark(tab?.url);
         }

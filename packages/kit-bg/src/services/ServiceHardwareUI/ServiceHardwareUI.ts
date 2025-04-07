@@ -474,6 +474,11 @@ class ServiceHardwareUI extends ServiceBase {
             skipDeviceCancel: closeDialogParams.skipDeviceCancel,
             deviceResetToHome: closeDialogParams.deviceResetToHome,
           });
+          void this.backgroundApi.serviceAccount.generateHwWalletsMissingXfp({
+            wallet: deviceParams?.dbWallet,
+            connectId,
+            deviceId: device?.deviceId,
+          });
         }
         void this.backgroundApi.serviceFirmwareUpdate.delayShouldDetectTimeCheck(
           { connectId },

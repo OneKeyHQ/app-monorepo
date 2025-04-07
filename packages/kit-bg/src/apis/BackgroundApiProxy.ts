@@ -38,6 +38,7 @@ import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
+import type ServiceMasterPassword from '../services/ServiceMasterPassword';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -46,6 +47,7 @@ import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePrime from '../services/ServicePrime';
+import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 // import type ServiceCronJob from './services/ServiceCronJob';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
@@ -69,6 +71,22 @@ class BackgroundApiProxy
   implements IBackgroundApi
 {
   simpleDb = new SimpleDbProxy(this);
+
+  localDb = new Proxy({} as any, {
+    get: (_, prop) => {
+      if (
+        typeof prop === 'string' &&
+        prop !== 'toString' &&
+        prop !== 'valueOf' &&
+        prop !== 'inspect'
+      ) {
+        return (..._args: any[]) => {
+          throw new Error('localDb cannot be accessed from the UI layer');
+        };
+      }
+      return undefined;
+    },
+  });
 
   walletConnect = this._createProxyService(
     'walletConnect',
@@ -159,6 +177,14 @@ class BackgroundApiProxy
   ) as ServiceNotification;
 
   servicePrime = this._createProxyService('servicePrime') as ServicePrime;
+
+  serviceMasterPassword = this._createProxyService(
+    'serviceMasterPassword',
+  ) as ServiceMasterPassword;
+
+  servicePrimeCloudSync = this._createProxyService(
+    'servicePrimeCloudSync',
+  ) as ServicePrimeCloudSync;
 
   serviceQrWallet = this._createProxyService(
     'serviceQrWallet',
