@@ -332,16 +332,7 @@ export const DevSettingsSection = () => {
         title="显示云备份下线提醒"
         subtitle="Android & iOS"
       >
-        <Switch
-          size={ESwitchSize.small}
-          onChange={() => {
-            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
-              'showCloudBackupSunsettingAlert',
-              !devSettings.settings?.showCloudBackupSunsettingAlert,
-            );
-          }}
-          value={devSettings.settings?.showCloudBackupSunsettingAlert}
-        />
+        <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
 
       <ListItem
