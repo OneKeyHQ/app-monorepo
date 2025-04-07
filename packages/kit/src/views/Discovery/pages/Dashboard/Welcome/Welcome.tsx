@@ -120,7 +120,7 @@ export function Welcome({
   isLoading,
 }: {
   banner: React.ReactNode;
-  discoveryData: { hot?: Array<{ logo?: string; url?: string }> };
+  discoveryData?: { hot?: Array<{ logo?: string; url?: string }> };
   isLoading: boolean;
 }) {
   const media = useMedia();

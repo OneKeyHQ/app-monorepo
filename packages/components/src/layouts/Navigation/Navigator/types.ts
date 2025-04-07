@@ -41,6 +41,7 @@ export interface ITabNavigatorConfig<RouteName extends string> {
   tabBarStyle?: Animated.WithAnimatedValue<StyleProp<ViewStyle>>;
   actionList?: IActionListSection[];
   shortcutKey?: EShortcutEvents;
+  tabbarOnPress?: () => void;
 }
 
 export interface ICommonNavigatorConfig<
