@@ -6946,6 +6946,7 @@ __metadata:
     bip174: "npm:3.0.0-rc.1"
     browserify-zlib: "npm:^0.2.0"
     cheerio: "npm:^1.0.0-rc.12"
+    colord: "npm:^2.9.3"
     copy-webpack-plugin: "npm:^6.0.2"
     cross-env: "npm:^7.0.3"
     crypto-browserify: "npm:^3.12.0"
@@ -20145,7 +20146,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"colord@npm:^2.9.1":
+"colord@npm:^2.9.1, colord@npm:^2.9.3":
   version: 2.9.3
   resolution: "colord@npm:2.9.3"
   checksum: 10/907a4506d7307e2f580b471b581e992181ed75ab0c6925ece9ca46d88161d2fc50ed15891cd0556d0d9321237ca75afc9d462e4c050b939ef88428517f047f30
