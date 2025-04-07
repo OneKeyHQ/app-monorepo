@@ -445,7 +445,7 @@ function DebugPanel() {
           await backgroundApiProxy.simpleDb.appStatus.setRawData({});
           const { password } =
             await backgroundApiProxy.servicePassword.promptPasswordVerify({});
-          await backgroundApiProxy.serviceAccount.generateMissingHDWalletHashAndXfp(
+          await backgroundApiProxy.serviceAccount.generateAllHDWalletMissingHashAndXfp(
             {
               password,
             },

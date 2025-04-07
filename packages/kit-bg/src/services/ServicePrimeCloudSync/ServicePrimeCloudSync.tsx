@@ -1186,9 +1186,11 @@ class ServicePrimeCloudSync extends ServiceBase {
         }));
     }
 
-    await this.backgroundApi.serviceAccount.generateMissingHDWalletHashAndXfp({
-      password,
-    });
+    await this.backgroundApi.serviceAccount.generateAllHDWalletMissingHashAndXfp(
+      {
+        password,
+      },
+    );
 
     const { wallets: allWallets, allDevices } =
       await this.backgroundApi.serviceAccount.getAllWallets({

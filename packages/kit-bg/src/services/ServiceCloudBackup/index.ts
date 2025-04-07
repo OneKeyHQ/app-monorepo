@@ -585,7 +585,7 @@ class ServiceCloudBackup extends ServiceBase {
       });
 
       try {
-        await serviceAccount.generateMissingHDWalletHashAndXfp({
+        await serviceAccount.generateAllHDWalletMissingHashAndXfp({
           password: localPassword,
         });
       } catch (e) {

@@ -539,6 +539,16 @@ class ServiceAccount extends ServiceBase {
         reason: EReasonForNeedPassword.Default,
       });
 
+    const wallet = await this.getWalletSafe({
+      walletId,
+    });
+    if (password && wallet && accountUtils.isHdWallet({ walletId })) {
+      await this.generateHDWalletMissingHashAndXfp({
+        password,
+        hdWallets: [wallet].filter(Boolean),
+      });
+    }
+
     // canAutoCreateNextAccount
     // skip exists account added
     // postAccountAdded
@@ -2428,7 +2438,7 @@ class ServiceAccount extends ServiceBase {
       throw new Error('TON mnemonic is not supported');
     }
 
-    await this.generateMissingHDWalletHashAndXfp({ password });
+    await this.generateAllHDWalletMissingHashAndXfp({ password });
 
     const walletHashAndXfp = await this.walletHashXfpBuilder({
       realMnemonic,
@@ -3308,7 +3318,11 @@ class ServiceAccount extends ServiceBase {
   }
 
   @backgroundMethod()
-  async generateMissingHDWalletHashAndXfp({ password }: { password: string }) {
+  async generateAllHDWalletMissingHashAndXfp({
+    password,
+  }: {
+    password: string;
+  }) {
     const { wallets } = await this.getAllWallets({ refillWalletInfo: false });
     const hdWallets = wallets.filter((wallet) =>
       accountUtils.isHdWallet({ walletId: wallet.id }),
@@ -3328,10 +3342,33 @@ class ServiceAccount extends ServiceBase {
     if (!hdWalletsToProcess?.length) {
       return;
     }
+
+    await this.generateHDWalletMissingHashAndXfp({
+      password,
+      hdWallets: hdWalletsToProcess,
+    });
+    await simpleDb.appStatus.setRawData((v) => ({
+      ...v,
+      hdWalletHashGenerated: true,
+      hdWalletXfpGenerated: true,
+    }));
+  }
+
+  @backgroundMethod()
+  async generateHDWalletMissingHashAndXfp({
+    password,
+    hdWallets,
+  }: {
+    password: string;
+    hdWallets: IDBWallet[];
+  }) {
+    if (!hdWallets?.length) {
+      return;
+    }
     const walletsHashXfpMap: {
       [walletId: string]: { hash: string; xfp: string };
     } = {};
-    for (const wallet of hdWalletsToProcess) {
+    for (const wallet of hdWallets) {
       try {
         const credentialInfo = await localDb.getCredential(wallet.id);
         if (!credentialInfo) {
@@ -3349,11 +3386,6 @@ class ServiceAccount extends ServiceBase {
       }
     }
     await localDb.updateWalletsHashAndXfp(walletsHashXfpMap);
-    await simpleDb.appStatus.setRawData((v) => ({
-      ...v,
-      hdWalletHashGenerated: true,
-      hdWalletXfpGenerated: true,
-    }));
   }
 
   generateHwWalletsMissingXfpFn = async ({
@@ -3455,7 +3487,7 @@ class ServiceAccount extends ServiceBase {
       if (!password) {
         return;
       }
-      await this.generateMissingHDWalletHashAndXfp({ password });
+      await this.generateAllHDWalletMissingHashAndXfp({ password });
     }
 
     const isHwWallet = accountUtils.isHwWallet({ walletId: wallet.id });
@@ -3523,7 +3555,7 @@ class ServiceAccount extends ServiceBase {
   }
 
   async getLocalSameHDWallets({ password }: { password: string }) {
-    await this.generateMissingHDWalletHashAndXfp({ password });
+    await this.generateAllHDWalletMissingHashAndXfp({ password });
     const { wallets: allWallets } = await this.getAllWallets({
       refillWalletInfo: true,
     });
