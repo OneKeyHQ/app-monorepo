@@ -4,14 +4,7 @@ import emojiRegex from 'emoji-regex';
 import { useIntl } from 'react-intl';
 
 import type { IDialogShowProps } from '@onekeyhq/components';
-import {
-  Dialog,
-  Form,
-  Input,
-  Spinner,
-  Stack,
-  Toast,
-} from '@onekeyhq/components';
+import { Dialog, Spinner, Stack, Toast } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { RenameInputWithNameSelector } from '@onekeyhq/kit/src/components/RenameDialog';
 import { MAX_LENGTH_HW_LABEL_NAME } from '@onekeyhq/kit/src/components/RenameDialog/renameConsts';
