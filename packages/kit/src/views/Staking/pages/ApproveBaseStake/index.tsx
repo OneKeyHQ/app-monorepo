@@ -3,11 +3,12 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import { Page } from '@onekeyhq/components';
-import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useAppRoute } from '@onekeyhq/kit/src/hooks/useAppRoute';
-import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
+import { EarnProviderMirror } from '@onekeyhq/kit/src/views/Earn/EarnProviderMirror';
+import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
@@ -16,7 +17,8 @@ import type {
 } from '@onekeyhq/shared/src/routes';
 import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { EEarnLabels } from '@onekeyhq/shared/types/staking';
+import type { IApproveConfirmFnParams } from '@onekeyhq/shared/types/staking';
+import { EApproveType, EEarnLabels } from '@onekeyhq/shared/types/staking';
 
 import { ApproveBaseStake } from '../../components/ApproveBaseStake';
 import { useProviderLabel } from '../../hooks/useProviderLabel';
@@ -34,19 +36,20 @@ const BasicApproveBaseStakePage = () => {
   const { balanceParsed, price } = token;
   const appNavigation = useAppNavigation();
   const actionTag = buildLocalTxStatusSyncId(details);
+  const { removePermitCache } = useEarnActions().current;
 
   const handleStake = useUniversalStake({ accountId, networkId });
   const onConfirm = useCallback(
-    async (amount: string) => {
+    async (params: IApproveConfirmFnParams) => {
       await handleStake({
-        amount,
+        amount: params.amount,
         stakingInfo: {
           label: EEarnLabels.Stake,
           protocol: earnUtils.getEarnProviderName({
             providerName: provider.name,
           }),
           protocolLogoURI: provider.logoURI,
-          send: { token: token.info, amount },
+          send: { token: token.info, amount: params.amount },
           tags: [actionTag],
         },
         symbol: token.info.symbol,
@@ -56,7 +59,20 @@ const BasicApproveBaseStakePage = () => {
         })
           ? provider.vault
           : undefined,
+        approveType: params.approveType,
+        permitSignature: params.permitSignature,
         onSuccess: () => {
+          if (
+            params.approveType === EApproveType.Permit &&
+            params.permitSignature
+          ) {
+            removePermitCache({
+              accountId,
+              networkId,
+              tokenAddress: token.info.address,
+              amount: params.amount,
+            });
+          }
           appNavigation.pop();
           defaultLogger.staking.page.staking({
             token: token.info,
@@ -65,7 +81,16 @@ const BasicApproveBaseStakePage = () => {
         },
       });
     },
-    [token, appNavigation, handleStake, provider, actionTag],
+    [
+      token,
+      appNavigation,
+      handleStake,
+      provider,
+      actionTag,
+      accountId,
+      networkId,
+      removePermitCache,
+    ],
   );
   const intl = useIntl();
 
@@ -100,23 +125,6 @@ const BasicApproveBaseStakePage = () => {
 
   const providerLabel = useProviderLabel(provider.name);
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: provider.name,
-      symbol: token.info.symbol,
-      action: 'stake',
-      amount: '1',
-      morphoVault: provider.vault,
-      accountAddress: account.address,
-    });
-    return resp;
-  }, [accountId, networkId, provider.name, provider.vault, token.info.symbol]);
-
   return (
     <Page scrollEnabled>
       <Page.Header
@@ -134,7 +142,11 @@ const BasicApproveBaseStakePage = () => {
           minAmount={provider.minStakeAmount}
           decimals={token.info.decimals}
           onConfirm={onConfirm}
-          apr={Number(provider.apr) > 0 ? provider.apr : undefined}
+          apr={
+            Number(provider.aprWithoutFee) > 0
+              ? provider.aprWithoutFee
+              : undefined
+          }
           currentAllowance={currentAllowance}
           providerLogo={details.provider.logoURI}
           providerName={details.provider.name}
@@ -148,7 +160,6 @@ const BasicApproveBaseStakePage = () => {
             spenderAddress: details.approveTarget ?? '',
             token: token.info,
           }}
-          estimateFeeResp={estimateFeeResp}
         />
       </Page.Body>
     </Page>
@@ -164,7 +175,9 @@ export default function ApproveBaseStakePage() {
       }}
       enabledNum={[0]}
     >
-      <BasicApproveBaseStakePage />
+      <EarnProviderMirror storeName={EJotaiContextStoreNames.earn}>
+        <BasicApproveBaseStakePage />
+      </EarnProviderMirror>
     </AccountSelectorProviderMirror>
   );
 }

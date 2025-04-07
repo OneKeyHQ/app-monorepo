@@ -10,6 +10,7 @@ import { SimpleDbEntityBrowserClosedTabs } from '../entity/SimpleDbEntityBrowser
 import { SimpleDbEntityBrowserHistory } from '../entity/SimpleDbEntityBrowserHistory';
 import { SimpleDbEntityBrowserRiskWhiteList } from '../entity/SimpleDbEntityBrowserRiskWhiteList';
 import { SimpleDbEntityBrowserTabs } from '../entity/SimpleDbEntityBrowserTabs';
+import { SimpleDbEntityChangeHistory } from '../entity/SimpleDbEntityChangeHistory';
 import { SimpleDbEntityCustomNetwork } from '../entity/SimpleDbEntityCustomNetwork';
 import { SimpleDbEntityCustomRpc } from '../entity/SimpleDbEntityCustomRPC';
 import { SimpleDbEntityCustomTokens } from '../entity/SimpleDbEntityCustomTokens';
@@ -29,6 +30,7 @@ import { SimpleDbEntityMarketWatchList } from '../entity/SimpleDbEntityMarketWat
 import { SimpleDbEntityNetworkSelector } from '../entity/SimpleDbEntityNetworkSelector';
 import { SimpleDbEntityNotificationSettings } from '../entity/SimpleDbEntityNotificationSettings';
 import { SimpleDbEntityPrime } from '../entity/SimpleDbEntityPrime';
+import { SimpleDbEntityReferralCode } from '../entity/SimpleDbEntityReferralCode';
 import { SimpleDbEntityRiskyTokens } from '../entity/SimpleDbEntityRiskyTokens';
 import { SimpleDbEntityServerNetwork } from '../entity/SimpleDbEntityServerNetwork';
 import { SimpleDbEntitySwapConfigs } from '../entity/SimpleDbEntitySwapConfigs';
@@ -39,6 +41,8 @@ import { SimpleDbEntityV4MigrationResult } from '../entity/SimpleDbEntityV4Migra
 
 export class SimpleDb {
   prime = new SimpleDbEntityPrime();
+
+  referralCode = new SimpleDbEntityReferralCode();
 
   browserTabs = new SimpleDbEntityBrowserTabs();
 
@@ -113,4 +117,6 @@ export class SimpleDb {
   appStatus = new SimpleDbEntityAppStatus();
 
   allNetworks = new SimpleDbEntityAllNetworks();
+
+  changeHistory = new SimpleDbEntityChangeHistory();
 }

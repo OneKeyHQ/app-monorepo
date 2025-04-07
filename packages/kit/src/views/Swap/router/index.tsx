@@ -4,6 +4,7 @@ import { EModalSwapRoutes } from '@onekeyhq/shared/src/routes/swap';
 import type { IModalSwapParamList } from '@onekeyhq/shared/src/routes/swap';
 
 import { LazyLoadPage } from '../../../components/LazyLoadPage';
+import LimitOrderDetailModal from '../pages/modal/LimitOrderDetailModal';
 
 const SwapHistoryDetailModal = LazyLoadPage(
   () => import('../pages/modal/SwapHistoryDetailModal'),
@@ -57,6 +58,11 @@ export const ModalSwapStack: IModalFlowNavigatorConfig<
   {
     name: EModalSwapRoutes.SwapHistoryDetail,
     component: SwapHistoryDetailModal,
+    translationId: ETranslations.swap_history_detail_title,
+  },
+  {
+    name: EModalSwapRoutes.LimitOrderDetail,
+    component: LimitOrderDetailModal,
     translationId: ETranslations.swap_history_detail_title,
   },
   {

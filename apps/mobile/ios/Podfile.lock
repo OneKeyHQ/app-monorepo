@@ -65,7 +65,7 @@ PODS:
     - React-NativeModulesApple
     - React-RCTAppDelegate
     - ReactCommon/turbomodule/core
-  - ExpoNativeExtensions (0.0.3):
+  - ExpoNativeExtensions (0.0.4):
     - ExpoModulesCore
   - ExpoScreenOrientation (6.4.1):
     - ExpoModulesCore
@@ -1755,7 +1755,7 @@ SPEC CHECKSUMS:
   ExpoLocalAuthentication: 0c91ff4eebbfd6cf7ecfd5a86cebb7ef6c100932
   ExpoLocalization: 76f12a2a4e3137e73834e4366b63fa2874e2d7f6
   ExpoModulesCore: d66d388397a705e301e39f190a9870445006c880
-  ExpoNativeExtensions: ac2ffff99e3480446becd430cb2febe295d72ea4
+  ExpoNativeExtensions: eb96bc06b4243500e240b435d120e580787b8d1d
   ExpoScreenOrientation: 6cb08993736d1bafeaad09b5126928a98ea65261
   ExpoSecureStore: 0fcdedf77e48b9d4259fab210f7eb97c1d275d0b
   ExpoSharing: 2537ddc516138bb6d8eb536ff7055e370485f4d1
@@ -1781,7 +1781,7 @@ SPEC CHECKSUMS:
   MMKVCore: e50135dbd33235b6ab390635991bab437ab873c0
   MultiplatformBleAdapter: 5a6a897b006764392f9cef785e4360f54fb9477d
   PurchasesHybridCommon: ea662e5a551e6fc79c1eb17feb0478c01c59f3e6
-  RCT-Folly: cd21f1661364f975ae76b3308167ad66b09f53f5
+  RCT-Folly: 7169b2b1c44399c76a47b5deaaba715eeeb476c0
   RCTRequired: 77f73950d15b8c1a2b48ba5b79020c3003d1c9b5
   RCTTypeSafety: ede1e2576424d89471ef553b2aed09fbbcc038e3
   React: 2ddb437e599df2f1bffa9b248de2de4cfa0227f0
@@ -1875,6 +1875,6 @@ SPEC CHECKSUMS:
   Yoga: 07db09965bc46c4902e20d3ae6990d95e53af8a8
   ZXingObjC: 8898711ab495761b2dbbdec76d90164a6d7e14c5
 
-PODFILE CHECKSUM: 5b7f20a90e19262f325cab10e37056b7f3cd0ffb
+PODFILE CHECKSUM: df1099b7b671fa96ae1f42d3b861f605b8d2775c
 
 COCOAPODS: 1.16.2

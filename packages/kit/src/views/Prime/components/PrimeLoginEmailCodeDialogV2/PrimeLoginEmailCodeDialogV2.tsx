@@ -8,6 +8,7 @@ import {
   OTPInput,
   SizableText,
   Stack,
+  Toast,
   XStack,
   YStack,
 } from '@onekeyhq/components';
@@ -19,7 +20,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
   email: string;
   sendCode: (args: { email: string }) => Promise<void>;
   loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
-  onLoginSuccess?: () => void;
+  onLoginSuccess?: () => void | Promise<void>;
 }) {
   const { email, sendCode, loginWithCode, onLoginSuccess } = props;
   const [isSubmittingVerificationCode, setIsSubmittingVerificationCode] =
@@ -76,14 +77,24 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     }
     setIsSubmittingVerificationCode(true);
 
+    Toast.success({
+      title: 'handleConfirm success',
+    });
+
     try {
       await loginWithCode({
         code: verificationCode,
         email,
       });
+
+      Toast.success({
+        title: 'loginWithCode success',
+      });
+
       setState({ status: 'done' });
-      onLoginSuccess?.();
+      await onLoginSuccess?.();
     } catch (error) {
+      console.error('prime login error', error);
       setState({ status: 'error' });
     } finally {
       setIsSubmittingVerificationCode(false);
@@ -96,11 +107,11 @@ export function PrimeLoginEmailCodeDialogV2(props: {
     onLoginSuccess,
   ]);
 
-  useEffect(() => {
-    if (verificationCode.length === 6) {
-      void handleConfirm();
-    }
-  }, [verificationCode, handleConfirm]);
+  // useEffect(() => {
+  //   if (verificationCode.length === 6 && !isSubmittingVerificationCode) {
+  //     void handleConfirm();
+  //   }
+  // }, [verificationCode, handleConfirm, isSubmittingVerificationCode]);
 
   return (
     <Stack>
@@ -133,6 +144,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
           </XStack>
 
           <OTPInput
+            autoFocus
             status={state.status === 'error' ? 'error' : 'normal'}
             numberOfDigits={6}
             value={verificationCode}
@@ -152,6 +164,7 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         </YStack>
       </Stack>
       <Dialog.Footer
+        showCancelButton={false}
         confirmButtonProps={{
           loading: isSubmittingVerificationCode,
           disabled: verificationCode.length !== 6,
@@ -159,9 +172,9 @@ export function PrimeLoginEmailCodeDialogV2(props: {
         onConfirmText={intl.formatMessage({
           id: ETranslations.global_next,
         })}
-        onConfirm={({ preventClose }) => {
+        onConfirm={async ({ preventClose }) => {
           preventClose();
-          void handleConfirm();
+          await handleConfirm();
         }}
       />
     </Stack>

@@ -7,7 +7,12 @@ import type { IQRCodeHandler, IUrlValue } from '../type';
 const url: IQRCodeHandler<IUrlValue> = async (value) => {
   const urlValue = parseUrl(value);
   if (urlValue) {
-    return { type: EQRCodeHandlerType.URL, data: urlValue };
+    return {
+      type: /^https?/i.test(urlValue.urlSchema)
+        ? EQRCodeHandlerType.URL
+        : EQRCodeHandlerType.UNKNOWN,
+      data: urlValue,
+    };
   }
   return null;
 };

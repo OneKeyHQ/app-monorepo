@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
+import type { IStackProps } from '@onekeyhq/components';
 import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { useFirmwareUpdatesDetectStatusPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -20,9 +21,11 @@ import { HomeFirmwareUpdateDetect } from './HomeFirmwareUpdateDetect';
 export function FirmwareUpdateReminderAlert({
   message,
   onPress,
+  containerProps,
 }: {
   message: string;
   onPress?: () => any;
+  containerProps?: IStackProps;
 }) {
   const intl = useIntl();
   return (
@@ -36,6 +39,7 @@ export function FirmwareUpdateReminderAlert({
       alignItems="center"
       gap="$2"
       flex={1}
+      {...containerProps}
     >
       <Icon size="$4" name="DownloadOutline" color="$iconInfo" />
       <SizableText

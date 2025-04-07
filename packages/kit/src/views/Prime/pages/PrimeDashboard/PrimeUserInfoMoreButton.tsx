@@ -13,27 +13,27 @@ import {
   Toast,
   XStack,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { formatDateFns } from '@onekeyhq/shared/src/utils/dateUtils';
 import openUrlUtils from '@onekeyhq/shared/src/utils/openUrlUtils';
 
-import { useFetchPrimeUserInfo } from '../../hooks/useFetchPrimeUserInfo';
 import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { usePrimePayment } from '../../hooks/usePrimePayment';
 
 function PrimeUserInfoMoreButtonDropDownMenu({
   handleActionListClose,
   doPurchase,
+  onLogoutSuccess,
 }: {
   handleActionListClose: () => void;
   doPurchase?: () => Promise<void>;
+  onLogoutSuccess?: () => Promise<void>;
 }) {
   const { logout, user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
   const primeExpiredAt = user?.primeSubscription?.expiresAt;
-  const { fetchPrimeUserInfo } = useFetchPrimeUserInfo();
   const { getCustomerInfo } = usePrimePayment();
   const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
@@ -79,7 +79,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
                 Toast.message({
                   title: 'Please try again later',
                 });
-                await Promise.all([fetchPrimeUserInfo(), getCustomerInfo()]);
+                await Promise.all([
+                  backgroundApiProxy.servicePrime.apiFetchPrimeUserInfo(),
+                  getCustomerInfo(),
+                ]);
               }
             }}
           />
@@ -109,12 +112,15 @@ function PrimeUserInfoMoreButtonDropDownMenu({
               id: ETranslations.prime_onekeyid_log_out,
             }),
             description: intl.formatMessage({
-              id: ETranslations.prime_onekeyid_log_out_decription,
+              id: ETranslations.prime_onekeyid_log_out_description,
             }),
             onConfirmText: intl.formatMessage({
               id: ETranslations.prime_log_out,
             }),
-            onConfirm: () => logout(),
+            onConfirm: async () => {
+              await logout();
+              await onLogoutSuccess?.();
+            },
           });
         }}
       />
@@ -124,8 +130,10 @@ function PrimeUserInfoMoreButtonDropDownMenu({
 
 export function PrimeUserInfoMoreButton({
   doPurchase,
+  onLogoutSuccess,
 }: {
   doPurchase?: () => Promise<void>;
+  onLogoutSuccess?: () => Promise<void>;
 }) {
   const intl = useIntl();
   const renderItems = useCallback(
@@ -138,9 +146,10 @@ export function PrimeUserInfoMoreButton({
       <PrimeUserInfoMoreButtonDropDownMenu
         handleActionListClose={handleActionListClose}
         doPurchase={doPurchase}
+        onLogoutSuccess={onLogoutSuccess}
       />
     ),
-    [doPurchase],
+    [doPurchase, onLogoutSuccess],
   );
   return (
     <ActionList

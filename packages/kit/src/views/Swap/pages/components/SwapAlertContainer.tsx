@@ -2,14 +2,24 @@ import { memo, useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { Alert, Toast, YStack } from '@onekeyhq/components';
+import {
+  Alert,
+  SizableText,
+  Toast,
+  XStack,
+  YStack,
+} from '@onekeyhq/components';
 import { useAccountSelectorCreateAddress } from '@onekeyhq/kit/src/components/AccountSelector/hooks/useAccountSelectorCreateAddress';
-import { useSwapSelectTokenDetailFetchingAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
+import {
+  useSwapActions,
+  useSwapSelectTokenDetailFetchingAtom,
+} from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import { useAccountManualCreatingAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   ISwapAlertActionData,
   ISwapAlertState,
+  ISwapTokenBase,
 } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapAlertActionType,
@@ -40,6 +50,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     useAccountManualCreatingAtom();
   const { createAddress } = useAccountSelectorCreateAddress();
   const [createAddressError, setCreateAddressError] = useState(false);
+  const { selectToToken, selectFromToken } = useSwapActions().current;
   const handleAlertAction = useCallback(
     async (action?: {
       actionType: ESwapAlertActionType;
@@ -99,6 +110,24 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
     return level === ESwapAlertLevel.WARNING ? 'warning' : 'default';
   }, []);
 
+  const switchToWrappedToken = useCallback(
+    (wrappedToken?: ISwapTokenBase) => {
+      if (wrappedToken) {
+        void selectFromToken(wrappedToken);
+      }
+    },
+    [selectFromToken],
+  );
+
+  const wrapToWrappedToken = useCallback(
+    (wrappedToken?: ISwapTokenBase) => {
+      if (wrappedToken) {
+        void selectToToken(wrappedToken);
+      }
+    },
+    [selectToToken],
+  );
+
   const createAlert = useCallback(
     (item: ISwapAlertState, index: number) => {
       const { alertLevel, title, icon, message, action } = item;
@@ -123,6 +152,82 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
       ) {
         return null;
       }
+      if (
+        item.action?.actionType === ESwapAlertActionType.LIMIT_NATIVE_WRAPPED &&
+        item.action?.actionData?.wrappedToken
+      ) {
+        return (
+          <Alert
+            key={index}
+            type={getAlertType(alertLevel)}
+            title={title}
+            icon={icon}
+            description={message}
+            descriptionComponent={
+              <XStack gap="$1">
+                <SizableText
+                  userSelect="none"
+                  cursor="pointer"
+                  size="$bodyMd"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  textDecorationColor="$textDisabled"
+                  onPress={() =>
+                    switchToWrappedToken(item.action?.actionData?.wrappedToken)
+                  }
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                >
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.Limit_native_token_no_sell_switch,
+                    },
+                    {
+                      token: item.action?.actionData?.wrappedToken?.symbol,
+                    },
+                  )}
+                </SizableText>
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.global_or,
+                  })}
+                </SizableText>
+                <SizableText
+                  userSelect="none"
+                  cursor="pointer"
+                  size="$bodyMd"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  textDecorationColor="$textDisabled"
+                  onPress={() =>
+                    wrapToWrappedToken(item.action?.actionData?.wrappedToken)
+                  }
+                  hoverStyle={{
+                    bg: '$bgHover',
+                  }}
+                  pressStyle={{
+                    bg: '$bgActive',
+                  }}
+                >
+                  {intl.formatMessage(
+                    {
+                      id: ETranslations.Limit_native_token_no_sell_wrap,
+                    },
+                    {
+                      token: item.action?.actionData?.wrappedToken?.symbol,
+                    },
+                  )}
+                </SizableText>
+              </XStack>
+            }
+          />
+        );
+      }
+
       return (
         <Alert
           key={index}
@@ -147,6 +252,7 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
       );
     },
     [
+      intl,
       accountManualCreatingAtom.isLoading,
       accountManualCreatingAtom.key,
       createAddressError,
@@ -155,6 +261,8 @@ const SwapAlertContainer = ({ alerts }: ISwapAlertContainerProps) => {
       haveErrorAlert,
       selectTokenDetailLoading.from,
       selectTokenDetailLoading.to,
+      switchToWrappedToken,
+      wrapToWrappedToken,
     ],
   );
 

@@ -31,6 +31,7 @@ import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetChildPathTemplatesParams,
   IGetChildPathTemplatesResult,
+  INormalizeGetMultiAccountsPathParams,
   IPrepareQrAccountsParams,
   IQrWalletGetVerifyAddressChainParamsQuery,
   IQrWalletGetVerifyAddressChainParamsResult,
@@ -52,6 +53,13 @@ export class KeyringQr extends KeyringQrBase {
       unsignedPsbt,
       signedPsbt,
     });
+  }
+
+  override async normalizeGetMultiAccountsPath(
+    params: INormalizeGetMultiAccountsPathParams,
+  ): Promise<string> {
+    const sdk = getAirGapSdk();
+    return sdk.btc.normalizeGetMultiAccountsPath(params.path);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

@@ -11,7 +11,6 @@ import {
   Stack,
   XStack,
 } from '@onekeyhq/components';
-import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -21,6 +20,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import WebContent from '../../components/WebContent/WebContent';
 import { useWebTabDataById } from '../../hooks/useWebTabs';
 import { webviewRefs } from '../../utils/explorerUtils';
+import DashboardContent from '../Dashboard/DashboardContent';
 
 interface IElectronWebView {
   stopFindInPage: (text: string) => void;
@@ -195,6 +195,7 @@ function BasicFind({ id }: { id: string }) {
                 variant="tertiary"
                 icon="ChevronTopSmallOutline"
                 size="small"
+                testID="browser-find-prev-button"
                 onPress={handleFindPrev}
               />
               <IconButton
@@ -202,12 +203,14 @@ function BasicFind({ id }: { id: string }) {
                 variant="tertiary"
                 icon="ChevronDownSmallOutline"
                 size="small"
+                testID="browser-find-next-button"
                 onPress={handleFindNext}
               />
               <IconButton
                 variant="tertiary"
                 icon="CrossedSmallSolid"
                 size="small"
+                testID="browser-find-close-button"
                 onPress={handleClose}
               />
             </XStack>
@@ -229,24 +232,15 @@ function BasicDesktopBrowserContent({
 }) {
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
-  const browserHistoryAction = useBrowserHistoryAction();
-  const handleAddBrowserHistory = useCallback(
-    (siteInfo: { url: string; title: string }) => {
-      void browserHistoryAction.current.addBrowserHistory(siteInfo);
-    },
-    [browserHistoryAction],
-  );
+
   return (
     <Freeze key={id} freeze={!isActive}>
       {platformEnv.isDesktop ? <Find id={id} /> : null}
       {tab?.url ? (
-        <WebContent
-          id={id}
-          url={tab.url}
-          isCurrent={isActive}
-          addBrowserHistory={handleAddBrowserHistory}
-        />
-      ) : null}
+        <WebContent id={id} url={tab.url} isCurrent={isActive} />
+      ) : (
+        <DashboardContent />
+      )}
     </Freeze>
   );
 }

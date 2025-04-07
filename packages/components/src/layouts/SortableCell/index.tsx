@@ -32,7 +32,6 @@ function BaseSortableCell(
   {
     isEditing = false,
     drag,
-    isActive,
     shadowProps = {},
     scaleProps = { activeScale: 0.9 },
     onDeletePress,

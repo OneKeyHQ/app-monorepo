@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   COINTYPE_SCDO,
   IMPL_SCDO,
@@ -29,7 +31,11 @@ const settings: IVaultSettings = {
   watchingAccountEnabled: true,
   softwareAccountDisabled: true,
 
-  supportedDeviceTypes: ['classic1s', 'pro'],
+  supportedDeviceTypes: [
+    EDeviceType.Classic1s,
+    EDeviceType.Pro,
+    EDeviceType.ClassicPure,
+  ],
 
   defaultFeePresetIndex: 0,
 

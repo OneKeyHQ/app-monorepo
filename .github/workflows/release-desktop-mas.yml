@@ -69,12 +69,6 @@ jobs:
         run: |
           yarn
 
-      - name: Install electron-builder v23
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          cd ./apps/desktop && yarn add electron-builder@23.6.0
-
       # - name: Setup Code Signing file
       #   run: |
       #     echo ${{ secrets.DESKTOP_KEYS_SECRET }} | base64 -d > apps/desktop/sign.p12

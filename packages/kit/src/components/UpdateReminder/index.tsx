@@ -1,25 +1,13 @@
-import { useCallback, useMemo } from 'react';
-import type { ReactElement } from 'react';
+import { useCallback } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type {
-  IButtonProps,
-  IIconProps,
-  IStackProps,
-} from '@onekeyhq/components';
-import {
-  Button,
-  Icon,
-  SizableText,
-  XStack,
-  useMedia,
-} from '@onekeyhq/components';
+import type { IIconProps, IStackProps } from '@onekeyhq/components';
+import { Button, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import type { IAppUpdateInfo } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 
 import { DownloadProgress } from './DownloadProgress';
 import { useAppUpdateInfo } from './hooks';
@@ -45,17 +33,87 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             );
           },
         },
-        [EAppUpdateStatus.downloading]: {
+        [EAppUpdateStatus.downloadPackage]: {
           iconName: 'RefreshCcwSolid',
           iconColor: '$iconInfo',
           renderText: DownloadProgress,
         },
-        [EAppUpdateStatus.verifying]: {
+        [EAppUpdateStatus.downloadASC]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_download_asc_label,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyASC]: {
+          iconName: 'RefreshCcwSolid',
+          iconColor: '$iconInfo',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_verify_asc_labe,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyPackage]: {
           iconName: 'RefreshCcwSolid',
           iconColor: '$iconInfo',
           renderText() {
             return intl.formatMessage({
               id: ETranslations.update_verify_file_signature,
+            });
+          },
+        },
+        [EAppUpdateStatus.downloadPackageFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyASCFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
+          },
+        },
+        [EAppUpdateStatus.verifyPackageFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
+          },
+        },
+        [EAppUpdateStatus.downloadASCFailed]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCritical',
+          renderText({
+            updateInfo: appUpdateInfo,
+          }: {
+            updateInfo: IAppUpdateInfo;
+          }) {
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
             });
           },
         },
@@ -75,6 +133,24 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
             );
           },
         },
+        [EAppUpdateStatus.updateIncomplete]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCaution',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_update_incomplete_text,
+            });
+          },
+        },
+        [EAppUpdateStatus.manualInstall]: {
+          iconName: 'ErrorOutline',
+          iconColor: '$iconCaution',
+          renderText() {
+            return intl.formatMessage({
+              id: ETranslations.update_update_incomplete_text,
+            });
+          },
+        },
         [EAppUpdateStatus.failed]: {
           iconName: 'ErrorOutline',
           iconColor: '$iconCritical',
@@ -83,7 +159,9 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
           }: {
             updateInfo: IAppUpdateInfo;
           }) {
-            return intl.formatMessage({ id: appUpdateInfo.errorText });
+            return intl.formatMessage({
+              id: appUpdateInfo.errorText || ETranslations.global_update_failed,
+            });
           },
         },
         [EAppUpdateStatus.done]: undefined,
@@ -117,96 +195,12 @@ function UpdateStatusText({ updateInfo }: { updateInfo: IAppUpdateInfo }) {
   ) : null;
 }
 
-function OpenOnGithub() {
+function UpdateAction({ onUpdateAction }: { onUpdateAction: () => void }) {
   const intl = useIntl();
-  const handlePress = useCallback(() => {
-    openUrlExternal('https://github.com/OneKeyHQ/app-monorepo/releases');
-  }, []);
-  const { gtMd } = useMedia();
-  return (
-    <XStack
-      gap="$2"
-      justifyContent="space-between"
-      alignItems="center"
-      cursor="pointer"
-      onPress={handlePress}
-    >
-      <SizableText size="$bodyMdMedium" color="$textSubdued">
-        {intl.formatMessage({
-          id: gtMd
-            ? ETranslations.update_download_on_github
-            : ETranslations.global_github,
-        })}
-      </SizableText>
-      <Icon name="ArrowTopRightOutline" size="$4.5" />
-    </XStack>
-  );
-}
-
-function UpdateAction({
-  updateInfo,
-  onUpdateAction,
-}: {
-  updateInfo: IAppUpdateInfo;
-  onUpdateAction: () => void;
-}) {
-  const intl = useIntl();
-  const styles = useMemo(
-    () =>
-      ({
-        [EAppUpdateStatus.notify]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.downloading]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.verifying]: {
-          label: intl.formatMessage({ id: ETranslations.global_view }),
-        },
-        [EAppUpdateStatus.ready]: {
-          label: intl.formatMessage({
-            id: platformEnv.isNativeAndroid
-              ? ETranslations.global_install
-              : ETranslations.update_restart_to_update,
-          }),
-          icon: platformEnv.isNativeAndroid
-            ? undefined
-            : 'RestartToUpdateCustom',
-          variant: 'primary',
-        },
-        [EAppUpdateStatus.failed]: {
-          prefixElement: <OpenOnGithub />,
-          label: intl.formatMessage({ id: ETranslations.global_retry }),
-          variant: 'primary',
-        },
-        [EAppUpdateStatus.done]: undefined,
-      } as Record<
-        EAppUpdateStatus,
-        | {
-            label: string;
-            icon?: IIconProps['name'];
-            prefixElement?: ReactElement;
-            variant?: IButtonProps['variant'];
-          }
-        | undefined
-      >),
-    [intl],
-  );
-  const data = styles[updateInfo.status];
-  if (!data) {
-    return null;
-  }
-  const { icon, label, variant, prefixElement } = data;
   return (
     <XStack gap="$4" justifyContent="space-between" alignItems="center">
-      {prefixElement}
-      <Button
-        size="small"
-        icon={icon}
-        variant={variant}
-        onPress={onUpdateAction}
-      >
-        {label}
+      <Button size="small" variant="primary" onPress={onUpdateAction}>
+        {intl.formatMessage({ id: ETranslations.global_view })}
       </Button>
     </XStack>
   );
@@ -220,11 +214,19 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
-  [EAppUpdateStatus.downloading]: {
+  [EAppUpdateStatus.downloadPackage]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
-  [EAppUpdateStatus.verifying]: {
+  [EAppUpdateStatus.downloadASC]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifyASC]: {
+    bg: '$bgInfoSubdued',
+    borderColor: '$borderInfoSubdued',
+  },
+  [EAppUpdateStatus.verifyPackage]: {
     bg: '$bgInfoSubdued',
     borderColor: '$borderInfoSubdued',
   },
@@ -232,11 +234,35 @@ const UPDATE_REMINDER_BAR_STYLE: Record<
     bg: '$bgSuccessSubdued',
     borderColor: '$borderSuccessSubdued',
   },
+  [EAppUpdateStatus.downloadPackageFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.downloadASCFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.verifyASCFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
+  [EAppUpdateStatus.verifyPackageFailed]: {
+    bg: '$bgCriticalSubdued',
+    borderColor: '$borderCriticalSubdued',
+  },
   [EAppUpdateStatus.failed]: {
     bg: '$bgCriticalSubdued',
     borderColor: '$borderCriticalSubdued',
   },
   [EAppUpdateStatus.done]: undefined,
+  [EAppUpdateStatus.updateIncomplete]: {
+    bg: '$bgCautionSubdued',
+    borderColor: '$borderCautionSubdued',
+  },
+  [EAppUpdateStatus.manualInstall]: {
+    bg: '$bgCautionSubdued',
+    borderColor: '$borderCautionSubdued',
+  },
 };
 
 function BasicUpdateReminder() {
@@ -261,7 +287,7 @@ function BasicUpdateReminder() {
       {...style}
     >
       <UpdateStatusText updateInfo={data} />
-      <UpdateAction updateInfo={data} onUpdateAction={onUpdateAction} />
+      <UpdateAction onUpdateAction={onUpdateAction} />
     </XStack>
   );
 }

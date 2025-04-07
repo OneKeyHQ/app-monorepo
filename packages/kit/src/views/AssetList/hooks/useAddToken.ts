@@ -44,7 +44,7 @@ export function useAddTokenForm({
       networkId: getDefaultNetwork(),
       contractAddress: token?.address || '',
       symbol: token?.symbol || '',
-      decimals: token?.decimals ? new BigNumber(token.decimals).toString() : '',
+      decimals: token?.decimals ? new BigNumber(token.decimals).toFixed() : '',
     },
     mode: 'onChange',
     reValidateMode: 'onBlur',
@@ -166,7 +166,7 @@ export function useAddToken({
         }
         form.setValue(
           'decimals',
-          new BigNumber(firstToken.info.decimals).toString(),
+          new BigNumber(firstToken.info.decimals).toFixed(),
         );
         searchedTokenRef.current = firstToken.info;
         setIsEmptyContractState(false);

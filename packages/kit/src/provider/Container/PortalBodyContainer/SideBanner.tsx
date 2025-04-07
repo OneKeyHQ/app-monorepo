@@ -11,27 +11,20 @@ import {
   Portal,
   SizableText,
   Stack,
+  useIsIpadLandscape,
   useMedia,
 } from '@onekeyhq/components';
 import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/TabBar/DesktopTabItem';
 import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalDeviceManagementRoutes,
-  EModalRoutes,
-  EModalSettingRoutes,
-  EOnboardingPages,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -125,29 +118,9 @@ function DownloadButton() {
 function BottomMenu() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-
   const openSettingPage = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
-    });
-  }, [appNavigation]);
-
-  const openAddressBookPage = useShowAddressBook({
-    useNewModal: true,
-  });
-
-  const openDeviceManagementPage = useCallback(async () => {
-    const allHwQrWallet =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
-    if (Object.keys(allHwQrWallet).length > 0) {
-      appNavigation.pushModal(EModalRoutes.DeviceManagementModal, {
-        screen: EModalDeviceManagementRoutes.DeviceListModal,
-      });
-      return;
-    }
-
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.DeviceManagementGuide,
     });
   }, [appNavigation]);
 
@@ -158,24 +131,6 @@ function BottomMenu() {
       borderTopColor="$borderSubdued"
       bg="$bgSidebar"
     >
-      <DesktopTabItem
-        onPress={openDeviceManagementPage}
-        selected={false}
-        icon="PhoneOutline"
-        label={intl.formatMessage({
-          id: ETranslations.global_my_onekey,
-        })}
-        testID="my-onekey"
-      />
-      <DesktopTabItem
-        onPress={openAddressBookPage}
-        selected={false}
-        icon="BookOpenOutline"
-        label={intl.formatMessage({
-          id: ETranslations.address_book_title,
-        })}
-        testID="address-book"
-      />
       <DesktopTabItem
         onPress={openSettingPage}
         selected={false}
@@ -192,11 +147,13 @@ function BottomMenu() {
   );
 }
 
-export const SidebarBanner = () => {
+export function SidebarBanner() {
   const { gtMd } = useMedia();
-  return gtMd ? (
+  const isIpadLandscape = useIsIpadLandscape();
+  const isShowBottomMenu = platformEnv.isNativeIOSPad ? isIpadLandscape : gtMd;
+  return isShowBottomMenu ? (
     <Portal.Body container={EPortalContainerConstantName.SIDEBAR_BANNER}>
       <BottomMenu />
     </Portal.Body>
   ) : null;
-};
+}

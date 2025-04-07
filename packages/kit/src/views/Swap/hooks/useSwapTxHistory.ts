@@ -1,7 +1,10 @@
 import { useCallback } from 'react';
 
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  EProtocolOfExchange,
+  ESwapTxHistoryStatus,
+} from '@onekeyhq/shared/types/swap/types';
 import type {
   ISwapTxHistory,
   ISwapTxInfo,
@@ -33,7 +36,17 @@ export function useSwapTxHistoryActions() {
       gasFeeFiatValue?: string;
       swapTxInfo: ISwapTxInfo;
     }) => {
-      if (swapTxInfo) {
+      if (
+        swapTxInfo &&
+        (swapTxInfo.protocol === EProtocolOfExchange.SWAP ||
+          swapTxInfo.swapBuildResData.result.isWrapped)
+      ) {
+        const useOrderId = Boolean(
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+          swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ||
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
+        );
         const swapHistoryItem: ISwapTxHistory = {
           status: ESwapTxHistoryStatus.PENDING,
           currency: settingsAtom.currencyInfo?.symbol,
@@ -61,14 +74,15 @@ export function useSwapTxHistoryActions() {
           },
           txInfo: {
             txId,
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            useOrderId: !!swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId,
+            useOrderId,
             gasFeeFiatValue,
             gasFeeInNative,
             orderId:
               swapTxInfo.swapBuildResData.swftOrder?.orderId ??
               // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-              swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId,
+              swapTxInfo.swapBuildResData.ctx?.cowSwapOrderId ??
+              // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+              swapTxInfo.swapBuildResData.ctx?.oneInchFusionOrderHash,
             sender: swapTxInfo.accountAddress,
             receiver: swapTxInfo.receivingAddress,
           },
@@ -106,7 +120,10 @@ export function useSwapTxHistoryActions() {
     (item: ISwapTxHistory) => {
       setFromToken(item?.baseInfo.fromToken);
       setToken(item?.baseInfo.toToken);
-      setFromTokenAmount(item?.baseInfo.fromAmount);
+      setFromTokenAmount({
+        value: item?.baseInfo.fromAmount,
+        isInput: true,
+      });
     },
     [setFromToken, setFromTokenAmount, setToken],
   );

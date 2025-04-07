@@ -455,14 +455,7 @@ export default class Vault extends VaultBase {
     let encodedTxNew = unsignedTx.encodedTx as
       | IEncodedTxAlgo
       | IEncodedTxGroupAlgo;
-
     if (!isArray(encodedTxNew)) {
-      if (nativeAmountInfo) {
-        encodedTxNew = await this._updateNativeTokenAmount({
-          encodedTx: encodedTxNew,
-          nativeAmountInfo,
-        });
-      }
       if (feeInfo) {
         if (!unsignedTx.transfersInfo || isEmpty(unsignedTx.transfersInfo)) {
           throw new OneKeyInternalError('transfersInfo is required');
@@ -471,6 +464,13 @@ export default class Vault extends VaultBase {
           encodedTx: unsignedTx.encodedTx as IEncodedTxAlgo,
           transfersInfo: unsignedTx.transfersInfo,
           feeInfo,
+        });
+      }
+
+      if (nativeAmountInfo) {
+        encodedTxNew = await this._updateNativeTokenAmount({
+          encodedTx: encodedTxNew,
+          nativeAmountInfo,
         });
       }
     }

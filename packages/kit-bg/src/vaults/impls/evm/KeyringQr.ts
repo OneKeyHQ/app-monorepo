@@ -44,6 +44,7 @@ import type { IDBAccount } from '../../../dbs/local/types';
 import type {
   IGetChildPathTemplatesParams,
   IGetChildPathTemplatesResult,
+  INormalizeGetMultiAccountsPathParams,
   IPrepareQrAccountsParams,
   IQrWalletGetVerifyAddressChainParamsQuery,
   IQrWalletGetVerifyAddressChainParamsResult,
@@ -104,6 +105,13 @@ export class KeyringQr extends KeyringQrBase {
         '0/0', // ledger live
       ],
     };
+  }
+
+  override async normalizeGetMultiAccountsPath(
+    params: INormalizeGetMultiAccountsPathParams,
+  ): Promise<string> {
+    const sdk = getAirGapSdk();
+    return sdk.eth.normalizeGetMultiAccountsPath(params.path);
   }
 
   generateSignRequest(

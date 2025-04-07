@@ -25,10 +25,17 @@ import {
   type IAddressInputValue,
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { ChainSelectorInput } from '@onekeyhq/kit/src/components/ChainSelectorInput';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EModalRoutes } from '@onekeyhq/shared/src/routes';
+import type {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 
+import { buildChangeHistoryInputAddon } from '../../../components/ChangeHistoryDialog/ChangeHistoryDialog';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 
 import type { IAddressItem } from '../type';
@@ -38,6 +45,11 @@ type ICreateOrEditContentProps = {
   item: IAddressItem;
   onSubmit: (item: IAddressItem) => Promise<void>;
   onRemove?: (item: IAddressItem) => void;
+  nameHistoryInfo?: {
+    entityId: string;
+    entityType: EChangeHistoryEntityType.AddressBook;
+    contentType: EChangeHistoryContentType.Name;
+  };
 };
 
 type IFormValues = Omit<IAddressItem, 'address'> & {
@@ -63,8 +75,10 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
   item,
   onSubmit,
   onRemove,
+  nameHistoryInfo,
 }) => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
 
   const headerRight = useCallback(
     () =>
@@ -189,6 +203,19 @@ export const CreateOrEditContent: FC<ICreateOrEditContentProps> = ({
                 id: ETranslations.address_book_add_address_name_required,
               })}
               testID="address-form-name"
+              flex={1}
+              addOns={
+                nameHistoryInfo?.entityId
+                  ? [
+                      buildChangeHistoryInputAddon({
+                        changeHistoryInfo: nameHistoryInfo,
+                        onChange: (t) => {
+                          form.setValue('name', t);
+                        },
+                      }),
+                    ]
+                  : undefined
+              }
             />
           </Form.Field>
           <Form.Field

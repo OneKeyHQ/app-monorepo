@@ -521,6 +521,13 @@ const BannerGallery = LazyLoadPage(
     ),
 );
 
+const StepperGallery = LazyLoadPage(
+  () =>
+    import(
+      '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/Stepper'
+    ),
+);
+
 export const galleryScreenList: {
   name: EGalleryRoutes;
   component: ComponentType;
@@ -760,5 +767,9 @@ export const galleryScreenList: {
   {
     name: EGalleryRoutes.ComponentBanner,
     component: BannerGallery,
+  },
+  {
+    name: EGalleryRoutes.ComponentStepper,
+    component: StepperGallery,
   },
 ];

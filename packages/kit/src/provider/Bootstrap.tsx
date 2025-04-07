@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 
-import { debounce } from 'lodash';
+import { debounce, noop } from 'lodash';
 import { useIntl } from 'react-intl';
 
 import {
@@ -11,8 +11,11 @@ import {
   rootNavigationRef,
   useShortcuts,
 } from '@onekeyhq/components';
-import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
-import { useAppIsLockedAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
+import {
+  useAppIsLockedAtom,
+  useDevSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -21,6 +24,7 @@ import {
   EDiscoveryModalRoutes,
   EModalRoutes,
   EModalSettingRoutes,
+  EMultiTabBrowserRoutes,
   ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ERootRoutes } from '@onekeyhq/shared/src/routes/root';
@@ -50,7 +54,7 @@ const useDesktopEvents = platformEnv.isDesktop
       const useOnLockRef = useRef(onLock);
       useOnLockRef.current = onLock;
 
-      const { checkForUpdates, toUpdatePreviewPage } = useAppUpdateInfoCallback(
+      const { checkForUpdates, onUpdateAction } = useAppUpdateInfoCallback(
         false,
         false,
       );
@@ -64,7 +68,7 @@ const useDesktopEvents = platformEnv.isDesktop
         isCheckingUpdate.current = true;
         const { isNeedUpdate, response } = await checkForUpdates();
         if (isNeedUpdate || response === undefined) {
-          toUpdatePreviewPage(true, response);
+          onUpdateAction();
           isCheckingUpdate.current = false;
         } else {
           Dialog.confirm({
@@ -84,7 +88,7 @@ const useDesktopEvents = platformEnv.isDesktop
             }),
           });
         }
-      }, [checkForUpdates, intl, toUpdatePreviewPage]);
+      }, [checkForUpdates, intl, onUpdateAction]);
 
       const onCheckUpdateRef = useRef(onCheckUpdate);
       onCheckUpdateRef.current = onCheckUpdate;
@@ -163,11 +167,19 @@ const useDesktopEvents = platformEnv.isDesktop
           case EShortcutEvents.TabBrowser:
             navigation.switchTab(ETabRoutes.Discovery);
             break;
-          case EShortcutEvents.NewTab:
           case EShortcutEvents.NewTab2:
-            navigation.pushModal(EModalRoutes.DiscoveryModal, {
-              screen: EDiscoveryModalRoutes.SearchModal,
-            });
+            if (platformEnv.isDesktop) {
+              navigation.switchTab(ETabRoutes.MultiTabBrowser, {
+                screen: EMultiTabBrowserRoutes.MultiTabBrowser,
+                params: {
+                  action: 'create_new_tab',
+                },
+              });
+            } else {
+              navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                screen: EDiscoveryModalRoutes.SearchModal,
+              });
+            }
             break;
           default:
             break;
@@ -176,48 +188,49 @@ const useDesktopEvents = platformEnv.isDesktop
     }
   : () => undefined;
 
-const useAboutVersion = () => {
-  const intl = useIntl();
-  useEffect(() => {
-    if (platformEnv.isDesktop && !platformEnv.isDesktopMac) {
-      desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
-        const versionString = intl.formatMessage(
-          {
-            id: ETranslations.settings_version_versionnum,
-          },
-          {
-            'versionNum': ` ${process.env.VERSION || 1}(${
-              platformEnv.buildNumber || 1
-            })`,
-          },
-        );
-        Dialog.show({
-          showFooter: false,
-          renderContent: (
-            <YStack gap={4} alignItems="center" pt="$4">
-              <Image
-                source={require('../../assets/logo.png')}
-                size={72}
-                borderRadius="$full"
-              />
-              <YStack gap="$2" pt="$4" alignItems="center">
-                <SizableText size="$heading2xl">OneKey</SizableText>
-                <SizableText size="$bodySm">
-                  {`${globalThis.desktopApi.platform}-${
-                    globalThis.desktopApi.arch || 'unknown'
-                  }`}
-                </SizableText>
-                <SizableText size="$bodySm">{versionString}</SizableText>
-                <SizableText size="$bodySm">Copyright © OneKey</SizableText>
-              </YStack>
-            </YStack>
-          ),
-        });
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-};
+const useAboutVersion =
+  platformEnv.isDesktop && !platformEnv.isDesktopMac
+    ? () => {
+        const intl = useIntl();
+        useEffect(() => {
+          desktopApi.on(ipcMessageKeys.SHOW_ABOUT_WINDOW, () => {
+            const versionString = intl.formatMessage(
+              {
+                id: ETranslations.settings_version_versionnum,
+              },
+              {
+                'versionNum': ` ${process.env.VERSION || 1}(${
+                  platformEnv.buildNumber || 1
+                })`,
+              },
+            );
+            Dialog.show({
+              showFooter: false,
+              renderContent: (
+                <YStack gap={4} alignItems="center" pt="$4">
+                  <Image
+                    source={require('../../assets/logo.png')}
+                    size={72}
+                    borderRadius="$full"
+                  />
+                  <YStack gap="$2" pt="$4" alignItems="center">
+                    <SizableText size="$heading2xl">OneKey</SizableText>
+                    <SizableText size="$bodySm">
+                      {`${globalThis.desktopApi.platform}-${
+                        globalThis.desktopApi.arch || 'unknown'
+                      }`}
+                    </SizableText>
+                    <SizableText size="$bodySm">{versionString}</SizableText>
+                    <SizableText size="$bodySm">Copyright © OneKey</SizableText>
+                  </YStack>
+                </YStack>
+              ),
+            });
+          });
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, []);
+      }
+    : noop;
 
 export const useFetchCurrencyList = () => {
   useEffect(() => {
@@ -272,6 +285,10 @@ const launchFloatingIconEvent = async (intl: IntlShape) => {
           await backgroundApiProxy.serviceSpotlight.firstVisitTour(
             ESpotlightTour.showFloatingIconDialog,
           );
+          await backgroundApiProxy.serviceSetting.setIsShowFloatingButton(true);
+          defaultLogger.discovery.dapp.enableFloatingIcon({
+            enable: true,
+          });
         },
         onCancelText: intl.formatMessage({
           id: ETranslations.global_close,
@@ -312,10 +329,67 @@ export const useLaunchEvents = (): void => {
   }, [isLocked]);
 };
 
+const getBuilderNumber = (builderNumber?: string) =>
+  builderNumber ? Number(builderNumber.split('-')[0]) : -1;
+export const useCheckUpdateOnDesktop =
+  platformEnv.isDesktop &&
+  !platformEnv.isMas &&
+  !platformEnv.isDesktopLinuxSnap &&
+  !platformEnv.isDesktopWinMsStore
+    ? () => {
+        useEffect(() => {
+          globalThis.desktopApi.on(
+            ipcMessageKeys.UPDATE_DOWNLOAD_FILE_INFO,
+            (downloadUrl) => {
+              defaultLogger.update.app.log(
+                'UPDATE_DOWNLOAD_FILE_INFO',
+                downloadUrl,
+              );
+              void backgroundApiProxy.serviceAppUpdate.updateDownloadUrl(
+                downloadUrl,
+              );
+            },
+          );
+          setTimeout(() => {
+            const previousBuildNumber =
+              globalThis.desktopApi.getPreviousUpdateBuildNumber();
+            if (
+              previousBuildNumber &&
+              getBuilderNumber(previousBuildNumber) >=
+                getBuilderNumber(platformEnv.buildNumber)
+            ) {
+              void backgroundApiProxy.serviceAppUpdate.resetToManualInstall();
+            }
+          }, 0);
+        }, []);
+      }
+    : noop;
+
 export function Bootstrap() {
+  const navigation = useAppNavigation();
+  const [devSettings] = useDevSettingsPersistAtom();
+  const autoNavigation = devSettings.settings?.autoNavigation;
+
+  useEffect(() => {
+    if (
+      platformEnv.isDev &&
+      autoNavigation?.enabled &&
+      autoNavigation?.selectedTab &&
+      Object.values(ETabRoutes).includes(autoNavigation.selectedTab)
+    ) {
+      const timer = setTimeout(() => {
+        navigation.switchTab(autoNavigation.selectedTab as ETabRoutes);
+      }, 1000);
+
+      return () => clearTimeout(timer);
+    }
+    return undefined;
+  }, [navigation, autoNavigation?.enabled, autoNavigation?.selectedTab]);
+
   useFetchCurrencyList();
   useAboutVersion();
   useDesktopEvents();
   useLaunchEvents();
+  useCheckUpdateOnDesktop();
   return null;
 }

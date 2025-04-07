@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useFocusEffect } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
-import { Page, rootNavigationRef } from '@onekeyhq/components';
+import { Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -179,23 +178,6 @@ function BasicStakePage() {
     return '1';
   }, [provider]);
 
-  const { result: estimateFeeResp } = usePromiseResult(async () => {
-    const account = await backgroundApiProxy.serviceAccount.getAccount({
-      accountId,
-      networkId,
-    });
-    const resp = await backgroundApiProxy.serviceStaking.estimateFee({
-      networkId,
-      provider: provider.name,
-      symbol: tokenInfo.symbol,
-      action: 'stake',
-      amount: '1',
-      morphoVault: provider.vault,
-      accountAddress: account.address,
-    });
-    return resp;
-  }, [accountId, networkId, provider.name, provider.vault, tokenInfo.symbol]);
-
   const { result: estimateFeeUTXO } = usePromiseResult(async () => {
     if (!networkUtils.isBTCNetwork(networkId)) {
       return;
@@ -241,7 +223,11 @@ function BasicStakePage() {
           networkId={networkId}
           decimals={details.token.info.decimals}
           details={details}
-          apr={Number(provider.apr) > 0 ? provider.apr : undefined}
+          apr={
+            Number(provider.aprWithoutFee) > 0
+              ? provider.aprWithoutFee
+              : undefined
+          }
           price={price}
           balance={balanceParsed}
           minAmount={provider.minStakeAmount}
@@ -258,12 +244,12 @@ function BasicStakePage() {
           isReachBabylonCap={isReachBabylonCap}
           rewardToken={rewardToken}
           isDisabled={isReachBabylonCap}
+          updateFrequency={tokenResult?.updateFrequency}
           showEstReceive={showEstReceive}
           estReceiveToken={rewardToken}
           estReceiveTokenRate={estReceiveTokenRate}
           onConfirm={onConfirm}
           minTransactionFee={provider.minTransactionFee}
-          estimateFeeResp={estimateFeeResp}
           estimateFeeUTXO={estimateFeeUTXO}
           onFeeRateChange={onFeeRateChange}
         />

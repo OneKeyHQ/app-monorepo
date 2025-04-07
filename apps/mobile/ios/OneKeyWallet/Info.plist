@@ -29,6 +29,8 @@
 			<array>
 				<string>onekey-wallet</string>
 				<string>so.onekey.wallet</string>
+				<string>wc</string>
+				<string>ethereum</string>
 			</array>
 		</dict>
 	</array>

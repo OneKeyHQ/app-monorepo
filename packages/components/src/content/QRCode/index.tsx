@@ -17,10 +17,8 @@ import { Theme, getTokenValue } from 'tamagui';
 
 import { type IAirGapUrJson, airGapUrUtils } from '@onekeyhq/qr-wallet-sdk';
 
-import { useThemeValue } from '../../hooks';
 import { Icon, Stack } from '../../primitives';
 
-import type { IThemeColorKeys } from '../../hooks';
 import type { IIconProps } from '../../primitives';
 import type { ImageProps, ImageURISource } from 'react-native';
 

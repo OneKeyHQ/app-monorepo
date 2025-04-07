@@ -86,7 +86,7 @@ function HeaderBackButton({
 
   const renderCollapseButton = () =>
     showCollapseButton ? (
-      <HeaderCollapseButton isRootScreen={isRootScreen} />
+      <HeaderCollapseButton hideWhenOpen isRootScreen={isRootScreen} />
     ) : null;
 
   // If neither button should be shown, return null early.

@@ -179,26 +179,3 @@ export function parseComputeUnitLimit(instructions: TransactionInstruction[]) {
   }
   return computeUnitLimit;
 }
-
-export function parseToNativeTx(
-  encodedTx: IEncodedTxSol,
-  encoding: 'base64' | 'bs58' = 'bs58',
-): Promise<INativeTxSol | null> {
-  if (!encodedTx) {
-    return Promise.resolve(null);
-  }
-
-  let txByte = Buffer.alloc(0);
-
-  if (encoding === 'base64') {
-    txByte = Buffer.from(encodedTx, 'base64');
-  } else if (encoding === 'bs58') {
-    txByte = bs58.decode(encodedTx);
-  }
-
-  try {
-    return Promise.resolve(Transaction.from(txByte));
-  } catch (e) {
-    return Promise.resolve(VersionedTransaction.deserialize(txByte));
-  }
-}

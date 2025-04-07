@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import { useClipboard } from '@onekeyhq/components';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import type { IToken } from '@onekeyhq/shared/types/token';
 
 import backgroundApiProxy from '../background/instance/backgroundApiProxy';
 
@@ -15,9 +16,11 @@ export const useCopyAccountAddress = () => {
     async ({
       accountId,
       networkId,
+      token,
     }: {
       accountId: string;
       networkId: string;
+      token?: IToken;
     }) => {
       if (
         accountUtils.isHwAccount({ accountId }) ||
@@ -30,6 +33,7 @@ export const useCopyAccountAddress = () => {
             networkId,
             accountId,
             walletId,
+            token,
           },
         });
       } else {

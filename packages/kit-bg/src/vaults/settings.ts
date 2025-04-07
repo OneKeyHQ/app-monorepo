@@ -20,6 +20,7 @@ import {
   IMPL_LIGHTNING_TESTNET,
   IMPL_LTC,
   IMPL_NEAR,
+  IMPL_NEO,
   IMPL_NEURAI,
   IMPL_NEXA,
   IMPL_NOSTR,
@@ -103,6 +104,7 @@ export async function getVaultSettings({ networkId }: { networkId: string }) {
     [IMPL_SCDO]: () => import('./impls/scdo/settings'),
     [IMPL_ALPH]: () => import('./impls/alph/settings'),
     [IMPL_BFC]: () => import('./impls/bfc/settings'),
+    [IMPL_NEO]: () => import('./impls/neo/settings'),
   };
   const loader = settingsLoader[impl];
   if (!loader) {

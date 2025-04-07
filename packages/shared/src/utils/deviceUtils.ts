@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -47,6 +49,14 @@ function dbDeviceToSearchDevice(device: IDBDevice) {
     name: device.name,
   };
   return result;
+}
+
+function getDeviceSerialNoFromFeatures(
+  features: IOneKeyDeviceFeatures | undefined,
+) {
+  return (
+    features?.onekey_serial_no ?? features?.onekey_serial ?? features?.serial_no
+  );
 }
 
 // web sdk return KnownDevice
@@ -214,12 +224,13 @@ async function buildDeviceLabel({
     return features.label;
   }
   const defaultLabelsByDeviceType: Record<IOneKeyDeviceType, string> = {
-    'classic': 'OneKey Classic',
-    'classic1s': 'OneKey Classic 1S',
-    'mini': 'OneKey Mini',
-    'touch': 'OneKey Touch',
-    'pro': 'OneKey Pro',
-    'unknown': '',
+    [EDeviceType.Classic]: 'OneKey Classic',
+    [EDeviceType.Classic1s]: 'OneKey Classic 1S',
+    [EDeviceType.ClassicPure]: 'OneKey Classic 1S Pure',
+    [EDeviceType.Mini]: 'OneKey Mini',
+    [EDeviceType.Touch]: 'OneKey Touch',
+    [EDeviceType.Pro]: 'OneKey Pro',
+    [EDeviceType.Unknown]: '',
   };
   const deviceType = await getDeviceTypeFromFeatures({
     features,
@@ -243,6 +254,17 @@ async function buildDeviceName({
   return (
     features.label || features.ble_name || `OneKey ${deviceUUID.slice(-4)}`
   );
+}
+
+function buildDeviceBleName({
+  features,
+}: {
+  features: IOneKeyDeviceFeatures | undefined;
+}): string | undefined {
+  if (!features) {
+    return undefined;
+  }
+  return features.ble_name;
 }
 
 async function getDeviceVerifyVersionsFromFeatures({
@@ -394,6 +416,7 @@ export function compareDeviceVersions({
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
+  getDeviceSerialNoFromFeatures,
   getDeviceVersionStr,
   getDeviceTypeFromFeatures,
   getDeviceModeFromFeatures,
@@ -407,6 +430,7 @@ export default {
   checkDeviceBonded,
   buildDeviceLabel,
   buildDeviceName,
+  buildDeviceBleName,
   getDeviceVerifyVersionsFromFeatures,
   formatVersionWithHash,
   parseLocalDeviceVersions,

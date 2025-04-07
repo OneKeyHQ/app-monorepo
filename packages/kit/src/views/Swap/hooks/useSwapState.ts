@@ -20,9 +20,12 @@ import type {
   ISwapState,
 } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapAlertLevel,
   ESwapDirectionType,
+  ESwapQuoteKind,
   ESwapSlippageSegmentKey,
+  ESwapTabSwitchType,
   SwapBuildUseMultiplePopoversNetworkIds,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -30,8 +33,10 @@ import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
   useSwapAlertsAtom,
+  useSwapApprovingAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapQuoteApproveAllowanceUnLimitAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapQuoteEventTotalCountAtom,
@@ -43,6 +48,7 @@ import {
   useSwapSelectedFromTokenBalanceAtom,
   useSwapShouldRefreshQuoteAtom,
   useSwapSilenceQuoteLoading,
+  useSwapTypeSwitchAtom,
 } from '../../../states/jotai/contexts/swap';
 
 import { useSwapAddressInfo } from './useSwapAccount';
@@ -56,6 +62,7 @@ function useSwapWarningCheck() {
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const { checkSwapWarning } = useSwapActions().current;
+  const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
   const refContainer = useRef<ISwapCheckWarningDef>({
     swapFromAddressInfo: {
       address: undefined,
@@ -105,6 +112,7 @@ function useSwapWarningCheck() {
     fromTokenBalance,
     quoteCurrentSelect,
     isFocused,
+    swapLimitUseRate,
   ]);
 }
 
@@ -117,10 +125,16 @@ export function useSwapQuoteLoading() {
 export function useSwapQuoteEventFetching() {
   const [quoteEventTotalCount] = useSwapQuoteEventTotalCountAtom();
   const [quoteResult] = useSwapQuoteListAtom();
-  return (
-    quoteEventTotalCount.count > 0 &&
-    quoteResult.length < quoteEventTotalCount.count
-  );
+  if (quoteEventTotalCount.count > 0) {
+    if (
+      quoteResult?.every((q) => q.eventId === quoteEventTotalCount.eventId) &&
+      quoteResult.length === quoteEventTotalCount.count
+    ) {
+      return false;
+    }
+    return true;
+  }
+  return false;
 }
 
 export function useSwapBatchTransfer(
@@ -161,6 +175,9 @@ export function useSwapActionState() {
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
+  const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
+  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [approving] = useSwapApprovingAtom();
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
@@ -183,8 +200,10 @@ export function useSwapActionState() {
             fromToken?.contractAddress ||
           quoteCurrentSelect.toTokenInfo.contractAddress !==
             toToken?.contractAddress)) ||
-      (quoteCurrentSelect?.allowanceResult &&
-        quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount),
+      (quoteCurrentSelect?.protocol !== EProtocolOfExchange.LIMIT &&
+        quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
+        quoteCurrentSelect?.allowanceResult &&
+        quoteCurrentSelect.allowanceResult.amount !== fromTokenAmount.value),
     [
       fromToken?.contractAddress,
       fromToken?.networkId,
@@ -198,19 +217,50 @@ export function useSwapActionState() {
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
-      label: intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
+      noConnectWallet: alerts.states.some((item) => item.noConnectWallet),
+      label:
+        swapTypeSwitchValue === ESwapTabSwitchType.LIMIT
+          ? intl.formatMessage({ id: ETranslations.limit_place_order })
+          : intl.formatMessage({ id: ETranslations.swap_page_swap_button }),
     };
     if (
       !swapFromAddressInfo.address ||
       !swapToAddressInfo.address ||
-      quoteCurrentSelect?.fromAmount !== fromTokenAmount
+      (quoteCurrentSelect?.kind === ESwapQuoteKind.SELL &&
+        quoteCurrentSelect?.fromAmount !== fromTokenAmount.value)
     ) {
       infoRes.disable = true;
     }
-    if (quoteLoading || quoteEventFetching) {
-      infoRes.label = intl.formatMessage({
-        id: ETranslations.swap_page_button_fetching_quotes,
-      });
+    if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.LIMIT &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+    if (
+      quoteCurrentSelect?.protocol === EProtocolOfExchange.SWAP &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.SWAP &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.BRIDGE &&
+      !isRefreshQuote
+    ) {
+      infoRes.disable = true;
+    }
+
+    if (quoteLoading || quoteEventFetching || approving || buildTxFetching) {
+      if (approving) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_btn_approving,
+        });
+      } else if (buildTxFetching) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_btn_building,
+        });
+      } else {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_fetching_quotes,
+        });
+      }
     } else {
       if (isCrossChain && fromToken && toToken) {
         infoRes.label = intl.formatMessage({
@@ -239,7 +289,22 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-
+      if (
+        quoteCurrentSelect?.protocol === EProtocolOfExchange.LIMIT &&
+        !quoteCurrentSelect.isWrapped &&
+        !quoteCurrentSelect.allowanceResult
+      ) {
+        if (
+          !swapUseLimitPrice.rate ||
+          new BigNumber(swapUseLimitPrice.rate ?? 0).isZero() ||
+          new BigNumber(swapUseLimitPrice.rate ?? 0).isNaN()
+        ) {
+          infoRes.disable = true;
+          infoRes.label = intl.formatMessage({
+            id: ETranslations.limit_enter_price,
+          });
+        }
+      }
       if (
         quoteCurrentSelect &&
         quoteCurrentSelect.toAmount &&
@@ -252,7 +317,7 @@ export function useSwapActionState() {
       }
 
       const balanceBN = new BigNumber(selectedFromTokenBalance ?? 0);
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount);
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value);
       if (
         fromToken &&
         swapFromAddressInfo.address &&
@@ -270,42 +335,56 @@ export function useSwapActionState() {
         });
         infoRes.disable = true;
       }
-      if (!fromTokenAmount) {
+      if (fromTokenAmountBN.isNaN() || fromTokenAmountBN.isZero()) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_enter_amount,
         });
         infoRes.disable = true;
       }
+
       if (isRefreshQuote || quoteResultNoMatchDebounce) {
         infoRes.label = intl.formatMessage({
           id: ETranslations.swap_page_button_refresh_quotes,
         });
         infoRes.disable = false;
       }
+      if (alerts.states.some((item) => item.noConnectWallet)) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.global_connect_wallet,
+        });
+        infoRes.disable = false;
+      }
     }
     return infoRes;
   }, [
-    fromToken,
-    fromTokenAmount,
     hasError,
-    intl,
-    isCrossChain,
-    isRefreshQuote,
+    buildTxFetching,
     quoteCurrentSelect,
-    quoteEventFetching,
-    quoteLoading,
-    quoteResultNoMatchDebounce,
-    selectedFromTokenBalance,
-    isBatchTransfer,
+    alerts.states,
+    swapTypeSwitchValue,
+    intl,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
+    fromTokenAmount.value,
+    isRefreshQuote,
+    quoteLoading,
+    quoteEventFetching,
+    approving,
+    isCrossChain,
+    fromToken,
     toToken,
+    selectedFromTokenBalance,
+    quoteResultNoMatchDebounce,
+    isBatchTransfer,
+    swapUseLimitPrice.rate,
   ]);
-
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
+    approving,
+    noConnectWallet: actionInfo.noConnectWallet,
+    disabled:
+      actionInfo.disable || quoteLoading || quoteEventFetching || approving,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,

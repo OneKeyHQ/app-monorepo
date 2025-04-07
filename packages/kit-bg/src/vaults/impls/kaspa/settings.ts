@@ -40,7 +40,7 @@ const settings: IVaultSettings = {
   defaultFeePresetIndex: 1,
 
   isUtxo: false,
-  isSingleToken: true,
+  isSingleToken: false,
   NFTEnabled: false,
   nonceRequired: false,
   feeUTXORequired: false,
@@ -58,8 +58,10 @@ const settings: IVaultSettings = {
     },
   },
 
-  minTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toString(),
-  isNativeTokenContractAddressEmpty: true,
+  nativeMinTransferAmount: new BigNumber(DUST_AMOUNT).shiftedBy(-8).toFixed(),
+  isNativeTokenContractAddressEmpty: false,
+
+  afterSendTxActionEnabled: true,
 };
 
 export default Object.freeze(settings);

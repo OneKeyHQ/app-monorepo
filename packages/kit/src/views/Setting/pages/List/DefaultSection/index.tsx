@@ -26,7 +26,6 @@ import {
 } from '@onekeyhq/shared/src/routes';
 
 export const useOnLock = () => {
-  const navigation = useAppNavigation();
   const [passwordSetting] = usePasswordPersistAtom();
   const onLock = useCallback(async () => {
     if (passwordSetting.isPasswordSet) {
@@ -35,9 +34,8 @@ export const useOnLock = () => {
       await backgroundApiProxy.servicePassword.promptPasswordVerify();
       await backgroundApiProxy.servicePassword.lockApp();
     }
-    navigation.popStack();
     defaultLogger.setting.page.lockNow();
-  }, [passwordSetting.isPasswordSet, navigation]);
+  }, [passwordSetting.isPasswordSet]);
   return onLock;
 };
 
@@ -60,11 +58,18 @@ const AddressBookItem = () => {
 const LockNowButton = () => {
   const intl = useIntl();
   const onLock = useOnLock();
+  const navigation = useAppNavigation();
+  const handlePress = useCallback(() => {
+    void onLock();
+    setTimeout(() => {
+      navigation.popStack();
+    }, 0);
+  }, [navigation, onLock]);
   return (
     <ListItem
       icon="LockOutline"
       title={intl.formatMessage({ id: ETranslations.settings_lock_now })}
-      onPress={onLock}
+      onPress={handlePress}
     />
   );
 };

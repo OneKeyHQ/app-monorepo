@@ -1,7 +1,6 @@
 import type { ComponentProps, FC } from 'react';
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 
-import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
 
 import {
@@ -16,7 +15,6 @@ import {
   useSafeAreaInsets,
 } from '@onekeyhq/components';
 import { useAppUpdatePersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { EAppUpdateStatus } from '@onekeyhq/shared/src/appUpdate';
 import {
   GITHUB_URL,
   ONEKEY_URL,

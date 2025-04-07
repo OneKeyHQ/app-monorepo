@@ -1,22 +1,30 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useEffect } from 'react';
 
-import BigNumber from 'bignumber.js';
 import { InputAccessoryView } from 'react-native';
 
 import { IconButton, SizableText, Stack, YStack } from '@onekeyhq/components';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapLimitPriceFromAmountAtom,
+  useSwapLimitPriceToAmountAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapSelectTokenDetailFetchingAtom,
   useSwapSelectedFromTokenBalanceAtom,
   useSwapSelectedToTokenBalanceAtom,
+  useSwapToTokenAmountAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
+  checkWrappedTokenPair,
+  equalTokenNoCaseSensitive,
+} from '@onekeyhq/shared/src/utils/tokenUtils';
+import {
   ESwapDirectionType,
+  ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -43,6 +51,7 @@ const SwapQuoteInput = ({
   onSelectPercentageStage,
 }: ISwapQuoteInputProps) => {
   const [fromInputAmount, setFromInputAmount] = useSwapFromTokenAmountAtom();
+  const [toInputAmount, setToInputAmount] = useSwapToTokenAmountAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
   const quoteEventFetching = useSwapQuoteEventFetching();
   const [fromToken] = useSwapSelectFromTokenAtom();
@@ -52,6 +61,9 @@ const SwapQuoteInput = ({
   const [swapQuoteCurrentSelect] = useSwapQuoteCurrentSelectAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
   const [toTokenBalance] = useSwapSelectedToTokenBalanceAtom();
+  const [swapLimitPriceFromAmount] = useSwapLimitPriceFromAmountAtom();
+  const [swapLimitPriceToAmount] = useSwapLimitPriceToAmountAtom();
+  const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
   useSwapQuote();
   useSwapFromAccountNetworkSync();
   useSwapApproving();
@@ -65,37 +77,101 @@ const SwapQuoteInput = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+      swapLimitPriceFromAmount
+    ) {
+      setFromInputAmount({
+        value: swapLimitPriceFromAmount,
+        isInput: false,
+      });
+    }
+  }, [setFromInputAmount, swapLimitPriceFromAmount, swapTypeSwitchValue]);
+
+  useEffect(() => {
+    if (
+      swapTypeSwitchValue === ESwapTabSwitchType.LIMIT &&
+      swapLimitPriceToAmount
+    ) {
+      setToInputAmount({
+        value: swapLimitPriceToAmount,
+        isInput: false,
+      });
+    }
+  }, [setToInputAmount, swapLimitPriceToAmount, swapTypeSwitchValue]);
+
+  useEffect(() => {
+    if (
+      swapTypeSwitchValue !== ESwapTabSwitchType.LIMIT ||
+      checkWrappedTokenPair({
+        fromToken,
+        toToken,
+      })
+    ) {
+      let toAmount = '';
+      if (
+        equalTokenNoCaseSensitive({
+          token1: fromToken,
+          token2: swapQuoteCurrentSelect?.fromTokenInfo,
+        }) &&
+        equalTokenNoCaseSensitive({
+          token1: toToken,
+          token2: swapQuoteCurrentSelect?.toTokenInfo,
+        })
+      ) {
+        toAmount = swapQuoteCurrentSelect?.toAmount ?? '';
+      }
+      if (
+        checkWrappedTokenPair({
+          fromToken,
+          toToken,
+        })
+      ) {
+        toAmount = swapQuoteCurrentSelect?.isWrapped
+          ? swapQuoteCurrentSelect?.toAmount ?? ''
+          : '';
+      }
+      setToInputAmount({
+        value: toAmount,
+        isInput: false,
+      });
+    }
+  }, [
+    swapQuoteCurrentSelect?.toAmount,
+    swapQuoteCurrentSelect?.fromTokenInfo,
+    swapQuoteCurrentSelect?.toTokenInfo,
+    swapQuoteCurrentSelect?.isWrapped,
+    setToInputAmount,
+    setFromInputAmount,
+    swapTypeSwitchValue,
+    fromToken,
+    toToken,
+  ]);
+
   return (
     <YStack gap="$2">
       <SwapInputContainer
         token={fromToken}
         direction={ESwapDirectionType.FROM}
+        inputLoading={swapQuoteLoading || quoteEventFetching}
         selectTokenLoading={selectLoading}
         onAmountChange={(value) => {
           if (validateAmountInput(value, fromToken?.decimals)) {
-            setFromInputAmount(value);
+            setFromInputAmount({
+              value,
+              isInput: true,
+            });
           }
         }}
         onSelectPercentageStage={onSelectPercentageStage}
-        amountValue={fromInputAmount}
+        amountValue={fromInputAmount.value}
         onBalanceMaxPress={() => {
           const maxAmount = fromTokenBalance;
-          // if (fromToken?.reservationValue) {
-          //   const fromTokenBalanceBN = new BigNumber(fromTokenBalance ?? 0);
-          //   const fromTokenReservationValueBN = new BigNumber(
-          //     fromToken.reservationValue,
-          //   );
-          //   if (
-          //     fromTokenBalanceBN
-          //       .minus(fromTokenReservationValueBN)
-          //       .isGreaterThan(0)
-          //   ) {
-          //     maxAmount = fromTokenBalanceBN
-          //       .minus(fromTokenReservationValueBN)
-          //       .toFixed();
-          //   }
-          // }
-          setFromInputAmount(maxAmount);
+          setFromInputAmount({
+            value: maxAmount,
+            isInput: true,
+          });
         }}
         onSelectToken={onSelectToken}
         balance={fromTokenBalance}
@@ -114,7 +190,10 @@ const SwapQuoteInput = ({
         <IconButton
           alignSelf="center"
           bg="$bgSubdued"
-          icon="SwitchVerOutline"
+          icon="SwapVerOutline"
+          iconProps={{
+            color: '$icon',
+          }}
           size="medium"
           disabled={swapTokenDetailLoading.from || swapTokenDetailLoading.to}
           onPress={alternationToken}
@@ -134,7 +213,15 @@ const SwapQuoteInput = ({
         inputLoading={swapQuoteLoading || quoteEventFetching}
         selectTokenLoading={selectLoading}
         direction={ESwapDirectionType.TO}
-        amountValue={swapQuoteCurrentSelect?.toAmount ?? ''}
+        onAmountChange={(value) => {
+          if (validateAmountInput(value, toToken?.decimals)) {
+            setToInputAmount({
+              value,
+              isInput: true,
+            });
+          }
+        }}
+        amountValue={toInputAmount.value}
         onSelectToken={onSelectToken}
         balance={toTokenBalance}
       />

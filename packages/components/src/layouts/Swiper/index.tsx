@@ -18,7 +18,6 @@ import type { ListRenderItemInfo } from 'react-native';
 
 function BaseSwiperFlatList<T>(
   {
-    children,
     data = [],
     renderItem,
     index = 0,
@@ -27,7 +26,6 @@ function BaseSwiperFlatList<T>(
     autoplay = false,
     autoplayLoop = false,
     autoplayLoopKeepAnimation = false,
-    onChangeIndex,
     disableGesture = false,
     ...restProps
   }: ISwiperProps<T>,

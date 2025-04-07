@@ -1,6 +1,6 @@
 import * as Linking from 'expo-linking';
 
-import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/app';
+import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
 
 import type { IRegisterHandler } from './handler.type';
 

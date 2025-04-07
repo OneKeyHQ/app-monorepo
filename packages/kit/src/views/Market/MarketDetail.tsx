@@ -4,6 +4,7 @@ import { CommonActions, StackActions } from '@react-navigation/native';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import {
+  EPageType,
   HeaderIconButton,
   NavBackButton,
   Page,
@@ -15,6 +16,7 @@ import {
   YStack,
   useDeferredPromise,
   useMedia,
+  usePageType,
   useShare,
 } from '@onekeyhq/components';
 import { EJotaiContextStoreNames } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
@@ -53,7 +55,12 @@ function TokenDetailHeader({
   coinGeckoId: string;
   token: IMarketTokenDetail;
 }) {
-  const { gtMd } = useMedia();
+  const { gtMd: gtMdMedia } = useMedia();
+
+  const pageType = usePageType();
+
+  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
+
   const { result: token } = usePromiseResult(
     () => backgroundApiProxy.serviceMarket.fetchMarketTokenDetail(coinGeckoId),
     [coinGeckoId],
@@ -76,7 +83,11 @@ function TokenDetailHeader({
     },
   } = token;
   return (
-    <YStack px="$5" $md={{ minHeight: 150 }}>
+    <YStack
+      px="$5"
+      $md={{ minHeight: 150 }}
+      {...(pageType === EPageType.modal ? { minHeight: 150 } : null)}
+    >
       <YStack flex={1}>
         <SizableText size="$headingMd" color="$textSubdued">
           {name}
@@ -131,7 +142,11 @@ function MarketDetail({
   route,
 }: IPageScreenProps<ITabMarketParamList, ETabMarketRoutes.MarketDetail>) {
   const { token: coinGeckoId } = route.params;
-  const { gtMd } = useMedia();
+  const { gtMd: gtMdMedia } = useMedia();
+
+  const pageType = usePageType();
+
+  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -210,7 +225,6 @@ function MarketDetail({
 
   const popPage = useCallback(() => {
     navigation.dispatch((state) => {
-      console.log(state);
       if (state.routes.length > 1) {
         return StackActions.pop(state.routes.length);
       }

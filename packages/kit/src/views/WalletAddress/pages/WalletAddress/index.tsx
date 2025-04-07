@@ -793,10 +793,12 @@ function WalletAddressPageMainView({
   accountId,
   walletId,
   indexedAccountId,
+  excludeTestNetwork,
 }: {
   accountId?: string;
   walletId?: string;
   indexedAccountId: string;
+  excludeTestNetwork?: boolean;
 }) {
   const [accountsCreated, setAccountsCreated] = useState(false);
   const [isAllNetworksEnabled, setIsAllNetworksEnabled] = useState<
@@ -818,7 +820,7 @@ function WalletAddressPageMainView({
       perf.markStart('getChainSelectorNetworksCompatibleWithAccountId');
       const networks =
         await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
-          { accountId, walletId },
+          { accountId, walletId, excludeTestNetwork },
         );
       perf.markEnd('getChainSelectorNetworksCompatibleWithAccountId');
 
@@ -848,7 +850,7 @@ function WalletAddressPageMainView({
           await backgroundApiProxy.serviceAllNetwork.getAllNetworkAccounts({
             accountId,
             networkId: getNetworkIdsMap().onekeyall,
-            excludeTestNetwork: false,
+            excludeTestNetwork: excludeTestNetwork ?? false,
           });
         networksAccount = accountsInfo;
       }
@@ -869,7 +871,7 @@ function WalletAddressPageMainView({
         allNetworksState,
       };
     },
-    [accountId, walletId],
+    [accountId, walletId, excludeTestNetwork],
     {
       watchLoading: true,
       initResult: {
@@ -914,6 +916,7 @@ function WalletAddressPageMainView({
     allNetworksStateInit.current = true;
 
     const updateMap: Record<string, boolean> = {};
+
     [...result.networks.mainnetItems, ...result.networks.testnetItems].forEach(
       (item) => {
         updateMap[item.id] = isEnabledNetworksInAllNetworks({
@@ -935,6 +938,7 @@ function WalletAddressPageMainView({
     result.networks.mainnetItems,
     result.networks.testnetItems,
     result.networksAccount,
+    excludeTestNetwork,
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -1032,7 +1036,8 @@ export default function WalletAddressPage({
   IModalWalletAddressParamList,
   EModalWalletAddressRoutes.WalletAddress
 >) {
-  const { accountId, walletId, indexedAccountId } = route.params;
+  const { accountId, walletId, indexedAccountId, excludeTestNetwork } =
+    route.params;
 
   const { result: allNetworkMockedAccountId } = usePromiseResult(async () => {
     if (!accountId) {
@@ -1054,6 +1059,7 @@ export default function WalletAddressPage({
       accountId={allNetworkMockedAccountId}
       walletId={walletId}
       indexedAccountId={indexedAccountId}
+      excludeTestNetwork={excludeTestNetwork}
     />
   );
 }

@@ -40,7 +40,7 @@ const ToastGallery = () => (
                 Toast.success({
                   title: 'url!',
                   message:
-                    'look, <url href="https://onekey.so">OneKey</url> here. aaa',
+                    'look, <url>https://onekey.so<underline>here</underline></url>. OneKey.',
                 });
               }}
             >
@@ -372,7 +372,7 @@ const ToastGallery = () => (
                 Toast.warning({
                   duration: ONE_HOUR,
                   title:
-                    'OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.\n\nIf you encounter issues during the installation of OneKey Bridge, please refer to the <url href="https://1key.so">online tutorial</url> for assistance.',
+                    'OneKey Bridge facilitates seamless communication between OneKey and your browser for a better experience.\n\nIf you encounter issues during the installation of OneKey Bridge, please refer to the <url href="https://app.onekey.so">online tutorial</url> for assistance.',
                 });
               }}
             >

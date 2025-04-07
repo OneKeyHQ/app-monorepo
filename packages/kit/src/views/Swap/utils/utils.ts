@@ -19,6 +19,12 @@ export function validateAmountInput(text: string, decimal?: number) {
   return true;
 }
 
+export function validateAmountInputInfiniteDecimal(text: string) {
+  // 修改后的正则，支持输入过程中的状态：
+  const regex = /^$|^0$|^0\.$|^0\.\d*$|^[1-9]\d*$|^[1-9]\d*\.$|^[1-9]\d*\.\d*$/;
+  return regex.test(text);
+}
+
 export function truncateDecimalPlaces(str?: string, decimal?: number) {
   if (!str || Number.isNaN(str) || !decimal) {
     return null;
@@ -55,6 +61,13 @@ export function getSwapHistoryStatusTextProps(status: ESwapTxHistoryStatus): {
   if (status === ESwapTxHistoryStatus.SUCCESS) {
     return {
       key: ETranslations.swap_history_status_success,
+      color: '$textSuccess',
+    };
+  }
+
+  if (status === ESwapTxHistoryStatus.PARTIALLY_FILLED) {
+    return {
+      key: ETranslations.Limit_order_history_status_partially_filled,
       color: '$textSuccess',
     };
   }

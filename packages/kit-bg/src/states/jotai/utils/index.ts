@@ -3,7 +3,6 @@ import { atom, useAtom } from 'jotai';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-// import { jotaiBgSync } from './jotaiBgSync';
 import {
   atomWithStorage,
   globalJotaiStorageReadyHandler,

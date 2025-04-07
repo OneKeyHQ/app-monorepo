@@ -8,6 +8,7 @@ import type {
   ITabPageProps,
 } from '@onekeyhq/components';
 import {
+  EPageType,
   NestedScrollView,
   NumberSizeableText,
   Popover,
@@ -15,6 +16,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  usePageType,
 } from '@onekeyhq/components';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -96,7 +98,7 @@ export function Overview24PriceChange({
         {intl.formatMessage({ id: ETranslations.market_24h_price_range })}
       </SizableText>
       {priceChange !== undefined ? (
-        <Progress value={priceChange} height="$1" />
+        <Progress animated value={priceChange} height="$1" />
       ) : null}
       <XStack jc="space-between">
         <XStack gap="$1">
@@ -376,9 +378,14 @@ export function MarketDetailOverview({
   token: IMarketTokenDetail;
 }) {
   const intl = useIntl();
+  const pageType = usePageType();
   return (
     <NestedScrollView>
-      <YStack pb="$10" $md={{ px: '$5' }}>
+      <YStack
+        pb="$10"
+        $md={{ px: '$5' }}
+        {...(pageType === EPageType.modal ? { px: '$5' } : null)}
+      >
         <XStack
           borderWidth="$px"
           borderRadius="$2"

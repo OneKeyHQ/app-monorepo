@@ -53,32 +53,32 @@ const syncStorageWeb = {
 export type ISyncStorage = typeof syncStorageWeb;
 
 const syncStorageExtBg: ISyncStorage = {
-  set(key: EAppSyncStorageKeys, value: boolean | string | number): void {
+  set(_key: EAppSyncStorageKeys, _value: boolean | string | number): void {
     // do nothing
   },
   setObject<T extends Record<string, any>>(
-    key: EAppSyncStorageKeys,
-    value: T,
+    _key: EAppSyncStorageKeys,
+    _value: T,
   ): void {
     // do nothing
   },
-  getObject<T>(key: EAppSyncStorageKeys): T | undefined {
+  getObject<T>(_key: EAppSyncStorageKeys): T | undefined {
     // do nothing
     return undefined;
   },
-  getString(key: EAppSyncStorageKeys): string | undefined {
+  getString(_key: EAppSyncStorageKeys): string | undefined {
     // do nothing
     return undefined;
   },
-  getNumber(key: EAppSyncStorageKeys): number | undefined {
+  getNumber(_key: EAppSyncStorageKeys): number | undefined {
     // do nothing
     return undefined;
   },
-  getBoolean(key: EAppSyncStorageKeys): boolean | undefined {
+  getBoolean(_key: EAppSyncStorageKeys): boolean | undefined {
     // do nothing
     return undefined;
   },
-  delete(key: EAppSyncStorageKeys): void {
+  delete(_key: EAppSyncStorageKeys): void {
     // do nothing
   },
   clearAll(): void {

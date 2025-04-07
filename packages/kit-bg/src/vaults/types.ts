@@ -257,6 +257,8 @@ export type IVaultSettings = {
   fixConfirmedTxEnabled?: boolean;
 
   supportBatchEstimateFee?: Record<string, boolean>;
+
+  afterSendTxActionEnabled?: boolean;
 };
 
 export type IVaultFactoryOptions = {
@@ -366,6 +368,10 @@ export type IBuildHwAllNetworkPrepareAccountsParams = {
 export type IBuildPrepareAccountsPrefixedPathParams = {
   template: string;
   index: number;
+};
+
+export type INormalizeGetMultiAccountsPathParams = {
+  path: string;
 };
 
 export type IHwSdkNetwork = AllNetworkAddressParams['network'];
@@ -483,6 +489,7 @@ export type ITransferPayload = {
   memo?: string;
   paymentId?: string;
   note?: string;
+  tokenInfo?: IToken;
 };
 
 export type IWrappedInfo = {
@@ -566,6 +573,7 @@ export interface IBroadcastTransactionParams {
   accountAddress: string;
   signedTx: ISignedTxPro;
   signature?: string;
+  rawTxType?: 'json' | 'hex';
 }
 
 export interface IBroadcastTransactionByCustomRpcParams
@@ -585,6 +593,7 @@ export interface ISignTransactionParamsBase {
   unsignedTx: IUnsignedTxPro;
   // TODO rename externalSignOnly
   signOnly: boolean; // external account use this field to indicate sign only or sign and send
+  rawTxType?: 'json' | 'hex';
 }
 
 export type ISignAndSendTransactionParams = ISignTransactionParams;

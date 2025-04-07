@@ -6,7 +6,9 @@ import wordLists from 'bip39/src/wordlists/english.json';
 
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 
-import type { BrowserOptions } from '@sentry/browser';
+import { EOneKeyErrorClassNames } from '../../errors/types/errorTypes';
+
+import type { BrowserOptions, Stacktrace } from '@sentry/browser';
 // dirty check for common private key formats
 const checkPrivateKey = (errorText: string) =>
   typeof errorText === 'string' && errorText.length > 26;
@@ -52,10 +54,20 @@ const checkAndRedactMnemonicWords = (words: string[]) => {
 const FILTERED_ERROR_TYPES = new Set([
   'AxiosError',
   'HTTPClientError',
-  'OneKeyHardwareError',
+  EOneKeyErrorClassNames.OneKeyHardwareError,
+  EOneKeyErrorClassNames.OneKeyAppError,
+  EOneKeyErrorClassNames.OneKeyErrorNotImplemented,
+  EOneKeyErrorClassNames.OneKeyErrorAirGapStandardWalletRequiredWhenCreateHiddenWallet,
+  EOneKeyErrorClassNames.OneKeyErrorAirGapAccountNotFound,
+  EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
+  EOneKeyErrorClassNames.VaultKeyringNotDefinedError,
+  EOneKeyErrorClassNames.PasswordPromptDialogCancel,
+  EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+  EOneKeyErrorClassNames.FirmwareUpdateExit,
+  EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
 ]);
 
-const isFilterError = (error?: {
+const isFilterErrorAndSkipSentry = (error?: {
   type?: string | undefined;
   value?: string | undefined;
 }) => {
@@ -73,47 +85,54 @@ const isFilterError = (error?: {
   return false;
 };
 
-export const basicOptions: BrowserOptions = {
-  enabled: true,
-  maxBreadcrumbs: 100,
-  tracesSampleRate: 1.0,
-  profilesSampleRate: 1.0,
-  beforeSend: (event) => {
-    if (Array.isArray(event.exception?.values)) {
-      for (let index = 0; index < event.exception.values.length; index += 1) {
-        const errorText = event.exception.values[index].value;
-        if (errorText) {
-          if (isFilterError(event.exception.values[index])) {
-            return null;
-          }
-
-          try {
-            let textSlices = errorText?.split(' ');
-            for (let i = 0; i < textSlices.length; i += 1) {
-              const textSlice = textSlices[i];
-              if (checkPrivateKey(textSlice)) {
-                textSlices[i] = '****';
+export const buildBasicOptions = ({
+  onError,
+}: {
+  onError: (errorMessage: string, stacktrace?: Stacktrace) => void;
+}) =>
+  ({
+    enabled: true,
+    maxBreadcrumbs: 100,
+    tracesSampleRate: 1.0,
+    profilesSampleRate: 1.0,
+    beforeSend: (event) => {
+      if (Array.isArray(event.exception?.values)) {
+        for (let index = 0; index < event.exception.values.length; index += 1) {
+          const errorText = event.exception.values[index].value;
+          if (errorText) {
+            try {
+              let textSlices = errorText?.split(' ');
+              for (let i = 0; i < textSlices.length; i += 1) {
+                const textSlice = textSlices[i];
+                if (checkPrivateKey(textSlice)) {
+                  textSlices[i] = '****';
+                }
               }
+              textSlices = checkAndRedactMnemonicWords(textSlices);
+              const newErrorText = textSlices.join(' ');
+              // Save error message locally
+              onError(newErrorText, event.exception?.values[index].stacktrace);
+              if (isFilterErrorAndSkipSentry(event.exception.values[index])) {
+                return null;
+              }
+              event.exception.values[index].value = newErrorText;
+            } catch {
+              // Do nothing
             }
-            textSlices = checkAndRedactMnemonicWords(textSlices);
-            event.exception.values[index].value = textSlices.join(' ');
-          } catch {
-            // Do nothing
           }
         }
       }
-    }
-    // Filter out duplicate error messages
-    if (Array.isArray(event.breadcrumbs)) {
-      event.breadcrumbs = event.breadcrumbs.filter(
-        (e) => e.category !== 'sentry.event' && e.level !== 'error',
-      );
-    }
-    return event;
-  },
-};
+      // Filter out duplicate error messages
+      if (Array.isArray(event.breadcrumbs)) {
+        event.breadcrumbs = event.breadcrumbs.filter(
+          (e) => e.category !== 'sentry.event' && e.level !== 'error',
+        );
+      }
+      return event;
+    },
+  } as BrowserOptions);
 
-export const buildOptions = (Sentry: typeof import('@sentry/react')) => ({
+export const buildSentryOptions = (Sentry: typeof import('@sentry/react')) => ({
   transport: Sentry.makeBrowserOfflineTransport(Sentry.makeFetchTransport),
 });
 

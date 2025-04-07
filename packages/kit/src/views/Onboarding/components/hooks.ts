@@ -77,7 +77,7 @@ export const useSuggestion = (
     for (let i = 0; i < phraseLength; i += 1) {
       const key = `phrase${i + 1}`;
       const value = values[key];
-      if (!isValidWord(value)) {
+      if (value && !isValidWord(value)) {
         errors[i] = true;
       }
     }
@@ -95,7 +95,7 @@ export const useSuggestion = (
         if (platformEnv.isNative && isBlur) {
           if (isValidWord(text)) {
             setIsShowErrors((prev) => ({ ...prev, [index]: false }));
-          } else {
+          } else if (text) {
             setIsShowErrors((prev) => ({ ...prev, [index]: true }));
           }
           return;
@@ -108,7 +108,7 @@ export const useSuggestion = (
         ) {
           if (isValidWord(text)) {
             setIsShowErrors((prev) => ({ ...prev, [index]: false }));
-          } else {
+          } else if (text) {
             setIsShowErrors((prev) => ({ ...prev, [index]: true }));
           }
           return;

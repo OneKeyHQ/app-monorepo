@@ -4,16 +4,12 @@ import { StyleSheet } from 'react-native';
 
 import { Icon, SizableText, XStack, YStack } from '@onekeyhq/components';
 import { Token } from '@onekeyhq/kit/src/components/Token';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type {
   IEarnTokenItem,
   IRewardApys,
 } from '@onekeyhq/shared/types/staking';
-
-const formatApy = (apy: string | number | undefined): string => {
-  if (!apy) return '0';
-  return new BigNumber(apy).decimalPlaces(2, BigNumber.ROUND_DOWN).toFixed(2);
-};
 
 const isPositiveNumber = (value: string | number | undefined): boolean => {
   if (!value) return false;
@@ -23,13 +19,15 @@ const isPositiveNumber = (value: string | number | undefined): boolean => {
 export function MorphoApy({
   apys,
   rewardAssets,
+  poolFee,
 }: {
   apys: IRewardApys;
   rewardAssets?: Record<string, IEarnTokenItem>;
+  poolFee?: string;
 }) {
   const intl = useIntl();
-  const showNativeApy = isPositiveNumber(apys.rate);
-  const showTotalApy = isPositiveNumber(apys.netApy);
+  const showNativeApy = isPositiveNumber(apys.dailyApy);
+  const showTotalApy = isPositiveNumber(apys.performanceFee);
   const rewardTokenEntries = Object.entries(apys.rewards ?? {}).filter(
     ([address, apy]) => isPositiveNumber(apy) && rewardAssets?.[address],
   );
@@ -47,8 +45,8 @@ export function MorphoApy({
                 })}
               </SizableText>
             </XStack>
-            <SizableText size="$bodyMdMedium" color="$textSubdued">
-              +{formatApy(apys.rate)}%
+            <SizableText size="$bodyMdMedium">
+              +{formatApy(apys.dailyApy)}%
             </SizableText>
           </XStack>
         ) : null}
@@ -68,24 +66,22 @@ export function MorphoApy({
                   {token?.info?.symbol ?? ''}
                 </SizableText>
               </XStack>
-              <SizableText size="$bodyMdMedium" color="$textSubdued">
-                +{formatApy(apy)}%
-              </SizableText>
+              <SizableText size="$bodyMdMedium">+{formatApy(apy)}%</SizableText>
             </XStack>
           );
         })}
         {showTotalApy ? (
           <XStack gap="$2" alignItems="center" justifyContent="space-between">
             <XStack gap="$2" alignItems="center">
-              <Icon name="CoinsAddOutline" size="$5" />
+              <Icon name="HandCoinsOutline" size="$5" />
               <SizableText color="$textSubdued" size="$bodyMd">
-                {intl.formatMessage({
-                  id: ETranslations.earn_total_apy,
-                })}
+                {`${intl.formatMessage({
+                  id: ETranslations.earn_performance_fee,
+                })}${poolFee ? ` (${poolFee}%)` : ''}`}
               </SizableText>
             </XStack>
-            <SizableText size="$bodyMdMedium" color="$textSuccess">
-              = {formatApy(apys.netApy)}%
+            <SizableText size="$bodyMdMedium">
+              {`-${formatApy(apys.performanceFee)}%`}
             </SizableText>
           </XStack>
         ) : null}

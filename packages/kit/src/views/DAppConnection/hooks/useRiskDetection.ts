@@ -58,9 +58,7 @@ function useRiskDetection({
     if (isRiskSignMethod) {
       return true;
     }
-    if (!urlSecurityInfo) {
-      return false;
-    }
+
     const show = !(
       riskLevel === EHostSecurityLevel.Security ||
       riskLevel === EHostSecurityLevel.Unknown
@@ -74,7 +72,7 @@ function useRiskDetection({
       setContinueOperate(true);
     }
     return show;
-  }, [riskLevel, urlSecurityInfo, continueOperate, isRiskSignMethod]);
+  }, [riskLevel, continueOperate, isRiskSignMethod]);
 
   return {
     showContinueOperate,

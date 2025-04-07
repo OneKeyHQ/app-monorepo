@@ -1,4 +1,5 @@
 import type {
+  IFetchLimitOrderRes,
   ISwapApproveTransaction,
   ISwapToken,
   ISwapTxHistory,
@@ -9,8 +10,11 @@ import { globalAtom } from '../utils';
 
 export type IInAppNotificationAtom = {
   swapHistoryPendingList: ISwapTxHistory[];
+  swapLimitOrders: IFetchLimitOrderRes[];
+  swapLimitOrdersLoading: boolean;
   swapApprovingTransaction: ISwapApproveTransaction | undefined;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
+  swapPercentageInputStageShowForNative: boolean;
 };
 export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
   globalAtom<IInAppNotificationAtom>({
@@ -18,7 +22,10 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
     name: EAtomNames.inAppNotificationAtom,
     initialValue: {
       swapHistoryPendingList: [],
+      swapLimitOrders: [],
+      swapLimitOrdersLoading: false,
       swapApprovingTransaction: undefined,
       swapRecentTokenPairs: [],
+      swapPercentageInputStageShowForNative: false,
     },
   });

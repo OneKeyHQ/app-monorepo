@@ -3,6 +3,7 @@ import { PublicKey, VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 
 import { OffchainMessage } from '@onekeyhq/core/src/chains/sol/sdkSol/OffchainMessage';
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IEncodedTxSol,
   INativeTxSol,
@@ -27,8 +28,6 @@ import {
 } from '@onekeyhq/shared/types/message';
 
 import { KeyringHardwareBase } from '../../base/KeyringHardwareBase';
-
-import { parseToNativeTx } from './utils';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
@@ -163,7 +162,7 @@ export class KeyringHardware extends KeyringHardwareBase {
     const { deviceCommonParams, dbDevice } = checkIsDefined(deviceParams);
     const { connectId, deviceId } = dbDevice;
 
-    const transaction = await parseToNativeTx(encodedTx);
+    const transaction = parseToNativeTx(encodedTx);
 
     if (!transaction) {
       throw new Error(
@@ -218,7 +217,11 @@ export class KeyringHardware extends KeyringHardwareBase {
 
     const result = await Promise.all(
       params.messages.map(
-        async (payload: { type: string; message: string }) => {
+        async (payload: {
+          type: string;
+          message: string;
+          applicationDomain?: string;
+        }) => {
           if (payload.type === EMessageTypesCommon.SIGN_MESSAGE) {
             const response = await HardwareSDK.solSignMessage(
               connectId,
@@ -243,6 +246,9 @@ export class KeyringHardware extends KeyringHardwareBase {
                 ...params.deviceParams?.deviceCommonParams,
                 path: dbAccount.path,
                 messageHex: Buffer.from(payload.message).toString('hex'),
+                applicationDomainHex: payload.applicationDomain
+                  ? Buffer.from(payload.applicationDomain).toString('hex')
+                  : undefined,
                 // @ts-expect-error
                 messageFormat: OffchainMessage.guessMessageFormat(
                   Buffer.from(payload.message),

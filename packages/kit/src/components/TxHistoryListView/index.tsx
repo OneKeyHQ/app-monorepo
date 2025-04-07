@@ -183,13 +183,15 @@ function BaseTxHistoryListView(props: IProps) {
       h={platformEnv.isNative ? screenHeight - top - bottom - 90 : '100%'}
       onLayout={onLayout}
       sections={sections}
-      ListEmptyComponent={searchKey ? EmptySearch : EmptyHistory}
+      ListEmptyComponent={
+        searchKey && data.length > 0 ? EmptySearch : EmptyHistory
+      }
       estimatedItemSize={platformEnv.isNative ? 60 : 56}
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       ListFooterComponent={ListFooterComponent}
       ListHeaderComponent={
-        showHeader && data?.length > 0 ? (
+        showHeader ? (
           <TxHistoryListHeader filteredHistory={filteredHistory} />
         ) : (
           ListHeaderComponent

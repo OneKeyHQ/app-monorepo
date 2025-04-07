@@ -1,4 +1,4 @@
-import { HardwareErrorCode } from '@onekeyfe/hd-shared';
+import { EDeviceType, HardwareErrorCode } from '@onekeyfe/hd-shared';
 
 import {
   backgroundClass,
@@ -76,7 +76,7 @@ class ServiceHardwareUI extends ServiceBase {
       action: EHardwareUiStateAction.REQUEST_BUTTON,
       connectId,
       payload: {
-        deviceType: 'classic',
+        deviceType: EDeviceType.Classic,
         uiRequestType: EHardwareUiStateAction.REQUEST_BUTTON,
         eventType: '',
         deviceId: '',
@@ -168,6 +168,21 @@ class ServiceHardwareUI extends ServiceBase {
       action: EHardwareUiStateAction.EnterPinOnDevice,
       connectId,
       payload,
+    });
+  }
+
+  @backgroundMethod()
+  async sendRequestDeviceInBootloaderForWebDevice({
+    deviceId,
+  }: {
+    deviceId: string;
+  }) {
+    const { UI_RESPONSE } = await CoreSDKLoader();
+    await this.sendUiResponse({
+      type: UI_RESPONSE.SELECT_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE,
+      payload: {
+        deviceId,
+      },
     });
   }
 

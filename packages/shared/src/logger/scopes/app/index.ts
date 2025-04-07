@@ -4,6 +4,7 @@ import { EScopeName } from '../../types';
 import { BackgroundScene } from './scenes/background';
 import { BootstrapScene } from './scenes/bootstrap';
 import { ComponentScene } from './scenes/component';
+import { ErrorScene } from './scenes/error';
 import { EventBusScene } from './scenes/eventBus';
 import { InstallScene } from './scenes/install';
 import { NetworkScene } from './scenes/network';
@@ -28,4 +29,6 @@ export class AppScope extends BaseScope {
   eventBus = this.createScene('eventBus', EventBusScene);
 
   perf = this.createScene('perf', AppPerfScene);
+
+  error = this.createScene('error', ErrorScene);
 }

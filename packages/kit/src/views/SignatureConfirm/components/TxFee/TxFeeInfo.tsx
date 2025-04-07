@@ -20,6 +20,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import {
   useCustomFeeAtom,
+  useDecodedTxsAtom,
   useExtraFeeInfoAtom,
   useIsSinglePresetAtom,
   useNativeTokenInfoAtom,
@@ -95,6 +96,7 @@ function TxFeeInfo(props: IProps) {
   const [sendTxStatus] = useSendTxStatusAtom();
   const [txAdvancedSettings] = useTxAdvancedSettingsAtom();
   const [extraFeeInfo] = useExtraFeeInfoAtom();
+  const [{ decodedTxs }] = useDecodedTxsAtom();
   const {
     updateSendSelectedFeeInfo,
     updateSendFeeStatus,
@@ -238,6 +240,7 @@ function TxFeeInfo(props: IProps) {
               feeAlgo: r.feeAlgo ? [r.feeAlgo] : undefined,
               feeDot: r.feeDot ? [r.feeDot] : undefined,
               feeBudget: r.feeBudget ? [r.feeBudget] : undefined,
+              feeNeoN3: r.feeNeoN3 ? [r.feeNeoN3] : undefined,
             },
             e,
           };
@@ -328,6 +331,7 @@ function TxFeeInfo(props: IProps) {
         txFee.feeAlgo?.length ||
         txFee.feeDot?.length ||
         txFee.feeBudget?.length ||
+        txFee.feeNeoN3?.length ||
         0;
 
       for (let i = 0; i < feeLength; i += 1) {
@@ -342,6 +346,7 @@ function TxFeeInfo(props: IProps) {
           feeAlgo: txFee.feeAlgo?.[i],
           feeDot: txFee.feeDot?.[i],
           feeBudget: txFee.feeBudget?.[i],
+          feeNeoN3: txFee.feeNeoN3?.[i],
         };
 
         const useDappFeeAndNotEditFee =
@@ -479,6 +484,13 @@ function TxFeeInfo(props: IProps) {
           customFeeInfo.feeBudget = {
             ...txFee.feeBudget[sendSelectedFee.presetIndex],
             ...(customFee?.feeBudget ?? {}),
+          };
+        }
+
+        if (txFee.feeNeoN3 && !isEmpty(txFee.feeNeoN3)) {
+          customFeeInfo.feeNeoN3 = {
+            ...txFee.feeNeoN3[sendSelectedFee.presetIndex],
+            ...(customFee?.feeNeoN3 ?? {}),
           };
         }
 
@@ -636,6 +648,7 @@ function TxFeeInfo(props: IProps) {
     customFee?.feeAlgo,
     customFee?.feeDot,
     customFee?.feeBudget,
+    customFee?.feeNeoN3,
     unsignedTxs,
     updateSendSelectedFee,
     updateCustomFee,
@@ -955,20 +968,30 @@ function TxFeeInfo(props: IProps) {
       nativeTokenInfo.balance ?? 0,
     );
 
-    updateSendTxStatus({
-      isInsufficientNativeBalance: nativeTokenTransferAmountToUpdate.isMaxSend
+    const decodedTx = decodedTxs[0];
+
+    let isInsufficientNativeBalance =
+      nativeTokenTransferAmountToUpdate.isMaxSend
         ? false
-        : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0),
+        : requiredNativeBalance.gt(nativeTokenInfo.balance ?? 0);
+
+    if (decodedTx && decodedTx.isPsbt) {
+      isInsufficientNativeBalance = false;
+    }
+
+    updateSendTxStatus({
+      isInsufficientNativeBalance,
       fillUpNativeBalance: fillUpNativeBalance
         .sd(4, BigNumber.ROUND_UP)
-        .toString(),
+        .toFixed(),
       isBaseOnEstimateMaxFee:
         selectedFee?.totalNativeMinForDisplay !== selectedFee?.totalNative,
       maxFeeNative: new BigNumber(selectedFee?.totalNative ?? 0)
         .sd(4, BigNumber.ROUND_UP)
-        .toString(),
+        .toFixed(),
     });
   }, [
+    decodedTxs,
     extraFeeInfo.feeNative,
     nativeTokenInfo,
     nativeTokenInfo.balance,
@@ -1092,13 +1115,13 @@ function TxFeeInfo(props: IProps) {
         color="$text"
         formatter="balance"
         formatterOptions={{
-          tokenSymbol: txFee?.common.nativeSymbol,
+          tokenSymbol: txFeeCommon?.nativeSymbol,
         }}
       >
         {selectedFee?.totalNativeMinForDisplay ?? '-'}
       </NumberSizeableText>
     ),
-    [selectedFee?.totalNativeMinForDisplay, txFee?.common.nativeSymbol],
+    [selectedFee?.totalNativeMinForDisplay, txFeeCommon?.nativeSymbol],
   );
 
   const renderTotalFiat = useCallback(

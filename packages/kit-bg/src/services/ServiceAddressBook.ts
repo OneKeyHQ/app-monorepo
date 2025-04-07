@@ -14,6 +14,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import {
+  EChangeHistoryContentType,
+  EChangeHistoryEntityType,
+} from '@onekeyhq/shared/src/types/changeHistory';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
 import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import { stableStringify } from '@onekeyhq/shared/src/utils/stringUtils';
@@ -227,6 +231,7 @@ class ServiceAddressBook extends ServiceBase {
     const dataIndex = items.findIndex((i) => i.id === obj.id);
     if (dataIndex >= 0) {
       const data = items[dataIndex];
+
       const newObj = { ...data, ...obj };
       newObj.updatedAt = Date.now();
       items[dataIndex] = newObj;
@@ -234,6 +239,21 @@ class ServiceAddressBook extends ServiceBase {
         reason: EReasonForNeedPassword.Security,
       });
       await this.setItems(items, password);
+
+      // Check if name is changing and record history if it is
+      if (obj.name && data.name !== obj.name) {
+        await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+          items: [
+            {
+              entityType: EChangeHistoryEntityType.AddressBook,
+              entityId: obj.id,
+              contentType: EChangeHistoryContentType.Name,
+              oldValue: data.name,
+              value: obj.name,
+            },
+          ],
+        });
+      }
     } else {
       throw new Error(`Failed to find item with id = ${obj.id}`);
     }

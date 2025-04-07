@@ -1,5 +1,7 @@
-import { Platform } from 'react-native';
+import { useMemo } from 'react';
+
 import RNMarkdown from 'react-native-markdown-display';
+import { useMedia } from 'tamagui';
 
 import { SizableText, Stack, XStack, YStack } from '../../primitives';
 
@@ -9,28 +11,6 @@ import type { ASTNode, MarkdownProps } from 'react-native-markdown-display';
 function hasParents(parents: ASTNode[], type: string) {
   return parents.findIndex((el) => el.type === type) > -1;
 }
-
-const basicStyles = {
-  heading1: {
-    color: '$text',
-    size: '$headingXl',
-    fontWeight: '600',
-  } as ISizableTextProps,
-  heading2: {
-    color: '$text',
-    size: '$headingLg',
-    fontWeight: '600',
-  } as ISizableTextProps,
-  heading3: {
-    color: '$text',
-    size: '$headingMd',
-    fontWeight: '600',
-  } as ISizableTextProps,
-  text: {
-    color: '$textSubdued',
-    size: '$bodyLg',
-  } as ISizableTextProps,
-} as MarkdownProps['style'];
 
 const basicRules: MarkdownProps['rules'] = {
   heading1: (node, children) => (
@@ -58,8 +38,14 @@ const basicRules: MarkdownProps['rules'] = {
       {node.content}
     </SizableText>
   ),
-  textgroup: (node, children) => (
-    <SizableText key={node.key}>{children}</SizableText>
+  textgroup: (node, children, parent, styles) => (
+    <SizableText
+      key={node.key}
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      {...styles.text}
+    >
+      {children}
+    </SizableText>
   ),
   bullet_list: (node, children) => (
     <YStack gap="$2" pt="$2">
@@ -70,19 +56,10 @@ const basicRules: MarkdownProps['rules'] = {
     if (hasParents(parent, 'bullet_list')) {
       return (
         // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        <XStack key={node.key} gap="$1">
-          <SizableText
-            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-            accessible={false}
-            color="$textSubdued"
-            size="$bodyLg"
-          >
-            {Platform.select({
-              android: '\u2022',
-              ios: '\u00B7',
-              default: '\u2022',
-            })}
-          </SizableText>
+        <XStack key={node.key} gap="$2">
+          <Stack ai="center" jc="center" w="$4.5" h="$6" $gtMd={{ h: '$5' }}>
+            <Stack bg="$textDisabled" w={5} h={5} borderRadius="$full" />
+          </Stack>
           <Stack flexShrink={1}>{children}</Stack>
         </XStack>
       );
@@ -121,6 +98,30 @@ const basicRules: MarkdownProps['rules'] = {
 };
 
 export function Markdown({ children }: { children: string }) {
+  const { gtMd } = useMedia();
+  const basicStyles = useMemo(
+    () =>
+      ({
+        heading1: {
+          color: '$text',
+          size: '$headingXl',
+        } as ISizableTextProps,
+        heading2: {
+          color: '$text',
+          size: '$headingLg',
+        } as ISizableTextProps,
+        heading3: {
+          color: '$text',
+          size: '$headingMd',
+          fontWeight: '600',
+        } as ISizableTextProps,
+        text: {
+          color: '$textSubdued',
+          size: gtMd ? '$bodyMd' : '$bodyLg',
+        } as ISizableTextProps,
+      } as MarkdownProps['style']),
+    [gtMd],
+  );
   return (
     <RNMarkdown rules={basicRules} style={basicStyles}>
       {children}

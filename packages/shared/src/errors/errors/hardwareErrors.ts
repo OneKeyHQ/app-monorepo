@@ -153,7 +153,7 @@ export class NeedOneKeyBridge extends OneKeyHardwareError {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'NeedOneKeyBridge',
-        defaultKey: ETranslations.onboarding_install_onekey_bridge_help_text,
+        defaultKey: ETranslations.device_communication_failed,
       }),
     );
   }
@@ -837,6 +837,25 @@ export class HardwareCommunicationError extends OneKeyHardwareError {
   }
 
   override code = HardwareErrorCode.BridgeNetworkError;
+}
+
+export class HardwareWebDeviceCommunicationError extends OneKeyHardwareError {
+  constructor(props?: IOneKeyErrorHardwareProps) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'CommunicationError',
+        defaultKey: ETranslations.hardware_device_not_find_error,
+        defaultAutoToast: false,
+      }),
+    );
+  }
+
+  override code = HardwareErrorCode.WebDevicePromptAccessError;
+
+  override className =
+    EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission;
+
+  override autoToast = false;
 }
 
 // UnknownHardware

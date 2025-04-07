@@ -216,9 +216,9 @@ class EvmApiProvider extends BaseApiProvider {
 
       return {
         info,
-        balance: balance.toString(),
-        balanceParsed: balanceParsed.toString(),
-        fiatValue: safeNumberString(fiatValue.toString()),
+        balance: balance.toFixed(),
+        balanceParsed: balanceParsed.toFixed(),
+        fiatValue: safeNumberString(fiatValue.toFixed()),
         price,
         price24h,
       };
@@ -340,7 +340,7 @@ class EvmApiProvider extends BaseApiProvider {
       feeDecimals: network.feeMeta?.decimals,
       baseFee: new B(gasFeeInfo.baseFee)
         .shiftedBy(-network.feeMeta.decimals)
-        .toString(),
+        .toFixed(),
       isEIP1559: gasPriceInfo.isEIP1559,
       gas: gasPriceInfo.gas,
       gasEIP1559: gasPriceInfo.gasEIP1559,
@@ -397,7 +397,7 @@ class EvmApiProvider extends BaseApiProvider {
       gasPrice: new B(gasPrice)
         .multipliedBy(rate)
         .shiftedBy(-network.feeMeta.decimals)
-        .toString(),
+        .toFixed(),
     }));
 
     return {
@@ -458,13 +458,13 @@ class EvmApiProvider extends BaseApiProvider {
         return {
           baseFeePerGas: baseFeePerGas
             .shiftedBy(-params.network.feeMeta.decimals)
-            .toString(),
+            .toFixed(),
           maxFeePerGas: maxFeePerGasEach
             .shiftedBy(-params.network.feeMeta.decimals)
-            .toString(),
+            .toFixed(),
           maxPriorityFeePerGas: maxPriorityFeePerGasEach
             .shiftedBy(-params.network.feeMeta.decimals)
-            .toString(),
+            .toFixed(),
         };
       });
     }
@@ -624,7 +624,7 @@ class EvmApiProvider extends BaseApiProvider {
         label: 'Transfer',
         from: tx?.from,
         to: tx?.to,
-        amount: value.toString(),
+        amount: value.toFixed(),
         token: this.nativeTokenAddress,
       } as IOnChainHistoryTxTransfer,
     ];
@@ -667,13 +667,13 @@ class EvmApiProvider extends BaseApiProvider {
         block: safeNumber(receipt?.blockNumber),
         // @ts-expect-error
         timestamp: undefined,
-        gasFee: gasFee.toString(),
+        gasFee: gasFee.toFixed(),
         gasFeeFiatValue: safeNumberString(
           gasFee.multipliedBy(nativeToken.price),
         ),
         // @ts-expect-error
         nonce: safeNumber(tx?.nonce),
-        value: value.toString(),
+        value: value.toFixed(),
       },
     };
   }

@@ -213,6 +213,12 @@ class ProviderApiBtc extends ProviderApiBase {
 
   @providerApiMethod()
   public async getChain(request: IJsBridgeMessagePayload) {
+    const defaultNetwork = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId: getNetworkIdsMap().btc,
+    });
+    const defaultChain = await networkUtils.getBtcDappNetworkName(
+      defaultNetwork,
+    );
     try {
       const networks =
         await this.backgroundApi.serviceDApp.getConnectedNetworks({
@@ -222,9 +228,10 @@ class ProviderApiBtc extends ProviderApiBase {
       if (Array.isArray(networks) && networks.length) {
         return await networkUtils.getBtcDappUniSetChainName(networks[0]);
       }
-      return undefined;
-    } catch {
-      return undefined;
+      return defaultChain;
+    } catch (e) {
+      console.log('getChain error: ', e);
+      return defaultChain;
     }
   }
 

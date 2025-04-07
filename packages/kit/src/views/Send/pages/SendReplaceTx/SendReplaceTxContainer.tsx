@@ -329,8 +329,12 @@ function SendReplaceTxContainer() {
     replaceFeeInfo.maxPriorityFeePerGas,
   ]);
 
-  const isInsufficientNativeBalance = useMemo(() => {
-    if (!nativeTokenDetails || !newFeeInfo) return false;
+  const { isInsufficientNativeBalance, fillUpNativeBalance } = useMemo(() => {
+    if (!nativeTokenDetails || !newFeeInfo)
+      return {
+        isInsufficientNativeBalance: false,
+        fillUpNativeBalance: '0',
+      };
 
     const nativeTokenTransferAmount =
       historyTx.decodedTx.nativeAmount ??
@@ -338,9 +342,20 @@ function SendReplaceTxContainer() {
         .nativeAmount ??
       0;
 
-    return new BigNumber(nativeTokenTransferAmount)
-      .plus(newFeeInfo.totalNative)
-      .isGreaterThan(nativeTokenDetails.balanceParsed);
+    const nativeTokenTransferAmountWithFee = new BigNumber(
+      nativeTokenTransferAmount,
+    ).plus(newFeeInfo.totalNative);
+
+    return {
+      isInsufficientNativeBalance:
+        nativeTokenTransferAmountWithFee.isGreaterThan(
+          nativeTokenDetails.balanceParsed,
+        ),
+      fillUpNativeBalance: nativeTokenTransferAmountWithFee
+        .minus(nativeTokenDetails.balanceParsed)
+        .sd(4, BigNumber.ROUND_UP)
+        .toFixed(),
+    };
   }, [
     historyTx.decodedTx.actions,
     historyTx.decodedTx.nativeAmount,
@@ -615,7 +630,8 @@ function SendReplaceTxContainer() {
                 id: ETranslations.msg__str_is_required_for_network_fees_top_up_str_to_make_tx,
               },
               {
-                crypto: network?.symbol ?? '',
+                symbol: network?.symbol ?? '',
+                amount: fillUpNativeBalance,
               },
             )}
           />
@@ -675,6 +691,7 @@ function SendReplaceTxContainer() {
       </>
     );
   }, [
+    fillUpNativeBalance,
     handleEditReplaceTxFeeInfo,
     handleResetFeeInfo,
     intl,

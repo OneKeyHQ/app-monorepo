@@ -266,7 +266,7 @@ export function UniversalSearch({
                 }, 80);
               }}
               renderAvatar={<MarketTokenIcon uri={image} size="lg" />}
-              title={symbol}
+              title={symbol.toUpperCase()}
               subtitle={name}
               subtitleProps={{
                 numberOfLines: 1,

@@ -71,6 +71,7 @@ const baseResolve = ({ platform, configName }) => ({
     fs: false,
     util: false,
     os: false,
+    wbg: false,
     buffer: require.resolve('buffer/'),
   },
 });

@@ -1,5 +1,5 @@
-import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/app';
-import { ipcMessageKeys } from '@onekeyhq/desktop/src-electron/config';
+import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
+import { ipcMessageKeys } from '@onekeyhq/desktop/app/config';
 
 import type { IRegisterHandler } from './handler.type';
 

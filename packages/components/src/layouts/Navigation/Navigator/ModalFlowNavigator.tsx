@@ -43,7 +43,6 @@ const ModalStack = hasStackNavigatorModal
 
 function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   config,
-  name: pageStackName,
   onMounted,
   onUnmounted,
 }: IModalFlowNavigatorProps<RouteName, P>) {
@@ -69,7 +68,6 @@ function ModalFlowNavigator<RouteName extends string, P extends ParamListBase>({
   }, [onMounted, onUnmounted]);
 
   return (
-    // @ts-expect-error
     <ModalStack.Navigator screenOptions={makeScreenOptions}>
       {config.map(
         ({

@@ -1,3 +1,4 @@
+const path = require('path');
 const { merge, mergeWithRules, CustomizeRule } = require('webpack-merge');
 
 const { SubresourceIntegrityPlugin } = require('webpack-subresource-integrity');
@@ -36,6 +37,9 @@ module.exports = ({
         developmentConfig({ platform, basePath }),
         ...configs,
         {
+          // development/webpack/webpack.development.config.js 10L
+          // Electron 30.x doesn't support cheap-module-source-map
+          devtool: 'eval-source-map',
           devServer: {
             open: false,
           },

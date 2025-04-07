@@ -35,6 +35,7 @@ import { TxAdvancedSettings } from '../../components/SignatureConfirmAdvanced';
 import { TxConfirmAlert } from '../../components/SignatureConfirmAlert';
 import { TxConfirmDetails } from '../../components/SignatureConfirmDetails';
 import { TxConfirmExtraInfo } from '../../components/SignatureConfirmExtraInfo';
+import { TxConfirmHeaderRight } from '../../components/SignatureConfirmHeader';
 import { SignatureConfirmLoading } from '../../components/SignatureConfirmLoading';
 import { SignatureConfirmProviderMirror } from '../../components/SignatureConfirmProvider/SignatureConfirmProviderMirror';
 import StakingInfo from '../../components/StakingInfo';
@@ -240,7 +241,11 @@ function TxConfirm() {
 
     return (
       <YStack gap="$5">
-        <TxConfirmAlert networkId={networkId} />
+        <TxConfirmAlert
+          networkId={networkId}
+          accountId={accountId}
+          transferPayload={transferPayload}
+        />
         {sourceInfo?.origin ? (
           <DAppSiteMark
             origin={sourceInfo.origin}
@@ -262,17 +267,25 @@ function TxConfirm() {
     isBuildingDecodedTxs,
     decodedTxs,
     networkId,
-    sourceInfo,
-    urlSecurityInfo,
     accountId,
+    transferPayload,
+    sourceInfo?.origin,
+    urlSecurityInfo,
     unsignedTxs,
     swapInfo,
     stakingInfo,
   ]);
 
+  const renderHeaderRight = useCallback(
+    () => (
+      <TxConfirmHeaderRight decodedTxs={decodedTxs} unsignedTxs={unsignedTxs} />
+    ),
+    [decodedTxs, unsignedTxs],
+  );
+
   return (
     <Page scrollEnabled onClose={handleOnClose} safeAreaEnabled>
-      <Page.Header title={txConfirmTitle} />
+      <Page.Header title={txConfirmTitle} headerRight={renderHeaderRight} />
       <Page.Body testID="tx-confirmation-body" px="$5">
         {renderTxConfirmContent()}
       </Page.Body>

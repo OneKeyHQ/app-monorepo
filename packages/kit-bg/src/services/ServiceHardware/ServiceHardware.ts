@@ -1,5 +1,7 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { Semaphore } from 'async-mutex';
 import { uniq } from 'lodash';
+import semver from 'semver';
 
 import {
   backgroundClass,
@@ -30,10 +32,12 @@ import deviceHomeScreenUtils, {
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
   IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
+  IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
   IOneKeyDeviceFeatures,
 } from '@onekeyhq/shared/types/device';
@@ -68,6 +72,7 @@ import type {
 } from './HardwareVerifyManager';
 import type { IHardwareUiPayload } from '../../states/jotai/atoms';
 import type { IServiceBaseProps } from '../ServiceBase';
+import type { IUpdateFirmwareWorkflowParams } from '../ServiceFirmwareUpdate/ServiceFirmwareUpdate';
 import type {
   CommonParams,
   CoreApi,
@@ -91,13 +96,31 @@ export type IDeviceGetFeaturesOptions = {
   };
 };
 
+// skip events
+const SKIPPED_EVENTS = [
+  EHardwareUiStateAction.CLOSE_UI_WINDOW,
+  EHardwareUiStateAction.PREVIOUS_ADDRESS,
+];
+
+const NEW_DIALOG_EVENTS = [
+  EHardwareUiStateAction.BLUETOOTH_PERMISSION,
+  EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
+  EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
+];
+
 @backgroundClass()
 class ServiceHardware extends ServiceBase {
+  private bridgeAvailabilityChecked = false;
+
   constructor(props: IServiceBaseProps) {
     super(props);
     appEventBus.on(
       EAppEventBusNames.SyncDeviceLabelToWalletName,
       this.handleHardwareLabelChanged,
+    );
+    appEventBus.on(
+      EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo,
+      this.handleHardwareAvatarChanged,
     );
   }
 
@@ -140,6 +163,29 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
         walletId,
         name: label,
+        shouldCheckDuplicate: false,
+      });
+    },
+    {
+      maxAge: 600,
+    },
+  );
+
+  handleHardwareAvatarChanged = cacheUtils.memoizee(
+    async ({
+      walletId,
+      avatarInfo,
+    }: IAppEventBusPayload[EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo]) => {
+      const isHw =
+        accountUtils.isHwWallet({ walletId }) &&
+        !accountUtils.isQrWallet({ walletId });
+      if (!isHw) {
+        return;
+      }
+      console.log('handleHardwareAvatarChanged');
+      await this.backgroundApi.serviceAccount.setWalletNameAndAvatar({
+        walletId,
+        avatar: avatarInfo,
         shouldCheckDuplicate: false,
       });
     },
@@ -200,8 +246,11 @@ class ServiceHardware extends ServiceBase {
       await this.backgroundApi.serviceDevSetting.getFirmwareUpdateDevSettings(
         'showDeviceDebugLogs',
       );
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
     try {
       const instance = await getHardwareSDKInstance({
+        hardwareTransportType,
         // https://data.onekey.so/pre-config.json?noCache=1714090312200
         // https://data.onekey.so/config.json?nocache=0.8336416330053136
         isPreRelease: isPreRelease === true,
@@ -209,6 +258,9 @@ class ServiceHardware extends ServiceBase {
         debugMode,
       });
       // TODO re-register events when hardwareConnectSrc or isPreRelease changed
+      await this.checkBridgeAndFallbackToWebUSB({
+        hardwareSDKInstance: instance,
+      });
       await this.registerSdkEvents(instance);
       return instance;
     } catch (error) {
@@ -246,7 +298,7 @@ class ServiceHardware extends ServiceBase {
 
       if (
         dbDevice?.deviceType &&
-        ['touch', 'pro'].includes(dbDevice?.deviceType)
+        [EDeviceType.Touch, EDeviceType.Pro].includes(dbDevice?.deviceType)
       ) {
         newUiRequestType = EHardwareUiStateAction.EnterPinOnDevice;
       } else {
@@ -328,24 +380,33 @@ class ServiceHardware extends ServiceBase {
 
         // skip ui-close_window event, which cause infinite loop
         //  ( emit ui-close_window -> Dialog close -> sdk cancel -> emit ui-close_window )
-        if (
-          ![
-            // skip events
-            EHardwareUiStateAction.CLOSE_UI_WINDOW,
-            EHardwareUiStateAction.PREVIOUS_ADDRESS,
-          ].includes(newUiRequestType)
-        ) {
+        if (!SKIPPED_EVENTS.includes(newUiRequestType)) {
           defaultLogger.hardware.sdkLog.updateHardwareUiStateAtom({
             action: newUiRequestType,
             connectId,
             payload: newPayload,
           });
-          // show hardware ui dialog
-          await hardwareUiStateAtom.set({
-            action: newUiRequestType,
-            connectId,
-            payload: newPayload,
-          });
+
+          if (NEW_DIALOG_EVENTS.includes(newUiRequestType)) {
+            appEventBus.emit(EAppEventBusNames.RequestHardwareUIDialog, {
+              uiRequestType: newUiRequestType,
+            });
+          } else if (
+            newUiRequestType ===
+            EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE
+          ) {
+            appEventBus.emit(
+              EAppEventBusNames.RequestDeviceInBootloaderForWebDevice,
+              undefined,
+            );
+          } else {
+            // show hardware ui dialog
+            await hardwareUiStateAtom.set({
+              action: newUiRequestType,
+              connectId,
+              payload: newPayload,
+            });
+          }
         }
         await hardwareUiStateCompletedAtom.set({
           action: newUiRequestType,
@@ -609,6 +670,7 @@ class ServiceHardware extends ServiceBase {
             connectId,
             params: {
               retryCount: 0,
+              skipWebDevicePrompt: true,
             },
           }); // TODO move to sdk.cancel()
         }
@@ -801,7 +863,20 @@ class ServiceHardware extends ServiceBase {
 
   @backgroundMethod()
   async setPassphraseEnabled(p: ISetPassphraseEnabledParams) {
-    return this.deviceSettingsManager.setPassphraseEnabled(p);
+    const result = await this.deviceSettingsManager.setPassphraseEnabled(p);
+    if (result.message) {
+      const wallet = await this.backgroundApi.serviceAccount.getWalletSafe({
+        walletId: p.walletId,
+      });
+      const dbDeviceId = wallet?.associatedDevice;
+      if (dbDeviceId) {
+        await localDb.updateDeviceFeaturesPassphraseProtection({
+          dbDeviceId,
+          passphraseProtection: p.passphraseEnabled,
+        });
+      }
+    }
+    return result;
   }
 
   @backgroundMethod()
@@ -948,13 +1023,158 @@ class ServiceHardware extends ServiceBase {
     const hardwareSDK = await this.getSDKInstance();
     return convertDeviceResponse(() => {
       // classic1s does not support getOnekeyFeatures method
-      if (deviceType === 'classic1s') {
+      if (
+        deviceType === EDeviceType.Classic1s ||
+        deviceType === EDeviceType.ClassicPure
+      ) {
         return hardwareSDK?.getFeatures(
           connectId,
         ) as unknown as Response<OnekeyFeatures>;
       }
       return hardwareSDK?.getOnekeyFeatures(connectId);
     });
+  }
+
+  @backgroundMethod()
+  async updateDeviceVersionAfterFirmwareUpdate(
+    params: IUpdateFirmwareWorkflowParams,
+  ) {
+    const dbDevice = await localDb.getDeviceByQuery({
+      connectId: params.releaseResult.originalConnectId,
+    });
+    if (!dbDevice) {
+      return;
+    }
+    const versionInfo: IDeviceVersionCacheInfo = {
+      onekey_firmware_version: undefined,
+      onekey_ble_version: undefined,
+      ble_ver: undefined,
+      onekey_boot_version: undefined,
+      bootloader_version: undefined,
+    };
+    if (params?.releaseResult?.updateInfos?.bootloader?.hasUpgrade) {
+      const bootVersion =
+        params.releaseResult.updateInfos.bootloader?.toVersion;
+      versionInfo.onekey_boot_version = bootVersion;
+      versionInfo.bootloader_version = bootVersion;
+    }
+    if (params?.releaseResult?.updateInfos?.firmware?.hasUpgrade) {
+      versionInfo.onekey_firmware_version =
+        params.releaseResult.updateInfos.firmware?.toVersion;
+    }
+    if (params?.releaseResult?.updateInfos?.ble?.hasUpgrade) {
+      const bleVersion = params.releaseResult.updateInfos.ble?.toVersion;
+      versionInfo.onekey_ble_version = bleVersion;
+      versionInfo.ble_ver = bleVersion;
+    }
+
+    const filteredVersionInfo: Partial<IDeviceVersionCacheInfo> = {};
+    Object.entries(versionInfo).forEach(([key, value]) => {
+      if (value !== undefined && semver.valid(value)) {
+        filteredVersionInfo[key as keyof IDeviceVersionCacheInfo] = value;
+      }
+    });
+
+    await localDb.updateDeviceVersionInfo({
+      dbDeviceId: dbDevice.id,
+      versionCacheInfo: filteredVersionInfo as IDeviceVersionCacheInfo,
+    });
+  }
+
+  @backgroundMethod()
+  async getEvmAddressByStandardWallet(params: {
+    connectId: string;
+    deviceId: string;
+    path: string;
+  }): Promise<string | null> {
+    try {
+      const hardwareSDK = await this.getSDKInstance();
+      const evmAddressResponse = await convertDeviceResponse(() =>
+        hardwareSDK?.evmGetAddress(params.connectId, params.deviceId, {
+          path: params.path,
+          showOnOneKey: false,
+          useEmptyPassphrase: true,
+        }),
+      );
+      if (evmAddressResponse.address && evmAddressResponse.address.length > 0) {
+        return evmAddressResponse.address;
+      }
+      return null;
+    } catch (error) {
+      console.error('getEvmAddress error', error);
+      return null;
+    }
+  }
+
+  @backgroundMethod()
+  async promptWebDeviceAccess(params: { deviceSerialNumberFromUI: string }) {
+    const hardwareSDK = await this.getSDKInstance();
+    return convertDeviceResponse(() =>
+      hardwareSDK?.promptWebDeviceAccess(params),
+    );
+  }
+
+  private async _needCheckBridgeStatus() {
+    const hardwareTransportType =
+      await this.backgroundApi.serviceSetting.getHardwareTransportType();
+    if (hardwareTransportType === EHardwareTransportType.WEBUSB) {
+      return false;
+    }
+    return platformEnv.isWeb || platformEnv.isExtension;
+  }
+
+  @backgroundMethod()
+  async checkBridgeAndFallbackToWebUSB({
+    hardwareSDKInstance,
+  }: {
+    hardwareSDKInstance: CoreApi;
+  }) {
+    try {
+      if (this.bridgeAvailabilityChecked) {
+        return;
+      }
+      if (!(await this._needCheckBridgeStatus())) {
+        return;
+      }
+      this.bridgeAvailabilityChecked = true;
+      const isBridgeAvailable = await new Promise<boolean>((resolve) => {
+        convertDeviceResponse(() => hardwareSDKInstance?.checkBridgeStatus())
+          .then((bridgeStatus) => {
+            console.log('bridgeStatus ===>>>:: ', bridgeStatus);
+            resolve(!!bridgeStatus);
+          })
+          .catch((error) => {
+            console.error('Bridge status check failed:', error);
+            resolve(false);
+          });
+      });
+
+      if (!isBridgeAvailable) {
+        await hardwareSDKInstance.switchTransport('webusb');
+        await this.fallbackToWebUSBTransport();
+      }
+    } catch (error) {
+      console.error('checkBridgeAndFallbackToWebUSB error', error);
+    }
+  }
+
+  private async fallbackToWebUSBTransport() {
+    await this.backgroundApi.serviceSetting.setHardwareTransportType(
+      EHardwareTransportType.WEBUSB,
+    );
+    await timerUtils.wait(0);
+  }
+
+  @backgroundMethod()
+  async switchTransport({
+    transportType,
+  }: {
+    transportType: EHardwareTransportType;
+  }) {
+    const hardwareSDK = await this.getSDKInstance();
+    await hardwareSDK.switchTransport(
+      transportType === EHardwareTransportType.WEBUSB ? 'webusb' : 'web',
+    );
   }
 }
 

@@ -5,7 +5,6 @@
 import enUS from './json/en_US.json';
 
 export const LOCALES = {
-  'en': enUS,
   'bn': () => import('./json/bn.json'),
   'de': () => import('./json/de.json'),
   'en-US': enUS,

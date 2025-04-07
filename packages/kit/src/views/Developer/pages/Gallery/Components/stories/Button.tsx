@@ -23,6 +23,7 @@ const ButtonGallery = () => (
           </YStack>
         ),
       },
+
       {
         title: 'Sizes',
         element: (
@@ -84,6 +85,28 @@ const ButtonGallery = () => (
           <Stack gap="$4">
             <Button iconAfter="PlaceholderOutline" color="$red1">
               IconAfter
+            </Button>
+          </Stack>
+        ),
+      },
+      {
+        title: 'Ellipsis',
+        element: (
+          <Stack gap="$4">
+            <Button>
+              No ellipsis No ellipsis No ellipsis No ellipsis No ellipsis No
+              ellipsis No ellipsis No ellipsis No ellipsis No ellipsis No
+              ellipsis No ellipsis No ellipsis No ellipsis No ellipsis No
+              ellipsis No ellipsis No ellipsis
+            </Button>
+
+            <Button textEllipsis>
+              ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis
+              ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis
+              ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis
+              ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis
+              ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis
+              ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis ellipsis
             </Button>
           </Stack>
         ),

@@ -5,6 +5,7 @@ import {
   atom,
   createJotaiContext,
 } from '@onekeyhq/kit/src/states/jotai/utils/createJotaiContext';
+import type { IEarnPermitCache } from '@onekeyhq/shared/types/earn';
 import type { IEarnAtomData } from '@onekeyhq/shared/types/staking';
 
 const {
@@ -46,5 +47,8 @@ export const earnAtom = memoizee(() =>
 earnAtom().onMount = (setAtom) => {
   setAtom(INIT);
 };
+
+export const { atom: earnPermitCacheAtom, use: useEarnPermitCacheAtom } =
+  contextAtom<Record<string, IEarnPermitCache>>({});
 
 export const useEarnAtom = () => useContextAtom(earnAtom());

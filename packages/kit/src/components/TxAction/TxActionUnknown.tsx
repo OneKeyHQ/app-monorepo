@@ -75,6 +75,7 @@ function TxActionUnknownListView(props: ITxActionProps) {
       status={decodedTx.status}
       networkId={decodedTx.networkId}
       networkLogoURI={decodedTx.networkLogoURI}
+      riskyLevel={decodedTx.riskyLevel}
       {...componentProps}
     />
   );

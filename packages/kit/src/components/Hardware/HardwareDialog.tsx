@@ -3,14 +3,43 @@ import { forwardRef } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IDialogInstance } from '@onekeyhq/components';
-import { DialogContainer } from '@onekeyhq/components';
+import type { IDialogInstance, IDialogShowProps } from '@onekeyhq/components';
+import { DialogContainer, SizableText, YStack } from '@onekeyhq/components';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import {
   openBLEPermissionsSettings,
   openBLESettings,
 } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+
+import type { IntlShape } from 'react-intl';
+
+export const buildBleSettingsDialogProps = (
+  intl: IntlShape,
+): IDialogShowProps =>
+  ({
+    icon: 'BluetoothOutline',
+    title: intl.formatMessage({
+      id: ETranslations.onboarding_enable_bluetooth,
+    }),
+    description: intl.formatMessage({
+      id: ETranslations.onboarding_enable_bluetooth_help_text,
+    }),
+    onConfirmText: intl.formatMessage({
+      id: ETranslations.global_go_to_settings,
+    }),
+    onConfirm: async ({ close }) => {
+      await close?.();
+      await openBLESettings();
+    },
+    showCancelButton: false,
+    sheetOverlayProps: platformEnv.isNative
+      ? {
+          zIndex: undefined,
+        }
+      : undefined,
+  } as const);
 
 function OpenBleSettingDialogContainer(
   props: any,
@@ -21,27 +50,39 @@ function OpenBleSettingDialogContainer(
   return (
     <DialogContainer
       ref={ref}
-      icon="BluetoothOutline"
-      title={intl.formatMessage({
-        id: ETranslations.onboarding_enable_bluetooth,
-      })}
-      description={intl.formatMessage({
-        id: ETranslations.onboarding_enable_bluetooth_help_text,
-      })}
-      onConfirmText={intl.formatMessage({
-        id: ETranslations.global_go_to_settings,
-      })}
-      onConfirm={async ({ close }) => {
-        await close?.();
-        await openBLESettings();
-      }}
-      showCancelButton={false}
+      {...buildBleSettingsDialogProps(intl)}
       {...props} // pass down cloneElement props
     />
   );
 }
 
 export const OpenBleSettingsDialog = forwardRef(OpenBleSettingDialogContainer);
+
+export const buildBleNotifyChangeError = (intl: IntlShape): IDialogShowProps =>
+  ({
+    icon: 'BluetoothOutline',
+    title: intl.formatMessage({
+      id: ETranslations.feedback_bluetooth_issue,
+    }),
+    description: intl.formatMessage({
+      id: platformEnv.isNativeIOS
+        ? ETranslations.feedback_try_toggling_bluetooth
+        : ETranslations.feedback_try_repairing_device_in_settings,
+    }),
+    onConfirmText: intl.formatMessage({
+      id: ETranslations.global_go_to_settings,
+    }),
+    onConfirm: async ({ close }) => {
+      await close?.();
+      await openBLESettings();
+    },
+    showCancelButton: false,
+    sheetOverlayProps: platformEnv.isNative
+      ? {
+          zIndex: undefined,
+        }
+      : undefined,
+  } as const);
 
 function OpenBleNotifyChangeErrorDialogContainer(
   props: any,
@@ -52,23 +93,7 @@ function OpenBleNotifyChangeErrorDialogContainer(
   return (
     <DialogContainer
       ref={ref}
-      icon="BluetoothOutline"
-      title={intl.formatMessage({
-        id: ETranslations.feedback_bluetooth_issue,
-      })}
-      description={intl.formatMessage({
-        id: platformEnv.isNativeIOS
-          ? ETranslations.feedback_try_toggling_bluetooth
-          : ETranslations.feedback_try_repairing_device_in_settings,
-      })}
-      onConfirmText={intl.formatMessage({
-        id: ETranslations.global_go_to_settings,
-      })}
-      onConfirm={async ({ close }) => {
-        await close?.();
-        await openBLESettings();
-      }}
-      showCancelButton={false}
+      {...buildBleNotifyChangeError(intl)}
       {...props} // pass down cloneElement props
     />
   );
@@ -110,3 +135,58 @@ function RequireBlePermissionDialogContainer(
 export const RequireBlePermissionDialog = forwardRef(
   RequireBlePermissionDialogContainer,
 );
+
+function WebDeviceAccessDialogContent({
+  intl,
+  promptWebUsbDeviceAccess,
+}: {
+  intl: IntlShape;
+  promptWebUsbDeviceAccess: () => Promise<void>;
+}) {
+  return (
+    <YStack gap="$5">
+      <YStack gap="$2">
+        <SizableText size="$bodyLg" color="$text">
+          1.{' '}
+          {intl.formatMessage({
+            id: ETranslations.device_check_connection,
+          })}
+        </SizableText>
+        <SizableText size="$bodyLg" color="$text">
+          2.{' '}
+          {intl.formatMessage({
+            id: ETranslations.device_try_reconnecting_usb,
+          })}
+        </SizableText>
+      </YStack>
+      <HyperlinkText
+        size="$bodyLg"
+        translationId={ETranslations.device_reconnect_from_beginning}
+        autoHandleResult={false}
+        onAction={() => {
+          void promptWebUsbDeviceAccess();
+        }}
+      />
+    </YStack>
+  );
+}
+export const buildWebDeviceAccessDialogProps = ({
+  intl,
+  promptWebUsbDeviceAccess,
+}: {
+  intl: IntlShape;
+  promptWebUsbDeviceAccess: () => Promise<void>;
+}): IDialogShowProps =>
+  ({
+    icon: 'UsbOutline',
+    title: intl.formatMessage({
+      id: ETranslations.device_not_connected,
+    }),
+    renderContent: (
+      <WebDeviceAccessDialogContent
+        intl={intl}
+        promptWebUsbDeviceAccess={promptWebUsbDeviceAccess}
+      />
+    ),
+    showFooter: false,
+  } as const);

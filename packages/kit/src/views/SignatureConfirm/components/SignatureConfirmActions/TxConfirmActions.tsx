@@ -122,7 +122,6 @@ function TxConfirmActions(props: IProps) {
     const { serviceSend } = backgroundApiProxy;
 
     updateSendTxStatus({ isSubmitting: true });
-    isSubmitted.current = true;
     // Pre-check before submit
 
     const accountAddress =
@@ -250,6 +249,14 @@ function TxConfirmActions(props: IProps) {
           successfullySentTxs: successfullySentTxs.current,
         });
 
+      if (vaultSettings?.afterSendTxActionEnabled) {
+        await backgroundApiProxy.serviceSignatureConfirm.afterSendTxAction({
+          networkId,
+          accountId,
+          result,
+        });
+      }
+
       const transferInfo = newUnsignedTxs?.[0].transfersInfo?.[0];
       const swapInfo = newUnsignedTxs?.[0].swapInfo;
       const stakingInfo = newUnsignedTxs?.[0].stakingInfo;
@@ -273,6 +280,8 @@ function TxConfirmActions(props: IProps) {
       });
 
       const signedTx = result[0].signedTx;
+
+      isSubmitted.current = true;
 
       void dappApprove.resolve({ result: signedTx });
 
@@ -311,6 +320,7 @@ function TxConfirmActions(props: IProps) {
     checkFeeInfoIsOverflow,
     showFeeInfoOverflowConfirm,
     vaultSettings?.replaceTxEnabled,
+    vaultSettings?.afterSendTxActionEnabled,
     signOnly,
     sourceInfo,
     transferPayload,

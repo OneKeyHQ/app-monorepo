@@ -3,6 +3,7 @@ import { useCallback } from 'react';
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 
+import type { ISizableTextProps } from '@onekeyhq/components';
 import {
   Dialog,
   Icon,
@@ -11,6 +12,7 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import type { IOnDialogConfirm } from '@onekeyhq/components/src/composite/Dialog/type';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IEarnEstimateFeeResp } from '@onekeyhq/shared/types/staking';
@@ -29,10 +31,12 @@ export const useShowStakeEstimateGasAlert = () => {
       daysConsumed,
       estFiatValue,
       onConfirm,
+      onCancel,
     }: {
       estFiatValue: string;
-      daysConsumed?: number;
-      onConfirm?: () => void;
+      daysConsumed?: number | string;
+      onConfirm?: IOnDialogConfirm;
+      onCancel?: () => void;
     }) => {
       const description = daysConsumed
         ? (intl.formatMessage(
@@ -68,6 +72,7 @@ export const useShowStakeEstimateGasAlert = () => {
           </XStack>
         ),
         onConfirm,
+        onCancel,
       });
     },
     [intl, fiatSymbol],
@@ -157,13 +162,17 @@ export const useShowClaimEstimateGasAlert = () => {
   );
 };
 
-const EstimateNetworkFeeListItem = ({
+function EstimateNetworkFeeListItem({
   estFiatValue,
   onPress,
+  labelTextProps,
+  valueTextProps,
 }: {
   estFiatValue: string;
   onPress?: () => void;
-}) => {
+  labelTextProps?: ISizableTextProps;
+  valueTextProps?: ISizableTextProps;
+}) {
   const intl = useIntl();
   const [
     {
@@ -173,7 +182,7 @@ const EstimateNetworkFeeListItem = ({
 
   return Number(estFiatValue) > 0 ? (
     <CalculationListItem onPress={onPress}>
-      <CalculationListItem.Label>
+      <CalculationListItem.Label size="$bodyMd" {...labelTextProps}>
         {intl.formatMessage({
           id: ETranslations.global_est_network_fee,
         })}
@@ -184,17 +193,24 @@ const EstimateNetworkFeeListItem = ({
         mr={onPress ? -6 : undefined}
       >
         <NumberSizeableText
-          size="$bodyLgMedium"
+          size="$bodyMdMedium"
           formatter="value"
           formatterOptions={{ currency: fiatSymbol }}
+          {...valueTextProps}
         >
           {estFiatValue}
         </NumberSizeableText>
-        {onPress ? <Icon name="ChevronRightSmallOutline" size={24} /> : null}
+        {onPress ? (
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        ) : null}
       </XStack>
     </CalculationListItem>
   ) : null;
-};
+}
 
 export const calcDaysSpent = (
   annualRewardFiatValue: string,
@@ -210,14 +226,20 @@ export const EstimateNetworkFee = ({
   estimateFeeResp,
   onPress,
   isVisible,
+  labelTextProps,
+  valueTextProps,
 }: {
   estimateFeeResp?: IEarnEstimateFeeResp;
   isVisible?: boolean;
   onPress?: () => void;
+  labelTextProps?: ISizableTextProps;
+  valueTextProps?: ISizableTextProps;
 }) =>
   estimateFeeResp && isVisible ? (
     <EstimateNetworkFeeListItem
       estFiatValue={estimateFeeResp.feeFiatValue}
       onPress={onPress}
+      labelTextProps={labelTextProps}
+      valueTextProps={valueTextProps}
     />
   ) : null;

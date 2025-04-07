@@ -512,6 +512,7 @@ export default class VaultBtc extends VaultBase {
       totalFeeInNative,
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
       nativeAmountValue: sendNativeTokenAmountValueBN.toFixed(),
+      isPsbt: true,
     };
   }
 
@@ -599,7 +600,9 @@ export default class VaultBtc extends VaultBase {
   }
 
   async getBtcForkNetwork() {
-    return getBtcForkNetwork(await this.getNetworkImpl());
+    return getBtcForkNetwork(
+      (await this.getCoreApiNetworkInfo()).networkChainCode,
+    );
   }
 
   override validatePrivateKey(): Promise<IPrivateKeyValidation> {

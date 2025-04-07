@@ -25,18 +25,31 @@ const ProgressGallery = () => (
     componentName="Progress"
     elements={[
       {
-        title: 'Default',
+        title: 'Interactive Progress Bar',
         element: <ProgressDemo />,
       },
       {
-        title: '0',
+        title: 'Progress Bar Variations',
         element: (
           <YStack gap="$2">
-            <Progress value={0} />
-            <Progress value={0.1} />
+            <Progress animated value={0} w={50} />
+            <Progress animated value={10} w={50} />
+            <Progress animated value={60} w={50} />
+            <Progress animated value={90} w={50} />
+            <Progress animated value={100} w={50} />
+            <Progress animated value={0.1} />
             <Progress value={60} />
             <Progress value={80} />
             <Progress value={100} />
+          </YStack>
+        ),
+      },
+      {
+        title: 'Progress Bar Colors',
+        element: (
+          <YStack gap="$5">
+            <Progress progressColor="$textSuccess" value={60} h={20} />
+            <Progress indicatorColor="$textSuccess" value={60} h={10} />
           </YStack>
         ),
       },

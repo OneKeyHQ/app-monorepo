@@ -44,6 +44,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogHeaderContext,
+  DialogHyperlinkTextDescription,
   DialogIcon,
   DialogRichDescription,
   DialogTitle,
@@ -63,6 +64,7 @@ import type {
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
+import type { GestureResponderEvent } from 'react-native';
 
 export * from './hooks';
 export type {
@@ -94,6 +96,7 @@ function DialogFrame({
   estimatedContentHeight,
   dismissOnOverlayPress = true,
   sheetProps,
+  sheetOverlayProps,
   floatingPanelProps,
   disableDrag = false,
   showConfirmButton = true,
@@ -133,6 +136,10 @@ function DialogFrame({
   }, [handleOpenChange, open]);
 
   useBackHandler(handleBackPress);
+
+  const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
+    event.preventDefault();
+  }, []);
 
   const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
@@ -205,9 +212,8 @@ function DialogFrame({
           enterStyle={{ opacity: 0 }}
           exitStyle={{ opacity: 0 }}
           backgroundColor="$bgBackdrop"
-          zIndex={
-            platformEnv.isNative ? undefined : sheetProps?.zIndex || zIndex
-          }
+          zIndex={sheetProps?.zIndex || zIndex}
+          {...sheetOverlayProps}
         />
         <Sheet.Frame
           unstyled
@@ -265,6 +271,7 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
+              onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}
               animateOnly={['transform', 'opacity']}
@@ -309,6 +316,7 @@ function BaseDialogContainer(
     renderIcon,
     showExitButton,
     open,
+    isExist,
     onOpenChange,
     ...props
   }: IDialogContainerProps,
@@ -336,18 +344,24 @@ function BaseDialogContainer(
     [changeIsOpen, onClose],
   );
 
+  const handleIsExist = useCallback(
+    () => (isExist ? isExist() : false),
+    [isExist],
+  );
+
   const contextValue = useMemo(
     () => ({
       dialogInstance: {
         close: handleClose,
         ref: formRef,
+        isExist: handleIsExist,
       },
       footerRef: {
         notifyUpdate: undefined,
         props: undefined,
       },
     }),
-    [handleClose],
+    [handleClose, handleIsExist],
   );
 
   const handleOpen = useCallback(() => {
@@ -365,8 +379,9 @@ function BaseDialogContainer(
     () => ({
       close: handleImperativeClose,
       getForm: () => formRef.current,
+      isExist: handleIsExist,
     }),
-    [handleImperativeClose],
+    [handleImperativeClose, handleIsExist],
   );
   const [headerProps, setHeaderProps] = useState<IDialogHeaderProps>({
     title,
@@ -453,7 +468,7 @@ function dialogShow({
           resolve();
         }, 300);
       });
-
+  const isExist = () => !!instanceRef?.current;
   const element = (() => {
     if (dialogContainer) {
       const e = dialogContainer({ ref: instanceRef });
@@ -472,6 +487,7 @@ function dialogShow({
         ref={instanceRef}
         {...props}
         onClose={buildForwardOnClose({ onClose })}
+        isExist={isExist}
       />
     );
   })();
@@ -496,6 +512,7 @@ function dialogShow({
   return {
     close,
     getForm: () => instanceRef?.current?.getForm(),
+    isExist,
   };
 }
 
@@ -586,6 +603,7 @@ export const Dialog = {
   Title: DialogTitle,
   Description: DialogDescription,
   RichDescription: DialogRichDescription,
+  HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
   Form: DialogForm,

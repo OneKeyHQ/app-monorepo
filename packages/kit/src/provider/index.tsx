@@ -18,7 +18,7 @@ import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/de
 import { GlobalJotaiReady } from '../components/GlobalJotaiReady';
 import PasswordVerifyPromptMount from '../components/Password/container/PasswordVerifyPromptMount';
 import { SystemLocaleTracker } from '../components/SystemLocaleTracker';
-import { PrivyProvider } from '../views/Prime/components/PrivyProvider';
+import { PrivyProviderLazy } from '../views/Prime/components/PrivyProviderLazy';
 
 import { ColdStartByNotification, Container } from './Container';
 import InAppNotification from './Container/InAppNotification';
@@ -60,8 +60,8 @@ export function KitProvider(props: any = {}) {
 
   const content = (
     <SafeAreaProvider>
-      <PrivyProvider>
-        <GlobalJotaiReady>
+      <GlobalJotaiReady>
+        <PrivyProviderLazy>
           <GestureHandlerRootView style={flexStyle}>
             <ThemeProvider>
               <NetworkReachabilityTracker />
@@ -77,8 +77,8 @@ export function KitProvider(props: any = {}) {
               <SyncHomeAccountToDappAccountProvider />
             </ThemeProvider>
           </GestureHandlerRootView>
-        </GlobalJotaiReady>
-      </PrivyProvider>
+        </PrivyProviderLazy>
+      </GlobalJotaiReady>
     </SafeAreaProvider>
   );
 

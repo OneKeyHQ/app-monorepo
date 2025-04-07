@@ -1,3 +1,5 @@
+import type { ComponentProps } from 'react';
+
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -10,9 +12,12 @@ import { PrimeUserInfoMoreButton } from './PrimeUserInfoMoreButton';
 
 export function PrimeUserInfo({
   doPurchase,
+  onLogoutSuccess,
+  ...stackProps
 }: {
   doPurchase?: () => Promise<void>;
-}) {
+  onLogoutSuccess?: () => Promise<void>;
+} & ComponentProps<typeof XStack>) {
   const intl = useIntl();
   const { user } = usePrimeAuthV2();
   const isPrime = user?.primeSubscription?.isActive;
@@ -30,6 +35,7 @@ export function PrimeUserInfo({
       borderColor="$borderSubdued"
       borderCurve="continuous"
       elevation={0.5}
+      {...stackProps}
     >
       <Icon name="PeopleOutline" color="$iconSubdued" size="$5" />
       <SizableText
@@ -55,7 +61,10 @@ export function PrimeUserInfo({
           })}
         </Badge>
       )}
-      <PrimeUserInfoMoreButton doPurchase={doPurchase} />
+      <PrimeUserInfoMoreButton
+        doPurchase={doPurchase}
+        onLogoutSuccess={onLogoutSuccess}
+      />
     </XStack>
   );
 }

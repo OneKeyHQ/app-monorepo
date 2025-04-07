@@ -1,11 +1,12 @@
-import { AxiosResponse } from 'axios';
 import BigNumber from 'bignumber.js';
 
 import { isTaprootAddress } from '@onekeyhq/core/src/chains/btc/sdkBtc';
+import type { IAxiosResponse } from '@onekeyhq/shared/src/appApiClient/appApiClient';
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { OneKeyServerApiError } from '@onekeyhq/shared/src/errors/errors/baseErrors';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
@@ -28,6 +29,7 @@ import type {
   IAllowanceOverview,
   IAvailableAsset,
   IBabylonPortfolioItem,
+  IBuildPermit2ApproveSignDataParams,
   IClaimRecordParams,
   IClaimableListResponse,
   IEarnAccountResponse,
@@ -38,6 +40,7 @@ import type {
   IEarnEstimateFeeResp,
   IEarnFAQList,
   IEarnInvestmentItem,
+  IEarnPermit2ApproveSignData,
   IEarnUnbondingDelegationList,
   IGetPortfolioParams,
   IStakeBaseParams,
@@ -52,6 +55,7 @@ import type {
   IUnstakePushParams,
   IWithdrawBaseParams,
 } from '@onekeyhq/shared/types/staking';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
 import { EDecodedTxStatus } from '@onekeyhq/shared/types/tx';
 
 import simpleDb from '../dbs/simple/simpleDb';
@@ -63,6 +67,23 @@ import type {
   IAddEarnOrderParams,
   IEarnOrderItem,
 } from '../dbs/simple/entity/SimpleDbEntityEarnOrders';
+
+interface ICheckAmountResponse {
+  code: number;
+  message: string;
+}
+
+interface IRecommendResponse {
+  code: string;
+  message?: string;
+  data: { tokens: IEarnAccountToken[] };
+}
+
+interface IAvailableAssetsResponse {
+  code: string;
+  message?: string;
+  data: { assets: IAvailableAsset[] };
+}
 
 @backgroundClass()
 class ServiceStaking extends ServiceBase {
@@ -183,8 +204,16 @@ class ServiceStaking extends ServiceBase {
   async buildStakeTransaction(
     params: IStakeBaseParams,
   ): Promise<IStakeTxResponse> {
-    const { networkId, accountId, provider, symbol, morphoVault, ...rest } =
-      params;
+    const {
+      networkId,
+      accountId,
+      provider,
+      symbol,
+      morphoVault,
+      approveType,
+      permitSignature,
+      ...rest
+    } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
@@ -210,6 +239,9 @@ class ServiceStaking extends ServiceBase {
       firmwareDeviceType: await this.getFirmwareDeviceTypeParam({
         accountId,
       }),
+      approveType,
+      permitSignature:
+        approveType === EApproveType.Permit ? permitSignature : undefined,
       ...rest,
     });
     return resp.data.data;
@@ -309,6 +341,35 @@ class ServiceStaking extends ServiceBase {
       rewardTokenAddress,
       ...rest,
     });
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async buildPermit2ApproveSignData(
+    params: IBuildPermit2ApproveSignDataParams,
+  ) {
+    if (!params?.networkId) {
+      throw new Error('networkId is required');
+    }
+    if (!params?.provider) {
+      throw new Error('provider is required');
+    }
+    if (!params?.symbol) {
+      throw new Error('symbol is required');
+    }
+    if (!params?.accountAddress) {
+      throw new Error('accountAddress is required');
+    }
+    if (!params?.vault) {
+      throw new Error('vault is required');
+    }
+    if (!params?.amount) {
+      throw new Error('amount is required');
+    }
+    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const resp = await client.post<{
+      data: IEarnPermit2ApproveSignData;
+    }>(`/earn/v1/permit-signature`, params);
     return resp.data.data;
   }
 
@@ -537,14 +598,19 @@ class ServiceStaking extends ServiceBase {
       publicKey?: string;
     }[],
   ) {
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const result: IEarnAccountTokenResponse = {
       accounts: [],
     };
-    const tokensResponse = await client.post<{
-      data: { tokens: IEarnAccountToken[] };
-    }>(`/earn/v1/recommend`, { accounts: params });
+    const tokensResponse = await client.post<
+      IRecommendResponse,
+      IAxiosResponse<IRecommendResponse>
+    >(`/earn/v1/recommend`, { accounts: params });
 
+    this.handleServerError({
+      ...tokensResponse.data,
+      requestId: tokensResponse.$requestId,
+    });
     const tokens =
       tokensResponse?.data.data.tokens?.map((item, index) => ({
         ...item,
@@ -607,7 +673,7 @@ class ServiceStaking extends ServiceBase {
     assets: IAvailableAsset[];
   }) {
     const accounts = await this.getEarnAvailableAccountsParams(params);
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
     const overviewData = (
       await Promise.allSettled(
         accounts.map((account) =>
@@ -646,7 +712,6 @@ class ServiceStaking extends ServiceBase {
           hasClaimableAssets: false,
         },
       );
-    // const resp = response.data.data;
 
     return {
       totalFiatValue: totalFiatValue.toFixed(),
@@ -689,13 +754,33 @@ class ServiceStaking extends ServiceBase {
 
   @backgroundMethod()
   async getAvailableAssets() {
-    const client = await this.getClient(EServiceEndpointEnum.Earn);
-    const resp = await client.get<{
-      data: {
-        assets: IAvailableAsset[];
-      };
-    }>(`/earn/v1/available-assets`);
+    const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
+    const resp = await client.get<
+      IAvailableAssetsResponse,
+      IAxiosResponse<IAvailableAssetsResponse>
+    >(`/earn/v1/available-assets`);
+
+    this.handleServerError({
+      ...resp.data,
+      requestId: resp.$requestId,
+    });
     return resp.data.data.assets;
+  }
+
+  handleServerError(data: {
+    code?: string | number;
+    message?: string;
+    requestId?: string;
+  }) {
+    if (data.code !== undefined && Number(data.code) !== 0 && data.message) {
+      throw new OneKeyServerApiError({
+        autoToast: true,
+        disableFallbackMessage: true,
+        code: Number(data.code),
+        message: data.message,
+        requestId: data.requestId,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -724,10 +809,10 @@ class ServiceStaking extends ServiceBase {
     const vault = await vaultFactory.getVault({ networkId, accountId });
     const account = await vault.getAccount();
     const client = await this.getRawDataClient(EServiceEndpointEnum.Earn);
-    const result = await client.get<{
-      code: number;
-      message: string;
-    }>(`/earn/v1/check-amount`, {
+    const result = await client.get<
+      ICheckAmountResponse,
+      IAxiosResponse<ICheckAmountResponse>
+    >(`/earn/v1/check-amount`, {
       params: {
         networkId,
         accountAddress: account.address,
@@ -740,6 +825,11 @@ class ServiceStaking extends ServiceBase {
       },
     });
     const { code, message } = result.data;
+    this.handleServerError({
+      code,
+      message,
+      requestId: result.$requestId,
+    });
     return Number(code) === 0 ? '' : message;
   }
 
@@ -1009,6 +1099,8 @@ class ServiceStaking extends ServiceBase {
     morphoVault?: string;
     identity?: string;
     accountAddress?: string;
+    approveType?: 'permit';
+    permitSignature?: string;
   }) {
     const { symbol, morphoVault, ...rest } = params;
     const client = await this.getClient(EServiceEndpointEnum.Earn);

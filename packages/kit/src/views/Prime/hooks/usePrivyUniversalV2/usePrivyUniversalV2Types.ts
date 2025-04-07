@@ -22,7 +22,7 @@ export interface IUsePrivyUniversalV2 {
     loginWithCode: (args: { code: string; email?: string }) => Promise<void>;
   };
   authenticated: boolean;
-  user?: {
+  privyUser?: {
     id: string;
     email: string;
   };

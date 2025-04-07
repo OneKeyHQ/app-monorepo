@@ -45,6 +45,7 @@ const ClaimPage = () => {
       await handleClaim({
         amount,
         identity,
+        vault: provider.vault || '',
         symbol: tokenInfo.symbol,
         provider: provider.name,
         morphoVault: provider.vault,

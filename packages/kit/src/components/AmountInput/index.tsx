@@ -26,7 +26,7 @@ import type { NUMBER_FORMATTER } from '@onekeyhq/shared/src/utils/numberUtils';
 
 import { LetterAvatar } from '../LetterAvatar';
 
-type IAmountInputFormItemProps = IFormFieldProps<
+export type IAmountInputFormItemProps = IFormFieldProps<
   string,
   {
     inputProps?: Omit<IInputProps, 'value' | 'onChangeText' | 'onChange'> & {
@@ -72,7 +72,6 @@ export function AmountInput({
   reversible,
   onChange,
   value,
-  name,
   hasError,
   valueProps,
   balanceProps,
@@ -119,18 +118,24 @@ export function AmountInput({
         value={value}
         onChangeText={platformEnv.isNative ? onChange : handleChangeText}
         // maybe should replace with ref.current.setNativeProps({ selection })
+        {...inputProps}
         {...(platformEnv.isNativeAndroid && {
           selection,
-          onSelectionChange: ({ nativeEvent }) =>
-            setSelection(nativeEvent.selection),
-          onFocus: () =>
+          onSelectionChange: ({ nativeEvent }) => {
+            setSelection(nativeEvent.selection);
+          },
+          onFocus: (event) => {
             setSelection({
               start: value?.length ?? 0,
               end: value?.length ?? 0,
-            }),
-          onBlur: () => setSelection({ start: 0, end: 0 }),
+            });
+            inputProps?.onFocus?.(event);
+          },
+          onBlur: (event) => {
+            setSelection({ start: 0, end: 0 });
+            inputProps?.onBlur?.(event);
+          },
         })}
-        {...inputProps}
       />
     );
   }, [inputProps, value, onChange, handleChangeText, selection]);

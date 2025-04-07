@@ -64,7 +64,7 @@ export function MarketListTradeButton({
       ) : null}
       {canStaking ? (
         <Button variant="secondary" size="small" onPress={onStaking}>
-          {intl.formatMessage({ id: ETranslations.earn_stake })}
+          {intl.formatMessage({ id: ETranslations.global_earn })}
         </Button>
       ) : null}
     </XStack>

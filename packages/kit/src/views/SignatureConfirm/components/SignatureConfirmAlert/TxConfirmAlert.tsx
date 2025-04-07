@@ -11,19 +11,25 @@ import {
   useSendFeeStatusAtom,
   useSendTxStatusAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/signatureConfirm';
+import type { ITransferPayload } from '@onekeyhq/kit-bg/src/vaults/types';
+import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { ESendFeeStatus } from '@onekeyhq/shared/types/fee';
 
 interface IProps {
+  accountId: string;
   networkId: string;
+  transferPayload?: ITransferPayload;
 }
 
 function TxConfirmAlert(props: IProps) {
-  const { networkId } = props;
+  const { networkId, accountId, transferPayload } = props;
+
   const intl = useIntl();
   const [{ decodedTxs }] = useDecodedTxsAtom();
   const [sendFeeStatus] = useSendFeeStatusAtom();
@@ -123,12 +129,32 @@ function TxConfirmAlert(props: IProps) {
     return null;
   }, [preCheckTxStatus]);
 
+  const renderChainSpecialAlert = useCallback(() => {
+    if (
+      networkId === getNetworkIdsMap().kaspa &&
+      accountUtils.isHwAccount({ accountId }) &&
+      transferPayload?.tokenInfo &&
+      !transferPayload.tokenInfo.isNative
+    ) {
+      return (
+        <Alert
+          type="warning"
+          title={intl.formatMessage({
+            id: ETranslations.sending_krc20_warning_text,
+          })}
+        />
+      );
+    }
+    return null;
+  }, [accountId, intl, networkId, transferPayload?.tokenInfo]);
+
   return (
     <>
       {renderTxFeeAlert()}
       {renderInsufficientNativeBalanceAlert()}
       {renderDecodedTxsAlert()}
       {renderPreCheckTxAlert()}
+      {renderChainSpecialAlert()}
     </>
   );
 }

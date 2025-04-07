@@ -46,7 +46,7 @@ import type { FontSizeTokens } from 'tamagui';
 function HomeOverviewContainer() {
   const num = 0;
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: { account, network, wallet, deriveInfoItems },
   } = useActiveAccount({ num });
   const intl = useIntl();
 
@@ -238,11 +238,13 @@ function HomeOverviewContainer() {
     balanceDialogInstance.current = showBalanceDetailsDialog({
       accountId: account?.id ?? '',
       networkId: network?.id ?? '',
+      deriveInfoItems,
+      indexedAccountId: account?.indexedAccountId,
       onClose: () => {
         balanceDialogInstance.current = null;
       },
     });
-  }, [account, network]);
+  }, [account, network, deriveInfoItems]);
 
   const handleResourceDetailsOnPress = useCallback(() => {
     if (resourceDialogInstance?.current) {

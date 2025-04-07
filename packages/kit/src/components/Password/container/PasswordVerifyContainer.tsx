@@ -104,10 +104,14 @@ const PasswordVerifyContainer = ({
       ...v,
       passwordVerifyStatus: { value: EPasswordVerifyStatus.DEFAULT },
     }));
-    return () => {
+  }, [setPasswordAtom]);
+
+  useEffect(
+    () => () => {
       resetPasswordStatus();
-    };
-  }, [setPasswordAtom, resetPasswordStatus]);
+    },
+    [resetPasswordStatus],
+  );
 
   const {
     verifyPeriodBiologyEnable,

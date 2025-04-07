@@ -34,12 +34,8 @@ import { TutorialsList } from '../../TutorialsList';
 import { useCreateQrWallet } from './useCreateQrWallet';
 
 export function useAccountSelectorCreateAddress() {
-  const {
-    serviceAccount,
-    serviceQrWallet,
-    serviceBatchCreateAccount,
-    serviceHardwareUI,
-  } = backgroundApiProxy;
+  const { serviceAccount, serviceBatchCreateAccount, serviceHardwareUI } =
+    backgroundApiProxy;
   const intl = useIntl();
   const actions = useAccountSelectorActions();
   const { createQrWalletByAccount } = useCreateQrWallet();
@@ -50,6 +46,7 @@ export function useAccountSelectorCreateAddress() {
       num,
       selectAfterCreate,
       account,
+      createAllDeriveTypes,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -59,6 +56,7 @@ export function useAccountSelectorCreateAddress() {
         indexedAccountId: string | undefined;
         deriveType: IAccountDeriveTypes;
       };
+      createAllDeriveTypes?: boolean;
     }) => {
       if (
         !account ||
@@ -158,6 +156,7 @@ export function useAccountSelectorCreateAddress() {
             indexedAccountId: account?.indexedAccountId,
             networkId: account?.networkId,
             deriveType: account?.deriveType,
+            createAllDeriveTypes,
             ...hwUiControlParams,
           });
           return await handleAddAccounts(result);
@@ -180,7 +179,7 @@ export function useAccountSelectorCreateAddress() {
         return await addAccounts();
       } catch (error1) {
         if (isAirGapAccountNotFound(error1)) {
-          const { wallet: walletCreated } = await createQrWalletByAccount({
+          await createQrWalletByAccount({
             walletId: account.walletId,
             networkId: account.networkId,
             indexedAccountId: account.indexedAccountId,

@@ -11,6 +11,7 @@ import type { ICosmosStdSignDoc } from '@onekeyhq/core/src/chains/cosmos/sdkCosm
 import {
   TransactionWrapper,
   deserializeTx,
+  encodeSecp256k1Pubkey,
   getAminoSignDoc,
 } from '@onekeyhq/core/src/chains/cosmos/sdkCosmos';
 import {
@@ -345,10 +346,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       signed: signDoc,
       signature: {
         signature: Buffer.from(bytesToHex(signature), 'hex').toString('base64'),
-        pub_key: {
-          type: signerInfo?.publicKey?.typeUrl,
-          value: Buffer.from(pubKey.key).toString('base64'),
-        },
+        pub_key: encodeSecp256k1Pubkey(pubKey.key),
       },
     };
   }
@@ -451,10 +449,7 @@ class ProviderApiCosmos extends ProviderApiBase {
       },
       signature: {
         signature: Buffer.from(bytesToHex(signature), 'hex').toString('base64'),
-        pub_key: {
-          type: signerInfo?.publicKey?.typeUrl,
-          value: Buffer.from(pubKey.key).toString('base64'),
-        },
+        pub_key: encodeSecp256k1Pubkey(pubKey.key),
       },
     };
   }
@@ -552,10 +547,7 @@ class ProviderApiCosmos extends ProviderApiBase {
 
     return {
       signature: Buffer.from(bytesToHex(signature), 'hex').toString('base64'),
-      pub_key: {
-        type: signerInfo?.publicKey?.typeUrl,
-        value: Buffer.from(pubKey.key).toString('base64'),
-      },
+      pub_key: encodeSecp256k1Pubkey(pubKey.key),
     };
   }
 

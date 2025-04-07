@@ -1,6 +1,8 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 /* eslint-disable react/no-unstable-nested-components */
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import { Button, Dialog, SizableText, Stack } from '@onekeyhq/components';
 import {
   ConfirmOnDeviceToast,
@@ -23,7 +25,6 @@ import { EOneKeyDeviceMode } from '@onekeyhq/shared/types/device';
 import { Layout } from './utils/Layout';
 
 import type { IDeviceType } from '@onekeyfe/hd-core';
-
 // https://i.mij.rip/2024/09/19/b0cdcbdb45494fe53b831fff02981fdb.jpeg
 
 const HardwareActionTest = () => {
@@ -38,7 +39,7 @@ const HardwareActionTest = () => {
     const usedPayload: IHardwareUiPayload = {
       uiRequestType,
       eventType: '',
-      deviceType: deviceType ?? 'pro',
+      deviceType: deviceType ?? EDeviceType.Pro,
       deviceId: '123',
       connectId: '123',
       deviceMode: EOneKeyDeviceMode.normal,
@@ -145,7 +146,7 @@ const HardwareActionTest = () => {
               payload: {
                 message: 'ConfirmOnDevice',
               },
-              deviceType: 'classic',
+              deviceType: EDeviceType.Classic,
             });
 
             await generateAction(EHardwareUiStateAction.FIRMWARE_PROGRESS);
@@ -176,13 +177,13 @@ const HardwareActionTest = () => {
               payload: {
                 message: 'ConfirmOnDevice',
               },
-              deviceType: 'pro',
+              deviceType: EDeviceType.Pro,
             });
             await generateAction(EHardwareUiStateAction.FIRMWARE_TIP, {
               payload: {
                 message: '"InstallingFirmware"',
               },
-              deviceType: 'pro',
+              deviceType: EDeviceType.Pro,
             });
           }}
         >
@@ -211,7 +212,7 @@ const HardwareGallery = () => (
 
             <Button
               onPress={() => {
-                void ConfirmOnDeviceToast({ deviceType: 'classic' });
+                void ConfirmOnDeviceToast({ deviceType: EDeviceType.Classic });
               }}
             >
               Confirm On Classic (Toast)
@@ -219,7 +220,7 @@ const HardwareGallery = () => (
 
             <Button
               onPress={() => {
-                void ConfirmOnDeviceToast({ deviceType: 'touch' });
+                void ConfirmOnDeviceToast({ deviceType: EDeviceType.Touch });
               }}
             >
               Confirm On Touch (Toast)
@@ -277,7 +278,7 @@ const HardwareGallery = () => (
               onPress={async () => {
                 const hex = await deviceHomeScreenUtils.imagePathToHex(
                   'https://i.mij.rip/2024/09/19/b0cdcbdb45494fe53b831fff02981fdb.jpeg',
-                  'classic',
+                  EDeviceType.Classic,
                 );
                 console.log(hex);
               }}

@@ -2,7 +2,13 @@ import type { ComponentType } from 'react';
 
 import * as Sentry from '@sentry/react';
 
-import { basicOptions, buildIntegrations, buildOptions } from './basicOptions';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+
+import {
+  buildBasicOptions,
+  buildIntegrations,
+  buildSentryOptions,
+} from './basicOptions';
 
 import type { FallbackRender } from '@sentry/react';
 
@@ -16,8 +22,12 @@ export const initSentry = () => {
   }
   Sentry.init({
     dsn: 'https://fc0d87f5a1ef85df3a6621206fec0357@o4508208799809536.ingest.de.sentry.io/4508320051036240',
-    ...basicOptions,
-    ...buildOptions(Sentry),
+    ...buildBasicOptions({
+      onError: (errorMessage, stacktrace) => {
+        defaultLogger.app.error.log(errorMessage, stacktrace);
+      },
+    }),
+    ...buildSentryOptions(Sentry),
     integrations: buildIntegrations(Sentry),
   });
 };

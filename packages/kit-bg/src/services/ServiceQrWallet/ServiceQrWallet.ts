@@ -28,12 +28,14 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IQrWalletDevice } from '@onekeyhq/shared/types/device';
 
+import { vaultFactory } from '../../vaults/factory';
 import { buildDefaultAddAccountNetworksForQrWallet } from '../ServiceAccount/defaultNetworkAccountsConfig';
 import ServiceBase from '../ServiceBase';
 
 import { UR_DEFAULT_ORIGIN } from './qrWalletConsts';
 
 import type { IDBDevice, IDBWalletId } from '../../dbs/local/types';
+import type { KeyringQrBase } from '../../vaults/base/KeyringQrBase';
 import type {
   IAnimationValue,
   IQRCodeHandlerParseResult,
@@ -123,9 +125,11 @@ class ServiceQrWallet extends ServiceBase {
   }
 
   async buildGetMultiAccountsParams({
+    walletId,
     networkId,
     indexedAccountId,
   }: {
+    walletId: string;
     networkId: string;
     indexedAccountId: string;
   }) {
@@ -147,12 +151,12 @@ class ServiceQrWallet extends ServiceBase {
         template: deriveInfo.item.template,
         index,
       });
-      paths.push(
-        accountUtils.removePathLastSegment({
-          path: fullPath,
-          removeCount: 2, // TODO always remove last 2 segments, only works for EVM and BTC yet
-        }),
-      );
+      const normalizedPath = await this.normalizeGetMultiAccountsPath({
+        walletId,
+        networkId,
+        path: fullPath,
+      });
+      paths.push(normalizedPath);
     }
 
     const chain = await this.getDeviceChainNameByNetworkId({ networkId });
@@ -161,6 +165,25 @@ class ServiceQrWallet extends ServiceBase {
       chain,
       paths,
     };
+  }
+
+  async normalizeGetMultiAccountsPath({
+    walletId,
+    networkId,
+    path,
+  }: {
+    walletId: IDBWalletId;
+    networkId: string;
+    path: string;
+  }) {
+    const vault = await vaultFactory.getWalletOnlyVault({
+      walletId,
+      networkId,
+    });
+
+    return (vault.keyring as KeyringQrBase).normalizeGetMultiAccountsPath({
+      path,
+    });
   }
 
   @backgroundMethod()
@@ -214,7 +237,11 @@ class ServiceQrWallet extends ServiceBase {
       paths: string[];
     }[] = await Promise.all(
       networkIds.map((n) =>
-        this.buildGetMultiAccountsParams({ networkId: n, indexedAccountId }),
+        this.buildGetMultiAccountsParams({
+          walletId,
+          networkId: n,
+          indexedAccountId,
+        }),
       ),
     );
 

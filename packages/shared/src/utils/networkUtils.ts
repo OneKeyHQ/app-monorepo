@@ -1,7 +1,3 @@
-import { isNil } from 'lodash';
-
-import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
-
 import {
   BtcDappNetworkTypes,
   BtcDappUniSetChainTypes,
@@ -9,13 +5,17 @@ import {
   EBtcDappUniSetChainTypeEnum,
 } from '../../types/ProviderApis/ProviderApiBtc.type';
 import { getNetworkIdsMap } from '../config/networkIds';
-import { getDefaultEnabledEVMNetworksInAllNetworks } from '../config/presetNetworks';
+import {
+  getDefaultEnabledEVMNetworksInAllNetworks,
+  getPresetNetworks,
+} from '../config/presetNetworks';
 import {
   COINTYPE_LIGHTNING,
   COINTYPE_LIGHTNING_TESTNET,
   IMPL_EVM,
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
+  IMPL_SOL,
   SEPERATOR,
 } from '../engine/engineConsts';
 import platformEnv from '../platformEnv';
@@ -70,6 +70,10 @@ function isLightningNetworkByNetworkId(networkId?: string) {
     networkId === networkIdsMap.lightning ||
     networkId === networkIdsMap.tlightning
   );
+}
+
+function isSolanaNetworkByNetworkId(networkId?: string) {
+  return Boolean(networkId && getNetworkImpl({ networkId }) === IMPL_SOL);
 }
 
 function isBTCNetwork(networkId?: string) {
@@ -185,6 +189,11 @@ function toNetworkIdFallback({
   return networkId;
 }
 
+function getLocalNetworkInfo(networkId: string) {
+  const networks = getPresetNetworks();
+  return networks.find((network) => network.id === networkId);
+}
+
 export default {
   getNetworkChainId,
   getNetworkImpl,
@@ -193,10 +202,12 @@ export default {
   isLightningNetwork,
   isLightningNetworkByImpl,
   isLightningNetworkByNetworkId,
+  isSolanaNetworkByNetworkId,
   isBTCNetwork,
   getBtcDappNetworkName,
   isAllNetwork,
   getDefaultDeriveTypeVisibleNetworks,
   toNetworkIdFallback,
   getBtcDappUniSetChainName,
+  getLocalNetworkInfo,
 };

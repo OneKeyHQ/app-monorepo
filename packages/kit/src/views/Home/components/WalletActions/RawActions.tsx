@@ -18,7 +18,6 @@ import {
   SizableText,
   Stack,
   XStack,
-  useMedia,
 } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
@@ -37,9 +36,7 @@ function ActionItem({
   showButtonStyle = false,
   ...rest
 }: IActionItemsProps) {
-  const media = useMedia();
-
-  if (showButtonStyle || media.gtSm) {
+  if (showButtonStyle) {
     return (
       <Button
         {...(!label && {
@@ -65,6 +62,9 @@ function ActionItem({
         color="$textSubdued"
         minWidth="$20"
         numberOfLines={1}
+        {...(rest.disabled && {
+          color: '$textDisabled',
+        })}
       >
         {label}
       </SizableText>
@@ -121,7 +121,7 @@ function ActionSwap(props: IActionItemsProps) {
   return (
     <ActionItem
       label={intl.formatMessage({ id: ETranslations.global_swap })}
-      icon="SwitchHorOutline"
+      icon="SwapHorOutline"
       {...props}
     />
   );
@@ -138,9 +138,19 @@ function ActionBridge(props: IActionItemsProps) {
   );
 }
 
+function ActionEarn(props: IActionItemsProps) {
+  const intl = useIntl();
+  return (
+    <ActionItem
+      label={intl.formatMessage({ id: ETranslations.global_earn })}
+      icon="CoinsOutline"
+      {...props}
+    />
+  );
+}
+
 function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
   const intl = useIntl();
-  const media = useMedia();
   return (
     <ActionList
       title={intl.formatMessage({
@@ -152,10 +162,8 @@ function ActionMore({ sections }: { sections: IActionListProps['sections'] }) {
       renderTrigger={
         <ActionItem
           icon="DotHorOutline"
-          {...(media.sm && {
-            label: intl.formatMessage({
-              id: ETranslations.global_more,
-            }),
+          label={intl.formatMessage({
+            id: ETranslations.global_more,
           })}
         />
       }
@@ -171,7 +179,7 @@ function RawActions({ children, ...rest }: IXStackProps) {
       $gtSm={{
         flexDirection: 'row', // override the 'column' direction set in packages/kit/src/views/AssetDetails/pages/TokenDetails/TokenDetailsHeader.tsx 205L
         justifyContent: 'flex-start',
-        gap: '$2',
+        gap: '$6',
       }}
       {...rest}
     >
@@ -187,5 +195,6 @@ RawActions.Send = ActionSend;
 RawActions.Receive = ActionReceive;
 RawActions.Swap = ActionSwap;
 RawActions.Bridge = ActionBridge;
+RawActions.Earn = ActionEarn;
 
 export { RawActions, ActionItem };

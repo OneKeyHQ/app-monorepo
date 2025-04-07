@@ -11,6 +11,7 @@ import { RemoteApiProxyBase } from '../../apis/RemoteApiProxyBase';
 import type { IWebembedApi, IWebembedApiKeys } from './IWebembedApi';
 import type { IBackgroundApiWebembedCallMessage } from '../../apis/IBackgroundApi';
 import type WebEmbedApiChainAdaLegacy from '../WebEmbedApiChainAdaLegacy';
+import type WebEmbedApiChainKaspa from '../WebEmbedApiChainKaspa';
 import type WebEmbedApiImageUtils from '../WebEmbedApiImageUtils';
 import type WebEmbedApiSecret from '../WebEmbedApiSecret';
 import type WebEmbedApiTest from '../WebEmbedApiTest';
@@ -73,6 +74,14 @@ class WebembedApiProxy extends RemoteApiProxyBase implements IWebembedApi {
     this._createProxyModule<IWebembedApiKeys>('chainAdaLegacy', undefined, {
       asyncThenSupport: true,
     });
+
+  chainKaspa: WebEmbedApiChainKaspa = this._createProxyModule<IWebembedApiKeys>(
+    'chainKaspa',
+    undefined,
+    {
+      asyncThenSupport: true,
+    },
+  );
 
   secret: WebEmbedApiSecret =
     this._createProxyModule<IWebembedApiKeys>('secret');

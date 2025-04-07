@@ -1,5 +1,7 @@
 import { EEarnProviderEnum } from '../../types/earn';
 
+import type { IEarnPermitCacheKey } from '../../types/earn';
+
 function getEarnProviderEnumKey(
   providerString: string,
 ): EEarnProviderEnum | undefined {
@@ -44,6 +46,20 @@ function getEarnProviderName({
   );
 }
 
+function getEarnPermitCacheKey(payload: IEarnPermitCacheKey) {
+  return `${payload.accountId}_${payload.networkId}_${payload.tokenAddress}_${payload.amount}`;
+}
+
+function isUSDTonETHNetwork({
+  networkId,
+  symbol,
+}: {
+  networkId?: string;
+  symbol?: string;
+}) {
+  return networkId === 'evm--1' && symbol === 'USDT';
+}
+
 export default {
   getEarnProviderEnumKey,
   isMorphoProvider,
@@ -51,4 +67,6 @@ export default {
   isBabylonProvider,
   isEverstakeProvider,
   getEarnProviderName,
+  getEarnPermitCacheKey,
+  isUSDTonETHNetwork,
 };

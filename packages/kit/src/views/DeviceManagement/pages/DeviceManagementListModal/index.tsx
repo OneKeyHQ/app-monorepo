@@ -21,12 +21,14 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalDeviceManagementRoutes,
   EModalRoutes,
   EOnboardingPages,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
-import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import type { IHwQrWalletWithDevice } from '@onekeyhq/shared/types/account';
 
 import { useBuyOneKeyHeaderRightButton } from '../../hooks/useBuyOneKeyHeaderRightButton';
@@ -38,10 +40,21 @@ function DeviceManagementListModal() {
     usePromiseResult<Array<IHwQrWalletWithDevice>>(
       async () => {
         const r =
-          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice();
-        return Object.values(r).filter((item): item is IHwQrWalletWithDevice =>
-          Boolean(item.device),
-        );
+          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+            filterHiddenWallet: true,
+            skipDuplicateDevice: true,
+          });
+        return Object.values(r)
+          .filter(
+            (item): item is IHwQrWalletWithDevice =>
+              Boolean(item.device) && !item.wallet.deprecated,
+          )
+          .sort((a, b) => {
+            // Sort by walletOrder or fallback to walletNo
+            const orderA = a.wallet.walletOrder || a.wallet.walletNo;
+            const orderB = b.wallet.walletOrder || b.wallet.walletNo;
+            return orderA - orderB;
+          });
       },
       [],
       {
@@ -60,9 +73,22 @@ function DeviceManagementListModal() {
   }, [refreshHwQrWalletList]);
 
   const onAddDevice = useCallback(async () => {
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.ConnectYourDevice,
-    });
+    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
+      await backgroundApiProxy.serviceApp.openExtensionExpandTab({
+        routes: [
+          ERootRoutes.Modal,
+          EModalRoutes.OnboardingModal,
+          EOnboardingPages.ConnectYourDevice,
+        ],
+      });
+      if (platformEnv.isExtensionUiSidePanel) {
+        window.close();
+      }
+    } else {
+      appNavigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.ConnectYourDevice,
+      });
+    }
   }, [appNavigation]);
 
   const onWalletPressed = useCallback(
@@ -81,13 +107,13 @@ function DeviceManagementListModal() {
       const walletAvatarProps: IWalletAvatarProps = {
         wallet: item.wallet,
         status: 'default',
-        badge: accountUtils.isQrWallet({ walletId: item.wallet.id })
-          ? 'QR'
-          : undefined,
       };
       return (
         <ListItem
           title={item.wallet.name}
+          subtitle={deviceUtils.buildDeviceBleName({
+            features: item.device?.featuresInfo,
+          })}
           drillIn
           renderAvatar={() => <WalletAvatar {...walletAvatarProps} />}
           onPress={() => {

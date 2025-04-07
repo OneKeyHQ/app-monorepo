@@ -28,6 +28,7 @@ import {
   IMPL_LIGHTNING,
   IMPL_LIGHTNING_TESTNET,
   IMPL_NEAR,
+  IMPL_NEO,
   IMPL_NOSTR,
   IMPL_SCDO,
   IMPL_SOL,
@@ -307,6 +308,7 @@ export const scopeNetworks: Record<
   'polkadot': [IMPL_DOT],
   'webln': [IMPL_LIGHTNING, IMPL_LIGHTNING_TESTNET],
   'nostr': [IMPL_NOSTR],
+  'neo': [IMPL_NEO],
   '$hardware_sdk': undefined,
   '$private': undefined,
   '$walletConnect': undefined,
@@ -330,6 +332,7 @@ export const ENABLED_DAPP_SCOPE: IInjectedProviderNamesStrings[] = [
   IInjectedProviderNames.polkadot,
   IInjectedProviderNames.webln,
   IInjectedProviderNames.bfc,
+  IInjectedProviderNames.neo,
 ];
 
 export function getNetworkImplsFromDappScope(

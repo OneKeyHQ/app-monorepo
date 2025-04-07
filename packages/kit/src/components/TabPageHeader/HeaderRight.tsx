@@ -3,69 +3,49 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, SizableText, Stack, useMedia } from '@onekeyhq/components';
+import {
+  SizableText,
+  Stack,
+  useIsIpadLandscape,
+  useMedia,
+} from '@onekeyhq/components';
 import {
   HeaderButtonGroup,
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
-import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  useAllTokenListAtom,
-  useAllTokenListMapAtom,
-} from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import {
   useDevSettingsPersistAtom,
   useNotificationsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { EModalRoutes } from '@onekeyhq/shared/src/routes';
 import { EModalNotificationsRoutes } from '@onekeyhq/shared/src/routes/notifications';
-import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes/tab';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { UrlAccountNavHeader } from '../../views/Home/pages/urlAccount/UrlAccountNavHeader';
-import { PrimeHeaderIconButton } from '../../views/Prime/components/PrimeHeaderIconButton';
-import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
+import { PrimeHeaderIconButtonLazy } from '../../views/Prime/components/PrimeHeaderIconButton';
 
 import { MoreActionButton } from './MoreActionButton';
-import { UniversalSearchInput } from './UniversalSearchInput';
 
 export function HeaderRight({
   sceneName,
+  tabRoute,
+  children,
 }: {
   sceneName: EAccountSelectorSceneName;
+  tabRoute: ETabRoutes;
+  children?: ReactNode;
 }) {
+  const media = useMedia();
   const intl = useIntl();
   const navigation = useAppNavigation();
-  const scanQrCode = useScanQrCode();
   const [{ firstTimeGuideOpened, badge }] = useNotificationsAtom();
   const [devSettings] = useDevSettingsPersistAtom();
+  const isIpadLandscape = useIsIpadLandscape();
 
-  const {
-    activeAccount: { account },
-  } = useActiveAccount({ num: 0 });
-  const [allTokens] = useAllTokenListAtom();
-  const [map] = useAllTokenListMapAtom();
-  const onScanButtonPressed = useCallback(
-    () =>
-      scanQrCode.start({
-        handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
-        autoHandleResult: true,
-        account,
-        tokens: {
-          data: allTokens.tokens,
-          keys: allTokens.keys,
-          map,
-        },
-      }),
-    [scanQrCode, account, allTokens, map],
-  );
-
-  const media = useMedia();
   const openNotificationsModal = useCallback(async () => {
     navigation.pushModal(EModalRoutes.NotificationsModal, {
       screen: EModalNotificationsRoutes.NotificationList,
@@ -73,76 +53,10 @@ export function HeaderRight({
   }, [navigation]);
 
   const items = useMemo(() => {
-    const routeInfo = {
-      routes: '',
-    };
-    const layoutExtView = (
-      <ActionList
-        key="layoutExtView"
-        title={intl.formatMessage({
-          id: ETranslations.global_layout,
-        })}
-        items={[
-          platformEnv.isExtensionUiPopup
-            ? {
-                label: intl.formatMessage({
-                  id: ETranslations.open_as_sidebar,
-                }),
-                icon: 'LayoutRightOutline',
-                onPress: async () => {
-                  defaultLogger.account.wallet.openSidePanel();
-                  await extUtils.openPanelOnActionClick(true);
-                  await extUtils.openSidePanel(routeInfo);
-                  window.close();
-                },
-              }
-            : {
-                label: intl.formatMessage({
-                  id: ETranslations.open_as_popup,
-                }),
-                icon: 'LayoutTopOutline',
-                onPress: async () => {
-                  await extUtils.openPanelOnActionClick(false);
-                  window.close();
-                },
-              },
-          {
-            label: intl.formatMessage({
-              id: ETranslations.global_expand_view,
-            }),
-            icon: 'ExpandOutline',
-            onPress: async () => {
-              defaultLogger.account.wallet.openExpandView();
-              window.close();
-              await backgroundApiProxy.serviceApp.openExtensionExpandTab(
-                routeInfo,
-              );
-            },
-          },
-        ]}
-        renderTrigger={
-          <HeaderIconButton
-            key="layoutRightView"
-            title={intl.formatMessage({ id: ETranslations.global_layout })}
-            icon="LayoutRightOutline"
-          />
-        }
-      />
-    );
-
-    const scanButton = media.gtMd ? (
-      <HeaderIconButton
-        key="scan"
-        title={intl.formatMessage({ id: ETranslations.scan_scan_qr_code })}
-        icon="ScanOutline"
-        onPress={onScanButtonPressed}
-      />
-    ) : null;
-    // const primeButton =
-    //   devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
-    //     <PrimeHeaderIconButton key="prime" />
-    //   ) : null;
-    const primeButton = <PrimeHeaderIconButton key="prime" />;
+    const primeButton =
+      devSettings?.enabled && devSettings?.settings?.showPrimeTest ? (
+        <PrimeHeaderIconButtonLazy key="prime" visible />
+      ) : null;
 
     let notificationsButton: ReactNode | null = (
       <Stack key="notifications" testID="headerRightNotificationsButton">
@@ -197,14 +111,23 @@ export function HeaderRight({
         ) : null}
       </Stack>
     );
+    const moreActionButton =
+      (platformEnv.isNativeIOSPad && !isIpadLandscape) ||
+      tabRoute === ETabRoutes.Home ||
+      platformEnv.isNativeAndroid ||
+      media.gtMd ? (
+        <Stack flexDirection="row" alignItems="center" gap="$4">
+          {children ? (
+            <Stack
+              height="$4"
+              borderRightWidth={1}
+              borderRightColor="$borderSubdued"
+            />
+          ) : null}
 
-    const moreActionButton = media.gtMd ? null : (
-      <MoreActionButton key="more-action" />
-    );
-
-    const searchInput = media.gtMd ? (
-      <UniversalSearchInput key="searchInput" />
-    ) : null;
+          <MoreActionButton key="more-action" />
+        </Stack>
+      ) : null;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
@@ -215,37 +138,34 @@ export function HeaderRight({
       ].filter(Boolean);
     }
 
-    if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
-      return [
-        layoutExtView,
-        primeButton,
-        notificationsButton,
-        moreActionButton,
-      ].filter(Boolean);
-    }
-
     // notifications is not supported on web currently
-    if (platformEnv.isWeb && !devSettings.enabled) {
+    if (
+      (platformEnv.isWeb && !devSettings.enabled) ||
+      (tabRoute && tabRoute !== ETabRoutes.Home)
+    ) {
       notificationsButton = null;
     }
 
     return [
       primeButton,
-      scanButton,
       notificationsButton,
+      children,
       moreActionButton,
-      searchInput,
     ].filter(Boolean);
   }, [
-    media.gtMd,
-    intl,
-    onScanButtonPressed,
     devSettings.enabled,
+    devSettings?.settings?.showPrimeTest,
+    intl,
     openNotificationsModal,
     firstTimeGuideOpened,
     badge,
+    isIpadLandscape,
     sceneName,
+    tabRoute,
+    media.gtMd,
+    children,
   ]);
+
   return (
     <HeaderButtonGroup
       testID="Wallet-Page-Header-Right"

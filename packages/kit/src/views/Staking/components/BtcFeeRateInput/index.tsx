@@ -231,21 +231,21 @@ export const BtcFeeRateInput = ({
 
   return estimateFeeUTXO ? (
     <CalculationListItem onPress={onPress}>
-      <CalculationListItem.Label>
+      <CalculationListItem.Label size="$bodyMd">
         {intl.formatMessage({
           id: ETranslations.fee_fee_rate,
         })}
       </CalculationListItem.Label>
       <XStack alignItems="center" cursor="pointer" mr={-6}>
         <XStack gap="$1">
-          <SizableText size="$bodyLgMedium">
+          <SizableText size="$bodyMdMedium">
             {feeTypeLabels[feeRate.feeType] ?? feeRate.feeType}
           </SizableText>
-          <SizableText size="$bodyLgMedium">
+          <SizableText size="$bodyMdMedium">
             ({feeRate.value}sat/vB)
           </SizableText>
         </XStack>
-        <Icon name="ChevronRightSmallOutline" size={24} />
+        <Icon name="ChevronRightSmallOutline" size="$5" color="$iconSubdued" />
       </XStack>
     </CalculationListItem>
   ) : null;

@@ -25,6 +25,7 @@ import {
   HeaderIconButton,
 } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useSwapTypeSwitchAtom } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
   EJotaiContextStoreNames,
   useInAppNotificationAtom,
@@ -44,8 +45,10 @@ import {
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
 import {
+  EProtocolOfExchange,
   ESwapSlippageCustomStatus,
   ESwapSlippageSegmentKey,
+  ESwapTabSwitchType,
   ESwapTxHistoryStatus,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -229,6 +232,7 @@ const SwapSettingsDialogContent = () => {
     useSettingsAtom();
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const rightTrigger = useMemo(
     () => (
       <SegmentControl
@@ -269,36 +273,40 @@ const SwapSettingsDialogContent = () => {
   );
   return (
     <YStack gap="$5">
-      <HeightTransition>
-        <YStack gap="$5">
-          <SwapSettingsSlippageItem
+      {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
+        <>
+          <HeightTransition>
+            <YStack gap="$5">
+              <SwapSettingsSlippageItem
+                title={intl.formatMessage({
+                  id: ETranslations.swap_page_provider_slippage_tolerance,
+                })}
+                rightTrigger={rightTrigger}
+              />
+              {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
+                <SwapSlippageCustomContent swapSlippage={slippageItem} />
+              ) : null}
+            </YStack>
+          </HeightTransition>
+          <Divider />
+          <SwapSettingsCommonItem
             title={intl.formatMessage({
-              id: ETranslations.swap_page_provider_slippage_tolerance,
+              id: ETranslations.swap_page_settings_simple_mode,
             })}
-            rightTrigger={rightTrigger}
+            content={intl.formatMessage({
+              id: ETranslations.swap_page_settings_simple_mode_content,
+            })}
+            badgeContent="Beta"
+            value={swapBatchApproveAndSwap}
+            onChange={(v) => {
+              setPersistSettings((s) => ({
+                ...s,
+                swapBatchApproveAndSwap: v,
+              }));
+            }}
           />
-          {slippageItem.key === ESwapSlippageSegmentKey.CUSTOM ? (
-            <SwapSlippageCustomContent swapSlippage={slippageItem} />
-          ) : null}
-        </YStack>
-      </HeightTransition>
-      <Divider />
-      <SwapSettingsCommonItem
-        title={intl.formatMessage({
-          id: ETranslations.swap_page_settings_simple_mode,
-        })}
-        content={intl.formatMessage({
-          id: ETranslations.swap_page_settings_simple_mode_content,
-        })}
-        badgeContent="Beta"
-        value={swapBatchApproveAndSwap}
-        onChange={(v) => {
-          setPersistSettings((s) => ({
-            ...s,
-            swapBatchApproveAndSwap: v,
-          }));
-        }}
-      />
+        </>
+      ) : null}
       <SwapSettingsCommonItem
         title={intl.formatMessage({
           id: ETranslations.swap_page_settings_recipient_title,
@@ -336,6 +344,7 @@ const SwapHeaderRightActionContainer = ({
   const [{ swapHistoryPendingList }] = useInAppNotificationAtom();
   const intl = useIntl();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const swapPendingStatusList = useMemo(
     () =>
       swapHistoryPendingList.filter(
@@ -346,7 +355,10 @@ const SwapHeaderRightActionContainer = ({
     [swapHistoryPendingList],
   );
   const slippageTitle = useMemo(() => {
-    if (slippageItem.key === ESwapSlippageSegmentKey.CUSTOM) {
+    if (
+      slippageItem.key === ESwapSlippageSegmentKey.CUSTOM &&
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+    ) {
       return (
         <SizableText
           color={
@@ -359,12 +371,22 @@ const SwapHeaderRightActionContainer = ({
       );
     }
     return null;
-  }, [slippageItem.key, slippageItem.value]);
+  }, [slippageItem.key, slippageItem.value, swapTypeSwitch]);
   const onOpenHistoryListModal = useCallback(() => {
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapHistoryList,
+      params: {
+        type:
+          swapTypeSwitch === ESwapTabSwitchType.LIMIT
+            ? EProtocolOfExchange.LIMIT
+            : EProtocolOfExchange.SWAP,
+        storeName:
+          pageType === EPageType.modal
+            ? EJotaiContextStoreNames.swapModal
+            : EJotaiContextStoreNames.swap,
+      },
     });
-  }, [navigation]);
+  }, [navigation, pageType, swapTypeSwitch]);
 
   const onOpenSwapSettings = useCallback(() => {
     Dialog.show({

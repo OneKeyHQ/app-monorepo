@@ -11,7 +11,7 @@ export function safeNumberString(n: string | B | number, fallback?: string) {
     return fallback ?? '';
   }
 
-  return res.toString();
+  return res.toFixed();
 }
 
 export function safeNumber(n: string | B | number, fallback?: number) {

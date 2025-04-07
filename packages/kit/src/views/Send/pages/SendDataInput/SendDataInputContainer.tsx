@@ -6,6 +6,7 @@ import BigNumber from 'bignumber.js';
 import { utils } from 'ethers';
 import { isNaN, isNil } from 'lodash';
 import { useIntl } from 'react-intl';
+import { InputAccessoryView } from 'react-native';
 
 import type {
   IFormMode,
@@ -33,8 +34,11 @@ import {
 } from '@onekeyhq/kit/src/components/AddressInput';
 import { renderAddressSecurityHeaderRightButton } from '@onekeyhq/kit/src/components/AddressInput/AddressSecurityHeaderRightButton';
 import { AmountInput } from '@onekeyhq/kit/src/components/AmountInput';
-import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import {
+  PercentageStageOnKeyboard,
+  calcPercentBalance,
+} from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import { useAccountData } from '@onekeyhq/kit/src/hooks/useAccountData';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
@@ -47,12 +51,12 @@ import {
 import { getFormattedNumber } from '@onekeyhq/kit/src/utils/format';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { ITransferInfo } from '@onekeyhq/kit-bg/src/vaults/types';
-import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { OneKeyError, OneKeyInternalError } from '@onekeyhq/shared/src/errors';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
+import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EAssetSelectorRoutes,
   EModalRoutes,
@@ -79,6 +83,7 @@ import { HomeTokenListProviderMirror } from '../../../Home/components/HomeTokenL
 
 import type { RouteProp } from '@react-navigation/core';
 
+export const sendInputAccessoryViewID = 'send-amount-input-accessory-view';
 const showTxMessageFaq = (isContractTo: boolean) => {
   Dialog.show({
     title: isContractTo
@@ -151,6 +156,15 @@ function SendDataInputContainer() {
     accountId,
     networkId,
   });
+
+  const [isShowPercentToolbar, setIsShowPercentToolbar] = useState(false);
+  const showPercentToolbar = useCallback(() => {
+    setIsShowPercentToolbar(true);
+  }, []);
+
+  const hidePercentToolbar = useCallback(() => {
+    setIsShowPercentToolbar(false);
+  }, []);
 
   const [isHexTxMessage, setIsHexTxMessage] = useState(false);
   const [txMessageLinkedString, setTxMessageLinkedString] = useState('');
@@ -567,6 +581,7 @@ function SendDataInputContainer() {
               memo: memoValue,
               paymentId: paymentIdValue,
               note: noteValue,
+              tokenInfo: tokenDetails?.info,
             },
             isInternalTransfer: true,
           });
@@ -675,7 +690,7 @@ function SendDataInputContainer() {
         await backgroundApiProxy.serviceValidator.validateSendAmount({
           accountId: currentAccount.accountId,
           networkId: currentAccount.networkId,
-          amount: amountBN.toString(),
+          amount: amountBN.toFixed(),
           tokenBalance: tokenDetails?.balanceParsed ?? '0',
           to: toRaw ?? '',
           isNative: tokenDetails?.info.isNative,
@@ -753,93 +768,123 @@ function SendDataInputContainer() {
     return balanceFiat.isNaN() ? '0' : balanceFiat.toFixed();
   }, [tokenDetails?.fiatValue]);
 
+  // Lightning Network only accepts integer values on Token Mode
+  const isIntegerAmount = useMemo(
+    () => networkUtils.isLightningNetworkByNetworkId(networkId) && !isUseFiat,
+    [networkId, isUseFiat],
+  );
+
   const renderTokenDataInputForm = useCallback(
     () => (
-      <Form.Field
-        name="amount"
-        label={intl.formatMessage({ id: ETranslations.send_amount })}
-        rules={{
-          required: true,
-          validate: handleValidateTokenAmount,
-          onChange: (e: { target: { name: string; value: string } }) => {
-            setIsMaxSend(false);
-            const value = e.target?.value;
-            const valueBN = new BigNumber(value ?? 0);
-            if (valueBN.isNaN()) {
-              const formattedValue = parseFloat(value);
-              form.setValue(
-                'amount',
-                isNaN(formattedValue) ? '' : String(formattedValue),
-              );
-              return;
-            }
-            const dp = valueBN.decimalPlaces();
-            if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
-              form.setValue(
-                'amount',
-                valueBN.toFixed(
-                  tokenDetails?.info.decimals ?? 0,
-                  BigNumber.ROUND_FLOOR,
-                ),
-              );
-            }
-          },
-        }}
-      >
-        <AmountInput
-          reversible
-          enableMaxAmount
-          balanceProps={{
-            loading: isLoadingAssets,
-            value: maxBalance,
-            onPress: () => {
-              form.setValue('amount', isUseFiat ? maxBalanceFiat : maxBalance);
-              void form.trigger('amount');
-              setIsMaxSend(true);
+      <>
+        <Form.Field
+          name="amount"
+          label={intl.formatMessage({ id: ETranslations.send_amount })}
+          rules={{
+            required: true,
+            validate: handleValidateTokenAmount,
+            onChange: (e: { target: { name: string; value: string } }) => {
+              setIsMaxSend(false);
+              const value = e.target?.value;
+              const valueBN = new BigNumber(value ?? 0);
+
+              if (valueBN.isNaN()) {
+                const formattedValue = isIntegerAmount
+                  ? Number.parseInt(value, 10)
+                  : Number.parseFloat(value);
+                form.setValue(
+                  'amount',
+                  isNaN(formattedValue) ? '' : String(formattedValue),
+                );
+                return;
+              }
+
+              if (isIntegerAmount) {
+                form.setValue('amount', valueBN.toFixed(0));
+                return;
+              }
+
+              const dp = valueBN.decimalPlaces();
+              if (!isUseFiat && dp && dp > (tokenDetails?.info.decimals ?? 0)) {
+                form.setValue(
+                  'amount',
+                  valueBN.toFixed(
+                    tokenDetails?.info.decimals ?? 0,
+                    BigNumber.ROUND_FLOOR,
+                  ),
+                );
+              }
             },
           }}
-          valueProps={{
-            currency: isUseFiat ? undefined : currencySymbol,
-            tokenSymbol: isUseFiat ? tokenSymbol : undefined,
-            value: linkedAmount.originalAmount,
-            onPress: handleOnChangeAmountMode,
-          }}
-          inputProps={{
-            placeholder: '0',
-            ...(isUseFiat && {
-              leftAddOnProps: {
-                label: currencySymbol,
-                pr: '$0',
-                pl: '$3.5',
-                mr: '$-2',
-              },
-            }),
-          }}
-          tokenSelectorTriggerProps={{
-            selectedTokenImageUri: isNFT
-              ? nft?.metadata?.image
-              : tokenInfo?.logoURI,
-            selectedNetworkImageUri: network?.logoURI,
-            selectedNetworkName: network?.name,
-            selectedTokenSymbol: isNFT
-              ? nft?.metadata?.name
-              : tokenInfo?.symbol,
-            isCustomNetwork: network?.isCustomNetwork,
-            onPress: isNFT ? undefined : handleOnSelectToken,
-            disabled: isSelectTokenDisabled,
-          }}
-          {...(hasFrozenBalance && {
-            balanceHelperProps: {
+        >
+          <AmountInput
+            reversible
+            enableMaxAmount
+            balanceProps={{
+              loading: isLoadingAssets,
+              value: maxBalance,
               onPress: () => {
-                showBalanceDetailsDialog({
-                  accountId: currentAccount.accountId,
-                  networkId: currentAccount.networkId,
-                });
+                form.setValue(
+                  'amount',
+                  isUseFiat ? maxBalanceFiat : maxBalance,
+                );
+                void form.trigger('amount');
+                setIsMaxSend(true);
               },
-            },
-          })}
-        />
-      </Form.Field>
+            }}
+            valueProps={{
+              currency: isUseFiat ? undefined : currencySymbol,
+              tokenSymbol: isUseFiat ? tokenSymbol : undefined,
+              value: linkedAmount.originalAmount,
+              onPress: handleOnChangeAmountMode,
+            }}
+            inputProps={{
+              inputAccessoryViewID: sendInputAccessoryViewID,
+              placeholder: '0',
+              onFocus: platformEnv.isNative ? showPercentToolbar : undefined,
+              onBlur: platformEnv.isNative ? hidePercentToolbar : undefined,
+              keyboardType: isIntegerAmount ? 'number-pad' : 'decimal-pad',
+              ...(isUseFiat && {
+                leftAddOnProps: {
+                  label: currencySymbol,
+                  pr: '$0',
+                  pl: '$3.5',
+                  mr: '$-2',
+                },
+              }),
+            }}
+            tokenSelectorTriggerProps={{
+              selectedTokenImageUri: isNFT
+                ? nft?.metadata?.image
+                : tokenInfo?.logoURI,
+              selectedNetworkImageUri: network?.logoURI,
+              selectedNetworkName: network?.name,
+              selectedTokenSymbol: isNFT
+                ? nft?.metadata?.name
+                : tokenInfo?.symbol,
+              isCustomNetwork: network?.isCustomNetwork,
+              onPress: isNFT ? undefined : handleOnSelectToken,
+              disabled: isSelectTokenDisabled,
+            }}
+            {...(hasFrozenBalance && {
+              balanceHelperProps: {
+                onPress: () => {
+                  showBalanceDetailsDialog({
+                    accountId: currentAccount.accountId,
+                    networkId: currentAccount.networkId,
+                    mergeDeriveAssetsEnabled: false,
+                  });
+                },
+              },
+            })}
+          />
+        </Form.Field>
+        {platformEnv.isNativeIOS ? (
+          <InputAccessoryView nativeID={sendInputAccessoryViewID}>
+            <SizableText h="$0" />
+          </InputAccessoryView>
+        ) : null}
+      </>
     ),
     [
       currencySymbol,
@@ -850,7 +895,9 @@ function SendDataInputContainer() {
       handleOnSelectToken,
       handleValidateTokenAmount,
       hasFrozenBalance,
+      hidePercentToolbar,
       intl,
+      isIntegerAmount,
       isLoadingAssets,
       isNFT,
       isSelectTokenDisabled,
@@ -863,6 +910,7 @@ function SendDataInputContainer() {
       network?.name,
       nft?.metadata?.image,
       nft?.metadata?.name,
+      showPercentToolbar,
       tokenDetails?.info.decimals,
       tokenInfo?.logoURI,
       tokenInfo?.symbol,
@@ -875,7 +923,19 @@ function SendDataInputContainer() {
         <Form.Field
           name="nftAmount"
           label={intl.formatMessage({ id: ETranslations.send_nft_amount })}
-          rules={{ required: true, max: nftDetails?.amount ?? 1, min: 1 }}
+          rules={{
+            required: true,
+            max: nftDetails?.amount ?? 1,
+            min: 1,
+            onChange: (e: { target: { name: string; value: string } }) => {
+              const valueString = BigNumber(e.target?.value).toFixed();
+              if (/^[1-9]\d*$/.test(valueString)) {
+                form.setValue('nftAmount', valueString);
+              } else {
+                form.setValue('nftAmount', '');
+              }
+            },
+          }}
         >
           {isLoadingAssets ? null : (
             <SizableText
@@ -1228,6 +1288,20 @@ function SendDataInputContainer() {
     [networkId],
   );
 
+  const onSelectPercentageStage = useCallback(
+    (percent: number) => {
+      form.setValue(
+        'amount',
+        calcPercentBalance({
+          balance: isUseFiat ? maxBalanceFiat : maxBalance,
+          percent,
+          decimals: token?.decimals,
+        }),
+      );
+    },
+    [form, isUseFiat, maxBalance, maxBalanceFiat, token?.decimals],
+  );
+
   return (
     <Page scrollEnabled safeAreaEnabled>
       <Page.Header
@@ -1313,16 +1387,23 @@ function SendDataInputContainer() {
           </Form>
         </AccountSelectorProviderMirror>
       </Page.Body>
-      <Page.Footer
-        onConfirm={form.submit}
-        onConfirmText={intl.formatMessage({
-          id: ETranslations.send_preview_button,
-        })}
-        confirmButtonProps={{
-          disabled: isSubmitDisabled,
-          loading: isSubmitting,
-        }}
-      />
+      <Page.Footer>
+        <Page.FooterActions
+          onConfirm={form.submit}
+          onConfirmText={intl.formatMessage({
+            id: ETranslations.send_preview_button,
+          })}
+          confirmButtonProps={{
+            disabled: isSubmitDisabled,
+            loading: isSubmitting,
+          }}
+        />
+        {isShowPercentToolbar ? (
+          <PercentageStageOnKeyboard
+            onSelectPercentageStage={onSelectPercentageStage}
+          />
+        ) : null}
+      </Page.Footer>
     </Page>
   );
 }

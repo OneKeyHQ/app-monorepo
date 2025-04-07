@@ -6,7 +6,6 @@ import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
 import type {
-  IIconButtonProps,
   IKeyOfIcons,
   ISizableTextProps,
   IYStackProps,
@@ -15,12 +14,15 @@ import {
   Badge,
   Banner,
   Button,
+  HeaderButtonGroup,
+  HeaderIconButton,
   Icon,
   IconButton,
   Image,
   NumberSizeableText,
   Page,
   Popover,
+  RefreshControl,
   ScrollView,
   SizableText,
   Skeleton,
@@ -28,15 +30,21 @@ import {
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -49,12 +57,12 @@ import type {
   IEarnRewardUnit,
 } from '@onekeyhq/shared/types/staking';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useReferFriends } from '../../hooks/useReferFriends';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
@@ -66,7 +74,6 @@ interface ITokenAccount extends IEarnAccountToken {
   account: IEarnAccount;
 }
 
-const BANNER_ICON_OFFSET = 34;
 const BANNER_TITLE_OFFSET = {
   desktop: '$5',
   mobile: '$10',
@@ -78,7 +85,7 @@ const getNumberColor = (
   defaultColor: ISizableTextProps['color'] = '$textSuccess',
 ): ISizableTextProps['color'] =>
   (typeof value === 'string' ? Number(value) : value) === 0
-    ? '$textDisabled'
+    ? '$text'
     : defaultColor;
 
 const toTokenProviderListPage = async (
@@ -216,7 +223,7 @@ function RecommendedItem({
         <SizableText size="$bodyLgMedium">{token.symbol}</SizableText>
       </XStack>
       <SizableText size="$headingXl" pt="$4" pb="$1">
-        {buildAprText(token.apr, token.rewardUnit)}
+        {buildAprText(token.aprWithoutFee, token.rewardUnit)}
       </SizableText>
       <SizableText size="$bodyMd" color="$textSubdued">
         {`${intl.formatMessage({ id: ETranslations.global_available })}: `}
@@ -444,12 +451,17 @@ function Overview({
           >
             {totalFiatValue}
           </NumberSizeableText>
-          <IconButton
-            icon="RefreshCcwOutline"
-            variant="tertiary"
-            loading={isLoading}
-            onPress={onRefresh}
-          />
+          {platformEnv.isNative && isLoading ? (
+            <IconButton loading icon="RefreshCcwOutline" variant="tertiary" />
+          ) : null}
+          {platformEnv.isNative ? null : (
+            <IconButton
+              icon="RefreshCcwOutline"
+              variant="tertiary"
+              loading={isLoading}
+              onPress={onRefresh}
+            />
+          )}
         </XStack>
       </YStack>
       {/* 24h earnings */}
@@ -576,7 +588,15 @@ function AvailableAssets() {
         >
           {assets.map(
             (
-              { name, logoURI, apr, networkId, symbol, rewardUnit, tags = [] },
+              {
+                name,
+                logoURI,
+                aprWithoutFee,
+                networkId,
+                symbol,
+                rewardUnit,
+                tags = [],
+              },
               index,
             ) => (
               <ListItem
@@ -642,7 +662,7 @@ function AvailableAssets() {
                     flexGrow: 1,
                     flexBasis: 0,
                   }}
-                  primary={buildAprText(apr, rewardUnit)}
+                  primary={buildAprText(aprWithoutFee, rewardUnit)}
                 />
               </ListItem>
             ),
@@ -653,12 +673,6 @@ function AvailableAssets() {
   }
   return null;
 }
-
-const bannerIconStyle: Omit<IIconButtonProps, 'icon'> = {
-  bottom: '$3',
-  size: 'small',
-  transform: platformEnv.isNative ? '' : 'unset',
-};
 
 function BasicEarnHome() {
   const {
@@ -848,7 +862,6 @@ function BasicEarnHome() {
     if (earnBanners) {
       return earnBanners.length ? (
         <Banner
-          showPaginationButton={!platformEnv.isNative}
           height="$36"
           $md={{
             height: '$28',
@@ -856,21 +869,6 @@ function BasicEarnHome() {
           data={earnBanners}
           onItemPress={onBannerPress}
           isLoading={false}
-          leftIconButtonStyle={{
-            ...bannerIconStyle,
-            left: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
-          }}
-          rightIconButtonStyle={{
-            ...bannerIconStyle,
-            right: media.gtLg ? '$3.5' : BANNER_ICON_OFFSET,
-          }}
-          indicatorContainerStyle={{
-            right: 0,
-            width: '100%',
-            jc: 'center',
-            bottom: '$5',
-          }}
-          itemContainerStyle={media.gtLg ? { px: 0 } : { px: '$5' }}
           itemTitleContainerStyle={{
             top: 0,
             bottom: 0,
@@ -894,14 +892,58 @@ function BasicEarnHome() {
     );
   }, [earnBanners, media.gtLg, onBannerPress]);
 
+  const isLoading = !!isFetchingAccounts;
+
+  const { shareReferRewards } = useReferFriends();
+
+  const handleShareReferRewards = useCallback(() => {
+    void shareReferRewards();
+  }, [shareReferRewards]);
+
+  const [devSettings] = useDevSettingsPersistAtom();
+  const renderCustomHeaderRight = useCallback(
+    () => (
+      <HeaderButtonGroup
+        testID="ear-Page-Header-Right"
+        className="app-region-no-drag"
+      >
+        <HeaderIconButton
+          title={intl.formatMessage({ id: ETranslations.referral_title })}
+          icon="GiftOutline"
+          onPress={handleShareReferRewards}
+        />
+      </HeaderButtonGroup>
+    ),
+    [intl, handleShareReferRewards],
+  );
+
+  const headerRight = useMemo(
+    () =>
+      devSettings.settings?.showOneKeyId
+        ? renderCustomHeaderRight()
+        : undefined,
+    [devSettings.settings?.showOneKeyId, renderCustomHeaderRight],
+  );
+
   return (
     <Page fullPage>
       <TabPageHeader
+        showHeaderRight
         sceneName={EAccountSelectorSceneName.home}
-        showHeaderRight={false}
-      />
+        tabRoute={ETabRoutes.Earn}
+      >
+        {headerRight}
+      </TabPageHeader>
       <Page.Body>
-        <ScrollView contentContainerStyle={{ py: '$5' }}>
+        <ScrollView
+          contentContainerStyle={{ py: '$5' }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isLoading}
+              onRefresh={refreshOverViewData}
+            />
+          }
+        >
           {/* container */}
           <YStack w="100%" maxWidth={EARN_PAGE_MAX_WIDTH} mx="auto" gap="$4">
             {/* overview and banner */}
@@ -914,12 +956,11 @@ function BasicEarnHome() {
             >
               <Overview
                 onRefresh={refreshOverViewData}
-                isLoading={!!isFetchingAccounts}
-                isFetchingAccounts={Boolean(
-                  result === undefined || !!isFetchingAccounts,
-                )}
+                isLoading={isLoading}
+                isFetchingAccounts={Boolean(result === undefined || isLoading)}
               />
               <YStack
+                px="$5"
                 minHeight="$36"
                 $md={{
                   minHeight: '$28',
@@ -928,6 +969,7 @@ function BasicEarnHome() {
                 width="100%"
                 borderCurve="continuous"
                 $gtLg={{
+                  px: '$0',
                   w: EARN_RIGHT_PANEL_WIDTH,
                 }}
               >
@@ -950,7 +992,7 @@ function BasicEarnHome() {
                   flex: 1,
                 }}
               >
-                <Recommended isFetchingAccounts={!!isFetchingAccounts} />
+                <Recommended isFetchingAccounts={isLoading} />
                 <AvailableAssets />
               </YStack>
               {media.gtLg ? (

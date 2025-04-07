@@ -7,16 +7,14 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import {
-  useActiveAccount,
-  useSelectedAccount,
-} from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
   useTokenListStateAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import type {
   IModalSendParamList,
   IModalSwapParamList,
@@ -29,6 +27,10 @@ import {
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import type { INetworkAccount } from '@onekeyhq/shared/types/account';
 import { EDeriveAddressActionType } from '@onekeyhq/shared/types/address';
+import {
+  ESwapSource,
+  ESwapTabSwitchType,
+} from '@onekeyhq/shared/types/swap/types';
 import type { IToken } from '@onekeyhq/shared/types/token';
 
 import { RawActions } from './RawActions';
@@ -40,7 +42,13 @@ function WalletActionSend() {
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSendParamList>>();
   const {
-    activeAccount: { account, network, wallet },
+    activeAccount: {
+      account,
+      network,
+      wallet,
+      deriveInfoItems,
+      indexedAccount,
+    },
   } = useActiveAccount({ num: 0 });
   // const { selectedAccount } = useSelectedAccount({ num: 0 });
   const intl = useIntl();
@@ -57,22 +65,58 @@ function WalletActionSend() {
   }, [network?.id]).result;
 
   const handleOnSend = useCallback(async () => {
-    if (!account || !network) return;
+    if (!network) return;
+
+    defaultLogger.wallet.walletActions.actionSend({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+    });
+
+    const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
+      networkId: network.id,
+      accountId: account?.id ?? '',
+    });
 
     if (vaultSettings?.isSingleToken) {
-      const nativeToken = await backgroundApiProxy.serviceToken.getNativeToken({
-        networkId: network.id,
-        accountId: account.id,
-      });
-      navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
-        screen: EModalSignatureConfirmRoutes.TxDataInput,
-        params: {
-          accountId: account.id,
-          networkId: network.id,
-          isNFT: false,
-          token: nativeToken,
-        },
-      });
+      if (
+        nativeToken &&
+        deriveInfoItems.length > 1 &&
+        !accountUtils.isOthersWallet({ walletId: wallet?.id ?? '' })
+      ) {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
+          params: {
+            networkId: network.id,
+            indexedAccountId: indexedAccount?.id ?? '',
+            walletId: wallet?.id ?? '',
+            actionType: EDeriveAddressActionType.Select,
+            token: nativeToken,
+            tokenMap: map,
+            onUnmounted: () => {},
+            onSelected: ({ account: a }: { account: INetworkAccount }) => {
+              navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
+                accountId: a.id,
+                networkId: network.id,
+                isNFT: false,
+                token: nativeToken,
+                isAllNetworks: network?.isAllNetworks,
+              });
+            },
+          },
+        });
+      } else {
+        navigation.pushModal(EModalRoutes.SignatureConfirmModal, {
+          screen: EModalSignatureConfirmRoutes.TxDataInput,
+          params: {
+            accountId: account?.id ?? '',
+            networkId: network.id,
+            isNFT: false,
+            token: nativeToken,
+          },
+        });
+      }
+
       return;
     }
 
@@ -84,7 +128,7 @@ function WalletActionSend() {
           id: ETranslations.global_search_asset,
         }),
         networkId: network.id,
-        accountId: account.id,
+        accountId: account?.id ?? '',
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
@@ -110,7 +154,7 @@ function WalletActionSend() {
               EModalSignatureConfirmRoutes.TxSelectDeriveAddress,
               {
                 networkId: token.networkId ?? '',
-                indexedAccountId: account.indexedAccountId ?? '',
+                indexedAccountId: indexedAccount?.id ?? '',
                 walletId,
                 accountId: token.accountId ?? '',
                 actionType: EDeriveAddressActionType.Select,
@@ -132,7 +176,7 @@ function WalletActionSend() {
           }
 
           navigation.push(EModalSignatureConfirmRoutes.TxDataInput, {
-            accountId: token.accountId ?? account.id,
+            accountId: token.accountId ?? account?.id ?? '',
             networkId: token.networkId ?? network.id,
             isNFT: false,
             token,
@@ -142,8 +186,10 @@ function WalletActionSend() {
       },
     });
   }, [
-    account,
     network,
+    wallet?.type,
+    wallet?.id,
+    account?.id,
     vaultSettings?.isSingleToken,
     navigation,
     intl,
@@ -151,7 +197,8 @@ function WalletActionSend() {
     allTokens.keys,
     map,
     tokenListState,
-    wallet?.id,
+    deriveInfoItems.length,
+    indexedAccount?.id,
   ]);
 
   return (
@@ -163,53 +210,53 @@ function WalletActionSend() {
   );
 }
 
-function WalletActionSwap({
-  networkId,
-  accountId,
-}: {
-  networkId?: string;
-  accountId?: string;
-}) {
+function WalletActionSwap() {
+  const {
+    activeAccount: { account, network, wallet },
+  } = useActiveAccount({ num: 0 });
   const intl = useIntl();
   const navigation =
     useAppNavigation<IPageNavigationProp<IModalSwapParamList>>();
   const vaultSettings = usePromiseResult(async () => {
     const settings = await backgroundApiProxy.serviceNetwork.getVaultSettings({
-      networkId: networkId ?? '',
+      networkId: network?.id ?? '',
     });
     return settings;
-  }, [networkId]).result;
+  }, [network?.id]).result;
   const handleOnSwap = useCallback(() => {
+    defaultLogger.wallet.walletActions.actionTrade({
+      walletType: wallet?.type ?? '',
+      networkId: network?.id ?? '',
+      source: 'homePage',
+      tradeType: ESwapTabSwitchType.SWAP,
+    });
     navigation.pushModal(EModalRoutes.SwapModal, {
       screen: EModalSwapRoutes.SwapMainLand,
       params: {
-        importNetworkId: networkId,
+        importNetworkId: network?.id ?? '',
+        swapSource: ESwapSource.WALLET_HOME,
       },
     });
-  }, [navigation, networkId]);
+  }, [navigation, network?.id, wallet?.type]);
   return (
     <RawActions.Swap
       onPress={handleOnSwap}
       label={intl.formatMessage({ id: ETranslations.global_trade })}
       disabled={
         vaultSettings?.disabledSwapAction ||
-        accountUtils.isUrlAccountFn({ accountId })
+        accountUtils.isUrlAccountFn({ accountId: account?.id ?? '' })
       }
     />
   );
 }
 
 function WalletActions({ ...rest }: IXStackProps) {
-  const {
-    activeAccount: { network, account },
-  } = useActiveAccount({ num: 0 });
-
   return (
     <RawActions {...rest}>
       <ReviewControl>
         <WalletActionBuy />
       </ReviewControl>
-      <WalletActionSwap networkId={network?.id} accountId={account?.id} />
+      <WalletActionSwap />
       <WalletActionSend />
       <WalletActionReceive />
       <WalletActionMore />

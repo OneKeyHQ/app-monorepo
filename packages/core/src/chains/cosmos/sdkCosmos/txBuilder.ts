@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { hexToBytes } from '@noble/hashes/utils';
 import { MsgSend } from 'cosmjs-types/cosmos/bank/v1beta1/tx';
-import { PubKey } from 'cosmjs-types/cosmos/crypto/ed25519/keys';
+import { PubKey } from 'cosmjs-types/cosmos/crypto/secp256k1/keys';
 import { MsgWithdrawDelegatorReward } from 'cosmjs-types/cosmos/distribution/v1beta1/tx';
 import { MsgVote } from 'cosmjs-types/cosmos/gov/v1beta1/tx';
 import {

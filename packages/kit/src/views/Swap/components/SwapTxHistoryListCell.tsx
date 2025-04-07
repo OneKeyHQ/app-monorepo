@@ -25,7 +25,7 @@ interface ISwapTxHistoryListCellProps {
   onClickCell: () => void;
 }
 
-const SwapTxHistoryAvatar = ({
+export const SwapTxHistoryAvatar = ({
   fromUri,
   toUri,
 }: {

@@ -4,6 +4,7 @@ import { memo, useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { TamaguiProvider } from 'tamagui';
 
+import type { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 import { AppIntlProvider } from '@onekeyhq/shared/src/locale/AppIntlProvider';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -12,7 +13,7 @@ import config from '../../../tamagui.config';
 
 import { useAppearanceTheme } from './hooks/useAppearanceTheme';
 import useLoadCustomFonts from './hooks/useLoadCustomFonts';
-import { Context } from './hooks/useProviderValue';
+import { SettingConfigContext } from './hooks/useProviderValue';
 import SidebarStateProvider from './SidebarStateProvider';
 
 export type IUIProviderProps = PropsWithChildren<{
@@ -28,6 +29,8 @@ export type IUIProviderProps = PropsWithChildren<{
   waitFontLoaded?: boolean;
 
   onLocaleChange?: (locale: ILocaleSymbol) => void;
+
+  HyperlinkText: typeof HyperlinkText;
 }>;
 export type IFontProviderProps = PropsWithChildren;
 
@@ -45,21 +48,23 @@ export function ConfigProvider({
   children,
   theme,
   locale,
+  HyperlinkText,
   onLocaleChange,
 }: IUIProviderProps) {
   const providerValue = useMemo(
     () => ({
       theme,
       locale,
+      HyperlinkText,
     }),
-    [theme, locale],
+    [theme, locale, HyperlinkText],
   );
 
   useAppearanceTheme(theme);
   return (
     <AppIntlProvider locale={locale} onLocaleChange={onLocaleChange}>
       <FontProvider>
-        <Context.Provider value={providerValue}>
+        <SettingConfigContext.Provider value={providerValue}>
           <SidebarStateProvider>
             <SafeAreaProvider>
               <MemoizedTamaguiProvider config={config} defaultTheme={theme}>
@@ -67,7 +72,7 @@ export function ConfigProvider({
               </MemoizedTamaguiProvider>
             </SafeAreaProvider>
           </SidebarStateProvider>
-        </Context.Provider>
+        </SettingConfigContext.Provider>
       </FontProvider>
     </AppIntlProvider>
   );

@@ -29,7 +29,6 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
-import { HeaderIconButton } from '@onekeyhq/components/src/layouts/Navigation/Header';
 import ConnectByBluetoothAnim from '@onekeyhq/kit/assets/animations/connect_by_bluetooth.json';
 import ConnectByUSBAnim from '@onekeyhq/kit/assets/animations/connect_by_usb.json';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -39,17 +38,18 @@ import {
   OpenBleSettingsDialog,
   RequireBlePermissionDialog,
 } from '@onekeyhq/kit/src/components/Hardware/HardwareDialog';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { MultipleClickStack } from '@onekeyhq/kit/src/components/MultipleClickStack';
 import type { ITutorialsListItem } from '@onekeyhq/kit/src/components/TutorialsList';
 import { TutorialsList } from '@onekeyhq/kit/src/components/TutorialsList';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
+import { usePromptWebDeviceAccess } from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
+import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useAccountSelectorActions } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
-import {
-  HARDWARE_BRIDGE_DOWNLOAD_URL,
-  HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
-} from '@onekeyhq/shared/src/config/appConfig';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { HARDWARE_BRIDGE_DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import {
   BleLocationServiceError,
   BridgeTimeoutError,
@@ -65,10 +65,6 @@ import {
 } from '@onekeyhq/shared/src/errors/errors/hardwareErrors';
 import { convertDeviceError } from '@onekeyhq/shared/src/errors/utils/deviceErrorUtils';
 import errorToastUtils from '@onekeyhq/shared/src/errors/utils/errorToastUtils';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import bleManagerInstance from '@onekeyhq/shared/src/hardware/bleManager';
 import { checkBLEPermissions } from '@onekeyhq/shared/src/hardware/blePermissions';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -76,10 +72,16 @@ import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IOnboardingParamList } from '@onekeyhq/shared/src/routes';
 import { EOnboardingPages } from '@onekeyhq/shared/src/routes';
-import { HwWalletAvatarImages } from '@onekeyhq/shared/src/utils/avatarUtils';
+import {
+  HwWalletAvatarImages,
+  getDeviceAvatarImage,
+} from '@onekeyhq/shared/src/utils/avatarUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
+import {
+  EAccountSelectorSceneName,
+  EHardwareTransportType,
+} from '@onekeyhq/shared/types';
 import { EConnectDeviceChannel } from '@onekeyhq/shared/types/connectDevice';
 import {
   EOneKeyDeviceMode,
@@ -225,15 +227,11 @@ function ConnectByQrCodeComingSoon() {
 function BridgeNotInstalledDialogContent(props: { error: NeedOneKeyBridge }) {
   return (
     <Stack>
-      <Dialog.RichDescription
-        linkList={{
-          url: {
-            url: HARDWARE_BRIDGE_INSTALL_TROUBLESHOOTING,
-          },
-        }}
-      >
-        {ETranslations.onboarding_install_onekey_bridge_help_text}
-      </Dialog.RichDescription>
+      <HyperlinkText
+        size="$bodyLg"
+        mt="$1.5"
+        translationId={ETranslations.device_communication_failed}
+      />
     </Stack>
   );
 }
@@ -243,14 +241,12 @@ enum EConnectionStatus {
   searching = 'searching',
   listing = 'listing',
 }
-function ConnectByUSBOrBLE({
-  toOneKeyHardwareWalletPage,
-}: {
-  toOneKeyHardwareWalletPage: () => void;
-}) {
+function ConnectByUSBOrBLE() {
   const intl = useIntl();
+  const isFocused = useIsFocused();
   const searchStateRef = useRef<'start' | 'stop'>('stop');
   const [connectStatus, setConnectStatus] = useState(EConnectionStatus.init);
+  const [{ hardwareTransportType }] = useSettingsPersistAtom();
 
   const actions = useAccountSelectorActions();
 
@@ -408,7 +404,7 @@ function ConnectByUSBOrBLE({
     }
   }, []);
 
-  const [isSearching, setIsSearching] = useState(false);
+  const isSearchingRef = useRef(false);
   const [isChecking, setIsChecking] = useState(false);
   const [searchedDevices, setSearchedDevices] = useState<SearchDevice[]>([]);
   const [showHelper, setShowHelper] = useState(false);
@@ -423,6 +419,10 @@ function ConnectByUSBOrBLE({
   );
 
   const scanDevice = useCallback(() => {
+    if (isSearchingRef.current) {
+      return;
+    }
+    isSearchingRef.current = true;
     deviceScanner.startDeviceScan(
       (response) => {
         if (!response.success) {
@@ -500,8 +500,6 @@ function ConnectByUSBOrBLE({
 
             deviceScanner.stopScan();
           }
-
-          setIsSearching(false);
           return;
         }
 
@@ -522,9 +520,19 @@ function ConnectByUSBOrBLE({
 
   const stopScan = useCallback(() => {
     console.log('=====>>>>> stopDeviceScan>>>>>');
+    isSearchingRef.current = false;
     deviceScanner.stopScan();
-    setIsSearching(false);
   }, [deviceScanner]);
+
+  useEffect(() => {
+    if (isFocused) {
+      if (connectStatus === EConnectionStatus.listing) {
+        scanDevice();
+      }
+    } else if (!isFocused) {
+      stopScan();
+    }
+  }, [connectStatus, isFocused, scanDevice, stopScan]);
 
   const createHwWallet = useCallback(
     async ({
@@ -565,11 +573,16 @@ function ConnectByUSBOrBLE({
             }),
           });
         }
+        await actions.current.updateHwWalletsDeprecatedStatus({
+          connectId: device.connectId ?? '',
+          deviceId: features.device_id || device.deviceId || '',
+        });
       } catch (error) {
         errorToastUtils.toastIfError(error);
         navigation.pop();
         throw error;
       } finally {
+        setIsChecking(false);
         const connectId = device.connectId || '';
         await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog({
           connectId,
@@ -656,6 +669,7 @@ function ConnectByUSBOrBLE({
             device,
             features,
             onContinue: async ({ checked }) => {
+              setIsChecking(false);
               if (deviceMode === EOneKeyDeviceMode.notInitialized) {
                 handleNotActivatedDevicePress({ deviceType });
                 return;
@@ -666,6 +680,9 @@ function ConnectByUSBOrBLE({
                 isFirmwareVerified: checked,
                 features,
               });
+            },
+            onClose: () => {
+              setIsChecking(false);
             },
           });
           return;
@@ -697,88 +714,13 @@ function ConnectByUSBOrBLE({
 
   const devicesData = useMemo<IConnectYourDeviceItem[]>(
     () => [
-      /*
-      navigation.replace(RootRoutes.Onboarding, {
-          screen: EOnboardingRoutes.BehindTheScene,
-          params: {
-            password: '',
-            mnemonic: '',
-            isHardwareCreating: {
-              device,
-              features,
-            },
-            entry,
-          },
-        });
-      serviceAccount.createHWWallet
-      */
       ...searchedDevices.map((item) => ({
         title: item.name,
-        src: HwWalletAvatarImages[item.deviceType],
+        src: HwWalletAvatarImages[getDeviceAvatarImage(item.deviceType)],
         device: item,
         onPress: () => handleHwWalletCreateFlow({ device: item }),
         opacity: 1,
       })),
-      // ...(process.env.NODE_ENV !== 'production'
-      //   ? [
-      //       {
-      //         title: 'OneKey Classic 1S(Activate Your Device -- ActionSheet)',
-      //         src: HwWalletAvatarImages.classic1s,
-      //         onPress: () =>
-      //           handleNotActivatedDevicePress({ deviceType: 'classic' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Classic 1S(Activate Your Device)',
-      //         src: HwWalletAvatarImages.classic1s,
-      //         onPress: () =>
-      //           handleSetupNewWalletPress({ deviceType: 'classic' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Pro(Activate Your Device -- ActionSheet)',
-      //         src: HwWalletAvatarImages.pro,
-      //         onPress: () =>
-      //           handleNotActivatedDevicePress({ deviceType: 'pro' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Touch(Activate Your Device -- ActionSheet)',
-      //         src: HwWalletAvatarImages.touch,
-      //         onPress: () =>
-      //           handleNotActivatedDevicePress({ deviceType: 'touch' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Mini(Activate Your Device -- ActionSheet)',
-      //         src: HwWalletAvatarImages.mini,
-      //         onPress: () =>
-      //           handleNotActivatedDevicePress({ deviceType: 'mini' }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Plus(Test Unknown Device)',
-      //         src: HwWalletAvatarImages.unknown,
-      //         onPress: () =>
-      //           handleHwWalletCreateFlow({
-      //             device: {
-      //               connectId: '123',
-      //               uuid: '123',
-      //               deviceId: '123',
-      //               deviceType: 'unknown',
-      //               name: 'OneKey Plus',
-      //             },
-      //           }),
-      //         device: undefined,
-      //       },
-      //       {
-      //         title: 'OneKey Touch2(buy)',
-      //         src: HwWalletAvatarImages.touch,
-      //         onPress: toOneKeyHardwareWalletPage,
-      //         device: undefined,
-      //       },
-      //     ]
-      //   : []),
     ],
     [handleHwWalletCreateFlow, searchedDevices],
   );
@@ -835,21 +777,38 @@ function ConnectByUSBOrBLE({
     listingDevice,
   ]);
 
-  useEffect(() => {
-    if (!platformEnv.isNative) {
-      listingDevice();
+  // web-usb connect
+  const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
+  const onConnectWebDevice = useCallback(async () => {
+    setIsChecking(true);
+    try {
+      const device = await promptWebUsbDeviceAccess();
+      if (device?.serialNumber) {
+        const connectedDevice =
+          await backgroundApiProxy.serviceHardware.promptWebDeviceAccess({
+            deviceSerialNumberFromUI: device.serialNumber,
+          });
+        if (connectedDevice.device) {
+          void handleHwWalletCreateFlow({
+            device: connectedDevice.device as SearchDevice,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('onConnectWebDevice error:', error);
+      setIsChecking(false);
     }
-  }, [listingDevice]);
+  }, [handleHwWalletCreateFlow, promptWebUsbDeviceAccess]);
 
   useEffect(() => {
-    const handler = () => {
-      navigation.pop();
-    };
-    appEventBus.on(EAppEventBusNames.BeginFirmwareUpdate, handler);
-    return () => {
-      appEventBus.off(EAppEventBusNames.BeginFirmwareUpdate, handler);
-    };
-  }, [navigation]);
+    if (
+      platformEnv.isNative ||
+      hardwareTransportType === EHardwareTransportType.WEBUSB
+    ) {
+      return;
+    }
+    listingDevice();
+  }, [listingDevice, hardwareTransportType]);
 
   useEffect(
     () =>
@@ -1111,7 +1070,10 @@ function ConnectByUSBOrBLE({
         <YStack pt="$8">
           <Heading size="$headingMd" textAlign="center">
             {intl.formatMessage({
-              id: ETranslations.onboarding_bluetooth_prepare_to_connect,
+              id:
+                hardwareTransportType === EHardwareTransportType.WEBUSB
+                  ? ETranslations.device_connect_via_usb
+                  : ETranslations.onboarding_bluetooth_prepare_to_connect,
             })}
           </Heading>
           <SizableText
@@ -1123,7 +1085,10 @@ function ConnectByUSBOrBLE({
             mx="auto"
           >
             {intl.formatMessage({
-              id: ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
+              id:
+                hardwareTransportType === EHardwareTransportType.WEBUSB
+                  ? ETranslations.device_select_device_popup
+                  : ETranslations.onboarding_bluetooth_prepare_to_connect_help_text,
             })}
           </SizableText>
           <Button
@@ -1131,7 +1096,11 @@ function ConnectByUSBOrBLE({
             size="large"
             variant="primary"
             loading={isChecking}
-            onPress={startBLEConnection}
+            onPress={
+              hardwareTransportType === EHardwareTransportType.WEBUSB
+                ? onConnectWebDevice
+                : startBLEConnection
+            }
           >
             {intl.formatMessage({ id: ETranslations.global_start_connection })}
           </Button>
@@ -1178,7 +1147,6 @@ function ConnectByUSBOrBLE({
 }
 
 export function ConnectYourDevicePage() {
-  const navigation = useAppNavigation();
   const intl = useIntl();
   const route =
     useRoute<
@@ -1190,8 +1158,7 @@ export function ConnectYourDevicePage() {
     channel ?? EConnectDeviceChannel.usbOrBle,
   );
 
-  const { headerRight, toOneKeyHardwareWalletPage } =
-    useBuyOneKeyHeaderRightButton();
+  const { headerRight } = useBuyOneKeyHeaderRightButton();
 
   return (
     <Page>
@@ -1224,9 +1191,7 @@ export function ConnectYourDevicePage() {
         <Divider />
 
         {tabValue === EConnectDeviceChannel.usbOrBle ? (
-          <ConnectByUSBOrBLE
-            toOneKeyHardwareWalletPage={toOneKeyHardwareWalletPage}
-          />
+          <ConnectByUSBOrBLE />
         ) : null}
 
         {tabValue === EConnectDeviceChannel.qr ? (

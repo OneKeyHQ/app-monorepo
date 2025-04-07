@@ -84,6 +84,7 @@ export function WalletListItem({
         outlineColor: '$focusRing',
         outlineStyle: 'solid',
       }}
+      opacity={wallet?.deprecated ? 0.5 : undefined}
       {...(!platformEnv.isNative
         ? {
             onPress,

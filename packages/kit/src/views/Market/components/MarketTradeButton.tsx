@@ -137,7 +137,7 @@ export function MarketTradeButton({
             </Button>
             {canStaking ? (
               <Button flex={1} variant="secondary" onPress={handleStaking}>
-                {intl.formatMessage({ id: ETranslations.earn_stake })}
+                {intl.formatMessage({ id: ETranslations.global_earn })}
               </Button>
             ) : null}
             {show.buy ? (

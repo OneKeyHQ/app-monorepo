@@ -36,7 +36,7 @@ function DateTime(props: IProps) {
     }
 
     let timestampInMs =
-      timestamp.toString().length <= 10 ? timestamp.times(1000) : timestamp;
+      timestamp.toFixed().length <= 10 ? timestamp.times(1000) : timestamp;
     const duration = timestampInMs.minus(new Date().getTime());
     timestampInMs = duration.isGreaterThan(0)
       ? timestampInMs

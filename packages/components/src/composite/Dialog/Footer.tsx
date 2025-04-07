@@ -60,7 +60,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
   const { onConfirm, ...restProps } = footerRef.props || props || {};
 
   const handleConfirm = useCallback(async () => {
-    const { close, ref } = dialogInstance;
+    const { close, ref, isExist } = dialogInstance;
     const form = ref.current;
     if (form) {
       const isValidated = await form.trigger();
@@ -81,6 +81,7 @@ const useDialogFooterProps = (props: IDialogFooterProps) => {
                 resolve(false);
               },
               getForm: () => dialogInstance.ref.current,
+              isExist,
             }),
           )
             .catch((error) => {

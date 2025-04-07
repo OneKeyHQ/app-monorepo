@@ -52,11 +52,11 @@ const checkTransactionResult = ({
   // 计算手续费
   const fee = totalInput.minus(totalOutput);
 
-  expect(totalInput.toString()).toBe(totalOutput.plus(fee).toString());
+  expect(totalInput.toFixed()).toBe(totalOutput.plus(fee).toFixed());
   expect(fee.toNumber()).toBe(feeAmount);
   expect(fee.toNumber() < 5000).toBe(true);
-  expect(changeAmount.toString()).toBe(
-    totalInput.minus(transferAmount).minus(fee).toString(),
+  expect(changeAmount.toFixed()).toBe(
+    totalInput.minus(transferAmount).minus(fee).toFixed(),
   );
 
   submitTransaction.transaction.inputs.forEach((input) => {
@@ -80,7 +80,7 @@ const checkTransactionResult = ({
       expect(output.amount?.toString()).toBe(sendAmount);
       expect(address).toBe(to);
     } else if (index === 1) {
-      expect(output.amount?.toString()).toBe(changeAmount.toString());
+      expect(output.amount?.toString()).toBe(changeAmount.toFixed());
       expect(address).toBe(from);
     }
   });
@@ -268,7 +268,7 @@ describe('Kaspa transaction Tests', () => {
         scriptPubKey:
           '2088a88e27e7337ecdcd535f2e5dce132508270e3ce1f7662fee99711d625b2eeeac',
         scriptPublicKeyVersion: 0,
-        satoshis: MAX_UINT64_VALUE.toString(), // Uint64 max
+        satoshis: MAX_UINT64_VALUE.toFixed(), // Uint64 max
         blockDaaScore: 44_431_383,
       },
     ];

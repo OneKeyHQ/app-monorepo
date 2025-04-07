@@ -285,22 +285,4 @@ export class DeviceSettingsManager extends ServiceHardwareManagerBase {
       throw error;
     }
   }
-
-  @backgroundMethod()
-  async updateSDKSettings({
-    hardwareConnectSrc,
-  }: {
-    hardwareConnectSrc?: EOnekeyDomain;
-  }) {
-    try {
-      const hardwareSDK = await this.getSDKInstance();
-      const connectSrc = generateConnectSrc(hardwareConnectSrc);
-      if (hardwareSDK && hardwareSDK.updateSettings) {
-        const res = await hardwareSDK?.updateSettings({ connectSrc });
-        console.log('Switch hardware connect src success', res);
-      }
-    } catch (e) {
-      console.log('Switch hardware connect src setting failed', e);
-    }
-  }
 }

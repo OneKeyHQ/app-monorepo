@@ -17,7 +17,7 @@ export function convertTokenHistoryUtxos(
     balance: decodeBalanceWithCell(c, config)
       .shiftedBy(-tokenInfo.decimals)
       .toFixed(),
-    balanceValue: decodeBalanceWithCell(c, config).toString(),
+    balanceValue: decodeBalanceWithCell(c, config).toFixed(),
     symbol: tokenInfo.symbol,
     isMine: scriptToAddress(c.cellOutput.lock, { config }) === mineAddress,
   }));

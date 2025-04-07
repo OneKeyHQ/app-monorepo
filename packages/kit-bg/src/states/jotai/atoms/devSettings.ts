@@ -1,4 +1,5 @@
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { EAtomNames } from '../atomNames';
 import { globalAtom } from '../utils';
@@ -24,7 +25,14 @@ export interface IDevSettings {
   // show trading view
   showTradingView?: boolean;
   showPrimeTest?: boolean;
+  showOneKeyId?: boolean;
   usePrimeSandboxPayment?: boolean;
+  // strict signature alert display
+  strictSignatureAlert?: boolean;
+  autoNavigation?: {
+    enabled: boolean;
+    selectedTab: ETabRoutes | null;
+  };
 }
 
 export type IDevSettingsKeys = keyof IDevSettings;
@@ -47,7 +55,14 @@ export const {
       disableSolanaPriorityFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
-      showPrimeTest: true,
+      showPrimeTest: false,
+      showOneKeyId: false,
+      usePrimeSandboxPayment: false,
+      strictSignatureAlert: false,
+      autoNavigation: {
+        enabled: false,
+        selectedTab: ETabRoutes.Discovery,
+      },
     },
   },
 });

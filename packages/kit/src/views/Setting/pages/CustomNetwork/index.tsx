@@ -136,7 +136,7 @@ function AddCustomNetwork() {
       const chainInfo =
         await backgroundApiProxy.serviceCustomRpc.searchCustomNetworkByChainList(
           {
-            chainId: chainId.toString(),
+            chainId: chainId.toFixed(),
           },
         );
       if (!chainInfo) {
@@ -153,7 +153,7 @@ function AddCustomNetwork() {
               id: ETranslations.form_symbol_recommend_text,
             },
             {
-              chainID: chainId.toString(),
+              chainID: chainId.toFixed(),
               symbol: chainInfo.nativeCurrency?.symbol,
             },
           ),

@@ -1,5 +1,6 @@
 import type { IElement } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 
 import type { IBrowserType } from '../types';
 import type { IElectronWebView } from '@onekeyfe/cross-inpage-provider-types';
@@ -122,7 +123,7 @@ export function processWebSiteUrl(url?: string): string | undefined {
   if (!url) return url;
 
   try {
-    const urlObj = new URL(url);
+    const urlObj = new URL(uriUtils.validateUrl(url));
 
     // add fp=onekey to searchParams when visit babylon
     if (urlObj.hostname === 'btcstaking.babylonlabs.io') {

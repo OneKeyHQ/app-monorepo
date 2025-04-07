@@ -76,6 +76,7 @@ export type IOnChainHistoryTxUTXOOutput = {
 };
 
 export type IOnChainHistoryTx = {
+  $key?: string;
   key: string;
   networkId: string;
   tx: string;
@@ -144,6 +145,8 @@ export type IOnChainHistoryTx = {
 export type IAccountHistoryTx = {
   id: string; // historyId
 
+  key?: string;
+
   isLocalCreated?: boolean;
 
   replacedPrevId?: string; // cancel speedUp replacedId
@@ -169,6 +172,8 @@ export type IFetchAccountHistoryParams = {
   tokenIdOnNetwork?: string;
   isAllNetworks?: boolean;
   isManualRefresh?: boolean;
+  filterScam?: boolean;
+  excludeTestNetwork?: boolean;
 };
 
 export type IOnChainHistoryTxToken = {

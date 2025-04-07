@@ -25,9 +25,11 @@ import {
 function SearchTextItem({
   item,
   onPress,
+  searchType,
 }: {
   item: IIUniversalRecentSearchItem;
   onPress: (item: IIUniversalRecentSearchItem) => void;
+  searchType?: EUniversalSearchType;
 }) {
   const handlePress = useCallback(() => {
     onPress(item);
@@ -44,7 +46,9 @@ function SearchTextItem({
       onPress={handlePress}
     >
       <SizableText px="$2.5" py="$1" size="$bodyMdMedium">
-        {item.text}
+        {searchType === EUniversalSearchType.MarketToken
+          ? item.text.toUpperCase()
+          : item.text}
       </SizableText>
     </Stack>
   );
@@ -103,7 +107,12 @@ export function RecentSearched({
       </XStack>
       <XStack flexWrap="wrap" gap="$3">
         {recentSearch.map((i) => (
-          <SearchTextItem onPress={handlePress} item={i} key={i.text} />
+          <SearchTextItem
+            onPress={handlePress}
+            item={i}
+            searchType={searchType}
+            key={i.text}
+          />
         ))}
       </XStack>
     </YStack>

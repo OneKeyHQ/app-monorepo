@@ -15,6 +15,7 @@ export enum ECustomOneKeyHardwareError {
 
 export enum EOneKeyErrorClassNames {
   OneKeyError = 'OneKeyError',
+  OneKeyAppError = 'OneKeyAppError',
   OneKeyHardwareError = 'OneKeyHardwareError',
   UnknownHardwareError = 'UnknownHardwareError',
   OneKeyServerApiError = 'OneKeyServerApiError',
@@ -37,6 +38,7 @@ export enum EOneKeyErrorClassNames {
   HardwareUserCancelFromOutside = 'HardwareUserCancelFromOutside',
   FirmwareUpdateExit = 'FirmwareUpdateExit',
   FirmwareUpdateTasksClear = 'FirmwareUpdateTasksClear',
+  WebDeviceNotFoundOrNeedsPermission = 'WebDeviceNotFoundOrNeedsPermission',
 }
 
 export type IOneKeyErrorI18nInfo = Record<string | number, string | number>;

@@ -5,12 +5,14 @@ import { useWindowDimensions } from 'react-native';
 
 import {
   AnimatePresence,
+  EPageType,
   SegmentControl,
   Spinner,
   Stack,
   XStack,
   YStack,
   useMedia,
+  usePageType,
   useSafeAreaInsets,
   useTabBarHeight,
 } from '@onekeyhq/components';
@@ -59,7 +61,10 @@ function NativeTokenPriceChart({
   const intl = useIntl();
   const [points, setPoints] = useState<IMarketTokenChart>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { md } = useMedia();
+  const { md: mdMedia } = useMedia();
+  const pageType = usePageType();
+  const md = pageType === EPageType.modal ? true : mdMedia;
+
   const options = useMemo(
     () => [
       {
@@ -108,7 +113,9 @@ function NativeTokenPriceChart({
   useEffect(() => {
     void init();
   }, [init]);
-  const { gtLg } = useMedia();
+  const { gtLg: gtLgMedia } = useMedia();
+  const gtLg = pageType === EPageType.modal ? false : gtLgMedia;
+
   return (
     <>
       <YStack px="$5" $gtMd={{ pr: platformEnv.isNative ? '$5' : 0 }}>
@@ -149,9 +156,18 @@ function NativeTokenPriceChart({
 }
 
 const useHeight = () => {
-  const { height } = useWindowDimensions();
+  const pageType = usePageType();
+  const { height: windowHeight } = useWindowDimensions();
   const { top } = useSafeAreaInsets();
-  const { gtMd } = useMedia();
+  const { gtMd: gtMdMedia } = useMedia();
+  const gtMd = pageType === EPageType.modal ? false : gtMdMedia;
+
+  const height = useMemo(() => {
+    if (pageType === EPageType.modal && gtMdMedia) {
+      return 640;
+    }
+    return windowHeight;
+  }, [pageType, windowHeight, gtMdMedia]);
 
   const tabHeight = useTabBarHeight();
   const fixedHeight = useMemo(() => {
@@ -185,11 +201,13 @@ function TradingViewChart({
     defer.resolve(null);
   }, [defer]);
 
+  const pageType = usePageType();
+
   return (
     <TradingView
       mode="overview"
       h={height}
-      $gtMd={{ pl: '$5' }}
+      $gtMd={{ pl: pageType === EPageType.modal ? 0 : '$5' }}
       $md={{ pt: '$3' }}
       targetToken={targetToken}
       baseToken={baseToken}
@@ -290,6 +308,7 @@ function BasicTokenPriceChart({
   }, [coinGeckoId, tickers, tvPlatform]);
 
   const viewHeight = useHeight();
+
   const chart = useMemo(() => {
     if (isFetching) {
       return null;

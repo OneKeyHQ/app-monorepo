@@ -64,4 +64,11 @@ export class PageScene extends BaseScene {
       stakeProvider,
     };
   }
+
+  @LogToLocal()
+  public permitSignError({ error }: { error: string }) {
+    return {
+      error,
+    };
+  }
 }

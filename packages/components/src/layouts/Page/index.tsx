@@ -18,8 +18,6 @@ import { PageLifeCycle } from './PageLifeCycle';
 
 import type { IPageFooterRef } from './PageContext';
 import type { IPageProps } from './type';
-import type { IScrollViewRef } from '../ScrollView';
-import type { NativeScrollPoint } from 'react-native';
 
 export type { IPageProps, IPageFooterProps, IPageLifeCycle } from './type';
 

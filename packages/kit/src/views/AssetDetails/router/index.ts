@@ -10,6 +10,7 @@ const HistoryDetails = LazyLoadPage(
 );
 const TokenDetails = LazyLoadPage(() => import('../pages/TokenDetails'));
 const UTXODetails = LazyLoadPage(() => import('../pages/UTXODetails'));
+const MarketDetail = LazyLoadPage(() => import('../../Market/MarketDetail'));
 
 export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
   EModalAssetDetailRoutes,
@@ -18,6 +19,10 @@ export const ModalAssetDetailsStack: IModalFlowNavigatorConfig<
   {
     name: EModalAssetDetailRoutes.TokenDetails,
     component: TokenDetails,
+  },
+  {
+    name: EModalAssetDetailRoutes.MarketDetail,
+    component: MarketDetail,
   },
   {
     name: EModalAssetDetailRoutes.NFTDetails,

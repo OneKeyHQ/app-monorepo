@@ -8,10 +8,11 @@ import type { IToken } from '@onekeyhq/shared/types/token';
 import type { IUtxoAddressInfo } from '../../types/tx';
 
 export enum EModalAssetDetailRoutes {
-  TokenDetails = 'TokenDetails',
-  NFTDetails = 'NFTDetails',
-  HistoryDetails = 'HistoryDetails',
-  UTXODetails = 'UTXODetails',
+  TokenDetails = 'AssetDetail_TokenDetails',
+  NFTDetails = 'AssetDetail_NFTDetails',
+  HistoryDetails = 'AssetDetail_HistoryDetails',
+  UTXODetails = 'AssetDetail_UTXODetails',
+  MarketDetail = 'AssetDetail_MarketDetail',
 }
 
 export type IModalAssetDetailsParamList = {
@@ -25,6 +26,10 @@ export type IModalAssetDetailsParamList = {
     isBlocked?: boolean;
     riskyTokens?: string[];
     isAllNetworks?: boolean;
+    indexedAccountId: string;
+  };
+  [EModalAssetDetailRoutes.MarketDetail]: {
+    token: string;
   };
   [EModalAssetDetailRoutes.NFTDetails]: {
     networkId: string;

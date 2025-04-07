@@ -7,6 +7,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import type useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { handleDeepLinkUrl } from '@onekeyhq/kit/src/routes/config/deeplink';
 import { ContextJotaiActionsBase } from '@onekeyhq/kit/src/states/jotai/utils/ContextJotaiActionsBase';
+import { MaximumNumberOfTabs } from '@onekeyhq/kit/src/views/Discovery/config/Discovery.constants';
 import type {
   ESiteMode,
   IBrowserBookmark,
@@ -24,6 +25,10 @@ import {
   processWebSiteUrl,
   webviewRefs,
 } from '@onekeyhq/kit/src/views/Discovery/utils/explorerUtils';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -90,6 +95,8 @@ export const homeTab: IWebTab = {
 };
 
 class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
+  closeTimeId: NodeJS.Timeout | null = null;
+
   /**
    * Browser web tab action
    */
@@ -225,7 +232,24 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
   });
 
   addBlankWebTab = contextAtomMethod((_, set) => {
-    this.addWebTab.call(set, { ...homeTab, isActive: true });
+    this.addWebTab.call(set, { ...homeTab, isActive: true, type: 'normal' });
+  });
+
+  addBrowserHomeTab = contextAtomMethod((_, set) => {
+    const id = generateUUID();
+    this.addWebTab.call(set, {
+      id,
+      url: '',
+      title: appLocale.intl.formatMessage({
+        id: ETranslations.browser_start_tab,
+      }),
+      canGoBack: false,
+      loading: false,
+      favicon: '',
+      isActive: true,
+      type: 'home',
+    });
+    this.setCurrentWebTab.call(set, id);
   });
 
   setWebTabData = contextAtomMethod((get, set, payload: Partial<IWebTab>) => {
@@ -301,35 +325,53 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { tabId, entry } = payload;
       delete webviewRefs[tabId];
       const { tabs } = get(webTabsAtom());
-      const activeTabId = get(activeTabIdAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
-        const isClosingActiveTab = tabs[targetIndex].id === activeTabId;
         const closedTab = tabs[targetIndex];
         tabs.splice(targetIndex, 1);
 
-        if (isClosingActiveTab) {
+        // Add to browser history when tab is closed
+        if (closedTab.url && closedTab.title && closedTab.url !== homeTab.url) {
+          void this.addBrowserHistory.call(set, {
+            url: closedTab.url,
+            title: closedTab.title,
+          });
+        }
+
+        const activateAdjacentTab = () => {
           let newActiveTabIndex = targetIndex - 1;
-          // If the first tab is closed and there are other tabs
+
           if (newActiveTabIndex < 0 && tabs.length > 0) {
             newActiveTabIndex = 0;
           }
 
-          if (newActiveTabIndex >= 0) {
-            const newActiveTab = tabs[newActiveTabIndex];
-            newActiveTab.isActive = true;
-            const saveSetCurrentWebTab = () => {
-              this.setCurrentWebTab.call(set, newActiveTab.id);
-            };
-            // Refresh the list after closing WebView in Electron to improve list fluidity
-            if (platformEnv.isNative) {
-              saveSetCurrentWebTab();
-            } else {
-              setTimeout(() => {
-                saveSetCurrentWebTab();
-              }, 200);
-            }
+          // if current active tab is not in tabs, set it to the first tab
+          const hasCurrentActiveTab = tabs.find((t) => t.isActive);
+
+          if (hasCurrentActiveTab) {
+            return;
           }
+
+          // get the new active tab
+          const newActiveTab = tabs[newActiveTabIndex];
+
+          if (newActiveTab) {
+            newActiveTab.isActive = true;
+            this.setCurrentWebTab.call(set, newActiveTab.id);
+          }
+        };
+
+        // Refresh the list after closing WebView in Electron to improve list fluidity
+        if (platformEnv.isNative) {
+          activateAdjacentTab();
+        } else {
+          if (this.closeTimeId) {
+            clearTimeout(this.closeTimeId);
+          }
+
+          this.closeTimeId = setTimeout(() => {
+            activateAdjacentTab();
+          }, 100);
         }
 
         setTimeout(() => {
@@ -344,20 +386,38 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
     },
   );
 
-  closeAllWebTabs = contextAtomMethod((get, set) => {
+  closeAllWebTabs = contextAtomMethod(async (get, set) => {
     const { tabs } = get(webTabsAtom());
     const activeTabId = get(activeTabIdAtom());
     const pinnedTabs = tabs.filter((tab) => tab.isPinned); // close all tabs exclude pinned tab
     const tabsToClose = tabs.filter((tab) => !tab.isPinned);
+
+    // Create a queue for closing tabs
+    const closeQueue = tabsToClose.map((tab) => async () => {
+      if (tab.url && tab.title) {
+        await this.addBrowserHistory.call(set, {
+          url: tab.url,
+          title: tab.title,
+        });
+      }
+    });
+
+    // Process queue sequentially
+    for (const closeOperation of closeQueue) {
+      await closeOperation();
+    }
+
     // should update active tab, if active tab is not in pinnedTabs
     if (pinnedTabs.every((tab) => tab.id !== activeTabId)) {
       this.setCurrentWebTab.call(set, null);
     }
+
     for (const id of Object.getOwnPropertyNames(webviewRefs)) {
       if (!pinnedTabs.find((tab) => tab.id === id)) {
         delete webviewRefs[id];
       }
     }
+
     loggerForEmptyData(pinnedTabs, 'closeAllWebTabs');
     this.buildWebTabs.call(set, { data: pinnedTabs });
 
@@ -450,6 +510,11 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       }
 
       void backgroundApiProxy.serviceDiscovery.setBrowserBookmarks(data);
+
+      setTimeout(() => {
+        // Trigger bookmark list refresh after building bookmark data
+        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+      }, 200);
     },
   );
 
@@ -595,7 +660,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         siteMode,
         isNewWindow,
         isInPlace,
-        userTriggered,
       }: IGotoSiteFnParams,
     ) => {
       const tab = this.getWebTabById.call(set, id ?? '');
@@ -603,13 +667,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const validatedUrl = uriUtils.validateUrl(url);
         if (!validatedUrl) {
           return;
-        }
-
-        if (userTriggered) {
-          void this.addBrowserHistory.call(set, {
-            url: validatedUrl,
-            title: title ?? '',
-          });
         }
 
         if (browserTypeHandler === 'StandardBrowser') {
@@ -620,11 +677,16 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const maybeDeepLink =
           !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
 
-        const isNewTab =
+        const thisTab = this.getWebTabById.call(set, tabId ?? '');
+        let isNewTab =
           typeof isNewWindow === 'boolean'
             ? isNewWindow
             : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
               browserTypeHandler === 'MultiTabBrowser';
+
+        if (thisTab?.type === 'home') {
+          isNewTab = false;
+        }
 
         const bookmarks = await this.getBookmarkData.call(set);
         const isBookmark = bookmarks?.some((item) =>
@@ -637,6 +699,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             favicon,
             isBookmark,
             siteMode,
+            type: 'normal',
           });
         } else {
           this.setWebTabData.call(set, {
@@ -645,6 +708,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             title,
             favicon,
             isBookmark,
+            type: 'normal',
           });
         }
 
@@ -662,6 +726,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             }, 1000);
           }
         }
+
         return true;
       }
       return false;
@@ -684,7 +749,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
               webSite.url,
             ),
           isNewWindow,
-          userTriggered: true,
         });
       }
       if (dApp) {
@@ -694,7 +758,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           title: dApp.name,
           dAppId: dApp.dappId,
           favicon: dApp.logo || dApp.originLogo,
-          userTriggered: true,
           isNewWindow,
         });
       }
@@ -711,21 +774,22 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         navigation,
         webSite,
         dApp,
-        switchToMultiTabBrowser = false,
         shouldPopNavigation = true,
+        switchToMultiTabBrowser = false,
       }: {
         navigation: ReturnType<typeof useAppNavigation>;
         useCurrentWindow?: boolean;
-        switchToMultiTabBrowser?: boolean;
         tabId?: string;
         webSite?: IMatchDAppItemType['webSite'];
         dApp?: IMatchDAppItemType['dApp'];
         shouldPopNavigation?: boolean;
+        switchToMultiTabBrowser?: boolean;
       },
     ) => {
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
+
       let delayTime = 0;
       if (shouldPopNavigation) {
         delayTime = 300;
@@ -739,7 +803,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             Toast.message({
               title: appLocale.intl.formatMessage(
                 { id: ETranslations.explore_toast_tab_limit_reached },
-                { number: '20' },
+                { number: MaximumNumberOfTabs },
               ),
             });
             return;
@@ -753,6 +817,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           tabId,
         });
       }, delayTime);
+
       if (switchToMultiTabBrowser || platformEnv.isDesktop) {
         navigation.switchTab(ETabRoutes.MultiTabBrowser);
       } else if (shouldPopNavigation) {
@@ -941,6 +1006,7 @@ export function useBrowserTabActions() {
   const actions = createActions();
   const addWebTab = actions.addWebTab.use();
   const addBlankWebTab = actions.addBlankWebTab.use();
+  const addBrowserHomeTab = actions.addBrowserHomeTab.use();
   const buildWebTabs = actions.buildWebTabs.use();
   const setTabs = actions.setTabs.use();
   const setTabsByIds = actions.setTabsByIds.use();
@@ -957,6 +1023,7 @@ export function useBrowserTabActions() {
   return useRef({
     addWebTab,
     addBlankWebTab,
+    addBrowserHomeTab,
     buildWebTabs,
     setTabs,
     setTabsByIds,

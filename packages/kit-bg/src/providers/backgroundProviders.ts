@@ -10,12 +10,12 @@ import ProviderApiConflux from './ProviderApiConflux';
 import ProviderApiCosmos from './ProviderApiCosmos';
 import ProviderApiEthereum from './ProviderApiEthereum';
 import ProviderApiNear from './ProviderApiNear';
+import ProviderApiNeoN3 from './ProviderApiNeoN3';
 import ProviderApiNostr from './ProviderApiNostr';
 import ProviderApiPolkadot from './ProviderApiPolkadot';
 import ProviderApiPrivate from './ProviderApiPrivate';
 import ProviderApiScdo from './ProviderApiScdo';
 import ProviderApiSolana from './ProviderApiSolana';
-// import ProviderApiStarcoin from './ProviderApiStarcoin';
 import ProviderApiSui from './ProviderApiSui';
 import ProviderApiTon from './ProviderApiTon';
 import ProviderApiTron from './ProviderApiTron';
@@ -87,6 +87,9 @@ function createBackgroundProviders({
     [IInjectedProviderNames.webln]: new ProviderApiWebln({ backgroundApi }),
     [IInjectedProviderNames.nostr]: new ProviderApiNostr({ backgroundApi }),
     [IInjectedProviderNames.btc]: new ProviderApiBtc({
+      backgroundApi,
+    }),
+    [IInjectedProviderNames.neo]: new ProviderApiNeoN3({
       backgroundApi,
     }),
     // eslint-disable-next-line spellcheck/spell-checker

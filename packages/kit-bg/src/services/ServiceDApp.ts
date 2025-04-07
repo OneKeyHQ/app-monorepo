@@ -1289,7 +1289,10 @@ class ServiceDApp extends ServiceBase {
       : connectedAccountInfo.walletId === homeAccountSelectorInfo?.walletId &&
         connectedAccountInfo.indexedAccountId ===
           homeAccountSelectorInfo?.indexedAccountId &&
-        connectedAccountInfo.deriveType === homeAccountSelectorInfo?.deriveType;
+        // BTC account do not need to check deriveType
+        (networkUtils.isBTCNetwork(connectedAccountInfo.networkId) ||
+          connectedAccountInfo.deriveType ===
+            homeAccountSelectorInfo?.deriveType);
 
     return isSameAccount;
   }
@@ -1343,6 +1346,9 @@ class ServiceDApp extends ServiceBase {
 
     // 3. build primary account
     let networkAccountWithHomeAccountSelectorInfo: INetworkAccount;
+    const deriveType = networkUtils.isBTCNetwork(connectedAccountInfo.networkId)
+      ? connectedAccountInfo.deriveType
+      : homeAccountSelectorInfo?.deriveType ?? 'default';
     try {
       networkAccountWithHomeAccountSelectorInfo =
         await serviceAccount.getNetworkAccount({
@@ -1350,7 +1356,7 @@ class ServiceDApp extends ServiceBase {
             ? undefined
             : homeAccountSelectorInfo?.indexedAccountId,
           networkId: connectedAccountInfo.networkId ?? '',
-          deriveType: homeAccountSelectorInfo?.deriveType ?? 'default',
+          deriveType,
           accountId: isOtherWallet
             ? homeAccountSelectorInfo?.othersWalletAccountId
             : undefined,
@@ -1372,7 +1378,7 @@ class ServiceDApp extends ServiceBase {
       address: networkAccountWithHomeAccountSelectorInfo?.address,
       networkId: connectedAccountInfo.networkId,
       networkImpl: connectedAccountInfo.networkImpl,
-      deriveType: homeAccountSelectorInfo?.deriveType ?? 'default',
+      deriveType,
       walletId: homeAccountSelectorInfo?.walletId ?? '',
       indexedAccountId: homeAccountSelectorInfo?.indexedAccountId ?? '',
       othersWalletAccountId:

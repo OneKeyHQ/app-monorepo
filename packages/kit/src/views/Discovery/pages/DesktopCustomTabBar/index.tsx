@@ -66,6 +66,7 @@ function DesktopCustomTabBar() {
     setPinnedTab,
     closeAllWebTabs,
     setTabsByIds,
+    addBrowserHomeTab,
     reOpenLastClosedTab,
   } = useBrowserTabActions().current;
   const { addBrowserBookmark, removeBrowserBookmark } =
@@ -306,7 +307,6 @@ function DesktopCustomTabBar() {
         renderItem={({
           item: t,
           dragProps,
-          index,
         }: {
           item: IWebTab;
           dragProps?: Record<string, any>;
@@ -376,18 +376,25 @@ function DesktopCustomTabBar() {
                 ) : null}
               </XStack>
               <DesktopTabItem
+                size="small"
                 key="AddTabButton"
                 label={intl.formatMessage({
                   id: ETranslations.explore_new_tab,
                 })}
-                shortcutKey={EShortcutEvents.NewTab}
+                shortcutKey={EShortcutEvents.NewTab2}
                 icon="PlusSmallOutline"
                 testID="browser-bar-add"
                 onPress={(e) => {
                   e.stopPropagation();
-                  navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                    screen: EDiscoveryModalRoutes.SearchModal,
-                  });
+
+                  if (platformEnv.isDesktop) {
+                    addBrowserHomeTab();
+                    navigation.switchTab(ETabRoutes.MultiTabBrowser);
+                  } else {
+                    navigation.pushModal(EModalRoutes.DiscoveryModal, {
+                      screen: EDiscoveryModalRoutes.SearchModal,
+                    });
+                  }
                 }}
               />
             </>

@@ -11,6 +11,7 @@ export type IToken = {
   riskLevel?: number;
   uniqueKey?: string;
   sendAddress?: string;
+  coingeckoId?: string;
 
   // for all networks
   order?: number;

@@ -26,6 +26,7 @@ import { KeyringBase } from './KeyringBase';
 
 import type { IDBAccount, IDBWallet } from '../../dbs/local/types';
 import type {
+  INormalizeGetMultiAccountsPathParams,
   IPrepareQrAccountsParams,
   IGetChildPathTemplatesParams as IQrWalletGetChildPathTemplatesParams,
   IGetChildPathTemplatesResult as IQrWalletGetChildPathTemplatesResult,
@@ -39,6 +40,10 @@ export abstract class KeyringQrBase extends KeyringBase {
   override keyringType: EVaultKeyringTypes = EVaultKeyringTypes.qr;
 
   abstract verifySignedTxMatched(...args: any[]): Promise<void>;
+
+  abstract normalizeGetMultiAccountsPath(
+    params: INormalizeGetMultiAccountsPathParams,
+  ): Promise<string>;
 
   getChildPathTemplates(
     params: IQrWalletGetChildPathTemplatesParams,

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { useIntl } from 'react-intl';
 import { StyleSheet } from 'react-native';
 
@@ -8,6 +9,7 @@ import {
   Alert,
   Button,
   Dialog,
+  ESwitchSize,
   Form,
   IconButton,
   Input,
@@ -15,13 +17,16 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Switch,
   Toast,
   XStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
 
@@ -45,24 +50,25 @@ export function ConfirmOnDeviceToastContent({
       case undefined:
         return Promise.resolve(null);
       // Specify unsupported devices
-      case 'unknown':
+      case EDeviceType.Unknown:
         return Promise.resolve(null);
-      case 'classic':
-      case 'classic1s':
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
         return import(
           '@onekeyhq/kit/assets/animations/confirm-on-classic.json'
         );
-      case 'mini':
+      case EDeviceType.Mini:
         return import('@onekeyhq/kit/assets/animations/confirm-on-mini.json');
-      case 'touch':
+      case EDeviceType.Touch:
         return import('@onekeyhq/kit/assets/animations/confirm-on-touch.json');
-      case 'pro':
+      case EDeviceType.Pro:
         return import(
           '@onekeyhq/kit/assets/animations/confirm-on-pro-dark.json'
         );
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        const checkType = deviceType;
     }
   }, [deviceType]);
 
@@ -139,26 +145,27 @@ export function EnterPinOnDevice({
       case undefined:
         return Promise.resolve(null);
       // Specify unsupported devices
-      case 'unknown':
+      case EDeviceType.Unknown:
         return Promise.resolve(null);
-      case 'classic':
-      case 'classic1s':
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
         return import(
           '@onekeyhq/kit/assets/animations/enter-pin-on-classic.json'
         );
-      case 'mini':
+      case EDeviceType.Mini:
         return import('@onekeyhq/kit/assets/animations/enter-pin-on-mini.json');
-      case 'touch':
+      case EDeviceType.Touch:
         return import(
           '@onekeyhq/kit/assets/animations/enter-pin-on-touch.json'
         );
-      case 'pro':
+      case EDeviceType.Pro:
         return import(
           '@onekeyhq/kit/assets/animations/enter-pin-on-pro-dark.json'
         );
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        const checkType = deviceType;
     }
   }, [deviceType]);
 
@@ -331,28 +338,38 @@ export function EnterPin({
   );
 }
 
+interface IEnterPhaseFormValues {
+  passphrase: string;
+  confirmPassphrase: string;
+  hideImmediately: boolean;
+}
+
 export function EnterPhase({
   isSingleInput,
   onConfirm,
   switchOnDevice,
 }: {
   isSingleInput?: boolean;
-  onConfirm: (p: { passphrase: string; save: boolean }) => void;
-  switchOnDevice: () => void;
+  onConfirm: (p: {
+    passphrase: string;
+    save: boolean;
+    hideImmediately: boolean;
+  }) => void;
+  switchOnDevice: ({ hideImmediately }: { hideImmediately: boolean }) => void;
 }) {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
   const formOption = useMemo(
     () => ({
       defaultValues: {
         passphrase: '',
         confirmPassphrase: '',
+        hideImmediately:
+          settings.hiddenWalletImmediately === undefined
+            ? true
+            : settings.hiddenWalletImmediately,
       },
-      onSubmit: async (
-        form: UseFormReturn<{
-          passphrase: string;
-          confirmPassphrase: string;
-        }>,
-      ) => {
+      onSubmit: async (form: UseFormReturn<IEnterPhaseFormValues>) => {
         const values = form.getValues();
         if (
           !isSingleInput &&
@@ -366,15 +383,20 @@ export function EnterPhase({
           return;
         }
         const passphrase = values.passphrase || '';
-        onConfirm({ passphrase, save: true });
+        onConfirm({
+          passphrase,
+          save: true,
+          hideImmediately: values.hideImmediately,
+        });
       },
     }),
-    [intl, isSingleInput, onConfirm],
+    [intl, isSingleInput, onConfirm, settings.hiddenWalletImmediately],
   );
-  const form = useForm<{
-    passphrase: string;
-    confirmPassphrase: string;
-  }>(formOption);
+  const form = useForm<IEnterPhaseFormValues>(formOption);
+
+  const handleSwitchOnDevice = useCallback(() => {
+    switchOnDevice({ hideImmediately: form.getValues().hideImmediately });
+  }, [form, switchOnDevice]);
   const media = useMedia();
   const [secureEntry1, setSecureEntry1] = useState(true);
   const [secureEntry2, setSecureEntry2] = useState(true);
@@ -463,6 +485,20 @@ export function EnterPhase({
             />
           </Form.Field>
         ) : null}
+        {!isSingleInput ? (
+          <Form.Field
+            horizontal
+            name="hideImmediately"
+            label={intl.formatMessage({
+              id: ETranslations.form_keep_hidden_wallet_label,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.form_keep_hidden_wallet_label_desc,
+            })}
+          >
+            <Switch size={ESwitchSize.small} />
+          </Form.Field>
+        ) : null}
       </Form>
       {/* TODO: add loading state while waiting for result */}
       <Button
@@ -486,7 +522,7 @@ export function EnterPhase({
           } as any
         }
         variant="secondary"
-        onPress={switchOnDevice}
+        onPress={handleSwitchOnDevice}
       >
         {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
       </Button>
@@ -506,28 +542,29 @@ export function EnterPassphraseOnDevice({
       case undefined:
         return Promise.resolve(null);
       // Specify unsupported devices
-      case 'unknown':
+      case EDeviceType.Unknown:
         return Promise.resolve(null);
-      case 'classic':
-      case 'classic1s':
+      case EDeviceType.Classic:
+      case EDeviceType.Classic1s:
+      case EDeviceType.ClassicPure:
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-classic.json'
         );
-      case 'mini':
+      case EDeviceType.Mini:
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-mini.json'
         );
-      case 'touch':
+      case EDeviceType.Touch:
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-touch.json'
         );
-      case 'pro':
+      case EDeviceType.Pro:
         return import(
           '@onekeyhq/kit/assets/animations/enter-passphrase-on-pro-dark.json'
         );
       default:
         // eslint-disable-next-line @typescript-eslint/no-unused-vars, no-case-declarations
-        const checkType: never = deviceType;
+        const checkType = deviceType;
     }
   }, [deviceType]);
 

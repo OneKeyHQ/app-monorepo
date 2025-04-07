@@ -157,6 +157,7 @@ export async function buildDefaultAddAccountNetworksForQrWallet(
     ...params,
     btc: true,
     evm: true,
+    sol: true,
   });
   return networks;
 }

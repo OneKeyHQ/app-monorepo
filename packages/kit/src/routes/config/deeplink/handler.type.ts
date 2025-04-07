@@ -1,4 +1,4 @@
-import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/src-electron/app';
+import type { IDesktopOpenUrlEventData } from '@onekeyhq/desktop/app/app';
 
 export type IRegisterHandler = (
   handler: (data: IDesktopOpenUrlEventData) => void,

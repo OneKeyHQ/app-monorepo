@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { MorphoBundlerContract } from '@onekeyhq/shared/src/consts/addresses';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import {
   EOnChainHistoryTxStatus,
   type IFetchHistoryTxDetailsResp,
 } from '@onekeyhq/shared/types/history';
+import { EApproveType } from '@onekeyhq/shared/types/staking';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 
@@ -64,12 +66,14 @@ export function useTrackTokenAllowance({
   initialValue,
   tokenAddress,
   spenderAddress,
+  approveType,
 }: {
   networkId: string;
   accountId: string;
   initialValue: string;
   tokenAddress: string;
   spenderAddress: string;
+  approveType: EApproveType;
 }) {
   const [allowance, setAllowance] = useState<string>(initialValue);
   const [trackTxId, setTrackTxId] = useState<string>('');
@@ -79,6 +83,19 @@ export function useTrackTokenAllowance({
     networkId,
     trackTxId,
   });
+  const fetchAllowanceResponse = useCallback(
+    async () =>
+      backgroundApiProxy.serviceStaking.fetchTokenAllowance({
+        networkId,
+        accountId,
+        tokenAddress,
+        spenderAddress:
+          approveType === EApproveType.Permit
+            ? MorphoBundlerContract
+            : spenderAddress,
+      }),
+    [accountId, approveType, networkId, spenderAddress, tokenAddress],
+  );
   useEffect(() => {
     async function fetchAllowance() {
       if (!txDetails) {
@@ -86,13 +103,7 @@ export function useTrackTokenAllowance({
         return;
       }
       try {
-        const allowanceInfo =
-          await backgroundApiProxy.serviceStaking.fetchTokenAllowance({
-            networkId,
-            accountId,
-            tokenAddress,
-            spenderAddress,
-          });
+        const allowanceInfo = await fetchAllowanceResponse();
         if (allowanceInfo) {
           setAllowance(allowanceInfo.allowanceParsed);
         }
@@ -101,7 +112,15 @@ export function useTrackTokenAllowance({
       }
     }
     void fetchAllowance();
-  }, [txDetails, networkId, accountId, spenderAddress, tokenAddress]);
+  }, [
+    txDetails,
+    networkId,
+    accountId,
+    spenderAddress,
+    tokenAddress,
+    approveType,
+    fetchAllowanceResponse,
+  ]);
   const trackAllowance = useCallback(
     (txid: string) => {
       setTrackTxId(txid);
@@ -109,5 +128,5 @@ export function useTrackTokenAllowance({
     },
     [setTrackTxId],
   );
-  return { allowance, trackAllowance, loading };
+  return { allowance, trackAllowance, loading, fetchAllowanceResponse };
 }

@@ -177,8 +177,14 @@ class ServiceNetwork extends ServiceBase {
   @backgroundMethod()
   async getAllNetworkIds({
     clearCache,
-  }: { clearCache?: boolean } = {}): Promise<{ networkIds: string[] }> {
-    const { networks } = await this.getAllNetworks({ clearCache });
+    excludeTestNetwork,
+  }: { clearCache?: boolean; excludeTestNetwork?: boolean } = {}): Promise<{
+    networkIds: string[];
+  }> {
+    const { networks } = await this.getAllNetworks({
+      clearCache,
+      excludeTestNetwork,
+    });
     const networkIds = networks.map((n) => n.id);
     return {
       networkIds,
@@ -916,11 +922,13 @@ class ServiceNetwork extends ServiceBase {
     networkIds,
     walletId: _walletId,
     clearCache,
+    excludeTestNetwork,
   }: {
     accountId?: string;
     walletId?: string;
     networkIds?: string[];
     clearCache?: boolean;
+    excludeTestNetwork?: boolean;
   }): Promise<{
     mainnetItems: IServerNetwork[];
     testnetItems: IServerNetwork[];
@@ -1039,6 +1047,17 @@ class ServiceNetwork extends ServiceBase {
       }
       return !isDuplicate;
     });
+
+    if (excludeTestNetwork) {
+      return {
+        mainnetItems: networks.filter((o) => !o.isTestnet),
+        testnetItems: [],
+        frequentlyUsedItems: frequentlyUsedNetworks.filter((o) => !o.isTestnet),
+        unavailableItems: unavailableNetworks.filter((o) => !o.isTestnet),
+        allNetworkItem,
+      };
+    }
+
     return {
       mainnetItems: networks.filter((o) => !o.isTestnet),
       testnetItems: networks.filter((o) => o.isTestnet),

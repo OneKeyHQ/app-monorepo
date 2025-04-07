@@ -148,6 +148,7 @@ class ServiceGas extends ServiceBase {
             : '0',
         };
       }),
+      feeNeoN3: feeInfo.feeNeoN3,
     };
 
     // Since FIL's fee structure is similar to EIP1559, map FIL fees to EIP1559 format to reuse related logic

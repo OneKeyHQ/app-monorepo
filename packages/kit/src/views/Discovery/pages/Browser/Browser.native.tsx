@@ -14,6 +14,7 @@ import {
 import type { IPageNavigationProp } from '@onekeyhq/components/src/layouts/Navigation';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
+import { useTakeScreenshot } from '@onekeyhq/kit/src/views/Discovery/components/MobileBrowser/MobileBrowserBottomBar';
 import {
   EAppEventBusNames,
   appEventBus,
@@ -23,6 +24,7 @@ import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
@@ -30,6 +32,7 @@ import CustomHeaderTitle from '../../components/CustomHeaderTitle';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import HeaderRightToolBar from '../../components/HeaderRightToolBar';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
+import TabCountButton from '../../components/MobileBrowser/TabCountButton';
 import { useDAppNotifyChanges } from '../../hooks/useDAppNotifyChanges';
 import useMobileBottomBarAnimation from '../../hooks/useMobileBottomBarAnimation';
 import {
@@ -38,10 +41,15 @@ import {
   useWebTabs,
 } from '../../hooks/useWebTabs';
 import { checkAndCreateFolder } from '../../utils/screenshot';
+import { showTabBar } from '../../utils/tabBarUtils';
+import { BrowserTitle } from '../components/BrowserTitle';
+import { HistoryIconButton } from '../components/HistoryIconButton';
 import DashboardContent from '../Dashboard/DashboardContent';
 
 import MobileBrowserContent from './MobileBrowserContent';
 import { withBrowserProvider } from './WithBrowserProvider';
+
+const isNativeMobile = platformEnv.isNative && !platformEnv.isNativeIOSPad;
 
 function MobileBrowser() {
   const { tabs } = useWebTabs();
@@ -59,12 +67,13 @@ function MobileBrowser() {
   });
 
   const { displayHomePage } = useDisplayHomePageFlag();
+  const displayBottomBar = !displayHomePage;
 
-  const displayBottomBar = useMemo(() => {
-    if (!displayHomePage) return true;
-    if (displayHomePage && tabs.length > 0) return true;
-    return false;
-  }, [displayHomePage, tabs]);
+  useEffect(() => {
+    if (!tabs?.length) {
+      showTabBar();
+    }
+  }, [tabs]);
 
   const { setDisplayHomePage } = useBrowserTabActions().current;
   const firstRender = useRef(true);
@@ -81,19 +90,19 @@ function MobileBrowser() {
     void checkAndCreateFolder();
   }, []);
 
-  const closeCurrentWebTab = useCallback(
-    async () =>
-      activeTabId
-        ? closeWebTab({ tabId: activeTabId, entry: 'Menu' })
-        : Promise.resolve(),
-    [activeTabId, closeWebTab],
-  );
+  const closeCurrentWebTab = useCallback(async () => {
+    showTabBar();
+    return activeTabId
+      ? closeWebTab({ tabId: activeTabId, entry: 'Menu' })
+      : Promise.resolve();
+  }, [activeTabId, closeWebTab]);
 
   const onCloseCurrentWebTabAndGoHomePage = useCallback(() => {
     if (activeTabId) {
       closeWebTab({ tabId: activeTabId, entry: 'Menu' });
       setCurrentWebTab(null);
     }
+    showTabBar();
     return Promise.resolve();
   }, [activeTabId, closeWebTab, setCurrentWebTab]);
 
@@ -134,6 +143,22 @@ function MobileBrowser() {
   );
 
   const { top, bottom } = useSafeAreaInsets();
+  const takeScreenshot = useTakeScreenshot(activeTabId);
+
+  const handleGoBackHome = useCallback(async () => {
+    try {
+      await takeScreenshot();
+    } catch (e) {
+      console.error('takeScreenshot error: ', e);
+    }
+    setTimeout(() => {
+      setCurrentWebTab(null);
+      showTabBar();
+      if (platformEnv.isNativeIOSPad) {
+        navigation.switchTab(ETabRoutes.Discovery);
+      }
+    });
+  }, [takeScreenshot, setCurrentWebTab, navigation]);
 
   return (
     <Page fullPage>
@@ -147,11 +172,46 @@ function MobileBrowser() {
         mt={platformEnv.isNativeAndroid ? '$3' : undefined}
       >
         {!displayHomePage ? (
-          <Stack onPress={onCloseCurrentWebTabAndGoHomePage}>
-            <Icon name="CrossedLargeOutline" mr="$4" />
+          <Stack
+            onPress={
+              isNativeMobile
+                ? handleGoBackHome
+                : onCloseCurrentWebTabAndGoHomePage
+            }
+          >
+            <Icon
+              name={isNativeMobile ? 'MinimizeOutline' : 'CrossedLargeOutline'}
+              mr="$4"
+            />
           </Stack>
         ) : null}
-        <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+
+        {!displayHomePage ? (
+          <CustomHeaderTitle handleSearchBarPress={handleSearchBarPress} />
+        ) : (
+          <XStack
+            width="100%"
+            position="relative"
+            justifyContent="center"
+            alignItems="center"
+            $gtSm={{
+              justifyContent: 'space-between',
+            }}
+          >
+            <BrowserTitle />
+
+            <XStack gap="$2" position="absolute" right={0} alignItems="center">
+              <Stack>
+                <HistoryIconButton />
+              </Stack>
+
+              <TabCountButton
+                hideWhenEmpty={displayHomePage}
+                testID="browser-header-tabs"
+              />
+            </XStack>
+          </XStack>
+        )}
         <HeaderRightToolBar />
       </XStack>
       <Page.Body>
@@ -177,7 +237,10 @@ function MobileBrowser() {
                 },
               ]}
             >
-              <MobileBrowserBottomBar id={activeTabId ?? ''} />
+              <MobileBrowserBottomBar
+                id={activeTabId ?? ''}
+                onGoBackHomePage={handleGoBackHome}
+              />
             </Animated.View>
           </Freeze>
         </Stack>

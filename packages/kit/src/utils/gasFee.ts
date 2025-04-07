@@ -95,6 +95,19 @@ export function calculateSuiTotalFee({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
   return gasUsed.multipliedBy(1.1);
 }
 
+export function calculateNeoN3TotalFee({ feeInfo }: { feeInfo: IFeeInfoUnit }) {
+  const { feeDecimals } = feeInfo.common;
+  const {
+    networkFee = '0',
+    priorityFee = '0',
+    systemFee = '0',
+  } = feeInfo.feeNeoN3 ?? {};
+  return new BigNumber(networkFee)
+    .plus(priorityFee)
+    .plus(systemFee)
+    .shiftedBy(-feeDecimals);
+}
+
 export function calculateTotalFeeRange({
   feeInfo,
   txSize,
@@ -254,6 +267,16 @@ export function calculateTotalFeeRange({
       minForDisplay: nanToZeroString(fee),
       maxForDisplay: nanToZeroString(fee),
       withoutBaseFee: true,
+    };
+  }
+
+  if (feeInfo.feeNeoN3) {
+    const max = calculateNeoN3TotalFee({ feeInfo });
+    return {
+      min: nanToZeroString(max),
+      max: nanToZeroString(max),
+      minForDisplay: nanToZeroString(max),
+      maxForDisplay: nanToZeroString(max),
     };
   }
 

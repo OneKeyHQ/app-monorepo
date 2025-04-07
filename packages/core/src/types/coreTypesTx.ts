@@ -22,6 +22,7 @@ import type { IEncodedTxEvm } from '../chains/evm/types';
 import type { IEncodedTxFil } from '../chains/fil/types';
 import type { IEncodedTxKaspa } from '../chains/kaspa/types';
 import type { IEncodedTxNear } from '../chains/near/types';
+import type { IEncodedTxNeoN3 } from '../chains/neo/types';
 import type { IEncodedTxNexa } from '../chains/nexa/types';
 import type { IEncodedTxNostr } from '../chains/nostr/types';
 import type { IEncodedTxScdo } from '../chains/scdo/types';
@@ -58,7 +59,8 @@ export type IEncodedTx =
   | IEncodedTxAlgo
   | IEncodedTxGroupAlgo
   | IEncodedTxCkb
-  | IEncodedTxNear;
+  | IEncodedTxNear
+  | IEncodedTxNeoN3;
 //   | IEncodedTxBtc
 //   | IEncodedTxDot
 //   | IEncodedTxSTC
@@ -117,6 +119,9 @@ export type IUnsignedTxPro = IUnsignedTx & {
   uuid?: string;
   isInternalSwap?: boolean;
   isInternalTransfer?: boolean;
+
+  isKRC20RevealTx?: boolean;
+  commitTxScriptHex?: string;
 };
 export type ISignedTx = {
   txid: string;
@@ -137,6 +142,9 @@ export type ISignedTxResult = ISignedTx & {
   swapInfo?: ISwapTxInfo;
   stakingInfo?: IStakingInfo;
   uuid?: string;
+
+  // for kaspa
+  outputIndex?: number;
 };
 export type ISignedTxPro = ISignedTxResult & {
   encodedTx: IEncodedTx | null;

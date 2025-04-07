@@ -1019,6 +1019,51 @@ class AccountSelectorActions extends ContextJotaiActionsBase {
     },
   );
 
+  updateHwWalletsDeprecatedStatus = contextAtomMethod(
+    async (
+      get,
+      set,
+      { connectId, deviceId }: { connectId: string; deviceId: string },
+    ) => {
+      if (!connectId || !deviceId) {
+        return;
+      }
+
+      const allHwWallets =
+        await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
+          filterHiddenWallet: false,
+          filterQrWallet: true,
+        });
+
+      const willUpdateDeprecateMap: Record<string, boolean> = {};
+
+      for (const walletWithDevice of Object.values(allHwWallets)) {
+        const wallet = walletWithDevice.wallet;
+        const device = walletWithDevice.device;
+
+        if (wallet?.id && device?.connectId) {
+          const isSameConnectId = device.connectId === connectId;
+          const isSameDevice = device.deviceId === deviceId;
+
+          // only handle wallet with same connectId
+          if (isSameConnectId) {
+            // if connectId is same, deviceId is different, the wallet should be deprecated
+            // if connectId is same, deviceId is same, the wallet should be not deprecated
+            const newDeprecatedStatus = !isSameDevice;
+            willUpdateDeprecateMap[wallet.id] = newDeprecatedStatus;
+          }
+        }
+      }
+
+      console.log('updateHwWalletsDeprecatedStatus >>>> ', {
+        willUpdateDeprecateMap,
+      });
+      await backgroundApiProxy.serviceAccount.updateWalletsDeprecatedState({
+        willUpdateDeprecateMap,
+      });
+    },
+  );
+
   removeAccount = contextAtomMethod(
     async (
       get,
@@ -1912,6 +1957,8 @@ export function useAccountSelectorActions() {
   const createQrWallet = actions.createQrWallet.use();
   const createTonImportedWallet = actions.createTonImportedWallet.use();
   const autoSelectNextAccount = actions.autoSelectNextAccount.use();
+  const updateHwWalletsDeprecatedStatus =
+    actions.updateHwWalletsDeprecatedStatus.use();
   const autoSelectNetworkOfOthersWalletAccount =
     actions.autoSelectNetworkOfOthersWalletAccount.use();
   const syncFromScene = actions.syncFromScene.use();
@@ -1946,6 +1993,7 @@ export function useAccountSelectorActions() {
     createHWWalletWithHidden,
     createQrWallet,
     createTonImportedWallet,
+    updateHwWalletsDeprecatedStatus,
     autoSelectNextAccount,
     autoSelectNetworkOfOthersWalletAccount,
     syncFromScene,

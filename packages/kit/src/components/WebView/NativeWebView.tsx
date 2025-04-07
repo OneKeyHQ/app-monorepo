@@ -41,7 +41,6 @@ const NativeWebView = forwardRef(
       style,
       src,
       receiveHandler,
-      onSrcChange,
       onLoadProgress,
       injectedJavaScriptBeforeContentLoaded,
       onMessage,

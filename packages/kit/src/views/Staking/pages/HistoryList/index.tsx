@@ -141,6 +141,9 @@ const HistoryContent = ({
       renderItem={renderItem}
       renderSectionHeader={renderSectionHeader}
       keyExtractor={keyExtractor}
+      contentContainerStyle={{
+        pb: '$12',
+      }}
       ListEmptyComponent={
         <Empty
           pt="$46"

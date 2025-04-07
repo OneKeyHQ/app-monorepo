@@ -9,8 +9,10 @@ import {
   XStack,
   YStack,
 } from '@onekeyhq/components';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import earnUtils from '@onekeyhq/shared/src/utils/earnUtils';
 import type {
   IEarnRewardUnit,
   IEarnTokenItem,
@@ -37,6 +39,8 @@ type IProfitInfoProps = {
   earnPoints?: boolean;
   stakingTime?: number;
   nextLaunchLeft?: string;
+  providerName?: string;
+  poolFee?: string;
 };
 
 function ProfitInfo({
@@ -52,6 +56,8 @@ function ProfitInfo({
   stakingTime,
   earnPoints,
   rewardUnit,
+  providerName,
+  poolFee,
 }: IProfitInfoProps) {
   const intl = useIntl();
 
@@ -74,7 +80,7 @@ function ProfitInfo({
         />
       ) : (
         <XStack flexWrap="wrap" m="$-5" p="$2">
-          {apr && Number(apr) > 0 ? (
+          {!apys && apr && Number(apr) > 0 ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_rewards_percentage,
@@ -82,7 +88,20 @@ function ProfitInfo({
             >
               <XStack gap="$1" alignItems="center">
                 <SizableText size="$bodyLgMedium" color="$textSuccess">
-                  {`${apr}% ${rewardUnit}`}
+                  {`${formatApy(apr)}% ${rewardUnit}`}
+                </SizableText>
+              </XStack>
+            </GridItem>
+          ) : null}
+          {apys?.dailyNetApy && Number(apys.dailyNetApy) > 0 ? (
+            <GridItem
+              title={intl.formatMessage({
+                id: ETranslations.earn_rewards_percentage,
+              })}
+            >
+              <XStack gap="$1" alignItems="center">
+                <SizableText size="$bodyLgMedium" color="$textSuccess">
+                  {`${formatApy(apys?.dailyNetApy)}% ${rewardUnit}`}
                 </SizableText>
                 {apys ? (
                   <Popover
@@ -100,7 +119,17 @@ function ProfitInfo({
                       />
                     }
                     renderContent={
-                      <MorphoApy apys={apys} rewardAssets={rewardAssets} />
+                      <MorphoApy
+                        apys={apys}
+                        rewardAssets={rewardAssets}
+                        poolFee={
+                          earnUtils.isMorphoProvider({
+                            providerName: providerName || '',
+                          })
+                            ? poolFee
+                            : undefined
+                        }
+                      />
                     }
                     placement="top"
                   />
@@ -145,7 +174,10 @@ function ProfitInfo({
               {updateFrequency}
             </GridItem>
           ) : null}
-          {stakingTime ? (
+          {stakingTime &&
+          !earnUtils.isEverstakeProvider({
+            providerName: providerName || '',
+          }) ? (
             <GridItem
               title={intl.formatMessage({
                 id: ETranslations.earn_earnings_start,
@@ -192,7 +224,10 @@ export const ProfitSection = ({
     return null;
   }
   const props: IProfitInfoProps = {
-    apr: Number(details.provider?.apr) > 0 ? details.provider.apr : undefined,
+    apr:
+      Number(details.provider?.aprWithoutFee) > 0
+        ? details.provider.aprWithoutFee
+        : undefined,
     apys: details.provider.apys,
     rewardAssets: details.rewardAssets,
     earningsIn24h: details.earnings24h,
@@ -205,6 +240,8 @@ export const ProfitSection = ({
     stakingTime: details.provider.stakingTime,
     nextLaunchLeft: details.provider.nextLaunchLeft,
     rewardUnit: details.provider.rewardUnit,
+    providerName: details.provider.name,
+    poolFee: details.provider.poolFee,
   };
   return <ProfitInfo {...props} />;
 };

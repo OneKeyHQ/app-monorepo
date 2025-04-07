@@ -1,7 +1,5 @@
 import type { IEncodedTx } from '@onekeyhq/core/src/types';
 
-import type { IServerNetwork } from '.';
-
 export enum ESendFeeStatus {
   Loading = 'Loading',
   Idle = 'Idle',
@@ -76,6 +74,12 @@ export type IFeeFil = {
   gasLimit: string;
 };
 
+export type IFeeNeoN3 = {
+  networkFee: string;
+  priorityFee: string;
+  systemFee: string;
+};
+
 export type IBatchEstimateFeeParams = {
   accountId: string;
   networkId: string;
@@ -107,6 +111,7 @@ export type IFeesInfoUnit = {
   feeAlgo?: IFeeAlgo[];
   feeDot?: IFeeDot[];
   feeBudget?: IFeeSui[];
+  feeNeoN3?: IFeeNeoN3[];
 };
 
 export type IFeeInfoUnit = {
@@ -127,6 +132,7 @@ export type IFeeInfoUnit = {
   feeAlgo?: IFeeAlgo;
   feeDot?: IFeeDot;
   feeBudget?: IFeeSui;
+  feeNeoN3?: IFeeNeoN3;
 };
 
 export type IEstimateFeeParamsSol = {
@@ -171,6 +177,7 @@ export type IEstimateGasResp = {
     extraTip: string; // dot extraTip
   }[];
   feeBudget?: IFeeSui[];
+  feeNeoN3?: IFeeNeoN3[];
 };
 
 export type IServerBatchEstimateFeeResponse = {

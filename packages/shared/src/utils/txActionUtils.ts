@@ -46,8 +46,8 @@ export function buildTxActionDirection({
   accountAddress: string;
 }) {
   const fixedFrom = from?.toLowerCase() ?? '';
-  const fixedTo = to.toLowerCase();
-  const fixedAccountAddress = accountAddress.toLowerCase();
+  const fixedTo = to?.toLowerCase() ?? '';
+  const fixedAccountAddress = accountAddress?.toLowerCase() ?? '';
 
   // out first for internal send
   if (fixedFrom && fixedFrom === fixedAccountAddress) {
@@ -203,7 +203,7 @@ export function getStakingActionLabel({
       });
     case EEarnLabels.Stake:
       return appLocale.intl.formatMessage({
-        id: ETranslations.earn_stake,
+        id: ETranslations.earn_deposit,
       });
     case EEarnLabels.Redeem:
       return appLocale.intl.formatMessage({
@@ -222,14 +222,12 @@ export function getStakingActionLabel({
 
 export function convertAddressToSignatureConfirmAddress({
   address,
-  networkId,
   label,
-  owner,
+  showAccountName,
 }: {
   address: string;
-  networkId: string;
   label?: string;
-  owner?: string;
+  showAccountName?: boolean;
 }): IDisplayComponentAddress {
   return {
     type: EParseTxComponentType.Address,
@@ -238,10 +236,9 @@ export function convertAddressToSignatureConfirmAddress({
       appLocale.intl.formatMessage({
         id: ETranslations.copy_address_modal_title,
       }),
-    address: networkUtils.isLightningNetworkByNetworkId(networkId)
-      ? owner ?? ''
-      : address,
+    address,
     tags: [],
+    showAccountName,
   };
 }
 

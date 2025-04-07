@@ -15,6 +15,7 @@ import {
 } from 'react';
 
 import { EPasteEventPayloadItemType } from '@onekeyfe/react-native-text-input/src/enum';
+import noop from 'lodash/noop';
 import { InteractionManager } from 'react-native';
 import { Group, getFontSize, useProps, useThemeName } from 'tamagui';
 
@@ -71,11 +72,16 @@ export type IInputProps = {
   addOns?: IInputAddOnProps[];
   allowClear?: boolean; // add clear button when controlled value is not empty
   autoFocusDelayMs?: number;
+  /**
+   * Auto scroll to top delay in milliseconds.
+   * Default is 250ms, only works on Android.
+   */
+  autoScrollTopDelayMs?: number;
   allowSecureTextEye?: boolean;
   containerProps?: IGroupProps;
   onPaste?: (event: IPasteEventParams) => void;
   onChangeText?: ((text: string) => string | void) | undefined;
-} & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste'> & {
+} & Omit<ITMInputProps, 'size' | 'onChangeText' | 'onPaste' | 'readOnly'> & {
     /** Web only */
     onCompositionStart?: CompositionEventHandler<any>;
     /** Web only */
@@ -105,6 +111,16 @@ const SIZE_MAPPINGS = {
   },
 };
 
+export const useAutoScrollToTop = platformEnv.isNativeAndroid
+  ? (ref: RefObject<TextInput>, waitMs = 250) => {
+      useEffect(() => {
+        setTimeout(() => {
+          ref.current?.setSelection(0, 0);
+        }, waitMs);
+      }, [ref, waitMs]);
+    }
+  : () => {};
+
 const useReadOnlyStyle = (readOnly = false) =>
   useMemo(
     () =>
@@ -117,7 +133,7 @@ const useReadOnlyStyle = (readOnly = false) =>
     [readOnly],
   );
 
-const useAutoFocus = (
+export const useAutoFocus = (
   inputRef: RefObject<TextInput>,
   autoFocus?: boolean,
   autoFocusDelayMs?: number,
@@ -143,6 +159,58 @@ const useAutoFocus = (
   }, [autoFocusDelayMs, inputRef, shouldReloadAutoFocus]);
   return shouldReloadAutoFocus ? false : autoFocus;
 };
+
+export const useOnWebPaste = platformEnv.isNative
+  ? noop
+  : (
+      inputRef: RefObject<TextInput> | null,
+      onPaste?: (event: IPasteEventParams) => void,
+    ) => {
+      useEffect(() => {
+        if (!platformEnv.isNative && inputRef?.current && onPaste) {
+          const handleWebPaste = (event: {
+            type: 'paste';
+            clipboardData: {
+              items: DataTransferItem[];
+            };
+          }) => {
+            if (event.type === 'paste') {
+              const clipboardData = event.clipboardData;
+              if (clipboardData && clipboardData.items.length > 0) {
+                const items: IPasteEventPayload = [];
+                const promises: Promise<void>[] = [];
+
+                for (let i = 0; i < clipboardData.items.length; i += 1) {
+                  const item = clipboardData.items[i];
+                  if (item.kind === 'string') {
+                    promises.push(
+                      new Promise<void>((resolve) => {
+                        item.getAsString((pastedText) => {
+                          items.push({
+                            data: pastedText,
+                            type: EPasteEventPayloadItemType.TextPlain,
+                          });
+                          resolve();
+                        });
+                      }),
+                    );
+                  }
+                }
+
+                void Promise.all(promises).then(() => {
+                  onPaste({ nativeEvent: { items } });
+                });
+              }
+            }
+          };
+          const inputElement = inputRef.current as unknown as HTMLInputElement;
+          inputElement.addEventListener('paste', handleWebPaste as any);
+          return () => {
+            inputElement.removeEventListener('paste', handleWebPaste as any);
+          };
+        }
+      }, [inputRef, onPaste]);
+    };
 
 function BaseInput(
   inputProps: IInputProps,
@@ -171,6 +239,7 @@ function BaseInput(
     keyboardType,
     InputComponentStyle,
     autoFocusDelayMs,
+    autoScrollTopDelayMs,
     secureTextEntry,
     allowSecureTextEye,
     ...props
@@ -226,50 +295,9 @@ function BaseInput(
     secureEntryState,
   ]);
 
-  useEffect(() => {
-    if (!platformEnv.isNative && inputRef.current && onPaste) {
-      const handleWebPaste = (event: {
-        type: 'paste';
-        clipboardData: {
-          items: DataTransferItem[];
-        };
-      }) => {
-        if (event.type === 'paste') {
-          const clipboardData = event.clipboardData;
-          if (clipboardData && clipboardData.items.length > 0) {
-            const items: IPasteEventPayload = [];
-            const promises: Promise<void>[] = [];
+  useOnWebPaste(inputRef, onPaste);
 
-            for (let i = 0; i < clipboardData.items.length; i += 1) {
-              const item = clipboardData.items[i];
-              if (item.kind === 'string') {
-                promises.push(
-                  new Promise<void>((resolve) => {
-                    item.getAsString((pastedText) => {
-                      items.push({
-                        data: pastedText,
-                        type: EPasteEventPayloadItemType.TextPlain,
-                      });
-                      resolve();
-                    });
-                  }),
-                );
-              }
-            }
-
-            void Promise.all(promises).then(() => {
-              onPaste({ nativeEvent: { items } });
-            });
-          }
-        }
-      };
-      const inputElement = inputRef.current as unknown as HTMLInputElement;
-      inputElement.addEventListener('paste', handleWebPaste as any);
-      return () => {
-        inputElement.removeEventListener('paste', handleWebPaste as any);
-      };
-    }
-  }, [onPaste]);
+  useAutoScrollToTop(inputRef, autoScrollTopDelayMs);
 
   useImperativeHandle(forwardedRef, () => ({
     ...inputRef.current,
@@ -503,6 +531,7 @@ function BaseInputUnControlled(
         blur: () => {},
       },
   );
+
   return (
     <Input
       ref={inputRef}

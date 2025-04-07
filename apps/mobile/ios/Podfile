@@ -122,6 +122,22 @@ target 'OneKeyWallet' do
         end
       end
     end
+
+    bitcode_strip_path = `xcrun --find bitcode_strip`.chop!
+
+    def strip_bitcode_from_framework(bitcode_strip_path, framework_path)
+      command = "#{bitcode_strip_path} #{framework_path} -r -o #{framework_path}"
+      puts "Stripping bitcode: #{command}"
+      system(command)
+    end
+
+    framework_paths = [
+      File.join(Dir.pwd.split('/apps')[0], "node_modules/@onekeyfe/react-native-lite-card/ios/GPChannelSDKCore.framework/GPChannelSDKCore"),
+    ]
+
+    framework_paths.each do |framework_relative_path|
+      strip_bitcode_from_framework(bitcode_strip_path, framework_relative_path)
+    end
   end
 
   # https://github.com/teslamotors/react-native-camera-kit/issues/578

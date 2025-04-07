@@ -146,6 +146,7 @@ function useAllNetworkRequests<T>(params: {
 
   useEffect(() => {
     if (currentAccountId && currentNetworkId && currentWalletId) {
+      allNetworkDataInit.current = false;
       perfTokenListView.markStart('useAllNetworkRequestsRun_debounceDelay');
     }
   }, [currentAccountId, currentNetworkId, currentWalletId]);
@@ -190,7 +191,8 @@ function useAllNetworkRequests<T>(params: {
         networkId: currentNetworkId,
         deriveType: undefined,
         nftEnabledOnly: isNFTRequests,
-        excludeTestNetwork: false,
+        // disable test network in all networks
+        excludeTestNetwork: true,
         // For watching accounts, display all available network data without filtering
         networksEnabledOnly: !accountUtils.isWatchingAccount({
           accountId: currentAccountId,
@@ -303,11 +305,7 @@ function useAllNetworkRequests<T>(params: {
         });
 
         try {
-          resp = (
-            await promiseAllSettledEnhanced(requests, {
-              continueOnError: true,
-            })
-          ).filter(Boolean);
+          resp = (await promiseAllSettledEnhanced(requests)).filter(Boolean);
         } catch (e) {
           console.error(e);
           resp = null;
@@ -397,8 +395,9 @@ function useAllNetworkRequests<T>(params: {
         // }
         // })(requestsUUID);
       }
-
-      allNetworkDataInit.current = true;
+      if (accountsInfo.length && accountsInfo.length > 0) {
+        allNetworkDataInit.current = true;
+      }
       isFetching.current = false;
       onFinished?.({
         accountId: currentAccountId,
@@ -430,12 +429,6 @@ function useAllNetworkRequests<T>(params: {
         isPageFocused || !!shouldAlwaysFetch,
     },
   );
-
-  useEffect(() => {
-    if (currentAccountId && currentNetworkId && currentWalletId) {
-      allNetworkDataInit.current = false;
-    }
-  }, [currentAccountId, currentNetworkId, currentWalletId]);
 
   return {
     run,

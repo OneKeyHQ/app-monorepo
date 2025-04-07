@@ -260,7 +260,7 @@ export default class Vault extends VaultBase {
       if (encodedTx.Fee) {
         encodedTx.Amount = new BigNumber(encodedTx.Amount)
           .minus(encodedTx.Fee)
-          .toString();
+          .toFixed();
       }
     }
     return Promise.resolve({

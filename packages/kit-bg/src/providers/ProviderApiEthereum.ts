@@ -98,7 +98,7 @@ class ProviderApiEthereum extends ProviderApiBase {
 
   private semaphore = new Semaphore(1);
 
-  private rpcSemaphore = new Semaphore(1);
+  private rpcSemaphore = new Semaphore(10);
 
   private _rpcCache?: RpcCache;
 
@@ -704,7 +704,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       address?: string,
       ...others: any[]
     ) => {
-      const networkId = `evm--${new BigNumber(params.chainId).toString(10)}`;
+      const networkId = `evm--${new BigNumber(params.chainId).toFixed()}`;
       const network = await this.backgroundApi.serviceNetwork.getNetworkSafe({
         networkId,
       });
@@ -811,7 +811,7 @@ class ProviderApiEthereum extends ProviderApiBase {
       request: IJsBridgeMessagePayload,
       params: ISwitchEthereumChainParameter,
     ) => {
-      const newNetworkId = `evm--${new BigNumber(params.chainId).toString(10)}`;
+      const newNetworkId = `evm--${new BigNumber(params.chainId).toFixed()}`;
       const containsNetwork =
         await this.backgroundApi.serviceNetwork.containsNetwork({
           impls: [IMPL_EVM],

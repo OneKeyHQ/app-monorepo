@@ -1,0 +1,195 @@
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV2MigrationBundlerV2__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV2MigrationBundlerV2__factory.js
+index 1e56ffd..e7b93de 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV2MigrationBundlerV2__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV2MigrationBundlerV2__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.AaveV2MigrationBundlerV2__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "constructor",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV3MigrationBundlerV2__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV3MigrationBundlerV2__factory.js
+index e4e475e..e5a3328 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV3MigrationBundlerV2__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV3MigrationBundlerV2__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.AaveV3MigrationBundlerV2__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "constructor",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV3OptimizerMigrationBundlerV2__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV3OptimizerMigrationBundlerV2__factory.js
+index e0a0eb3..a274a69 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV3OptimizerMigrationBundlerV2__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/AaveV3OptimizerMigrationBundlerV2__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.AaveV3OptimizerMigrationBundlerV2__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "constructor",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/CompoundV2MigrationBundlerV2__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/CompoundV2MigrationBundlerV2__factory.js
+index 8a729b2..82d9ef9 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/CompoundV2MigrationBundlerV2__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/CompoundV2MigrationBundlerV2__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.CompoundV2MigrationBundlerV2__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "constructor",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/CompoundV3MigrationBundlerV2__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/CompoundV3MigrationBundlerV2__factory.js
+index be2c77d..d2e53e7 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/CompoundV3MigrationBundlerV2__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/CompoundV3MigrationBundlerV2__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.CompoundV3MigrationBundlerV2__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "constructor",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/ERC20WrapperBundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/ERC20WrapperBundler__factory.js
+index 1c9e828..69d79f3 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/ERC20WrapperBundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/ERC20WrapperBundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.ERC20WrapperBundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/ERC4626Bundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/ERC4626Bundler__factory.js
+index 61e3610..f25db07 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/ERC4626Bundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/ERC4626Bundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.ERC4626Bundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/EthereumPermitBundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/EthereumPermitBundler__factory.js
+index 33c3dbd..7deb22a 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/EthereumPermitBundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/EthereumPermitBundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.EthereumPermitBundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/MorphoBundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/MorphoBundler__factory.js
+index 404c63b..f852143 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/MorphoBundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/MorphoBundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.MorphoBundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/Permit2Bundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/Permit2Bundler__factory.js
+index 7385b8f..e717592 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/Permit2Bundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/Permit2Bundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.Permit2Bundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/PermitBundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/PermitBundler__factory.js
+index fa019f7..5e58556 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/PermitBundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/PermitBundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.PermitBundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/StEthBundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/StEthBundler__factory.js
+index 6f16ae4..a18cd27 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/StEthBundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/StEthBundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.StEthBundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/TransferBundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/TransferBundler__factory.js
+index 2926d29..24b1529 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/TransferBundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/TransferBundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.TransferBundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/UrdBundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/UrdBundler__factory.js
+index ec5558f..9afa0cf 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/UrdBundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/UrdBundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.UrdBundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "function",
+diff --git a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/WNativeBundler__factory.js b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/WNativeBundler__factory.js
+index f20357b..e5934fb 100644
+--- a/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/WNativeBundler__factory.js
++++ b/node_modules/@morpho-org/bundler-sdk-ethers/lib/types/factories/WNativeBundler__factory.js
+@@ -4,7 +4,7 @@
+ /* eslint-disable */
+ Object.defineProperty(exports, "__esModule", { value: true });
+ exports.WNativeBundler__factory = void 0;
+-const ethers_1 = require("ethers");
++const ethers_1 = require("ethersV6");
+ const _abi = [
+     {
+         type: "receive",

@@ -146,7 +146,6 @@ class ServiceCustomRpc extends ServiceBase {
       shortname: params.networkName,
       decimals: 18,
       feeMeta: {
-        code: params.networkName,
         decimals: 9,
         symbol: 'Gwei',
         isEIP1559FeeEnabled,

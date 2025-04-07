@@ -8,8 +8,11 @@ import type {
 } from '@onekeyhq/components';
 import type { IDBAccount } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/simple/entity/SimpleDbEntityAccountSelector';
+import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
+import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
 import { defaultLogger } from '../logger/logger';
@@ -65,11 +68,13 @@ export enum EAppEventBusNames {
   RealmInit = 'RealmInit',
   V4RealmInit = 'V4RealmInit',
   SyncDeviceLabelToWalletName = 'SyncDeviceLabelToWalletName',
+  UpdateWalletAvatarByDeviceSerialNo = 'UpdateWalletAvatarByDeviceSerialNo',
   BatchCreateAccount = 'BatchCreateAccount',
   ExtensionContextMenuUpdate = 'ExtensionContextMenuUpdate',
   ShowFirmwareUpdateFromBootloaderMode = 'ShowFirmwareUpdateFromBootloaderMode',
   ShowFirmwareUpdateForce = 'ShowFirmwareUpdateForce',
   BeginFirmwareUpdate = 'BeginFirmwareUpdate', // notification begin hardware update, stop hardware progressing
+  FinishFirmwareUpdate = 'FinishFirmwareUpdate',
   LoadWebEmbedWebView = 'LoadWebEmbedWebView',
   LoadWebEmbedWebViewComplete = 'LoadWebEmbedWebViewComplete',
   HardwareVerifyAfterDeviceConfirm = 'HardwareVerifyAfterDeviceConfirm',
@@ -84,6 +89,8 @@ export enum EAppEventBusNames {
   TokenListUpdate = 'TokenListUpdate',
   TabListStateUpdate = 'TabListStateUpdate',
   RefreshTokenList = 'RefreshTokenList',
+  RefreshHistoryList = 'RefreshHistoryList',
+  RefreshBookmarkList = 'RefreshBookmarkList',
   AccountDataUpdate = 'AccountDataUpdate',
   onDragBeginInListView = 'onDragBeginInListView',
   onDragEndInListView = 'onDragEndInListView',
@@ -101,6 +108,9 @@ export enum EAppEventBusNames {
   PrimeDeviceLogout = 'PrimeDeviceLogout',
   CreateAddressByDialog = 'CreateAddressByDialog',
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
+  HideTabBar = 'HideTabBar',
+  RequestHardwareUIDialog = 'RequestHardwareUIDialog',
+  RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -118,6 +128,7 @@ export type IEventBusPayloadShowToast = {
   duration?: number;
   errorCode?: number;
   toastId?: string;
+  i18nKey?: ETranslations;
 };
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
@@ -192,6 +203,11 @@ export interface IAppEventBusPayload {
     label: string;
     walletName: string | undefined;
   };
+  [EAppEventBusNames.UpdateWalletAvatarByDeviceSerialNo]: {
+    walletId: string;
+    dbDeviceId: string;
+    avatarInfo: IAvatarInfo;
+  };
   [EAppEventBusNames.BatchCreateAccount]: {
     totalCount: number;
     createdCount: number;
@@ -210,6 +226,7 @@ export interface IAppEventBusPayload {
     connectId: string | undefined;
   };
   [EAppEventBusNames.BeginFirmwareUpdate]: undefined;
+  [EAppEventBusNames.FinishFirmwareUpdate]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebView]: undefined;
   [EAppEventBusNames.LoadWebEmbedWebViewComplete]: undefined;
   [EAppEventBusNames.HardwareVerifyAfterDeviceConfirm]: undefined;
@@ -239,6 +256,8 @@ export interface IAppEventBusPayload {
           networkId: string;
         }[];
       };
+  [EAppEventBusNames.RefreshHistoryList]: undefined;
+  [EAppEventBusNames.RefreshBookmarkList]: undefined;
   [EAppEventBusNames.TabListStateUpdate]: {
     isRefreshing: boolean;
     type: EHomeTab;
@@ -301,6 +320,11 @@ export interface IAppEventBusPayload {
     promiseId: number;
     type: 'scam' | 'contract';
   };
+  [EAppEventBusNames.HideTabBar]: boolean;
+  [EAppEventBusNames.RequestHardwareUIDialog]: {
+    uiRequestType: EHardwareUiStateAction;
+  };
+  [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

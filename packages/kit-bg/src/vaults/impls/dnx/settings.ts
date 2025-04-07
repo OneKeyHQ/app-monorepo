@@ -1,3 +1,5 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
+
 import {
   COINTYPE_DNX,
   IMPL_DNX,
@@ -35,7 +37,7 @@ const settings: IVaultSettings = {
     // ECoreApiExportedSecretKeyType.xpub,
   ],
 
-  supportedDeviceTypes: ['classic'],
+  supportedDeviceTypes: [EDeviceType.Classic],
 
   defaultFeePresetIndex: 0,
 

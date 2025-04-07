@@ -53,6 +53,7 @@ export type IBatchBuildAccountsBaseParams = {
   networkId: string;
   deriveType: IAccountDeriveTypes;
   showUIProgress?: boolean;
+  createAllDeriveTypes?: boolean;
 } & IWithHardwareProcessingControlParams;
 export type IBatchBuildAccountsParams = IBatchBuildAccountsBaseParams & {
   indexes: number[];
@@ -177,22 +178,46 @@ class ServiceBatchCreateAccount extends ServiceBase {
       indexes = payload.params.indexes;
     }
 
-    const deviceParams =
-      await this.backgroundApi.serviceAccount.getWalletDeviceParams({
+    const [deviceParams, vaultSettings] = await Promise.all([
+      this.backgroundApi.serviceAccount.getWalletDeviceParams({
         walletId: payload.params.walletId,
-      });
+      }),
+      this.backgroundApi.serviceNetwork.getVaultSettings({
+        networkId: payload.params.networkId,
+      }),
+    ]);
 
     return this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
       async () => {
+        let customNetworks: {
+          networkId: string;
+          deriveType: IAccountDeriveTypes;
+        }[] = [
+          {
+            networkId: payload.params.networkId,
+            deriveType: payload.params.deriveType,
+          },
+        ];
+        if (
+          payload.params.createAllDeriveTypes &&
+          vaultSettings.mergeDeriveAssetsEnabled
+        ) {
+          const deriveInfoItems =
+            await this.backgroundApi.serviceNetwork.getDeriveInfoItemsOfNetwork(
+              {
+                networkId: payload.params.networkId,
+              },
+            );
+          customNetworks = deriveInfoItems.map((item) => ({
+            networkId: payload.params.networkId,
+            deriveType: item.value as IAccountDeriveTypes,
+          }));
+        }
+
         const networksParams =
           await this.buildBatchCreateAccountsNetworksParams({
             walletId: payload.params.walletId,
-            customNetworks: [
-              {
-                networkId: payload.params.networkId,
-                deriveType: payload.params.deriveType,
-              },
-            ],
+            customNetworks,
           });
         const hwAllNetworkPrepareAccountsResponse =
           await this.getHwAllNetworkPrepareAccountsResponse({
@@ -208,14 +233,37 @@ class ServiceBatchCreateAccount extends ServiceBase {
           indexes,
           excludedIndexes,
         });
-        const result = await this.batchBuildAccounts({
-          ...payload.params,
-          indexes,
-          excludedIndexes,
-          saveToDb: true,
-          saveToCache: payload.saveToCache,
-          hwAllNetworkPrepareAccountsResponse,
-        });
+
+        const result: {
+          accountsForCreate: IBatchCreateAccount[];
+        } = {
+          accountsForCreate: [],
+        };
+
+        for (const networkParams of networksParams) {
+          try {
+            this.checkIfCancelled({ saveToDb });
+            const resp = await this.batchBuildAccounts({
+              ...payload.params,
+              ...networkParams,
+              indexes,
+              excludedIndexes,
+              saveToDb: true,
+              saveToCache: payload.saveToCache,
+              hwAllNetworkPrepareAccountsResponse,
+            });
+            result.accountsForCreate = result.accountsForCreate.concat(
+              resp.accountsForCreate,
+            );
+          } catch (error: any) {
+            this.forceExitFlowWhenErrorMatched({
+              error,
+              walletId: payload.params.walletId,
+              saveToDb,
+            });
+          }
+        }
+
         await this.emitBatchCreateDoneEvents({
           saveToDb,
           showUIProgress: payload.params.showUIProgress,

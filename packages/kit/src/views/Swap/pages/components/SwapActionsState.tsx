@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef } from 'react';
 
+import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { Keyboard } from 'react-native';
 
@@ -9,6 +10,7 @@ import {
   Dialog,
   EPageType,
   Icon,
+  LottieView,
   Page,
   Popover,
   SizableText,
@@ -18,23 +20,37 @@ import {
   useMedia,
   usePageType,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
   useSwapFromTokenAmountAtom,
+  useSwapLimitPriceUseRateAtom,
   useSwapProviderSupportReceiveAddressAtom,
   useSwapQuoteCurrentSelectAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
+  useSwapToTokenAmountAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
+  EProtocolOfExchange,
   ESwapDirectionType,
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
+  LIMIT_PRICE_DEFAULT_DECIMALS,
   SwapPercentageInputStageForNative,
 } from '@onekeyhq/shared/types/swap/types';
 
 import SwapPercentageStageBadge from '../../components/SwapPercentageStageBadge';
+import TransactionLossNetworkFeeExceedDialog from '../../components/TransactionLossNetworkFeeExceedDialog';
 import {
   useSwapAddressInfo,
   useSwapRecipientAddressInfo,
@@ -42,6 +58,8 @@ import {
 import {
   useSwapActionState,
   useSwapBatchTransfer,
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
   useSwapSlippagePercentageModeInfo,
 } from '../../hooks/useSwapState';
 
@@ -63,7 +81,9 @@ function PercentageStageOnKeyboard({
   onSelectPercentageStage?: (stage: number) => void;
 }) {
   const isShow = useIsKeyboardShown();
-  return isShow ? (
+  const [{ swapPercentageInputStageShowForNative }] =
+    useInAppNotificationAtom();
+  return isShow && swapPercentageInputStageShowForNative ? (
     <XStack
       alignItems="center"
       gap="$1"
@@ -137,14 +157,19 @@ const SwapActionsState = ({
   onSelectPercentageStage,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
   const [currentQuoteRes] = useSwapQuoteCurrentSelectAtom();
   const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
+  const swapToAddressInfo = useSwapAddressInfo(ESwapDirectionType.TO);
   const { cleanQuoteInterval, quoteAction } = useSwapActions().current;
   const swapActionState = useSwapActionState();
   const { slippageItem } = useSwapSlippagePercentageModeInfo();
+  const [swapToAmount] = useSwapToTokenAmountAtom();
+  const [swapLimitUseRate] = useSwapLimitPriceUseRateAtom();
+  const [swapType] = useSwapTypeSwitchAtom();
   const swapSlippageRef = useRef(slippageItem);
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
@@ -154,12 +179,15 @@ const SwapActionsState = ({
     swapFromAddressInfo.accountInfo?.account?.id,
     currentQuoteRes?.providerDisableBatchTransfer,
   );
+  const quoteLoading = useSwapQuoteLoading();
   const swapRecipientAddressInfo = useSwapRecipientAddressInfo(
     swapEnableRecipientAddress,
   );
   if (swapSlippageRef.current !== slippageItem) {
     swapSlippageRef.current = slippageItem;
   }
+  const themeVariant = useThemeVariant();
+  const quoting = useSwapQuoteEventFetching();
   const handleApprove = useCallback(() => {
     if (swapActionState.shoutResetApprove) {
       Dialog.confirm({
@@ -167,7 +195,7 @@ const SwapActionsState = ({
           id: ETranslations.global_continue,
         }),
         onConfirm: () => {
-          onApprove(fromAmount, swapActionState.approveUnLimit, true);
+          onApprove(fromAmount.value, swapActionState.approveUnLimit, true);
         },
         showCancelButton: true,
         title: intl.formatMessage({
@@ -179,7 +207,7 @@ const SwapActionsState = ({
         icon: 'ErrorOutline',
       });
     } else {
-      onApprove(fromAmount, swapActionState.approveUnLimit);
+      onApprove(fromAmount.value, swapActionState.approveUnLimit);
     }
   }, [
     fromAmount,
@@ -192,11 +220,23 @@ const SwapActionsState = ({
   const { md } = useMedia();
 
   const onActionHandler = useCallback(() => {
+    if (swapActionState.noConnectWallet) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.GetStarted,
+        params: { showCloseButton: true },
+      });
+      return;
+    }
     if (swapActionState.isRefreshQuote) {
       void quoteAction(
         swapSlippageRef.current,
         swapFromAddressInfo?.address,
         swapFromAddressInfo?.accountInfo?.account?.id,
+        undefined,
+        undefined,
+        currentQuoteRes?.kind ?? ESwapQuoteKind.SELL,
+        true,
+        swapToAddressInfo?.address,
       );
     } else {
       cleanQuoteInterval();
@@ -213,19 +253,27 @@ const SwapActionsState = ({
     }
   }, [
     cleanQuoteInterval,
+    currentQuoteRes?.kind,
     handleApprove,
+    navigation,
     onBuildTx,
     onWrapped,
     quoteAction,
     swapActionState.isApprove,
     swapActionState.isRefreshQuote,
     swapActionState.isWrapped,
+    swapActionState.noConnectWallet,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
+    swapToAddressInfo?.address,
   ]);
 
   const onActionHandlerBefore = useCallback(() => {
-    if (!swapActionState.isRefreshQuote && currentQuoteRes?.quoteShowTip) {
+    if (swapActionState.isRefreshQuote) {
+      onActionHandler();
+      return;
+    }
+    if (currentQuoteRes?.quoteShowTip) {
       Dialog.confirm({
         onConfirmText: intl.formatMessage({
           id: ETranslations.global_continue,
@@ -254,14 +302,89 @@ const SwapActionsState = ({
           </Button>
         ) : undefined,
       });
+    } else if (
+      currentQuoteRes?.networkCostExceedInfo &&
+      !currentQuoteRes.allowanceResult
+    ) {
+      let percentage = currentQuoteRes.networkCostExceedInfo?.exceedPercent;
+      const netCost = new BigNumber(
+        currentQuoteRes.networkCostExceedInfo?.cost ?? '0',
+      );
+      if (
+        currentQuoteRes.protocol === EProtocolOfExchange.LIMIT &&
+        netCost.gt(0)
+      ) {
+        let toRealAmount = new BigNumber(0);
+        const fromAmountBN = new BigNumber(fromAmount.value);
+        const toAmountBN = new BigNumber(swapToAmount.value);
+        if (!toAmountBN.isNaN() && !toAmountBN.isZero()) {
+          toRealAmount = new BigNumber(swapToAmount.value);
+        } else if (
+          !fromAmountBN.isNaN() &&
+          !fromAmountBN.isZero() &&
+          swapLimitUseRate.rate
+        ) {
+          const cToAmountBN = new BigNumber(fromAmountBN).multipliedBy(
+            new BigNumber(swapLimitUseRate.rate),
+          );
+          toRealAmount = cToAmountBN.decimalPlaces(
+            toToken?.decimals ?? LIMIT_PRICE_DEFAULT_DECIMALS,
+            BigNumber.ROUND_HALF_UP,
+          );
+        }
+        const calculateNetworkCostExceedPercent =
+          netCost.dividedBy(toRealAmount);
+        if (calculateNetworkCostExceedPercent.lte(new BigNumber(0.1))) {
+          onActionHandler();
+          return;
+        }
+        percentage = calculateNetworkCostExceedPercent
+          .multipliedBy(100)
+          .toFixed(2);
+      }
+      Dialog.confirm({
+        title: intl.formatMessage({
+          id: ETranslations.swap_network_cost_dialog_title,
+        }),
+        description: intl.formatMessage(
+          {
+            id: ETranslations.swap_network_cost_dialog_description,
+          },
+          {
+            number: ` ${percentage}%`,
+          },
+        ),
+        renderContent: (
+          <TransactionLossNetworkFeeExceedDialog
+            protocol={currentQuoteRes.protocol ?? EProtocolOfExchange.SWAP}
+            networkCostExceedInfo={{
+              ...currentQuoteRes.networkCostExceedInfo,
+              exceedPercent: percentage,
+            }}
+          />
+        ),
+        onConfirmText: intl.formatMessage({
+          id: ETranslations.global_continue,
+        }),
+        onConfirm: () => {
+          onActionHandler();
+        },
+      });
     } else {
       onActionHandler();
     }
   }, [
+    currentQuoteRes?.allowanceResult,
+    currentQuoteRes?.networkCostExceedInfo,
+    currentQuoteRes?.protocol,
     currentQuoteRes?.quoteShowTip,
     intl,
     onActionHandler,
     swapActionState.isRefreshQuote,
+    swapLimitUseRate.rate,
+    fromAmount.value,
+    swapToAmount.value,
+    toToken?.decimals,
   ]);
 
   const shouldShowRecipient = useMemo(
@@ -287,23 +410,18 @@ const SwapActionsState = ({
           gap="$1"
           {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
         >
+          <SizableText size="$bodyMd">1.</SizableText>
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_approve })}
             placement="top-start"
             renderContent={
-              <SizableText
-                size="$bodyLg"
-                $gtMd={{
-                  size: '$bodyMd',
-                  pt: '$5',
-                }}
-                pb="$5"
-                px="$5"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_swap_steps_1_approve_dialog,
-                })}
-              </SizableText>
+              <Stack p="$3">
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_page_swap_steps_1_approve_dialog,
+                  })}
+                </SizableText>
+              </Stack>
             }
             renderTrigger={
               <XStack
@@ -312,24 +430,29 @@ const SwapActionsState = ({
                   opacity: 0.5,
                 }}
               >
-                <SizableText size="$bodyMdMedium" pr="$1">
+                <SizableText
+                  size="$bodyMdMedium"
+                  pr="$1"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  textDecorationColor="$textSubdued"
+                  cursor="pointer"
+                >
                   {intl.formatMessage(
                     { id: ETranslations.swap_page_swap_steps_1 },
                     { tokenSymbol: fromToken?.symbol ?? '' },
                   )}
                 </SizableText>
-                <Icon
-                  size="$5"
-                  color="$iconSubdued"
-                  name="QuestionmarkOutline"
-                />
               </XStack>
             }
           />
           <Icon name="ArrowRightOutline" size="$5" color="$iconSubdued" />
           <SizableText size="$bodyMd" color="$textSubdued">
             {intl.formatMessage({
-              id: ETranslations.swap_page_swap_steps_2,
+              id:
+                swapType === ESwapTabSwitchType.LIMIT
+                  ? ETranslations.limit_place_order_step_2
+                  : ETranslations.swap_page_swap_steps_2,
             })}
           </SizableText>
         </XStack>
@@ -337,12 +460,13 @@ const SwapActionsState = ({
     }
     return null;
   }, [
-    fromToken?.symbol,
-    intl,
-    md,
-    pageType,
     swapActionState.isApprove,
     isBatchTransfer,
+    pageType,
+    md,
+    intl,
+    fromToken?.symbol,
+    swapType,
   ]);
 
   const recipientComponent = useMemo(() => {
@@ -442,9 +566,24 @@ const SwapActionsState = ({
           size={pageType === EPageType.modal && !md ? 'medium' : 'large'}
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
-          loading={swapActionState.isLoading}
         >
-          {swapActionState.label}
+          {quoting || quoteLoading ? (
+            <LottieView
+              source={
+                themeVariant === 'light'
+                  ? require('@onekeyhq/kit/assets/animations/swap_quote_loading_light.json')
+                  : require('@onekeyhq/kit/assets/animations/swap_quote_loading_dark.json')
+              }
+              autoPlay
+              loop
+              style={{
+                width: 40,
+                height: 24,
+              }}
+            />
+          ) : (
+            swapActionState.label
+          )}
         </Button>
       </Stack>
     ),
@@ -454,10 +593,13 @@ const SwapActionsState = ({
       md,
       onActionHandlerBefore,
       pageType,
+      quoteLoading,
+      quoting,
       recipientComponent,
       swapActionState.disabled,
       swapActionState.isLoading,
       swapActionState.label,
+      themeVariant,
     ],
   );
 

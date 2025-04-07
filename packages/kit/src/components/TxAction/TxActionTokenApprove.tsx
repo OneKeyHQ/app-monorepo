@@ -9,10 +9,7 @@ import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 
 import { useAccountData } from '../../hooks/useAccountData';
 import { useFeeInfoInDecodedTx } from '../../hooks/useTxFeeInfo';
-import {
-  useSendConfirmActions,
-  useTokenApproveInfoAtom,
-} from '../../states/jotai/contexts/sendConfirm';
+import { useSendConfirmActions } from '../../states/jotai/contexts/sendConfirm';
 import { showApproveEditor } from '../../views/ApproveEditor';
 import { AddressInfo } from '../AddressInfo';
 import NumberSizeableTextWrapper from '../NumberSizeableTextWrapper';
@@ -145,6 +142,7 @@ function TxActionTokenApproveListView(props: ITxActionProps) {
       status={decodedTx.status}
       networkId={decodedTx.networkId}
       networkLogoURI={decodedTx.networkLogoURI}
+      riskyLevel={decodedTx.riskyLevel}
       {...componentProps}
     />
   );

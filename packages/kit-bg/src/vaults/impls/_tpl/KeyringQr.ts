@@ -6,6 +6,7 @@ import { KeyringQrBase } from '../../base/KeyringQrBase';
 
 import type { IDBAccount } from '../../../dbs/local/types';
 import type {
+  INormalizeGetMultiAccountsPathParams,
   IPrepareQrAccountsParams,
   ISignMessageParams,
   ISignTransactionParams,
@@ -34,6 +35,12 @@ export class KeyringQr extends KeyringQrBase {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     params: IPrepareQrAccountsParams,
   ): Promise<IDBAccount[]> {
+    throw new NotImplemented();
+  }
+
+  override async normalizeGetMultiAccountsPath(
+    params: INormalizeGetMultiAccountsPathParams,
+  ): Promise<string> {
     throw new NotImplemented();
   }
 }

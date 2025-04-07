@@ -70,7 +70,6 @@ type IListItemAvatarCornerImageProps = IImageProps & {
 
 const ListItemAvatarCornerImage = ({
   src,
-  fallback,
   fallbackProps,
   ...rest
 }: IListItemAvatarCornerImageProps) => (

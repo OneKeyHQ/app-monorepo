@@ -67,7 +67,7 @@ function RewardItem({
   const formattedFiatClaimableNextValue = fiatClaimableNextValue.lt(0.01)
     ? `<${symbol}0.01`
     : `${symbol}${
-        formatBalance(fiatClaimableNextValue.toString()).formattedValue
+        formatBalance(fiatClaimableNextValue.toFixed()).formattedValue
       }`;
 
   return (
@@ -91,7 +91,7 @@ function RewardItem({
                 formatter="balance"
                 formatterOptions={{ tokenSymbol: rewardToken.info?.symbol }}
               >
-                {validClaimableNow.toString()}
+                {validClaimableNow.toFixed()}
               </NumberSizeableText>
               {fiatClaimableNowValue.gt(0) ? (
                 <SizableText size="$bodyLgMedium">
@@ -103,7 +103,7 @@ function RewardItem({
                   >
                     {fiatClaimableNowValue.lt(0.01)
                       ? `<${symbol}0.01`
-                      : fiatClaimableNowValue.toString()}
+                      : fiatClaimableNowValue.toFixed()}
                   </NumberSizeableText>
                   )
                 </SizableText>
@@ -116,7 +116,7 @@ function RewardItem({
             disabled={validClaimableNow.isZero()}
             onPress={() => {
               onClaim?.({
-                amount: validClaimableNow.toString(),
+                amount: validClaimableNow.toFixed(),
                 isMorphoClaim: true,
                 claimTokenAddress: rewardTokenAddress,
               });
@@ -138,7 +138,7 @@ function RewardItem({
                     color="$textSubdued"
                     formatter="balance"
                   >
-                    {validClaimableNext.toString()}
+                    {validClaimableNext.toFixed()}
                   </NumberSizeableText>
                 ),
                 symbol: rewardToken.info?.symbol,
@@ -157,9 +157,11 @@ export function ProtocolRewards({
   rewardNum,
   rewardAssets,
   onClaim,
+  updateFrequency,
 }: {
   rewardNum?: IEarnRewardNum;
   rewardAssets?: Record<string, IEarnTokenItem>;
+  updateFrequency: string;
   onClaim?: (params?: {
     amount: string;
     claimTokenAddress?: string;
@@ -191,6 +193,7 @@ export function ProtocolRewards({
   return (
     <YStack
       gap="$2.5"
+      mt="$3"
       py="$3.5"
       px="$4"
       borderRadius="$3"
@@ -220,9 +223,14 @@ export function ProtocolRewards({
           renderContent={
             <Stack p="$5">
               <SizableText color="$text" size="$bodyLg">
-                {intl.formatMessage({
-                  id: ETranslations.earn_claim_rewards_morpho_desc,
-                })}
+                {intl.formatMessage(
+                  {
+                    id: ETranslations.earn_claim_rewards_morpho_desc,
+                  },
+                  {
+                    time: updateFrequency || '',
+                  },
+                )}
               </SizableText>
             </Stack>
           }

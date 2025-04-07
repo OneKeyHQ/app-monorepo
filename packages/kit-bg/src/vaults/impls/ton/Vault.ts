@@ -472,7 +472,7 @@ export default class Vault extends VaultBase {
     const { okxTx } = params;
     const { from, to, value, data } = okxTx;
     const network = await this.getNetwork();
-    const amount = new BigNumber(value).shiftedBy(-network.decimals).toString();
+    const amount = new BigNumber(value).shiftedBy(-network.decimals).toFixed();
     const message = {
       address: to,
       amount: TonWeb.utils.toNano(amount).toString(),

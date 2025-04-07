@@ -195,6 +195,10 @@ export function convertDeviceError(
       return new HardwareErrors.BTCPsbtTooManyUtxos({ payload });
     case HardwareErrorCode.ResponseUnexpectTypeError:
       return new HardwareErrors.ResponseUnexpectTypeError({ payload });
+    case HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission:
+      return new HardwareErrors.HardwareWebDeviceCommunicationError({
+        payload,
+      });
 
     // Bridge error
     case 'ERR_BAD_REQUEST':
@@ -276,6 +280,7 @@ export function isHardwareInterruptErrorByCode({
       HardwareErrorCode.NotAllowInBootloaderMode, // 116
       HardwareErrorCode.DeviceUnexpectedMode, // 102
       HardwareErrorCode.BridgeDeviceDisconnected, // 817
+      HardwareErrorCode.WebDeviceNotFoundOrNeedsPermission,
     ],
   });
 }

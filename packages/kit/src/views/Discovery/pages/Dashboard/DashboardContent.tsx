@@ -1,33 +1,23 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 
-import {
-  RefreshControl,
-  ScrollView,
-  Stack,
-  useMedia,
-} from '@onekeyhq/components';
+import pRetry from 'p-retry';
+
+import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
-import { ReviewControl } from '@onekeyhq/kit/src/components/ReviewControl';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
-import { useBrowserAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
-import { EEnterMethod } from '@onekeyhq/shared/src/logger/scopes/discovery/scenes/dapp';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-  ETabRoutes,
-} from '@onekeyhq/shared/src/routes';
-import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
+import { useBannerData } from '../../hooks/useBannerData';
 import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { DashboardBanner } from './Banner';
-import { BookmarksAndHistoriesSection } from './BookmarksAndHistoriesSection';
-import { SuggestedAndExploreSection } from './SuggestAndExploreSection';
+import { BookmarksSection } from './BookmarksSection';
+import { DiveInContent } from './DiveInContent';
+import { TrendingSection } from './TrendingSection';
+import { Welcome } from './Welcome';
 
 import type { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 
@@ -36,29 +26,7 @@ function DashboardContent({
 }: {
   onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
 }) {
-  const navigation = useAppNavigation();
   const isFocused = useIsFocused();
-  const { displayHomePage } = useDisplayHomePageFlag();
-  const { gtMd } = useMedia();
-  const { handleOpenWebSite } = useBrowserAction().current;
-  const { result: [bookmarksData, historiesData] = [], run: refreshLocalData } =
-    usePromiseResult(
-      async () => {
-        const bookmarks = backgroundApiProxy.serviceDiscovery.getBookmarkData({
-          generateIcon: true,
-          sliceCount: 8,
-        });
-        const histories = backgroundApiProxy.serviceDiscovery.getHistoryData({
-          generateIcon: true,
-          sliceCount: 8,
-        });
-        return Promise.all([bookmarks, histories]);
-      },
-      [],
-      {
-        watchLoading: true,
-      },
-    );
 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -68,10 +36,20 @@ function DashboardContent({
     run,
   } = usePromiseResult(
     async () => {
-      const homePageResponse =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      setIsRefreshing(false);
-      return homePageResponse;
+      try {
+        const result = await pRetry(
+          () =>
+            backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
+          {
+            retries: 3,
+          },
+        );
+        return result;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsRefreshing(false);
+      }
     },
     [],
     {
@@ -86,122 +64,102 @@ function DashboardContent({
     void run();
   }, [run]);
 
+  // Use the useBannerData hook to get processed banner data
+  const { hasActiveBanners } = useBannerData(homePageData?.banners || []);
+
+  // Add usePromiseResult hooks to get bookmark and trending data
+  const { result: bookmarksData, run: refreshBookmarks } = usePromiseResult(
+    async () => {
+      const bookmarks =
+        await backgroundApiProxy.serviceDiscovery.getBookmarkData({
+          generateIcon: true,
+          sliceCount: 14,
+        });
+
+      return bookmarks;
+    },
+    [],
+    {
+      watchLoading: true,
+    },
+  );
+
   useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
     if (isFocus) {
       // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
       setTimeout(() => {
-        void refreshLocalData();
+        void refreshBookmarks();
       });
     }
   });
 
+  const { displayHomePage } = useDisplayHomePageFlag();
   useEffect(() => {
     if (displayHomePage && platformEnv.isNative) {
-      void refreshLocalData();
+      void refreshBookmarks();
     }
-  }, [displayHomePage, refreshLocalData]);
+  }, [displayHomePage, refreshBookmarks]);
 
-  const onPressMore = useCallback(
-    (isHistoriesView: boolean) => {
-      navigation.pushModal(EModalRoutes.DiscoveryModal, {
-        screen: isHistoriesView
-          ? EDiscoveryModalRoutes.HistoryListModal
-          : EDiscoveryModalRoutes.BookmarkListModal,
-      });
-    },
-    [navigation],
-  );
+  // Check if both bookmarks and trending have no data
+  const hasBookmarks = bookmarksData && bookmarksData.length > 0;
+  const hasTrending =
+    homePageData?.trending && homePageData.trending.length > 0;
+  const showDiveInDescription = !hasBookmarks && !hasTrending;
 
-  const content = useMemo(() => {
-    const isShowBanner =
-      Array.isArray(homePageData?.banners) && homePageData.banners.length > 0;
-    return (
+  const content = useMemo(
+    () => (
       <>
-        <DashboardBanner
-          key="Banner"
-          banners={homePageData?.banners || []}
-          handleOpenWebSite={({ webSite, useSystemBrowser }) => {
-            if (useSystemBrowser && webSite?.url) {
-              openUrlExternal(webSite.url);
-            } else if (webSite?.url) {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                webSite,
-                navigation,
-                shouldPopNavigation: false,
-              });
-            }
-            defaultLogger.discovery.dapp.enterDapp({
-              dappDomain: webSite?.url || '',
-              dappName: webSite?.title || '',
-              enterMethod: EEnterMethod.banner,
-            });
-          }}
-          isLoading={isLoading}
+        <Welcome
+          banner={
+            hasActiveBanners ? (
+              <DashboardBanner
+                key="Banner"
+                banners={homePageData?.banners || []}
+                isLoading={isLoading}
+              />
+            ) : null
+          }
+          discoveryData={{ hot: homePageData?.trending }}
+          isLoading={!!isLoading}
         />
-        {platformEnv.isExtension || platformEnv.isWeb ? null : (
-          <BookmarksAndHistoriesSection
-            showSectionHeaderBorder={isShowBanner}
-            key="BookmarksAndHistoriesSection"
-            bookmarksData={bookmarksData}
-            historiesData={historiesData}
-            onPressMore={onPressMore}
-            handleOpenWebSite={({ webSite }) => {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                webSite,
-                navigation,
-                shouldPopNavigation: false,
-              });
-              defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: webSite?.url || '',
-                dappName: webSite?.title || '',
-                enterMethod: EEnterMethod.dashboard,
-              });
-            }}
-          />
-        )}
-        <ReviewControl>
-          <SuggestedAndExploreSection
-            key="SuggestedAndExploreSection"
-            suggestedData={
-              Array.isArray(homePageData?.categories)
-                ? homePageData.categories
-                : []
-            }
-            handleOpenWebSite={({ webSite }) => {
-              handleOpenWebSite({
-                switchToMultiTabBrowser: gtMd,
-                webSite,
-                navigation,
-                shouldPopNavigation: false,
-              });
-              defaultLogger.discovery.dapp.enterDapp({
-                dappDomain: webSite?.url || '',
-                dappName: webSite?.title || '',
-                enterMethod: EEnterMethod.dashboard,
-              });
-            }}
-            isLoading={isLoading}
-          />
-        </ReviewControl>
+
+        <Stack alignItems="center">
+          {!isLoading && showDiveInDescription ? (
+            <DiveInContent onReload={refresh} />
+          ) : (
+            <>
+              {hasBookmarks ? (
+                <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+                  <BookmarksSection key="BookmarksSection" />
+                </Stack>
+              ) : null}
+
+              <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
+                <TrendingSection
+                  data={homePageData?.trending || []}
+                  isLoading={!!isLoading}
+                />
+              </Stack>
+            </>
+          )}
+        </Stack>
       </>
-    );
-  }, [
-    homePageData?.banners,
-    homePageData?.categories,
-    isLoading,
-    bookmarksData,
-    historiesData,
-    onPressMore,
-    handleOpenWebSite,
-    gtMd,
-    navigation,
-  ]);
+    ),
+    [
+      hasActiveBanners,
+      hasBookmarks,
+      homePageData?.banners,
+      homePageData?.trending,
+      isLoading,
+      showDiveInDescription,
+      refresh,
+    ],
+  );
 
   if (platformEnv.isNative) {
     return (
       <ScrollView
+        height="100%"
         onScroll={isFocused ? (onScroll as any) : undefined}
         scrollEventThrottle={16}
         refreshControl={

@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps, ISizableTextProps } from '@onekeyhq/components';
+import type { ISizableTextProps } from '@onekeyhq/components';
 import { Button, SizableText, Stack, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 

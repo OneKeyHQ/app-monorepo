@@ -35,6 +35,7 @@ export function AccountSelectorCreateAddressButton({
   buttonRender,
   onCreateDone,
   onPressLog,
+  createAllDeriveTypes,
 }: {
   num: number;
   children?: React.ReactNode;
@@ -57,6 +58,7 @@ export function AccountSelectorCreateAddressButton({
       | undefined,
   ) => void;
   onPressLog?: () => void;
+  createAllDeriveTypes?: boolean;
 }) {
   const intl = useIntl();
   const { serviceAccount } = backgroundApiProxy;
@@ -154,7 +156,12 @@ export function AccountSelectorCreateAddressButton({
         });
         console.log({ wallet });
       }
-      resp = await createAddress({ num, selectAfterCreate, account });
+      resp = await createAddress({
+        num,
+        selectAfterCreate,
+        account,
+        createAllDeriveTypes,
+      });
       defaultLogger.account.accountCreatePerf.createAddressRunFinished();
       await timerUtils.wait(300);
     } finally {
@@ -167,14 +174,15 @@ export function AccountSelectorCreateAddressButton({
       onCreateDone?.(resp);
     }
   }, [
+    setAccountManualCreatingAtom,
+    setAccountIsAutoCreating,
+    manualCreatingKey,
     account,
     createAddress,
-    manualCreatingKey,
     num,
     selectAfterCreate,
+    createAllDeriveTypes,
     serviceAccount,
-    setAccountIsAutoCreating,
-    setAccountManualCreatingAtom,
     onCreateDone,
   ]);
 

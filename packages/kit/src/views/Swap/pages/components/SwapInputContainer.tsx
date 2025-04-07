@@ -10,17 +10,26 @@ import {
   useRateDifferenceAtom,
   useSwapAlertsAtom,
   useSwapFromTokenAmountAtom,
+  useSwapQuoteActionLockAtom,
   useSwapSelectFromTokenAtom,
+  useSwapSelectToTokenAtom,
   useSwapSelectedFromTokenBalanceAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import {
+  useInAppNotificationAtom,
+  useSettingsPersistAtom,
+} from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
+import { checkWrappedTokenPair } from '@onekeyhq/shared/src/utils/tokenUtils';
 import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
 import {
   ESwapDirectionType,
+  ESwapQuoteKind,
   ESwapRateDifferenceUnit,
+  ESwapTabSwitchType,
   SwapAmountInputAccessoryViewID,
 } from '@onekeyhq/shared/types/swap/types';
 
@@ -29,6 +38,8 @@ import { useSwapSelectedTokenInfo } from '../../hooks/useSwapTokens';
 
 import SwapAccountAddressContainer from './SwapAccountAddressContainer';
 import SwapInputActions from './SwapInputActions';
+
+import type { StyleProp, TextStyle } from 'react-native';
 
 interface ISwapInputContainerProps {
   direction: ESwapDirectionType;
@@ -77,8 +88,12 @@ const SwapInputContainer = ({
   }, [amountValue, token?.price]);
 
   const [fromToken] = useSwapSelectFromTokenAtom();
+  const [toToken] = useSwapSelectToTokenAtom();
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [fromTokenBalance] = useSwapSelectedFromTokenBalanceAtom();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [swapQuoteActionLock] = useSwapQuoteActionLockAtom();
+  const [, setInAppNotification] = useInAppNotificationAtom();
 
   const fromInputHasError = useMemo(() => {
     const accountError =
@@ -89,7 +104,7 @@ const SwapInputContainer = ({
           accountUtils.isHwWallet({ walletId: accountInfo?.wallet?.id }) ||
           accountUtils.isQrWallet({ walletId: accountInfo?.wallet?.id })));
     const balanceBN = new BigNumber(fromTokenBalance ?? 0);
-    const amountValueBN = new BigNumber(fromTokenAmount ?? 0);
+    const amountValueBN = new BigNumber(fromTokenAmount.value ?? 0);
     const hasBalanceError =
       direction === ESwapDirectionType.FROM &&
       !!fromToken &&
@@ -130,7 +145,11 @@ const SwapInputContainer = ({
     });
   }, [intl]);
   const valueMoreComponent = useMemo(() => {
-    if (rateDifference && direction === ESwapDirectionType.TO) {
+    if (
+      rateDifference &&
+      direction === ESwapDirectionType.TO &&
+      swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+    ) {
       let color = '$textSubdued';
       if (inputLoading) {
         color = '$textPlaceholder';
@@ -153,6 +172,7 @@ const SwapInputContainer = ({
             onPress={onRateDifferencePress}
             {...(rateDifference.unit === ESwapRateDifferenceUnit.NEGATIVE && {
               textDecorationLine: 'underline',
+              textDecorationStyle: 'dotted',
             })}
           >
             {rateDifference.value}
@@ -164,21 +184,53 @@ const SwapInputContainer = ({
       );
     }
     return null;
-  }, [direction, inputLoading, onRateDifferencePress, rateDifference]);
+  }, [
+    direction,
+    inputLoading,
+    onRateDifferencePress,
+    rateDifference,
+    swapTypeSwitch,
+  ]);
 
   const [percentageInputStageShow, setPercentageInputStageShow] =
     useState(false);
 
   const onFromInputFocus = () => {
     setPercentageInputStageShow(true);
+    if (direction === ESwapDirectionType.FROM) {
+      setInAppNotification((v) => ({
+        ...v,
+        swapPercentageInputStageShowForNative: true,
+      }));
+    }
   };
 
   const onFromInputBlur = () => {
     // delay to avoid blur when select percentage stage
+    if (direction === ESwapDirectionType.FROM) {
+      setInAppNotification((v) => ({
+        ...v,
+        swapPercentageInputStageShowForNative: false,
+      }));
+    }
     setTimeout(() => {
       setPercentageInputStageShow(false);
     }, 200);
   };
+
+  const inputIsLoading = useMemo(() => {
+    if (direction === ESwapDirectionType.TO) {
+      return (
+        inputLoading &&
+        (!swapQuoteActionLock.kind ||
+          swapQuoteActionLock.kind === ESwapQuoteKind.SELL)
+      );
+    }
+    if (direction === ESwapDirectionType.FROM) {
+      return inputLoading && swapQuoteActionLock.kind === ESwapQuoteKind.BUY;
+    }
+    return inputLoading;
+  }, [direction, inputLoading, swapQuoteActionLock.kind]);
 
   const showPercentageInput = useMemo(
     () =>
@@ -199,6 +251,17 @@ const SwapInputContainer = ({
       fromInputHasError.hasBalanceError,
     [direction, accountInfo?.account?.id, fromToken, fromInputHasError],
   );
+  const readOnly = useMemo(() => {
+    if (direction === ESwapDirectionType.TO) {
+      return (
+        checkWrappedTokenPair({
+          fromToken,
+          toToken,
+        }) || swapTypeSwitch !== ESwapTabSwitchType.LIMIT
+      );
+    }
+    return false;
+  }, [direction, swapTypeSwitch, fromToken, toToken]);
   return (
     <YStack borderRadius="$3" backgroundColor="$bgSubdued" borderWidth="$0">
       <XStack justifyContent="space-between" pt="$2.5" px="$3.5">
@@ -240,21 +303,17 @@ const SwapInputContainer = ({
         }}
         inputProps={{
           placeholder: '0.0',
-          readOnly: direction === ESwapDirectionType.TO,
-          color:
-            direction === ESwapDirectionType.TO && inputLoading
-              ? '$textPlaceholder'
-              : undefined,
+          readonly: readOnly || inputIsLoading,
+          color: inputIsLoading ? '$textPlaceholder' : undefined,
           style:
-            !platformEnv.isNative && direction === ESwapDirectionType.TO
+            !platformEnv.isNative && readOnly
               ? ({
                   caretColor: 'transparent',
-                } as any)
+                } as unknown as StyleProp<TextStyle>)
               : undefined,
-          inputAccessoryViewID:
-            direction === ESwapDirectionType.FROM && platformEnv.isNativeIOS
-              ? SwapAmountInputAccessoryViewID
-              : undefined,
+          inputAccessoryViewID: platformEnv.isNativeIOS
+            ? SwapAmountInputAccessoryViewID
+            : undefined,
           autoCorrect: false,
           spellCheck: false,
           autoComplete: 'off',

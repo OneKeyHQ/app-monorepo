@@ -17,6 +17,7 @@ import {
   useDialogInstance,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import { useHelpLink } from '@onekeyhq/kit/src/hooks/useHelpLink';
 import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
 import { FIRMWARE_CONTACT_US_URL } from '@onekeyhq/shared/src/config/appConfig';
@@ -786,17 +787,21 @@ export function EnumBasicDialogContentContainer({
             <Dialog.Header>
               <Dialog.Icon tone="warning" icon="ErrorOutline" />
               <Dialog.Title>
-                {errorObj.message ||
-                  intl.formatMessage({
-                    id: ETranslations.global_unknown_error,
-                  })}
-                ({errorObj.code || 'unknown'})
+                <HyperlinkText
+                  size="$headingXl"
+                  translationId={
+                    (errorObj.message as ETranslations) ||
+                    ETranslations.global_unknown_error
+                  }
+                  defaultMessage={errorObj.message}
+                />
+                <SizableText size="$headingXl">
+                  ({errorObj.code || 'unknown'})
+                </SizableText>
               </Dialog.Title>
-              <Dialog.Description>
-                {intl.formatMessage({
-                  id: ETranslations.global_unknown_error_retry_message,
-                })}
-              </Dialog.Description>
+              <Dialog.HyperlinkTextDescription
+                translationId={ETranslations.global_unknown_error_retry_message}
+              />
             </Dialog.Header>
             <Button
               $md={
@@ -920,10 +925,12 @@ export function useFirmwareVerifyDialog() {
       device,
       features,
       onContinue,
+      onClose,
     }: {
       device: SearchDevice | IDBDevice;
       features: IOneKeyDeviceFeatures | undefined;
       onContinue: (params: { checked: boolean }) => Promise<void> | void;
+      onClose: () => Promise<void> | void;
     }) => {
       console.log('====> features: ', features);
       // use old features to quick check if need new version
@@ -956,6 +963,7 @@ export function useFirmwareVerifyDialog() {
           />
         ),
         async onClose() {
+          await onClose?.();
           if (device.connectId) {
             await backgroundApiProxy.serviceHardwareUI.closeHardwareUiStateDialog(
               {

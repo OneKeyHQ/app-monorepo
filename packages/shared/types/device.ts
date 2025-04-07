@@ -250,6 +250,8 @@ export enum EFirmwareUpdateTipMessages {
 
   FirmwareEraseSuccess = 'FirmwareEraseSuccess',
 
+  SelectDeviceInBootloaderForWebDevice = 'SelectDeviceInBootloaderForWebDevice',
+
   // Touch & Pro only
   CheckLatestUiResource = 'CheckLatestUiResource',
   DownloadLatestUiResource = 'DownloadLatestUiResource',
@@ -339,3 +341,11 @@ export interface IDeviceVerifyVersionCompareResult {
     releaseUrl?: string;
   };
 }
+
+export type IDeviceVersionCacheInfo = {
+  onekey_firmware_version: string | undefined;
+  onekey_ble_version: string | undefined;
+  ble_ver: string | undefined;
+  onekey_boot_version: string | undefined;
+  bootloader_version: string | undefined;
+};

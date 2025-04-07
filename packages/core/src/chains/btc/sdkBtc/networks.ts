@@ -168,7 +168,7 @@ const dash: IBtcForkNetwork = {
   wif: 0xcc,
 };
 
-const neurai: IBtcForkNetwork = {
+const xna: IBtcForkNetwork = {
   messagePrefix: '\x19Neurai Signed Message:\n',
   bech32: '',
   bip32: {
@@ -189,7 +189,7 @@ const extendedNetworks: Record<string, IBtcForkNetwork> = {
   ltc,
   bch,
   doge,
-  neurai,
+  xna,
   btg,
   dgb,
   nmc,

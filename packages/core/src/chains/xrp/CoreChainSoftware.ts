@@ -37,7 +37,7 @@ function removeTrailingZeros(tx: Transaction): void {
     // eslint-disable-next-line no-param-reassign -- Required to update Transaction.Amount.value
     tx.Amount = { ...tx.Amount };
     // eslint-disable-next-line no-param-reassign -- Required to update Transaction.Amount.value
-    tx.Amount.value = new BigNumber(tx.Amount.value).toString();
+    tx.Amount.value = new BigNumber(tx.Amount.value).toFixed();
   }
 }
 

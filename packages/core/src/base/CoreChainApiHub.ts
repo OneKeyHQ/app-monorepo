@@ -18,6 +18,7 @@ import CoreChainKaspa from '../chains/kaspa';
 import CoreChainLightning from '../chains/lightning';
 import CoreChainLtc from '../chains/ltc';
 import CoreChainNear from '../chains/near';
+import CoreChainNeo from '../chains/neo';
 import CoreChainNeurai from '../chains/neurai';
 import CoreChainNexa from '../chains/nexa';
 import CoreChainNostr from '../chains/nostr';
@@ -89,4 +90,6 @@ export class CoreChainApiHub {
   alph = new CoreChainAlph();
 
   bfc = new CoreChainBfc();
+
+  neo = new CoreChainNeo();
 }

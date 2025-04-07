@@ -7,9 +7,9 @@ import {
   Badge,
   Icon,
   Image,
+  LottieView,
   NumberSizeableText,
   SizableText,
-  Skeleton,
   Stack,
   XStack,
 } from '@onekeyhq/components';
@@ -25,6 +25,7 @@ interface ISwapQuoteResultRateProps {
   toToken?: ISwapToken;
   providerIcon?: string;
   providerName?: string;
+  quoting?: boolean;
   isLoading?: boolean;
   onOpenResult?: () => void;
   refreshAction: (manual?: boolean) => void;
@@ -33,10 +34,10 @@ interface ISwapQuoteResultRateProps {
 const SwapQuoteResultRate = ({
   rate,
   isBest,
+  quoting,
   fromToken,
   toToken,
   providerIcon,
-  providerName,
   isLoading,
   onOpenResult,
   openResult,
@@ -60,7 +61,7 @@ const SwapQuoteResultRate = ({
     }
     if (!rateIsExit) {
       return (
-        <SizableText ml="$1" size="$bodyMdMedium">
+        <SizableText ml="$1" size="$bodyMd">
           {intl.formatMessage({
             id: ETranslations.swap_page_provider_rate_unavailable,
           })}
@@ -82,7 +83,7 @@ const SwapQuoteResultRate = ({
         cursor="pointer"
       >
         <SizableText
-          size="$bodyMdMedium"
+          size="$bodyMd"
           maxWidth={240}
           $gtMd={{
             maxWidth: 240,
@@ -94,12 +95,12 @@ const SwapQuoteResultRate = ({
               ? toToken.symbol.toUpperCase()
               : fromToken.symbol.toUpperCase()
           } = `}
-          <NumberSizeableText size="$bodyMdMedium" formatter="balance">
+          <NumberSizeableText size="$bodyMd" formatter="balance">
             {isReverse
               ? new BigNumber(1).div(rateBN).toFixed()
               : rateBN.toFixed()}
           </NumberSizeableText>
-          <SizableText size="$bodyMdMedium">
+          <SizableText size="$bodyMd">
             {` ${isReverse ? fromToken.symbol : toToken.symbol}`}
           </SizableText>
         </SizableText>
@@ -109,9 +110,13 @@ const SwapQuoteResultRate = ({
   return (
     <XStack alignItems="center" gap="$5">
       {isLoading ? (
-        <Stack py="$0.5">
-          <Skeleton h="$4" w="$32" />
-        </Stack>
+        <XStack gap="$2">
+          <SizableText size="$bodyMd" color="$text">
+            {intl.formatMessage({
+              id: ETranslations.swap_loading_content,
+            })}
+          </SizableText>
+        </XStack>
       ) : (
         <XStack gap="$1" alignItems="center">
           <SwapRefreshButton refreshAction={refreshAction} />
@@ -120,7 +125,11 @@ const SwapQuoteResultRate = ({
       )}
 
       <XStack alignItems="center" userSelect="none" gap="$1" flex={1}>
-        {!providerIcon || !fromToken || !toToken || !onOpenResult ? null : (
+        {!providerIcon ||
+        !fromToken ||
+        !toToken ||
+        !onOpenResult ||
+        quoting ? null : (
           <XStack
             flex={1}
             justifyContent="flex-end"
@@ -143,18 +152,10 @@ const SwapQuoteResultRate = ({
               h="$5"
               borderRadius="$1"
             />
-            <SizableText
-              numberOfLines={1}
-              size="$bodyMdMedium"
-              ml="$1"
-              flexShrink={1}
-            >
-              {providerName ?? ''}
-            </SizableText>
             {/* </XStack> */}
           </XStack>
         )}
-        {!isLoading && onOpenResult ? (
+        {!quoting && onOpenResult ? (
           <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
             <Icon
               name="ChevronDownSmallOutline"
@@ -162,7 +163,30 @@ const SwapQuoteResultRate = ({
               size="$5"
             />
           </Stack>
-        ) : null}
+        ) : (
+          <XStack flex={1} justifyContent="flex-end">
+            {quoting ? (
+              <LottieView
+                source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+                autoPlay
+                loop
+                style={{
+                  width: 48,
+                  height: 20,
+                }}
+              />
+            ) : null}
+            {onOpenResult ? (
+              <Stack animation="quick" rotate={openResult ? '180deg' : '0deg'}>
+                <Icon
+                  name="ChevronDownSmallOutline"
+                  color={openResult ? '$iconActive' : '$iconSubdued'}
+                  size="$5"
+                />
+              </Stack>
+            ) : null}
+          </XStack>
+        )}
       </XStack>
     </XStack>
   );

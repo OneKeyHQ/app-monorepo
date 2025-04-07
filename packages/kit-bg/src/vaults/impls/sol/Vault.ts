@@ -43,6 +43,7 @@ import BigNumber from 'bignumber.js';
 import bs58 from 'bs58';
 import { isEmpty, isNil } from 'lodash';
 
+import { parseToNativeTx } from '@onekeyhq/core/src/chains/sol/sdkSol/parse';
 import type {
   IDecodedTxExtraSol,
   IEncodedTxSol,
@@ -91,6 +92,7 @@ import { KeyringExternal } from './KeyringExternal';
 import { KeyringHardware } from './KeyringHardware';
 import { KeyringHd } from './KeyringHd';
 import { KeyringImported } from './KeyringImported';
+import { KeyringQr } from './KeyringQr';
 import { KeyringWatching } from './KeyringWatching';
 import { ClientCustomRpcSol } from './sdkSol/ClientCustomRpcSol';
 import ClientSol from './sdkSol/ClientSol';
@@ -106,7 +108,6 @@ import {
   parseComputeUnitLimit,
   parseComputeUnitPrice,
   parseNativeTxDetail,
-  parseToNativeTx,
   tokenRecordAddress,
 } from './utils';
 
@@ -138,7 +139,7 @@ export default class Vault extends VaultBase {
 
   override keyringMap: Record<IDBWalletType, typeof KeyringBase | undefined> = {
     hd: KeyringHd,
-    qr: undefined,
+    qr: KeyringQr,
     hw: KeyringHardware,
     imported: KeyringImported,
     watching: KeyringWatching,
@@ -689,7 +690,7 @@ export default class Vault extends VaultBase {
   ): Promise<IDecodedTx> {
     const { unsignedTx, transferPayload, saveToLocalHistory } = params;
     const encodedTx = unsignedTx.encodedTx as IEncodedTxSol;
-    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
 
     let actions: IDecodedTxAction[] = [];
 
@@ -1018,7 +1019,7 @@ export default class Vault extends VaultBase {
 
     // internal okx sol swap tx need to replace recentBlockhash
     if (swapInfo && swapInfo.swapBuildResData.OKXTxObject) {
-      const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+      const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
       const { recentBlockhash, lastValidBlockHeight } =
         await this._getRecentBlockHash();
 
@@ -1080,7 +1081,7 @@ export default class Vault extends VaultBase {
   }) {
     const { encodedTx, nativeAmountInfo } = params;
     const network = await this.getNetwork();
-    const nativeTx = (await parseToNativeTx(encodedTx)) as Transaction;
+    const nativeTx = parseToNativeTx(encodedTx) as Transaction;
 
     // max native token transfer update
     if (
@@ -1132,7 +1133,7 @@ export default class Vault extends VaultBase {
     if (feeInfo.feeSol) {
       let isComputeUnitPriceExist = false;
       const { computeUnitPrice } = feeInfo.feeSol;
-      const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+      const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
       const isVersionedTransaction = nativeTx instanceof VersionedTransaction;
       const isTransaction = nativeTx instanceof Transaction;
       const prioritizationFeeInstruction =
@@ -1297,7 +1298,7 @@ export default class Vault extends VaultBase {
       return { encodedTx };
     }
 
-    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
     const client = await this.getClient();
     const { instructions } = await parseNativeTxDetail({
       nativeTx,
@@ -1334,7 +1335,7 @@ export default class Vault extends VaultBase {
     const accountAddress = await this.getAccountAddress();
     let computeUnitPrice = '0';
 
-    const nativeTx = (await parseToNativeTx(encodedTx)) as INativeTxSol;
+    const nativeTx = parseToNativeTx(encodedTx) as INativeTxSol;
 
     // check if the tx is partially signed
     if (nativeTx.signatures && nativeTx.signatures.length > 1) {

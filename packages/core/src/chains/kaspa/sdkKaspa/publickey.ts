@@ -22,7 +22,7 @@ export function publicKeyFromX(odd: boolean, x: string): PublicKey {
 }
 
 export function publicKeyFromOriginPubkey(pubkey: Buffer): PublicKey {
-  const tweakPublic = tweakPublicKey(Buffer.from(pubkey.slice(1)));
+  const tweakPublic = tweakPublicKey(pubkey.subarray(1));
   if (!tweakPublic) throw new Error('Public key tweak failed');
   const { parity, x: xOnlyPubkey } = tweakPublic;
   return publicKeyFromX(parity === 0, bytesToHex(xOnlyPubkey));

@@ -1,16 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { Progress as TMProgress } from 'tamagui';
-
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import { View } from '../../primitives';
 
+import { Progress as TMProgress } from './Progress';
+
+import type { IProgressProps as TMProgressProps } from './Progress';
 import type { LayoutChangeEvent } from 'react-native';
-import type { ProgressProps as TMProgressProps } from 'tamagui';
 
 export type IProgressProps = {
+  progressColor?: IProgressProps['backgroundColor'];
+  indicatorColor?: IProgressProps['backgroundColor'];
   size?: 'small' | 'medium';
+  /**
+   * Whether to animate the progress bar
+   * @default true
+   * @platform web
+   */
+  animated?: boolean;
 } & Omit<TMProgressProps, 'size'>;
 
 const DEFAULT_MAX = 100;
@@ -36,11 +44,12 @@ const useLazyShowIndicator: (value: number) => [boolean, number] =
 export function Progress({
   size,
   value,
-  colors = [],
+  animated,
+  progressColor = '$neutral5',
+  indicatorColor = '$bgPrimary',
   gap = 0,
   ...props
 }: Omit<IProgressProps, 'max' | 'gap'> & {
-  colors?: IProgressProps['backgroundColor'][];
   gap?: number;
 }) {
   const h = useMemo(() => (size === 'medium' ? '$1' : '$0.5'), [size]);
@@ -60,7 +69,7 @@ export function Progress({
   );
   return (
     <TMProgress
-      backgroundColor={colors[0] || '$neutral5'}
+      backgroundColor={progressColor}
       h={h}
       value={progressValue}
       onLayout={onLayout}
@@ -72,8 +81,8 @@ export function Progress({
           // https://github.com/tamagui/tamagui/issues/2753
           // https://github.com/tamagui/tamagui/issues/2847
           // Enabling animation on Native platforms causes the progress bar to fail initial rendering
-          animation={platformEnv.isNative ? null : 'quick'}
-          backgroundColor={colors[1] || '$bgPrimary'}
+          animation={!platformEnv.isNative && animated ? 'quick' : null}
+          backgroundColor={indicatorColor}
           borderRadius="$full"
         />
       ) : null}

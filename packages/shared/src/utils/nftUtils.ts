@@ -1,3 +1,4 @@
+import { EDeviceType } from '@onekeyfe/hd-shared';
 import { ResourceType } from '@onekeyfe/hd-transport';
 import { SaveFormat, manipulateAsync } from 'expo-image-manipulator';
 import { Image } from 'react-native';
@@ -186,8 +187,8 @@ export async function generateUploadNFTParams({
 
   const data = await compressNFT(base64, 480, 800, width, height, false);
 
-  const zoomWidth = deviceType === 'touch' ? 238 : 226;
-  const zoomHeight = deviceType === 'touch' ? 238 : 226;
+  const zoomWidth = deviceType === EDeviceType.Touch ? 238 : 226;
+  const zoomHeight = deviceType === EDeviceType.Touch ? 238 : 226;
   const zoomData = await compressNFT(
     base64,
     zoomWidth,

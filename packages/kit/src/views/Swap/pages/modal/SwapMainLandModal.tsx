@@ -6,6 +6,7 @@ import { useIntl } from 'react-intl';
 import { EPageType, Page } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '@onekeyhq/kit/src/components/AccountSelector';
+import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
 import { useSettingsAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -30,6 +31,9 @@ const SwapMainLandModalPage = () => {
     swapTabSwitchType,
     importDeriveType,
   } = route.params ?? {};
+  const { activeAccount } = useActiveAccount({
+    num: 0,
+  });
   const [{ swapToAnotherAccountSwitchOn }, setSettings] = useSettingsAtom();
   useEffect(() => {
     // when modal swap open, reset swapToAnotherAccountSwitchOn
@@ -42,13 +46,13 @@ const SwapMainLandModalPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setSettings]);
   useEffect(() => {
-    if (importDeriveType && importNetworkId) {
+    if (importDeriveType && importNetworkId && activeAccount.ready) {
       void backgroundApiProxy.serviceNetwork.saveGlobalDeriveTypeForNetwork({
         networkId: importNetworkId,
         deriveType: importDeriveType,
       });
     }
-  }, [importDeriveType, importNetworkId]);
+  }, [importDeriveType, importNetworkId, activeAccount.ready]);
   return (
     <Page skipLoading={platformEnv.isNativeIOS}>
       <Page.Header

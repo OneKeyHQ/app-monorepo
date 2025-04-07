@@ -75,7 +75,6 @@ function MessageConfirmActions(props: IProps) {
   const handleSignMessage = useCallback(
     async (close?: (extra?: { flag?: string }) => void) => {
       setIsLoading(true);
-      isSubmitted.current = true;
       try {
         if (
           unsignedMessage.type === EMessageTypesEth.ETH_SIGN ||
@@ -114,6 +113,7 @@ function MessageConfirmActions(props: IProps) {
         void dappApprove.resolve({
           result,
         });
+        isSubmitted.current = true;
         onSuccess?.(result);
         try {
           await backgroundApiProxy.serviceSignature.addItemFromSignMessage({

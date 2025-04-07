@@ -4,12 +4,12 @@ import { Freeze } from 'react-freeze';
 
 import { Stack } from '@onekeyhq/components';
 import type { IWebViewOnScrollEvent } from '@onekeyhq/kit/src/components/WebView/types';
-import { useBrowserHistoryAction } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import WebContent from '../../components/WebContent/WebContent';
 import { useActiveTabId, useWebTabDataById } from '../../hooks/useWebTabs';
 import { captureViewRefs } from '../../utils/explorerUtils';
+import { useNotifyTabBarDisplay } from '../../utils/tabBarUtils';
 
 function MobileBrowserContent({
   id,
@@ -19,7 +19,6 @@ function MobileBrowserContent({
   onScroll?: (event: IWebViewOnScrollEvent) => void;
 }) {
   const { tab } = useWebTabDataById(id);
-  const { addBrowserHistory } = useBrowserHistoryAction().current;
   const { activeTabId } = useActiveTabId();
   const [, setBackEnabled] = useState(false);
   const [, setForwardEnabled] = useState(false);
@@ -28,6 +27,8 @@ function MobileBrowserContent({
     () => activeTabId === tab?.id,
     [tab?.id, activeTabId],
   );
+
+  useNotifyTabBarDisplay(!!activeTabId);
 
   const initCaptureViewRef = useCallback(
     ($ref: any) => {
@@ -58,9 +59,6 @@ function MobileBrowserContent({
               isCurrent={isActive}
               setBackEnabled={setBackEnabled}
               setForwardEnabled={setForwardEnabled}
-              addBrowserHistory={(siteInfo) => {
-                void addBrowserHistory(siteInfo);
-              }}
               onScroll={onScroll}
             />
           </Stack>

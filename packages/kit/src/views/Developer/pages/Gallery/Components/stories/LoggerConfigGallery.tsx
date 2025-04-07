@@ -179,12 +179,9 @@ const LoggingConfigCheckbox = () => {
                 typeof newConfig[key] === 'object' &&
                 newConfig[key] !== null
               ) {
-                Object.keys(newConfig[key] as ILoggingEnabledConfig).forEach(
-                  (subKey) => {
-                    (newConfig[key] as ILoggingEnabledConfig)[subKey] =
-                      !!checked;
-                  },
-                );
+                Object.keys(newConfig[key]).forEach((subKey) => {
+                  (newConfig[key] as ILoggingEnabledConfig)[subKey] = !!checked;
+                });
               } else {
                 newConfig[key] = !!checked;
               }

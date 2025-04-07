@@ -1,6 +1,6 @@
 import { utils } from '@ckb-lumos/base';
 import { getConfig as getSDKConfig } from '@ckb-lumos/config-manager';
-import { generateAddress, parseAddress } from '@ckb-lumos/helpers';
+import { generateAddress } from '@ckb-lumos/helpers';
 
 import type { Script } from '@ckb-lumos/base';
 import type { Config } from '@ckb-lumos/config-manager';

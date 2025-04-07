@@ -31,11 +31,17 @@ class ServiceExplorer extends ServiceBase {
       return this.buildCustomEvmExplorerUrl(params);
     }
     const client = await this.getClient(EServiceEndpointEnum.Wallet);
-    const { networkId, ...rest } = params;
+    const { networkId } = params;
     void this.check(params);
+    const network = await this.backgroundApi.serviceNetwork.getNetwork({
+      networkId,
+    });
+    if (!network) {
+      return '';
+    }
+    const type = params.type === 'transaction' ? 'tx' : params.type;
     return client.getUri({
-      url: `/wallet/v1/network/explorer/${networkId}`,
-      params: rest,
+      url: `/v1/${network.code}/${type}/${params.param}`,
     });
   }
 

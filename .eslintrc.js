@@ -18,11 +18,13 @@ const jsRules = {
   'react/jsx-props-no-spreading': 'off',
   'react/jsx-no-leaked-render': ['error', { 'validStrategies': ['ternary'] }],
   'react/no-unused-prop-types': 'off',
+  'arrow-body-style': 'off',
   'prefer-destructuring': 'off',
   'react/no-unstable-nested-components': 'warn',
   'react/jsx-key': 'error',
   'react/jsx-no-useless-fragment': 'off',
   'use-effect-no-deps/use-effect-no-deps': 'error',
+  'react-hooks/rules-of-hooks': 'error',
   'react-hooks/exhaustive-deps': [
     'error',
     {
@@ -95,7 +97,14 @@ const tsRules = {
     { disallowTypeAnnotations: false },
   ],
   '@typescript-eslint/no-var-requires': 'off',
-  '@typescript-eslint/no-unused-vars': [isDev ? 'warn' : 'error'],
+  '@typescript-eslint/no-unused-vars': [
+    isDev ? 'warn' : 'error',
+    {
+      'argsIgnorePattern': '^_',
+      'varsIgnorePattern': '^_',
+      'caughtErrorsIgnorePattern': '^_',
+    },
+  ],
   '@typescript-eslint/no-use-before-define': ['error'],
   '@typescript-eslint/no-shadow': ['error'],
   '@typescript-eslint/explicit-module-boundary-types': 'off',
@@ -252,7 +261,7 @@ module.exports = {
           /Preauthorized/i,
         ],
         'skipIfMatch': ['http://[^s]*'],
-        'minLength': 3,
+        'minLength': 4,
       },
     ],
     'props-checker/validator': [
@@ -410,7 +419,7 @@ module.exports = {
                   'tamagui',
                   '@onekeyhq/kit',
                   '@onekeyhq/kit-bg',
-                  '@onekeyhq/components'
+                  '@onekeyhq/components',
                 ],
                 message: 'Please avoid using tamagui in this folder',
               },

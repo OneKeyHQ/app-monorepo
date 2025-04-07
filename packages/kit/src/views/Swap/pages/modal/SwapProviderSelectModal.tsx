@@ -146,7 +146,7 @@ const SwapProviderSelectModal = () => {
   const renderItem = useCallback(
     ({ item }: { item: IFetchQuoteResult; index: number }) => {
       let disabled = !item.toAmount;
-      const fromTokenAmountBN = new BigNumber(fromTokenAmount ?? 0);
+      const fromTokenAmountBN = new BigNumber(fromTokenAmount.value ?? 0);
       if (item.limit) {
         if (item.limit.min) {
           const minBN = new BigNumber(item.limit.min);
@@ -174,7 +174,7 @@ const SwapProviderSelectModal = () => {
             item.info.provider === currentSelectQuote?.info.provider &&
               item.info.providerName === currentSelectQuote?.info.providerName,
           )}
-          fromTokenAmount={fromTokenAmount}
+          fromTokenAmount={fromTokenAmount.value}
           fromToken={fromToken}
           toToken={toToken}
           providerResult={item}

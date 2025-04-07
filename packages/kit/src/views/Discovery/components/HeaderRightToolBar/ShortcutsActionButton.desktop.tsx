@@ -82,7 +82,7 @@ export function ShortcutsActionButton() {
             {
               shortcutKeys: EShortcutEvents.ViewHistory,
               label: intl.formatMessage({
-                id: ETranslations.explore_history,
+                id: ETranslations.browser_recently_closed,
               }),
               icon: 'ClockTimeHistoryOutline',
               onPress: () => {
@@ -106,7 +106,13 @@ export function ShortcutsActionButton() {
           ].filter(Boolean) as IActionListItemProps[],
         },
       ]}
-      renderTrigger={<IconButton variant="tertiary" icon="DotHorOutline" />}
+      renderTrigger={
+        <IconButton
+          variant="tertiary"
+          icon="DotHorOutline"
+          testID="browser-shortcuts-button"
+        />
+      }
     />
   );
 }

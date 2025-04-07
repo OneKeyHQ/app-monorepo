@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
@@ -7,35 +7,54 @@ import {
   Accordion,
   Divider,
   Icon,
+  LottieView,
   NumberSizeableText,
   SizableText,
   XStack,
+  YStack,
 } from '@onekeyhq/components';
 import { useDebounce } from '@onekeyhq/kit/src/hooks/useDebounce';
 import {
+  useSwapApprovingAtom,
   useSwapFromTokenAmountAtom,
+  useSwapLimitExpirationTimeAtom,
+  useSwapLimitPartiallyFillAtom,
   useSwapProviderSupportReceiveAddressAtom,
+  useSwapQuoteListAtom,
   useSwapSelectFromTokenAtom,
   useSwapSelectToTokenAtom,
   useSwapTokenMetadataAtom,
+  useSwapTypeSwitchAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/swap';
 import {
+  useInAppNotificationAtom,
   useSettingsAtom,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
-import type {
-  IFetchQuoteResult,
-  ISwapToken,
-  ISwapTokenMetadata,
+import { numberFormat } from '@onekeyhq/shared/src/utils/numberUtils';
+import {
+  EProtocolOfExchange,
+  ESwapLimitOrderExpiryStep,
+  ESwapQuoteKind,
+  ESwapTabSwitchType,
+  type IFetchQuoteResult,
+  type ISwapToken,
+  type ISwapTokenMetadata,
 } from '@onekeyhq/shared/types/swap/types';
 
+import LimitExpirySelect from '../../components/LimitExpirySelect';
+import LimitPartialFillSelect from '../../components/LimitPartialFillSelect';
+import SwapApprovingItem from '../../components/SwapApprovingItem';
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
 import SwapProviderInfoItem from '../../components/SwapProviderInfoItem';
 import SwapQuoteResultRate from '../../components/SwapQuoteResultRate';
 import { useSwapRecipientAddressInfo } from '../../hooks/useSwapAccount';
 import { useSwapSlippageActions } from '../../hooks/useSwapSlippageActions';
-import { useSwapQuoteLoading } from '../../hooks/useSwapState';
+import {
+  useSwapQuoteEventFetching,
+  useSwapQuoteLoading,
+} from '../../hooks/useSwapState';
 
 import SwapApproveAllowanceSelectContainer from './SwapApproveAllowanceSelectContainer';
 import SwapSlippageTriggerContainer from './SwapSlippageTriggerContainer';
@@ -59,10 +78,18 @@ const SwapQuoteResult = ({
   const [fromTokenAmount] = useSwapFromTokenAmountAtom();
   const [settingsPersistAtom] = useSettingsPersistAtom();
   const [swapTokenMetadata] = useSwapTokenMetadataAtom();
+  const [swapQuoteList] = useSwapQuoteListAtom();
+  const [approving, setSwapApprovingAtom] = useSwapApprovingAtom();
+  const [{ swapApprovingTransaction }] = useInAppNotificationAtom();
+  const [swapLimitExpirySelect, setSwapLimitExpirySelect] =
+    useSwapLimitExpirationTimeAtom();
   const [swapProviderSupportReceiveAddress] =
     useSwapProviderSupportReceiveAddressAtom();
+  const [swapLimitPartiallyFill, setSwapLimitPartiallyFill] =
+    useSwapLimitPartiallyFillAtom();
   const [{ swapEnableRecipientAddress }] = useSettingsAtom();
   const swapQuoteLoading = useSwapQuoteLoading();
+  const [swapTypeSwitch] = useSwapTypeSwitchAtom();
   const intl = useIntl();
   const { onSlippageHandleClick, slippageItem } = useSwapSlippageActions();
 
@@ -142,22 +169,256 @@ const SwapQuoteResult = ({
     [calculateTaxItem],
   );
 
+  const quoting = useSwapQuoteEventFetching();
+
+  const limitOrderExpiryStepMap = useMemo(
+    () => [
+      {
+        label: `5 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_minutes,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.FIVE_MINUTES.toString(),
+      },
+      {
+        label: `30 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_minutes,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.THIRTY_MINUTES.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_hour,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_HOUR.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_day,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_DAY.toString(),
+      },
+      {
+        label: `3 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_days,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.THREE_DAYS.toString(),
+      },
+      {
+        label: `7 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_days,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_WEEK.toString(),
+      },
+      {
+        label: `1 ${intl.formatMessage({
+          id: ETranslations.Limit_expire_month,
+        })}`,
+        value: ESwapLimitOrderExpiryStep.ONE_MONTH.toString(),
+      },
+    ],
+    [intl],
+  );
+  const limitOrderPartiallyFillStepMap = useMemo(
+    () => [
+      {
+        label: intl.formatMessage({
+          id: ETranslations.Limit_info_partial_fill_enable,
+        }),
+        value: true,
+      },
+      {
+        label: intl.formatMessage({
+          id: ETranslations.Limit_info_partial_fill_disable,
+        }),
+        value: false,
+      },
+    ],
+    [intl],
+  );
+
+  const allCostFeeFormatValue = useMemo(() => {
+    const oneKeyFeeAmountBN = new BigNumber(
+      quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount ?? '0',
+    );
+    const tokenPriceBN = new BigNumber(
+      quoteResult?.kind === ESwapQuoteKind.SELL
+        ? toToken?.price ?? '0'
+        : fromToken?.price ?? '0',
+    );
+    const oneKeyFeeFiatValue = oneKeyFeeAmountBN.multipliedBy(tokenPriceBN);
+    const estimatedFeeFiatValue = new BigNumber(
+      quoteResult?.fee?.estimatedFeeFiatValue ?? '0',
+    );
+    const allFeeFiatValue = estimatedFeeFiatValue.plus(oneKeyFeeFiatValue);
+    const allFeeFiatValueFormat = numberFormat(allFeeFiatValue.toFixed(), {
+      formatter: 'value',
+      formatterOptions: { currency: settingsPersistAtom.currencyInfo.symbol },
+    });
+    return `${allFeeFiatValueFormat as string}`;
+  }, [
+    quoteResult?.fee?.estimatedFeeFiatValue,
+    quoteResult?.oneKeyFeeExtraInfo,
+    toToken?.price,
+    quoteResult?.kind,
+    fromToken?.price,
+    settingsPersistAtom.currencyInfo.symbol,
+  ]);
+
+  const limitNetworkFeeMarkQuestContent = useMemo(() => {
+    const networkCostBuyAmountFormat = numberFormat(
+      quoteResult?.networkCostBuyAmount ?? '0',
+      { formatter: 'balance' },
+    );
+    const oneKeyFeeCostFormat = numberFormat(
+      quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeAmount ?? '0',
+      {
+        formatter: 'balance',
+      },
+    );
+
+    return (
+      <YStack gap="$2" p="$4">
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.limit_order_info_network_cost,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMdMedium">{`${
+            networkCostBuyAmountFormat as string
+          } ${quoteResult?.toTokenInfo?.symbol ?? ''}`}</SizableText>
+        </XStack>
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.provider_ios_popover_onekey_fee,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMdMedium">{`${
+            oneKeyFeeCostFormat as string
+          } ${
+            quoteResult?.oneKeyFeeExtraInfo?.oneKeyFeeSymbol ?? ''
+          }`}</SizableText>
+        </XStack>
+        <Divider />
+        <XStack justifyContent="space-between">
+          <SizableText size="$bodyMdMedium" color="$textSubdued">
+            {intl.formatMessage({
+              id: ETranslations.limit_est_fee,
+            })}
+          </SizableText>
+          <SizableText size="$bodyMdMedium">
+            {allCostFeeFormatValue}
+          </SizableText>
+        </XStack>
+      </YStack>
+    );
+  }, [
+    quoteResult?.oneKeyFeeExtraInfo,
+    quoteResult?.networkCostBuyAmount,
+    quoteResult?.toTokenInfo?.symbol,
+    intl,
+    allCostFeeFormatValue,
+  ]);
   const fromAmountDebounce = useDebounce(fromTokenAmount, 500, {
     leading: true,
   });
   if (
     !fromToken ||
     !toToken ||
-    new BigNumber(fromTokenAmount).isNaN() ||
-    new BigNumber(fromTokenAmount).isZero()
+    new BigNumber(fromTokenAmount.value).isNaN() ||
+    new BigNumber(fromTokenAmount.value).isZero()
   ) {
     return null;
   }
+  if (swapApprovingTransaction && approving) {
+    return (
+      <SwapApprovingItem
+        approvingTransaction={swapApprovingTransaction}
+        onComplete={() => {
+          setSwapApprovingAtom(false);
+        }}
+      />
+    );
+  }
+  if (swapTypeSwitch === ESwapTabSwitchType.LIMIT) {
+    if (quoting || swapQuoteLoading) {
+      return (
+        <XStack alignItems="center">
+          <XStack gap="$2">
+            <SizableText size="$bodyMd" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.swap_loading_content,
+              })}
+            </SizableText>
+          </XStack>
+          <XStack flex={1} justifyContent="flex-end">
+            <LottieView
+              source={require('@onekeyhq/kit/assets/animations/swap_loading.json')}
+              autoPlay
+              loop
+              style={{
+                width: 48,
+                height: 20,
+              }}
+            />
+          </XStack>
+        </XStack>
+      );
+    }
+    if (
+      quoteResult?.protocol === EProtocolOfExchange.LIMIT &&
+      !quoteResult?.isWrapped
+    ) {
+      return !quoteResult?.shouldWrappedToken && quoteResult?.info.provider ? (
+        <YStack gap="$3">
+          <SwapProviderInfoItem
+            providerIcon={quoteResult?.info.providerLogo ?? ''}
+            providerName={quoteResult?.info.providerName ?? ''}
+            // isLoading={swapQuoteLoading}
+            fromToken={fromToken}
+            onekeyFee={quoteResult?.fee?.percentageFee}
+            toToken={toToken}
+            showLock={!!quoteResult?.allowanceResult}
+            onPress={
+              quoteResult?.info.provider && swapQuoteList?.length > 1
+                ? () => {
+                    onOpenProviderList?.();
+                  }
+                : undefined
+            }
+          />
+          {quoteResult?.fee?.estimatedFeeFiatValue &&
+          quoteResult?.networkCostBuyAmount ? (
+            <SwapCommonInfoItem
+              title={intl.formatMessage({
+                id: ETranslations.limit_est_fee,
+              })}
+              questionMarkContent={limitNetworkFeeMarkQuestContent}
+              // isLoading={swapQuoteLoading}
+              value={allCostFeeFormatValue}
+            />
+          ) : null}
+          <LimitExpirySelect
+            currentSelectExpiryValue={swapLimitExpirySelect}
+            onSelectExpiryValue={setSwapLimitExpirySelect}
+            selectItems={limitOrderExpiryStepMap}
+          />
+          <LimitPartialFillSelect
+            currentSelectPartiallyFillValue={swapLimitPartiallyFill}
+            onSelectPartiallyFillValue={setSwapLimitPartiallyFill}
+            selectItems={limitOrderPartiallyFillStepMap}
+          />
+        </YStack>
+      ) : null;
+    }
+  }
   if (
+    (swapTypeSwitch !== ESwapTabSwitchType.LIMIT || quoteResult?.isWrapped) &&
     fromToken &&
     toToken &&
-    !new BigNumber(fromAmountDebounce).isZero() &&
-    !new BigNumber(fromAmountDebounce).isNaN()
+    !new BigNumber(fromAmountDebounce.value).isZero() &&
+    !new BigNumber(fromAmountDebounce.value).isNaN()
   ) {
     return (
       <Accordion type="single" collapsible>
@@ -173,11 +434,11 @@ const SwapQuoteResult = ({
             {({ open }: { open: boolean }) => (
               <SwapQuoteResultRate
                 rate={quoteResult?.instantRate}
+                quoting={quoting}
                 fromToken={fromToken}
                 toToken={toToken}
                 isBest={quoteResult?.isBest}
                 providerIcon={quoteResult?.info.providerLogo ?? ''}
-                providerName={quoteResult?.info.providerName ?? ''}
                 isLoading={swapQuoteLoading}
                 refreshAction={refreshAction}
                 onOpenResult={
@@ -256,22 +517,40 @@ const SwapQuoteResult = ({
                   slippageItem={slippageItem}
                 />
               ) : null}
-              {quoteResult?.fee?.estimatedFeeFiatValue ? (
+              {(quoteResult?.fee?.estimatedFeeFiatValue ||
+                quoteResult?.fee?.isFreeNetworkFee) &&
+              !quoteResult?.allowanceResult ? (
                 <SwapCommonInfoItem
                   title={intl.formatMessage({
                     id: ETranslations.swap_page_provider_est_network_fee,
                   })}
                   isLoading={swapQuoteLoading}
                   valueComponent={
-                    <NumberSizeableText
-                      size="$bodyMdMedium"
-                      formatter="value"
-                      formatterOptions={{
-                        currency: settingsPersistAtom.currencyInfo.symbol,
-                      }}
-                    >
-                      {quoteResult.fee?.estimatedFeeFiatValue}
-                    </NumberSizeableText>
+                    quoteResult?.fee?.isFreeNetworkFee ? (
+                      <XStack gap="$1" alignItems="center">
+                        <Icon
+                          name="PartyCelebrateSolid"
+                          color="$iconSuccess"
+                          w={15}
+                          h={15}
+                        />
+                        <SizableText size="$bodyMdMedium" color="$textSuccess">
+                          {intl.formatMessage({
+                            id: ETranslations.prime_status_free,
+                          })}
+                        </SizableText>
+                      </XStack>
+                    ) : (
+                      <NumberSizeableText
+                        size="$bodyMdMedium"
+                        formatter="value"
+                        formatterOptions={{
+                          currency: settingsPersistAtom.currencyInfo.symbol,
+                        }}
+                      >
+                        {quoteResult.fee?.estimatedFeeFiatValue}
+                      </NumberSizeableText>
+                    )
                   }
                 />
               ) : null}

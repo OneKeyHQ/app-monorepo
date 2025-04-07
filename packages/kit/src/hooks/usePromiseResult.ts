@@ -84,9 +84,9 @@ export function usePromiseResult<T>(
   useEffect(() => {
     const handleVisibilityStateChange = (visible: boolean) => {
       if (visible) {
-        resetDefer();
-      } else {
         resolveDefer();
+      } else {
+        resetDefer();
       }
     };
     handleVisibilityStateChange(getCurrentVisibilityState());

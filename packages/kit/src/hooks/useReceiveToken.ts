@@ -4,10 +4,6 @@ import { useIntl } from 'react-intl';
 
 import type { IPageNavigationProp } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import type {
-  IAccountDeriveInfo,
-  IAccountDeriveTypes,
-} from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalReceiveRoutes, EModalRoutes } from '@onekeyhq/shared/src/routes';
 import type { IModalReceiveParamList } from '@onekeyhq/shared/src/routes';
@@ -25,22 +21,22 @@ function useReceiveToken({
   accountId,
   networkId,
   walletId,
-  deriveInfo,
-  deriveType,
   tokens,
   tokenListState,
+  isMultipleDerive,
+  indexedAccountId,
 }: {
   accountId: string;
   networkId: string;
   walletId: string;
-  deriveInfo: IAccountDeriveInfo | undefined;
-  deriveType: IAccountDeriveTypes;
+  indexedAccountId: string;
   isAllNetworks?: boolean;
   tokens?: ITokenData;
   tokenListState?: {
     isRefreshing: boolean;
     initialized: boolean;
   };
+  isMultipleDerive?: boolean;
 }) {
   const intl = useIntl();
   const { vaultSettings, account, network } = useAccountData({
@@ -63,9 +59,33 @@ function useReceiveToken({
         return;
       }
 
-      if (!deriveInfo) return;
-
       if (vaultSettings?.isSingleToken || token) {
+        if (
+          isMultipleDerive &&
+          !accountUtils.isOthersWallet({ walletId }) &&
+          vaultSettings?.mergeDeriveAssetsEnabled
+        ) {
+          navigation.pushModal(EModalRoutes.ReceiveModal, {
+            screen: EModalReceiveRoutes.ReceiveSelectDeriveAddress,
+            params: {
+              networkId,
+              indexedAccountId,
+              token: token ?? tokens?.data?.[0],
+              tokenMap: tokens?.map,
+              actionType: EDeriveAddressActionType.Select,
+              onSelected: ({ account: a }: { account: INetworkAccount }) => {
+                navigation.push(EModalReceiveRoutes.ReceiveToken, {
+                  networkId,
+                  accountId: a.id ?? accountId,
+                  walletId,
+                  token: token ?? tokens?.data?.[0],
+                });
+              },
+            },
+          });
+          return;
+        }
+
         navigation.pushModal(EModalRoutes.ReceiveModal, {
           screen: EModalReceiveRoutes.ReceiveToken,
           params: {
@@ -151,14 +171,16 @@ function useReceiveToken({
     [
       account?.indexedAccountId,
       accountId,
-      deriveInfo,
+      indexedAccountId,
       intl,
+      isMultipleDerive,
       navigation,
       network?.isAllNetworks,
       networkId,
       tokenListState,
       tokens,
       vaultSettings?.isSingleToken,
+      vaultSettings?.mergeDeriveAssetsEnabled,
       walletId,
     ],
   );

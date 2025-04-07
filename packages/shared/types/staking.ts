@@ -26,14 +26,20 @@ export type IStakingInfo = {
   orderId?: string;
 };
 
+export enum EApproveType {
+  Permit = 'permit',
+  Legacy = 'legacy',
+}
+
 export type IStakeProviderInfo = {
   name: string;
   logoURI: string;
   website: string;
   // btc don't have apr
-  apr?: string;
+  aprWithoutFee?: string;
   poolFee: string;
   totalStaked: string;
+  totalStakedFiatValue: string;
   totalFiatValue: string;
   minStakeAmount: string;
   maxStakeAmount: string;
@@ -72,7 +78,13 @@ export type IStakeProviderInfo = {
   apys?: IRewardApys;
   maxUnstakeAmount?: string;
   vault?: string;
+  vaultName?: string;
+  url?: string;
   rewardUnit: IEarnRewardUnit;
+
+  approveType?: EApproveType;
+
+  liquidity?: string;
 };
 
 export type IStakeBaseParams = {
@@ -87,6 +99,8 @@ export type IStakeBaseParams = {
   signature?: string; // lido unstake
   deadline?: number; // lido unstake
   morphoVault?: string; // morpho vault
+  approveType?: EApproveType;
+  permitSignature?: string;
 };
 
 export type IWithdrawBaseParams = {
@@ -124,6 +138,7 @@ export type IStakeClaimBaseParams = {
   accountId: string;
   networkId: string;
   symbol: string;
+  vault: string;
   provider: string;
   amount?: string;
   identity?: string;
@@ -238,6 +253,7 @@ export type IStakeProtocolDetails = {
   earnings24h?: string;
   provider: IStakeProviderInfo;
   totalStaked?: string;
+  totalStakedFiatValue?: string;
   stakingCap?: string;
   token: IEarnTokenItem;
   network?: {
@@ -265,12 +281,19 @@ export type IStakeProtocolListItem = {
 };
 
 export type IRewardApys = {
+  // Base rates
   rate: string;
-  rewards: Record<string, string>;
   netApy: string;
+  performanceFee: string;
+
+  // Time-based APYs
+  dailyApy: string;
   dailyNetApy: string;
   weeklyNetApy: string;
   monthlyNetApy: string;
+
+  // Token rewards
+  rewards: Record<string, string>;
 };
 
 export type IBabylonPortfolioStatus =
@@ -315,7 +338,7 @@ export interface IEarnAccountToken {
   name: string;
   symbol: string;
   logoURI: string;
-  apr: string;
+  aprWithoutFee: string;
   profit: string;
   balance: string;
   balanceParsed: string;
@@ -352,7 +375,7 @@ export type IAvailableAsset = {
   name: string;
   symbol: string;
   logoURI: string;
-  apr: string;
+  aprWithoutFee: string;
   tags: string[];
   networkId: string;
   rewardUnit: IEarnRewardUnit;
@@ -424,6 +447,7 @@ export type IEarnUnbondingDelegationList = IEarnUnbondingDelegationListItem[];
 
 export type IEarnEstimateFeeResp = {
   coverFeeDays?: string;
+  coverFeeSeconds?: string;
   feeFiatValue: string;
   token: {
     balance: string;
@@ -444,3 +468,46 @@ export interface IEarnBabylonTrackingItem {
   amount: string;
   minStakeTerm?: number;
 }
+
+export interface IBuildPermit2ApproveSignDataParams {
+  networkId: string;
+  provider: string;
+  symbol: string;
+  accountAddress: string;
+  vault: string;
+  amount: string;
+}
+
+export interface IEarnPermit2ApproveSignData {
+  domain: {
+    name: string;
+    version: string;
+    chainId: number;
+    verifyingContract: string;
+  };
+  message: {
+    owner: string;
+    spender: string;
+    value: string;
+    nonce: string;
+    deadline: string;
+    expiry?: string; // dai
+  };
+  primaryType: string;
+  types: {
+    EIP712Domain: {
+      name: string;
+      type: string;
+    }[];
+    Permit: {
+      name: string;
+      type: string;
+    }[];
+  };
+}
+
+export type IApproveConfirmFnParams = {
+  amount: string;
+  approveType?: EApproveType;
+  permitSignature?: string;
+};

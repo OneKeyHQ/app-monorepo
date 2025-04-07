@@ -3,6 +3,7 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import {
   convertAddressToSignatureConfirmAddress,
   convertDecodedTxActionsToSignatureConfirmTxDisplayComponents,
@@ -11,13 +12,18 @@ import {
 } from '@onekeyhq/shared/src/utils/txActionUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import {
+  EParseTxComponentRole,
   EParseTxComponentType,
   EParseTxType,
-  type IParseMessageParams,
-  type IParseMessageResp,
-  type IParseTransactionParams,
-  type IParseTransactionResp,
 } from '@onekeyhq/shared/types/signatureConfirm';
+import type {
+  IAfterSendTxActionParams,
+  IParseMessageParams,
+  IParseMessageResp,
+  IParseTransactionParams,
+  IParseTransactionResp,
+} from '@onekeyhq/shared/types/signatureConfirm';
+import { ESwapProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IDecodedTx, ISendTxBaseParams } from '@onekeyhq/shared/types/tx';
 
 import { vaultFactory } from '../vaults/factory';
@@ -75,8 +81,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       r[0].txDisplay.components.unshift(
         convertAddressToSignatureConfirmAddress({
           address: accountAddress,
-          networkId,
-          owner: r[0]?.owner,
+          showAccountName:
+            networkUtils.isLightningNetworkByNetworkId(networkId),
         }),
       );
 
@@ -132,15 +138,8 @@ class ServiceSignatureConfirm extends ServiceBase {
       const isSwftOrder = swapInfo.swapBuildResData.swftOrder?.orderId;
       const isChangellyOrder =
         swapInfo.swapBuildResData.changellyOrder?.orderId;
-      const isOKXOrder = (
-        swapInfo.swapBuildResData.ctx as {
-          okxChainId: string;
-        }
-      )?.okxChainId;
 
-      if (isOKXOrder) {
-        disableParseTxThroughApi = true;
-      } else if (isBridge && (isSwftOrder || isChangellyOrder)) {
+      if (isBridge && (isSwftOrder || isChangellyOrder)) {
         disableParseTxThroughApi = true;
       }
     }
@@ -262,7 +261,7 @@ class ServiceSignatureConfirm extends ServiceBase {
 
   @backgroundMethod()
   async parseMessage(params: IParseMessageParams) {
-    const { accountId, networkId, message } = params;
+    const { accountId, networkId, message, swapInfo } = params;
     let accountAddress = params.accountAddress;
     if (!accountAddress) {
       accountAddress =
@@ -299,11 +298,45 @@ class ServiceSignatureConfirm extends ServiceBase {
             ),
         },
       );
-      return resp.data.data;
+
+      const parsedMessage = resp.data.data;
+
+      if (
+        swapInfo &&
+        swapInfo.swapBuildResData.result.info.provider ===
+          ESwapProvider.Swap1inchFusion
+      ) {
+        // fix: 1inch fusion receiver address
+        parsedMessage?.display?.components?.forEach((component) => {
+          if (
+            component.type === EParseTxComponentType.Address &&
+            component.role === EParseTxComponentRole.SwapReceiver
+          ) {
+            component.address = swapInfo.receivingAddress;
+            component.tags = [];
+          }
+        });
+      }
+
+      return parsedMessage;
     } catch (e) {
       console.log('parse message failed', e);
       return null;
     }
+  }
+
+  @backgroundMethod()
+  async afterSendTxAction(
+    params: IAfterSendTxActionParams & {
+      networkId: string;
+      accountId: string;
+    },
+  ) {
+    const { networkId, accountId, result } = params;
+    const vault = await vaultFactory.getVault({ networkId, accountId });
+    await vault.afterSendTxAction({
+      result,
+    });
   }
 }
 

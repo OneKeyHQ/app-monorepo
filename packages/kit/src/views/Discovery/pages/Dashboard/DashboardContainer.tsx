@@ -1,41 +1,44 @@
-import { useCallback } from 'react';
+import { useMemo } from 'react';
 
 import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
-import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { HeaderRight } from '@onekeyhq/kit/src/components/TabPageHeader/HeaderRight';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EDiscoveryModalRoutes,
-  EModalRoutes,
-} from '@onekeyhq/shared/src/routes';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
-import CustomHeaderSearch from '../../components/CustomHeaderSearch';
 import { HandleRebuildBrowserData } from '../../components/HandleData/HandleRebuildBrowserTabData';
 import MobileBrowserBottomBar from '../../components/MobileBrowser/MobileBrowserBottomBar';
 import { withBrowserProvider } from '../Browser/WithBrowserProvider';
+import { HistoryIconButton } from '../components/HistoryIconButton';
 
 import DashboardContent from './DashboardContent';
 
 function Dashboard() {
-  const navigation = useAppNavigation();
-  const handleSearchBarPress = useCallback(() => {
-    navigation.pushModal(EModalRoutes.DiscoveryModal, {
-      screen: EDiscoveryModalRoutes.SearchModal,
-    });
-  }, [navigation]);
-
-  const headerRight = useCallback(
-    () => <CustomHeaderSearch handleSearchBarPress={handleSearchBarPress} />,
-    [handleSearchBarPress],
-  );
   const { top } = useSafeAreaInsets();
+  const historyButton = useMemo(
+    () =>
+      !platformEnv.isExtension && !platformEnv.isWeb
+        ? () => {
+            return (
+              <HeaderRight
+                sceneName={EAccountSelectorSceneName.discover}
+                tabRoute={ETabRoutes.Discovery}
+              >
+                <HistoryIconButton />
+              </HeaderRight>
+            );
+          }
+        : undefined,
+    [],
+  );
 
   return (
     <Page>
-      <Page.Header headerRight={headerRight} />
+      <Page.Header headerRight={historyButton} />
       {platformEnv.isNativeIOSPad ? <HandleRebuildBrowserData /> : null}
       {platformEnv.isNativeIOS ? (
-        <XStack px="$5" pt={top}>
-          {headerRight()}
+        <XStack pt={top} px="$5" width="100%" justifyContent="flex-end">
+          <HistoryIconButton />
         </XStack>
       ) : null}
       <Page.Body>

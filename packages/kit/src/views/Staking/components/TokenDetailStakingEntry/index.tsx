@@ -8,6 +8,7 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { formatApy } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
@@ -61,7 +62,7 @@ const StakingEntryListItemContent = ({
             aprValue && Number(aprValue) > 0
               ? intl.formatMessage(
                   { id: ETranslations.earn_up_to_number_in_annual_rewards },
-                  { number: `${aprValue}%` },
+                  { number: `${formatApy(aprValue)}%` },
                 )
               : undefined
           }
@@ -128,7 +129,7 @@ export const TokenDetailStakingEntry = ({
         filter: true,
       });
     const aprItems = protocolList
-      .map((o) => Number(o.provider.apr))
+      .map((o) => Number(o.provider.aprWithoutFee))
       .filter((n) => Number(n) > 0);
     const maxApr = Math.max(0, ...aprItems);
     return { symbolInfo, maxApr };

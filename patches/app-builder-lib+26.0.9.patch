@@ -1,0 +1,76 @@
+diff --git a/node_modules/app-builder-lib/out/macPackager.js b/node_modules/app-builder-lib/out/macPackager.js
+index 4ee5f88..e79bba0 100644
+--- a/node_modules/app-builder-lib/out/macPackager.js
++++ b/node_modules/app-builder-lib/out/macPackager.js
+@@ -189,6 +189,37 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+             this.packageInDistributableFormat(appPath, arch, targets, taskManager);
+         }
+     }
++    async adjustSignOptions(signOptions, masOptions) {
++      const resourceList = await this.resourceList;
++      const customSignOptions = masOptions || this.platformSpecificBuildOptions;
++      const entitlementsSuffix = masOptions == null ? "mac" : "mas";
++      let entitlements = customSignOptions.entitlements;
++      if (entitlements == null) {
++          const p = `entitlements.${entitlementsSuffix}.plist`;
++          if (resourceList.includes(p)) {
++              entitlements = path.join(this.info.buildResourcesDir, p);
++          }
++          else {
++              entitlements = pathManager_1.getTemplatePath("entitlements.mac.plist");
++          }
++      }
++      signOptions.entitlements = entitlements;
++      let entitlementsInherit = customSignOptions.entitlementsInherit;
++      if (entitlementsInherit == null) {
++          const p = `entitlements.${entitlementsSuffix}.inherit.plist`;
++          if (resourceList.includes(p)) {
++              entitlementsInherit = path.join(this.info.buildResourcesDir, p);
++          }
++          else {
++              entitlementsInherit = pathManager_1.getTemplatePath("entitlements.mac.plist");
++          }
++      }
++      signOptions["entitlements-inherit"] = entitlementsInherit;
++      if (customSignOptions.provisioningProfile != null) {
++          signOptions["provisioning-profile"] = customSignOptions.provisioningProfile;
++      }
++      signOptions["entitlements-loginhelper"] = customSignOptions.entitlementsLoginHelper;
++    }
+     async sign(appPath, outDir, masOptions, arch) {
+         if (!(0, macCodeSign_1.isSignAllowed)()) {
+             return false;
+@@ -196,7 +227,7 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+         const isMas = masOptions != null;
+         const options = masOptions == null ? this.platformSpecificBuildOptions : masOptions;
+         const qualifier = options.identity;
+-        if (qualifier === null) {
++        if (!isMas && qualifier === null) {
+             if (this.forceCodeSigning) {
+                 throw new builder_util_1.InvalidConfigurationError("identity explicitly is set to null, but forceCodeSigning is set to true");
+             }
+@@ -222,7 +253,7 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+                     builder_util_1.log.warn("Mac Developer is used to sign app — it is only for development and testing, not for production");
+                 }
+             }
+-            if (!options.sign && identity == null) {
++            if (!isMas && !options.sign && identity == null) {
+                 await (0, macCodeSign_1.reportError)(isMas, certificateTypes, qualifier, keychainFile, this.forceCodeSigning);
+                 return false;
+             }
+@@ -287,6 +318,15 @@ class MacPackager extends platformPackager_1.PlatformPackager {
+             optionsForFile: await this.getOptionsForFile(appPath, isMas, customSignOptions),
+             provisioningProfile: customSignOptions.provisioningProfile || undefined,
+         };
++        builder_util_1.log.info({
++            file: builder_util_1.log.filePath(appPath),
++            identityName: identity ? identity.name : null,
++            identityHash: identity ? identity.hash : null,
++            provisioningProfile: signOptions["provisioning-profile"] || "none",
++        }, "signing");
++        if (isMas) {
++          await this.adjustSignOptions(signOptions, masOptions);
++        }
+         await this.doSign(signOptions, customSignOptions, identity);
+         // https://github.com/electron-userland/electron-builder/issues/1196#issuecomment-312310209
+         if (masOptions != null && !isDevelopment) {
