@@ -26,3 +26,5 @@ export type IEditableChainSelectorSection = {
 };
 
 export const CELL_HEIGHT = 48;
+
+export const HEADER_HEIGHT = 89;
