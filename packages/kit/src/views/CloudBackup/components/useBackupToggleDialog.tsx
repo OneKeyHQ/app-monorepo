@@ -26,19 +26,6 @@ export function useBackupToggleAction() {
           : { isFirstDisabled: false, isInProgress: false }),
       });
 
-      // try {
-      //   await backgroundApiProxy.serviceCloudBackup.backupNow();
-      // } catch (e) {
-      //   Toast.error({
-      //     title:
-      //       e instanceof Error
-      //         ? e.message
-      //         : intl.formatMessage({
-      //             id: ETranslations.global_sync_error,
-      //           }),
-      //   });
-      // }
-
       if (!willIsEnabled && platformEnv.isNativeAndroid) {
         await backgroundApiProxy.serviceCloudBackup.logoutFromGoogleDrive(true);
       }
