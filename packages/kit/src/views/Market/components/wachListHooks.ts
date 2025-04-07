@@ -15,15 +15,18 @@ export const useWatchListAction = () => {
     (coingeckoId: string) => {
       const item = {
         coingeckoId,
+        sortIndex: undefined,
       };
       actions.current.removeFormWatchList(item);
     },
     [actions],
   );
   const addIntoWatchList = useCallback(
-    (coingeckoIds: string | string[]) => {
+    async (coingeckoIds: string | string[]) => {
       const ids = Array.isArray(coingeckoIds) ? coingeckoIds : [coingeckoIds];
-      actions.current.addIntoWatchList(ids.map((id) => ({ coingeckoId: id })));
+      await actions.current.addIntoWatchList(
+        ids.map((id) => ({ coingeckoId: id, sortIndex: undefined })),
+      );
       Toast.success({
         title: intl.formatMessage({
           id: ETranslations.market_added_to_watchlist,
@@ -32,12 +35,24 @@ export const useWatchListAction = () => {
     },
     [actions, intl],
   );
+
+  const sortWatchListItems = useCallback(
+    async (payload: {
+      target: IMarketWatchListItem;
+      prev: IMarketWatchListItem | undefined;
+      next: IMarketWatchListItem | undefined;
+    }) => {
+      await actions.current.sortWatchListItems(payload);
+    },
+    [actions],
+  );
   const MoveToTop = useCallback(
-    (coingeckoId: string) => {
+    async (coingeckoId: string) => {
       const item = {
         coingeckoId,
+        sortIndex: undefined,
       };
-      actions.current.moveToTop(item);
+      await actions.current.moveToTop(item);
     },
     [actions],
   );
@@ -59,6 +74,7 @@ export const useWatchListAction = () => {
       MoveToTop,
       isInWatchList,
       saveWatchList,
+      sortWatchListItems,
     }),
     [
       MoveToTop,
@@ -66,6 +82,7 @@ export const useWatchListAction = () => {
       isInWatchList,
       removeFormWatchList,
       saveWatchList,
+      sortWatchListItems,
     ],
   );
 };

@@ -38,7 +38,10 @@ export enum EAtomNames {
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
+  // prime
   primePersistAtom = 'primePersistAtom',
+  primeCloudSyncPersistAtom = 'primeCloudSyncPersistAtom',
+  primeMasterPasswordPersistAtom = 'primeMasterPasswordPersistAtom',
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',

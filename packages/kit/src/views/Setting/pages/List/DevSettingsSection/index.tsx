@@ -361,7 +361,17 @@ export const DevSettingsSection = () => {
           }}
         />
       </ListItem>
+
       <AutoUpdateSection />
+
+      <SectionFieldItem
+        name="allowAddSameHDWallet"
+        title="允许添加相同助记词 HD 钱包"
+        subtitle=""
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
       <SectionPressItem
         title="重置 App 为初次更新状态"
         testID="reset-app-to-fresh-state"

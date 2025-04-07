@@ -64,7 +64,7 @@ export const useStarChecked = ({
     }
   }, [actions, coingeckoId, isFocused]);
 
-  const handlePress = useCallback(() => {
+  const handlePress = useCallback(async () => {
     if (checked) {
       actions.removeFormWatchList(coingeckoId);
       defaultLogger.market.token.removeFromWatchlist({
@@ -72,7 +72,7 @@ export const useStarChecked = ({
         removeWatchlistFrom: from,
       });
     } else {
-      actions.addIntoWatchList(coingeckoId);
+      await actions.addIntoWatchList(coingeckoId);
       defaultLogger.market.token.addToWatchList({
         tokenSymbol: coingeckoId,
         addWatchlistFrom: from,

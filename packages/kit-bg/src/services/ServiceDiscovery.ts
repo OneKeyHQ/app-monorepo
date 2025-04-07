@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha256';
 import { bytesToHex } from '@noble/hashes/utils';
-import { isNumber } from 'lodash';
+import { isNil, isNumber } from 'lodash';
 import { LRUCache } from 'lru-cache';
 import WebViewCleaner from 'react-native-webview-cleaner';
 
@@ -12,6 +12,11 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { appLocale } from '@onekeyhq/shared/src/locale/appLocale';
 import { buildFuse } from '@onekeyhq/shared/src/modules3rdParty/fuse';
@@ -23,6 +28,7 @@ import {
 } from '@onekeyhq/shared/src/types/changeHistory';
 import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import imageUtils from '@onekeyhq/shared/src/utils/imageUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
 import {
@@ -38,6 +44,8 @@ import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import { getEndpoints } from '../endpoints';
 
 import ServiceBase from './ServiceBase';
+
+import type { IDBCloudSyncItem } from '../dbs/local/types';
 
 @backgroundClass()
 class ServiceDiscovery extends ServiceBase {
@@ -362,43 +370,106 @@ class ServiceDiscovery extends ServiceBase {
   }
 
   @backgroundMethod()
-  async setBrowserBookmarks(bookmarks: IBrowserBookmark[]) {
+  async setBrowserBookmarks({
+    bookmarks,
+    isRemove,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    bookmarks: IBrowserBookmark[];
+    isRemove?: boolean;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    console.log('setBrowserBookmarks', bookmarks);
+    // debugger;
     // Get current bookmarks to compare for changes
     const currentData =
       await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
 
-    // Save the updated bookmarks
-    await this.backgroundApi.simpleDb.browserBookmarks.setRawData({
-      data: bookmarks,
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-call, no-param-reassign
+    bookmarks = sortUtils.fillingSaveItemsSortIndex({
+      oldList: currentData?.data ?? [],
+      saveItems: bookmarks,
     });
 
-    const currentBookmarks = currentData?.data || [];
-    const currentBookmarksMap = new Map(
-      currentBookmarks.map((i) => [i.url, i]),
-    );
-
-    const items: IChangeHistoryUpdateItem[] = [];
-    // Check for title changes and record history
-    for (const newBookmark of bookmarks) {
-      const oldBookmark = currentBookmarksMap.get(newBookmark.url);
-      if (oldBookmark && oldBookmark.title !== newBookmark.title) {
-        // Generate a stable ID based on URL for the bookmark
-        const bookmarkId = newBookmark.url;
-
-        items.push({
-          entityType: EChangeHistoryEntityType.BrowserBookmark,
-          entityId: bookmarkId,
-          contentType: EChangeHistoryContentType.Name,
-          oldValue: oldBookmark.title,
-          value: newBookmark.title,
-        });
-      }
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    let syncItems: IDBCloudSyncItem[] = [];
+    if (!skipSaveLocalSyncItem) {
+      const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+      syncItems = (
+        await Promise.all(
+          bookmarks.map(async (bookmark) => {
+            return syncManagers.browserBookmark.buildSyncItemByDBQuery({
+              syncCredential:
+                await syncManagers.browserBookmark.getSyncCredential(),
+              dbRecord: bookmark,
+              dataTime: now,
+              isDeleted: isRemove,
+            });
+          }),
+        )
+      ).filter(Boolean);
     }
 
-    // Record history for title change
-    await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
-      items,
+    let savedSuccess = false;
+    await this.backgroundApi.localDb.withTransaction(async (tx) => {
+      if (syncItems?.length) {
+        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
+          tx,
+          items: syncItems,
+        });
+      }
+      if (isRemove) {
+        await this.backgroundApi.simpleDb.browserBookmarks.removeBookmarks({
+          urls: bookmarks.map((i) => i.url),
+        });
+      } else {
+        // Save the updated bookmarks
+        await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
+          bookmarks,
+        });
+      }
+
+      savedSuccess = true;
     });
+
+    if (!skipEventEmit) {
+      setTimeout(() => {
+        // Trigger bookmark list refresh after building bookmark data
+        appEventBus.emit(EAppEventBusNames.RefreshBookmarkList, undefined);
+      }, 200);
+    }
+
+    if (savedSuccess && !isRemove) {
+      const currentBookmarks = currentData?.data || [];
+      const currentBookmarksMap = new Map(
+        currentBookmarks.map((i) => [i.url, i]),
+      );
+
+      const changeHistoryUpdateItems: IChangeHistoryUpdateItem[] = [];
+      // Check for title changes and record history
+      for (const newBookmark of bookmarks) {
+        const oldBookmark = currentBookmarksMap.get(newBookmark.url);
+        if (oldBookmark && oldBookmark.title !== newBookmark.title) {
+          // Generate a stable ID based on URL for the bookmark
+          const bookmarkId = newBookmark.url;
+
+          changeHistoryUpdateItems.push({
+            entityType: EChangeHistoryEntityType.BrowserBookmark,
+            entityId: bookmarkId,
+            contentType: EChangeHistoryContentType.Name,
+            oldValue: oldBookmark.title,
+            value: newBookmark.title,
+          });
+        }
+      }
+
+      // Record history for title change
+      await this.backgroundApi.simpleDb.changeHistory.addChangeHistory({
+        items: changeHistoryUpdateItems,
+      });
+    }
   }
 
   @backgroundMethod()
@@ -406,6 +477,18 @@ class ServiceDiscovery extends ServiceBase {
     const data =
       await this.backgroundApi.simpleDb.browserBookmarks.getRawData();
     return data?.data ?? [];
+  }
+
+  async getBrowserBookmarksWithFillingSortIndex() {
+    const data = await this.getBrowserBookmarks();
+    const hasMissingSortIndex = data.some((item) => isNil(item.sortIndex));
+    if (hasMissingSortIndex) {
+      const newList = sortUtils.fillingMissingSortIndex({ items: data });
+      await this.backgroundApi.simpleDb.browserBookmarks.saveBookmarks({
+        bookmarks: newList.items,
+      });
+    }
+    return this.getBrowserBookmarks();
   }
 
   @backgroundMethod()

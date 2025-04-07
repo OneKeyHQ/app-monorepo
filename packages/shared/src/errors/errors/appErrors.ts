@@ -41,6 +41,20 @@ export class IncorrectPassword extends OneKeyAppError {
       }),
     );
   }
+
+  override className = EOneKeyErrorClassNames.IncorrectPassword;
+}
+
+export class IncorrectMasterPassword extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'OneKeyError: IncorrectMasterPassword',
+      }),
+    );
+  }
+
+  override className = EOneKeyErrorClassNames.IncorrectMasterPassword;
 }
 
 export class NotImplemented extends OneKeyAppError {
@@ -139,11 +153,36 @@ export class OneKeyErrorPrimeLoginInvalidToken extends OneKeyAppError {
   }
 }
 
+export class OneKeyErrorPrimeMasterPasswordInvalid extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Prime master password invalid',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+
+  override className =
+    EOneKeyErrorClassNames.OneKeyErrorPrimeMasterPasswordInvalid;
+}
+
 export class OneKeyErrorPrimeLoginExceedDeviceLimit extends OneKeyAppError {
   constructor(props?: IOneKeyError | string) {
     super(
       normalizeErrorProps(props, {
         defaultMessage: 'Prime exceed device limit',
+        defaultAutoToast: true,
+      }),
+    );
+  }
+}
+
+export class OneKeyErrorPrimePaidMembershipRequired extends OneKeyAppError {
+  constructor(props?: IOneKeyError | string) {
+    super(
+      normalizeErrorProps(props, {
+        defaultMessage: 'Prime Paid membership required',
         defaultAutoToast: true,
       }),
     );

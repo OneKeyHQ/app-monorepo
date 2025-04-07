@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/prefer-global-this */
 // react-native-crypto
 //      react-native-quick-crypto
 // react-native-get-random-values
@@ -13,10 +14,13 @@ require('react-native-get-random-values');
 if (process.env.NODE_ENV !== 'production') {
   const getRandomValuesOld = global.crypto.getRandomValues;
   global.crypto.getRandomValues = function (...args) {
+    // - sentry component uuid
+    // - encodeSensitiveText
     console.log(
-      '------------ call global.crypto.getRandomValues (native)',
+      '-------- call global.crypto.getRandomValues (native)',
       getRandomValuesOld,
     );
+    // console.trace('global.crypto.getRandomValues (native)');
     return getRandomValuesOld.apply(global.crypto, args);
   };
 }

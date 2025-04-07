@@ -1,8 +1,8 @@
 import * as React from 'react';
 
-import { IconButton, Stack } from '@onekeyhq/components';
-
+import { IconButton } from '../../actions/IconButton';
 import { useHoverOpacity } from '../../hooks/useHoverOpacity';
+import { Stack } from '../../primitives/Stack';
 
 const CloseButton: React.FC<{ onPress: () => void; isHovering?: boolean }> = ({
   onPress,

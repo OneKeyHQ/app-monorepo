@@ -60,7 +60,8 @@ function RawCheckbox({
       {...containerProps}
     >
       <YStack
-        unstyled
+        // Warning: Received `true` for a non-boolean attribute `unstyled`.
+        unstyled="true"
         p="$0"
         my="$0.5"
         bg={usedValue ? '$bgPrimary' : '$iconInverse'}

@@ -30,6 +30,10 @@ import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { NetworkAvatar } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import useConfigurableChainSelector from '@onekeyhq/kit/src/views/ChainSelector/hooks/useChainSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import uriUtils from '@onekeyhq/shared/src/utils/uriUtils';
@@ -152,9 +156,18 @@ function DialogContent({
       </Form>
       <Dialog.Footer
         onConfirm={async ({ preventClose, close }) => {
+          const rpcUrl: string = form.getValues('rpc').trim();
+          if (rpcUrl && rpcInfo && rpcUrl === rpcInfo?.rpc) {
+            return;
+          }
+          if (!rpcUrl) {
+            preventClose();
+            return;
+          }
+
           const { serviceCustomRpc } = backgroundApiProxy;
           setIsLoading(true);
-          const rpcUrl: string = form.getValues('rpc').trim();
+
           const networkId = network.id;
           try {
             rpcValidRef.current = true;
@@ -164,9 +177,13 @@ function DialogContent({
               validateChainId: true,
             });
             await serviceCustomRpc.addCustomRpc({
-              rpc: rpcUrl,
-              networkId,
-              enabled: rpcInfo?.enabled ?? true,
+              customRpc: {
+                rpc: rpcUrl,
+                networkId,
+                enabled: rpcInfo?.enabled ?? true,
+                updatedAt: undefined,
+                isCustomNetwork: undefined,
+              },
             });
             defaultLogger.setting.page.addCustomRPC({ network: networkId });
           } catch (e: any) {
@@ -199,6 +216,14 @@ function CustomRPC() {
       customRpcNetworks: _customRpcNetworks,
     };
   }, []);
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.RefreshCustomRpcList, run);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshCustomRpcList, run);
+    };
+  }, [run]);
+
   const [rpcSpeedMap, setRpcSpeedMap] = useState<
     Record<string, IMeasureRpcItem>
   >({});
@@ -308,7 +333,9 @@ function CustomRPC() {
   const onDeleteCustomRpc = useCallback(
     async (item: ICustomRpcItem) => {
       defaultLogger.setting.page.deleteCustomRPC({ network: item.networkId });
-      await backgroundApiProxy.serviceCustomRpc.deleteCustomRpc(item.networkId);
+      await backgroundApiProxy.serviceCustomRpc.deleteCustomRpc({
+        customRpc: item,
+      });
       setTimeout(() => {
         void run();
       }, 200);
