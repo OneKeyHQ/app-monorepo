@@ -76,7 +76,6 @@ function BookmarkListModal() {
                 },
               }}
             >
-              {/* <Input autoFocus flex={1} /> */}
               <RenameInputWithNameSelector
                 disabledMaxLengthLabel
                 nameHistoryInfo={{
