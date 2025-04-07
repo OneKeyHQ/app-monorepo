@@ -28,6 +28,7 @@ export enum EHardwareUiStateAction {
   REQUEST_BUTTON = 'ui-button',
   REQUEST_PASSPHRASE = 'ui-request_passphrase',
   REQUEST_PASSPHRASE_ON_DEVICE = 'ui-request_passphrase_on_device',
+  REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE = 'ui-request_select_device_in_bootloader_for_web_device',
 
   CLOSE_UI_WINDOW = 'ui-close_window',
 
@@ -41,6 +42,8 @@ export enum EHardwareUiStateAction {
   FIRMWARE_TIP = 'ui-firmware-tip',
 
   PREVIOUS_ADDRESS = 'ui-previous_address_result',
+
+  WEB_DEVICE_PROMPT_ACCESS_PERMISSION = 'ui-web_device_prompt_access_permission',
 }
 
 export type IHardwareUiPayload = {
@@ -73,6 +76,7 @@ export enum EFirmwareUpdateSteps {
   updateStart = 'updateStart', // updateStart
   installing = 'installing', // installingPhase: 1 boot, 2 fw res, 3 ble
   updateDone = 'updateDone', // updateDone
+  requestDeviceInBootloaderForWebDevice = 'requestDeviceInBootloaderForWebDevice', // web-usb should requestDevice for bootloader mode device, cause pid was changed
 }
 export type IFirmwareUpdateStepInfo =
   | {
@@ -114,6 +118,10 @@ export type IFirmwareUpdateStepInfo =
     }
   | {
       step: EFirmwareUpdateSteps.updateDone;
+      payload: undefined;
+    }
+  | {
+      step: EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice;
       payload: undefined;
     };
 

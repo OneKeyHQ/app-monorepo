@@ -49,6 +49,8 @@ function PageFirmwareUpdateInstall() {
     if (
       stepInfo.step === EFirmwareUpdateSteps.updateStart ||
       stepInfo.step === EFirmwareUpdateSteps.installing ||
+      stepInfo.step ===
+        EFirmwareUpdateSteps.requestDeviceInBootloaderForWebDevice ||
       stepInfo.step === EFirmwareUpdateSteps.updateDone
     ) {
       const isDone = stepInfo.step === EFirmwareUpdateSteps.updateDone;

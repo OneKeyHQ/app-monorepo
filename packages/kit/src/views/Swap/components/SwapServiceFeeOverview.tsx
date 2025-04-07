@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Icon,
   IconButton,
   Image,
   Popover,
@@ -64,7 +65,7 @@ export function SwapServiceFeeOverview({
         name: 'oneKey',
         fee: serviceFee,
         // color: '#202020',
-        color: '$bgInverse',
+        color: '#44D62C',
         icon: require('@onekeyhq/kit/assets/logo.png'),
       },
     ],
@@ -76,7 +77,12 @@ export function SwapServiceFeeOverview({
         id: ETranslations.provider_ios_popover_onekey_fee,
       })}
       renderTrigger={
-        <IconButton variant="tertiary" size="small" icon="InfoCircleOutline" />
+        <Icon
+          name="InfoCircleOutline"
+          size="$4"
+          cursor="pointer"
+          color="$iconSubdued"
+        />
       }
       renderContent={
         <Stack gap="$4" p="$4">

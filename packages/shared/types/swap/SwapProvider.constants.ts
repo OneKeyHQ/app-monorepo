@@ -70,6 +70,8 @@ export const maxRecentTokenPairs = 10;
 
 export const swapProviderRecommendApprovedWeights = 1.1;
 
+export const limitOrderEstimationFeePercent = 1.05;
+
 export const defaultSupportUrl = 'https://help.onekey.so/hc/zh-cn/requests/new';
 
 export const otherWalletFeeData = [
@@ -127,6 +129,10 @@ export interface ISwapServiceProvider {
   supportSingleSwapNetworks?: string[];
   supportCrossChainNetworks?: string[];
 }
+export const mevSwapNetworks = ['evm--1', 'evm--56', 'sui--mainnet'];
+
+export const approvingIntervalSecondsDefault = 8;
+export const approvingIntervalSecondsEth = 20;
 
 export const swapDefaultSetTokens: Record<
   string,

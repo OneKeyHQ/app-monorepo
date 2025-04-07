@@ -31,13 +31,11 @@ import { memoizee } from '@onekeyhq/shared/src/utils/cacheUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
+import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type { EAlignPrimaryAccountMode } from '@onekeyhq/shared/types/dappConnection';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import {
-  EReasonForNeedPassword,
-  type IClearCacheOnAppState,
-} from '@onekeyhq/shared/types/setting';
+import { type IClearCacheOnAppState } from '@onekeyhq/shared/types/setting';
 import { ESwapTxHistoryStatus } from '@onekeyhq/shared/types/swap/types';
 
 import { currencyPersistAtom } from '../states/jotai/atoms';
@@ -504,6 +502,45 @@ class ServiceSetting extends ServiceBase {
     await settingsPersistAtom.set((prev) => ({
       ...prev,
       alignPrimaryAccountMode: mode,
+    }));
+  }
+
+  @backgroundMethod()
+  public async setHardwareTransportType(
+    hardwareTransportType: EHardwareTransportType,
+  ) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      hardwareTransportType,
+    }));
+  }
+
+  @backgroundMethod()
+  public async getHardwareTransportType(): Promise<EHardwareTransportType> {
+    const { hardwareTransportType } = await settingsPersistAtom.get();
+    if (hardwareTransportType) {
+      return hardwareTransportType;
+    }
+    // fix default value
+    if (platformEnv.isNative) {
+      return EHardwareTransportType.BLE;
+    }
+    return EHardwareTransportType.Bridge;
+  }
+
+  @backgroundMethod()
+  public async getHiddenWalletImmediately() {
+    const { hiddenWalletImmediately } = await settingsPersistAtom.get();
+    return hiddenWalletImmediately === undefined
+      ? true
+      : hiddenWalletImmediately;
+  }
+
+  @backgroundMethod()
+  public async setHiddenWalletImmediately(value: boolean) {
+    await settingsPersistAtom.set((prev) => ({
+      ...prev,
+      hiddenWalletImmediately: value,
     }));
   }
 }

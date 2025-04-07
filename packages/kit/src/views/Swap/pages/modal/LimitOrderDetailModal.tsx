@@ -9,6 +9,7 @@ import {
   Dialog,
   Divider,
   Page,
+  Popover,
   Progress,
   SizableText,
   Stack,
@@ -35,9 +36,15 @@ import { formatDate } from '@onekeyhq/shared/src/utils/dateUtils';
 import { formatBalance } from '@onekeyhq/shared/src/utils/numberUtils';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
-import { defaultSupportUrl } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
+import {
+  defaultSupportUrl,
+  limitOrderEstimationFeePercent,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { IFetchLimitOrderRes } from '@onekeyhq/shared/types/swap/types';
-import { ESwapLimitOrderStatus } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapLimitOrderStatus,
+  ESwapQuoteKind,
+} from '@onekeyhq/shared/types/swap/types';
 import { EDecodedTxDirection } from '@onekeyhq/shared/types/tx';
 
 import {
@@ -317,6 +324,7 @@ const LimitOrderDetailModal = () => {
       fromTokenInfo,
       executedSellAmount,
       fromAmount,
+      kind,
     } = orderItemState ?? {};
     const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
       -(fromTokenInfo?.decimals ?? 0),
@@ -333,12 +341,22 @@ const LimitOrderDetailModal = () => {
     const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
       -(toTokenInfo?.decimals ?? 0),
     );
-    const limitRate = toAmountBN.dividedBy(fromAmountBN);
-    const limitRateBuyAmountBN = limitRate.multipliedBy(executeSellAmountBN);
-    const surplusBN = executedBuyAmountBN.minus(limitRateBuyAmountBN);
-    const surplusFormat = formatBalance(surplusBN.toFixed());
-    if (surplusBN.gt(0)) {
-      return surplusFormat.formattedValue;
+    if (kind === ESwapQuoteKind.SELL) {
+      const limitRate = toAmountBN.dividedBy(fromAmountBN);
+      const limitRateBuyAmountBN = limitRate.multipliedBy(executeSellAmountBN);
+      const surplusBN = executedBuyAmountBN.minus(limitRateBuyAmountBN);
+      const surplusFormat = formatBalance(surplusBN.toFixed());
+      if (surplusBN.gt(0)) {
+        return surplusFormat.formattedValue;
+      }
+    } else if (kind === ESwapQuoteKind.BUY) {
+      const limitRate = fromAmountBN.dividedBy(toAmountBN);
+      const limitRateSellAmountBN = limitRate.multipliedBy(executedBuyAmountBN);
+      const surplusBN = limitRateSellAmountBN.minus(executeSellAmountBN);
+      const surplusFormat = formatBalance(surplusBN.toFixed());
+      if (surplusBN.gt(0)) {
+        return surplusFormat.formattedValue;
+      }
     }
     return null;
   }, [orderItemState]);
@@ -354,13 +372,122 @@ const LimitOrderDetailModal = () => {
     [orderItemState, limitPrice],
   );
 
+  const renderFillsAt = useCallback(() => {
+    const { totalFee, kind } = orderItemState ?? {};
+    const { fullFeeAmount } = totalFee ?? {};
+    if (!fullFeeAmount) {
+      return null;
+    }
+    const feeAmountWithPercentBN = new BigNumber(
+      fullFeeAmount ?? '0',
+    ).multipliedBy(new BigNumber(limitOrderEstimationFeePercent));
+    let estimationRunPrice;
+    let difValuePercentLabel = '0%';
+    const fromAmountNum = decimalsAmount.fromAmount;
+    const toAmountNum = decimalsAmount.toAmount;
+    const calculateLimitPrice = toAmountNum
+      .div(fromAmountNum)
+      .decimalPlaces(
+        orderItemState?.toTokenInfo.decimals ?? 0,
+        BigNumber.ROUND_HALF_UP,
+      );
+    if (kind === ESwapQuoteKind.SELL) {
+      const estimationToAmountBN = new BigNumber(decimalsAmount.toAmount).plus(
+        feeAmountWithPercentBN,
+      );
+      estimationRunPrice = estimationToAmountBN
+        .dividedBy(decimalsAmount.fromAmount)
+        .decimalPlaces(
+          orderItemState?.toTokenInfo.decimals ?? 0,
+          BigNumber.ROUND_HALF_UP,
+        );
+      const difValue = estimationRunPrice.minus(calculateLimitPrice);
+      const difValuePercent = difValue
+        .dividedBy(calculateLimitPrice)
+        .multipliedBy(100)
+        .toFixed(2);
+      difValuePercentLabel = `${difValuePercent}%`;
+    }
+    if (kind === ESwapQuoteKind.BUY) {
+      const estimationFromAmountBN = new BigNumber(
+        decimalsAmount.fromAmount,
+      ).minus(feeAmountWithPercentBN);
+      estimationRunPrice = decimalsAmount.toAmount
+        .dividedBy(estimationFromAmountBN)
+        .decimalPlaces(
+          orderItemState?.toTokenInfo.decimals ?? 0,
+          BigNumber.ROUND_HALF_UP,
+        );
+      const difValue = estimationRunPrice.minus(calculateLimitPrice);
+      const difValuePercent = difValue
+        .dividedBy(calculateLimitPrice)
+        .multipliedBy(100)
+        .toFixed(2);
+      difValuePercentLabel = `${difValuePercent}%`;
+    }
+    if (estimationRunPrice) {
+      const estimationRunPriceFormat = formatBalance(
+        estimationRunPrice.toFixed(),
+      );
+      return (
+        <InfoItem
+          renderContent={
+            <>
+              <Popover
+                title={intl.formatMessage({
+                  id: ETranslations.limit_fill_at,
+                })}
+                renderTrigger={
+                  <SizableText
+                    size="$bodyMdMedium"
+                    textDecorationLine="underline"
+                    textDecorationStyle="dotted"
+                    textDecorationColor="$textSubdued"
+                    cursor="pointer"
+                  >
+                    {intl.formatMessage({
+                      id: ETranslations.limit_fill_at,
+                    })}
+                  </SizableText>
+                }
+                renderContent={
+                  <Stack p="$3">
+                    <SizableText size="$bodyMd">
+                      {intl.formatMessage({
+                        id: ETranslations.limit_fill_at_popover,
+                      })}
+                    </SizableText>
+                  </Stack>
+                }
+              />
+              <SizableText size="$bodyMd" color="$textSubdued" flex={1}>
+                {`${estimationRunPriceFormat.formattedValue} ${
+                  orderItemState?.toTokenInfo?.symbol ?? '-'
+                } (${difValuePercentLabel})`}
+              </SizableText>
+            </>
+          }
+          compactAll
+        />
+      );
+    }
+    return null;
+  }, [
+    orderItemState,
+    decimalsAmount.toAmount,
+    decimalsAmount.fromAmount,
+    intl,
+  ]);
+
   const renderLimitOrderFilledStatus = useCallback(() => {
     const {
       fromAmount,
+      toAmount,
       executedBuyAmount,
       executedSellAmount,
       fromTokenInfo,
       toTokenInfo,
+      kind,
     } = orderItemState ?? {};
     const fromAmountBN = new BigNumber(fromAmount ?? '0').shiftedBy(
       -(fromTokenInfo?.decimals ?? 0),
@@ -377,17 +504,29 @@ const LimitOrderDetailModal = () => {
     const formattedExecutedSellAmount = formatBalance(
       executedSellAmountBN.toFixed(),
     );
-    const sellPercentage = executedSellAmountBN
-      .div(fromAmountBN)
-      .multipliedBy(100)
-      .toFixed(2);
+    let sellPercentage = '0';
+    if (kind === ESwapQuoteKind.SELL) {
+      sellPercentage = executedSellAmountBN
+        .div(fromAmountBN)
+        .multipliedBy(100)
+        .toFixed(2);
+    } else if (kind === ESwapQuoteKind.BUY) {
+      const toAmountBN = new BigNumber(toAmount ?? '0').shiftedBy(
+        -(toTokenInfo?.decimals ?? 0),
+      );
+      sellPercentage = executedBuyAmountBN
+        .div(toAmountBN)
+        .multipliedBy(100)
+        .toFixed(2);
+    }
     return (
-      <YStack gap="$0.5" flex={1}>
+      <YStack gap="$1" flex={1}>
         <XStack alignItems="center" gap="$2" flex={1}>
           <Progress
             h="$1"
             w={gtMd ? 200 : 250}
-            colors={['$neutral5', '$textSuccess']}
+            progressColor="$neutral5"
+            indicatorColor="$textSuccess"
             value={Number(sellPercentage)}
           />
           <SizableText size="$bodySm" color="$textSubdued">
@@ -470,7 +609,10 @@ const LimitOrderDetailModal = () => {
             />
           </InfoItemGroup>
           <Divider mx="$5" />
-          <InfoItemGroup flexDirection={gtMd ? 'row' : 'column'}>
+          <InfoItemGroup
+            flexDirection={gtMd ? 'row' : 'column'}
+            flexWrap={gtMd ? 'wrap' : 'unset'}
+          >
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.Limit_limit_price,
@@ -478,6 +620,7 @@ const LimitOrderDetailModal = () => {
               renderContent={renderLimitOrderPrice()}
               compactAll
             />
+            {renderFillsAt()}
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.Limit_order_history_filled,
@@ -491,7 +634,12 @@ const LimitOrderDetailModal = () => {
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_surplus,
                 })}
-                renderContent={`${surplus} ${orderItemState.toTokenInfo.symbol}`}
+                compactAll
+                renderContent={`${surplus} ${
+                  orderItemState.kind === ESwapQuoteKind.SELL
+                    ? orderItemState.toTokenInfo.symbol
+                    : orderItemState.fromTokenInfo.symbol
+                }`}
               />
             ) : null}
           </InfoItemGroup>
@@ -550,6 +698,7 @@ const LimitOrderDetailModal = () => {
     renderLimitOrderExpiry,
     gtMd,
     renderLimitOrderPrice,
+    renderFillsAt,
     renderLimitOrderFilledStatus,
     surplus,
     getPayAddressAccountInfos.result?.accountId,

@@ -55,6 +55,14 @@ export enum ESwapQuoteKind {
   BUY = 'buy',
 }
 
+export enum ESwapSource {
+  WALLET_TAB = 'wallet_tab',
+  WALLET_HOME = 'wallet_home',
+  TOKEN_DETAIL = 'token_detail',
+  EARN = 'earn',
+  MARKET = 'market',
+}
+
 export enum ETokenRiskLevel {
   UNKNOWN = 0,
   BENIGN = 1,
@@ -215,6 +223,7 @@ export interface ISwapApproveTransaction {
   fromToken: ISwapToken;
   toToken: ISwapToken;
   provider: string;
+  providerName: string;
   quoteId: string;
   useAddress: string;
   spenderAddress: string;
@@ -222,6 +231,7 @@ export interface ISwapApproveTransaction {
   status: ESwapApproveTransactionStatus;
   resetApproveValue?: string;
   resetApproveIsMax?: boolean;
+  kind?: ESwapQuoteKind;
   txId?: string;
   blockNumber?: number;
 }
@@ -459,11 +469,13 @@ export enum ESwapFetchCancelCause {
 export interface ISwapState {
   label: string;
   isLoading: boolean;
+  approving: boolean;
   isWrapped?: boolean;
   isApprove?: boolean;
   disabled: boolean;
   isCrossChain: boolean;
   shoutResetApprove?: boolean;
+  noConnectWallet?: boolean;
   approveUnLimit?: boolean;
   isRefreshQuote?: boolean;
 }
@@ -502,6 +514,7 @@ export interface ISwapAlertState {
   message?: string;
   alertLevel?: ESwapAlertLevel;
   inputShowError?: boolean;
+  noConnectWallet?: boolean;
   action?: {
     actionType: ESwapAlertActionType;
     actionLabel?: string;
@@ -541,6 +554,7 @@ export interface IFetchBuildTxParams extends IFetchSwapQuoteBaseParams {
   provider: string;
   quoteResultCtx?: any;
   kind: ESwapQuoteKind;
+  walletType?: string;
 }
 export interface IFetchBuildTxResult extends IFetchQuoteResult {
   arrivalTime?: number;
@@ -720,11 +734,20 @@ export interface ISwapTxHistory {
 
 export const LIMIT_PRICE_DEFAULT_DECIMALS = 6;
 
+export interface ISwapCowSwapOrderFee {
+  fullFeeAmount?: string;
+  networkFee?: string;
+  partnerFee?: string;
+  kind: ESwapQuoteKind;
+}
+
 export interface IFetchLimitOrderRes {
   orderId: string;
   provider: string;
   status: ESwapLimitOrderStatus;
   fromTokenInfo: ISwapToken;
+  kind: ESwapQuoteKind;
+  totalFee?: ISwapCowSwapOrderFee;
   toTokenInfo: ISwapToken;
   payAddress: string;
   receiveAddress: string;

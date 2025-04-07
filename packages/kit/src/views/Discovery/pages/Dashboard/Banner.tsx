@@ -7,8 +7,6 @@ import type { IDiscoveryBanner } from '@onekeyhq/shared/types/discovery';
 import { useBannerData } from '../../hooks/useBannerData';
 import { useWebSiteHandler } from '../../hooks/useWebSiteHandler';
 
-import type { IMatchDAppItemType } from '../../types';
-
 export function DashboardBanner({
   banners,
   isLoading,

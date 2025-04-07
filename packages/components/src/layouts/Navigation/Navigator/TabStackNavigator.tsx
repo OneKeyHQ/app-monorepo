@@ -59,7 +59,7 @@ const useTabBarPosition = platformEnv.isNativeIOSPad
     }
   : () => {
       const media = useMedia();
-      return media.md ? 'bottom' : 'left';
+      return platformEnv.isNativeAndroid || media.md ? 'bottom' : 'left';
     };
 
 export function TabStackNavigator<RouteName extends string>({
@@ -97,6 +97,7 @@ export function TabStackNavigator<RouteName extends string>({
         tabBarLabel: intl.formatMessage({ id: options.translationId }),
         // @ts-expect-error BottomTabBar V7
         tabBarPosition,
+        tabbarOnPress: options.tabbarOnPress,
       }}
     >
       {children}

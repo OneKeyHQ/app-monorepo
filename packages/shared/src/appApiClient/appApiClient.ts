@@ -8,7 +8,7 @@ import platformEnv from '../platformEnv';
 import timerUtils from '../utils/timerUtils';
 
 import type { IEndpointInfo } from '../../types/endpoint';
-import type { AxiosInstance } from 'axios';
+import type { AxiosInstance, AxiosResponse } from 'axios';
 
 const clients: Record<EServiceEndpointEnum, AxiosInstance | null> = {
   [EServiceEndpointEnum.Wallet]: null,
@@ -80,6 +80,10 @@ const getClient = memoizee(
     max: 2,
   },
 );
+
+export interface IAxiosResponse<T> extends AxiosResponse<T> {
+  $requestId?: string;
+}
 
 const getRawDataClient = memoizee(
   async (params: IEndpointInfo) => {

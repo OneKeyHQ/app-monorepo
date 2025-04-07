@@ -4,16 +4,22 @@ import BigNumber from 'bignumber.js';
 import { useIntl } from 'react-intl';
 import { useDebouncedCallback } from 'use-debounce';
 
-import { SizableText } from '@onekeyhq/components';
+import { Badge, Icon, SizableText, XStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import {
+  mevSwapNetworks,
   swapSlippageDecimal,
   swapSlippageWillAheadMinValue,
 } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type { ISwapSlippageSegmentItem } from '@onekeyhq/shared/types/swap/types';
-import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
+import {
+  ESwapDirectionType,
+  ESwapSlippageSegmentKey,
+} from '@onekeyhq/shared/types/swap/types';
 
 import SwapCommonInfoItem from '../../components/SwapCommonInfoItem';
+import { useSwapAddressInfo } from '../../hooks/useSwapAccount';
 
 interface ISwapSlippageTriggerContainerProps {
   isLoading: boolean;
@@ -27,6 +33,7 @@ const SwapSlippageTriggerContainer = ({
   slippageItem,
 }: ISwapSlippageTriggerContainerProps) => {
   const intl = useIntl();
+  const swapFromAddressInfo = useSwapAddressInfo(ESwapDirectionType.FROM);
   const displaySlippage = useMemo(
     () =>
       new BigNumber(slippageItem.value)
@@ -52,18 +59,33 @@ const SwapSlippageTriggerContainer = ({
 
   const valueComponent = useMemo(
     () => (
-      <SizableText
-        size="$bodyMdMedium"
-        color={
-          slippageItem.value > swapSlippageWillAheadMinValue
-            ? '$textCaution'
-            : '$text'
-        }
-      >
-        {slippageDisplayValue}
-      </SizableText>
+      <XStack gap="$1" alignItems="center">
+        {!accountUtils.isExternalWallet({
+          walletId: swapFromAddressInfo.accountInfo?.wallet?.id,
+        }) &&
+        mevSwapNetworks.includes(
+          swapFromAddressInfo.accountInfo?.network?.id ?? '',
+        ) ? (
+          <Icon name="ShieldCheckDoneSolid" size="$4" color="$iconSuccess" />
+        ) : null}
+        <SizableText
+          size="$bodyMdMedium"
+          color={
+            slippageItem.value > swapSlippageWillAheadMinValue
+              ? '$textCaution'
+              : '$text'
+          }
+        >
+          {slippageDisplayValue}
+        </SizableText>
+      </XStack>
     ),
-    [slippageDisplayValue, slippageItem.value],
+    [
+      slippageDisplayValue,
+      slippageItem.value,
+      swapFromAddressInfo.accountInfo?.network?.id,
+      swapFromAddressInfo.accountInfo?.wallet?.id,
+    ],
   );
   return (
     <SwapCommonInfoItem

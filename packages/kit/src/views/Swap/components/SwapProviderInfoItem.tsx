@@ -36,7 +36,7 @@ const SwapProviderInfoItemTitleContent = ({
   const intl = useIntl();
 
   return (
-    <XStack>
+    <XStack alignItems="center">
       <SizableText
         size="$bodyMd"
         color="$textSubdued"

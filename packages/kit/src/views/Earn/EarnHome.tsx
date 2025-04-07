@@ -14,6 +14,8 @@ import {
   Badge,
   Banner,
   Button,
+  HeaderButtonGroup,
+  HeaderIconButton,
   Icon,
   IconButton,
   Image,
@@ -24,20 +26,25 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -50,12 +57,12 @@ import type {
   IEarnRewardUnit,
 } from '@onekeyhq/shared/types/staking';
 
-import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { AccountSelectorProviderMirror } from '../../components/AccountSelector';
 import { ListItem } from '../../components/ListItem';
 import { TabPageHeader } from '../../components/TabPageHeader';
 import useAppNavigation from '../../hooks/useAppNavigation';
 import { usePromiseResult } from '../../hooks/usePromiseResult';
+import { useReferFriends } from '../../hooks/useReferFriends';
 import { useActiveAccount } from '../../states/jotai/contexts/accountSelector';
 import { useEarnActions, useEarnAtom } from '../../states/jotai/contexts/earn';
 
@@ -886,12 +893,47 @@ function BasicEarnHome() {
   }, [earnBanners, media.gtLg, onBannerPress]);
 
   const isLoading = !!isFetchingAccounts;
+
+  const { shareReferRewards } = useReferFriends();
+
+  const handleShareReferRewards = useCallback(() => {
+    void shareReferRewards();
+  }, [shareReferRewards]);
+
+  const [devSettings] = useDevSettingsPersistAtom();
+  const renderCustomHeaderRight = useCallback(
+    () => (
+      <HeaderButtonGroup
+        testID="ear-Page-Header-Right"
+        className="app-region-no-drag"
+      >
+        <HeaderIconButton
+          title={intl.formatMessage({ id: ETranslations.referral_title })}
+          icon="GiftOutline"
+          onPress={handleShareReferRewards}
+        />
+      </HeaderButtonGroup>
+    ),
+    [intl, handleShareReferRewards],
+  );
+
+  const headerRight = useMemo(
+    () =>
+      devSettings.settings?.showOneKeyId
+        ? renderCustomHeaderRight()
+        : undefined,
+    [devSettings.settings?.showOneKeyId, renderCustomHeaderRight],
+  );
+
   return (
     <Page fullPage>
       <TabPageHeader
+        showHeaderRight
         sceneName={EAccountSelectorSceneName.home}
-        showHeaderRight={false}
-      />
+        tabRoute={ETabRoutes.Earn}
+      >
+        {headerRight}
+      </TabPageHeader>
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$5' }}

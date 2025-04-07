@@ -1,12 +1,17 @@
-import { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+
+import pRetry from 'p-retry';
 
 import { RefreshControl, ScrollView, Stack } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 
 import { useBannerData } from '../../hooks/useBannerData';
+import { useDisplayHomePageFlag } from '../../hooks/useWebTabs';
 
 import { DashboardBanner } from './Banner';
 import { BookmarksSection } from './BookmarksSection';
@@ -31,10 +36,20 @@ function DashboardContent({
     run,
   } = usePromiseResult(
     async () => {
-      const homePageResponse =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      setIsRefreshing(false);
-      return homePageResponse;
+      try {
+        const result = await pRetry(
+          () =>
+            backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData(),
+          {
+            retries: 3,
+          },
+        );
+        return result;
+      } catch (error) {
+        console.error(error);
+      } finally {
+        setIsRefreshing(false);
+      }
     },
     [],
     {
@@ -53,7 +68,7 @@ function DashboardContent({
   const { hasActiveBanners } = useBannerData(homePageData?.banners || []);
 
   // Add usePromiseResult hooks to get bookmark and trending data
-  const { result: bookmarksData } = usePromiseResult(
+  const { result: bookmarksData, run: refreshBookmarks } = usePromiseResult(
     async () => {
       const bookmarks =
         await backgroundApiProxy.serviceDiscovery.getBookmarkData({
@@ -69,21 +84,26 @@ function DashboardContent({
     },
   );
 
-  const { result: trendingData } = usePromiseResult<any[]>(
-    async () => {
-      const data =
-        await backgroundApiProxy.serviceDiscovery.fetchDiscoveryHomePageData();
-      return data.trending || [];
-    },
-    [],
-    {
-      watchLoading: true,
-    },
-  );
+  useListenTabFocusState(ETabRoutes.Discovery, (isFocus) => {
+    if (isFocus) {
+      // Execute the `usePromiseResult` in the nextTick because the focus state may not have been updated.
+      setTimeout(() => {
+        void refreshBookmarks();
+      });
+    }
+  });
+
+  const { displayHomePage } = useDisplayHomePageFlag();
+  useEffect(() => {
+    if (displayHomePage && platformEnv.isNative) {
+      void refreshBookmarks();
+    }
+  }, [displayHomePage, refreshBookmarks]);
 
   // Check if both bookmarks and trending have no data
-  const hasBookmarks = (bookmarksData && bookmarksData.length > 0) || false;
-  const hasTrending = (trendingData && trendingData.length > 0) || false;
+  const hasBookmarks = bookmarksData && bookmarksData.length > 0;
+  const hasTrending =
+    homePageData?.trending && homePageData.trending.length > 0;
   const showDiveInDescription = !hasBookmarks && !hasTrending;
 
   const content = useMemo(
@@ -99,27 +119,41 @@ function DashboardContent({
               />
             ) : null
           }
+          discoveryData={{ hot: homePageData?.trending }}
+          isLoading={!!isLoading}
         />
 
         <Stack alignItems="center">
-          {showDiveInDescription ? (
-            <DiveInContent />
+          {!isLoading && showDiveInDescription ? (
+            <DiveInContent onReload={refresh} />
           ) : (
             <>
-              <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
-                <BookmarksSection key="BookmarksSection" />
-              </Stack>
+              {hasBookmarks ? (
+                <Stack px="$5" width="100%" $gtXl={{ width: 960 }}>
+                  <BookmarksSection key="BookmarksSection" />
+                </Stack>
+              ) : null}
 
-              {/* here is trending */}
               <Stack px="$5" width="100%" $gtXl={{ width: 960 }} mt="$6">
-                <TrendingSection />
+                <TrendingSection
+                  data={homePageData?.trending || []}
+                  isLoading={!!isLoading}
+                />
               </Stack>
             </>
           )}
         </Stack>
       </>
     ),
-    [homePageData?.banners, hasActiveBanners, isLoading, showDiveInDescription],
+    [
+      hasActiveBanners,
+      hasBookmarks,
+      homePageData?.banners,
+      homePageData?.trending,
+      isLoading,
+      showDiveInDescription,
+      refresh,
+    ],
   );
 
   if (platformEnv.isNative) {

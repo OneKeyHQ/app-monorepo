@@ -66,6 +66,7 @@ import {
   swapAlertsAtom,
   swapAllNetworkActionLockAtom,
   swapAllNetworkTokenListMapAtom,
+  swapApprovingAtom,
   swapAutoSlippageSuggestedValueAtom,
   swapBuildTxFetchingAtom,
   swapFromTokenAmountAtom,
@@ -385,6 +386,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
+      set(swapApprovingAtom(), false);
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       try {
         if (!loadingDelayEnable) {
@@ -405,7 +407,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
           slippagePercentage,
           autoSlippage,
           blockNumber,
-          receivingAddress: receivingAddress ?? address,
+          receivingAddress,
           accountId,
           protocol,
           userMarketPriceRate: limitUserMarketPrice.rate,
@@ -647,6 +649,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
         return;
       }
+      set(swapApprovingAtom(), false);
       await backgroundApiProxy.serviceSwap.setApprovingTransaction(undefined);
       set(swapQuoteFetchingAtom(), true);
       const limitUserMarketPrice = get(swapLimitPriceUseRateAtom());
@@ -662,7 +665,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         kind,
         toTokenAmount,
         protocol,
-        receivingAddress: receivingAddress ?? address,
+        receivingAddress,
         userMarketPriceRate: limitUserMarketPrice.rate,
         ...(protocol === ESwapTabSwitchType.LIMIT
           ? {
@@ -764,11 +767,17 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
         });
         set(swapQuoteListAtom(), []);
         set(swapQuoteActionLockAtom(), (v) => ({ ...v, actionLock: false }));
-      }
-      if (!fromTokenAmount.value && fromTokenAmount.isInput) {
-        set(swapToTokenAmountAtom(), { value: '', isInput: false });
-      } else if (!toTokenAmount.value && toTokenAmount.isInput) {
-        set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        if (!fromToken) {
+          set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        }
+        if (!toToken) {
+          set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        }
+        if (!fromTokenAmount.value && fromTokenAmount.isInput) {
+          set(swapToTokenAmountAtom(), { value: '', isInput: false });
+        } else if (!toTokenAmount.value && toTokenAmount.isInput) {
+          set(swapFromTokenAmountAtom(), { value: '', isInput: false });
+        }
       }
     },
   );
@@ -813,6 +822,12 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                     quote.quoteId === preApproveTx.quoteId,
                 );
                 set(swapQuoteListAtom(), [...updateQuoteList]);
+                if (updateQuoteList.length > 0) {
+                  set(swapQuoteEventTotalCountAtom(), {
+                    count: updateQuoteList.length,
+                    eventId: updateQuoteList[0].eventId,
+                  });
+                }
               }
               await backgroundApiProxy.serviceSwap.setApprovingTransaction(
                 newApproveTx,
@@ -989,6 +1004,7 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
               id: ETranslations.swap_page_button_no_connected_wallet,
             }),
             alertLevel: ESwapAlertLevel.ERROR,
+            noConnectWallet: true,
           },
         ];
         set(swapAlertsAtom(), {

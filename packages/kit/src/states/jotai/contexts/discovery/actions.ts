@@ -325,7 +325,6 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       const { tabId, entry } = payload;
       delete webviewRefs[tabId];
       const { tabs } = get(webTabsAtom());
-      const activeTabId = get(activeTabIdAtom());
       const targetIndex = tabs.findIndex((t) => t.id === tabId);
       if (targetIndex !== -1) {
         const closedTab = tabs[targetIndex];
@@ -346,13 +345,20 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             newActiveTabIndex = 0;
           }
 
-          const newActiveTab = tabs[newActiveTabIndex];
+          // if current active tab is not in tabs, set it to the first tab
+          const hasCurrentActiveTab = tabs.find((t) => t.isActive);
 
-          if (newActiveTab.id === activeTabId) {
+          if (hasCurrentActiveTab) {
             return;
           }
-          newActiveTab.isActive = true;
-          this.setCurrentWebTab.call(set, newActiveTab.id);
+
+          // get the new active tab
+          const newActiveTab = tabs[newActiveTabIndex];
+
+          if (newActiveTab) {
+            newActiveTab.isActive = true;
+            this.setCurrentWebTab.call(set, newActiveTab.id);
+          }
         };
 
         // Refresh the list after closing WebView in Electron to improve list fluidity
@@ -671,11 +677,16 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
         const maybeDeepLink =
           !validatedUrl.startsWith('http') && validatedUrl !== 'about:blank';
 
-        const isNewTab =
+        const thisTab = this.getWebTabById.call(set, tabId ?? '');
+        let isNewTab =
           typeof isNewWindow === 'boolean'
             ? isNewWindow
             : (isNewWindow || !tabId || tabId === 'home' || maybeDeepLink) &&
               browserTypeHandler === 'MultiTabBrowser';
+
+        if (thisTab?.type === 'home') {
+          isNewTab = false;
+        }
 
         const bookmarks = await this.getBookmarkData.call(set);
         const isBookmark = bookmarks?.some((item) =>
@@ -688,6 +699,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             favicon,
             isBookmark,
             siteMode,
+            type: 'normal',
           });
         } else {
           this.setWebTabData.call(set, {
@@ -696,6 +708,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             title,
             favicon,
             isBookmark,
+            type: 'normal',
           });
         }
 
@@ -713,6 +726,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
             }, 1000);
           }
         }
+
         return true;
       }
       return false;
@@ -775,6 +789,7 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
       if (webSite?.url) {
         webSite.url = processWebSiteUrl(webSite.url) ?? webSite.url;
       }
+
       let delayTime = 0;
       if (shouldPopNavigation) {
         delayTime = 300;
@@ -795,27 +810,12 @@ class ContextJotaiActionsDiscovery extends ContextJotaiActionsBase {
           }
         }
         this.setDisplayHomePage.call(set, false);
-
-        const currentTab = this.getWebTabById.call(set, tabId ?? '');
-
-        if (currentTab?.type === 'home') {
-          const url = webSite?.url || dApp?.url;
-          const title = webSite?.title || dApp?.name;
-
-          this.setWebTabData.call(set, {
-            id: tabId,
-            type: 'normal',
-            url,
-            title,
-          });
-        } else {
-          void this.openMatchDApp.call(set, {
-            webSite,
-            dApp,
-            isNewWindow,
-            tabId,
-          });
-        }
+        void this.openMatchDApp.call(set, {
+          webSite,
+          dApp,
+          isNewWindow,
+          tabId,
+        });
       }, delayTime);
 
       if (switchToMultiTabBrowser || platformEnv.isDesktop) {

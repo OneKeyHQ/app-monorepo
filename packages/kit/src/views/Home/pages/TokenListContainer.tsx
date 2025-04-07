@@ -76,7 +76,7 @@ import { HomeTokenListProviderMirrorWrapper } from '../components/HomeTokenListP
 
 const networkIdsMap = getNetworkIdsMap();
 
-function TokenListContainer(props: ITabPageProps) {
+function TokenListContainer(_props: ITabPageProps) {
   const { isFocused, isHeaderRefreshing, setIsHeaderRefreshing } =
     useTabIsRefreshingFocused();
 

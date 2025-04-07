@@ -25,7 +25,10 @@ export interface IDevSettings {
   // show trading view
   showTradingView?: boolean;
   showPrimeTest?: boolean;
+  showOneKeyId?: boolean;
   usePrimeSandboxPayment?: boolean;
+  // strict signature alert display
+  strictSignatureAlert?: boolean;
   autoNavigation?: {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
@@ -52,7 +55,10 @@ export const {
       disableSolanaPriorityFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
-      showPrimeTest: true,
+      showPrimeTest: false,
+      showOneKeyId: false,
+      usePrimeSandboxPayment: false,
+      strictSignatureAlert: false,
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,

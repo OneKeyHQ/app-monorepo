@@ -67,12 +67,11 @@ function BannerItem<T extends IBannerData>({
       onPress={onItemPress}
       {...itemContainerStyle}
     >
-      {item.imgUrl ? <Image flex={1} bg="$bgStrong" src={item.imgUrl} /> : null}
+      {item.imgUrl ? <Image flex={1} src={item.imgUrl} /> : null}
 
       {item.imgSource ? (
         <Image
           flex={1}
-          bg="$bgStrong"
           source={item.imgSource}
           resizeMode={item.imgResizeMode}
         />

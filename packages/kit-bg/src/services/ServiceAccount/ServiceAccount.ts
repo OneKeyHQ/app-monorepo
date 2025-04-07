@@ -134,6 +134,7 @@ export type IAddHDOrHWAccountsParams = {
   deriveType: IAccountDeriveTypes;
   hwAllNetworkPrepareAccountsResponse?: IHwAllNetworkPrepareAccountsResponse;
   isVerifyAddressAction?: boolean;
+  createAllDeriveTypes?: boolean;
 
   // purpose?: number;
   // skipRepeat?: boolean;
@@ -2222,11 +2223,22 @@ class ServiceAccount extends ServiceBase {
 
         // TODO save remember states
 
-        return this.createHWWalletBase({
+        const dbWallet = await this.createHWWalletBase({
           device: deviceUtils.dbDeviceToSearchDevice(dbDevice),
           features: dbDevice.featuresInfo || ({} as any),
           passphraseState,
         });
+
+        if (dbWallet?.wallet.id) {
+          const hiddenWalletImmediately =
+            await this.backgroundApi.serviceSetting.getHiddenWalletImmediately();
+          await this.setWalletTempStatus({
+            walletId: dbWallet.wallet.id,
+            isTemp: !hiddenWalletImmediately,
+          });
+        }
+
+        return dbWallet;
       },
       {
         deviceParams: {

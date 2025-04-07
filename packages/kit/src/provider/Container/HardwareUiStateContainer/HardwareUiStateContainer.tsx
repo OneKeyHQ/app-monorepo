@@ -1,4 +1,4 @@
-import type { ComponentProps, ForwardedRef, ReactElement } from 'react';
+import type { ComponentProps, ForwardedRef } from 'react';
 import {
   forwardRef,
   memo,
@@ -25,6 +25,10 @@ import {
 import type { IShowToasterInstance } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import { ShowCustom } from '@onekeyhq/components/src/actions/Toast/ShowCustom';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import {
+  usePromptWebDeviceAccess,
+  useToPromptWebDeviceAccessPage,
+} from '@onekeyhq/kit/src/hooks/usePromptWebDeviceAccess';
 import type { IHardwareUiState } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EHardwareUiStateAction,
@@ -52,6 +56,7 @@ import {
   RequireBlePermissionDialog,
   buildBleNotifyChangeError,
   buildBleSettingsDialogProps,
+  buildWebDeviceAccessDialogProps,
 } from '../../../components/Hardware/HardwareDialog';
 
 import ActionsQueueManager from './ActionsQueueManager';
@@ -71,7 +76,7 @@ function HardwareSingletonDialogCmp(
   const action = state?.action;
   const connectId = state?.connectId || '';
   // state?.payload?.deviceType
-  const { serviceHardwareUI } = backgroundApiProxy;
+  const { serviceHardwareUI, serviceSetting } = backgroundApiProxy;
   const intl = useIntl();
   const [showCloseButton, setIsShowExitButton] = useState(false);
 
@@ -177,13 +182,27 @@ function HardwareSingletonDialogCmp(
 
     // EnterPassphrase on App
     if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
+      const isSingleInput = !!state?.payload?.passphraseState;
+      const saveCachedHiddenWalletOptions = async ({
+        hideImmediately,
+      }: {
+        hideImmediately: boolean;
+      }) => {
+        if (isSingleInput) {
+          return;
+        }
+        await serviceSetting.setHiddenWalletImmediately(hideImmediately);
+      };
       title = intl.formatMessage({
         id: ETranslations.global_enter_passphrase,
       });
       content = (
         <EnterPhase
-          isSingleInput={!!state?.payload?.passphraseState}
-          onConfirm={async ({ passphrase }) => {
+          isSingleInput={isSingleInput}
+          onConfirm={async ({ passphrase, hideImmediately }) => {
+            await saveCachedHiddenWalletOptions({
+              hideImmediately,
+            });
             await serviceHardwareUI.sendPassphraseToDevice({
               passphrase,
             });
@@ -198,7 +217,10 @@ function HardwareSingletonDialogCmp(
             // TODO skip show loading dialog if custom dialog is shown
             // ETranslations.onboarding_finalize_generating_accounts
           }}
-          switchOnDevice={async () => {
+          switchOnDevice={async ({ hideImmediately }) => {
+            await saveCachedHiddenWalletOptions({
+              hideImmediately,
+            });
             await serviceHardwareUI.showEnterPassphraseOnDeviceDialog();
           }}
         />
@@ -222,6 +244,7 @@ function HardwareSingletonDialogCmp(
     defaultLoadingView,
     intl,
     serviceHardwareUI,
+    serviceSetting,
     state?.connectId,
     state?.payload,
   ]);
@@ -414,6 +437,7 @@ function HardwareUiStateContainerCmpControlled() {
           EHardwareUiStateAction.FIRMWARE_PROGRESS,
           EHardwareUiStateAction.CLOSE_UI_WINDOW,
           EHardwareUiStateAction.PREVIOUS_ADDRESS,
+          EHardwareUiStateAction.REQUEST_DEVICE_IN_BOOTLOADER_FOR_WEB_DEVICE,
         ].includes(currentState?.action)
       ) {
         return false;
@@ -436,6 +460,7 @@ function HardwareUiStateContainerCmpControlled() {
           EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE,
           EHardwareUiStateAction.LOCATION_PERMISSION,
           EHardwareUiStateAction.LOCATION_SERVICE_PERMISSION,
+          EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION,
         ].includes(currentState.action)
       ) {
         return true;
@@ -587,9 +612,20 @@ function HardwareUiStateContainerCmpControlled() {
     />
   );
 
+  const { promptWebUsbDeviceAccess } = usePromptWebDeviceAccess();
+  const toPromptWebDeviceAccessPage = useToPromptWebDeviceAccessPage();
+
   useEffect(() => {
+    const instanceRef: {
+      current: IDialogInstance | undefined;
+    } = {
+      current: undefined,
+    };
     const callback = throttle(
       ({ uiRequestType }: { uiRequestType: EHardwareUiStateAction }) => {
+        if (instanceRef.current?.isExist()) {
+          return;
+        }
         let dialogProps: IDialogShowProps | undefined;
         if (uiRequestType === EHardwareUiStateAction.BLUETOOTH_PERMISSION) {
           dialogProps = buildBleSettingsDialogProps(intl);
@@ -598,10 +634,38 @@ function HardwareUiStateContainerCmpControlled() {
           EHardwareUiStateAction.BLUETOOTH_CHARACTERISTIC_NOTIFY_CHANGE_FAILURE
         ) {
           dialogProps = buildBleNotifyChangeError(intl);
+        } else if (
+          uiRequestType ===
+          EHardwareUiStateAction.WEB_DEVICE_PROMPT_ACCESS_PERMISSION
+        ) {
+          dialogProps = buildWebDeviceAccessDialogProps({
+            intl,
+            // @ts-expect-error
+            promptWebUsbDeviceAccess: (dialogInstance?: IDialogInstance) => {
+              // Use the provided instance or the current instance
+              const instance = dialogInstance || instanceRef.current;
+              return (async () => {
+                try {
+                  const promptWebUsbDeviceAccessFn =
+                    platformEnv.isExtensionUiPopup ||
+                    platformEnv.isExtensionUiSidePanel ||
+                    platformEnv.isExtensionUiStandaloneWindow
+                      ? toPromptWebDeviceAccessPage
+                      : promptWebUsbDeviceAccess;
+                  const result = await promptWebUsbDeviceAccessFn();
+                  // Close dialog after successful connection
+                  await instance?.close();
+                  return result;
+                } catch (error) {
+                  console.log('promptWebUsbDeviceAccess error', error);
+                }
+              })();
+            },
+          });
         }
         if (dialogProps) {
           setTimeout(() => {
-            Dialog.show(dialogProps);
+            instanceRef.current = Dialog.show(dialogProps);
           }, 200);
         }
       },
@@ -610,8 +674,9 @@ function HardwareUiStateContainerCmpControlled() {
     appEventBus.on(EAppEventBusNames.RequestHardwareUIDialog, callback);
     return () => {
       appEventBus.off(EAppEventBusNames.RequestHardwareUIDialog, callback);
+      instanceRef.current = undefined;
     };
-  }, [intl]);
+  }, [intl, toPromptWebDeviceAccessPage, promptWebUsbDeviceAccess]);
 
   return (
     <>

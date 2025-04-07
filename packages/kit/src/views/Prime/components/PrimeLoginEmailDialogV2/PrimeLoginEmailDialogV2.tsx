@@ -6,20 +6,29 @@ import { useIntl } from 'react-intl';
 import { Dialog, Form, Input, Stack, useForm } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import appStorage from '@onekeyhq/shared/src/storage/appStorage';
+import { EAppSyncStorageKeys } from '@onekeyhq/shared/src/storage/syncStorageKeys';
 import stringUtils from '@onekeyhq/shared/src/utils/stringUtils';
 
-import { usePrivyUniversalV2 } from '../../hooks/usePrivyUniversalV2';
+import { usePrimeAuthV2 } from '../../hooks/usePrimeAuthV2';
 import { PrimeLoginEmailCodeDialogV2 } from '../PrimeLoginEmailCodeDialogV2';
 
-export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
-  const { onComplete } = props;
-  const { getAccessToken, useLoginWithEmail } = usePrivyUniversalV2();
+export function PrimeLoginEmailDialogV2(props: {
+  onComplete: () => void;
+  onLoginSuccess?: () => void | Promise<void>;
+  title?: string;
+  description?: string;
+}) {
+  const { onComplete, onLoginSuccess, title, description } = props;
+
+  const lastOneKeyIdLoginEmail = appStorage.syncStorage.getString(
+    EAppSyncStorageKeys.last_onekey_id_login_email,
+  );
+
+  const { getAccessToken, useLoginWithEmail } = usePrimeAuthV2();
   const { sendCode, loginWithCode } = useLoginWithEmail({
     onComplete: async () => {
-      const token = await getAccessToken();
-      await backgroundApiProxy.servicePrime.apiLogin({
-        accessToken: token || '',
-      });
+      //
     },
     onError: (error) => {
       console.error('prime login error', error);
@@ -28,7 +37,7 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
   const intl = useIntl();
 
   const form = useForm<{ email: string }>({
-    defaultValues: { email: '' },
+    defaultValues: { email: lastOneKeyIdLoginEmail || '' },
   });
 
   const submit = useCallback(
@@ -41,6 +50,11 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
       }
       const data = form.getValues();
 
+      appStorage.syncStorage.set(
+        EAppSyncStorageKeys.last_onekey_id_login_email,
+        data.email,
+      );
+
       try {
         const dialog = Dialog.show({
           renderContent: (
@@ -48,8 +62,16 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
               sendCode={sendCode}
               loginWithCode={loginWithCode}
               email={data.email}
-              onLoginSuccess={() => {
-                void dialog.close();
+              onLoginSuccess={async () => {
+                try {
+                  const token = await getAccessToken();
+                  await backgroundApiProxy.servicePrime.apiLogin({
+                    accessToken: token || '',
+                  });
+                  await onLoginSuccess?.();
+                } finally {
+                  await dialog.close();
+                }
               }}
             />
           ),
@@ -71,21 +93,23 @@ export function PrimeLoginEmailDialogV2(props: { onComplete: () => void }) {
         throw error;
       }
     },
-    [form, loginWithCode, onComplete, sendCode],
+    [form, getAccessToken, loginWithCode, onComplete, onLoginSuccess, sendCode],
   );
 
   return (
     <Stack>
       <Dialog.Icon icon="EmailOutline" />
       <Dialog.Title>
-        {intl.formatMessage({
-          id: ETranslations.prime_signup_login,
-        })}
+        {title ||
+          intl.formatMessage({
+            id: ETranslations.prime_signup_login,
+          })}
       </Dialog.Title>
       <Dialog.Description>
-        {intl.formatMessage({
-          id: ETranslations.prime_onekeyid_continue_description,
-        })}
+        {description ||
+          intl.formatMessage({
+            id: ETranslations.prime_onekeyid_continue_description,
+          })}
       </Dialog.Description>
       <Stack pt="$4">
         <Form form={form}>

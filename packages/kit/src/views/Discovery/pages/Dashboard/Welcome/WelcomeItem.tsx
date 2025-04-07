@@ -38,7 +38,7 @@ const SCALE_DURATION_BASE = 3500;
 const SCALE_DURATION_VARIANCE = 1000;
 const SCALE_MAX_DELAY = 1000;
 
-const DEFAULT_SHADOW_OPACITY = 0.3;
+const DEFAULT_SHADOW_OPACITY = 0.4;
 const HOVER_SHADOW_OPACITY = 0.2;
 const ANIMATION_SHADOW_OPACITY = 0.25;
 
@@ -109,7 +109,7 @@ export const WelcomeItem = memo(
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(DEFAULT_SHADOW_OPACITY);
     const handleWebSite = useWebSiteHandler();
-    const shadowColor = useThemeValue('shadowColor');
+    const shadowColor = useThemeValue('popoverShadowColor');
 
     useEffect(() => {
       setTimeout(

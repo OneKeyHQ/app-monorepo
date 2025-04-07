@@ -20,6 +20,7 @@ import {
   useMedia,
   usePageType,
 } from '@onekeyhq/components';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useThemeVariant } from '@onekeyhq/kit/src/hooks/useThemeVariant';
 import {
   useSwapActions,
@@ -37,6 +38,7 @@ import {
   useSettingsAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import { EModalRoutes, EOnboardingPages } from '@onekeyhq/shared/src/routes';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
 import {
   EProtocolOfExchange,
@@ -155,6 +157,7 @@ const SwapActionsState = ({
   onSelectPercentageStage,
 }: ISwapActionsStateProps) => {
   const intl = useIntl();
+  const navigation = useAppNavigation();
   const [fromToken] = useSwapSelectFromTokenAtom();
   const [toToken] = useSwapSelectToTokenAtom();
   const [fromAmount] = useSwapFromTokenAmountAtom();
@@ -217,6 +220,13 @@ const SwapActionsState = ({
   const { md } = useMedia();
 
   const onActionHandler = useCallback(() => {
+    if (swapActionState.noConnectWallet) {
+      navigation.pushModal(EModalRoutes.OnboardingModal, {
+        screen: EOnboardingPages.GetStarted,
+        params: { showCloseButton: true },
+      });
+      return;
+    }
     if (swapActionState.isRefreshQuote) {
       void quoteAction(
         swapSlippageRef.current,
@@ -245,12 +255,14 @@ const SwapActionsState = ({
     cleanQuoteInterval,
     currentQuoteRes?.kind,
     handleApprove,
+    navigation,
     onBuildTx,
     onWrapped,
     quoteAction,
     swapActionState.isApprove,
     swapActionState.isRefreshQuote,
     swapActionState.isWrapped,
+    swapActionState.noConnectWallet,
     swapFromAddressInfo?.accountInfo?.account?.id,
     swapFromAddressInfo?.address,
     swapToAddressInfo?.address,
@@ -398,23 +410,18 @@ const SwapActionsState = ({
           gap="$1"
           {...(pageType === EPageType.modal && !md ? {} : { pb: '$4' })}
         >
+          <SizableText size="$bodyMd">1.</SizableText>
           <Popover
             title={intl.formatMessage({ id: ETranslations.global_approve })}
             placement="top-start"
             renderContent={
-              <SizableText
-                size="$bodyLg"
-                $gtMd={{
-                  size: '$bodyMd',
-                  pt: '$5',
-                }}
-                pb="$5"
-                px="$5"
-              >
-                {intl.formatMessage({
-                  id: ETranslations.swap_page_swap_steps_1_approve_dialog,
-                })}
-              </SizableText>
+              <Stack p="$3">
+                <SizableText size="$bodyMd">
+                  {intl.formatMessage({
+                    id: ETranslations.swap_page_swap_steps_1_approve_dialog,
+                  })}
+                </SizableText>
+              </Stack>
             }
             renderTrigger={
               <XStack
@@ -423,17 +430,19 @@ const SwapActionsState = ({
                   opacity: 0.5,
                 }}
               >
-                <SizableText size="$bodyMdMedium" pr="$1">
+                <SizableText
+                  size="$bodyMdMedium"
+                  pr="$1"
+                  textDecorationLine="underline"
+                  textDecorationStyle="dotted"
+                  textDecorationColor="$textSubdued"
+                  cursor="pointer"
+                >
                   {intl.formatMessage(
                     { id: ETranslations.swap_page_swap_steps_1 },
                     { tokenSymbol: fromToken?.symbol ?? '' },
                   )}
                 </SizableText>
-                <Icon
-                  size="$5"
-                  color="$iconSubdued"
-                  name="QuestionmarkOutline"
-                />
               </XStack>
             }
           />
@@ -442,7 +451,7 @@ const SwapActionsState = ({
             {intl.formatMessage({
               id:
                 swapType === ESwapTabSwitchType.LIMIT
-                  ? ETranslations.limit_place_order
+                  ? ETranslations.limit_place_order_step_2
                   : ETranslations.swap_page_swap_steps_2,
             })}
           </SizableText>
@@ -558,7 +567,7 @@ const SwapActionsState = ({
           variant="primary"
           disabled={swapActionState.disabled || swapActionState.isLoading}
         >
-          {quoting || swapActionState.isLoading || quoteLoading ? (
+          {quoting || quoteLoading ? (
             <LottieView
               source={
                 themeVariant === 'light'

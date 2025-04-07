@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { Page, View, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
@@ -12,12 +14,27 @@ import type { ITabPageHeaderProp } from './type';
 
 export function TabPageHeader({
   sceneName,
+  tabRoute,
   showHeaderRight,
+  showCustomHeaderRight,
 }: ITabPageHeaderProp) {
   useDebugComponentRemountLog({
     name: `native TabPageHeader:${sceneName}:${String(showHeaderRight)}`,
   });
   const { top } = useSafeAreaInsets();
+
+  const headerRight = useMemo(() => {
+    if (showCustomHeaderRight) {
+      return showCustomHeaderRight({
+        canGoBack: false,
+      });
+    }
+    return (
+      <HomeTokenListProviderMirror>
+        <HeaderRight sceneName={sceneName} tabRoute={tabRoute} />
+      </HomeTokenListProviderMirror>
+    );
+  }, [sceneName, showCustomHeaderRight, tabRoute]);
   return (
     <>
       <Page.Header headerShown={false} />
@@ -34,11 +51,7 @@ export function TabPageHeader({
         <View>
           <HeaderTitle sceneName={sceneName} />
         </View>
-        {showHeaderRight ? (
-          <HomeTokenListProviderMirror>
-            <HeaderRight sceneName={sceneName} />
-          </HomeTokenListProviderMirror>
-        ) : null}
+        {showHeaderRight || showCustomHeaderRight ? headerRight : null}
       </XStack>
     </>
   );

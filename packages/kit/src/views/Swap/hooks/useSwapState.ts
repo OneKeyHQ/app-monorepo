@@ -33,6 +33,7 @@ import { useDebounce } from '../../../hooks/useDebounce';
 import {
   useSwapActions,
   useSwapAlertsAtom,
+  useSwapApprovingAtom,
   useSwapBuildTxFetchingAtom,
   useSwapFromTokenAmountAtom,
   useSwapLimitPriceUseRateAtom,
@@ -176,6 +177,7 @@ export function useSwapActionState() {
   const [quoteIntervalCount] = useSwapQuoteIntervalCountAtom();
   const [swapUseLimitPrice] = useSwapLimitPriceUseRateAtom();
   const [swapTypeSwitchValue] = useSwapTypeSwitchAtom();
+  const [approving] = useSwapApprovingAtom();
   const isBatchTransfer = useSwapBatchTransfer(
     swapFromAddressInfo.networkId,
     swapFromAddressInfo.accountInfo?.account?.id,
@@ -215,6 +217,7 @@ export function useSwapActionState() {
   const actionInfo = useMemo(() => {
     const infoRes = {
       disable: !(!hasError && !!quoteCurrentSelect),
+      noConnectWallet: alerts.states.some((item) => item.noConnectWallet),
       label:
         swapTypeSwitchValue === ESwapTabSwitchType.LIMIT
           ? intl.formatMessage({ id: ETranslations.limit_place_order })
@@ -238,15 +241,26 @@ export function useSwapActionState() {
     if (
       quoteCurrentSelect?.protocol === EProtocolOfExchange.SWAP &&
       swapTypeSwitchValue !== ESwapTabSwitchType.SWAP &&
+      swapTypeSwitchValue !== ESwapTabSwitchType.BRIDGE &&
       !isRefreshQuote
     ) {
       infoRes.disable = true;
     }
 
-    if (quoteLoading || quoteEventFetching) {
-      infoRes.label = intl.formatMessage({
-        id: ETranslations.swap_page_button_fetching_quotes,
-      });
+    if (quoteLoading || quoteEventFetching || approving || buildTxFetching) {
+      if (approving) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_btn_approving,
+        });
+      } else if (buildTxFetching) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_btn_building,
+        });
+      } else {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.swap_page_button_fetching_quotes,
+        });
+      }
     } else {
       if (isCrossChain && fromToken && toToken) {
         infoRes.label = intl.formatMessage({
@@ -286,6 +300,9 @@ export function useSwapActionState() {
           new BigNumber(swapUseLimitPrice.rate ?? 0).isNaN()
         ) {
           infoRes.disable = true;
+          infoRes.label = intl.formatMessage({
+            id: ETranslations.limit_enter_price,
+          });
         }
       }
       if (
@@ -331,32 +348,43 @@ export function useSwapActionState() {
         });
         infoRes.disable = false;
       }
+      if (alerts.states.some((item) => item.noConnectWallet)) {
+        infoRes.label = intl.formatMessage({
+          id: ETranslations.global_connect_wallet,
+        });
+        infoRes.disable = false;
+      }
     }
     return infoRes;
   }, [
     hasError,
+    buildTxFetching,
     quoteCurrentSelect,
+    alerts.states,
     swapTypeSwitchValue,
     intl,
     swapFromAddressInfo.address,
     swapToAddressInfo.address,
-    fromTokenAmount,
+    fromTokenAmount.value,
+    isRefreshQuote,
     quoteLoading,
     quoteEventFetching,
+    approving,
     isCrossChain,
     fromToken,
     toToken,
     selectedFromTokenBalance,
-    isRefreshQuote,
     quoteResultNoMatchDebounce,
     isBatchTransfer,
     swapUseLimitPrice.rate,
   ]);
-
   const stepState: ISwapState = {
     label: actionInfo.label,
     isLoading: buildTxFetching,
-    disabled: actionInfo.disable || quoteLoading || quoteEventFetching,
+    approving,
+    noConnectWallet: actionInfo.noConnectWallet,
+    disabled:
+      actionInfo.disable || quoteLoading || quoteEventFetching || approving,
     approveUnLimit: swapQuoteApproveAllowanceUnLimit,
     isApprove: !!quoteCurrentSelect?.allowanceResult,
     isCrossChain,

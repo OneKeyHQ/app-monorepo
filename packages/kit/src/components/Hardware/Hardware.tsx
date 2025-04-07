@@ -9,6 +9,7 @@ import {
   Alert,
   Button,
   Dialog,
+  ESwitchSize,
   Form,
   IconButton,
   Input,
@@ -16,13 +17,16 @@ import {
   SizableText,
   Spinner,
   Stack,
+  Switch,
   Toast,
   XStack,
   useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
 
@@ -334,28 +338,38 @@ export function EnterPin({
   );
 }
 
+interface IEnterPhaseFormValues {
+  passphrase: string;
+  confirmPassphrase: string;
+  hideImmediately: boolean;
+}
+
 export function EnterPhase({
   isSingleInput,
   onConfirm,
   switchOnDevice,
 }: {
   isSingleInput?: boolean;
-  onConfirm: (p: { passphrase: string; save: boolean }) => void;
-  switchOnDevice: () => void;
+  onConfirm: (p: {
+    passphrase: string;
+    save: boolean;
+    hideImmediately: boolean;
+  }) => void;
+  switchOnDevice: ({ hideImmediately }: { hideImmediately: boolean }) => void;
 }) {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
   const formOption = useMemo(
     () => ({
       defaultValues: {
         passphrase: '',
         confirmPassphrase: '',
+        hideImmediately:
+          settings.hiddenWalletImmediately === undefined
+            ? true
+            : settings.hiddenWalletImmediately,
       },
-      onSubmit: async (
-        form: UseFormReturn<{
-          passphrase: string;
-          confirmPassphrase: string;
-        }>,
-      ) => {
+      onSubmit: async (form: UseFormReturn<IEnterPhaseFormValues>) => {
         const values = form.getValues();
         if (
           !isSingleInput &&
@@ -369,15 +383,20 @@ export function EnterPhase({
           return;
         }
         const passphrase = values.passphrase || '';
-        onConfirm({ passphrase, save: true });
+        onConfirm({
+          passphrase,
+          save: true,
+          hideImmediately: values.hideImmediately,
+        });
       },
     }),
-    [intl, isSingleInput, onConfirm],
+    [intl, isSingleInput, onConfirm, settings.hiddenWalletImmediately],
   );
-  const form = useForm<{
-    passphrase: string;
-    confirmPassphrase: string;
-  }>(formOption);
+  const form = useForm<IEnterPhaseFormValues>(formOption);
+
+  const handleSwitchOnDevice = useCallback(() => {
+    switchOnDevice({ hideImmediately: form.getValues().hideImmediately });
+  }, [form, switchOnDevice]);
   const media = useMedia();
   const [secureEntry1, setSecureEntry1] = useState(true);
   const [secureEntry2, setSecureEntry2] = useState(true);
@@ -466,6 +485,20 @@ export function EnterPhase({
             />
           </Form.Field>
         ) : null}
+        {!isSingleInput ? (
+          <Form.Field
+            horizontal
+            name="hideImmediately"
+            label={intl.formatMessage({
+              id: ETranslations.form_keep_hidden_wallet_label,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.form_keep_hidden_wallet_label_desc,
+            })}
+          >
+            <Switch size={ESwitchSize.small} />
+          </Form.Field>
+        ) : null}
       </Form>
       {/* TODO: add loading state while waiting for result */}
       <Button
@@ -489,7 +522,7 @@ export function EnterPhase({
           } as any
         }
         variant="secondary"
-        onPress={switchOnDevice}
+        onPress={handleSwitchOnDevice}
       >
         {intl.formatMessage({ id: ETranslations.global_enter_on_device })}
       </Button>

@@ -71,6 +71,7 @@ const SwapInputActions = ({
               accountId={accountInfo?.account?.id ?? ''}
               walletType={accountInfo?.wallet?.type ?? ''}
               tokenAddress={fromToken?.contractAddress ?? ''}
+              source="swap"
             />
           </XStack>
         ) : null}

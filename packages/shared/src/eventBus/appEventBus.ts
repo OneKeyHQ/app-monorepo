@@ -11,6 +11,7 @@ import type { IAccountSelectorSelectedAccount } from '@onekeyhq/kit-bg/src/dbs/s
 import type { EHardwareUiStateAction } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import type { IAccountDeriveTypes } from '@onekeyhq/kit-bg/src/vaults/types';
 import type { IAirGapUrJson } from '@onekeyhq/qr-wallet-sdk';
+import type { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IAvatarInfo } from '@onekeyhq/shared/src/utils/emojiUtils';
 
 import appGlobals from '../appGlobals';
@@ -109,6 +110,7 @@ export enum EAppEventBusNames {
   CheckAddressBeforeSending = 'CheckAddressBeforeSending',
   HideTabBar = 'HideTabBar',
   RequestHardwareUIDialog = 'RequestHardwareUIDialog',
+  RequestDeviceInBootloaderForWebDevice = 'RequestDeviceInBootloaderForWebDevice',
   // AccountNameChanged = 'AccountNameChanged',
   // CurrencyChanged = 'CurrencyChanged',
   // BackupRequired = 'BackupRequired',
@@ -126,6 +128,7 @@ export type IEventBusPayloadShowToast = {
   duration?: number;
   errorCode?: number;
   toastId?: string;
+  i18nKey?: ETranslations;
 };
 export interface IAppEventBusPayload {
   [EAppEventBusNames.ConfirmAccountSelected]: undefined;
@@ -321,6 +324,7 @@ export interface IAppEventBusPayload {
   [EAppEventBusNames.RequestHardwareUIDialog]: {
     uiRequestType: EHardwareUiStateAction;
   };
+  [EAppEventBusNames.RequestDeviceInBootloaderForWebDevice]: undefined;
 }
 
 export enum EEventBusBroadcastMethodNames {

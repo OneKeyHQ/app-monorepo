@@ -14,17 +14,24 @@ import {
 } from '@onekeyhq/components';
 import type { IScrollViewRef } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EDiscoveryModalRoutes,
   EModalRoutes,
+  ETabRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 
 import { SearchResultContent } from '../../../components/SearchResultContent';
 import { useSearchModalData } from '../../../hooks/useSearchModalData';
+import { useSearchPopover } from '../../../hooks/useSearchPopover';
+import {
+  useSearchPopoverShortcutsFeatureFlag,
+  useSearchPopoverUIFeatureFlag,
+} from '../../../hooks/useSearchPopoverFeatureFlag';
 
 import { KeyboardShortcutKey } from './KeyboardShortcutKey';
 import { SearchPopover } from './SearchPopover';
@@ -32,20 +39,22 @@ import { SearchPopover } from './SearchPopover';
 import type { ISearchResultContentRef } from '../../../components/SearchResultContent';
 import type { TextInput } from 'react-native';
 
-const ITEM_HEIGHT = 48; // Height of each item in the search results
-
 export function SearchInput() {
+  const searchPopoverShortcutsFeatureFlag =
+    useSearchPopoverShortcutsFeatureFlag();
+  const searchPopoverUIFeatureFlag = useSearchPopoverUIFeatureFlag();
   const intl = useIntl();
   const [searchValue, setSearchValue] = useState('');
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState(-1);
   const searchResultRef = useRef<ISearchResultContentRef>(null);
   const scrollViewRef = useRef<IScrollViewRef>(null);
   const inputRef = useRef<TextInput>(null);
+  const navigation = useAppNavigation();
 
-  useEffect(() => {
-    setSelectedIndex(-1);
-  }, [isPopoverOpen]);
+  const focusInputWithDelay = useCallback(() => {
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 200);
+  }, []);
 
   const {
     localData,
@@ -53,107 +62,62 @@ export function SearchInput() {
     displaySearchList,
     displayHistoryList,
     SEARCH_ITEM_ID,
+    refreshLocalData,
+    totalItems,
   } = useSearchModalData(searchValue);
 
-  useEffect(() => {
-    scrollViewRef?.current?.scrollTo({
-      y: 0,
-    });
-  }, [searchValue]);
+  const {
+    handleInputBlur,
+    handleKeyDown,
+    handleSearchBarPress,
+    isPopoverOpen,
+    isPopoverVisible,
+    selectedIndex,
+    setIsPopoverOpen,
+  } = useSearchPopover({
+    scrollViewRef,
+    totalItems,
+    searchValue,
+    refreshLocalData,
+    onEnterPress: () => {
+      if (searchResultRef.current) {
+        searchResultRef.current.openSelectedItem();
+        setIsPopoverOpen(false);
 
-  const navigation = useAppNavigation();
-  const handleSearchBarPress = useCallback(() => {
-    // only on mobile
-    if (!platformEnv.isDesktop) {
-      navigation.pushModal(EModalRoutes.DiscoveryModal, {
-        screen: EDiscoveryModalRoutes.SearchModal,
-      });
+        // clear search value when create new tab
+        setSearchValue('');
+      }
+    },
+    onEscape: () => {
+      inputRef.current?.blur();
+    },
+    displaySearchList: Boolean(displaySearchList),
+    displayHistoryList: Boolean(displayHistoryList),
+  });
+
+  useEffect(() => {
+    if (platformEnv.isDesktop) {
+      focusInputWithDelay();
     }
-  }, [navigation]);
+  }, [focusInputWithDelay]);
+
+  useListenTabFocusState(ETabRoutes.Discovery, () => {
+    focusInputWithDelay();
+  });
 
   const handleInputChange = useCallback((text: string) => {
     setSearchValue(text);
-    setSelectedIndex(-1);
-  }, []);
-
-  const handleInputBlur = useCallback(() => {
-    setTimeout(() => {
-      setIsPopoverOpen(false);
-    }, 100);
   }, []);
 
   useShortcuts(EShortcutEvents.NewTab, () => {
-    if (platformEnv.isDesktop) {
-      // focus on search input
-      inputRef.current?.focus();
+    if (searchPopoverShortcutsFeatureFlag) {
+      focusInputWithDelay();
     } else {
       navigation.pushModal(EModalRoutes.DiscoveryModal, {
         screen: EDiscoveryModalRoutes.SearchModal,
       });
     }
   });
-
-  useEffect(() => {
-    if (scrollViewRef.current) {
-      const getSelectedItemDistance = () => {
-        if (selectedIndex < 4) return 0;
-
-        // Calculate item height based on your UI design
-        return selectedIndex * ITEM_HEIGHT;
-      };
-
-      const distance = getSelectedItemDistance();
-      scrollViewRef.current.scrollTo({
-        y: distance,
-        animated: true,
-      });
-    }
-  }, [selectedIndex]);
-
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      // Prevent default behavior for up and down arrow keys
-      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-
-        // Calculate total items count
-        const searchCount = displaySearchList ? searchList.length : 0;
-        const historyCount = displayHistoryList
-          ? localData?.historyData?.length || 0
-          : 0;
-        const totalItems = searchCount + historyCount;
-
-        if (totalItems === 0) return;
-
-        // Update selected index based on arrow key
-        if (e.key === 'ArrowDown') {
-          setSelectedIndex((prev) => (prev + 2 > totalItems ? prev : prev + 1));
-        } else if (e.key === 'ArrowUp') {
-          setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
-        }
-      }
-
-      // Handle Enter key press - call openSelectedItem
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (searchResultRef.current) {
-          searchResultRef.current.openSelectedItem();
-          setIsPopoverOpen(false);
-        }
-      }
-
-      if (e.key === 'Escape') {
-        setIsPopoverOpen(false);
-        inputRef.current?.blur();
-      }
-    },
-    [
-      displaySearchList,
-      searchList.length,
-      displayHistoryList,
-      localData?.historyData?.length,
-    ],
-  );
 
   return (
     <>
@@ -183,7 +147,7 @@ export function SearchInput() {
         >
           <Icon name="SearchOutline" size="$5" color="$textSubdued" />
 
-          {platformEnv.isDesktop ? (
+          {searchPopoverUIFeatureFlag ? (
             <Input
               ref={inputRef}
               containerProps={{
@@ -220,7 +184,7 @@ export function SearchInput() {
             </Stack>
           )}
 
-          {platformEnv.isDesktop ? (
+          {searchPopoverShortcutsFeatureFlag ? (
             <XStack gap="$1" pointerEvents="none">
               <KeyboardShortcutKey label={shortcutsKeys.CmdOrCtrl} />
               <KeyboardShortcutKey label="T" />
@@ -228,7 +192,12 @@ export function SearchInput() {
           ) : null}
         </XStack>
 
-        <SearchPopover isOpen={isPopoverOpen}>
+        <SearchPopover
+          containerProps={{
+            $gtSm: { width: 384 },
+          }}
+          isOpen={isPopoverVisible}
+        >
           <ScrollView ref={scrollViewRef} maxHeight={310}>
             <Stack py="$2">
               <SearchResultContent
@@ -242,6 +211,7 @@ export function SearchInput() {
                 selectedIndex={selectedIndex}
                 innerRef={searchResultRef}
                 onItemClick={() => {
+                  setSearchValue('');
                   setIsPopoverOpen(false);
                 }}
               />

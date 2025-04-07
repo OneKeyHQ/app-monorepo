@@ -29,6 +29,7 @@ import {
   calcPercentBalance,
 } from '@onekeyhq/kit/src/components/PercentageStageOnKeyboard';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
+import { useReferFriends } from '@onekeyhq/kit/src/hooks/useReferFriends';
 import { useRouteIsFocused as useIsFocused } from '@onekeyhq/kit/src/hooks/useRouteIsFocused';
 import { useSignatureConfirm } from '@onekeyhq/kit/src/hooks/useSignatureConfirm';
 import { useEarnActions } from '@onekeyhq/kit/src/states/jotai/contexts/earn/actions';
@@ -37,6 +38,7 @@ import {
   formatStakingDistanceToNowStrict,
 } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -120,6 +122,7 @@ export function ApproveBaseStake({
   estReceiveTokenRate = '1',
 }: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
+  const [devSettings] = useDevSettingsPersistAtom();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -774,6 +777,20 @@ export function ApproveBaseStake({
     !!amountValue &&
     (shouldApprove || showStakeProgressRef.current[amountValue]);
 
+  const { bindOrChangeInviteCode } = useReferFriends();
+
+  const { result: inviteCode, run: refetchInviteCode } = usePromiseResult(
+    async () => backgroundApiProxy.serviceReferralCode.getInviteCode(),
+    [],
+    {
+      initResult: '',
+    },
+  );
+
+  const handleBindOrChangeInviteCode = useCallback(() => {
+    void bindOrChangeInviteCode(refetchInviteCode);
+  }, [bindOrChangeInviteCode, refetchInviteCode]);
+
   const accordionContent = useMemo(() => {
     const items: ReactElement[] = [];
     if (Number(amountValue) <= 0) {
@@ -826,18 +843,40 @@ export function ApproveBaseStake({
         />,
       );
     }
+    if (devSettings.settings?.showOneKeyId) {
+      items.push(
+        <CalculationListItem onPress={handleBindOrChangeInviteCode}>
+          <CalculationListItem.Label size="$bodyMd">
+            {intl.formatMessage({
+              id: ETranslations.referral_your_code,
+            })}
+          </CalculationListItem.Label>
+          <XStack alignItems="center" cursor="pointer" mr={-6}>
+            <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
+            <Icon
+              name="ChevronRightSmallOutline"
+              size="$5"
+              color="$iconSubdued"
+            />
+          </XStack>
+        </CalculationListItem>,
+      );
+    }
     return items;
   }, [
     amountValue,
-    daysSpent,
-    estReceiveToken,
-    estReceiveTokenRate,
-    estimateFeeResp,
-    intl,
     showEstReceive,
-    showEstimateGasAlert,
-    totalAnnualRewardsFiatValue,
+    estReceiveToken,
+    estimateFeeResp,
     usePermit2Approve,
+    devSettings.settings?.showOneKeyId,
+    intl,
+    estReceiveTokenRate,
+    totalAnnualRewardsFiatValue,
+    showEstimateGasAlert,
+    daysSpent,
+    handleBindOrChangeInviteCode,
+    inviteCode,
   ]);
   const isAccordionTriggerDisabled = accordionContent.length === 0;
   return (

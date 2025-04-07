@@ -9,6 +9,7 @@ import {
   Button,
   Dialog,
   Divider,
+  Icon,
   Input,
   SegmentControl,
   SizableText,
@@ -90,6 +91,7 @@ const SwapsSlippageContentContainer = ({
   swapSlippage,
   onSave,
   autoValue,
+  isMEV,
 }: {
   swapSlippage: ISwapSlippageSegmentItem;
   autoValue: number;
@@ -97,6 +99,7 @@ const SwapsSlippageContentContainer = ({
     slippage: ISwapSlippageSegmentItem,
     close: IDialogInstance['close'],
   ) => void;
+  isMEV: boolean;
 }) => {
   const [swapSlippageStatus, setSwapSlippageStatus] = useState(swapSlippage);
   const intl = useIntl();
@@ -247,6 +250,24 @@ const SwapsSlippageContentContainer = ({
           {customValueState.message}
         </SizableText>
       ) : null}
+      {isMEV ? (
+        <>
+          <Divider mt="$2" />
+          <YStack gap="$1">
+            <SizableText size="$bodyLgMedium" color="$text">
+              {intl.formatMessage({
+                id: ETranslations.mev_protection_label,
+              })}
+            </SizableText>
+            <SizableText size="$bodyMd" color="$textSubdued">
+              {intl.formatMessage({
+                id: ETranslations.mev_protection_desc,
+              })}
+            </SizableText>
+          </YStack>
+        </>
+      ) : null}
+
       <Dialog.Footer
         showCancelButton={false}
         onConfirmText={intl.formatMessage({

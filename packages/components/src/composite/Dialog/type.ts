@@ -56,7 +56,7 @@ export interface IDialogFooterProps extends PropsWithChildren {
 export type IDialogHeaderProps = PropsWithChildren<{
   icon?: IKeyOfIcons;
   title?: string;
-  description?: string;
+  description?: string | ReactElement;
   showExitButton?: boolean;
   tone?: 'default' | 'destructive' | 'warning' | 'success';
   renderIcon?: ReactElement;
@@ -72,10 +72,11 @@ interface IBasicDialogProps extends TMDialogProps {
   isAsync?: boolean;
   onOpen?: () => void;
   onClose: (extra?: { flag?: string }) => Promise<void>;
+  isExist?: () => boolean;
   icon?: IKeyOfIcons;
   renderIcon?: ReactElement;
   title?: string;
-  description?: string;
+  description?: string | ReactElement;
   /* estimatedContentHeight is a single numeric value that hints Dialog about the approximate size of the content before they're rendered.  */
   estimatedContentHeight?: number;
   renderContent?: ReactNode;
@@ -127,11 +128,13 @@ type IDialogForm = ReturnType<typeof useForm>;
 export interface IDialogInstanceRef {
   close: (extra?: { flag?: string }) => Promise<void>;
   ref: MutableRefObject<IDialogForm | undefined>;
+  isExist: () => boolean;
 }
 
 export interface IDialogInstance {
   close: (extra?: { flag?: string }) => Promise<void> | void;
   getForm: () => IDialogForm | undefined;
+  isExist: () => boolean;
 }
 
 export type IDialogFormProps = PropsWithChildren<{

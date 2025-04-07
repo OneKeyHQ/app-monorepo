@@ -15,11 +15,17 @@ export type IHyperlinkTextProps = {
   translationId?: ETranslations;
   defaultMessage?: string;
   onAction?: (url: string) => void;
+  messages?: Record<string, string>;
   values?: Record<
     string,
     string | ReactElement | ((v: string) => ReactElement | string)
   >;
   autoHandleResult?: boolean;
+  urlTextProps?: ISizableTextProps;
+  actionTextProps?: ISizableTextProps;
+  underlineTextProps?: ISizableTextProps;
+  boldTextProps?: ISizableTextProps;
+  textProps?: ISizableTextProps;
 } & ISizableTextProps;
 
 export function HyperlinkText({
@@ -29,7 +35,12 @@ export function HyperlinkText({
   children,
   values,
   autoHandleResult = true,
-  ...textProps
+  urlTextProps,
+  actionTextProps,
+  underlineTextProps,
+  boldTextProps,
+  textProps,
+  ...basicTextProps
 }: IHyperlinkTextProps) {
   const intl = useIntl();
   const parseQRCode = useParseQRCode();
@@ -45,19 +56,21 @@ export function HyperlinkText({
               ...values,
               action: (params: React.ReactNode[]) => {
                 const [actionId, chunks] = params;
+                const isActionIdString = typeof actionId === 'string';
                 return (
                   <SizableText
-                    {...textProps}
+                    {...basicTextProps}
+                    {...actionTextProps}
                     cursor="pointer"
                     hoverStyle={{ bg: '$bgHover' }}
                     pressStyle={{ bg: '$bgActive' }}
                     onPress={() => {
-                      if (typeof actionId === 'string') {
+                      if (isActionIdString) {
                         onAction?.(actionId);
                       }
                     }}
                   >
-                    {chunks}
+                    {isActionIdString ? chunks : actionId}
                   </SizableText>
                 );
               },
@@ -66,7 +79,8 @@ export function HyperlinkText({
                 const isLinkString = typeof link === 'string';
                 return (
                   <SizableText
-                    {...textProps}
+                    {...basicTextProps}
+                    {...urlTextProps}
                     cursor="pointer"
                     hoverStyle={{ bg: '$bgHover' }}
                     pressStyle={{ bg: '$bgActive' }}
@@ -92,12 +106,20 @@ export function HyperlinkText({
                 );
               },
               underline: ([string]) => (
-                <SizableText {...textProps} textDecorationLine="underline">
+                <SizableText
+                  {...basicTextProps}
+                  {...underlineTextProps}
+                  textDecorationLine="underline"
+                >
                   {string}
                 </SizableText>
               ),
               bold: ([string]) => (
-                <SizableText {...textProps} size="$headingLg">
+                <SizableText
+                  {...basicTextProps}
+                  {...boldTextProps}
+                  size="$headingLg"
+                >
                   {string}
                 </SizableText>
               ),
@@ -105,7 +127,11 @@ export function HyperlinkText({
                 <>
                   {chunks.map((chunk, index) =>
                     typeof chunk === 'string' ? (
-                      <SizableText {...textProps} key={index}>
+                      <SizableText
+                        {...basicTextProps}
+                        {...textProps}
+                        key={index}
+                      >
                         {chunk}
                       </SizableText>
                     ) : (
@@ -118,16 +144,21 @@ export function HyperlinkText({
           )
         : (children as string),
     [
-      autoHandleResult,
-      children,
-      defaultMessage,
-      intl,
-      onAction,
-      parseQRCode,
-      textProps,
       translationId,
+      intl,
+      defaultMessage,
       values,
+      children,
+      basicTextProps,
+      actionTextProps,
+      onAction,
+      urlTextProps,
+      parseQRCode,
+      autoHandleResult,
+      underlineTextProps,
+      boldTextProps,
+      textProps,
     ],
   );
-  return <SizableText {...textProps}>{text}</SizableText>;
+  return <SizableText {...basicTextProps}>{text}</SizableText>;
 }
