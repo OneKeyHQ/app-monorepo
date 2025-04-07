@@ -115,19 +115,6 @@ export const useDiscoveryShortcuts = () => {
             globalThis.desktopApi.quitApp();
           }
           return;
-        case EShortcutEvents.SearchInPage:
-          if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
-            if (activeTabId) {
-              appEventBus.emit(EAppEventBusNames.ShowFindInWebPage, {
-                tabId: activeTabId,
-              });
-            } else {
-              navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                screen: EDiscoveryModalRoutes.SearchModal,
-              });
-            }
-          }
-          break;
         case EShortcutEvents.ViewHistory:
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.HistoryListModal,
