@@ -1,6 +1,16 @@
+import { useCallback } from 'react';
+
 import { useIntl } from 'react-intl';
 
-import { Button, Divider, Page, Stack, Switch } from '@onekeyhq/components';
+import {
+  Button,
+  Divider,
+  Page,
+  Stack,
+  Switch,
+  Toast,
+} from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
 import { useCloudBackupPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
@@ -17,6 +27,18 @@ export default function Home() {
   const backupToggleAction = useBackupToggleAction();
   const currentUserEmail = useBackupCurrentUserEmail();
 
+  const backupNowOnPress = useCallback(async () => {
+    try {
+      await backgroundApiProxy.serviceCloudBackup.backupNow();
+    } catch (e) {
+      Toast.error({
+        // @ts-expect-error
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+        title: `${e?.message ?? e}`,
+      });
+    }
+  }, []);
+
   return (
     <Page>
       <Page.Header
@@ -28,6 +50,10 @@ export default function Home() {
       />
       <Page.Body>
         <GoogleDriveBackupSunsettingAlert />
+
+        <Button onPress={backupNowOnPress}>
+          {intl.formatMessage({ id: ETranslations.backup_backup_now })}
+        </Button>
 
         <BackupDeviceList
           ListHeaderComponent={

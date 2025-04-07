@@ -18,7 +18,6 @@ export function useBackupToggleAction() {
       if (willIsEnabled) {
         await backupEntryStatus.check();
       }
-
       await cloudBackupPersistAtom.set({
         ...(await cloudBackupPersistAtom.get()),
         isEnabled: willIsEnabled,
