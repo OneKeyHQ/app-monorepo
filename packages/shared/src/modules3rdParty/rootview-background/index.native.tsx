@@ -13,10 +13,6 @@ export const updateRootViewBackgroundColor: IUpdateRootViewBackgroundColor = (
   color: string,
 ) => {
   const parsedColor = colord(color);
-  RootViewBackground.setBackground(
-    parsedColor.toRgb().r,
-    parsedColor.toRgb().g,
-    parsedColor.toRgb().b,
-    255,
-  );
+  const { r, g, b, a } = parsedColor.toRgb();
+  RootViewBackground.setBackground(r, g, b, Math.round(a * 255));
 };
