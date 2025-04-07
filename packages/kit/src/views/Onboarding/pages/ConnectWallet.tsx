@@ -2,9 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRoute } from '@react-navigation/core';
 import { useIntl } from 'react-intl';
-import { StyleSheet } from 'react-native';
 
-import type { IButtonProps, IDialogInstance } from '@onekeyhq/components';
+import type { IDialogInstance } from '@onekeyhq/components';
 import {
   Button,
   Dialog,
