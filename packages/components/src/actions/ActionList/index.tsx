@@ -35,6 +35,7 @@ export interface IActionListItemProps {
   icon?: IKeyOfIcons;
   iconProps?: IIconProps;
   label: string;
+  description?: string;
   destructive?: boolean;
   onPress?: (close: () => void) => void | Promise<boolean | void>;
   disabled?: boolean;
@@ -49,6 +50,7 @@ export function ActionListItem({
   icon,
   iconProps,
   label,
+  description,
   onPress,
   destructive,
   disabled,
@@ -108,38 +110,45 @@ export function ActionListItem({
       testID={testID}
     >
       <XStack jc="space-between" flex={1}>
-        <XStack flex={1}>
-          {icon ? (
-            <Icon
-              name={icon}
-              size="$5"
-              mr="$3"
-              $md={{ size: '$6' }}
-              color={destructive ? '$iconCritical' : '$icon'}
-              {...iconProps}
-            />
-          ) : null}
-          <SizableText
-            textAlign="left"
-            size="$bodyMd"
-            width="100%"
-            flexShrink={1}
-            $md={{ size: '$bodyLg' }}
-            color={destructive ? '$textCritical' : '$text'}
-          >
-            {label}
-          </SizableText>
-        </XStack>
-        {(platformEnv.isDesktop || platformEnv.isNativeIOSPad) &&
-        keys?.length ? (
-          <XStack>
-            <Shortcut>
-              {keys.map((key) => (
-                <Shortcut.Key key={key}>{key}</Shortcut.Key>
-              ))}
-            </Shortcut>
-          </XStack>
+        {icon ? (
+          <Icon
+            name={icon}
+            size="$5"
+            mr="$3"
+            $md={{ size: '$6' }}
+            color={destructive ? '$iconCritical' : '$icon'}
+            {...iconProps}
+          />
         ) : null}
+        <YStack gap="$0.5" flex={1}>
+          <XStack>
+            <SizableText
+              flex={1}
+              textAlign="left"
+              size="$bodyMd"
+              width="100%"
+              flexShrink={1}
+              $md={{ size: '$bodyLg' }}
+              color={destructive ? '$textCritical' : '$text'}
+            >
+              {label}
+            </SizableText>
+
+            {(platformEnv.isDesktop || platformEnv.isNativeIOSPad) &&
+            keys?.length ? (
+              <Shortcut>
+                {keys.map((key) => (
+                  <Shortcut.Key key={key}>{key}</Shortcut.Key>
+                ))}
+              </Shortcut>
+            ) : null}
+          </XStack>
+          {description ? (
+            <SizableText size="$bodyMd" color="$textSubdued" textAlign="left">
+              {description}
+            </SizableText>
+          ) : null}
+        </YStack>
       </XStack>
     </ButtonFrame>
   );

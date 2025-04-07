@@ -76,7 +76,7 @@ function HardwareSingletonDialogCmp(
   const action = state?.action;
   const connectId = state?.connectId || '';
   // state?.payload?.deviceType
-  const { serviceHardwareUI, serviceAccount } = backgroundApiProxy;
+  const { serviceHardwareUI, serviceSetting } = backgroundApiProxy;
   const intl = useIntl();
   const [showCloseButton, setIsShowExitButton] = useState(false);
 
@@ -182,21 +182,23 @@ function HardwareSingletonDialogCmp(
 
     // EnterPassphrase on App
     if (action === EHardwareUiStateAction.REQUEST_PASSPHRASE) {
+      const isSingleInput = !!state?.payload?.passphraseState;
       const saveCachedHiddenWalletOptions = async ({
         hideImmediately,
       }: {
         hideImmediately: boolean;
       }) => {
-        await serviceAccount.setCachedHiddenWalletOptions(connectId, {
-          hideImmediately,
-        });
+        if (isSingleInput) {
+          return;
+        }
+        await serviceSetting.setHiddenWalletImmediately(hideImmediately);
       };
       title = intl.formatMessage({
         id: ETranslations.global_enter_passphrase,
       });
       content = (
         <EnterPhase
-          isSingleInput={!!state?.payload?.passphraseState}
+          isSingleInput={isSingleInput}
           onConfirm={async ({ passphrase, hideImmediately }) => {
             await saveCachedHiddenWalletOptions({
               hideImmediately,
@@ -241,8 +243,8 @@ function HardwareSingletonDialogCmp(
     connectId,
     defaultLoadingView,
     intl,
-    serviceAccount,
     serviceHardwareUI,
+    serviceSetting,
     state?.connectId,
     state?.payload,
   ]);
@@ -646,7 +648,8 @@ function HardwareUiStateContainerCmpControlled() {
                 try {
                   const promptWebUsbDeviceAccessFn =
                     platformEnv.isExtensionUiPopup ||
-                    platformEnv.isExtensionUiSidePanel
+                    platformEnv.isExtensionUiSidePanel ||
+                    platformEnv.isExtensionUiStandaloneWindow
                       ? toPromptWebDeviceAccessPage
                       : promptWebUsbDeviceAccess;
                   const result = await promptWebUsbDeviceAccessFn();

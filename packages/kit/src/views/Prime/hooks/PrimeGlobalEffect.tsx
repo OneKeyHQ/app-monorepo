@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 
-// import { useUpdateEffect } from '@onekeyhq/components';
+import { useUpdateEffect } from '@onekeyhq/components';
 import {
   usePrimeInitAtom,
   usePrimePersistAtom,
@@ -9,10 +9,10 @@ import {
   EAppEventBusNames,
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
+import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import { GlobalJotaiReady } from '../../../components/GlobalJotaiReady/GlobalJotaiReady';
-import { usePrevious } from '../../../hooks/usePrevious';
 
 import { usePrimeAuthV2 } from './usePrimeAuthV2';
 import { usePrivyUniversalV2 } from './usePrivyUniversalV2';
@@ -28,6 +28,9 @@ function PrimeGlobalEffectView() {
 
   const autoRefreshPrimeUserInfo = useCallback(async () => {
     if (isReady && user?.privyUserId && user?.isLoggedInOnServer) {
+      // wait 600ms to ensure the apiLogin() is finished
+      await timerUtils.wait(600);
+
       const accessToken =
         await backgroundApiProxy.simpleDb.prime.getAuthToken();
 
@@ -99,19 +102,20 @@ function PrimeGlobalEffectView() {
     };
   }, [logout, authenticated]);
 
-  // const isActive = primePersistAtom.primeSubscription?.isActive;
-  // useUpdateEffect(() => {
-  //   console.log('primePersistAtom.primeSubscription?.isActive', {
-  //     isActive,
-  //   });
-  //   if (isActive) {
-  //     void backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlowSilently(
-  //       {
-  //         callerName: 'primeSubscription isActive',
-  //       },
-  //     );
-  //   }
-  // }, [isActive]);
+  const isActive = primePersistAtom.primeSubscription?.isActive;
+  useUpdateEffect(() => {
+    console.log('primePersistAtom.primeSubscription?.isActive', {
+      isActive,
+    });
+    if (isActive) {
+      void backgroundApiProxy.servicePrimeCloudSync.startServerSyncFlowSilently(
+        {
+          callerName: 'primeSubscription isActive',
+        },
+      );
+    }
+  }, [isActive]);
+
   return null;
 }
 

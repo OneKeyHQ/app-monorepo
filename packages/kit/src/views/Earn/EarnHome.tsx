@@ -14,7 +14,6 @@ import {
   Badge,
   Banner,
   Button,
-  Dialog,
   HeaderButtonGroup,
   HeaderIconButton,
   Icon,
@@ -27,7 +26,6 @@ import {
   ScrollView,
   SizableText,
   Skeleton,
-  Stack,
   XStack,
   YStack,
   useMedia,
@@ -37,11 +35,16 @@ import {
   EJotaiContextStoreNames,
   useSettingsPersistAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { getPrimaryColor } from '@onekeyhq/shared/src/modules3rdParty/react-native-image-colors';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import { EModalRoutes, EModalStakingRoutes } from '@onekeyhq/shared/src/routes';
+import {
+  EModalRoutes,
+  EModalStakingRoutes,
+  ETabRoutes,
+} from '@onekeyhq/shared/src/routes';
 import {
   openUrlExternal,
   openUrlInApp,
@@ -897,6 +900,7 @@ function BasicEarnHome() {
     void shareReferRewards();
   }, [shareReferRewards]);
 
+  const [devSettings] = useDevSettingsPersistAtom();
   const renderCustomHeaderRight = useCallback(
     () => (
       <HeaderButtonGroup
@@ -913,12 +917,23 @@ function BasicEarnHome() {
     [intl, handleShareReferRewards],
   );
 
+  const headerRight = useMemo(
+    () =>
+      devSettings.settings?.showOneKeyId
+        ? renderCustomHeaderRight()
+        : undefined,
+    [devSettings.settings?.showOneKeyId, renderCustomHeaderRight],
+  );
+
   return (
     <Page fullPage>
       <TabPageHeader
+        showHeaderRight
         sceneName={EAccountSelectorSceneName.home}
-        showCustomHeaderRight={renderCustomHeaderRight}
-      />
+        tabRoute={ETabRoutes.Earn}
+      >
+        {headerRight}
+      </TabPageHeader>
       <Page.Body>
         <ScrollView
           contentContainerStyle={{ py: '$5' }}

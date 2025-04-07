@@ -18,6 +18,7 @@ export function useDesktopNewWindow() {
           webSite: {
             url: data.url,
             title: data.url,
+            logo: undefined,
           },
           gtMd,
           navigation,

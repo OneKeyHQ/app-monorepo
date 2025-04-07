@@ -309,10 +309,20 @@ export const DevSettingsSection = () => {
       <SectionFieldItem name="showPrimeTest" title="开启 Prime" subtitle="">
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
+      <SectionFieldItem name="showOneKeyId" title="开启 OneKeyId" subtitle="">
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
       <SectionFieldItem
         name="usePrimeSandboxPayment"
         title="Prime Sandbox 支付"
         subtitle=""
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+      <SectionFieldItem
+        name="strictSignatureAlert"
+        title="严格的签名 Alert 展示"
+        subtitle="signTypedData 签名，红色 Alert"
       >
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
@@ -351,7 +361,17 @@ export const DevSettingsSection = () => {
           }}
         />
       </ListItem>
+
       <AutoUpdateSection />
+
+      <SectionFieldItem
+        name="allowAddSameHDWallet"
+        title="允许添加相同助记词 HD 钱包"
+        subtitle=""
+      >
+        <Switch size={ESwitchSize.small} />
+      </SectionFieldItem>
+
       <SectionPressItem
         title="重置 App 为初次更新状态"
         testID="reset-app-to-fresh-state"

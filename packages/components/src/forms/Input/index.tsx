@@ -538,6 +538,7 @@ function BaseInputUnControlled(
       {...(inputProps as any)}
       value={internalValue}
       onChangeText={handleChange}
+      defaultValue={undefined}
     />
   );
 }

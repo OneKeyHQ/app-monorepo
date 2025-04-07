@@ -48,7 +48,15 @@ function NetworkIdSelect({
   onChange: (selectedIndex: number) => void;
 }) {
   return (
-    <XStack gap="$2" px="$5" pb="$2" mt="$5" $gtMd={{ pr: 0 }} py="$2">
+    <XStack
+      gap="$2"
+      px="$5"
+      pb="$2"
+      mt="$5"
+      $gtMd={{ pr: 0 }}
+      py="$2"
+      flexWrap="wrap"
+    >
       {options.map((networkId, index) => (
         <NetworksFilterItem
           key={networkId}

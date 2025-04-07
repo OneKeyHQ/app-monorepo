@@ -14,6 +14,7 @@ import type { ITabPageHeaderProp } from './type';
 
 export function TabPageHeader({
   sceneName,
+  tabRoute,
   showHeaderRight,
   showCustomHeaderRight,
 }: ITabPageHeaderProp) {
@@ -30,10 +31,10 @@ export function TabPageHeader({
     }
     return (
       <HomeTokenListProviderMirror>
-        <HeaderRight sceneName={sceneName} />
+        <HeaderRight sceneName={sceneName} tabRoute={tabRoute} />
       </HomeTokenListProviderMirror>
     );
-  }, [sceneName, showCustomHeaderRight]);
+  }, [sceneName, showCustomHeaderRight, tabRoute]);
   return (
     <>
       <Page.Header headerShown={false} />

@@ -112,6 +112,8 @@ export default class ServiceSwap extends ServiceBase {
 
   private swapSupportNetworksTtl = 1000 * 60 * 120;
 
+  private _limitOrderCurrentAccountId?: string;
+
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
   }
@@ -752,6 +754,7 @@ export default class ServiceSwap extends ServiceBase {
     accountId,
     protocol,
     kind,
+    walletType,
   }: {
     fromToken: ISwapToken;
     toToken: ISwapToken;
@@ -765,6 +768,7 @@ export default class ServiceSwap extends ServiceBase {
     quoteResultCtx?: any;
     protocol: EProtocolOfExchange;
     kind: ESwapQuoteKind;
+    walletType?: string;
   }): Promise<IFetchBuildTxResponse | undefined> {
     const params: IFetchBuildTxParams = {
       fromTokenAddress: fromToken.contractAddress,
@@ -780,6 +784,7 @@ export default class ServiceSwap extends ServiceBase {
       slippagePercentage,
       quoteResultCtx,
       kind,
+      walletType,
     };
     try {
       const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -1531,10 +1536,28 @@ export default class ServiceSwap extends ServiceBase {
     indexedAccountId?: string,
     otherWalletTypeAccountId?: string,
     isFetchNewOrder?: boolean,
+    interval?: boolean,
   ) {
     if (this.limitOrderStateInterval) {
       clearTimeout(this.limitOrderStateInterval);
       this.limitOrderStateInterval = null;
+    }
+    if (
+      interval &&
+      this._limitOrderCurrentAccountId &&
+      this._limitOrderCurrentAccountId !==
+        `${indexedAccountId ?? ''}-${otherWalletTypeAccountId ?? ''}`
+    ) {
+      return;
+    }
+    if (
+      !interval &&
+      this._limitOrderCurrentAccountId !==
+        `${indexedAccountId ?? ''}-${otherWalletTypeAccountId ?? ''}`
+    ) {
+      this._limitOrderCurrentAccountId = `${indexedAccountId ?? ''}-${
+        otherWalletTypeAccountId ?? ''
+      }`;
     }
     let sameAccount = true;
     const swapSupportNetworks = await this.getCacheSwapSupportNetworks();
@@ -1612,6 +1635,8 @@ export default class ServiceSwap extends ServiceBase {
               void this.swapLimitOrdersFetchLoop(
                 indexedAccountId,
                 otherWalletTypeAccountId,
+                false,
+                true,
               );
             }, ESwapLimitOrderUpdateInterval);
           }
@@ -1621,6 +1646,8 @@ export default class ServiceSwap extends ServiceBase {
           void this.swapLimitOrdersFetchLoop(
             indexedAccountId,
             otherWalletTypeAccountId,
+            false,
+            true,
           );
         }, ESwapLimitOrderUpdateInterval);
       } finally {

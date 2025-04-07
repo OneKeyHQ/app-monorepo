@@ -23,8 +23,10 @@ import {
   useForm,
   useMedia,
 } from '@onekeyhq/components';
+import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 
+import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { SHOW_CLOSE_ACTION_MIN_DURATION } from '../../provider/Container/HardwareUiStateContainer/constants';
 import { isPassphraseValid } from '../../utils/passphraseUtils';
 
@@ -356,12 +358,16 @@ export function EnterPhase({
   switchOnDevice: ({ hideImmediately }: { hideImmediately: boolean }) => void;
 }) {
   const intl = useIntl();
+  const [settings] = useSettingsPersistAtom();
   const formOption = useMemo(
     () => ({
       defaultValues: {
         passphrase: '',
         confirmPassphrase: '',
-        hideImmediately: true,
+        hideImmediately:
+          settings.hiddenWalletImmediately === undefined
+            ? true
+            : settings.hiddenWalletImmediately,
       },
       onSubmit: async (form: UseFormReturn<IEnterPhaseFormValues>) => {
         const values = form.getValues();
@@ -384,7 +390,7 @@ export function EnterPhase({
         });
       },
     }),
-    [intl, isSingleInput, onConfirm],
+    [intl, isSingleInput, onConfirm, settings.hiddenWalletImmediately],
   );
   const form = useForm<IEnterPhaseFormValues>(formOption);
 
@@ -479,19 +485,20 @@ export function EnterPhase({
             />
           </Form.Field>
         ) : null}
-
-        <Form.Field
-          horizontal
-          name="hideImmediately"
-          label={intl.formatMessage({
-            id: ETranslations.form_keep_hidden_wallet_label,
-          })}
-          description={intl.formatMessage({
-            id: ETranslations.form_keep_hidden_wallet_label_desc,
-          })}
-        >
-          <Switch size={ESwitchSize.small} />
-        </Form.Field>
+        {!isSingleInput ? (
+          <Form.Field
+            horizontal
+            name="hideImmediately"
+            label={intl.formatMessage({
+              id: ETranslations.form_keep_hidden_wallet_label,
+            })}
+            description={intl.formatMessage({
+              id: ETranslations.form_keep_hidden_wallet_label_desc,
+            })}
+          >
+            <Switch size={ESwitchSize.small} />
+          </Form.Field>
+        ) : null}
       </Form>
       {/* TODO: add loading state while waiting for result */}
       <Button

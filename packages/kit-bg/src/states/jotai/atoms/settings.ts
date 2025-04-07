@@ -45,6 +45,8 @@ export type ISettingsPersistAtom = {
   isFloatingIconAlwaysDisplay: boolean;
   isFilterScamHistoryEnabled: boolean;
   hardwareTransportType?: EHardwareTransportType;
+
+  hiddenWalletImmediately: boolean;
 };
 
 export const settingsAtomInitialValue: ISettingsPersistAtom = {
@@ -77,6 +79,7 @@ export const settingsAtomInitialValue: ISettingsPersistAtom = {
   hardwareTransportType: platformEnv.isNative
     ? EHardwareTransportType.BLE
     : EHardwareTransportType.Bridge,
+  hiddenWalletImmediately: true,
 };
 export const { target: settingsPersistAtom, use: useSettingsPersistAtom } =
   globalAtom<ISettingsPersistAtom>({

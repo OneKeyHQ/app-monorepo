@@ -958,12 +958,11 @@ function initChildProcess() {
 const singleInstance = app.requestSingleInstanceLock();
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function quitOrMinimizeApp(event?: Event) {
+function quitOrMinimizeApp() {
   // On OS X it is common for applications and their menu bar
   // to stay active until the user quits explicitly with Cmd + Q
   if (isMac) {
     // **** renderer app will reload after minimize, and keytar not working.
-    event?.preventDefault();
     const safelyMainWindow = getSafelyMainWindow();
     safelyMainWindow?.hide();
     // ****
@@ -1029,8 +1028,8 @@ app.on('before-quit', () => {
 });
 
 // Quit when all windows are closed.
-app.on('window-all-closed', (event: Event) => {
-  quitOrMinimizeApp(event);
+app.on('window-all-closed', () => {
+  quitOrMinimizeApp();
 });
 
 // Closing the cause context: https://onekeyhq.atlassian.net/browse/OK-8096

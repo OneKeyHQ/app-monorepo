@@ -512,6 +512,7 @@ export default class VaultBtc extends VaultBase {
       totalFeeInNative,
       nativeAmount: sendNativeTokenAmountBN.toFixed(),
       nativeAmountValue: sendNativeTokenAmountValueBN.toFixed(),
+      isPsbt: true,
     };
   }
 
