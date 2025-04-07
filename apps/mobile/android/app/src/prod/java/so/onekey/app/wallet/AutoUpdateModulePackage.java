@@ -27,6 +27,7 @@ public class AutoUpdateModulePackage implements ReactPackage {
             ReactApplicationContext reactContext) {
         List<NativeModule> modules = new ArrayList<>();
         modules.add(new AutoUpdateModule(reactContext));
+        modules.add(new RootViewBackgroundModule(reactContext));
         return modules;
     }
 }
