@@ -29,6 +29,8 @@ export interface IDevSettings {
   usePrimeSandboxPayment?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
+  // show cloud backup sunsetting alert
+  showCloudBackupSunsettingAlert?: boolean;
   autoNavigation?: {
     enabled: boolean;
     selectedTab: ETabRoutes | null;
@@ -57,6 +59,7 @@ export const {
       webviewDebuggingEnabled: false,
       showPrimeTest: false,
       showOneKeyId: false,
+      showCloudBackupSunsettingAlert: false,
       usePrimeSandboxPayment: false,
       strictSignatureAlert: false,
       autoNavigation: {

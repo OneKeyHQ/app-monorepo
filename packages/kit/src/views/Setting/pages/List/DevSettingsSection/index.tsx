@@ -327,6 +327,23 @@ export const DevSettingsSection = () => {
         <Switch size={ESwitchSize.small} />
       </SectionFieldItem>
 
+      <SectionFieldItem
+        name="showCloudBackupSunsettingAlert"
+        title="显示云备份下线提醒"
+        subtitle="展示云备份即将下线的提醒"
+      >
+        <Switch
+          size={ESwitchSize.small}
+          onChange={() => {
+            void backgroundApiProxy.serviceDevSetting.updateDevSetting(
+              'showCloudBackupSunsettingAlert',
+              !devSettings.settings?.showCloudBackupSunsettingAlert,
+            );
+          }}
+          value={devSettings.settings?.showCloudBackupSunsettingAlert}
+        />
+      </SectionFieldItem>
+
       <ListItem
         title="Bg Api 可序列化检测"
         subtitle="启用后会影响性能, 仅在开发环境生效, 关闭 1 天后重新开启"
