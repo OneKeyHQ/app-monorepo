@@ -2,6 +2,7 @@ export enum EPrimePages {
   PrimeDashboard = 'PrimeDashboard',
   PrimeDeviceLimit = 'PrimeDeviceLimit',
   PrimeCloudSync = 'PrimeCloudSync',
+  PrimeCloudSyncDebug = 'PrimeCloudSyncDebug',
 }
 
 export type IPrimeParamList = {
@@ -10,4 +11,5 @@ export type IPrimeParamList = {
     isExceedDeviceLimit?: boolean;
   };
   [EPrimePages.PrimeCloudSync]: undefined;
+  [EPrimePages.PrimeCloudSyncDebug]: undefined;
 };

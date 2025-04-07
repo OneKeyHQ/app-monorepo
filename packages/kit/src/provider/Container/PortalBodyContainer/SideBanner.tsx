@@ -18,24 +18,13 @@ import { DesktopTabItem } from '@onekeyhq/components/src/layouts/Navigation/Tab/
 import SidebarBannerImage from '@onekeyhq/kit/assets/sidebar-banner.png';
 import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
-import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { DOWNLOAD_URL } from '@onekeyhq/shared/src/config/appConfig';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalDeviceManagementRoutes,
-  EModalRoutes,
-  EModalSettingRoutes,
-  EOnboardingPages,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import { shortcutsKeys } from '@onekeyhq/shared/src/shortcuts/shortcutsKeys.enum';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import { openUrlExternal } from '@onekeyhq/shared/src/utils/openUrlUtils';
-
-import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
-import { useLoginOneKeyId } from '../../../hooks/useLoginOneKeyId';
-import { useReferFriends } from '../../../hooks/useReferFriends';
 
 import type { GestureResponderEvent } from 'react-native';
 
@@ -129,34 +118,9 @@ function DownloadButton() {
 function BottomMenu() {
   const intl = useIntl();
   const appNavigation = useAppNavigation();
-  const [devSettings] = useDevSettingsPersistAtom();
   const openSettingPage = useCallback(() => {
     appNavigation.pushModal(EModalRoutes.SettingModal, {
       screen: EModalSettingRoutes.SettingListModal,
-    });
-  }, [appNavigation]);
-
-  const openAddressBookPage = useShowAddressBook({
-    useNewModal: true,
-  });
-
-  const { toReferFriendsPage } = useReferFriends();
-  const { loginOneKeyId } = useLoginOneKeyId();
-
-  const openDeviceManagementPage = useCallback(async () => {
-    const allHwQrWallet =
-      await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-        filterHiddenWallet: true,
-      });
-    if (Object.keys(allHwQrWallet).length > 0) {
-      appNavigation.pushModal(EModalRoutes.DeviceManagementModal, {
-        screen: EModalDeviceManagementRoutes.DeviceListModal,
-      });
-      return;
-    }
-
-    appNavigation.pushModal(EModalRoutes.OnboardingModal, {
-      screen: EOnboardingPages.DeviceManagementGuide,
     });
   }, [appNavigation]);
 
@@ -167,46 +131,6 @@ function BottomMenu() {
       borderTopColor="$borderSubdued"
       bg="$bgSidebar"
     >
-      {devSettings.settings?.showOneKeyId ? (
-        <DesktopTabItem
-          onPress={async () => {
-            await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-          }}
-          selected={false}
-          icon="PeopleOutline"
-          label="OneKey ID"
-          testID="onekey_id"
-        />
-      ) : null}
-      {devSettings.settings?.showOneKeyId ? (
-        <DesktopTabItem
-          onPress={toReferFriendsPage}
-          selected={false}
-          icon="GiftOutline"
-          label={intl.formatMessage({
-            id: ETranslations.id_refer_a_friend,
-          })}
-          testID="refer-a-friend"
-        />
-      ) : null}
-      <DesktopTabItem
-        onPress={openDeviceManagementPage}
-        selected={false}
-        icon="OnekeyDeviceCustom"
-        label={intl.formatMessage({
-          id: ETranslations.global_my_onekey,
-        })}
-        testID="my-onekey"
-      />
-      <DesktopTabItem
-        onPress={openAddressBookPage}
-        selected={false}
-        icon="ContactsOutline"
-        label={intl.formatMessage({
-          id: ETranslations.address_book_title,
-        })}
-        testID="address-book"
-      />
       <DesktopTabItem
         onPress={openSettingPage}
         selected={false}

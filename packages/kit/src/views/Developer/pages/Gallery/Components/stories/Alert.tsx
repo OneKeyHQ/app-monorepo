@@ -39,6 +39,12 @@ const AlertGallery = () => (
               icon="PlaceholderOutline"
             />
             <Alert
+              type="danger"
+              title="Title"
+              description="Description here..."
+              icon="PlaceholderOutline"
+            />
+            <Alert
               type="info"
               title="Title"
               description="Description here..."

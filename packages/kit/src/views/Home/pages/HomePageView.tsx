@@ -3,7 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { Animated, Easing, Keyboard } from 'react-native';
 
-import { Icon, Page, Stack, Tab, YStack } from '@onekeyhq/components';
+import { Icon, Page, Stack, Tab, YStack, useMedia } from '@onekeyhq/components';
 import { getEnabledNFTNetworkIds } from '@onekeyhq/shared/src/engine/engineConsts';
 import {
   EAppEventBusNames,
@@ -11,6 +11,7 @@ import {
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { ETabRoutes } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
@@ -18,6 +19,7 @@ import backgroundApiProxy from '../../../background/instance/backgroundApiProxy'
 import { EmptyAccount, EmptyWallet } from '../../../components/Empty';
 import { NetworkAlert } from '../../../components/NetworkAlert';
 import { TabPageHeader } from '../../../components/TabPageHeader';
+import { UniversalSearchInput } from '../../../components/TabPageHeader/UniversalSearchInput';
 import { UpdateReminder } from '../../../components/UpdateReminder';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useActiveAccount } from '../../../states/jotai/contexts/accountSelector';
@@ -82,17 +84,22 @@ export function HomePageView({
   const [isHide, setIsHide] = useState(false);
 
   const result = usePromiseResult(async () => {
+    if (!network) {
+      return;
+    }
     const [v, a] = await Promise.all([
       backgroundApiProxy.serviceNetwork.getVaultSettings({
         networkId: network?.id ?? '',
       }),
-      backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-        {
-          networkId: network?.id ?? '',
-          indexedAccountId: indexedAccount?.id ?? '',
-          excludeEmptyAccount: true,
-        },
-      ),
+      indexedAccount
+        ? backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId: network?.id ?? '',
+              indexedAccountId: indexedAccount?.id ?? '',
+              excludeEmptyAccount: true,
+            },
+          )
+        : undefined,
     ]);
     return {
       vaultSettings: v,
@@ -261,9 +268,17 @@ export function HomePageView({
     network?.id,
   ]);
 
+  const media = useMedia();
+
   const renderHomePage = useCallback(() => {
     if (!ready) {
-      return <TabPageHeader showHeaderRight sceneName={sceneName} />;
+      return (
+        <TabPageHeader
+          showHeaderRight
+          sceneName={sceneName}
+          tabRoute={ETabRoutes.Home}
+        />
+      );
     }
 
     let content = (
@@ -278,7 +293,15 @@ export function HomePageView({
     }
     return (
       <>
-        <TabPageHeader showHeaderRight sceneName={sceneName} />
+        <TabPageHeader
+          showHeaderRight
+          sceneName={sceneName}
+          tabRoute={ETabRoutes.Home}
+        >
+          {media.gtMd && sceneName === EAccountSelectorSceneName.home ? (
+            <UniversalSearchInput key="searchInput" />
+          ) : null}
+        </TabPageHeader>
         <Page.Body>
           <NetworkAlert />
           {
@@ -294,7 +317,7 @@ export function HomePageView({
         </Page.Body>
       </>
     );
-  }, [ready, wallet, sceneName, renderHomePageContent]);
+  }, [ready, wallet, sceneName, media.gtMd, renderHomePageContent]);
 
   return useMemo(
     () => <Page fullPage>{renderHomePage()}</Page>,

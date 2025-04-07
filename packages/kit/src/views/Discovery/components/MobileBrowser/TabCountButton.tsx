@@ -19,9 +19,10 @@ import { useTakeScreenshot } from './MobileBrowserBottomBar';
 
 interface ITabCountButtonProps {
   testID: string;
+  hideWhenEmpty?: boolean;
 }
 
-function TabCountButton({ testID }: ITabCountButtonProps) {
+function TabCountButton({ testID, hideWhenEmpty }: ITabCountButtonProps) {
   const { displayHomePage } = useDisplayHomePageFlag();
   const { tabs } = useWebTabs();
   const { activeTabId } = useActiveTabId();
@@ -43,6 +44,10 @@ function TabCountButton({ testID }: ITabCountButtonProps) {
       screen: EDiscoveryModalRoutes.MobileTabList,
     });
   }, [takeScreenshot, navigation, displayHomePage]);
+
+  if (hideWhenEmpty && tabCount === 0) {
+    return null;
+  }
 
   return (
     <Stack

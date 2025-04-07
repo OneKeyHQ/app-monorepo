@@ -3,7 +3,6 @@ import { memo, useMemo } from 'react';
 
 import {
   Icon,
-  IconButton,
   Popover,
   SizableText,
   Skeleton,

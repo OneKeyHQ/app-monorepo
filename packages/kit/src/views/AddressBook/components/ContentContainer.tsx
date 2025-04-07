@@ -94,7 +94,7 @@ const UnsafeAlert = () => {
       showCancelButton: true,
       onConfirm: async (inst) => {
         const text =
-          await backgroundApiProxy.serviceAddressBook.stringifyItems();
+          await backgroundApiProxy.serviceAddressBook.stringifyUnSafeItems();
         await backgroundApiProxy.serviceAddressBook.resetItems();
         copyText(
           text,
@@ -116,7 +116,7 @@ const UnsafeAlert = () => {
       },
       onCancel: async (close) => {
         const text =
-          await backgroundApiProxy.serviceAddressBook.stringifyItems();
+          await backgroundApiProxy.serviceAddressBook.stringifyUnSafeItems();
         copyText(text);
       },
     });
@@ -142,7 +142,7 @@ const UnsafeAlert = () => {
         onConfirm={onConfirm}
         onCancel={async (close) => {
           const text =
-            await backgroundApiProxy.serviceAddressBook.stringifyItems();
+            await backgroundApiProxy.serviceAddressBook.stringifyUnSafeItems();
           copyText(text);
         }}
         onCancelText={intl.formatMessage({

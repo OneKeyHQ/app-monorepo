@@ -10,24 +10,28 @@ import {
   useAllTokenListAtom,
   useAllTokenListMapAtom,
 } from '@onekeyhq/kit/src/states/jotai/contexts/tokenList';
+import {
+  useIsShowMyOneKeyOnTabbar,
+  useToMyOneKeyModal,
+} from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
+import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
+import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
-import {
-  EModalDeviceManagementRoutes,
-  EModalRoutes,
-  EModalSettingRoutes,
-  EOnboardingPages,
-} from '@onekeyhq/shared/src/routes';
+import { EModalRoutes, EModalSettingRoutes } from '@onekeyhq/shared/src/routes';
 import extUtils from '@onekeyhq/shared/src/utils/extUtils';
+import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
 import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
+import { AccountSelectorProviderMirror } from '../AccountSelector';
 
-export function MoreActionButton() {
+function MoreActionButtonCmp() {
+  const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onLock = useOnLock();
@@ -68,29 +72,14 @@ export function MoreActionButton() {
     [navigation],
   );
 
+  const toMyOneKeyModal = useToMyOneKeyModal();
+  const isShowMyOneKeyOnTabbar = useIsShowMyOneKeyOnTabbar();
   const handleDeviceManagement = useCallback(
     async (close: () => void) => {
       close();
-      try {
-        const allHwQrWallet =
-          await backgroundApiProxy.serviceAccount.getAllHwQrWalletWithDevice({
-            filterHiddenWallet: true,
-          });
-        if (Object.keys(allHwQrWallet).length > 0) {
-          navigation.pushModal(EModalRoutes.DeviceManagementModal, {
-            screen: EModalDeviceManagementRoutes.DeviceListModal,
-          });
-          return;
-        }
-
-        navigation.pushModal(EModalRoutes.OnboardingModal, {
-          screen: EOnboardingPages.DeviceManagementGuide,
-        });
-      } catch (error) {
-        console.error('Failed to handle device management:', error);
-      }
+      void toMyOneKeyModal();
     },
-    [navigation],
+    [toMyOneKeyModal],
   );
 
   const handleAddressBook = useCallback(
@@ -156,6 +145,9 @@ export function MoreActionButton() {
       title={intl.formatMessage({ id: ETranslations.explore_options })}
       renderTrigger={
         <HeaderIconButton
+          tooltipProps={{
+            placement: 'bottom',
+          }}
           title={intl.formatMessage({ id: ETranslations.explore_options })}
           icon="DotGridOutline"
         />
@@ -183,42 +175,57 @@ export function MoreActionButton() {
           ].filter(Boolean),
         },
         {
-          items: [
-            {
-              label: 'OneKey ID',
-              icon: 'PeopleOutline',
-              onPress: async () => {
-                await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-              },
-              testID: 'onekey_id',
-            },
-            {
-              label: intl.formatMessage({
-                id: ETranslations.id_refer_a_friend,
-              }),
-              icon: 'GiftOutline',
-              onPress: toReferFriendsPage,
-              testID: 'refer-a-friend',
-            },
-          ],
+          items: devSettings.settings?.showOneKeyId
+            ? [
+                {
+                  label: 'OneKey ID',
+                  icon: 'PeopleOutline',
+                  onPress: async () => {
+                    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+                  },
+                  testID: 'onekey_id',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.id_refer_a_friend,
+                  }),
+                  icon: 'GiftOutline',
+                  onPress: toReferFriendsPage,
+                  testID: 'refer-a-friend',
+                },
+              ]
+            : [],
         },
         {
-          items: [
-            {
-              label: intl.formatMessage({ id: ETranslations.global_my_onekey }),
-              icon: 'OnekeyDeviceCustom',
-              onPress: handleDeviceManagement,
-              testID: 'my-onekey',
-            },
-            {
-              label: intl.formatMessage({
-                id: ETranslations.address_book_title,
-              }),
-              icon: 'ContactsOutline',
-              onPress: handleAddressBook,
-              testID: 'address-book',
-            },
-          ],
+          items: !isShowMyOneKeyOnTabbar
+            ? [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.global_my_onekey,
+                  }),
+                  icon: 'OnekeyDeviceCustom',
+                  onPress: handleDeviceManagement,
+                  testID: 'my-onekey',
+                },
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.address_book_title,
+                  }),
+                  icon: 'ContactsOutline',
+                  onPress: handleAddressBook,
+                  testID: 'address-book',
+                },
+              ]
+            : [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.address_book_title,
+                  }),
+                  icon: 'ContactsOutline',
+                  onPress: handleAddressBook,
+                  testID: 'address-book',
+                },
+              ],
         },
         {
           items: [
@@ -233,5 +240,21 @@ export function MoreActionButton() {
         },
       ]}
     />
+  );
+}
+
+export function MoreActionButton() {
+  return (
+    <AccountSelectorProviderMirror
+      enabledNum={[0]}
+      config={{
+        sceneName: EAccountSelectorSceneName.home,
+        sceneUrl: '',
+      }}
+    >
+      <HomeTokenListProviderMirror>
+        <MoreActionButtonCmp />
+      </HomeTokenListProviderMirror>
+    </AccountSelectorProviderMirror>
   );
 }

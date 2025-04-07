@@ -5,6 +5,7 @@ import type {
   IAppEventBusPayload,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 
+import type { LocalDbBase } from '../dbs/local/LocalDbBase';
 import type { SimpleDb } from '../dbs/simple/base/SimpleDb';
 import type { IOffscreenApi } from '../offscreens/instance/IOffscreenApi';
 import type { OFFSCREEN_API_MESSAGE_TYPE } from '../offscreens/types';
@@ -42,6 +43,7 @@ import type ServiceLightning from '../services/ServiceLightning';
 import type ServiceLiteCardMnemonic from '../services/ServiceLiteCardMnemonic';
 import type ServiceLogger from '../services/ServiceLogger';
 import type ServiceMarket from '../services/ServiceMarket';
+import type ServiceMasterPassword from '../services/ServiceMasterPassword';
 import type ServiceNameResolver from '../services/ServiceNameResolver';
 import type ServiceNetwork from '../services/ServiceNetwork';
 import type ServiceNFT from '../services/ServiceNFT';
@@ -50,6 +52,7 @@ import type ServiceNotification from '../services/ServiceNotification';
 import type ServiceOnboarding from '../services/ServiceOnboarding';
 import type ServicePassword from '../services/ServicePassword';
 import type ServicePrime from '../services/ServicePrime';
+import type ServicePrimeCloudSync from '../services/ServicePrimeCloudSync';
 import type ServicePromise from '../services/ServicePromise';
 import type ServiceQrWallet from '../services/ServiceQrWallet';
 import type ServiceReferralCode from '../services/ServiceReferralCode';
@@ -120,6 +123,7 @@ export interface IBackgroundApiBridge {
 }
 export interface IBackgroundApi extends IBackgroundApiBridge {
   simpleDb: SimpleDb;
+  localDb: LocalDbBase;
 
   // TODO move to serviceWalletConnect.walletSide
   // **** WalletConnect
@@ -155,6 +159,7 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceWalletConnect: ServiceWalletConnect;
   serviceNotification: ServiceNotification;
   servicePrime: ServicePrime;
+  servicePrimeCloudSync: ServicePrimeCloudSync;
   serviceQrWallet: ServiceQrWallet;
   serviceAccountProfile: ServiceAccountProfile;
   serviceHardware: ServiceHardware;
@@ -183,4 +188,5 @@ export interface IBackgroundApi extends IBackgroundApiBridge {
   serviceUniversalSearch: ServiceUniversalSearch;
   serviceStaking: ServiceStaking;
   serviceSignatureConfirm: ServiceSignatureConfirm;
+  serviceMasterPassword: ServiceMasterPassword;
 }

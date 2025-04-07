@@ -157,6 +157,8 @@ export type IDecodedTx = {
   txABI?: ITransactionData;
   isLocalParsed?: boolean;
   isConfirmationRequired?: boolean;
+
+  isPsbt?: boolean;
 };
 
 export type IDecodedTxActionBase = {

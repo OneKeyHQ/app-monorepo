@@ -23,7 +23,7 @@ import { EHostSecurityLevel } from '@onekeyhq/shared/types/discovery';
 import { DAppRequestedDappList } from '../../../DAppConnection/components/DAppRequestContent/DAppRequestedDappList';
 import { DAppRiskyAlertDetail } from '../../../DAppConnection/components/DAppRequestLayout/DAppRiskyAlertDetail';
 
-const SecurityTitle = {
+const SecurityTitleMap = {
   [EHostSecurityLevel.Security]: ETranslations.dapp_connect_verified_site,
   [EHostSecurityLevel.High]: ETranslations.dapp_connect_malicious_site_warning,
   [EHostSecurityLevel.Medium]:
@@ -64,13 +64,16 @@ export function DappInfoPopoverContent({
         .join(' & ') || '';
     return {
       securityStatus: hostSecurity?.level
-        ? SecurityTitle[hostSecurity?.level]
+        ? SecurityTitleMap[hostSecurity?.level]
         : EHostSecurityLevel.Unknown,
       securityElement: (
         <>
           <SizableText size="$bodyMd" flex={1}>
             {intl.formatMessage({
-              id: ETranslations.dapp_connect_verified_site,
+              id:
+                providerNames && hostSecurity?.level
+                  ? SecurityTitleMap[hostSecurity?.level]
+                  : ETranslations.global_unknown,
             })}
           </SizableText>
           {providerNames ? (

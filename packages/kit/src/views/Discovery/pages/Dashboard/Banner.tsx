@@ -61,6 +61,7 @@ export function DashboardBanner({
             webSite: {
               url: item.href,
               title: item.href,
+              logo: undefined,
             },
             useSystemBrowser: item.useSystemBrowser,
             shouldPopNavigation: false,

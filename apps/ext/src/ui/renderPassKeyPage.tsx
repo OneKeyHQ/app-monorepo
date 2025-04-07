@@ -35,7 +35,8 @@ const usePassKeyOperations = () => {
   const [{ webAuthCredentialId }] = usePasswordPersistAtom();
   const [{ passwordVerifyStatus }, setPasswordAtom] = usePasswordAtom();
   const intl = useIntl();
-
+  const [{ enablePasswordErrorProtection }, setPasswordPersist] =
+    usePasswordPersistAtom();
   const switchWebAuth = useCallback(
     async (checked: boolean) => {
       const res = await setWebAuthEnable(checked);
@@ -62,6 +63,13 @@ const usePassKeyOperations = () => {
             value: EPasswordVerifyStatus.VERIFIED,
           },
         }));
+        if (enablePasswordErrorProtection) {
+          setPasswordPersist((v) => ({
+            ...v,
+            passwordErrorAttempts: 0,
+            passwordErrorProtectionTime: 0,
+          }));
+        }
         // Password Dialog
         if (passwordPromptPromiseTriggerData?.idNumber) {
           await backgroundApiProxy.servicePassword.resolvePasswordPromptDialog(
@@ -101,9 +109,11 @@ const usePassKeyOperations = () => {
     }
   }, [
     checkWebAuth,
+    enablePasswordErrorProtection,
     intl,
     passwordPromptPromiseTriggerData?.idNumber,
     setPasswordAtom,
+    setPasswordPersist,
     verifiedPasswordWebAuth,
     webAuthCredentialId,
   ]);

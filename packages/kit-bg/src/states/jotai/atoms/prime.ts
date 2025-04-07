@@ -21,6 +21,38 @@ export const {
   },
 });
 
+export type IPrimeCloudSyncPersistAtomData = {
+  isCloudSyncEnabled: boolean;
+};
+export const {
+  target: primeCloudSyncPersistAtom,
+  use: usePrimeCloudSyncPersistAtom,
+} = globalAtom<IPrimeCloudSyncPersistAtomData>({
+  name: EAtomNames.primeCloudSyncPersistAtom,
+  persist: true,
+  initialValue: {
+    isCloudSyncEnabled: false,
+  },
+});
+
+export type IPrimeMasterPasswordPersistAtomData = {
+  // masterPasswordHash: string; // never save in local storage, just in memory only
+  // encryptedMasterPassword: string; // never save encrypted master password in local storage
+  masterPasswordUUID: string; // pwdHash
+  encryptedSecurityPasswordR1: string;
+};
+export const {
+  target: primeMasterPasswordPersistAtom,
+  use: usePrimeMasterPasswordPersistAtom,
+} = globalAtom<IPrimeMasterPasswordPersistAtomData>({
+  name: EAtomNames.primeMasterPasswordPersistAtom,
+  persist: true,
+  initialValue: {
+    masterPasswordUUID: '',
+    encryptedSecurityPasswordR1: '',
+  },
+});
+
 export type IPrimeInitAtomData = {
   isReady: boolean;
 };
@@ -33,22 +65,26 @@ export const { target: primeInitAtom, use: usePrimeInitAtom } =
   });
 
 export type IPrimeLoginDialogAtomPasswordData = {
+  promiseId: number;
   isRegister?: boolean;
   email: string;
-  promiseId: number;
 };
 
 export type IPrimeLoginDialogAtomEmailCodeData = {
+  promiseId: number;
   email: string;
   verifyUUID: string;
+};
+export type IForgetMasterPasswordDialogData = {
   promiseId: number;
 };
 export type IPrimeLoginDialogAtomData = {
-  promptPrimeLoginEmailDialog: number | undefined;
+  promptPrimeLoginEmailDialog: number | undefined; // number is promiseId
   promptPrimeLoginPasswordDialog: IPrimeLoginDialogAtomPasswordData | undefined;
   promptPrimeLoginEmailCodeDialog:
     | IPrimeLoginDialogAtomEmailCodeData
     | undefined;
+  promptForgetMasterPasswordDialog: IForgetMasterPasswordDialogData | undefined;
 };
 export type IPrimeLoginDialogKeys = keyof IPrimeLoginDialogAtomData;
 export const { target: primeLoginDialogAtom, use: usePrimeLoginDialogAtom } =
@@ -58,5 +94,6 @@ export const { target: primeLoginDialogAtom, use: usePrimeLoginDialogAtom } =
       promptPrimeLoginEmailDialog: undefined,
       promptPrimeLoginPasswordDialog: undefined,
       promptPrimeLoginEmailCodeDialog: undefined,
+      promptForgetMasterPasswordDialog: undefined,
     },
   });

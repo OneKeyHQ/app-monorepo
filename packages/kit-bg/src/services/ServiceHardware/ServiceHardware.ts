@@ -31,11 +31,11 @@ import deviceHomeScreenUtils, {
   T1_HOME_SCREEN_DEFAULT_IMAGES,
 } from '@onekeyhq/shared/src/utils/deviceHomeScreenUtils';
 import deviceUtils from '@onekeyhq/shared/src/utils/deviceUtils';
+import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EHardwareTransportType } from '@onekeyhq/shared/types';
 import type {
   IBleFirmwareReleasePayload,
-  IDeviceResponseResult,
   IDeviceVerifyVersionCompareResult,
   IDeviceVersionCacheInfo,
   IFirmwareReleasePayload,
@@ -1089,6 +1089,7 @@ class ServiceHardware extends ServiceBase {
   }): Promise<string | null> {
     try {
       const hardwareSDK = await this.getSDKInstance();
+      await timerUtils.wait(600);
       const evmAddressResponse = await convertDeviceResponse(() =>
         hardwareSDK?.evmGetAddress(params.connectId, params.deviceId, {
           path: params.path,
@@ -1103,6 +1104,50 @@ class ServiceHardware extends ServiceBase {
     } catch (error) {
       console.error('getEvmAddress error', error);
       return null;
+    } finally {
+      await timerUtils.wait(600);
+    }
+  }
+
+  @backgroundMethod()
+  async getHwWalletXfp({
+    connectId,
+    deviceId,
+    passphraseState,
+    throwError,
+  }: {
+    connectId: string | undefined | null;
+    deviceId: string | undefined | null;
+    passphraseState: string | undefined;
+    throwError: boolean;
+  }): Promise<string | undefined> {
+    if (!connectId) {
+      return;
+    }
+    try {
+      const hardwareSDK = await this.getSDKInstance();
+      await timerUtils.wait(600);
+      const result = await convertDeviceResponse(() => {
+        return hardwareSDK.btcGetPublicKey(connectId, deviceId || '', {
+          path: `m/0'`,
+          showOnOneKey: false,
+          useEmptyPassphrase: passphraseState ? undefined : true,
+          passphraseState: passphraseState || undefined,
+        });
+      });
+      if (result.root_fingerprint) {
+        const xfp = numberUtils
+          .numberToHex(result.root_fingerprint, { prefix0x: false })
+          .toLowerCase();
+        return xfp;
+      }
+    } catch (error) {
+      if (throwError) {
+        throw error;
+      }
+      console.error('getHwWalletXfp ERROR: ', error);
+    } finally {
+      await timerUtils.wait(600);
     }
   }
 

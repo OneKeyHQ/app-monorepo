@@ -520,7 +520,7 @@ const LimitOrderDetailModal = () => {
         .toFixed(2);
     }
     return (
-      <YStack gap="$0.5" flex={1}>
+      <YStack gap="$1" flex={1}>
         <XStack alignItems="center" gap="$2" flex={1}>
           <Progress
             h="$1"
@@ -609,7 +609,10 @@ const LimitOrderDetailModal = () => {
             />
           </InfoItemGroup>
           <Divider mx="$5" />
-          <InfoItemGroup flexDirection={gtMd ? 'row' : 'column'}>
+          <InfoItemGroup
+            flexDirection={gtMd ? 'row' : 'column'}
+            flexWrap={gtMd ? 'wrap' : 'unset'}
+          >
             <InfoItem
               label={intl.formatMessage({
                 id: ETranslations.Limit_limit_price,
@@ -631,6 +634,7 @@ const LimitOrderDetailModal = () => {
                 label={intl.formatMessage({
                   id: ETranslations.swap_history_detail_surplus,
                 })}
+                compactAll
                 renderContent={`${surplus} ${
                   orderItemState.kind === ESwapQuoteKind.SELL
                     ? orderItemState.toTokenInfo.symbol

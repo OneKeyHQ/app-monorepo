@@ -44,6 +44,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogHeaderContext,
+  DialogHyperlinkTextDescription,
   DialogIcon,
   DialogRichDescription,
   DialogTitle,
@@ -63,6 +64,7 @@ import type {
 import type { IPortalManager } from '../../hocs';
 import type { IStackProps } from '../../primitives';
 import type { IColorTokens } from '../../types';
+import type { GestureResponderEvent } from 'react-native';
 
 export * from './hooks';
 export type {
@@ -134,6 +136,10 @@ function DialogFrame({
   }, [handleOpenChange, open]);
 
   useBackHandler(handleBackPress);
+
+  const handleEscapeKeyDown = useCallback((event: GestureResponderEvent) => {
+    event.preventDefault();
+  }, []);
 
   const handleCancelButtonPress = useCallback(async () => {
     const cancel = onCancel || footerRef.props?.onCancel;
@@ -265,6 +271,7 @@ function DialogFrame({
             <TMDialog.Title display="none" />
             <TMDialog.Content
               elevate
+              onEscapeKeyDown={handleEscapeKeyDown as any}
               key="content"
               testID={testID}
               animateOnly={['transform', 'opacity']}
@@ -528,23 +535,27 @@ const dialogCancel = (props: IDialogCancelProps) =>
 const dialogDebugMessage = (
   props: IDialogShowProps & { debugMessage: any },
 ) => {
-  const dataContent = JSON.stringify(props.debugMessage, null, 2);
+  const dataContent = JSON.stringify(props.debugMessage, null, 4);
   console.log('dialogDebugMessage:', dataContent);
+  const copyContent = async () => {
+    await setStringAsync(dataContent);
+    Toast.success({
+      title: 'Copied',
+    });
+  };
   return dialogShow({
     title: 'DebugMessage',
-    showFooter: false,
-    showConfirmButton: false,
-    showCancelButton: false,
+    showFooter: true,
+    showConfirmButton: true,
+    showCancelButton: true,
+    onConfirmText: 'Copy',
+    onConfirm: async ({ preventClose }) => {
+      preventClose();
+      await copyContent();
+    },
     renderContent: (
       <ScrollView maxHeight="$48" nestedScrollEnabled>
-        <SizableText
-          onPress={async () => {
-            await setStringAsync(dataContent);
-            Toast.success({
-              title: 'Copied',
-            });
-          }}
-        >
+        <SizableText size="$bodySm" onPress={copyContent}>
           {dataContent}
         </SizableText>
       </ScrollView>
@@ -596,6 +607,7 @@ export const Dialog = {
   Title: DialogTitle,
   Description: DialogDescription,
   RichDescription: DialogRichDescription,
+  HyperlinkTextDescription: DialogHyperlinkTextDescription,
   Icon: DialogIcon,
   Footer: FooterAction,
   Form: DialogForm,

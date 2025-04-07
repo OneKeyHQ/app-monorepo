@@ -69,6 +69,12 @@ function MobileBrowser() {
   const { displayHomePage } = useDisplayHomePageFlag();
   const displayBottomBar = !displayHomePage;
 
+  useEffect(() => {
+    if (!tabs?.length) {
+      showTabBar();
+    }
+  }, [tabs]);
+
   const { setDisplayHomePage } = useBrowserTabActions().current;
   const firstRender = useRef(true);
   useEffect(() => {
@@ -199,7 +205,10 @@ function MobileBrowser() {
                 <HistoryIconButton />
               </Stack>
 
-              <TabCountButton testID="browser-header-tabs" />
+              <TabCountButton
+                hideWhenEmpty={displayHomePage}
+                testID="browser-header-tabs"
+              />
             </XStack>
           </XStack>
         )}

@@ -129,6 +129,7 @@ function HeaderLeftToolBar({
         }}
         isBookmark={isBookmark}
         isPinned={isPinned}
+        isLoading={loading}
         onBookmarkPress={onBookmarkPress}
         onPinnedPress={onPinnedPress}
       />

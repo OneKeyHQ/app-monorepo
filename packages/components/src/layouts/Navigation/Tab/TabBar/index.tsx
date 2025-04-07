@@ -26,7 +26,7 @@ export default function TabBar({
 }) {
   const isShowMobileBottomTabBar = useShowMobileBottomTabBar();
 
-  if (isShowMobileBottomTabBar) {
+  if (platformEnv.isNativeAndroid || isShowMobileBottomTabBar) {
     return <MobileBottomTabBar {...props} />;
   }
   return <DesktopLeftSideBar {...props} />;

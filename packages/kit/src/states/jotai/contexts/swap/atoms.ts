@@ -614,3 +614,6 @@ export const {
   atom: swapBuildTxFetchingAtom,
   use: useSwapBuildTxFetchingAtom,
 } = contextAtom<boolean>(false);
+
+export const { atom: swapApprovingAtom, use: useSwapApprovingAtom } =
+  contextAtom<boolean>(false);
