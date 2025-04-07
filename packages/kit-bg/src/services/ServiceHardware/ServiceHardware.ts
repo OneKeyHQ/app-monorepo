@@ -490,6 +490,12 @@ class ServiceHardware extends ServiceBase {
     await this.getSDKInstance();
   }
 
+  @backgroundMethod()
+  async passHardwareEventsFromOffscreenToBackground(eventMessage: CoreMessage) {
+    const sdk = await this.getSDKInstance();
+    sdk.emit(eventMessage.event, eventMessage);
+  }
+
   // startDeviceScan
   // TODO use convertDeviceResponse()
   @backgroundMethod()
