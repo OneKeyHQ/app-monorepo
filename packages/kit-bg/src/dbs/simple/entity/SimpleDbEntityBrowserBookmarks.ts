@@ -1,4 +1,4 @@
-import { cloneDeep, uniqBy } from 'lodash';
+import { cloneDeep } from 'lodash';
 
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
