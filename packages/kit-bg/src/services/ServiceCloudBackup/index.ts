@@ -237,6 +237,8 @@ class ServiceCloudBackup extends ServiceBase {
   async backupNow(isManualBackup = true) {
     const devSettings =
       await this.backgroundApi.serviceDevSetting?.getDevSetting?.();
+    const isShowCloudBackupSunsettingAlert =
+      devSettings.settings?.showCloudBackupSunsettingAlert;
     const cloudBackupValueList = await cloudBackupPersistAtom.get();
     const { isEnabled } = cloudBackupValueList;
     if (!isEnabled) {
@@ -284,7 +286,7 @@ class ServiceCloudBackup extends ServiceBase {
         'utf8',
       );
 
-      if (!devSettings.settings?.showCloudBackupSunsettingAlert) {
+      if (!isShowCloudBackupSunsettingAlert) {
         await CloudFs.uploadToCloud(
           localTempFilePath,
           this.getBackupPath(filename),
@@ -304,7 +306,7 @@ class ServiceCloudBackup extends ServiceBase {
       const newMetaData = JSON.stringify(existMetaData);
       JSON.parse(newMetaData);
 
-      if (!devSettings.settings?.showCloudBackupSunsettingAlert) {
+      if (!isShowCloudBackupSunsettingAlert) {
         await RNFS.writeFile(localTempFilePath, newMetaData, 'utf8');
         await CloudFs.uploadToCloud(
           localTempFilePath,
