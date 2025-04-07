@@ -31,6 +31,7 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ESigningScheme } from '@onekeyhq/shared/types/message';
+import type { ISwapServiceProvider } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   maxRecentTokenPairs,
   swapHistoryStateFetchInterval,
@@ -912,6 +913,16 @@ export default class ServiceSwap extends ServiceBase {
       ...pre,
       swapApprovingTransaction: item,
     }));
+  }
+
+  // --- swap provider manager
+  @backgroundMethod()
+  async getSwapProviderManager() {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const resp = await client.get<{
+      data: ISwapServiceProvider[];
+    }>(`/swap/v1/providers/list`);
+    return resp.data.data;
   }
 
   // --- swap history

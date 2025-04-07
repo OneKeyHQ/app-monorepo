@@ -14,10 +14,7 @@ export const endpointsMap: Record<IEndpointEnv, IServiceEndpoint> = {
       serviceName: EServiceEndpointEnum.Wallet,
       env: 'test',
     }),
-    swap: buildServiceEndpoint({
-      serviceName: EServiceEndpointEnum.Swap,
-      env: 'test',
-    }),
+    swap: 'http://192.168.5.193:7001',
     utility: buildServiceEndpoint({
       serviceName: EServiceEndpointEnum.Utility,
       env: 'test',
