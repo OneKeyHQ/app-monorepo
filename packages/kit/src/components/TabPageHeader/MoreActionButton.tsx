@@ -171,19 +171,18 @@ function MoreActionButtonCmp() {
           ].filter(Boolean),
         },
         {
-          items:
-            devSettings.settings?.showOneKeyId && !isShowMyOneKeyOnTabbar
-              ? [
-                  {
-                    label: intl.formatMessage({
-                      id: ETranslations.id_refer_a_friend,
-                    }),
-                    icon: 'GiftOutline',
-                    onPress: toReferFriendsPage,
-                    testID: 'refer-a-friend',
-                  },
-                ]
-              : [],
+          items: !isShowMyOneKeyOnTabbar
+            ? [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.id_refer_a_friend,
+                  }),
+                  icon: 'GiftOutline',
+                  onPress: toReferFriendsPage,
+                  testID: 'refer-a-friend',
+                },
+              ]
+            : [],
         },
         {
           items: !isShowMyOneKeyOnTabbar

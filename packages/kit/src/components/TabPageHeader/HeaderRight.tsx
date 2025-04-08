@@ -152,7 +152,7 @@ export function HeaderRight({
       notificationsButton = null;
     }
 
-    const onekeyIdButton = devSettings.settings?.showOneKeyId ? (
+    const onekeyIdButton = (
       <HeaderIconButton
         title="OneKey ID"
         icon="PeopleOutline"
@@ -161,7 +161,7 @@ export function HeaderRight({
         }}
         testID="header-right-onekey-id"
       />
-    ) : null;
+    );
 
     return [
       primeButton,
@@ -173,7 +173,6 @@ export function HeaderRight({
   }, [
     devSettings.enabled,
     devSettings.settings?.showPrimeTest,
-    devSettings.settings?.showOneKeyId,
     intl,
     openNotificationsModal,
     firstTimeGuideOpened,
