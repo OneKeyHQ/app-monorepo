@@ -13,6 +13,7 @@ import {
   Page,
   Progress,
   SizableText,
+  Spinner,
   Stack,
   XStack,
   YStack,
@@ -22,35 +23,30 @@ import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/background
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
-import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
 
-function ShareCode() {
+function ShareCode({
+  inviteUrl,
+  inviteCode,
+}: {
+  inviteUrl: string;
+  inviteCode: string;
+}) {
   const navigation = useAppNavigation();
   const { copyText } = useClipboard();
 
-  const { result: myReferralCode } = usePromiseResult(
-    async () => backgroundApiProxy.serviceReferralCode.getMyReferralCode(),
-    [],
-    {
-      initResult: '',
-    },
-  );
-
   const handleCopy = useCallback(() => {
-    copyText(myReferralCode);
-  }, [copyText, myReferralCode]);
+    copyText(inviteCode);
+  }, [copyText, inviteCode]);
 
   const toYourReferredPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.YourReferred);
   }, [navigation]);
   const intl = useIntl();
-  const sharedUrl = useMemo(
-    () => `https://onekey.so/r/${myReferralCode}`,
-    [myReferralCode],
-  );
+  const sharedUrl = useMemo(() => `https://${inviteUrl}`, [inviteUrl]);
   return (
     <YStack px="$5" pt="$6" pb="$8">
       <YStack>
@@ -68,7 +64,7 @@ function ShareCode() {
           </Button>
         </XStack>
         <XStack gap="$3" pt="$2" ai="center">
-          <SizableText size="$heading4xl">{myReferralCode}</SizableText>
+          <SizableText size="$heading4xl">{inviteCode}</SizableText>
           <IconButton
             title={intl.formatMessage({ id: ETranslations.global_copy })}
             variant="tertiary"
@@ -90,7 +86,7 @@ function ShareCode() {
           borderRadius="$2.5"
         >
           <SizableText size="$bodyLg" flexShrink={1}>
-            {`onekey.so/r/${myReferralCode}`}
+            {inviteUrl}
           </SizableText>
           <XStack ai="center" gap="$2.5">
             <IconButton
@@ -132,14 +128,19 @@ function ShareCode() {
   );
 }
 
-function Dashboard() {
-  const [settings] = useSettingsPersistAtom();
+function Dashboard({
+  totalRewards,
+  enabledNetworks,
+}: {
+  totalRewards: string;
+  enabledNetworks: IInviteSummary['enabledNetworks'];
+}) {
   const navigation = useAppNavigation();
   const intl = useIntl();
-  const currencySymbol = settings.currencyInfo.symbol;
 
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
+      enabledNetworks,
       onAddressAdded: ({
         address,
         networkId,
@@ -150,7 +151,7 @@ function Dashboard() {
         alert(`address-networkId: ${address}, ${networkId}`);
       },
     });
-  }, [navigation]);
+  }, [enabledNetworks, navigation]);
 
   const toEarnRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EarnReward);
@@ -177,6 +178,7 @@ function Dashboard() {
             })}
           </SizableText>
           <NumberSizeableText
+            pb={1}
             color="$textSuccess"
             formatter="balance"
             size="$bodyLgMedium"
@@ -184,8 +186,11 @@ function Dashboard() {
             textDecorationColor="$textSuccess"
             textDecorationStyle="dotted"
             formatterOptions={{ tokenSymbol: 'USD' }}
+            style={{
+              textUnderlineOffset: 4,
+            }}
           >
-            38485.93
+            {totalRewards}
           </NumberSizeableText>
         </XStack>
         <YStack gap="$1">
@@ -318,21 +323,16 @@ function Dashboard() {
   );
 }
 
-interface ISolution {
-  question: string;
-  answer: string;
-}
-
-function FAQ({ solutions }: { solutions: ISolution[] }) {
+function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
   const intl = useIntl();
   return (
-    <YStack gap="$6">
+    <YStack gap="$6" px="$5" py="$8">
       <SizableText size="$headingLg">
         {intl.formatMessage({ id: ETranslations.global_faqs })}
       </SizableText>
       <YStack>
         <Accordion type="multiple" gap="$2">
-          {solutions.map(({ question, answer }, index) => (
+          {faqs.map(({ q, a }, index) => (
             <Accordion.Item value={String(index)} key={String(index)}>
               <Accordion.Trigger
                 unstyled
@@ -360,7 +360,7 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
                       size="$bodyLgMedium"
                       color={open ? '$text' : '$textSubdued'}
                     >
-                      {question}
+                      {q}
                     </SizableText>
                     <Stack animation="quick" rotate={open ? '180deg' : '0deg'}>
                       <Icon
@@ -381,7 +381,7 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
                   enterStyle={{ opacity: 0 }}
                   exitStyle={{ opacity: 0 }}
                 >
-                  <SizableText size="$bodyMd">{answer}</SizableText>
+                  <SizableText size="$bodyMd">{a}</SizableText>
                 </Accordion.Content>
               </Accordion.HeightAnimator>
             </Accordion.Item>
@@ -392,13 +392,28 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
   );
 }
 
+function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
+  const { faqs, inviteUrl, inviteCode, totalRewards, enabledNetworks } =
+    summaryInfo;
+  return (
+    <>
+      <ShareCode inviteUrl={inviteUrl} inviteCode={inviteCode} />
+      <Dashboard
+        totalRewards={totalRewards}
+        enabledNetworks={enabledNetworks}
+      />
+      <FAQ faqs={faqs} />
+    </>
+  );
+}
+
 export default function InviteReward() {
   const intl = useIntl();
-  const { result: summaryInfo } = usePromiseResult(
+  const { result: summaryInfo, isLoading } = usePromiseResult(
     async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
     [],
     {
-      initResult: {},
+      initResult: undefined,
     },
   );
   return (
@@ -409,9 +424,13 @@ export default function InviteReward() {
         })}
       />
       <Page.Body>
-        <ShareCode />
-        <Dashboard />
-        {/* <FAQ /> */}
+        {!summaryInfo || isLoading ? (
+          <YStack flex={1} ai="center" jc="center">
+            <Spinner />
+          </YStack>
+        ) : (
+          <InviteRewardContent summaryInfo={summaryInfo} />
+        )}
       </Page.Body>
     </Page>
   );

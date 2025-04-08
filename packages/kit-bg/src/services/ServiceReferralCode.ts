@@ -15,7 +15,7 @@ class ServiceReferralCode extends ServiceBase {
 
   @backgroundMethod()
   async getSummaryInfo() {
-    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const summary = await client.get<{
       code: number;
       data: IInviteSummary;
