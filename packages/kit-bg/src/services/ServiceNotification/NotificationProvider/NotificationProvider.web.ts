@@ -9,11 +9,11 @@ import type {
 
 import NotificationProviderBase from './NotificationProviderBase';
 
-import type { INotificationProviderBaseOptions } from './NotificationProviderBase';
+import type { INotificationProviderBaseParams } from './NotificationProviderBase';
 
 export default class NotificationProviderWeb extends NotificationProviderBase {
-  constructor(options: INotificationProviderBaseOptions) {
-    super(options);
+  constructor(params: INotificationProviderBaseParams) {
+    super(params);
     console.log('NotificationProviderWeb constructor');
     this.initWebSocketProvider();
   }
@@ -48,8 +48,8 @@ export default class NotificationProviderWeb extends NotificationProviderBase {
     throw new NotImplemented();
   }
 
-  override setBadge(params: INotificationSetBadgeParams): Promise<void> {
-    throw new NotImplemented();
+  override async setBadge(params: INotificationSetBadgeParams): Promise<void> {
+    console.log('Web -- setBadge');
   }
 
   override async clearNotificationCache(): Promise<void> {

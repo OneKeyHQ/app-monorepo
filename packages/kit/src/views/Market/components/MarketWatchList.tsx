@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -13,11 +13,18 @@ import {
   getSharedButtonStyles,
   useMedia,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IMarketCategory } from '@onekeyhq/shared/types/market';
 
-import { useMarketWatchListAtom } from '../../../states/jotai/contexts/market';
+import {
+  useMarketWatchListAtom,
+  useWatchListActions,
+} from '../../../states/jotai/contexts/market';
 
 import { MarketHomeList } from './MarketHomeList';
 import { MarketTokenIcon } from './MarketTokenIcon';
@@ -92,6 +99,17 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
   const [{ data: watchListCoingeckoIds, isMounted }] = useMarketWatchListAtom();
 
   const actions = useWatchListAction();
+  const actions2 = useWatchListActions();
+
+  useEffect(() => {
+    const fn = async () => {
+      await actions2.current.refreshWatchList();
+    };
+    appEventBus.on(EAppEventBusNames.RefreshMarketWatchList, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.RefreshMarketWatchList, fn);
+    };
+  }, [actions2]);
 
   const defaultCoingeckoIds = useMemo(
     () =>
@@ -114,8 +132,8 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
     [],
   );
 
-  const handleAddTokens = useCallback(() => {
-    actions.addIntoWatchList(coingeckoIds);
+  const handleAddTokens = useCallback(async () => {
+    await actions.addIntoWatchList(coingeckoIds);
     // reset selections
     setTimeout(() => {
       setCoingeckoIds(defaultCoingeckoIds);
@@ -149,6 +167,7 @@ export function MarketWatchList({ category }: { category: IMarketCategory }) {
         coingeckoIds: watchListCoingeckoIds?.map(
           ({ coingeckoId }) => coingeckoId,
         ),
+        watchList: watchListCoingeckoIds,
       } as IMarketCategory),
     [watchListCoingeckoIds],
   );

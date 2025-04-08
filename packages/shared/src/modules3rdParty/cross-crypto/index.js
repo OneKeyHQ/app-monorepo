@@ -1,12 +1,15 @@
+/* eslint-disable unicorn/prefer-global-this */
 console.log('================ cross-crypto (web)');
 
 if (process.env.NODE_ENV !== 'production') {
   const getRandomValuesOld = global.crypto.getRandomValues;
   global.crypto.getRandomValues = function (...args) {
-    console.log(
+    console.groupCollapsed(
       '------------ call global.crypto.getRandomValues (web)',
       getRandomValuesOld,
     );
+    console.trace(getRandomValuesOld);
+    console.groupEnd();
     return getRandomValuesOld.apply(global.crypto, args);
   };
 }

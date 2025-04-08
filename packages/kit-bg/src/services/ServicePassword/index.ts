@@ -189,9 +189,13 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async clearCachedPassword() {
     this.cachedPassword = undefined;
+
+    // TODO clear cached sync credential only when app is locked
+    void this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
   }
 
   async setCachedPassword(password: string): Promise<string> {
+    const prevPassword = this.cachedPassword;
     ensureSensitiveTextEncoded(password);
     this.cachedPassword = password;
     if (this.cachedPasswordTimeOutObject) {
@@ -200,6 +204,27 @@ export default class ServicePassword extends ServiceBase {
     this.cachedPasswordTimeOutObject = setTimeout(() => {
       void this.clearCachedPassword();
     }, this.cachedPasswordTTL);
+
+    void (async () => {
+      const prevPasswordRaw = prevPassword
+        ? await this.decodeSensitiveText({
+            encodedText: prevPassword,
+          })
+        : '';
+      const newPasswordRaw = password
+        ? await this.decodeSensitiveText({
+            encodedText: password,
+          })
+        : '';
+      if (password && prevPasswordRaw !== newPasswordRaw) {
+        await this.backgroundApi.servicePrimeCloudSync.clearCachedSyncCredential();
+        await this.backgroundApi.servicePrimeCloudSync.startServerSyncFlowSilently(
+          {
+            callerName: 'setCachedPassword',
+          },
+        );
+      }
+    })();
     return password;
   }
 
@@ -424,16 +449,32 @@ export default class ServicePassword extends ServiceBase {
     ensureSensitiveTextEncoded(oldPassword);
     ensureSensitiveTextEncoded(newPassword);
 
+    if (!oldPassword) {
+      throw new Error('oldPassword is required');
+    }
+
+    if (!newPassword) {
+      throw new Error('newPassword is required');
+    }
+
     await this.validatePassword({
       password: oldPassword,
       newPassword,
       passwordMode,
     });
+    let masterPasswordUpdateRollback: (() => Promise<void>) | undefined;
     try {
       await this.backgroundApi.serviceAddressBook.updateHash(newPassword);
       await this.saveBiologyAuthPassword(newPassword);
       await this.setCachedPassword(newPassword);
       await this.setPasswordSetStatus(true, passwordMode);
+      ({ rollback: masterPasswordUpdateRollback } =
+        await this.backgroundApi.serviceMasterPassword.updatePasscodeForMasterPassword(
+          {
+            oldPasscode: oldPassword,
+            newPasscode: newPassword,
+          },
+        ));
       // update v5 db password
       await localDb.updatePassword({ oldPassword, newPassword });
       // update v4 db password
@@ -444,8 +485,24 @@ export default class ServicePassword extends ServiceBase {
       await this.backgroundApi.serviceAddressBook.finishUpdateHash();
       return newPassword;
     } catch (e) {
-      await this.backgroundApi.serviceAddressBook.rollback(oldPassword);
-      await this.rollbackPassword(oldPassword);
+      try {
+        await this.backgroundApi.serviceAddressBook.rollback(oldPassword);
+      } catch (rollbackError) {
+        console.error(rollbackError);
+      }
+
+      try {
+        await this.rollbackPassword(oldPassword);
+      } catch (rollbackError) {
+        console.error(rollbackError);
+      }
+
+      try {
+        await masterPasswordUpdateRollback?.();
+      } catch (rollbackError) {
+        console.error(rollbackError);
+      }
+
       throw e;
     }
   }
@@ -670,6 +727,7 @@ export default class ServicePassword extends ServiceBase {
   @backgroundMethod()
   async lockApp(options?: { manual: boolean }) {
     const { manual = true } = options || {};
+    this.backgroundApi.serviceAddressBook.verifyHashTimestamp = undefined;
     const isFirmwareUpdateRunning =
       await firmwareUpdateWorkflowRunningAtom.get();
     if (isFirmwareUpdateRunning) {

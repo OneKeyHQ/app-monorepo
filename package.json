@@ -47,7 +47,7 @@
     "_lang": "node ./development/lint/lang",
     "_folder": "yarn workspaces foreach -A -p --topological-dev run _folderslint",
     "lint:project": "yarn _tsc && yarn _lint && yarn _electron && yarn _folder && yarn _lang",
-    "lint": "yarn lint:project",
+    "lint": "cross-env NODE_OPTIONS=\"--max-old-space-size=8192\" yarn lint:project",
     "lint:only": "npx eslint . --ext .ts,.tsx --fix --cache --cache-location \"$(yarn config get cacheFolder)\"",
     "tsc:only": "npx tsc --noEmit --tsBuildInfoFile \"$(yarn config get cacheFolder)\"/.app-mono-ts-cache  --pretty",
     "test": "yarn jest"
@@ -146,7 +146,8 @@
     "tonweb": "^0.0.66",
     "use-suspender": "^2.0.0-beta.0",
     "validator": "^13.7.0",
-    "viem": "^2.9.2"
+    "viem": "^2.9.2",
+    "zxcvbn": "^4.4.2"
   },
   "devDependencies": {
     "@babel/plugin-proposal-class-static-block": "^7.21.0",
@@ -179,6 +180,7 @@
     "@types/validator": "^13",
     "@types/w3c-web-usb": "^1.0.10",
     "@types/web": "0.0.151",
+    "@types/zxcvbn": "^4",
     "@typescript-eslint/eslint-plugin": "5.62.0",
     "@typescript-eslint/parser": "5.62.0",
     "axios": "^1.7.4",
@@ -248,6 +250,7 @@
     "typescript": "5.5.4",
     "expo-modules-core": "1.11.13",
     "tronweb@^6.0.0": "6.0.0",
+    "asmcrypto.js": "2.3.2",
     "@babel/core": "7.23.5",
     "@babel/code-frame": "7.23.5",
     "@babel/generator": "7.23.5",
@@ -258,6 +261,7 @@
     "@babel/parser": "7.23.5",
     "@walletconnect/modal": "2.6.2",
     "protobufjs": "6.11.4",
+    "@types/node": "22.13.5",
     "@metamask/eth-sig-util": "5.1.0",
     "@polkadot/util": "12.6.2",
     "@polkadot/util-crypto": "12.6.2",

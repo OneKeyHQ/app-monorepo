@@ -1,9 +1,13 @@
+import { cloneDeep, isNil } from 'lodash';
+
 import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import { generateLocalIndexedIdFunc } from '@onekeyhq/shared/src/utils/miscUtils';
+import sortUtils from '@onekeyhq/shared/src/utils/sortUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type {
   IMarketCategory,
@@ -12,10 +16,12 @@ import type {
   IMarketToken,
   IMarketTokenChart,
   IMarketTokenDetail,
+  IMarketWatchListItem,
 } from '@onekeyhq/shared/types/market';
 
 import ServiceBase from './ServiceBase';
 
+import type { IDBCloudSyncItem } from '../dbs/local/types';
 import type { AxiosResponse } from 'axios';
 
 const ONEKEY_SEARCH_TRANDING = 'onekey-search-trending';
@@ -187,6 +193,135 @@ class ServiceMarket extends ServiceBase {
       return this.fetchCategory('all', data, false);
     }
     return [];
+  }
+
+  async buildMarketWatchListSyncItems({
+    watchList,
+    isDeleted,
+  }: {
+    watchList: IMarketWatchListItem[];
+    isDeleted?: boolean;
+  }): Promise<IDBCloudSyncItem[]> {
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const now = await this.backgroundApi.servicePrimeCloudSync.timeNow();
+    const syncCredential =
+      await this.backgroundApi.servicePrimeCloudSync.getSyncCredentialSafe();
+
+    const syncItems = (
+      await Promise.all(
+        watchList.map(async (watchListItem) => {
+          return syncManagers.marketWatchList.buildSyncItemByDBQuery({
+            syncCredential,
+            dbRecord: watchListItem,
+            dataTime: now,
+            isDeleted,
+          });
+        }),
+      )
+    ).filter(Boolean);
+    return syncItems;
+  }
+
+  async withMarketWatchListCloudSync({
+    fn,
+    watchList,
+    isDeleted,
+    skipSaveLocalSyncItem,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    skipEventEmit,
+  }: {
+    fn: () => Promise<void>;
+    watchList: IMarketWatchListItem[];
+    isDeleted: boolean;
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    let syncItems: IDBCloudSyncItem[] = [];
+    if (!skipSaveLocalSyncItem) {
+      syncItems = await this.buildMarketWatchListSyncItems({
+        watchList,
+        isDeleted,
+      });
+    }
+    await this.backgroundApi.localDb.withTransaction(async (tx) => {
+      if (syncItems?.length) {
+        await this.backgroundApi.localDb.txAddAndUpdateSyncItems({
+          tx,
+          items: syncItems,
+        });
+      }
+      await fn();
+    });
+  }
+
+  @backgroundMethod()
+  async addMarketWatchList({
+    watchList,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    watchList: IMarketWatchListItem[];
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    const currentData =
+      await this.backgroundApi.simpleDb.marketWatchList.getRawData();
+    // eslint-disable-next-line no-param-reassign
+    watchList = sortUtils.fillingSaveItemsSortIndex({
+      oldList: currentData?.data ?? [],
+      saveItems: watchList,
+    });
+    return this.withMarketWatchListCloudSync({
+      watchList,
+      isDeleted: false,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+      fn: () =>
+        this.backgroundApi.simpleDb.marketWatchList.addMarketWatchList({
+          watchList,
+        }),
+    });
+  }
+
+  @backgroundMethod()
+  async removeMarketWatchList({
+    watchList,
+    skipSaveLocalSyncItem,
+    skipEventEmit,
+  }: {
+    watchList: IMarketWatchListItem[];
+    skipSaveLocalSyncItem?: boolean;
+    skipEventEmit?: boolean;
+  }) {
+    return this.withMarketWatchListCloudSync({
+      watchList,
+      isDeleted: true,
+      skipSaveLocalSyncItem,
+      skipEventEmit,
+      fn: () =>
+        this.backgroundApi.simpleDb.marketWatchList.removeMarketWatchList({
+          coingeckoIds: watchList.map((i) => i.coingeckoId),
+        }),
+    });
+  }
+
+  @backgroundMethod()
+  async getMarketWatchList() {
+    return this.backgroundApi.simpleDb.marketWatchList.getMarketWatchList();
+  }
+
+  async getMarketWatchListWithFillingSortIndex() {
+    const items = await this.getMarketWatchList();
+    const hasMissingSortIndex = items.data.some((item) =>
+      isNil(item.sortIndex),
+    );
+    if (hasMissingSortIndex) {
+      const newList = sortUtils.fillingMissingSortIndex({ items: items.data });
+      await this.backgroundApi.simpleDb.marketWatchList.addMarketWatchList({
+        watchList: newList.items,
+      });
+    }
+    return this.getMarketWatchList();
   }
 }
 

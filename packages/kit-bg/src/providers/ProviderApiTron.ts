@@ -30,7 +30,7 @@ const TRON_SCAN_REQUESTED_URL = {
   shasta: 'https://api.shasta.trongrid.io',
 };
 
-const TRON_SCAN_HOST_WHITE_LIST = [
+export const TRON_SCAN_HOST_WHITE_LIST = [
   'tronscan.org',
   'tronscan.io',
   'shasta.tronscan.org',

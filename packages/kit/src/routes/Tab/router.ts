@@ -54,7 +54,7 @@ const getDiscoverRouterConfig = (
 };
 
 export const useTabRouterConfig = (params?: IGetTabRouterParams) => {
-  const { md, gtMd } = useMedia();
+  const { md } = useMedia();
 
   const isShowDesktopDiscover = useIsShowDesktopDiscover();
 

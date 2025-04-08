@@ -90,6 +90,8 @@ const settings: IVaultSettings = {
     },
   },
   stakingResultPollingInterval: 60,
+
+  createAllDeriveTypeAccountsByDefault: false,
 };
 
 export default Object.freeze(settings);

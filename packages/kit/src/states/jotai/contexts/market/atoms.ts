@@ -29,7 +29,7 @@ export const marketWatchListAtom = memoizee(() =>
     }),
     (get, set, arg: any) => {
       if (arg === INIT) {
-        void backgroundApiProxy.simpleDb.marketWatchList
+        void backgroundApiProxy.serviceMarket
           .getMarketWatchList()
           .then((data) => {
             set(basicMarketWatchListAtom(), data);

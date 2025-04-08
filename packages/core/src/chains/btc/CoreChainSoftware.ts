@@ -1,3 +1,5 @@
+import crypto from 'crypto';
+
 import { sha256 as _sha256 } from '@noble/hashes/sha256';
 import {
   address as BitcoinJsAddress,
@@ -18,6 +20,7 @@ import {
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import { checkIsDefined } from '@onekeyhq/shared/src/utils/assertUtils';
 import bufferUtils from '@onekeyhq/shared/src/utils/bufferUtils';
+import numberUtils from '@onekeyhq/shared/src/utils/numberUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 import type {
   IXprvtValidation,
@@ -289,6 +292,38 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
     };
   }
 
+  // root fingerprint
+  async generateXfpFromMnemonic({ mnemonic }: { mnemonic: string }) {
+    const seed = await mnemonicToSeedAsync({ mnemonic });
+    const bip32 = getBitcoinBip32();
+    const root = bip32.fromSeed(seed, getBtcForkNetwork('btc'));
+
+    // const child = root.deriveHardened(0);  // derive path m/0'
+    const child = root;
+
+    const pubkey = child.publicKey;
+
+    const sha256Buf = crypto.createHash('sha256').update(pubkey).digest();
+    const ripemd160Buf = crypto
+      .createHash('ripemd160')
+      .update(sha256Buf)
+      .digest();
+
+    // 4236794462
+    const fingerprintBuf = ripemd160Buf.slice(0, 4);
+    const fingerprintHex = bufferUtils.bytesToHex(fingerprintBuf);
+    // const fingerprintInt = fingerprintBuf.readUInt32BE(0);
+    const fingerprintInt = numberUtils.hexToDecimal(fingerprintHex);
+    const fingerprintHexCheck = numberUtils.numberToHex(fingerprintInt);
+
+    console.log('generateXfpFromMnemonic', {
+      fingerprintHex,
+      fingerprintInt,
+      fingerprintHexCheck,
+    });
+    return fingerprintHex;
+  }
+
   // TODO memo and move to utils (file with getBtcForkNetwork)
 
   public async getAddressFromXpub({
@@ -451,11 +486,14 @@ export default class CoreChainSoftwareBtc extends CoreChainApiBase {
 
     // imported account return "" key as root privateKey
     const privateKey = privateKeys[''];
-    const xprv = await decryptAsync({
+    const xprv: Buffer = await decryptAsync({
       password,
       data: bufferUtils.toBuffer(privateKey),
     });
-    const startKey = {
+    const startKey: {
+      chainCode: Buffer;
+      key: Buffer;
+    } = {
       chainCode: xprv.slice(13, 45),
       key: xprv.slice(46, 78),
     };

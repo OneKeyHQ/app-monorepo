@@ -117,7 +117,7 @@ export function HeaderRight({
       platformEnv.isNativeAndroid ||
       media.gtMd ? (
         <Stack flexDirection="row" alignItems="center" gap="$4">
-          {children ? (
+          {children || primeButton ? (
             <Stack
               height="$4"
               borderRightWidth={1}
@@ -128,6 +128,10 @@ export function HeaderRight({
           <MoreActionButton key="more-action" />
         </Stack>
       ) : null;
+
+    // const searchInput = media.gtMd ? (
+    //   <UniversalSearchInput key="searchInput" />
+    // ) : null;
 
     if (sceneName === EAccountSelectorSceneName.homeUrlAccount) {
       return [
