@@ -1,6 +1,5 @@
 import { useCallback } from 'react';
 
-import { useNavigation } from '@react-navigation/native';
 import { useIntl } from 'react-intl';
 
 import { ActionList } from '@onekeyhq/components';
@@ -17,8 +16,6 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 
-import type { CompositeNavigationProp } from '@react-navigation/native';
-
 export function AccountRenameButton({
   name,
   wallet,
@@ -33,11 +30,11 @@ export function AccountRenameButton({
   onClose: () => void;
 }) {
   const intl = useIntl();
-  const navigation = useNavigation<CompositeNavigationProp<any, any>>();
   const { serviceAccount } = backgroundApiProxy;
 
   const callShowRenameDialog = useCallback(() => {
     showRenameDialog(name, {
+      disabledMaxLengthLabel: true,
       indexedAccount,
       nameHistoryInfo: {
         entityId: indexedAccount?.id || account?.id || '',
