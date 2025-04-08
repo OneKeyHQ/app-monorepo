@@ -15,7 +15,7 @@ class ServiceSpotlight extends ServiceBase {
   }
 
   @backgroundMethod()
-  public async isFirstVisitTour(tourName: ESpotlightTour) {
+  public async isVisited(tourName: ESpotlightTour) {
     const { data } = await spotlightPersistAtom.get();
     return data[tourName] > 0;
   }

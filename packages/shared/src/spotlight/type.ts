@@ -4,6 +4,7 @@ export enum ESpotlightTour {
   allNetworkAccountValue = 'allNetworkAccountValue',
   switchDappAccount = 'switchDappAccount',
   showFloatingIconDialog = 'showFloatingIconDialog',
+  referAFriend = 'referAFriend',
 }
 
 export type ITourTripTimes = number;

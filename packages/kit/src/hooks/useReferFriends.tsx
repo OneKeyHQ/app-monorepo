@@ -21,6 +21,7 @@ import {
   EModalReferFriendsRoutes,
   EModalRoutes,
 } from '@onekeyhq/shared/src/routes';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
 import useAppNavigation from './useAppNavigation';
 import { useLoginOneKeyId } from './useLoginOneKeyId';
@@ -92,7 +93,10 @@ export const useReferFriends = () => {
 
   const toReferFriendsPage = useCallback(async () => {
     const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
-    if (isLogin) {
+    const isVisited = await backgroundApiProxy.serviceSpotlight.isVisited(
+      ESpotlightTour.referAFriend,
+    );
+    if (isLogin || isVisited) {
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: EModalReferFriendsRoutes.InviteReward,
       });

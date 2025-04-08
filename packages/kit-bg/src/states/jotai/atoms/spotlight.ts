@@ -17,6 +17,7 @@ export const { target: spotlightPersistAtom, use: useSpotlightPersistAtom } =
         [ESpotlightTour.switchDappAccount]: 0,
         [ESpotlightTour.allNetworkAccountValue]: 0,
         [ESpotlightTour.showFloatingIconDialog]: 0,
+        [ESpotlightTour.referAFriend]: 0,
       },
     },
   });
