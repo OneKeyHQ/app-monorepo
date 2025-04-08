@@ -22,6 +22,7 @@ import {
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { Token } from '@onekeyhq/kit/src/components/Token';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
+import { useLoginOneKeyId } from '@onekeyhq/kit/src/hooks/useLoginOneKeyId';
 import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -138,20 +139,26 @@ function Dashboard({
   const navigation = useAppNavigation();
   const intl = useIntl();
 
+  const { verifyOneKeyId } = useLoginOneKeyId();
   const toEditAddressPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EditAddress, {
       enabledNetworks,
-      onAddressAdded: ({
+      onAddressAdded: async ({
         address,
         networkId,
       }: {
         address: string;
         networkId: string;
       }) => {
-        alert(`address-networkId: ${address}, ${networkId}`);
+        const emailOTP = await verifyOneKeyId();
+        void backgroundApiProxy.serviceReferralCode.bindAddressBook(
+          networkId,
+          address,
+          emailOTP,
+        );
       },
     });
-  }, [enabledNetworks, navigation]);
+  }, [enabledNetworks, navigation, verifyOneKeyId]);
 
   const toEarnRewardPage = useCallback(() => {
     navigation.push(EModalReferFriendsRoutes.EarnReward);
