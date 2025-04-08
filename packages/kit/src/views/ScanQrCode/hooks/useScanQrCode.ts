@@ -30,6 +30,7 @@ export default function useScanQrCode() {
       autoHandleResult = false,
       handlers,
       account,
+      network,
       tokens,
       qrWalletScene = false,
       showProTutorial = false,
@@ -48,6 +49,7 @@ export default function useScanQrCode() {
                   autoHandleResult,
                   handlers,
                   account,
+                  network,
                   tokens,
                 });
                 if (parseValue.type === EQRCodeHandlerType.ANIMATION_CODE) {

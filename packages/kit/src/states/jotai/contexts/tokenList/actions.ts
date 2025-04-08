@@ -16,6 +16,8 @@ import type { IAccountToken, ITokenFiat } from '@onekeyhq/shared/types/token';
 import { ContextJotaiActionsBase } from '../../utils/ContextJotaiActionsBase';
 
 import {
+  activeAccountTokenListAtom,
+  activeAccountTokenListStateAtom,
   allTokenListAtom,
   allTokenListMapAtom,
   contextAtomMethod,
@@ -238,6 +240,22 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
           keys,
         });
       }
+    },
+  );
+
+  refreshActiveAccountTokenList = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        tokens: IAccountToken[];
+        keys: string;
+      },
+    ) => {
+      set(activeAccountTokenListAtom(), {
+        tokens: uniqBy(payload.tokens, (item) => item.$key),
+        keys: payload.keys,
+      });
     },
   );
 
@@ -464,6 +482,22 @@ class ContextJotaiActionsTokenList extends ContextJotaiActionsBase {
     },
   );
 
+  updateActiveAccountTokenListState = contextAtomMethod(
+    (
+      get,
+      set,
+      payload: {
+        isRefreshing?: boolean;
+        initialized?: boolean;
+      },
+    ) => {
+      set(activeAccountTokenListStateAtom(), (v) => ({
+        ...v,
+        ...payload,
+      }));
+    },
+  );
+
   updateCreateAccountState = contextAtomMethod(
     (
       get,
@@ -512,6 +546,12 @@ export function useTokenListActions() {
 
   const updateCreateAccountState = actions.updateCreateAccountState.use();
 
+  const refreshActiveAccountTokenList =
+    actions.refreshActiveAccountTokenList.use();
+
+  const updateActiveAccountTokenListState =
+    actions.updateActiveAccountTokenListState.use();
+
   return useRef({
     refreshSearchTokenList,
     refreshAllTokenList,
@@ -527,5 +567,7 @@ export function useTokenListActions() {
     updateTokenListState,
     updateSearchTokenState,
     updateCreateAccountState,
+    refreshActiveAccountTokenList,
+    updateActiveAccountTokenListState,
   });
 }
