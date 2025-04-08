@@ -207,15 +207,6 @@ function HomeOverviewContainer() {
     isRefreshingHistoryList;
 
   const refreshButton = useMemo(() => {
-    if (platformEnv.isNative) {
-      return isLoading ? (
-        <IconButton
-          icon="RefreshCcwOutline"
-          variant="tertiary"
-          loading={isLoading}
-        />
-      ) : undefined;
-    }
     return platformEnv.isNative ? undefined : (
       <IconButton
         icon="RefreshCcwOutline"
