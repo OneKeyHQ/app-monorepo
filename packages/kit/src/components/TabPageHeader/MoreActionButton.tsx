@@ -146,9 +146,6 @@ function MoreActionButtonCmp() {
       title={intl.formatMessage({ id: ETranslations.explore_options })}
       renderTrigger={
         <HeaderIconButton
-          tooltipProps={{
-            placement: 'bottom',
-          }}
           title={intl.formatMessage({ id: ETranslations.explore_options })}
           icon="DotGridOutline"
         />

@@ -4,7 +4,14 @@ import type { IIconButtonProps } from '../../../actions';
 
 function HeaderIconButton(props: IIconButtonProps) {
   return (
-    <IconButton variant="tertiary" focusVisibleStyle={undefined} {...props} />
+    <IconButton
+      tooltipProps={{
+        placement: 'bottom',
+      }}
+      variant="tertiary"
+      focusVisibleStyle={undefined}
+      {...props}
+    />
   );
 }
 
