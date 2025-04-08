@@ -49,6 +49,8 @@ export type IModalSignatureConfirmParamList = {
   [EModalSignatureConfirmRoutes.TxDataInput]: {
     networkId: string;
     accountId: string;
+    activeAccountId?: string;
+    activeNetworkId?: string;
     isNFT: boolean;
     nfts?: IAccountNFT[];
     token?: IToken | null;

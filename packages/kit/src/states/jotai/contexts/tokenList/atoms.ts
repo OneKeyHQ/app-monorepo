@@ -71,6 +71,14 @@ export const {
   keys: '',
 });
 
+export const {
+  atom: activeAccountTokenListAtom,
+  use: useActiveAccountTokenListAtom,
+} = contextAtom<{ tokens: IAccountToken[]; keys: string }>({
+  tokens: [],
+  keys: '',
+});
+
 export const { atom: tokenListMapAtom, use: useTokenListMapAtom } =
   contextAtom<{
     [key: string]: ITokenFiat;
@@ -106,6 +114,17 @@ export const { atom: tokenListStateAtom, use: useTokenListStateAtom } =
     isRefreshing: true,
     initialized: false,
   });
+
+export const {
+  atom: activeAccountTokenListStateAtom,
+  use: useActiveAccountTokenListStateAtom,
+} = contextAtom<{
+  isRefreshing: boolean;
+  initialized: boolean;
+}>({
+  isRefreshing: false,
+  initialized: false,
+});
 
 export const { atom: createAccountStateAtom, use: useCreateAccountStateAtom } =
   contextAtom<{

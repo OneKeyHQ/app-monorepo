@@ -222,6 +222,7 @@ function AccountEditButtonView({
           })()}
           <AccountRenameButton
             name={name}
+            wallet={wallet}
             indexedAccount={indexedAccount}
             account={account}
             onClose={handleActionListClose}

@@ -12,6 +12,7 @@ import { StyleSheet } from 'react-native';
 
 import type { ISortableSectionListRef } from '@onekeyhq/components';
 import {
+  Divider,
   Empty,
   Icon,
   Page,
@@ -21,17 +22,22 @@ import {
   Stack,
   useSafeAreaInsets,
 } from '@onekeyhq/components';
+import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
 import { ListItem } from '@onekeyhq/kit/src/components/ListItem';
+import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { usePrevious } from '@onekeyhq/kit/src/hooks/usePrevious';
+import { usePromiseResult } from '@onekeyhq/kit/src/hooks/usePromiseResult';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
+import { EChainSelectorPages } from '@onekeyhq/shared/src/routes';
+import { isEnabledNetworksInAllNetworks } from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { useFuseSearch } from '../../hooks/useFuseSearch';
 
 import { EditableChainSelectorContext } from './context';
 import { EditableListItem } from './EditableListItem';
-import { CELL_HEIGHT } from './type';
+import { CELL_HEIGHT, HEADER_HEIGHT } from './type';
 
 import type {
   IEditableChainSelectorContext,
@@ -50,14 +56,98 @@ const ListEmptyComponent = () => {
   );
 };
 
-const ListHeaderComponent = () => {
+const ListHeaderComponent = ({
+  walletId,
+  accountId,
+  indexedAccountId,
+  allNetworksChanged,
+}: {
+  walletId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
+  allNetworksChanged?: React.MutableRefObject<boolean>;
+}) => {
+  const intl = useIntl();
+  const navigation = useAppNavigation();
   const { allNetworkItem, searchText } = useContext(
     EditableChainSelectorContext,
   );
+
+  const { result: enabledNetworksCompatibleWithAccountId, run } =
+    usePromiseResult(
+      async () => {
+        const { enabledNetworks, disabledNetworks } =
+          await backgroundApiProxy.serviceAllNetwork.getAllNetworksState();
+        const { networks } =
+          await backgroundApiProxy.serviceNetwork.getAllNetworks({
+            excludeTestNetwork: true,
+            excludeAllNetworkItem: true,
+          });
+        const enabledNetworkIds = networks
+          .filter((n) =>
+            isEnabledNetworksInAllNetworks({
+              networkId: n.id,
+              disabledNetworks,
+              enabledNetworks,
+              isTestnet: n.isTestnet,
+            }),
+          )
+          .map((n) => n.id);
+
+        const compatibleNetworks =
+          await backgroundApiProxy.serviceNetwork.getChainSelectorNetworksCompatibleWithAccountId(
+            {
+              walletId,
+              networkIds: enabledNetworkIds,
+            },
+          );
+
+        return compatibleNetworks.mainnetItems;
+      },
+      [walletId],
+      {
+        initResult: [],
+      },
+    );
+
   return (
-    <Stack mt="$2">
+    <Stack mt="$4">
       {!allNetworkItem || searchText?.trim() ? null : (
-        <EditableListItem item={allNetworkItem} isEditable={false} />
+        <Stack>
+          <EditableListItem
+            item={allNetworkItem}
+            isEditable={false}
+            actions={[
+              {
+                title: intl.formatMessage(
+                  {
+                    id: ETranslations.network_enabled_count,
+                  },
+                  {
+                    'count': enabledNetworksCompatibleWithAccountId.length,
+                  },
+                ),
+                trailingIcon: 'ChevronRightSmallOutline',
+                onPress: () => {
+                  if (walletId) {
+                    navigation.push(EChainSelectorPages.AllNetworksManager, {
+                      walletId,
+                      accountId,
+                      indexedAccountId,
+                      onNetworksChanged: async () => {
+                        if (allNetworksChanged) {
+                          allNetworksChanged.current = true;
+                        }
+                        await run();
+                      },
+                    });
+                  }
+                },
+              },
+            ]}
+          />
+          <Divider m="$5" />
+        </Stack>
       )}
     </Stack>
   );
@@ -71,10 +161,14 @@ type IEditableChainSelectorContentProps = {
   frequentlyUsedItems: IServerNetwork[];
   allNetworkItem?: IServerNetwork;
   networkId?: string;
+  walletId?: string;
+  accountId?: string;
+  indexedAccountId?: string;
   onPressItem?: (network: IServerNetwork) => void;
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
+  allNetworksChanged?: React.MutableRefObject<boolean>;
 };
 
 export const EditableChainSelectorContent = ({
@@ -86,9 +180,13 @@ export const EditableChainSelectorContent = ({
   onAddCustomNetwork,
   onEditCustomNetwork,
   networkId,
+  walletId,
+  accountId,
+  indexedAccountId,
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
+  allNetworksChanged,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -206,7 +304,7 @@ export const EditableChainSelectorContent = ({
   }, [tempFrequentlyUsedItems]);
 
   const layoutList = useMemo(() => {
-    let offset = 8 + (showAllNetworkHeader ? CELL_HEIGHT : 0);
+    let offset = 16 + (showAllNetworkHeader ? HEADER_HEIGHT : 0);
     const layouts: { offset: number; length: number; index: number }[] = [];
     sections.forEach((section, sectionIndex) => {
       if (sectionIndex !== 0) {
@@ -224,7 +322,7 @@ export const EditableChainSelectorContent = ({
       layouts.push({ offset, length: footerHeight, index: layouts.length });
       offset += footerHeight;
     });
-    layouts.push({ offset, length: 8, index: layouts.length });
+    layouts.push({ offset, length: 16, index: layouts.length });
     return layouts;
   }, [sections, showAllNetworkHeader]);
 
@@ -396,13 +494,20 @@ export const EditableChainSelectorContent = ({
                 if (index === -1) {
                   return {
                     index,
-                    offset: showAllNetworkHeader ? 56 : 0,
+                    offset: showAllNetworkHeader ? HEADER_HEIGHT : 0,
                     length: 0,
                   };
                 }
                 return layoutList[index];
               }}
-              ListHeaderComponent={ListHeaderComponent}
+              ListHeaderComponent={
+                <ListHeaderComponent
+                  walletId={walletId}
+                  accountId={accountId}
+                  indexedAccountId={indexedAccountId}
+                  allNetworksChanged={allNetworksChanged}
+                />
+              }
               renderSectionHeader={renderSectionHeader}
               ListFooterComponent={
                 <>

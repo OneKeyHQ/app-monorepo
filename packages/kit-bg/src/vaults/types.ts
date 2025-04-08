@@ -259,6 +259,8 @@ export type IVaultSettings = {
   supportBatchEstimateFee?: Record<string, boolean>;
 
   afterSendTxActionEnabled?: boolean;
+
+  createAllDeriveTypeAccountsByDefault?: boolean;
 };
 
 export type IVaultFactoryOptions = {

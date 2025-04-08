@@ -665,11 +665,21 @@ export class V4MigrationForAccount extends V4MigrationManagerBase {
                 pathIndex: index,
               }) === indexedAccount.name
             ) {
-              await serviceAccount.setAccountName({
-                indexedAccountId: indexedAccount.id,
-                name: v4account.name,
-                skipEventEmit: true,
-              });
+              if (v5wallet.xfp && indexedAccount.id) {
+                await serviceAccount.setUniversalIndexedAccountName({
+                  indexedAccountId: indexedAccount.id,
+                  name: v4account.name,
+                  index: indexedAccount.index,
+                  walletXfp: v5wallet.xfp,
+                  skipEventEmit: true,
+                });
+              } else {
+                await serviceAccount.setAccountName({
+                  indexedAccountId: indexedAccount.id,
+                  name: v4account.name,
+                  skipEventEmit: true,
+                });
+              }
             }
           }
 

@@ -119,7 +119,7 @@ function DashboardContent({
               />
             ) : null
           }
-          discoveryData={{ hot: homePageData?.trending }}
+          discoveryData={homePageData}
           isLoading={!!isLoading}
         />
 
@@ -147,12 +147,11 @@ function DashboardContent({
     ),
     [
       hasActiveBanners,
-      hasBookmarks,
-      homePageData?.banners,
-      homePageData?.trending,
+      homePageData,
       isLoading,
       showDiveInDescription,
       refresh,
+      hasBookmarks,
     ],
   );
 

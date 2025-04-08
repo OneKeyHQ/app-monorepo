@@ -37,8 +37,10 @@ function DesktopBrowserNavigationBar({
   const { tab } = useWebTabDataById(id);
   const isActive = activeTabId === id;
   const { setPinnedTab, setWebTabData } = useBrowserTabActions().current;
-  const { addBrowserBookmark, removeBrowserBookmark } =
-    useBrowserBookmarkAction().current;
+  const {
+    addOrUpdateBrowserBookmark: addBrowserBookmark,
+    removeBrowserBookmark,
+  } = useBrowserBookmarkAction().current;
   const [innerRef, setInnerRef] = useState<IElectronWebView>(
     webviewRefs[id]?.innerRef as IElectronWebView,
   );
@@ -91,7 +93,11 @@ function DesktopBrowserNavigationBar({
     (isBookmark: boolean) => {
       if (tab) {
         if (isBookmark) {
-          void addBrowserBookmark({ url: tab?.url, title: tab?.title ?? '' });
+          void addBrowserBookmark({
+            url: tab?.url,
+            title: tab?.title ?? '',
+            logo: undefined,
+          });
         } else {
           void removeBrowserBookmark(tab?.url);
         }

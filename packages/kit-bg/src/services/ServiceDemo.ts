@@ -9,7 +9,10 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import { getNetworkIdsMap } from '@onekeyhq/shared/src/config/networkIds';
 import { DB_MAIN_CONTEXT_ID } from '@onekeyhq/shared/src/consts/dbConsts';
-import { MinimumTransferBalanceRequiredError } from '@onekeyhq/shared/src/errors';
+import {
+  IncorrectPassword,
+  MinimumTransferBalanceRequiredError,
+} from '@onekeyhq/shared/src/errors';
 import {
   DeviceNotFound,
   NeedOneKeyBridge,
@@ -199,6 +202,13 @@ class ServiceDemo extends ServiceBase {
   async demoErrorWithUrl(): Promise<string> {
     await timerUtils.wait(600);
     throw new NeedOneKeyBridge();
+  }
+
+  @backgroundMethod()
+  @toastIfError()
+  async demoError6(): Promise<string> {
+    await timerUtils.wait(600);
+    throw new IncorrectPassword();
   }
 
   @backgroundMethod()

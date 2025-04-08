@@ -87,7 +87,6 @@ export default function PrimeDashboard() {
   const { isNative, isWebMobile } = platformEnv;
   const isMobile = isNative || isWebMobile;
   const mobileTopValue = isMobile ? top + 25 : '$10';
-
   const { loginOneKeyId } = useLoginOneKeyId();
 
   const isFocused = useIsFocused();

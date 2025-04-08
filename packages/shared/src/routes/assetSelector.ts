@@ -38,6 +38,8 @@ export type ITokenSelectorParamList = {
   title?: string;
   networkId: string;
   accountId: string;
+  activeAccountId?: string;
+  activeNetworkId?: string;
   tokens?: ITokenData;
   onSelect: (token: IToken) => void | Promise<void>;
   closeAfterSelect?: boolean;

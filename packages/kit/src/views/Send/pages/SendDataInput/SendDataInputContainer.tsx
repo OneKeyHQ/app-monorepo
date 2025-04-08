@@ -63,7 +63,9 @@ import {
 } from '@onekeyhq/shared/src/routes';
 import type {
   EModalSendRoutes,
+  EModalSignatureConfirmRoutes,
   IModalSendParamList,
+  IModalSignatureConfirmParamList,
 } from '@onekeyhq/shared/src/routes';
 import accountUtils from '@onekeyhq/shared/src/utils/accountUtils';
 import hexUtils from '@onekeyhq/shared/src/utils/hexUtils';
@@ -132,7 +134,12 @@ function SendDataInputContainer() {
   const addressInputChangeType = useRef(EInputAddressChangeType.Manual);
 
   const route =
-    useRoute<RouteProp<IModalSendParamList, EModalSendRoutes.SendDataInput>>();
+    useRoute<
+      RouteProp<
+        IModalSignatureConfirmParamList,
+        EModalSignatureConfirmRoutes.TxDataInput
+      >
+    >();
 
   const { serviceNFT, serviceToken } = backgroundApiProxy;
 
@@ -148,6 +155,8 @@ function SendDataInputContainer() {
     onFail,
     onCancel,
     isAllNetworks,
+    activeAccountId,
+    activeNetworkId,
   } = route.params;
   const nft = nfts?.[0];
   const [tokenInfo, setTokenInfo] = useState(token);
@@ -408,6 +417,8 @@ function SendDataInputContainer() {
       params: {
         networkId,
         accountId,
+        activeAccountId,
+        activeNetworkId,
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
@@ -483,6 +494,8 @@ function SendDataInputContainer() {
   }, [
     account?.indexedAccountId,
     accountId,
+    activeAccountId,
+    activeNetworkId,
     allTokens.keys,
     allTokens.tokens,
     currentAccount.accountId,

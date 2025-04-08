@@ -112,7 +112,8 @@ class ServiceCloudBackup extends ServiceBase {
       wallets: {},
     };
     const { version } = platformEnv;
-    const contacts = await serviceAddressBook.getSafeRawItems();
+    const { isSafe, items: contacts } =
+      await serviceAddressBook.getSafeRawItems();
     defaultLogger.cloudBackup.getDataForBackupScene.getContacts(
       contacts.length,
     );
@@ -596,7 +597,7 @@ class ServiceCloudBackup extends ServiceBase {
       });
 
       try {
-        await serviceAccount.generateHDWalletsMissingHash({
+        await serviceAccount.generateAllHDWalletMissingHashAndXfp({
           password: localPassword,
         });
       } catch (e) {
@@ -627,8 +628,8 @@ class ServiceCloudBackup extends ServiceBase {
           localPassword,
         );
 
-        const walletHash: string | undefined =
-          this.backgroundApi.serviceAccount.walletHashBuilder({
+        const walletHashAndXfp =
+          await this.backgroundApi.serviceAccount.walletHashXfpBuilder({
             realMnemonic: mnemonicFromRs,
           });
 
@@ -637,7 +638,8 @@ class ServiceCloudBackup extends ServiceBase {
             rs: rsEncoded,
             password: localPassword,
             avatarInfo: avatar,
-            walletHash,
+            walletHash: walletHashAndXfp.hash,
+            walletXfp: walletHashAndXfp.xfp,
           });
         await serviceAccount.restoreAccountsToWallet({
           walletId: wallet.id,

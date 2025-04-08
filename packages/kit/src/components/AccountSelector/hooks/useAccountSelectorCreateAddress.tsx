@@ -47,6 +47,7 @@ export function useAccountSelectorCreateAddress() {
       selectAfterCreate,
       account,
       createAllDeriveTypes,
+      customNetworks,
     }: {
       num: number;
       selectAfterCreate?: boolean;
@@ -57,6 +58,10 @@ export function useAccountSelectorCreateAddress() {
         deriveType: IAccountDeriveTypes;
       };
       createAllDeriveTypes?: boolean;
+      customNetworks?: {
+        networkId: string;
+        deriveType: IAccountDeriveTypes;
+      }[];
     }) => {
       if (
         !account ||
@@ -129,6 +134,7 @@ export function useAccountSelectorCreateAddress() {
           await serviceBatchCreateAccount.addDefaultNetworkAccounts({
             walletId: account?.walletId,
             indexedAccountId: account?.indexedAccountId,
+            customNetworks,
             ...hwUiControlParams,
           });
         if (

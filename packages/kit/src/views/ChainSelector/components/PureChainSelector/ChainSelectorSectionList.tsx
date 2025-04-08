@@ -22,9 +22,12 @@ import { NetworkAvatarBase } from '@onekeyhq/kit/src/components/NetworkAvatar';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
-import { useFuseSearch } from '../../hooks/useFuseSearch';
+import { usePureChainSelectorSections } from '../../hooks/usePureChainSelectorSections';
 
-import type { IServerNetworkMatch } from '../../types';
+import type {
+  IPureChainSelectorSectionListItem,
+  IServerNetworkMatch,
+} from '../../types';
 
 const ListEmptyComponent = () => {
   const intl = useIntl();
@@ -38,14 +41,8 @@ const ListEmptyComponent = () => {
   );
 };
 
-type ISectionListItem = {
-  title?: string;
-  data: IServerNetworkMatch[];
-  isUnavailable?: boolean;
-};
-
 type IChainSelectorSectionListContentProps = {
-  sections: ISectionListItem[];
+  sections: IPureChainSelectorSectionListItem[];
   networkId?: string;
   onPressItem?: (network: IServerNetworkMatch) => void;
 };
@@ -62,7 +59,7 @@ const ChainSelectorSectionListContent = ({
   const intl = useIntl();
 
   const renderSectionHeader = useCallback(
-    (item: { section: ISectionListItem }) => {
+    (item: { section: IPureChainSelectorSectionListItem }) => {
       if (item.section.title) {
         return <SectionList.SectionHeader title={item.section.title} />;
       }
@@ -91,7 +88,7 @@ const ChainSelectorSectionListContent = ({
         section,
       }: {
         item: IServerNetworkMatch;
-        section: ISectionListItem;
+        section: IPureChainSelectorSectionListItem;
       }) => (
         <ListItem
           h={48}
@@ -176,66 +173,12 @@ export const ChainSelectorSectionList: FC<IChainSelectorSectionListProps> = ({
     [setIsPending],
   );
 
-  const networkFuseSearch = useFuseSearch(networks);
+  const { sections } = usePureChainSelectorSections({
+    networks,
+    searchKey: text,
+    unavailableNetworks: unavailable,
+  });
 
-  const sections = useMemo<ISectionListItem[]>(() => {
-    if (text) {
-      const data = networkFuseSearch(text);
-      return data.length === 0
-        ? []
-        : [
-            {
-              data,
-            },
-          ];
-    }
-    const testnetItems: IServerNetworkMatch[] = [];
-    const mainnetItems: IServerNetworkMatch[] = [];
-    for (let i = 0; i < networks.length; i += 1) {
-      const item = networks[i];
-      if (item.isTestnet) {
-        testnetItems.push(item);
-      } else {
-        mainnetItems.push(item);
-      }
-    }
-
-    const data = mainnetItems.reduce((acc, item) => {
-      const char = item.name[0].toUpperCase();
-      if (!acc[char]) {
-        acc[char] = [];
-      }
-      acc[char].push(item);
-      return acc;
-    }, {} as Record<string, IServerNetworkMatch[]>);
-
-    const mainnetSections = Object.entries(data)
-      .map(([key, value]) => ({ title: key, data: value }))
-      .sort((a, b) => a.title.charCodeAt(0) - b.title.charCodeAt(0));
-
-    const _sections: ISectionListItem[] = [...mainnetSections];
-
-    if (testnetItems.length > 0) {
-      _sections.push({
-        title: intl.formatMessage({
-          id: ETranslations.global_testnet,
-        }),
-        data: testnetItems,
-      });
-    }
-
-    if (unavailable && unavailable.length > 0) {
-      _sections.push({
-        title: intl.formatMessage({
-          id: ETranslations.network_selector_unavailable_networks,
-        }),
-        data: unavailable,
-        isUnavailable: true,
-      });
-    }
-
-    return _sections;
-  }, [networkFuseSearch, text, networks, intl, unavailable]);
   const initialScrollIndex = useMemo(() => {
     if (text.trim()) {
       return undefined;

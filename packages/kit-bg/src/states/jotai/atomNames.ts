@@ -38,10 +38,14 @@ export enum EAtomNames {
   // notificationsAtom, notificationsPersistAtom is reserved for notificationsPersistAtom
   notificationsAtom = 'notificationsAtom', // persist
   notificationsReadedAtom = 'notificationsReadedAtom',
+  // prime
   primePersistAtom = 'primePersistAtom',
+  primeCloudSyncPersistAtom = 'primeCloudSyncPersistAtom',
+  primeMasterPasswordPersistAtom = 'primeMasterPasswordPersistAtom',
   primeInitAtom = 'primeInitAtom',
   primeLoginDialogAtom = 'primeLoginDialogAtom',
   accountSelectorAccountsListIsLoadingAtom = 'accountSelectorAccountsListIsLoadingAtom',
+  allNetworksPersistAtom = 'allNetworksPersistAtom',
 }
 export type IAtomNameKeys = keyof typeof EAtomNames;
 export const atomsConfig: Partial<
