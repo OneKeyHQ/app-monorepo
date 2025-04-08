@@ -24,7 +24,6 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
@@ -92,7 +91,6 @@ function MoreActionButtonCmp() {
   );
 
   const { toReferFriendsPage } = useReferFriends();
-  const { loginOneKeyId } = useLoginOneKeyId();
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       const routeInfo = {
@@ -176,16 +174,6 @@ function MoreActionButtonCmp() {
           items:
             devSettings.settings?.showOneKeyId && !isShowMyOneKeyOnTabbar
               ? [
-                  {
-                    label: 'OneKey ID',
-                    icon: 'PeopleOutline',
-                    onPress: async () => {
-                      await loginOneKeyId({
-                        toOneKeyIdPageOnLoginSuccess: true,
-                      });
-                    },
-                    testID: 'onekey_id',
-                  },
                   {
                     label: intl.formatMessage({
                       id: ETranslations.id_refer_a_friend,
