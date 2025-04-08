@@ -1,6 +1,7 @@
 import type { IDemoDeveloperTabParamList } from '@onekeyhq/kit/src/views/Developer/pages/Gallery/Components/stories/NavigatorRoute/Tab/RouteParamTypes';
 import type {
   IModalDeviceManagementParamList,
+  IModalReferFriendsParamList,
   IMultiTabBrowserParamList,
   ITabDiscoveryParamList,
   ITabHomeParamList,
@@ -34,4 +35,5 @@ export type ITabStackParamList = {
   [ETabRoutes.Swap]: ITabSwapParamList;
   [ETabRoutes.MultiTabBrowser]: IMultiTabBrowserParamList;
   [ETabRoutes.DeviceManagement]: IModalDeviceManagementParamList;
+  [ETabRoutes.ReferFriends]: IModalReferFriendsParamList;
 };
