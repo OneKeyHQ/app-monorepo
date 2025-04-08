@@ -6,10 +6,6 @@ import type { IElectronWebView } from '@onekeyhq/kit/src/components/WebView/type
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import useListenTabFocusState from '@onekeyhq/kit/src/hooks/useListenTabFocusState';
 import { useBrowserTabActions } from '@onekeyhq/kit/src/states/jotai/contexts/discovery';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import type { IDiscoveryModalParamList } from '@onekeyhq/shared/src/routes';
 import {
   EDiscoveryModalRoutes,
@@ -115,19 +111,6 @@ export const useDiscoveryShortcuts = () => {
             globalThis.desktopApi.quitApp();
           }
           return;
-        case EShortcutEvents.SearchInPage:
-          if (isAtBrowserTab.current || isAtDiscoveryTab.current) {
-            if (activeTabId) {
-              appEventBus.emit(EAppEventBusNames.ShowFindInWebPage, {
-                tabId: activeTabId,
-              });
-            } else {
-              navigation.pushModal(EModalRoutes.DiscoveryModal, {
-                screen: EDiscoveryModalRoutes.SearchModal,
-              });
-            }
-          }
-          break;
         case EShortcutEvents.ViewHistory:
           navigation.pushModal(EModalRoutes.DiscoveryModal, {
             screen: EDiscoveryModalRoutes.HistoryListModal,
