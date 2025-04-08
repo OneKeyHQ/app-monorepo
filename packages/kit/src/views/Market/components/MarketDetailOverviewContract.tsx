@@ -2,7 +2,6 @@ import { useCallback, useMemo, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import type { IButtonProps } from '@onekeyhq/components';
 import { Button, SizableText, YStack } from '@onekeyhq/components';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IMarketDetailPlatform } from '@onekeyhq/shared/types/market';

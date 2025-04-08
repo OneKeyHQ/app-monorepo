@@ -26,10 +26,7 @@ import { generateUUID } from '@onekeyhq/shared/src/utils/miscUtils';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
-import type {
-  IFeeInfoUnit,
-  ISendSelectedFeeInfo,
-} from '@onekeyhq/shared/types/fee';
+import type { ISendSelectedFeeInfo } from '@onekeyhq/shared/types/fee';
 import type { ESendPreCheckTimingEnum } from '@onekeyhq/shared/types/send';
 import { EReasonForNeedPassword } from '@onekeyhq/shared/types/setting';
 import type { IParseTransactionResp } from '@onekeyhq/shared/types/signatureConfirm';
