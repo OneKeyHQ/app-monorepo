@@ -40,6 +40,20 @@ function PopoverLine({ children }: PropsWithChildren) {
   );
 }
 
+function NoRewardYet() {
+  const intl = useIntl();
+  return (
+    <XStack pt="$4" gap="$2.5" ai="center">
+      <XStack>
+        <Icon size="$4" name="GiftOutline" color="$iconSubdued" />
+      </XStack>
+      <SizableText size="$bodyMd" color="$textSubdued">
+        {intl.formatMessage({ id: ETranslations.referral_no_reward })}
+      </SizableText>
+    </XStack>
+  );
+}
+
 function ShareCode({
   inviteUrl,
   inviteCode,
@@ -143,9 +157,11 @@ function ShareCode({
 function Dashboard({
   totalRewards,
   enabledNetworks,
+  hardwareSales,
 }: {
   totalRewards: string;
   enabledNetworks: IInviteSummary['enabledNetworks'];
+  hardwareSales: IInviteSummary['HardwareSales'];
 }) {
   const navigation = useAppNavigation();
   const intl = useIntl();
@@ -268,19 +284,12 @@ function Dashboard({
           <SizableText size="$headingMd">
             {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
           </SizableText>
-          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
+          {/* <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" /> */}
         </XStack>
         <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
-        <XStack pt="$4" gap="$2.5" ai="center">
-          <XStack>
-            <Icon size="$4" name="GiftOutline" color="$iconSubdued" />
-          </XStack>
-          <SizableText size="$bodyMd" color="$textSubdued">
-            {intl.formatMessage({ id: ETranslations.referral_no_reward })}
-          </SizableText>
-        </XStack>
+        <NoRewardYet />
         {/* <YStack gap="$2" pt="$4">
           <XStack gap="$2">
             <Token size="xs" networkId="evm--1" />
@@ -340,31 +349,49 @@ function Dashboard({
             </XStack>
             <Progress value={1} width="100%" size="medium" />
           </YStack>
-          <XStack pt="$4" gap="$2">
-            <Token size="xs" networkId="evm--1" />
-            <SizableText size="$bodyMd">
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyMd"
-                formatterOptions={{ tokenSymbol: 'USDC' }}
-              >
-                0
-              </NumberSizeableText>
-              {` + `}
-              <NumberSizeableText
-                formatter="balance"
-                size="$bodyMd"
-                formatterOptions={{ tokenSymbol: 'USDC' }}
-              >
-                55.52
-              </NumberSizeableText>
-            </SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {intl.formatMessage({
-                id: ETranslations.global_pending,
-              })}
-            </SizableText>
-          </XStack>
+          {Number(hardwareSales.pending.fiatValue) > 0 ||
+          Number(hardwareSales.pending.fiatValue) > 0 ? (
+            <XStack pt="$4" gap="$2">
+              <Token
+                size="xs"
+                networkId={hardwareSales.available.token.networkId}
+              />
+              <SizableText size="$bodyMd">
+                <NumberSizeableText
+                  formatter="balance"
+                  size="$bodyMd"
+                  formatterOptions={{
+                    tokenSymbol: hardwareSales.available.token.symbol,
+                  }}
+                >
+                  {hardwareSales.available.fiatValue}
+                </NumberSizeableText>
+                {Number(hardwareSales.pending.fiatValue) > 0 ? (
+                  <>
+                    <SizableText size="$bodyMd">{` + `}</SizableText>
+                    <NumberSizeableText
+                      formatter="balance"
+                      size="$bodyMd"
+                      formatterOptions={{
+                        tokenSymbol: hardwareSales.pending.token.symbol,
+                      }}
+                    >
+                      {hardwareSales.pending.fiatValue}
+                    </NumberSizeableText>
+                  </>
+                ) : null}
+              </SizableText>
+              {Number(hardwareSales.pending.fiatValue) > 0 ? (
+                <SizableText size="$bodyMd" color="$textSubdued">
+                  {intl.formatMessage({
+                    id: ETranslations.global_pending,
+                  })}
+                </SizableText>
+              ) : null}
+            </XStack>
+          ) : (
+            <NoRewardYet />
+          )}
         </YStack>
       </YStack>
     </YStack>
@@ -441,14 +468,21 @@ function FAQ({ faqs }: { faqs: IInviteSummary['faqs'] }) {
 }
 
 function InviteRewardContent({ summaryInfo }: { summaryInfo: IInviteSummary }) {
-  const { faqs, inviteUrl, inviteCode, totalRewards, enabledNetworks } =
-    summaryInfo;
+  const {
+    faqs,
+    inviteUrl,
+    inviteCode,
+    totalRewards,
+    enabledNetworks,
+    HardwareSales,
+  } = summaryInfo;
   return (
     <>
       <ShareCode inviteUrl={inviteUrl} inviteCode={inviteCode} />
       <Dashboard
         totalRewards={totalRewards}
         enabledNetworks={enabledNetworks}
+        hardwareSales={HardwareSales}
       />
       <FAQ faqs={faqs} />
     </>
