@@ -99,7 +99,10 @@ axios.interceptors.response.use(
       throw new OneKeyServerApiError({
         autoToast: true,
         disableFallbackMessage: true,
-        message: data?.message || 'OneKeyServer Unknown Error',
+        message:
+          data?.translatedMessage ||
+          data?.message ||
+          'OneKeyServer Unknown Error',
         code: data.code,
         data,
         requestId: `RequestId: ${config.headers[requestIdKey] as string}`,

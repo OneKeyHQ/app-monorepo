@@ -2,6 +2,8 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
+import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
+import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
 
@@ -9,6 +11,16 @@ import ServiceBase from './ServiceBase';
 class ServiceReferralCode extends ServiceBase {
   constructor({ backgroundApi }: { backgroundApi: any }) {
     super({ backgroundApi });
+  }
+
+  @backgroundMethod()
+  async getSummaryInfo() {
+    const client = await this.getClient(EServiceEndpointEnum.Rebate);
+    const summary = await client.get<{
+      code: number;
+      data: IInviteSummary;
+    }>('/rebate/v1/invite/summary');
+    return summary.data.data;
   }
 
   @backgroundMethod()

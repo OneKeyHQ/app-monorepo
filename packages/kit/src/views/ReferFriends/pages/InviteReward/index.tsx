@@ -394,6 +394,13 @@ function FAQ({ solutions }: { solutions: ISolution[] }) {
 
 export default function InviteReward() {
   const intl = useIntl();
+  const { result: summaryInfo } = usePromiseResult(
+    async () => backgroundApiProxy.serviceReferralCode.getSummaryInfo(),
+    [],
+    {
+      initResult: {},
+    },
+  );
   return (
     <Page scrollEnabled>
       <Page.Header
