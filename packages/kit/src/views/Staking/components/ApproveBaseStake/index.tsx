@@ -38,7 +38,6 @@ import {
   formatStakingDistanceToNowStrict,
 } from '@onekeyhq/kit/src/views/Staking/components/utils';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import type { IApproveInfo } from '@onekeyhq/kit-bg/src/vaults/types';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
@@ -122,7 +121,6 @@ export function ApproveBaseStake({
   estReceiveTokenRate = '1',
 }: PropsWithChildren<IApproveBaseStakeProps>) {
   const intl = useIntl();
-  const [devSettings] = useDevSettingsPersistAtom();
   const showEstimateGasAlert = useShowStakeEstimateGasAlert();
   const { navigationToTxConfirm } = useSignatureConfirm({
     accountId: approveTarget.accountId,
@@ -843,7 +841,6 @@ export function ApproveBaseStake({
         />,
       );
     }
-    if (devSettings.settings?.showOneKeyId) {
       items.push(
         <CalculationListItem onPress={handleBindOrChangeInviteCode}>
           <CalculationListItem.Label size="$bodyMd">
@@ -861,7 +858,6 @@ export function ApproveBaseStake({
           </XStack>
         </CalculationListItem>,
       );
-    }
     return items;
   }, [
     amountValue,
@@ -869,7 +865,6 @@ export function ApproveBaseStake({
     estReceiveToken,
     estimateFeeResp,
     usePermit2Approve,
-    devSettings.settings?.showOneKeyId,
     intl,
     estReceiveTokenRate,
     totalAnnualRewardsFiatValue,
