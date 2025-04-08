@@ -96,7 +96,7 @@ export const useReferFriends = () => {
     const isVisited = await backgroundApiProxy.serviceSpotlight.isVisited(
       ESpotlightTour.referAFriend,
     );
-    if (isLogin || isVisited) {
+    if (isLogin && isVisited) {
       navigation.pushModal(EModalRoutes.ReferFriendsModal, {
         screen: EModalReferFriendsRoutes.InviteReward,
       });
