@@ -19,6 +19,8 @@ import type { IAccountToken } from '@onekeyhq/shared/types/token';
 
 import { useTabListScroll } from '../../hooks/useTabListScroll';
 import {
+  useActiveAccountTokenListAtom,
+  useActiveAccountTokenListStateAtom,
   useSearchKeyAtom,
   useSearchTokenListAtom,
   useSearchTokenStateAtom,
@@ -66,6 +68,7 @@ type IProps = {
     tokens: IAccountToken[];
   };
   emptyAccountView?: ReactNode;
+  showActiveAccountTokenList?: boolean;
 };
 
 function TokenListViewCmp(props: IProps) {
@@ -93,14 +96,21 @@ function TokenListViewCmp(props: IProps) {
     tokenSelectorSearchTokenState = { isSearching: false },
     tokenSelectorSearchTokenList = { tokens: [] },
     emptyAccountView,
+    showActiveAccountTokenList = false,
   } = props;
 
+  const [activeAccountTokenList] = useActiveAccountTokenListAtom();
   const [tokenList] = useTokenListAtom();
   const [smallBalanceTokenList] = useSmallBalanceTokenListAtom();
   const [tokenListState] = useTokenListStateAtom();
   const [searchKey] = useSearchKeyAtom();
+  const [activeAccountTokenListState] = useActiveAccountTokenListStateAtom();
 
   const tokens = useMemo(() => {
+    if (showActiveAccountTokenList) {
+      return activeAccountTokenList.tokens;
+    }
+
     if (isTokenSelector) {
       return tokenList.tokens.concat(smallBalanceTokenList.smallBalanceTokens);
     }
@@ -111,9 +121,11 @@ function TokenListViewCmp(props: IProps) {
 
     return tokenList.tokens;
   }, [
+    showActiveAccountTokenList,
     isTokenSelector,
     searchKey,
     tokenList.tokens,
+    activeAccountTokenList.tokens,
     smallBalanceTokenList.smallBalanceTokens,
   ]);
   const [searchTokenState] = useSearchTokenStateAtom();
@@ -170,13 +182,19 @@ function TokenListViewCmp(props: IProps) {
     () =>
       (isTokenSelector && tokenSelectorSearchTokenState.isSearching) ||
       (!isTokenSelector && searchTokenState.isSearching) ||
-      (!tokenListState.initialized && tokenListState.isRefreshing),
+      (!tokenListState.initialized && tokenListState.isRefreshing) ||
+      (!activeAccountTokenListState.initialized &&
+        showActiveAccountTokenList &&
+        activeAccountTokenListState.isRefreshing),
     [
       isTokenSelector,
+      tokenSelectorSearchTokenState.isSearching,
       searchTokenState.isSearching,
       tokenListState.initialized,
       tokenListState.isRefreshing,
-      tokenSelectorSearchTokenState.isSearching,
+      activeAccountTokenListState.initialized,
+      activeAccountTokenListState.isRefreshing,
+      showActiveAccountTokenList,
     ],
   );
 

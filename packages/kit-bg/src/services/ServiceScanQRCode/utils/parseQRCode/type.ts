@@ -117,6 +117,7 @@ export type IQRCodeHandlerParseOutsideOptions = {
   defaultHandler?: (value: string) => void;
   autoHandleResult?: boolean;
   account?: INetworkAccount;
+  network?: IServerNetwork;
   tokens?: ITokenData;
   qrWalletScene?: boolean;
   showProTutorial?: boolean;

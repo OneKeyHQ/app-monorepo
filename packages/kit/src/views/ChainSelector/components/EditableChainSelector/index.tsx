@@ -1,13 +1,18 @@
 import type { FC } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
 import { Button, Page } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from './ChainSelectorContent';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 type IEditableChainSelectorProps = {
   mainnetItems: IServerNetwork[];
@@ -15,7 +20,10 @@ type IEditableChainSelectorProps = {
   unavailableItems: IServerNetwork[];
   frequentlyUsedItems: IServerNetwork[];
   allNetworkItem?: IServerNetwork;
+  accountId?: string;
+  indexedAccountId?: string;
   networkId?: string;
+  walletId?: string;
   onPressItem?: (network: IServerNetwork) => void;
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
@@ -38,6 +46,9 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
   testnetItems,
   unavailableItems,
   frequentlyUsedItems,
+  accountId,
+  indexedAccountId,
+  walletId,
   networkId,
   onPressItem,
   onAddCustomNetwork,
@@ -47,6 +58,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
 }) => {
   const intl = useIntl();
   const [isEditMode, setIsEditMode] = useState(false);
+  const allNetworksChanged = useRef(false);
   const headerRight = useMemo(
     () => () =>
       getHeaderRightComponent(
@@ -58,7 +70,17 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
     [intl, isEditMode],
   );
   return (
-    <Page safeAreaEnabled={false}>
+    <Page
+      safeAreaEnabled={false}
+      onClose={() => {
+        if (
+          allNetworksChanged.current &&
+          networkUtils.isAllNetwork({ networkId })
+        ) {
+          appEventBus.emit(EAppEventBusNames.AccountDataUpdate, undefined);
+        }
+      }}
+    >
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.global_networks })}
         headerRight={headerRight}
@@ -68,6 +90,9 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           isEditMode={isEditMode}
           frequentlyUsedItems={frequentlyUsedItems}
           unavailableItems={unavailableItems}
+          accountId={accountId}
+          indexedAccountId={indexedAccountId}
+          walletId={walletId}
           networkId={networkId}
           mainnetItems={mainnetItems}
           testnetItems={testnetItems}
@@ -76,6 +101,7 @@ export const EditableChainSelector: FC<IEditableChainSelectorProps> = ({
           onEditCustomNetwork={onEditCustomNetwork}
           allNetworkItem={allNetworkItem}
           onFrequentlyUsedItemsChange={onFrequentlyUsedItemsChange}
+          allNetworksChanged={allNetworksChanged}
         />
       </Page.Body>
     </Page>

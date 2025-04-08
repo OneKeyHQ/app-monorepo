@@ -117,7 +117,7 @@ export function HeaderRight({
       platformEnv.isNativeAndroid ||
       media.gtMd ? (
         <Stack flexDirection="row" alignItems="center" gap="$4">
-          {children ? (
+          {children || primeButton ? (
             <Stack
               height="$4"
               borderRightWidth={1}
