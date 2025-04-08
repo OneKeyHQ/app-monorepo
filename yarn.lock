@@ -6810,13 +6810,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@onekeyfe/react-native-ble-plx@npm:3.0.0":
-  version: 3.0.0
-  resolution: "@onekeyfe/react-native-ble-plx@npm:3.0.0"
-  checksum: 10/df7deed77e7756eb3a99595e475b9c9b7c7edf20aa7a162cc751ddd6440d0d56ff2572dad4850e8b02628893598db3d303a830263ba5866f48664b85bbd12dfb
-  languageName: node
-  linkType: hard
-
 "@onekeyfe/react-native-ble-plx@npm:3.0.1":
   version: 3.0.1
   resolution: "@onekeyfe/react-native-ble-plx@npm:3.0.1"
@@ -7241,7 +7234,6 @@ __metadata:
     "@formatjs/intl-pluralrules": "npm:^4.3.3"
     "@notifee/react-native": "npm:9.0.0"
     "@onekeyfe/react-native-animated-charts": "npm:1.0.0"
-    "@onekeyfe/react-native-ble-plx": "npm:3.0.0"
     "@onekeyfe/react-native-lite-card": "npm:1.0.12"
     "@onekeyfe/react-native-tab-page-view": "npm:1.0.18"
     "@onekeyfe/react-native-text-input": "npm:0.2.4"
@@ -7296,7 +7288,8 @@ __metadata:
     path-browserify: "npm:^1.0.1"
     react: "npm:18.2.0"
     react-native: "npm:0.73.7"
-    react-native-ble-manager: "npm:^10.0.2"
+    react-native-ble-plx: "npm:3.5.0"
+    react-native-ble-utils: "npm:^0.1.4"
     react-native-bundle-visualizer: "npm:^3.1.3"
     react-native-camera-kit: "npm:14.0.0-beta15"
     react-native-canvas: "npm:^0.1.39"
@@ -35133,19 +35126,30 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-ble-manager@npm:^10.0.2":
-  version: 10.1.5
-  resolution: "react-native-ble-manager@npm:10.1.5"
-  peerDependencies:
-    react-native: ">=0.60.0"
-  checksum: 10/af2819ac1ebfcad4d1efafa1d494881a5cf00e71e1bfcfcc93e95083a3a1e65d852eb9b4f0be8df9c5584591c2afd2cae453a192485cf382f63c0c8aaa0123b9
-  languageName: node
-  linkType: hard
-
 "react-native-ble-manager@npm:^8.1.0":
   version: 8.8.0
   resolution: "react-native-ble-manager@npm:8.8.0"
   checksum: 10/4cac80578a398268ea628489c9e43f12413a91a847571b8630bc33d532566b8042725ffed352b0979d61d256f1f1e52a2dbc4254d222daaf38383fc515725c4f
+  languageName: node
+  linkType: hard
+
+"react-native-ble-plx@npm:3.5.0":
+  version: 3.5.0
+  resolution: "react-native-ble-plx@npm:3.5.0"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/f807e82d45220eeb5ba3aacaf13fddd9e11395337b8b2b99fe468cc154fefdce501efefcb1421b6bcf0f0e602e82ce535ff8dc3b1d1e57aca85fd6507bc7ea2e
+  languageName: node
+  linkType: hard
+
+"react-native-ble-utils@npm:^0.1.4":
+  version: 0.1.4
+  resolution: "react-native-ble-utils@npm:0.1.4"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  checksum: 10/c884fcc60041f1b148d47650777cf32053503524a4a809311673dc1cb3918cc498b032f6f714e87a16c6f8b5beafa3cf3a64a8dcbd2a0968dfae0d5301788d3f
   languageName: node
   linkType: hard
 

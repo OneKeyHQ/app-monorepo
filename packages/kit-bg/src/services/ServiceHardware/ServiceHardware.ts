@@ -517,35 +517,9 @@ class ServiceHardware extends ServiceBase {
       connectId,
     });
 
-  private handlerConnectError = async (
-    e: any,
-    options?: {
-      connectId?: string;
-      awaitBonded?: boolean;
-      reconnect?: boolean;
-    },
-  ): Promise<Features | undefined> => {
+  private handlerConnectError = (e: any) => {
     const error: deviceErrors.OneKeyHardwareError | undefined =
       e as deviceErrors.OneKeyHardwareError;
-
-    const connectId = options?.connectId;
-    if (
-      platformEnv.isNativeAndroid &&
-      error instanceof deviceErrors.DeviceNotBonded &&
-      options?.awaitBonded &&
-      connectId
-    ) {
-      const checkBonded = await deviceUtils.checkDeviceBonded(connectId);
-      if (checkBonded) {
-        console.log('Android device was bonded, will connect');
-        try {
-          return await this.connectDevice(connectId);
-        } catch (innerError: any) {
-          // only handler error
-          return this.handlerConnectError(innerError);
-        }
-      }
-    }
 
     if (
       error instanceof deviceErrors.OneKeyHardwareError &&
@@ -573,11 +547,7 @@ class ServiceHardware extends ServiceBase {
       try {
         return await this.connectDevice(connectId);
       } catch (e: any) {
-        return this.handlerConnectError(e, {
-          connectId,
-          reconnect: false,
-          awaitBonded,
-        });
+        this.handlerConnectError(e);
       }
     } else {
       /**
