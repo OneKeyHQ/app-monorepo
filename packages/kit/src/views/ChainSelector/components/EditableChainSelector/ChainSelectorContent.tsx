@@ -60,12 +60,12 @@ const ListHeaderComponent = ({
   walletId,
   accountId,
   indexedAccountId,
-  allNetworksChanged,
+  setAllNetworksChanged,
 }: {
   walletId?: string;
   accountId?: string;
   indexedAccountId?: string;
-  allNetworksChanged?: React.MutableRefObject<boolean>;
+  setAllNetworksChanged?: (value: boolean) => void;
 }) => {
   const intl = useIntl();
   const navigation = useAppNavigation();
@@ -110,6 +110,11 @@ const ListHeaderComponent = ({
       },
     );
 
+  const handleNetworksChange = useCallback(async () => {
+    setAllNetworksChanged?.(true);
+    await run({ alwaysSetState: true });
+  }, [setAllNetworksChanged, run]);
+
   return (
     <Stack mt="$4">
       {!allNetworkItem || searchText?.trim() ? null : (
@@ -134,12 +139,7 @@ const ListHeaderComponent = ({
                       walletId,
                       accountId,
                       indexedAccountId,
-                      onNetworksChanged: async () => {
-                        if (allNetworksChanged) {
-                          allNetworksChanged.current = true;
-                        }
-                        await run();
-                      },
+                      onNetworksChanged: handleNetworksChange,
                     });
                   }
                 },
@@ -168,7 +168,7 @@ type IEditableChainSelectorContentProps = {
   onAddCustomNetwork?: () => void;
   onEditCustomNetwork?: (network: IServerNetwork) => void;
   onFrequentlyUsedItemsChange?: (networks: IServerNetwork[]) => void;
-  allNetworksChanged?: React.MutableRefObject<boolean>;
+  setAllNetworksChanged?: (value: boolean) => void;
 };
 
 export const EditableChainSelectorContent = ({
@@ -186,7 +186,7 @@ export const EditableChainSelectorContent = ({
   isEditMode,
   allNetworkItem,
   onFrequentlyUsedItemsChange,
-  allNetworksChanged,
+  setAllNetworksChanged,
 }: IEditableChainSelectorContentProps) => {
   const intl = useIntl();
   const { bottom } = useSafeAreaInsets();
@@ -505,7 +505,7 @@ export const EditableChainSelectorContent = ({
                   walletId={walletId}
                   accountId={accountId}
                   indexedAccountId={indexedAccountId}
-                  allNetworksChanged={allNetworksChanged}
+                  setAllNetworksChanged={setAllNetworksChanged}
                 />
               }
               renderSectionHeader={renderSectionHeader}
