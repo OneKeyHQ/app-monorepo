@@ -262,7 +262,7 @@ function Dashboard({
         borderWidth={StyleSheet.hairlineWidth}
         borderColor="$borderSubdued"
         borderRadius="$3"
-        onPress={toEarnRewardPage}
+        // onPress={toEarnRewardPage}
       >
         <XStack ai="center" jc="space-between">
           <SizableText size="$headingMd">
@@ -273,7 +273,15 @@ function Dashboard({
         <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
         </SizableText>
-        <YStack gap="$2" pt="$4">
+        <XStack pt="$4" gap="$2.5" ai="center">
+          <XStack>
+            <Icon size="$4" name="GiftOutline" color="$iconSubdued" />
+          </XStack>
+          <SizableText size="$bodyMd" color="$textSubdued">
+            {intl.formatMessage({ id: ETranslations.referral_no_reward })}
+          </SizableText>
+        </XStack>
+        {/* <YStack gap="$2" pt="$4">
           <XStack gap="$2">
             <Token size="xs" networkId="evm--1" />
             <NumberSizeableText
@@ -295,7 +303,7 @@ function Dashboard({
               0.1
             </NumberSizeableText>
           </XStack>
-        </YStack>
+        </YStack> */}
       </YStack>
       <YStack
         px="$5"
