@@ -1,3 +1,4 @@
+import type { PropsWithChildren } from 'react';
 import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
@@ -11,6 +12,7 @@ import {
   IconButton,
   NumberSizeableText,
   Page,
+  Popover,
   Progress,
   SizableText,
   Spinner,
@@ -28,6 +30,15 @@ import { ETranslations } from '@onekeyhq/shared/src/locale';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
 import { EModalReferFriendsRoutes } from '@onekeyhq/shared/src/routes';
+
+function PopoverLine({ children }: PropsWithChildren) {
+  return (
+    <XStack gap="$3" ai="center">
+      <Stack w="$1.5" h="$1.5" bg="$textSubdued" borderRadius="$full" />
+      <SizableText size="$bodyLg">{children}</SizableText>
+    </XStack>
+  );
+}
 
 function ShareCode({
   inviteUrl,
@@ -184,21 +195,43 @@ function Dashboard({
               id: ETranslations.referral_total_reward,
             })}
           </SizableText>
-          <NumberSizeableText
-            pb={1}
-            color="$textSuccess"
-            formatter="balance"
-            size="$bodyLgMedium"
-            textDecorationLine="underline"
-            textDecorationColor="$textSuccess"
-            textDecorationStyle="dotted"
-            formatterOptions={{ tokenSymbol: 'USD' }}
-            style={{
-              textUnderlineOffset: 4,
-            }}
-          >
-            {totalRewards}
-          </NumberSizeableText>
+          <Popover
+            title={intl.formatMessage({
+              id: ETranslations.referral_total_reward,
+            })}
+            renderTrigger={
+              <NumberSizeableText
+                pb={1}
+                color="$textSuccess"
+                formatter="balance"
+                size="$bodyLgMedium"
+                cursor="pointer"
+                textDecorationLine="underline"
+                textDecorationColor="$textSuccess"
+                textDecorationStyle="dotted"
+                formatterOptions={{ tokenSymbol: 'USD' }}
+                style={{
+                  textUnderlineOffset: 4,
+                }}
+              >
+                {totalRewards}
+              </NumberSizeableText>
+            }
+            renderContent={
+              <Stack gap="$2.5" p="$5">
+                <PopoverLine>
+                  {intl.formatMessage({
+                    id: ETranslations.referral_total_reward_pop1,
+                  })}
+                </PopoverLine>
+                <PopoverLine>
+                  {intl.formatMessage({
+                    id: ETranslations.referral_total_reward_pop2,
+                  })}
+                </PopoverLine>
+              </Stack>
+            }
+          />
         </XStack>
         <YStack gap="$1">
           <SizableText size="$bodyMd" color="$textSubdued" flexShrink={1}>
