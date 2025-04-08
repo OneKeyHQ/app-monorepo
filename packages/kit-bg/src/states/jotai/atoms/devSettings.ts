@@ -60,12 +60,9 @@ export const {
       webviewDebuggingEnabled: false,
       showOneKeyId: false,
       showCloudBackupSunsettingAlert: false,
-      usePrimeSandboxPayment: false,
       strictSignatureAlert: false,
-
       showPrimeTest: true,
       usePrimeSandboxPayment: platformEnv.isDev,
-
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,
