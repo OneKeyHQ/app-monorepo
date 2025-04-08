@@ -161,8 +161,10 @@ export function useSwapInit(params?: ISwapInitParams) {
               const providerInitData: ISwapProviderManager = {
                 providerInfo,
                 enable,
+                serviceDisable: provider.providerServiceDisable,
                 supportNetworks: provider.supportSingleSwapNetworks,
                 disableNetworks: [],
+                serviceDisableNetworks: provider.serviceDisableNetworks,
               };
               return providerInitData;
             },
@@ -186,8 +188,10 @@ export function useSwapInit(params?: ISwapInitParams) {
                 const providerInitData: ISwapProviderManager = {
                   providerInfo,
                   enable,
+                  serviceDisable: provider.providerServiceDisable,
                   supportNetworks: provider.supportSingleSwapNetworks,
                   disableNetworks: [],
+                  serviceDisableNetworks: provider.serviceDisableNetworks,
                 };
                 return providerInitData;
               },
@@ -207,7 +211,9 @@ export function useSwapInit(params?: ISwapInitParams) {
               ),
           );
           if (findNoProvider.length) {
-            const syncNoProviderData = swapProviderManagerSimpleDb.filter(
+            const simpleDbSwapProviderManager =
+              await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
+            const syncNoProviderData = simpleDbSwapProviderManager.filter(
               (provider) =>
                 !findNoProvider.find(
                   (p) =>
@@ -218,6 +224,28 @@ export function useSwapInit(params?: ISwapInitParams) {
               syncNoProviderData,
             );
           }
+          // update serviceDisable
+          const simpleDbCurrentSwapProviderManager =
+            await backgroundApiProxy.simpleDb.swapConfigs.getSwapProviderManager();
+          const syncServiceDisable = simpleDbCurrentSwapProviderManager.map(
+            (provider) => {
+              const findProvider = swapProviderManagerFromServer.find(
+                (p) =>
+                  p.providerInfo.provider === provider.providerInfo.provider,
+              );
+              if (findProvider) {
+                return {
+                  ...provider,
+                  serviceDisable: findProvider.providerServiceDisable,
+                  serviceDisableNetworks: findProvider.serviceDisableNetworks,
+                };
+              }
+              return provider;
+            },
+          );
+          await backgroundApiProxy.simpleDb.swapConfigs.setSwapProviderManager(
+            syncServiceDisable,
+          );
         }
         // bridgeProviderManager
         if (!bridgeProviderManagerSimpleDb) {
@@ -228,6 +256,7 @@ export function useSwapInit(params?: ISwapInitParams) {
               return {
                 providerInfo,
                 enable,
+                serviceDisable: provider.providerServiceDisable,
               };
             },
           );
@@ -250,6 +279,7 @@ export function useSwapInit(params?: ISwapInitParams) {
                 return {
                   providerInfo,
                   enable,
+                  serviceDisable: provider.providerServiceDisable,
                 };
               },
             );
@@ -265,8 +295,10 @@ export function useSwapInit(params?: ISwapInitParams) {
               ),
           );
           if (findNoBridgeProvider.length) {
+            const simpleDbBridgeProviderManager =
+              await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
             const syncNoBridgeProviderData =
-              bridgeProviderManagerSimpleDb.filter(
+              simpleDbBridgeProviderManager.filter(
                 (provider) =>
                   !findNoBridgeProvider.find(
                     (p) =>
@@ -278,6 +310,27 @@ export function useSwapInit(params?: ISwapInitParams) {
               syncNoBridgeProviderData,
             );
           }
+          // update serviceDisable
+          const simpleDbCurrentBridgeProviderManager =
+            await backgroundApiProxy.simpleDb.swapConfigs.getBridgeProviderManager();
+          const syncServiceDisable = simpleDbCurrentBridgeProviderManager.map(
+            (provider) => {
+              const findProvider = swapProviderManagerFromServer.find(
+                (p) =>
+                  p.providerInfo.provider === provider.providerInfo.provider,
+              );
+              if (findProvider) {
+                return {
+                  ...provider,
+                  serviceDisable: findProvider.providerServiceDisable,
+                };
+              }
+              return provider;
+            },
+          );
+          await backgroundApiProxy.simpleDb.swapConfigs.setBridgeProviderManager(
+            syncServiceDisable,
+          );
         }
         void fetchSyncSwapProviderManager(true);
       }

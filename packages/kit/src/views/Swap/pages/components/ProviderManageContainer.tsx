@@ -81,10 +81,11 @@ const ProviderManageContainer = ({
     onSaved();
   }, [onSaved, providerManageNewData, isBridge]);
   return (
-    <YStack gap="$2">
+    <YStack gap="$4">
       {isBridge
         ? providerManageNewData.map((item) => (
             <ProviderSwitch
+              serviceDisable={item.serviceDisable}
               key={item.providerInfo.provider}
               providerInfo={item.providerInfo}
               providerEnable={item.enable}
@@ -98,6 +99,7 @@ const ProviderManageContainer = ({
               key={item.providerInfo.provider}
               providerInfo={item.providerInfo}
               providerEnable={item.enable}
+              serviceDisable={!!item.serviceDisable}
               providerSupportNetworks={item.supportNetworks ?? []}
               providerDisableNetworks={item.disableNetworks ?? []}
               onProviderSwitchEnable={(enable) => {
@@ -112,7 +114,7 @@ const ProviderManageContainer = ({
               }}
             />
           ))}
-      <Button loading={isSaving} variant="destructive" onPress={() => onSave()}>
+      <Button loading={isSaving} variant="primary" onPress={() => onSave()}>
         {intl.formatMessage({ id: ETranslations.action_save })}
       </Button>
     </YStack>

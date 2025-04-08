@@ -126,17 +126,21 @@ export interface ISwapProviderInfo {
 }
 export interface ISwapServiceProvider {
   providerInfo: ISwapProviderInfo;
+  providerServiceDisable?: boolean;
   isSupportSingleSwap?: boolean;
   isSupportCrossChain?: boolean;
   supportSingleSwapNetworks?: ISwapNetwork[];
   supportCrossChainNetworks?: ISwapNetwork[];
+  serviceDisableNetworks?: ISwapNetwork[];
 }
 
 export interface ISwapProviderManager {
   providerInfo: ISwapProviderInfo;
   enable: boolean;
+  serviceDisable?: boolean;
   supportNetworks?: ISwapNetwork[];
   disableNetworks?: ISwapNetwork[];
+  serviceDisableNetworks?: ISwapNetwork[];
 }
 
 export const mevSwapNetworks = ['evm--1', 'evm--56', 'sui--mainnet'];

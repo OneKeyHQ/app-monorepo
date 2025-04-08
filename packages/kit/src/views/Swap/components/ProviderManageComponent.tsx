@@ -15,6 +15,7 @@ import type { ISwapNetwork } from '@onekeyhq/shared/types/swap/types';
 interface IProviderFoldProps {
   providerInfo: ISwapProviderInfo;
   providerEnable: boolean;
+  serviceDisable: boolean;
   providerSupportNetworks: ISwapNetwork[];
   providerDisableNetworks: ISwapNetwork[];
   onProviderSwitchEnable: (enable: boolean) => void;
@@ -26,6 +27,7 @@ interface IProviderSwitchProps {
   providerEnable: boolean;
   withNetwork?: boolean;
   openFold?: boolean;
+  serviceDisable?: boolean;
   onProviderSwitchEnable: (enable: boolean) => void;
 }
 
@@ -34,11 +36,12 @@ export const ProviderSwitch = ({
   providerEnable,
   onProviderSwitchEnable,
   withNetwork,
+  serviceDisable,
   openFold,
 }: IProviderSwitchProps) => {
   return (
-    <XStack justifyContent="space-between">
-      <XStack alignItems="center">
+    <XStack justifyContent="space-between" mb={openFold ? '$2' : '$0'}>
+      <XStack alignItems="center" gap="$2">
         <Image
           source={{ uri: providerInfo.logo }}
           borderRadius="$1"
@@ -49,13 +52,21 @@ export const ProviderSwitch = ({
           {providerInfo.providerName}
         </SizableText>
       </XStack>
-      <XStack alignItems="center">
+      <XStack alignItems="center" gap="$2">
         {!openFold ? (
-          <Switch
-            value={providerEnable}
-            size="small"
-            onChange={onProviderSwitchEnable}
-          />
+          <Stack
+            onPress={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <Switch
+              value={serviceDisable ? false : providerEnable}
+              size="small"
+              disabled={serviceDisable}
+              onChange={onProviderSwitchEnable}
+            />
+          </Stack>
         ) : null}
         {withNetwork ? (
           <Stack animation="quick" rotate={openFold ? '180deg' : '0deg'}>
@@ -76,6 +87,7 @@ interface INetworkSwitchProps {
   networkName: string;
   logo?: string;
   enable: boolean;
+  serviceDisable?: boolean;
   onNetworkSwitch: (networkId: string, value: boolean) => void;
 }
 
@@ -84,19 +96,21 @@ const NetworkSwitch = ({
   networkName,
   logo,
   enable,
+  serviceDisable,
   onNetworkSwitch,
 }: INetworkSwitchProps) => {
   return (
     <XStack justifyContent="space-between">
-      <XStack alignItems="center">
-        <Image source={{ uri: logo }} w="$4" h="$4" />
+      <XStack alignItems="center" gap="$2">
+        <Image source={{ uri: logo }} borderRadius="$full" w="$4" h="$4" />
         <SizableText size="$bodyLg" color="$textSubdued">
           {networkName}
         </SizableText>
       </XStack>
       <Switch
         size="small"
-        value={enable}
+        value={serviceDisable ? false : enable}
+        disabled={serviceDisable}
         onChange={(value) => {
           onNetworkSwitch(networkId, value);
         }}
@@ -108,16 +122,17 @@ const NetworkSwitch = ({
 const ProviderFold = ({
   providerInfo,
   providerEnable,
+  serviceDisable,
   providerDisableNetworks,
   providerSupportNetworks,
   onProviderSwitchEnable,
   onProviderNetworkEnable,
 }: IProviderFoldProps) => {
   const parsSupportNetwork = useMemo(() => {
-    const evmNet = providerSupportNetworks.filter((p) =>
+    const evmNet = providerSupportNetworks?.filter((p) =>
       p.networkId.startsWith('evm'),
     );
-    const noEvmNet = providerSupportNetworks.filter(
+    const noEvmNet = providerSupportNetworks?.filter(
       (p) => !p.networkId.startsWith('evm'),
     );
     let res = noEvmNet.map((n) => ({
@@ -126,7 +141,7 @@ const ProviderFold = ({
       networkId: n.networkId,
       enable: true,
     }));
-    if (evmNet) {
+    if (evmNet?.length) {
       const ethNet = evmNet.find((n) => n.networkId === 'evm--1');
       res = [
         {
@@ -148,30 +163,44 @@ const ProviderFold = ({
       }
       return net;
     });
-
     return res;
   }, [providerDisableNetworks, providerSupportNetworks]);
   return (
     <Accordion type="single" collapsible>
       <Accordion.Item value="1">
-        <Accordion.Trigger>
+        <Accordion.Trigger
+          unstyled
+          borderWidth={0}
+          bg="$transparent"
+          p="$0"
+          disabled={serviceDisable}
+          cursor={serviceDisable ? 'not-allowed' : 'pointer'}
+        >
           {({ open }: { open: boolean }) => (
             <ProviderSwitch
               providerEnable={providerEnable}
               providerInfo={providerInfo}
-              withNetwork
+              withNetwork={parsSupportNetwork?.length > 0}
               onProviderSwitchEnable={onProviderSwitchEnable}
               openFold={open}
+              serviceDisable={serviceDisable}
             />
           )}
         </Accordion.Trigger>
         <Accordion.HeightAnimator animation="quick">
-          <Accordion.Content>
+          <Accordion.Content
+            p="$0"
+            animation="quick"
+            gap="$2"
+            enterStyle={{ opacity: 0 }}
+            exitStyle={{ opacity: 0 }}
+          >
             {parsSupportNetwork.map((net) => (
               <NetworkSwitch
                 key={`${providerInfo.provider} - ${net.networkId}`}
                 networkId={net.networkId}
                 enable={net.enable}
+                logo={net.logo}
                 networkName={net.networkName}
                 onNetworkSwitch={onProviderNetworkEnable}
               />
