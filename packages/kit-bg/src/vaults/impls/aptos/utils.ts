@@ -37,11 +37,9 @@ import type {
   AccountAddressInput,
   AnyNumber,
   EntryFunctionABI,
-  EntryFunctionArgumentTypes,
   EntryFunctionPayloadResponse,
   InputGenerateTransactionPayloadData,
   MoveResource,
-  SimpleEntryFunctionArgumentTypes,
   TransactionResponse,
   TypeTag,
 } from '@aptos-labs/ts-sdk';

@@ -84,17 +84,22 @@ export function HomePageView({
   const [isHide, setIsHide] = useState(false);
 
   const result = usePromiseResult(async () => {
+    if (!network) {
+      return;
+    }
     const [v, a] = await Promise.all([
       backgroundApiProxy.serviceNetwork.getVaultSettings({
         networkId: network?.id ?? '',
       }),
-      backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
-        {
-          networkId: network?.id ?? '',
-          indexedAccountId: indexedAccount?.id ?? '',
-          excludeEmptyAccount: true,
-        },
-      ),
+      indexedAccount
+        ? backgroundApiProxy.serviceAccount.getNetworkAccountsInSameIndexedAccountIdWithDeriveTypes(
+            {
+              networkId: network?.id ?? '',
+              indexedAccountId: indexedAccount?.id ?? '',
+              excludeEmptyAccount: true,
+            },
+          )
+        : undefined,
     ]);
     return {
       vaultSettings: v,

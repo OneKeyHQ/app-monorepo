@@ -413,6 +413,19 @@ export function compareDeviceVersions({
   );
 }
 
+function getRawDeviceId({
+  device,
+  features,
+}: {
+  device: SearchDevice;
+  features: IOneKeyDeviceFeatures;
+}) {
+  // SearchDevice.deviceId is undefined when BLE connecting
+  // const rawDeviceId = device.deviceId || features.device_id || '';
+  const rawDeviceId = device.deviceId || features.device_id || '';
+  return rawDeviceId;
+}
+
 export default {
   dbDeviceToSearchDevice,
   getDeviceVersion,
@@ -436,4 +449,5 @@ export default {
   parseLocalDeviceVersions,
   parseServerVersionInfos,
   compareDeviceVersions,
+  getRawDeviceId,
 };

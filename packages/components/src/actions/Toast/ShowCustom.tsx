@@ -18,7 +18,6 @@ import { useSafeAreaInsets } from '../../hooks/useLayout';
 import { Stack, ThemeableStack } from '../../primitives';
 import { Trigger } from '../Trigger';
 
-import type { DismissableProps } from '@tamagui/dismissable';
 import type { GestureResponderEvent } from 'react-native';
 
 export type IShowToasterProps = PropsWithChildren<{

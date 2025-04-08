@@ -37,7 +37,7 @@ function MoreActionButtonCmp() {
   const onLock = useOnLock();
   const scanQrCode = useScanQrCode();
   const {
-    activeAccount: { account },
+    activeAccount: { account, network },
   } = useActiveAccount({ num: 0 });
   const [allTokens] = useAllTokenListAtom();
   const [map] = useAllTokenListMapAtom();
@@ -52,6 +52,7 @@ function MoreActionButtonCmp() {
         handlers: scanQrCode.PARSE_HANDLER_NAMES.all,
         autoHandleResult: true,
         account,
+        network,
         tokens: {
           data: allTokens.tokens,
           keys: allTokens.keys,
@@ -59,7 +60,7 @@ function MoreActionButtonCmp() {
         },
       });
     },
-    [scanQrCode, account, allTokens, map],
+    [scanQrCode, account, allTokens, map, network],
   );
 
   const handleSettings = useCallback(
@@ -173,28 +174,6 @@ function MoreActionButtonCmp() {
             },
             ...popupMenu,
           ].filter(Boolean),
-        },
-        {
-          items: devSettings.settings?.showOneKeyId
-            ? [
-                {
-                  label: 'OneKey ID',
-                  icon: 'PeopleOutline',
-                  onPress: async () => {
-                    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
-                  },
-                  testID: 'onekey_id',
-                },
-                {
-                  label: intl.formatMessage({
-                    id: ETranslations.id_refer_a_friend,
-                  }),
-                  icon: 'GiftOutline',
-                  onPress: toReferFriendsPage,
-                  testID: 'refer-a-friend',
-                },
-              ]
-            : [],
         },
         {
           items: !isShowMyOneKeyOnTabbar

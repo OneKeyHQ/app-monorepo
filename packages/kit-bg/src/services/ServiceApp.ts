@@ -9,11 +9,6 @@ import {
   isAvailable,
   logoutFromGoogleDrive,
 } from '@onekeyhq/shared/src/cloudfs';
-import type { IAppEventBusPayload } from '@onekeyhq/shared/src/eventBus/appEventBus';
-import {
-  EAppEventBusNames,
-  appEventBus,
-} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
@@ -167,11 +162,6 @@ class ServiceApp extends ServiceBase {
   @backgroundMethod()
   async isAppLocked() {
     return appIsLocked.get();
-  }
-
-  @backgroundMethod()
-  async showToast(params: IAppEventBusPayload[EAppEventBusNames.ShowToast]) {
-    appEventBus.emit(EAppEventBusNames.ShowToast, params);
   }
 
   @backgroundMethod()

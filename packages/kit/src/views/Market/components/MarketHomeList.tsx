@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 
 import type {
-  IDragEndParams,
+  IDragEndParamsWithItem,
   IElement,
   IStackStyle,
   ITableColumn,
@@ -208,8 +208,8 @@ function MarketMdColumn({
                   label: intl.formatMessage({
                     id: ETranslations.market_add_to_watchlist,
                   }),
-                  onPress: () => {
-                    actions.addIntoWatchList(coingeckoId);
+                  onPress: async () => {
+                    await actions.addIntoWatchList(coingeckoId);
                     defaultLogger.market.token.addToWatchList({
                       tokenSymbol: coingeckoId,
                       addWatchlistFrom: EWatchlistFrom.catalog,
@@ -221,8 +221,8 @@ function MarketMdColumn({
               label: intl.formatMessage({
                 id: ETranslations.market_move_to_top,
               }),
-              onPress: () => {
-                actions.MoveToTop(coingeckoId);
+              onPress: async () => {
+                await actions.MoveToTop(coingeckoId);
               },
             },
           ].filter(Boolean),
@@ -447,19 +447,30 @@ function BasicMarketHomeList({
           category.coingeckoIds.includes(item.coingeckoId),
         )
       : listData;
+    if (category && category.watchList && category.watchList?.length) {
+      listData.forEach((item) => {
+        item.sortIndex = category?.watchList?.find(
+          (w) => w.coingeckoId === item.coingeckoId,
+        )?.sortIndex;
+      });
+    }
     if (ordered) {
-      return category.coingeckoIds.reduce((prev, coingeckoId) => {
-        const item = filterListData?.find(
-          (i) => i?.coingeckoId === coingeckoId,
-        );
-        if (item) {
-          prev.push(item);
-        }
-        return prev;
-      }, [] as IMarketToken[]);
+      const orderedListData = category.coingeckoIds.reduce(
+        (prev, coingeckoId) => {
+          const item = filterListData?.find(
+            (i) => i?.coingeckoId === coingeckoId,
+          );
+          if (item) {
+            prev.push(item);
+          }
+          return prev;
+        },
+        [] as IMarketToken[],
+      );
+      return orderedListData;
     }
     return filterListData;
-  }, [category.coingeckoIds, listData, ordered]);
+  }, [category, listData, ordered]);
   const { sortedListData, handleSortTypeChange, sortByType, setSortByType } =
     useSortType(filterCoingeckoIdsListData as Record<string, any>[]);
 
@@ -980,11 +991,41 @@ function BasicMarketHomeList({
   }, [gtMd, screenWidth]);
 
   const handleDragEnd = useCallback(
-    ({ data }: IDragEndParams<IMarketToken>) => {
+    ({
+      data,
+      from,
+      to,
+      dragItem,
+      prevItem,
+      nextItem,
+    }: IDragEndParamsWithItem<IMarketToken>) => {
       if (data?.length) {
-        watchListAction.saveWatchList(
-          data.map(({ coingeckoId }) => ({ coingeckoId })),
-        );
+        console.log('MarketHomeList handleDragEnd', {
+          data,
+          from,
+          to,
+          dragItem,
+          prevItem,
+          nextItem,
+        });
+        void watchListAction.sortWatchListItems({
+          target: {
+            coingeckoId: dragItem.coingeckoId,
+            sortIndex: dragItem.sortIndex,
+          },
+          prev: prevItem
+            ? {
+                coingeckoId: prevItem.coingeckoId,
+                sortIndex: prevItem.sortIndex,
+              }
+            : undefined,
+          next: nextItem
+            ? {
+                coingeckoId: nextItem.coingeckoId,
+                sortIndex: nextItem.sortIndex,
+              }
+            : undefined,
+        });
       }
     },
     [watchListAction],

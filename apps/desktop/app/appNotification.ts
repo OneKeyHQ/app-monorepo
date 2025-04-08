@@ -120,9 +120,8 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
     ipcMessageKeys.NOTIFICATION_SHOW,
     async (event, params: INotificationShowParams) => {
       // electron show notification
-      const { notificationId, title, description, icon } = params;
+      const { title, description, icon } = params;
       console.log('NOTIFICATION_SHOW ', params);
-      const uuid = notificationId || generateUUID();
       const notification = new Notification({
         title,
         body: description,
@@ -134,10 +133,11 @@ function init({ APP_NAME, getSafelyMainWindow }: IDesktopSubModuleInitParams) {
 
       notification.on('click', () => {
         logger.info('notification clicked');
-        // 可以在这里处理通知被点击的事件
-        const safelyMainWindow = getSafelyMainWindow();
+
+        // Example usage:
+        // const safelyMainWindow = getSafelyMainWindow();
         // safelyMainWindow?.webContents.send(ipcMessageKeys.NOTIFICATION_CLICKED, uuid);
-        // showMainWindow(); // 例如，显示主窗口
+        // showMainWindow();
       });
 
       notification.on('close', () => {

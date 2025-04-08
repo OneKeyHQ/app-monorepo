@@ -139,6 +139,8 @@ const useParseQRCode = () => {
                 params: {
                   accountId: account.id,
                   networkId: network.id,
+                  activeAccountId: params.account?.id,
+                  activeNetworkId: params.network?.id,
                   isNFT: false,
                   token: nativeToken,
                 },
@@ -197,6 +199,8 @@ const useParseQRCode = () => {
               params: {
                 accountId,
                 networkId,
+                activeAccountId: params.account?.id,
+                activeNetworkId: params.network?.id,
                 isNFT: false,
                 token,
                 address: chainValue.address,

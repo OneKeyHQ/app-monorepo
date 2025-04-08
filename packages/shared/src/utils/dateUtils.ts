@@ -77,12 +77,14 @@ export function formatDate(date: Date | string, options?: IFormatDateOptions) {
     parsedDate = date;
   }
 
-  const locale = appLocale.getLocale();
+  let formatTemplate = options?.formatTemplate || '';
 
-  let formatTemplate = 'yyyy/LL/dd, HH:mm:ss';
-
-  if (['de', 'es', 'en-US', 'fr-FR', 'it-IT', 'uk-UA'].includes(locale)) {
-    formatTemplate = 'LL/dd/yyyy, HH:mm:ss';
+  if (!formatTemplate) {
+    const locale = appLocale.getLocale();
+    formatTemplate = 'yyyy/LL/dd, HH:mm:ss';
+    if (['de', 'es', 'en-US', 'fr-FR', 'it-IT', 'uk-UA'].includes(locale)) {
+      formatTemplate = 'LL/dd/yyyy, HH:mm:ss';
+    }
   }
 
   const currentYear = new Date().getFullYear();

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { Page, XStack, useSafeAreaInsets } from '@onekeyhq/components';
 import { HeaderRight } from '@onekeyhq/kit/src/components/TabPageHeader/HeaderRight';
@@ -15,20 +15,17 @@ import DashboardContent from './DashboardContent';
 
 function Dashboard() {
   const { top } = useSafeAreaInsets();
-  const historyButton = useMemo(
-    () =>
-      !platformEnv.isExtension && !platformEnv.isWeb
-        ? () => {
-            return (
-              <HeaderRight
-                sceneName={EAccountSelectorSceneName.discover}
-                tabRoute={ETabRoutes.Discovery}
-              >
-                <HistoryIconButton />
-              </HeaderRight>
-            );
-          }
-        : undefined,
+  const historyButton = useCallback(
+    () => (
+      <HeaderRight
+        sceneName={EAccountSelectorSceneName.discover}
+        tabRoute={ETabRoutes.Discovery}
+      >
+        {!platformEnv.isExtension && !platformEnv.isWeb ? (
+          <HistoryIconButton />
+        ) : null}
+      </HeaderRight>
+    ),
     [],
   );
 

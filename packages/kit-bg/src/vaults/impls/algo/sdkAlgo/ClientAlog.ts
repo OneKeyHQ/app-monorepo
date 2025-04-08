@@ -1,10 +1,6 @@
 import type { IBackgroundApi } from '@onekeyhq/kit-bg/src/apis/IBackgroundApi';
 
-import type {
-  IAlgoAccountInformation,
-  ISdkAlgoAccountInformation,
-  ISdkAlgoSuggestedParams,
-} from '.';
+import type { IAlgoAccountInformation, ISdkAlgoSuggestedParams } from '.';
 
 export enum EAlgodMethods {
   GET_TRANSACTION_PARAMS = 'getTransactionParams',

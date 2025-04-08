@@ -63,14 +63,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   override async getExportedSecretKey(
     query: ICoreApiGetExportedSecretKey,
   ): Promise<string> {
-    const {
-      networkInfo,
-
-      password,
-      keyType,
-      credentials,
-      addressEncoding,
-    } = query;
+    const { password, keyType, credentials } = query;
     console.log(
       'ExportSecretKeys >>>> algo',
       this.baseGetCredentialsType({ credentials }),
