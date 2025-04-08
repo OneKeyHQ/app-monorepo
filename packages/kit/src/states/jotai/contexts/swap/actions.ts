@@ -591,11 +591,9 @@ class ContentJotaiActionsSwap extends ContextJotaiActionsBase {
                   )
                   ?.filter(
                     (q) =>
-                      !q.eventId ||
-                      (quoteEventTotalCount.eventId &&
-                        quoteResultData?.data?.[0]?.eventId &&
-                        quoteEventTotalCount.eventId ===
-                          quoteResultData.data[0].eventId),
+                      quoteEventTotalCount.eventId &&
+                      q.eventId &&
+                      quoteEventTotalCount.eventId === q.eventId,
                   );
                 set(swapQuoteListAtom(), [...newQuoteList]);
               }

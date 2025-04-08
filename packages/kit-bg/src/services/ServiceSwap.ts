@@ -31,6 +31,10 @@ import { equalsIgnoreCase } from '@onekeyhq/shared/src/utils/stringUtils';
 import { equalTokenNoCaseSensitive } from '@onekeyhq/shared/src/utils/tokenUtils';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 import type { ESigningScheme } from '@onekeyhq/shared/types/message';
+import type {
+  ISwapProviderManager,
+  ISwapServiceProvider,
+} from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import {
   maxRecentTokenPairs,
   swapHistoryStateFetchInterval,
@@ -488,6 +492,14 @@ export default class ServiceSwap extends ServiceBase {
     userMarketPriceRate?: string;
   }): Promise<IFetchQuoteResult[]> {
     await this.cancelFetchQuotes();
+    const denyCrossChainProvider = await this.getDenyCrossChainProvider(
+      fromToken.networkId,
+      toToken.networkId,
+    );
+    const denySingleSwapProvider = await this.getDenySingleSwapProvider(
+      fromToken.networkId,
+      toToken.networkId,
+    );
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -508,6 +520,8 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       toTokenAmount,
       userMarketPriceRate,
+      denyCrossChainProvider,
+      denySingleSwapProvider,
     };
     this._quoteAbortController = new AbortController();
     const client = await this.getClient(EServiceEndpointEnum.Swap);
@@ -583,6 +597,14 @@ export default class ServiceSwap extends ServiceBase {
     userMarketPriceRate?: string;
   }) {
     await this.removeQuoteEventSourceListeners();
+    const denyCrossChainProvider = await this.getDenyCrossChainProvider(
+      fromToken.networkId,
+      toToken.networkId,
+    );
+    const denySingleSwapProvider = await this.getDenySingleSwapProvider(
+      fromToken.networkId,
+      toToken.networkId,
+    );
     const params: IFetchQuotesParams = {
       fromTokenAddress: fromToken.contractAddress,
       toTokenAddress: toToken.contractAddress,
@@ -603,6 +625,8 @@ export default class ServiceSwap extends ServiceBase {
       kind,
       toTokenAmount,
       userMarketPriceRate,
+      denyCrossChainProvider,
+      denySingleSwapProvider,
     };
     const swapEventUrl = (
       await this.getClient(EServiceEndpointEnum.Swap)
@@ -737,6 +761,48 @@ export default class ServiceSwap extends ServiceBase {
         });
       });
     }
+  }
+
+  async getDenyCrossChainProvider(fromNetworkId: string, toNetworkId: string) {
+    if (fromNetworkId === toNetworkId) {
+      return undefined;
+    }
+    const { bridgeProviderManager } = await inAppNotificationAtom.get();
+    const denyBridges = bridgeProviderManager.filter((item) => !item.enable);
+    if (!denyBridges?.length) {
+      return undefined;
+    }
+    return denyBridges.map((item) => item.providerInfo.provider).join(',');
+  }
+
+  async getDenySingleSwapProvider(fromNetworkId: string, toNetworkId: string) {
+    if (fromNetworkId !== toNetworkId) {
+      return undefined;
+    }
+    const { swapProviderManager } = await inAppNotificationAtom.get();
+    const denyDexs = swapProviderManager.filter((item) => !item.enable);
+    let denyDexArr = denyDexs?.map((item) => item.providerInfo.provider);
+    console.log('swap__denyDexs', denyDexArr);
+    const denyDexNetworks = swapProviderManager.filter((item) => {
+      if (item.enable) {
+        const netDisEnable = item.disableNetworks?.find(
+          (net) => net.networkId === fromNetworkId,
+        );
+        if (netDisEnable) {
+          return true;
+        }
+        return false;
+      }
+      return false;
+    });
+    if (denyDexNetworks?.length) {
+      denyDexArr = [
+        ...(denyDexArr ?? []),
+        ...denyDexNetworks.map((item) => item.providerInfo.provider),
+      ];
+    }
+    console.log('swap__denyDexArr--1-', denyDexArr);
+    return denyDexArr?.join(',');
   }
 
   @backgroundMethod()
@@ -912,6 +978,40 @@ export default class ServiceSwap extends ServiceBase {
       ...pre,
       swapApprovingTransaction: item,
     }));
+  }
+
+  // --- swap provider manager
+  @backgroundMethod()
+  async getSwapProviderManager() {
+    const client = await this.getClient(EServiceEndpointEnum.Swap);
+    const resp = await client.get<{
+      data: ISwapServiceProvider[];
+    }>(`/swap/v1/providers/list`);
+    return resp.data.data;
+  }
+
+  @backgroundMethod()
+  async updateSwapProviderManager(
+    data: ISwapProviderManager[],
+    isBridge: boolean,
+  ) {
+    if (isBridge) {
+      await this.backgroundApi.simpleDb.swapConfigs.setBridgeProviderManager(
+        data,
+      );
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        bridgeProviderManager: data,
+      }));
+    } else {
+      await this.backgroundApi.simpleDb.swapConfigs.setSwapProviderManager(
+        data,
+      );
+      await inAppNotificationAtom.set((pre) => ({
+        ...pre,
+        swapProviderManager: data,
+      }));
+    }
   }
 
   // --- swap history

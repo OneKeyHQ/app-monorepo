@@ -1,3 +1,4 @@
+import type { ISwapProviderManager } from '@onekeyhq/shared/types/swap/SwapProvider.constants';
 import type {
   IFetchLimitOrderRes,
   ISwapApproveTransaction,
@@ -15,6 +16,8 @@ export type IInAppNotificationAtom = {
   swapApprovingTransaction: ISwapApproveTransaction | undefined;
   swapRecentTokenPairs: { fromToken: ISwapToken; toToken: ISwapToken }[];
   swapPercentageInputStageShowForNative: boolean;
+  swapProviderManager: ISwapProviderManager[];
+  bridgeProviderManager: ISwapProviderManager[];
 };
 export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
   globalAtom<IInAppNotificationAtom>({
@@ -27,5 +30,7 @@ export const { target: inAppNotificationAtom, use: useInAppNotificationAtom } =
       swapApprovingTransaction: undefined,
       swapRecentTokenPairs: [],
       swapPercentageInputStageShowForNative: false,
+      swapProviderManager: [],
+      bridgeProviderManager: [],
     },
   });

@@ -25,7 +25,6 @@ export interface IDevSettings {
   allowAddSameHDWallet?: boolean;
   // show trading view
   showTradingView?: boolean;
-  showOneKeyId?: boolean;
   showPrimeTest?: boolean;
   usePrimeSandboxPayment?: boolean;
   // strict signature alert display
@@ -56,7 +55,6 @@ export const {
       disableSolanaPriorityFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
-      showOneKeyId: false,
       strictSignatureAlert: false,
 
       showPrimeTest: true,
