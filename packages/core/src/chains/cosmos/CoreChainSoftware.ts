@@ -145,7 +145,7 @@ export default class CoreChainSoftware extends CoreChainApiBase {
   ): Promise<ICoreApiGetAddressItem> {
     const { publicKey, networkInfo } = query;
 
-    const { baseAddress, address } = pubkeyToAddressDetail({
+    const { address } = pubkeyToAddressDetail({
       curve,
       publicKey,
       addressPrefix: networkInfo?.addressPrefix,

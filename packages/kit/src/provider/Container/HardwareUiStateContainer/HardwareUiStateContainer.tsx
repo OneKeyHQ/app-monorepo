@@ -690,7 +690,7 @@ function HardwareUiStateContainerCmpControlled() {
   );
 }
 
-function HardwareUiStateContainerCmp() {
+export function HardwareUiStateContainerCmp() {
   const [state] = useHardwareUiStateAtom();
   const stateRef = useRef(state);
   stateRef.current = state;

@@ -1,6 +1,5 @@
 import { debounce, isNil, uniqBy } from 'lodash';
 
-import type { IAddressItem } from '@onekeyhq/kit/src/views/AddressBook/type';
 import type { IBrowserBookmark } from '@onekeyhq/kit/src/views/Discovery/types';
 import {
   backgroundClass,
@@ -41,7 +40,6 @@ import type {
 
 import localDb from '../../dbs/local/localDb';
 import { ELocalDBStoreNames } from '../../dbs/local/localDBStoreNames';
-import simpleDb from '../../dbs/simple/simpleDb';
 import {
   addressBookPersistAtom,
   devSettingsPersistAtom,

@@ -19,7 +19,6 @@ import {
   EModalSignatureConfirmRoutes,
 } from '@onekeyhq/shared/src/routes';
 import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
-import type { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 import type { IFeeInfoUnit } from '@onekeyhq/shared/types/fee';
 import type { IStakingInfo } from '@onekeyhq/shared/types/staking';
 import type { ISwapTxInfo } from '@onekeyhq/shared/types/swap/types';

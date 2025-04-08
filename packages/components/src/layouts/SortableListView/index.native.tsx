@@ -17,12 +17,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 
 import sortableListViewUtils from './sortableListViewUtils';
 
-import type {
-  IDragEndParams,
-  IDragEndParamsWithItem,
-  ISortableListViewProps,
-  ISortableListViewRef,
-} from './types';
+import type { ISortableListViewProps, ISortableListViewRef } from './types';
 import type { StyleProp, ViewStyle } from 'react-native';
 import type {
   DragEndParams,
