@@ -32,9 +32,7 @@ function ShareCode() {
   const { copyText } = useClipboard();
 
   const { result: myReferralCode } = usePromiseResult(
-    async () =>
-      (await backgroundApiProxy.serviceReferralCode.getMyReferralCode()) ||
-      'TEST_CODE',
+    async () => backgroundApiProxy.serviceReferralCode.getMyReferralCode(),
     [],
     {
       initResult: '',

@@ -146,8 +146,7 @@ export const useReferFriends = () => {
         await backgroundApiProxy.serviceReferralCode.isBindInviteCode();
       const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
       const myReferralCode =
-        (await backgroundApiProxy.serviceReferralCode.getMyReferralCode()) ||
-        'TEST_CODE';
+        await backgroundApiProxy.serviceReferralCode.getMyReferralCode();
 
       const handleConfirm = () => {
         if (isLogin) {
