@@ -24,7 +24,6 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
-import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
@@ -92,7 +91,6 @@ function MoreActionButtonCmp() {
   );
 
   const { toReferFriendsPage } = useReferFriends();
-  const { loginOneKeyId } = useLoginOneKeyId();
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       const routeInfo = {
@@ -146,9 +144,6 @@ function MoreActionButtonCmp() {
       title={intl.formatMessage({ id: ETranslations.explore_options })}
       renderTrigger={
         <HeaderIconButton
-          tooltipProps={{
-            placement: 'bottom',
-          }}
           title={intl.formatMessage({ id: ETranslations.explore_options })}
           icon="DotGridOutline"
         />
@@ -174,6 +169,20 @@ function MoreActionButtonCmp() {
             },
             ...popupMenu,
           ].filter(Boolean),
+        },
+        {
+          items: !isShowMyOneKeyOnTabbar
+            ? [
+                {
+                  label: intl.formatMessage({
+                    id: ETranslations.id_refer_a_friend,
+                  }),
+                  icon: 'GiftOutline',
+                  onPress: toReferFriendsPage,
+                  testID: 'refer-a-friend',
+                },
+              ]
+            : [],
         },
         {
           items: !isShowMyOneKeyOnTabbar
