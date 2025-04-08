@@ -61,7 +61,11 @@ export default function HardwareSalesReward() {
   );
   return (
     <Page scrollEnabled>
-      <Page.Header title="Hardware sales reward" />
+      <Page.Header
+        title={intl.formatMessage({
+          id: ETranslations.referral_referred_type_3,
+        })}
+      />
       <Page.Body>
         <SectionList
           ListHeaderComponent={
