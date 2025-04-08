@@ -16,8 +16,6 @@ import {
   EChangeHistoryEntityType,
 } from '@onekeyhq/shared/src/types/changeHistory';
 
-import type { CompositeNavigationProp } from '@react-navigation/native';
-
 export function AccountRenameButton({
   name,
   wallet,
