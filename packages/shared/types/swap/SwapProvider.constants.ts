@@ -1,5 +1,9 @@
 import timerUtils from '@onekeyhq/shared/src/utils/timerUtils';
-import type { ISwapToken } from '@onekeyhq/shared/types/swap/types';
+import type {
+  EProtocolOfExchange,
+  ISwapNetwork,
+  ISwapToken,
+} from '@onekeyhq/shared/types/swap/types';
 import { ESwapSlippageSegmentKey } from '@onekeyhq/shared/types/swap/types';
 
 export const swapSlippageItems: {
@@ -112,6 +116,31 @@ export enum ESwapProviderSort {
 
 export enum ESwapProvider {
   Swap1inchFusion = 'Swap1inchFusion',
+}
+
+export interface ISwapProviderInfo {
+  provider: string;
+  protocol: EProtocolOfExchange;
+  logo: string;
+  providerName: string;
+}
+export interface ISwapServiceProvider {
+  providerInfo: ISwapProviderInfo;
+  providerServiceDisable?: boolean;
+  isSupportSingleSwap?: boolean;
+  isSupportCrossChain?: boolean;
+  supportSingleSwapNetworks?: ISwapNetwork[];
+  supportCrossChainNetworks?: ISwapNetwork[];
+  serviceDisableNetworks?: ISwapNetwork[];
+}
+
+export interface ISwapProviderManager {
+  providerInfo: ISwapProviderInfo;
+  enable: boolean;
+  serviceDisable?: boolean;
+  supportNetworks?: ISwapNetwork[];
+  disableNetworks?: ISwapNetwork[];
+  serviceDisableNetworks?: ISwapNetwork[];
 }
 
 export const mevSwapNetworks = ['evm--1', 'evm--56', 'sui--mainnet'];
