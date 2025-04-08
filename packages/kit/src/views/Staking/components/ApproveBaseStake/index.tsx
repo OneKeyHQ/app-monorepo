@@ -841,23 +841,23 @@ export function ApproveBaseStake({
         />,
       );
     }
-      items.push(
-        <CalculationListItem onPress={handleBindOrChangeInviteCode}>
-          <CalculationListItem.Label size="$bodyMd">
-            {intl.formatMessage({
-              id: ETranslations.referral_your_code,
-            })}
-          </CalculationListItem.Label>
-          <XStack alignItems="center" cursor="pointer" mr={-6}>
-            <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
-            <Icon
-              name="ChevronRightSmallOutline"
-              size="$5"
-              color="$iconSubdued"
-            />
-          </XStack>
-        </CalculationListItem>,
-      );
+    items.push(
+      <CalculationListItem onPress={handleBindOrChangeInviteCode}>
+        <CalculationListItem.Label size="$bodyMd">
+          {intl.formatMessage({
+            id: ETranslations.referral_your_code,
+          })}
+        </CalculationListItem.Label>
+        <XStack alignItems="center" cursor="pointer" mr={-6}>
+          <SizableText size="$bodyMdMedium">{inviteCode}</SizableText>
+          <Icon
+            name="ChevronRightSmallOutline"
+            size="$5"
+            color="$iconSubdued"
+          />
+        </XStack>
+      </CalculationListItem>,
+    );
     return items;
   }, [
     amountValue,
