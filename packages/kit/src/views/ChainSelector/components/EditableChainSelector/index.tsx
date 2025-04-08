@@ -9,10 +9,10 @@ import {
   appEventBus,
 } from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
+import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 import type { IServerNetwork } from '@onekeyhq/shared/types';
 
 import { EditableChainSelectorContent } from './ChainSelectorContent';
-import networkUtils from '@onekeyhq/shared/src/utils/networkUtils';
 
 type IEditableChainSelectorProps = {
   mainnetItems: IServerNetwork[];
