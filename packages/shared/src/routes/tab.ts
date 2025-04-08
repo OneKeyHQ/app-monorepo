@@ -21,6 +21,7 @@ export enum ETabRoutes {
   Swap = 'Swap',
   MultiTabBrowser = 'MultiTabBrowser',
   DeviceManagement = 'DeviceManagement',
+  ReferFriends = 'ReferFriends',
 }
 
 export type ITabStackParamList = {
