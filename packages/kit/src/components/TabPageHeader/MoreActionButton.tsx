@@ -173,26 +173,29 @@ function MoreActionButtonCmp() {
           ].filter(Boolean),
         },
         {
-          items: devSettings.settings?.showOneKeyId
-            ? [
-                {
-                  label: 'OneKey ID',
-                  icon: 'PeopleOutline',
-                  onPress: async () => {
-                    await loginOneKeyId({ toOneKeyIdPageOnLoginSuccess: true });
+          items:
+            devSettings.settings?.showOneKeyId && !isShowMyOneKeyOnTabbar
+              ? [
+                  {
+                    label: 'OneKey ID',
+                    icon: 'PeopleOutline',
+                    onPress: async () => {
+                      await loginOneKeyId({
+                        toOneKeyIdPageOnLoginSuccess: true,
+                      });
+                    },
+                    testID: 'onekey_id',
                   },
-                  testID: 'onekey_id',
-                },
-                {
-                  label: intl.formatMessage({
-                    id: ETranslations.id_refer_a_friend,
-                  }),
-                  icon: 'GiftOutline',
-                  onPress: toReferFriendsPage,
-                  testID: 'refer-a-friend',
-                },
-              ]
-            : [],
+                  {
+                    label: intl.formatMessage({
+                      id: ETranslations.id_refer_a_friend,
+                    }),
+                    icon: 'GiftOutline',
+                    onPress: toReferFriendsPage,
+                    testID: 'refer-a-friend',
+                  },
+                ]
+              : [],
         },
         {
           items: !isShowMyOneKeyOnTabbar
