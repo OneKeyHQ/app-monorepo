@@ -16,7 +16,8 @@ export interface IBrowserHistory {
 export interface IBrowserBookmark {
   title: string;
   url: string;
-  logo?: string;
+  logo: string | undefined;
+  sortIndex?: number | undefined;
 }
 
 export interface IBrowserRiskWhiteList {

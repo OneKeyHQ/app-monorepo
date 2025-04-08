@@ -8,33 +8,37 @@ import resetUtils from '@onekeyhq/shared/src/utils/resetUtils';
 import { ALL_LOCAL_DB_STORE_NAMES } from '../consts';
 import { LocalDbAgentBase } from '../LocalDbAgentBase';
 import { ELocalDBStoreNames } from '../localDBStoreNames';
-import {
-  type IIndexedDBSchemaMap,
-  type ILocalDBAgent,
-  type ILocalDBGetAllRecordsParams,
-  type ILocalDBGetAllRecordsResult,
-  type ILocalDBGetRecordByIdParams,
-  type ILocalDBGetRecordByIdResult,
-  type ILocalDBGetRecordsCountParams,
-  type ILocalDBGetRecordsCountResult,
-  type ILocalDBRecord,
-  type ILocalDBRecordPair,
-  type ILocalDBRecordUpdater,
-  type ILocalDBTransaction,
-  type ILocalDBTransactionStores,
-  type ILocalDBTxAddRecordsParams,
-  type ILocalDBTxAddRecordsResult,
-  type ILocalDBTxGetAllRecordsParams,
-  type ILocalDBTxGetAllRecordsResult,
-  type ILocalDBTxGetRecordByIdParams,
-  type ILocalDBTxGetRecordByIdResult,
-  type ILocalDBTxGetRecordsCountParams,
-  type ILocalDBTxRemoveRecordsParams,
-  type ILocalDBTxUpdateRecordsParams,
-  type ILocalDBWithTransactionOptions,
-  type ILocalDBWithTransactionTask,
-} from '../types';
 
+import type {
+  IIndexedDBSchemaMap,
+  ILocalDBAgent,
+  ILocalDBGetAllRecordsParams,
+  ILocalDBGetAllRecordsResult,
+  ILocalDBGetRecordByIdParams,
+  ILocalDBGetRecordByIdResult,
+  ILocalDBGetRecordsByIdsParams,
+  ILocalDBGetRecordsByIdsResult,
+  ILocalDBGetRecordsCountParams,
+  ILocalDBGetRecordsCountResult,
+  ILocalDBRecord,
+  ILocalDBRecordPair,
+  ILocalDBRecordUpdater,
+  ILocalDBTransaction,
+  ILocalDBTransactionStores,
+  ILocalDBTxAddRecordsParams,
+  ILocalDBTxAddRecordsResult,
+  ILocalDBTxGetAllRecordsParams,
+  ILocalDBTxGetAllRecordsResult,
+  ILocalDBTxGetRecordByIdParams,
+  ILocalDBTxGetRecordByIdResult,
+  ILocalDBTxGetRecordsByIdsParams,
+  ILocalDBTxGetRecordsByIdsResult,
+  ILocalDBTxGetRecordsCountParams,
+  ILocalDBTxRemoveRecordsParams,
+  ILocalDBTxUpdateRecordsParams,
+  ILocalDBWithTransactionOptions,
+  ILocalDBWithTransactionTask,
+} from '../types';
 import type { IDBPDatabase, IDBPObjectStore, IDBPTransaction } from 'idb';
 
 export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
@@ -162,6 +166,11 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
         ELocalDBStoreNames.ConnectedSite,
       );
 
+      const cloudSyncItemStore = this._getOrCreateObjectStore(
+        dbTx,
+        ELocalDBStoreNames.CloudSyncItem,
+      );
+
       const tx: ILocalDBTransaction = {
         stores: {
           [ELocalDBStoreNames.Context]: contextStore as any,
@@ -175,6 +184,7 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
           [ELocalDBStoreNames.SignedMessage]: signMessageStore as any,
           [ELocalDBStoreNames.SignedTransaction]: signedTransactionStore as any,
           [ELocalDBStoreNames.ConnectedSite]: connectedSiteStore as any,
+          [ELocalDBStoreNames.CloudSyncItem]: cloudSyncItemStore as any,
         },
       };
 
@@ -192,7 +202,9 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
   ): ILocalDBTransactionStores[T] {
     const store = tx.stores?.[storeName];
     if (!store) {
-      throw new Error(`indexedDB store not found: ${storeName}`);
+      throw new Error(
+        `indexedDB store not found: ${storeName}, check IndexedDBAgent code`,
+      );
     }
     return store;
   }
@@ -254,6 +266,23 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     );
   }
 
+  async getRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBGetRecordsByIdsResult<T>> {
+    return this.withTransaction(
+      async (tx) => {
+        const { records } = await this.txGetRecordsByIds({
+          ...params,
+          tx,
+        });
+        return { records };
+      },
+      {
+        readOnly: true,
+      },
+    );
+  }
+
   async getAllRecords<T extends ELocalDBStoreNames>(
     params: ILocalDBGetAllRecordsParams<T>,
   ): Promise<ILocalDBGetAllRecordsResult<T>> {
@@ -304,12 +333,12 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
     return fn(paramsTx);
   }
 
-  async txGetAllRecords<T extends ELocalDBStoreNames>(
-    params: ILocalDBTxGetAllRecordsParams<T>,
-  ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
-    const { tx: paramsTx, name, ids, limit, offset } = params;
-    dbPerfMonitor.logLocalDbCall(`txGetAllRecords`, name, [
-      `ids_count=${ids ? ids?.length?.toString() : 'ALL'}`,
+  async txGetRecordsByIds<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetRecordsByIdsParams<T>,
+  ): Promise<ILocalDBTxGetRecordsByIdsResult<T>> {
+    const { tx: paramsTx, name, ids } = params;
+    dbPerfMonitor.logLocalDbCall(`txGetRecordsByIds`, name, [
+      `ids_count=${ids ? ids?.length?.toString() : ''}`,
     ]);
     const fn = async (tx: ILocalDBTransaction) => {
       const store = this._getObjectStoreFromTx<T>(tx, name);
@@ -317,9 +346,36 @@ export class IndexedDBAgent extends LocalDbAgentBase implements ILocalDBAgent {
       // query?: StoreKey<DBTypes, StoreName> | IDBKeyRange | null, count?: number
       let results: unknown[] = [];
 
-      if (ids) {
-        results = await Promise.all(ids.map((id) => store.get(id)));
-      } else if (isNumber(limit) && isNumber(offset)) {
+      results = await Promise.all(ids.map((id) => store.get(id)));
+
+      const recordPairs: ILocalDBRecordPair<T>[] = [];
+      const records: ILocalDBRecord<T>[] = [];
+
+      results.forEach((record) => {
+        records.push(record as any);
+        recordPairs.push([record as any, null]);
+      });
+      return {
+        recordPairs,
+        records,
+      };
+    };
+
+    return fn(paramsTx);
+  }
+
+  async txGetAllRecords<T extends ELocalDBStoreNames>(
+    params: ILocalDBTxGetAllRecordsParams<T>,
+  ): Promise<ILocalDBTxGetAllRecordsResult<T>> {
+    const { tx: paramsTx, name, limit, offset } = params;
+    dbPerfMonitor.logLocalDbCall(`txGetAllRecords`, name, [`ids_count=ALL`]);
+    const fn = async (tx: ILocalDBTransaction) => {
+      const store = this._getObjectStoreFromTx<T>(tx, name);
+      // TODO add query support
+      // query?: StoreKey<DBTypes, StoreName> | IDBKeyRange | null, count?: number
+      let results: unknown[] = [];
+
+      if (isNumber(limit) && isNumber(offset)) {
         const indexStore =
           store as ILocalDBTransactionStores[ELocalDBStoreNames.SignedMessage];
         if (indexStore.indexNames.contains('createdAt')) {

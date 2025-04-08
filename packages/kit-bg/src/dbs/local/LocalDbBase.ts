@@ -2,7 +2,16 @@
 // eslint-disable-next-line max-classes-per-file
 
 import { EDeviceType } from '@onekeyfe/hd-shared';
-import { isEmpty, isNil, map, merge, uniq, uniqBy } from 'lodash';
+import {
+  isEmpty,
+  isNil,
+  isPlainObject,
+  isString,
+  map,
+  merge,
+  uniq,
+  uniqBy,
+} from 'lodash';
 import natsort from 'natsort';
 import { InteractionManager } from 'react-native';
 
@@ -34,6 +43,7 @@ import {
   WALLET_TYPE_QR,
   WALLET_TYPE_WATCHING,
 } from '@onekeyhq/shared/src/consts/dbConsts';
+import { EPrimeCloudSyncDataType } from '@onekeyhq/shared/src/consts/primeConsts';
 import {
   COINTYPE_DNX,
   COINTYPE_ETH,
@@ -85,9 +95,11 @@ import { EDBAccountType } from './consts';
 import { LocalDbBaseContainer } from './LocalDbBaseContainer';
 import { ELocalDBStoreNames } from './localDBStoreNames';
 
+import type { RealmSchemaCloudSyncItem } from './realm/schemas/RealmSchemaCloudSyncItem';
 import type {
   IDBAccount,
   IDBApiGetContextOptions,
+  IDBCloudSyncItem,
   IDBContext,
   IDBCreateHDWalletParams,
   IDBCreateHwWalletParams,
@@ -114,6 +126,7 @@ import type {
   ILocalDBTransaction,
   ILocalDBTxGetRecordByIdResult,
 } from './types';
+import type { IBackgroundApi } from '../../apis/IBackgroundApi';
 import type { IDeviceType } from '@onekeyfe/hd-core';
 
 const getOrderByWalletType = (walletType: IDBWalletType): number => {
@@ -139,6 +152,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   tempWallets: {
     [walletId: string]: boolean;
   } = {};
+
+  backgroundApi!: IBackgroundApi;
+
+  setBackgroundApi(backgroundApi: IBackgroundApi) {
+    this.backgroundApi = backgroundApi;
+  }
 
   buildSingletonWalletRecord({ walletId }: { walletId: IDBWalletIdSingleton }) {
     const walletConfig: Record<
@@ -268,6 +287,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     return newBackupUUID;
   }
 
+  async timeNow(): Promise<number> {
+    return this.backgroundApi.servicePrimeCloudSync.timeNow();
+  }
+
   // ---------------------------------------------- credential
   async checkPassword(context: IDBContext, password: string): Promise<boolean> {
     if (!context) {
@@ -342,7 +365,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
 
     await this.txUpdateRecords({
       tx,
-      recordPairs: credentialsRecordPairs,
+      recordPairs: credentialsRecordPairs.filter(Boolean),
       name: ELocalDBStoreNames.Credential,
       updater: async (credential) => {
         if (credential.id.startsWith('imported')) {
@@ -666,6 +689,85 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     }
   }
 
+  async getWalletsByXfp({ xfp }: { xfp: string }): Promise<IDBWallet[]> {
+    try {
+      if (!xfp) {
+        return [];
+      }
+      // TODO performance
+      const { wallets } = await this.getWallets();
+      const walletsByXfp = wallets.filter((w) => w.xfp === xfp);
+      return walletsByXfp;
+    } catch (error) {
+      return [];
+    }
+  }
+
+  async getWalletBySyncPayload({
+    payload,
+  }: {
+    payload: {
+      walletHash: string | undefined;
+      hwDeviceId: string | undefined;
+      passphraseState: string | undefined;
+      walletType: IDBWalletType | undefined;
+    };
+  }): Promise<IDBWallet | undefined> {
+    try {
+      if (!payload) {
+        return undefined;
+      }
+      const { walletType, walletHash, hwDeviceId, passphraseState } = payload;
+      // TODO performance
+      const { wallets } = await this.getWallets();
+      if (walletType === WALLET_TYPE_HD) {
+        const wallet = wallets.find(
+          (w) => w.type === walletType && w.hash === walletHash,
+        );
+        return wallet;
+      }
+      if (walletType === WALLET_TYPE_HW || walletType === WALLET_TYPE_QR) {
+        const device = await this.backgroundApi.localDb.getDeviceByQuery({
+          featuresDeviceId: hwDeviceId, // rawDeviceId
+        });
+        if (device?.id) {
+          const hwWallet = wallets.find((w) => {
+            const r =
+              w.type === walletType && w.associatedDevice === device?.id;
+            if (passphraseState) {
+              return r && w.passphraseState === passphraseState;
+            }
+            return r;
+          });
+          return hwWallet;
+        }
+      }
+      return undefined;
+    } catch (error) {
+      return undefined;
+    }
+  }
+
+  async getWalletByIndexedAccountId({
+    indexedAccountId,
+  }: {
+    indexedAccountId: string;
+  }): Promise<IDBWallet | undefined> {
+    try {
+      const { walletId } = accountUtils.parseIndexedAccountId({
+        indexedAccountId,
+      });
+      if (!walletId) {
+        return undefined;
+      }
+      return await this.getWalletSafe({
+        walletId,
+      });
+    } catch (error) {
+      return undefined;
+    }
+  }
+
   async getParentWalletOfHiddenWallet({
     refilledWalletsCache,
     dbDeviceId,
@@ -718,10 +820,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     allDevices?: IDBDevice[];
   }): Promise<IDBWallet> {
     let avatarInfo: IAvatarInfo | undefined;
-    const parsedAvatar: IAvatarInfo = JSON.parse(wallet.avatar || '{}');
-    if (Object.keys(parsedAvatar).length > 0) {
-      avatarInfo = parsedAvatar;
+    try {
+      const parsedAvatar = JSON.parse(wallet.avatar || '{}');
+      if (parsedAvatar && Object.keys(parsedAvatar).length > 0) {
+        avatarInfo = parsedAvatar;
+      }
+    } catch (error) {
+      console.error('refillWalletInfo', error);
     }
+
     wallet.avatarInfo = avatarInfo;
     wallet.walletOrder = wallet.walletOrderSaved ?? wallet.walletNo;
     if (accountUtils.isHwHiddenWallet({ wallet })) {
@@ -782,9 +889,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       !accountUtils.isQrWallet({ walletId: wallet.id })
     ) {
       if (wallet.associatedDevice) {
-        const device =
-          allDevices?.find((item) => item.id === wallet.associatedDevice) ||
-          (await this.getDeviceSafe(wallet.associatedDevice));
+        const device = await this.getWalletDeviceSafe({
+          walletId: wallet.id,
+          dbWallet: wallet,
+          allDevices,
+        });
         const label = device?.featuresInfo?.label;
         const deviceType = device?.deviceType;
         const serialNo = deviceUtils.getDeviceSerialNoFromFeatures(
@@ -851,16 +960,25 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     });
   }
 
-  async updateWalletsHash(walletsHashMap: { [walletId: string]: string }) {
+  async updateWalletsHashAndXfp(walletsHashMap: {
+    [walletId: string]: {
+      hash?: string;
+      xfp?: string;
+    };
+  }) {
     await this.withTransaction(async (tx) => {
       await this.txUpdateRecords({
         tx,
         name: ELocalDBStoreNames.Wallet,
         ids: Object.keys(walletsHashMap),
         updater(item) {
-          const newHash = walletsHashMap[item.id];
+          const newHash = walletsHashMap[item.id]?.hash;
           if (!isNil(newHash)) {
             item.hash = newHash;
+          }
+          const newXfp = walletsHashMap[item.id]?.xfp;
+          if (!isNil(newXfp)) {
+            item.xfp = newXfp;
           }
           return item;
         },
@@ -1073,6 +1191,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexes,
     names,
     skipIfExists,
+    skipServerSyncFlow,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
@@ -1081,6 +1200,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       [index: number]: string;
     };
     skipIfExists: boolean;
+    skipServerSyncFlow?: boolean;
   }) {
     if (
       !accountUtils.isHdWallet({ walletId }) &&
@@ -1091,7 +1211,60 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         message: `addIndexedAccount ERROR: only hd or hw wallet support "${walletId}"`,
       });
     }
+
     const [dbWallet] = await this.txGetWallet({ tx, walletId });
+
+    const accountDefaultNameMap: {
+      [indexedAccountId: string]: string;
+    } = {};
+    const indexedAccounts: IDBIndexedAccount[] = indexes.map((index) => {
+      const indexedAccountId = accountUtils.buildIndexedAccountId({
+        walletId,
+        index,
+      });
+
+      let accountName = names?.[index];
+      if (!accountName) {
+        const defaultName = accountUtils.buildIndexedAccountName({
+          pathIndex: index,
+        });
+        accountDefaultNameMap[indexedAccountId] = defaultName;
+        accountName = defaultName;
+      }
+
+      const r: IDBIndexedAccount = {
+        id: indexedAccountId,
+        idHash: this.buildIndexedAccountIdHash({
+          firstEvmAddress: dbWallet?.firstEvmAddress,
+          indexedAccountId,
+          index,
+        }),
+        walletId,
+        index,
+        name: accountName,
+      };
+      return r;
+    });
+
+    let indexedAccountsToAdd = indexedAccounts;
+
+    // filter out existing indexed accounts
+    if (skipIfExists) {
+      const { records } = await this.txGetRecordsByIds({
+        tx,
+        name: ELocalDBStoreNames.IndexedAccount,
+        ids: indexedAccountsToAdd.map((item) => item.id),
+      });
+      const existingIndexedAccounts = records.filter(Boolean);
+      indexedAccountsToAdd = indexedAccountsToAdd.filter(
+        (item) => !existingIndexedAccounts.some((r) => r.id === item.id),
+      );
+    }
+
+    if (!indexedAccountsToAdd.length) {
+      return indexedAccounts;
+    }
+
     let dbDevice: IDBDevice | undefined;
     if (
       accountUtils.isHwWallet({ walletId }) ||
@@ -1107,38 +1280,52 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         dbDevice = device;
       }
     }
-    const records: IDBIndexedAccount[] = indexes.map((index) => {
-      const indexedAccountId = accountUtils.buildIndexedAccountId({
-        walletId,
-        index,
-      });
 
-      const r: IDBIndexedAccount = {
-        id: indexedAccountId,
-        idHash: this.buildIndexedAccountIdHash({
-          firstEvmAddress: dbWallet?.firstEvmAddress,
-          indexedAccountId,
-          index,
-        }),
-        walletId,
-        index,
-        name:
-          names?.[index] ||
-          accountUtils.buildIndexedAccountName({
-            pathIndex: index,
-          }),
-      };
-      return r;
-    });
-    console.log('txAddIndexedAccount txAddRecords', records);
-    await this.txAddRecords({
+    const syncManagers = this.backgroundApi?.servicePrimeCloudSync.syncManagers;
+    await syncManagers.indexedAccount.txWithSyncFlowOfDBRecordCreating({
       tx,
-      skipIfExists,
-      name: ELocalDBStoreNames.IndexedAccount,
-      records,
+      targets: indexedAccountsToAdd.map((indexedAccount) => ({
+        targetId: indexedAccount.id,
+        dataType: EPrimeCloudSyncDataType.IndexedAccount,
+        indexedAccount: { ...indexedAccount, name: indexedAccount.name },
+        wallet: {
+          ...dbWallet,
+          name: dbWallet?.name || '',
+          avatarInfo: dbWallet?.avatarInfo,
+        },
+        dbDevice,
+      })),
+      onExistingSyncItemsInfo: async (info) => {
+        // fix account name by existing sync item
+        indexedAccountsToAdd.forEach((indexedAccount) => {
+          const existingItem = info[indexedAccount.id];
+          const name = existingItem?.syncPayload?.name;
+          if (name) {
+            indexedAccount.name = name;
+          }
+        });
+      },
+      useCreateGenesisTime: async ({ target }) => {
+        const accountDefaultName =
+          accountDefaultNameMap[target.indexedAccount.id];
+        return Boolean(
+          accountDefaultName &&
+            target.indexedAccount.name === accountDefaultName,
+        );
+      },
+      runDbTxFn: async () => {
+        await this.txAddRecords({
+          tx,
+          skipIfExists,
+          name: ELocalDBStoreNames.IndexedAccount,
+          records: indexedAccountsToAdd,
+        });
+        console.log('txAddIndexedAccount txGetWallet');
+      },
+      skipServerSyncFlow,
     });
-    console.log('txAddIndexedAccount txGetWallet');
-    return records;
+
+    return indexedAccounts;
     // const [wallet] = await this.txGetWallet({
     //   tx,
     //   walletId,
@@ -1166,6 +1353,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       ({ indexedAccountId } = await this.txAddHDNextIndexedAccount({
         tx,
         walletId,
+        skipServerSyncFlow: false,
       }));
     });
     return {
@@ -1177,10 +1365,12 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     tx,
     walletId,
     onlyAddFirst,
+    skipServerSyncFlow,
   }: {
     tx: ILocalDBTransaction;
     walletId: string;
     onlyAddFirst?: boolean;
+    skipServerSyncFlow: boolean;
   }) {
     console.log('txAddHDNextIndexedAccount');
     const [wallet] = await this.txGetWallet({
@@ -1230,6 +1420,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       walletId,
       indexes: [nextIndex],
       skipIfExists: true,
+      skipServerSyncFlow,
     });
 
     await this.txUpdateWallet({
@@ -1293,74 +1484,352 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     };
   }
 
+  _updateCloudSyncPoolItemFn({
+    item,
+    updateItem,
+  }: {
+    item: IDBCloudSyncItem | RealmSchemaCloudSyncItem;
+    updateItem: IDBCloudSyncItem | undefined;
+  }) {
+    if (!updateItem) {
+      return;
+    }
+    let shouldUpdate =
+      item.dataTime &&
+      updateItem.dataTime &&
+      updateItem.dataTime >= item.dataTime;
+
+    if (isNil(updateItem.dataTime)) {
+      shouldUpdate = false;
+    }
+
+    if (isNil(item.dataTime)) {
+      shouldUpdate = true;
+    }
+
+    if (item.pwdHash !== updateItem.pwdHash) {
+      shouldUpdate = true;
+    }
+
+    if (!shouldUpdate) {
+      return;
+    }
+
+    const tempUpdateItem: IDBCloudSyncItem = {
+      // base fields
+      id: item.id, // key
+      rawKey: item.rawKey,
+      dataType: item.dataType,
+      // update fields
+      rawData: updateItem.rawData,
+      data: updateItem.data,
+      dataTime: updateItem.dataTime ?? item.dataTime,
+      isDeleted: updateItem.isDeleted,
+      localSceneUpdated: updateItem.localSceneUpdated,
+      serverUploaded: updateItem.serverUploaded,
+      pwdHash: updateItem.pwdHash,
+    };
+
+    Object.keys(tempUpdateItem).forEach((key) => {
+      if (!['id'].includes(key)) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+        (item as any)[key] = (tempUpdateItem as any)[key];
+      }
+    });
+  }
+
+  async clearAllSyncItems() {
+    const { syncItems } = await this.getAllSyncItems();
+    await this.withTransaction(async (tx) => {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: syncItems.map((item) => item.id),
+      });
+    });
+  }
+
+  async getAllSyncItems(): Promise<{
+    syncItems: IDBCloudSyncItem[];
+  }> {
+    const { records } = await this.getAllRecords({
+      name: ELocalDBStoreNames.CloudSyncItem,
+    });
+    return {
+      syncItems: records.filter(
+        (item) =>
+          // TODO filter out deleted items
+          Boolean(item) && item.dataType !== EPrimeCloudSyncDataType.Lock,
+      ),
+    };
+  }
+
+  async getSyncItem({ id }: { id: string }): Promise<IDBCloudSyncItem> {
+    const item = await this.getRecordById({
+      name: ELocalDBStoreNames.CloudSyncItem,
+      id,
+    });
+    return item;
+  }
+
+  async getSyncItemSafe({
+    id,
+  }: {
+    id: string;
+  }): Promise<IDBCloudSyncItem | undefined> {
+    try {
+      const item = await this.getSyncItem({ id });
+      if (item) {
+        return item;
+      }
+    } catch (error) {
+      console.error('getSyncItemSafe error', error);
+      return undefined;
+    }
+  }
+
+  async updateSyncItem({
+    ids,
+    updater,
+  }: {
+    ids: string[];
+    updater: ILocalDBRecordUpdater<ELocalDBStoreNames.CloudSyncItem>;
+  }) {
+    await this.withTransaction(async (tx) => {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids,
+        updater,
+      });
+    });
+  }
+
+  async txAddAndUpdateSyncItems({
+    tx,
+    items,
+    skipUpdate,
+    skipUploadToServer,
+  }: {
+    tx: ILocalDBTransaction;
+    items: IDBCloudSyncItem[];
+    skipUpdate?: boolean;
+    skipUploadToServer?: boolean;
+  }) {
+    // add new item
+    await this.txAddRecords({
+      tx,
+      name: ELocalDBStoreNames.CloudSyncItem,
+      skipIfExists: true,
+      records: items,
+    });
+
+    // update existing item
+    if (!skipUpdate) {
+      await this.txUpdateRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ids: items.map((item) => item.id),
+        updater: (record) => {
+          const recordToUpdate = items.find((item) => item.id === record.id);
+          if (recordToUpdate) {
+            this._updateCloudSyncPoolItemFn({
+              item: record,
+              updateItem: recordToUpdate,
+            });
+          }
+          return record;
+        },
+      });
+    }
+
+    // upload to server
+    if (!skipUploadToServer) {
+      void this.backgroundApi?.servicePrimeCloudSync.apiUploadItems({
+        localItems: items,
+      });
+    }
+  }
+
+  async txRemoveCloudSyncPoolItems({
+    tx,
+    keys,
+  }: {
+    tx: ILocalDBTransaction;
+    keys: string[];
+  }) {
+    try {
+      await this.txRemoveRecords({
+        tx,
+        name: ELocalDBStoreNames.CloudSyncItem,
+        ignoreNotFound: true,
+        ids: keys.filter(Boolean),
+      });
+    } catch (error) {
+      console.error('txRemoveCloudSyncPoolItems error', error);
+    }
+  }
+
+  async txSyncFlowOfWalletCreateBase({
+    tx,
+    walletToAdd,
+    deviceToAdd,
+  }: {
+    tx: ILocalDBTransaction;
+    walletToAdd: IDBWallet;
+    deviceToAdd: IDBDevice;
+  }) {
+    //
+  }
+
   async createHDWallet(
     params: IDBCreateHDWalletParams,
   ): Promise<{ wallet: IDBWallet; indexedAccount: IDBIndexedAccount }> {
-    const { password, name, avatar, backuped, rs, walletHash } = params;
+    const {
+      password,
+      name,
+      avatar: initAvatarInfo,
+      backuped,
+      rs,
+      walletHash,
+      walletXfp,
+    } = params;
     const context = await this.getContext({ verifyPassword: password });
     const walletId = accountUtils.buildHdWalletId({
       nextHD: context.nextHD,
     });
-    // TODO wallet name i18n?
-    const walletName = name || `Wallet ${context.nextHD}`;
+    const defaultWalletName = `Wallet ${context.nextHD}`;
+    const initWalletName = name || defaultWalletName;
+
     const firstAccountIndex = 0;
 
     let addedHdAccountIndex = -1;
+
+    let currentWalletToCreate: IDBWallet | undefined;
+    let currentAvatarInfo: IAvatarInfo | undefined;
+    const rebuildWalletRecord = (options: {
+      name: string;
+      avatar: IAvatarInfo | undefined;
+    }) => {
+      const _walletToCreate: IDBWallet = {
+        id: walletId,
+        name: options.name,
+        hash: walletHash || undefined,
+        xfp: walletXfp || undefined,
+        avatar: options.avatar ? JSON.stringify(options.avatar) : undefined,
+        type: WALLET_TYPE_HD,
+        backuped,
+        nextIds: {
+          accountHdIndex: firstAccountIndex,
+        },
+        accounts: [],
+        walletNo: context.nextWalletNo,
+        deprecated: false,
+      };
+      currentWalletToCreate = _walletToCreate;
+      currentAvatarInfo = options.avatar;
+    };
+
+    rebuildWalletRecord({
+      name: initWalletName,
+      avatar: initAvatarInfo,
+    });
+
+    if (!currentWalletToCreate) {
+      throw new Error('currentWalletToCreate is undefined');
+    }
+
+    const isUsingDefaultName = () =>
+      currentWalletToCreate?.name === defaultWalletName;
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+
     await this.withTransaction(async (tx) => {
-      console.log('add db wallet');
-      // add db wallet
-      await this.txAddRecords({
+      if (!currentWalletToCreate) {
+        return;
+      }
+
+      await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
         tx,
-        name: ELocalDBStoreNames.Wallet,
-        records: [
+        targets: [
           {
-            id: walletId,
-            name: walletName,
-            hash: walletHash || undefined,
-            avatar: avatar ? JSON.stringify(avatar) : undefined, // TODO save object to realmDB?
-            type: WALLET_TYPE_HD,
-            backuped,
-            nextIds: {
-              accountHdIndex: firstAccountIndex,
+            targetId: currentWalletToCreate.id,
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            wallet: {
+              ...currentWalletToCreate,
+              name: currentWalletToCreate.name,
+              avatarInfo: currentAvatarInfo,
             },
-            accounts: [],
-            walletNo: context.nextWalletNo,
-            deprecated: false,
+            dbDevice: undefined, // hw/qr wallet only
           },
         ],
-      });
-      console.log('add db credential');
-      // add db credential
-      await this.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Credential,
-        records: [
-          {
-            id: walletId,
-            // type: 'hd',
-            // TODO save object to realmDB?
-            credential: rs,
-          },
-        ],
-      });
+        onExistingSyncItemsInfo: async (existingSyncItemsInfo) => {
+          if (!currentWalletToCreate) {
+            return;
+          }
+          const syncPayload =
+            existingSyncItemsInfo[currentWalletToCreate?.id]?.syncPayload;
 
-      console.log('add first indexed account');
-      // add first indexed account
-      const { nextIndex } = await this.txAddHDNextIndexedAccount({
-        tx,
-        walletId,
-        onlyAddFirst: true,
-      });
-      addedHdAccountIndex = nextIndex;
+          if (!syncPayload) {
+            return;
+          }
 
-      console.log('increase nextHD');
-      // increase nextHD
-      await this.txUpdateContext({
-        tx,
-        updater: (ctx) => {
-          ctx.nextHD += 1;
-          ctx.nextWalletNo += 1;
-          return ctx;
+          rebuildWalletRecord({
+            name:
+              syncPayload.name ||
+              currentWalletToCreate?.name ||
+              defaultWalletName,
+            avatar: syncPayload.avatar || currentAvatarInfo,
+          });
+        },
+        useCreateGenesisTime: async ({ target }) => {
+          // Avoid syncing the default name of the mnemonic wallet when creating a wallet on other devices that are not prime members
+          const b: boolean = isUsingDefaultName();
+          return b;
+        },
+        runDbTxFn: async () => {
+          console.log('add db wallet');
+          // add db wallet
+          await this.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            records: [currentWalletToCreate].filter(Boolean),
+          });
+          console.log('add db credential');
+
+          // add db credential
+          await this.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Credential,
+            records: [
+              {
+                id: walletId,
+                // type: 'hd',
+                // TODO save object to realmDB?
+                credential: rs,
+              },
+            ],
+          });
+
+          // add first indexed account
+          console.log('add first indexed account');
+          const { nextIndex } = await this.txAddHDNextIndexedAccount({
+            tx,
+            walletId,
+            onlyAddFirst: true,
+            skipServerSyncFlow: false,
+          });
+          addedHdAccountIndex = nextIndex;
+
+          // increase nextHD
+          console.log('increase nextHD');
+          await this.txUpdateContext({
+            tx,
+            updater: (ctx) => {
+              ctx.nextHD += 1;
+              ctx.nextWalletNo += 1;
+              return ctx;
+            },
+          });
         },
       });
     });
@@ -1550,8 +2019,9 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       );
     }
     let walletName = deviceName;
+    let hiddenDefaultWalletName: string | undefined;
 
-    const now = Date.now();
+    const now = await this.timeNow();
 
     const avatar: IAvatarInfo = {
       img: deviceType,
@@ -1571,6 +2041,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
       parentWalletId = hiddenWalletNameInfo.parentWalletId;
       walletName = hiddenWalletNameInfo.hiddenWalletName || deviceName;
+      hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
       if (!parentWalletId) {
         // make sure UI loading visible
         await timerUtils.wait(1000);
@@ -1584,6 +2055,48 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const firstAccountIndex = 0;
     let addedHdAccountIndex = -1;
 
+    const deviceToAdd: IDBDevice = existingDevice || {
+      id: dbDeviceId,
+      name: deviceName,
+      connectId: '',
+      uuid: '',
+      deviceId: rawDeviceId,
+      deviceType,
+      // TODO save qrDevice last version(not updated version)
+      features: '',
+      settingsRaw: '',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const walletToAdd: IDBWallet = {
+      id: dbWalletId,
+      name: walletName,
+      avatar: avatar && JSON.stringify(avatar),
+      type: WALLET_TYPE_QR,
+      backuped: true,
+      associatedDevice: dbDeviceId,
+      isTemp: false,
+      passphraseState,
+      nextIds: {
+        accountHdIndex: firstAccountIndex,
+      },
+      accounts: [],
+      walletNo: context.nextWalletNo,
+      xfp,
+
+      deprecated: false,
+    };
+
+    const isUsingDefaultName = () => {
+      if (walletToAdd.passphraseState) {
+        return Boolean(walletToAdd.name === hiddenDefaultWalletName);
+      }
+      return Boolean(walletToAdd.name === deviceName);
+    };
+
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+
     await this.withTransaction(async (tx) => {
       if (existingDevice) {
         await this.txUpdateRecords({
@@ -1596,119 +2109,140 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             return item;
           },
         });
-      } else {
-        await this.txAddDbDevice({
-          tx,
-          skipIfExists: true,
-          device: {
-            id: dbDeviceId,
-            name: deviceName,
-            connectId: '',
-            uuid: '',
-            deviceId: rawDeviceId,
-            deviceType,
-            // TODO save qrDevice last version(not updated version)
-            features: '',
-            settingsRaw: '',
-            createdAt: now,
-            updatedAt: now,
-          },
-        });
-
-        await this.txUpdateRecords({
-          tx,
-          name: ELocalDBStoreNames.Device,
-          ids: [dbDeviceId],
-          updater: async (item) => {
-            item.updatedAt = now;
-            return item;
-          },
-        });
+        return;
       }
 
-      // add db wallet
-      await this.txAddRecords({
+      await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
         tx,
-        name: ELocalDBStoreNames.Wallet,
-        skipIfExists: true,
-        records: [
+        targets: [
           {
-            id: dbWalletId,
-            name: walletName,
-            avatar: avatar && JSON.stringify(avatar),
-            type: WALLET_TYPE_QR,
-            backuped: true,
-            associatedDevice: dbDeviceId,
-            isTemp: false,
-            passphraseState,
-            nextIds: {
-              accountHdIndex: firstAccountIndex,
+            targetId: walletToAdd.id,
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            wallet: {
+              ...walletToAdd,
+              name: walletToAdd.name,
+              avatarInfo: avatar,
             },
-            accounts: [],
-            walletNo: context.nextWalletNo,
-            xfp,
-            deprecated: false,
+
+            dbDevice: deviceToAdd,
           },
         ],
-      });
+        onExistingSyncItemsInfo: async (existingSyncItemsInfo) => {
+          if (!walletToAdd) {
+            return;
+          }
+          const syncPayload =
+            existingSyncItemsInfo[walletToAdd?.id]?.syncPayload;
 
-      await this.txUpdateWallet({
-        tx,
-        walletId: dbWalletId,
-        updater: (item) => {
-          item.isTemp = false;
-          item.xfp = xfp;
-
-          let currentAirGapAccountsInfo:
-            | IQrWalletAirGapAccountsInfo
-            | undefined;
-          if (item.airGapAccountsInfoRaw) {
-            try {
-              currentAirGapAccountsInfo = JSON.parse(
-                item.airGapAccountsInfoRaw,
-              );
-            } catch (error) {
-              //
-            }
+          if (!syncPayload) {
+            return;
           }
 
-          const accountsMerged = uniqBy(
-            [
-              ...(currentAirGapAccountsInfo?.accounts || []),
-              ...(airGapAccounts || []),
-            ],
-            (a) => a.path + a.chain,
-          );
-          const keysInfo: IQrWalletAirGapAccountsInfo = {
-            accounts: accountsMerged || [],
-          };
-          item.airGapAccountsInfoRaw = JSON.stringify(keysInfo);
-          return item;
+          walletToAdd.name = syncPayload.name || walletToAdd.name;
         },
-      });
+        useCreateGenesisTime: async ({ target }) => {
+          // Avoid syncing the default name of the mnemonic wallet when creating a wallet on other devices that are not prime members
+          const b: boolean = isUsingDefaultName();
+          return b;
+        },
+        runDbTxFn: async () => {
+          if (existingDevice) {
+            await this.txUpdateRecords({
+              tx,
+              name: ELocalDBStoreNames.Device,
+              ids: [dbDeviceId],
+              updater: async (item) => {
+                item.updatedAt = now;
+                // TODO update qrDevice last version(not updated version)
+                return item;
+              },
+            });
+          } else {
+            await this.txAddDbDevice({
+              tx,
+              skipIfExists: true,
+              device: deviceToAdd,
+            });
 
-      if (passphraseState && parentWalletId) {
-        await this.txUpdateParentWalletNextIds({
-          parentWalletId,
-          tx,
-        });
-      }
+            await this.txUpdateRecords({
+              tx,
+              name: ELocalDBStoreNames.Device,
+              ids: [dbDeviceId],
+              updater: async (item) => {
+                item.updatedAt = now;
+                return item;
+              },
+            });
+          }
 
-      // add first indexed account
-      const { nextIndex } = await this.txAddHDNextIndexedAccount({
-        tx,
-        walletId: dbWalletId,
-        onlyAddFirst: true,
-      });
-      addedHdAccountIndex = nextIndex;
+          // add db wallet
+          await this.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            skipIfExists: true,
+            records: [walletToAdd],
+          });
 
-      console.log('increase nextWalletNo');
-      // increase nextHD
-      await this.txUpdateContext({
-        tx,
-        updater: (ctx) => {
-          ctx.nextWalletNo += 1;
-          return ctx;
+          await this.txUpdateWallet({
+            tx,
+            walletId: dbWalletId,
+            updater: (item) => {
+              item.isTemp = false;
+              item.xfp = xfp;
+
+              let currentAirGapAccountsInfo:
+                | IQrWalletAirGapAccountsInfo
+                | undefined;
+              if (item.airGapAccountsInfoRaw) {
+                try {
+                  currentAirGapAccountsInfo = JSON.parse(
+                    item.airGapAccountsInfoRaw,
+                  );
+                } catch (error) {
+                  //
+                }
+              }
+
+              const accountsMerged = uniqBy(
+                [
+                  ...(currentAirGapAccountsInfo?.accounts || []),
+                  ...(airGapAccounts || []),
+                ],
+                (a) => a.path + a.chain,
+              );
+              const keysInfo: IQrWalletAirGapAccountsInfo = {
+                accounts: accountsMerged || [],
+              };
+              item.airGapAccountsInfoRaw = JSON.stringify(keysInfo);
+              return item;
+            },
+          });
+
+          if (passphraseState && parentWalletId) {
+            await this.txUpdateParentWalletNextIds({
+              parentWalletId,
+              tx,
+            });
+          }
+
+          // add first indexed account
+          const { nextIndex } = await this.txAddHDNextIndexedAccount({
+            tx,
+            walletId: dbWalletId,
+            onlyAddFirst: true,
+            skipServerSyncFlow: false,
+          });
+          addedHdAccountIndex = nextIndex;
+
+          console.log('increase nextWalletNo');
+          // increase nextHD
+          await this.txUpdateContext({
+            tx,
+            updater: (ctx) => {
+              ctx.nextWalletNo += 1;
+              return ctx;
+            },
+          });
         },
       });
     });
@@ -1785,7 +2319,10 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const { name, device, features, passphraseState, isFirmwareVerified } =
       params;
     const deviceUUID = device.uuid || getDeviceUUID(features);
-    const rawDeviceId = device.deviceId || features.device_id || '';
+    const rawDeviceId = deviceUtils.getRawDeviceId({
+      device,
+      features,
+    });
     const existingDevice = await this.getExistingDevice({
       rawDeviceId,
       uuid: deviceUUID,
@@ -1824,6 +2361,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       name,
       device,
       features,
+      xfp,
       passphraseState,
       isFirmwareVerified,
       defaultIsTemp,
@@ -1863,6 +2401,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     let parentWalletId: string | undefined;
     const deviceName = await deviceUtils.buildDeviceName({ device, features });
     let walletName = name || deviceName;
+    let hiddenDefaultWalletName: string | undefined;
     if (passphraseState) {
       const hiddenWalletNameInfo = await this.fixHiddenWalletName({
         dbDeviceId,
@@ -1870,6 +2409,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
       parentWalletId = hiddenWalletNameInfo.parentWalletId;
       walletName = name || hiddenWalletNameInfo.hiddenWalletName || walletName;
+      hiddenDefaultWalletName = hiddenWalletNameInfo.hiddenWalletName;
     }
 
     const featuresStr = JSON.stringify(features);
@@ -1877,125 +2417,178 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const firstAccountIndex = 0;
 
     let addedHdAccountIndex = -1;
+    const now = await this.timeNow();
+
+    const deviceToAdd: IDBDevice = {
+      id: dbDeviceId,
+      name: deviceName,
+      connectId: connectId || '',
+      uuid: deviceUUID,
+      deviceId: rawDeviceId,
+      deviceType,
+      features: featuresStr,
+      settingsRaw: JSON.stringify({
+        inputPinOnSoftware: true,
+      } as IDBDeviceSettings),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    const walletToAdd: IDBWallet = {
+      id: dbWalletId,
+      name: walletName,
+      avatar: avatar && JSON.stringify(avatar),
+      type: WALLET_TYPE_HW,
+      backuped: true,
+      associatedDevice: dbDeviceId,
+      isTemp: defaultIsTemp ?? false,
+      passphraseState,
+      nextIds: {
+        accountHdIndex: firstAccountIndex,
+      },
+      accounts: [],
+      walletNo: context.nextWalletNo,
+      deprecated: false,
+      xfp,
+    };
+
+    const isUsingDefaultName = () =>
+      Boolean(
+        walletToAdd.passphraseState &&
+          walletToAdd.name === hiddenDefaultWalletName,
+      );
+
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
 
     await this.withTransaction(async (tx) => {
-      // add db device
-      const now = Date.now();
-      await this.txAddDbDevice({
+      await syncManagers.wallet.txWithSyncFlowOfDBRecordCreating({
         tx,
-        skipIfExists: true,
-        device: {
-          id: dbDeviceId,
-          name: deviceName,
-          connectId: connectId || '',
-          uuid: deviceUUID,
-          deviceId: rawDeviceId,
-          deviceType,
-          features: featuresStr,
-          settingsRaw: JSON.stringify({
-            inputPinOnSoftware: true,
-          } as IDBDeviceSettings),
-          createdAt: now,
-          updatedAt: now,
-        },
-      });
-
-      // update exists db device
-      await this.txUpdateRecords({
-        tx,
-        name: ELocalDBStoreNames.Device,
-        ids: [dbDeviceId],
-        updater: async (item) => {
-          item.features = featuresStr;
-          item.updatedAt = now;
-
-          item.connectId = connectId || '';
-          item.uuid = deviceUUID;
-          item.deviceId = rawDeviceId;
-          item.deviceType = deviceType;
-
-          item.settingsRaw =
-            item.settingsRaw ||
-            JSON.stringify({
-              inputPinOnSoftware: true,
-            } as IDBDeviceSettings);
-
-          if (isFirmwareVerified) {
-            const versionText = await deviceUtils.getDeviceVersionStr({
-              device,
-              features,
-            });
-            // official firmware verified
-            item.verifiedAtVersion = versionText;
-          } else {
-            // skip firmware verify, but keep previous verified version
-            item.verifiedAtVersion = item.verifiedAtVersion || undefined;
-          }
-          return item;
-        },
-      });
-
-      // add db wallet
-      await this.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Wallet,
-        skipIfExists: true,
-        records: [
+        targets: [
           {
-            id: dbWalletId,
-            name: walletName,
-            avatar: avatar && JSON.stringify(avatar),
-            type: WALLET_TYPE_HW,
-            backuped: true,
-            associatedDevice: dbDeviceId,
-            isTemp: defaultIsTemp ?? false,
-            passphraseState,
-            nextIds: {
-              accountHdIndex: firstAccountIndex,
+            targetId: walletToAdd.id,
+            dataType: EPrimeCloudSyncDataType.Wallet,
+            wallet: {
+              ...walletToAdd,
+              name: walletToAdd.name,
+              avatarInfo: avatar,
             },
-            accounts: [],
-            walletNo: context.nextWalletNo,
-            deprecated: false,
+            dbDevice: deviceToAdd,
           },
         ],
-      });
-
-      await this.txUpdateWallet({
-        tx,
-        walletId: dbWalletId,
-        updater: (item) => {
-          if (passphraseState) {
-            item.isTemp = false;
-          } else if (item.isTemp) {
-            item.isTemp = defaultIsTemp ?? false;
+        onExistingSyncItemsInfo: async (existingSyncItemsInfo) => {
+          if (!walletToAdd) {
+            return;
           }
-          item.deprecated = false;
-          return item;
+
+          const syncPayload =
+            existingSyncItemsInfo[walletToAdd?.id]?.syncPayload;
+
+          if (!syncPayload) {
+            return;
+          }
+
+          walletToAdd.name = syncPayload.name || walletToAdd.name;
         },
-      });
+        useCreateGenesisTime: async ({ target }) => {
+          // Avoid syncing the default name of the mnemonic wallet when creating a wallet on other devices that are not prime members
+          const b: boolean = isUsingDefaultName();
+          return b;
+        },
 
-      if (passphraseState && parentWalletId) {
-        await this.txUpdateParentWalletNextIds({
-          parentWalletId,
-          tx,
-        });
-      }
+        runDbTxFn: async () => {
+          // add db device
+          await this.txAddDbDevice({
+            tx,
+            skipIfExists: true,
+            device: deviceToAdd,
+          });
 
-      // add first indexed account
-      const { nextIndex } = await this.txAddHDNextIndexedAccount({
-        tx,
-        walletId: dbWalletId,
-        onlyAddFirst: true,
-      });
-      addedHdAccountIndex = nextIndex;
+          // update exists db device
+          await this.txUpdateRecords({
+            tx,
+            name: ELocalDBStoreNames.Device,
+            ids: [dbDeviceId],
+            updater: async (item) => {
+              item.features = featuresStr;
+              item.updatedAt = now;
 
-      console.log('increase nextWalletNo');
-      // increase nextHD
-      await this.txUpdateContext({
-        tx,
-        updater: (ctx) => {
-          ctx.nextWalletNo += 1;
-          return ctx;
+              item.connectId = connectId || '';
+              item.uuid = deviceUUID;
+              item.deviceId = rawDeviceId;
+              item.deviceType = deviceType;
+
+              item.settingsRaw =
+                item.settingsRaw ||
+                JSON.stringify({
+                  inputPinOnSoftware: true,
+                } as IDBDeviceSettings);
+
+              if (isFirmwareVerified) {
+                const versionText = await deviceUtils.getDeviceVersionStr({
+                  device,
+                  features,
+                });
+                // official firmware verified
+                item.verifiedAtVersion = versionText;
+              } else {
+                // skip firmware verify, but keep previous verified version
+                item.verifiedAtVersion = item.verifiedAtVersion || undefined;
+              }
+              return item;
+            },
+          });
+
+          // add db wallet
+          await this.txAddRecords({
+            tx,
+            name: ELocalDBStoreNames.Wallet,
+            skipIfExists: true,
+            records: [walletToAdd],
+          });
+
+          // update db wallet temp status
+          await this.txUpdateWallet({
+            tx,
+            walletId: dbWalletId,
+            updater: (item) => {
+              if (passphraseState) {
+                item.isTemp = false;
+              } else if (item.isTemp) {
+                item.isTemp = defaultIsTemp ?? false;
+              }
+              if (xfp) {
+                item.xfp = xfp;
+              }
+              item.deprecated = false;
+              return item;
+            },
+          });
+
+          if (passphraseState && parentWalletId) {
+            await this.txUpdateParentWalletNextIds({
+              parentWalletId,
+              tx,
+            });
+          }
+
+          // add first indexed account
+          const { nextIndex } = await this.txAddHDNextIndexedAccount({
+            tx,
+            walletId: dbWalletId,
+            onlyAddFirst: true,
+            skipServerSyncFlow: false,
+          });
+          addedHdAccountIndex = nextIndex;
+
+          console.log('increase nextWalletNo');
+          // increase nextHD
+          await this.txUpdateContext({
+            tx,
+            updater: (ctx) => {
+              ctx.nextWalletNo += 1;
+              return ctx;
+            },
+          });
         },
       });
     });
@@ -2050,6 +2643,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     const walletsInSameDevice = await this.getNormalHwQrWalletInSameDevice({
       associatedDevice: wallet.associatedDevice,
     });
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+
+    const target = await syncManagers.wallet.buildSyncTargetByDBQuery({
+      dbRecord: wallet,
+    });
+    // TODO buildSyncKeyAndPayloadSafe
+    const syncKeyInfo = await syncManagers.wallet.buildSyncKeyAndPayload({
+      target,
+    });
 
     await this.withTransaction(async (tx) => {
       // call remove account & indexed account
@@ -2080,13 +2682,15 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           }
 
           // remove all hidden wallets
-          const { recordPairs: allWallets } = await this.txGetAllRecords({
+          const { recordPairs } = await this.txGetAllRecords({
             tx,
             name: ELocalDBStoreNames.Wallet,
           });
+          const allWallets = recordPairs.filter(Boolean);
           const matchedHiddenWallets = allWallets
             .filter(
               ([hiddenWallet]) =>
+                hiddenWallet &&
                 accountUtils.isHwHiddenWallet({ wallet: hiddenWallet }) &&
                 hiddenWallet.id.startsWith(wallet.id) &&
                 hiddenWallet.associatedDevice === wallet.associatedDevice,
@@ -2115,10 +2719,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
 
       if (accountUtils.isHdWallet({ walletId }) || isHardware) {
-        const { recordPairs: allIndexedAccounts } = await this.txGetAllRecords({
+        const { recordPairs } = await this.txGetAllRecords({
           tx,
           name: ELocalDBStoreNames.IndexedAccount,
         });
+        const allIndexedAccounts = recordPairs.filter(Boolean);
         const indexedAccounts = allIndexedAccounts
           .filter((item) => item[0].walletId === walletId)
           .filter(Boolean);
@@ -2130,6 +2735,11 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           });
         }
       }
+
+      await this.txRemoveCloudSyncPoolItems({
+        tx,
+        keys: [syncKeyInfo.key],
+      });
     });
 
     delete this.tempWallets[walletId];
@@ -2199,21 +2809,56 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
+    const walletName = params.name || wallet.name;
+    let avatarInfo = wallet.avatarInfo;
+    if (
+      params.avatar &&
+      isPlainObject(params.avatar) &&
+      !isString(params.avatar)
+    ) {
+      avatarInfo = params.avatar;
+    }
+
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const syncItem = params.skipSaveLocalSyncItem
+      ? undefined
+      : await syncManagers.wallet.buildSyncItemByDBQuery({
+          dbRecord: {
+            ...wallet,
+            name: walletName,
+            avatarInfo,
+            avatar: JSON.stringify(avatarInfo),
+          },
+          // allDevices,
+          syncCredential: await syncManagers.wallet.getSyncCredential(),
+          isDeleted: false,
+          dataTime: await this.timeNow(),
+        });
+
     await this.withTransaction(async (tx) => {
       // update wallet name
       await this.txUpdateWallet({
         tx,
         walletId,
         updater: (w) => {
-          if (params.name) {
-            w.name = params.name || w.name;
+          if (walletName) {
+            w.name = walletName;
           }
-          if (params.avatar) {
-            w.avatar = params.avatar && JSON.stringify(params.avatar);
+          if (avatarInfo) {
+            w.avatar = JSON.stringify(avatarInfo);
           }
           return w;
         },
       });
+
+      // add or update sync item
+      if (syncItem) {
+        await this.txAddAndUpdateSyncItems({
+          tx,
+          items: [syncItem],
+        });
+      }
+
       // **** do NOT update device name, qr wallet use device name to check sign origin
       // if (wallet.associatedDevice) {
       //   await this.txUpdateRecords({
@@ -2229,6 +2874,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       //   });
       // }
     });
+
     wallet = await this.getWallet({ walletId });
     return wallet;
   }
@@ -2544,168 +3190,210 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       defaultValue: 1,
     });
 
-    const addResults = await this.withTransaction(async (tx) => {
-      const firstAccount: IDBAccount | undefined = accounts?.[0];
-      if (
-        firstAccount &&
-        firstAccount?.pathIndex === 0 &&
-        firstAccount?.address &&
-        firstAccount?.coinType === COINTYPE_ETH &&
-        firstAccount?.indexedAccountId &&
-        firstAccount?.path === FIRST_EVM_ADDRESS_PATH
-      ) {
-        const firstEvmAddress = firstAccount.address.toLowerCase();
-        await this.txUpdateWallet({
-          tx,
-          walletId,
-          updater: (w) => {
-            w.firstEvmAddress = firstEvmAddress;
-            return w;
-          },
-        });
-        await this.txUpdateRecords({
-          tx,
-          name: ELocalDBStoreNames.IndexedAccount,
-          ids: [firstAccount.indexedAccountId],
-          updater: (item) => {
-            item.idHash = this.buildIndexedAccountIdHash({
-              firstEvmAddress,
-              indexedAccountId: item.id,
-              index: firstAccount.pathIndex,
-            });
-            return item;
-          },
-        });
-      }
+    const accountDefaultNameMap: {
+      [accountId: string]: string;
+    } = {};
 
-      const ids = accounts.map((item) => item.id);
-      let { records: existsAccounts = [] } = await this.txGetAllRecords({
-        tx,
-        name: ELocalDBStoreNames.Account,
-        ids,
-      });
+    const ids = accounts.map((item) => item.id);
+    const { records: existsAccountsRecords } = await this.getRecordsByIds({
+      name: ELocalDBStoreNames.Account,
+      ids,
+    });
+    const existsAccounts = existsAccountsRecords.filter(Boolean);
 
-      existsAccounts = existsAccounts.filter(Boolean);
-
-      let removed = 0;
-      if (existsAccounts && existsAccounts.length) {
-        // TODO remove and re-add, may cause nextIds not correct,
-        // TODO return actual removed count
-        await this.txRemoveRecords({
-          tx,
-          name: ELocalDBStoreNames.Account,
-          ids,
-          ignoreNotFound: true,
-        });
-
-        removed = existsAccounts.length;
-      }
-
-      // fix account name
-      accounts.forEach((account) => {
-        if (!account.name) {
-          // keep exists account name
-          const existsAccount = existsAccounts.find(
-            (item) => item.id === account.id,
-          );
-          if (existsAccount) {
-            account.name = existsAccount?.name || account.name;
-          }
+    // fix account name
+    accounts.forEach((account) => {
+      if (!account.name) {
+        // keep exists account name
+        const existsAccount = existsAccounts.find(
+          (item) => item.id === account.id,
+        );
+        if (existsAccount) {
+          account.name = existsAccount?.name || account.name;
         }
-        if (!account.name && accountNameBuilder) {
-          // auto create account name here
-          account.name = accountNameBuilder({
-            nextAccountId,
-          });
-          nextAccountId += 1;
-        }
-      });
-
-      // add account record
-      let { added, addedIds } = await this.txAddRecords({
-        tx,
-        name: ELocalDBStoreNames.Account,
-        records: accounts,
-        skipIfExists: true,
-      });
-
-      let actualAdded = added - removed;
-
-      // filter out url account
-      const allAddedIds = addedIds;
-      addedIds = addedIds.filter(
-        (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
-      );
-      const urlAccountsCount = allAddedIds.length - addedIds.length;
-      actualAdded = Math.max(0, actualAdded - urlAccountsCount);
-
-      // update singleton wallet.accounts & nextAccountId
-      if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
-        await this.txUpdateWallet({
-          tx,
-          walletId,
-          updater: (w) => {
-            // DO NOT use  w.nextIds = w.nextIds || {};
-            // it will reset nextIds to {}
-            if (!w.nextIds) {
-              w.nextIds = {};
-            }
-
-            const nextIdsData = w.nextIds;
-            const currentNextAccountId = this.getNextIdsValue({
-              nextIds: nextIdsData,
-              key: 'accountGlobalNum',
-              defaultValue: 1,
-            });
-            const newAccountGlobalNum = currentNextAccountId + actualAdded;
-            w.nextIds.accountGlobalNum = newAccountGlobalNum;
-
-            // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
-            // w.accounts is List not Array in realmDB
-            w.accounts = Array.from(w.accounts || []);
-
-            w.accounts = uniq(
-              [].concat(Array.from(w.accounts) as any, addedIds as any),
-            ).filter(Boolean);
-
-            return w;
-          },
-        });
       }
-
-      if (walletId === WALLET_TYPE_IMPORTED) {
-        if (addedIds.length !== 1) {
-          throw new Error(
-            'Only one can be imported at a time into a private key account.',
-          );
-        }
-        if (!importedCredential) {
-          throw new Error(
-            'importedCredential is required for imported account',
-          );
-        }
-        await this.txAddRecords({
-          tx,
-          name: ELocalDBStoreNames.Credential,
-          records: [
-            {
-              id: addedIds[0],
-              credential: importedCredential,
-            },
-          ],
-          skipIfExists: true,
+      if (!account.name && accountNameBuilder) {
+        const defaultName = accountNameBuilder({
+          nextAccountId,
         });
+        // auto create account name here
+        account.name = defaultName;
+        accountDefaultNameMap[account.id] = defaultName;
+        // Only for watching, imported, external accounts, HD indexed account names are not handled here
+        nextAccountId += 1;
       }
-
-      const isOverrideAccounts = removed > 0 && actualAdded === 0;
-
-      return {
-        isOverrideAccounts,
-        existsAccounts,
-      };
-      // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
     });
 
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+
+    // db transaction: add accounts to wallet
+    const addResults = await this.withTransaction(async (tx) => {
+      const addResults0 =
+        await syncManagers.account.txWithSyncFlowOfDBRecordCreating({
+          tx,
+          targets: accounts.map((account) => ({
+            targetId: account.id,
+            dataType: EPrimeCloudSyncDataType.Account,
+            account: { ...account, name: account.name },
+          })),
+          onExistingSyncItemsInfo: async (existingSyncItemsInfo) => {
+            // fix account name by existing sync item
+            accounts.forEach((account) => {
+              const existingSyncItem = existingSyncItemsInfo[account.id];
+              if (existingSyncItem?.syncPayload?.name) {
+                account.name = existingSyncItem.syncPayload.name;
+              }
+            });
+          },
+          useCreateGenesisTime: async ({ target }) => {
+            const accountDefaultName = accountDefaultNameMap[target.account.id];
+            return Boolean(
+              accountDefaultName && target.account.name === accountDefaultName,
+            );
+          },
+          runDbTxFn: async () => {
+            const firstAccount: IDBAccount | undefined = accounts?.[0];
+
+            const shouldBuildIdHash =
+              firstAccount &&
+              firstAccount?.pathIndex === 0 &&
+              firstAccount?.address &&
+              firstAccount?.coinType === COINTYPE_ETH &&
+              firstAccount?.indexedAccountId &&
+              firstAccount?.path === FIRST_EVM_ADDRESS_PATH;
+
+            // build idHash for account avatar by firstEvmAddress
+            if (shouldBuildIdHash) {
+              const firstEvmAddress = firstAccount.address.toLowerCase();
+              await this.txUpdateWallet({
+                tx,
+                walletId,
+                updater: (w) => {
+                  w.firstEvmAddress = firstEvmAddress;
+                  return w;
+                },
+              });
+              await this.txUpdateRecords({
+                tx,
+                name: ELocalDBStoreNames.IndexedAccount,
+                ids: [firstAccount?.indexedAccountId].filter(Boolean),
+                updater: (item) => {
+                  item.idHash = this.buildIndexedAccountIdHash({
+                    firstEvmAddress,
+                    indexedAccountId: item.id,
+                    index: firstAccount.pathIndex,
+                  });
+                  return item;
+                },
+              });
+            }
+
+            let removed = 0;
+            if (existsAccounts && existsAccounts.length) {
+              // TODO remove and re-add, may cause nextIds not correct,
+              // TODO return actual removed count
+              await this.txRemoveRecords({
+                tx,
+                name: ELocalDBStoreNames.Account,
+                ids,
+                ignoreNotFound: true,
+              });
+
+              removed = existsAccounts.length;
+            }
+
+            // add account record
+            let { added, addedIds } = await this.txAddRecords({
+              tx,
+              name: ELocalDBStoreNames.Account,
+              records: accounts,
+              skipIfExists: true,
+            });
+
+            let actualAdded = added - removed;
+
+            // filter out url account
+            const allAddedIds = addedIds;
+            addedIds = addedIds.filter(
+              (id) => !accountUtils.isUrlAccountFn({ accountId: id }),
+            );
+            const urlAccountsCount = allAddedIds.length - addedIds.length;
+            actualAdded = Math.max(0, actualAdded - urlAccountsCount);
+
+            // update singleton wallet.accounts & nextAccountId
+            if (actualAdded > 0 && this.isSingletonWallet({ walletId })) {
+              await this.txUpdateWallet({
+                tx,
+                walletId,
+                updater: (w) => {
+                  // DO NOT use  w.nextIds = w.nextIds || {};
+                  // it will reset nextIds to {}
+                  if (!w.nextIds) {
+                    w.nextIds = {};
+                  }
+
+                  const nextIdsData = w.nextIds;
+                  const currentNextAccountId = this.getNextIdsValue({
+                    nextIds: nextIdsData,
+                    key: 'accountGlobalNum',
+                    defaultValue: 1,
+                  });
+                  const newAccountGlobalNum =
+                    currentNextAccountId + actualAdded;
+                  w.nextIds.accountGlobalNum = newAccountGlobalNum;
+
+                  // RealmDB Error: Expected 'accounts[0]' to be a string, got an instance of List
+                  // w.accounts is List not Array in realmDB
+                  w.accounts = Array.from(w.accounts || []);
+
+                  w.accounts = uniq(
+                    [].concat(Array.from(w.accounts) as any, addedIds as any),
+                  ).filter(Boolean);
+
+                  return w;
+                },
+              });
+            }
+
+            // add imported account credential
+            if (walletId === WALLET_TYPE_IMPORTED) {
+              if (addedIds.length !== 1) {
+                throw new Error(
+                  'Only one can be imported at a time into a private key account.',
+                );
+              }
+              if (!importedCredential) {
+                throw new Error(
+                  'importedCredential is required for imported account',
+                );
+              }
+              await this.txAddRecords({
+                tx,
+                name: ELocalDBStoreNames.Credential,
+                records: [
+                  {
+                    id: addedIds[0],
+                    credential: importedCredential,
+                  },
+                ],
+                skipIfExists: true,
+              });
+            }
+
+            const isOverrideAccounts = removed > 0 && actualAdded === 0;
+
+            return {
+              isOverrideAccounts,
+              existsAccounts,
+            };
+
+            // TODO should add accountId to wallet.accounts or wallet.indexedAccounts?
+          },
+        });
+      return addResults0;
+    });
+
+    // saveAccountAddresses
     if (allAccountsBelongToNetworkId) {
       for (const account of accounts) {
         try {
@@ -2984,10 +3672,19 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         return { accounts: allDbAccountsInCache };
       }
     }
-    const { records: accounts } = await this.getAllRecords({
-      name: ELocalDBStoreNames.Account,
-      ids,
-    });
+    let accounts: IDBAccount[] = [];
+    if (ids) {
+      const { records } = await this.getRecordsByIds({
+        name: ELocalDBStoreNames.Account,
+        ids,
+      });
+      accounts = records.filter(Boolean);
+    } else {
+      const { records } = await this.getAllRecords({
+        name: ELocalDBStoreNames.Account,
+      });
+      accounts = records.filter(Boolean);
+    }
     if (!ids) {
       this.dbAllRecordsCache.set(cacheKey, accounts);
     }
@@ -3016,12 +3713,42 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     indexedAccountId: string;
     walletId: string;
   }) {
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const indexedAccount = await this.getIndexedAccountSafe({
+      id: indexedAccountId,
+    });
+
+    const getSyncItemKeyFn = async () => {
+      let syncItemKey: string | undefined;
+      if (indexedAccount) {
+        const target =
+          await syncManagers.indexedAccount.buildSyncTargetByDBQuery({
+            dbRecord: indexedAccount,
+          });
+        const keyInfo =
+          await syncManagers.indexedAccount.buildSyncKeyAndPayload({
+            target,
+          });
+        syncItemKey = keyInfo.key;
+      }
+      return syncItemKey;
+    };
+    // const syncItemKey = await getSyncItemKeyFn();
+
     await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         tx,
         name: ELocalDBStoreNames.IndexedAccount,
         ids: [indexedAccountId],
       });
+
+      // keep sync item for same mnemonic wallet accounts creation
+      // if (syncItemKey) {
+      //   await this.txRemoveCloudSyncPoolItems({
+      //     tx,
+      //     keys: [syncItemKey],
+      //   });
+      // }
     });
   }
 
@@ -3079,6 +3806,21 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     accountId: string;
     walletId: string;
   }): Promise<void> {
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    const account = await this.getAccountSafe({
+      accountId,
+    });
+    let syncItemKey: string | undefined;
+    if (account) {
+      const target = await syncManagers.account.buildSyncTargetByDBQuery({
+        dbRecord: account,
+      });
+      const keyInfo = await syncManagers.account.buildSyncKeyAndPayload({
+        target,
+      });
+      syncItemKey = keyInfo.key;
+    }
+
     await this.withTransaction(async (tx) => {
       await this.txRemoveRecords({
         tx,
@@ -3104,6 +3846,13 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           tx,
           name: ELocalDBStoreNames.Credential,
           ids: [accountId],
+        });
+      }
+
+      if (syncItemKey) {
+        await this.txRemoveCloudSyncPoolItems({
+          tx,
+          keys: [syncItemKey],
         });
       }
     });
@@ -3229,6 +3978,41 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       }
     }
 
+    const syncManagers = this.backgroundApi.servicePrimeCloudSync.syncManagers;
+    let syncItem: IDBCloudSyncItem | undefined;
+    if (!params.skipSaveLocalSyncItem) {
+      const now = await this.timeNow();
+      if (params.accountId) {
+        const account = await this.getAccountSafe({
+          accountId: params.accountId,
+        });
+        if (account) {
+          syncItem = await syncManagers.account.buildSyncItemByDBQuery({
+            syncCredential: await syncManagers.account.getSyncCredential(),
+            dbRecord: { ...account, name: params.name || account.name },
+            isDeleted: false,
+            dataTime: now,
+          });
+        }
+      }
+      if (params.indexedAccountId) {
+        const indexedAccount = await this.getIndexedAccountSafe({
+          id: params.indexedAccountId,
+        });
+        if (indexedAccount) {
+          syncItem = await syncManagers.indexedAccount.buildSyncItemByDBQuery({
+            syncCredential:
+              await syncManagers.indexedAccount.getSyncCredential(),
+            dbRecord: {
+              ...indexedAccount,
+              name: params.name || indexedAccount.name,
+            },
+            isDeleted: false,
+            dataTime: now,
+          });
+        }
+      }
+    }
     await this.withTransaction(async (tx) => {
       if (params.indexedAccountId) {
         await this.txUpdateRecords({
@@ -3254,6 +4038,14 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             }
             return r;
           },
+        });
+      }
+
+      // add or update sync item
+      if (syncItem) {
+        await this.txAddAndUpdateSyncItems({
+          tx,
+          items: [syncItem],
         });
       }
     });
@@ -3336,13 +4128,26 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async getWalletDeviceSafe({
     dbWallet,
     walletId,
+    allDevices,
   }: {
     dbWallet?: IDBWallet;
     walletId: string;
+    allDevices?: IDBDevice[];
   }): Promise<IDBDevice | undefined> {
     try {
-      return await this.getWalletDevice({ walletId, dbWallet });
+      return await this.getWalletDevice({ allDevices, walletId, dbWallet });
     } catch (error) {
+      if (
+        !accountUtils.isHwWallet({
+          walletId,
+        }) &&
+        !accountUtils.isQrWallet({
+          walletId,
+        })
+      ) {
+        errorUtils.autoPrintErrorIgnore(error);
+      }
+
       return undefined;
     }
   }
@@ -3350,19 +4155,30 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
   async getWalletDevice({
     walletId,
     dbWallet,
+    allDevices,
   }: {
     walletId: string;
     dbWallet?: IDBWallet;
+    allDevices?: IDBDevice[];
   }): Promise<IDBDevice> {
     const wallet =
       dbWallet ||
       (await this.getWallet({
         walletId,
       }));
+
     if (wallet.associatedDevice) {
+      const deviceFromAllDevices = allDevices?.find(
+        (item) => item.id === wallet.associatedDevice,
+      );
+      if (deviceFromAllDevices) {
+        return deviceFromAllDevices;
+      }
       return this.getDevice(wallet.associatedDevice);
     }
-    throw new Error('wallet associatedDevice not found');
+    throw new Error(
+      `wallet associatedDevice not found:${wallet?.id || walletId}`,
+    );
   }
 
   async getDeviceByQuery({
@@ -3371,7 +4187,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
     features,
   }: {
     connectId?: string;
-    featuresDeviceId?: string;
+    featuresDeviceId?: string; // rawDeviceId
     features?: IOneKeyDeviceFeatures;
   }): Promise<IDBDevice | undefined> {
     const { getDeviceUUID } = await CoreSDKLoader();
@@ -3454,7 +4270,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           {
             ...params,
             id: String(ctx.nextSignatureMessageId),
-            createdAt: Date.now(),
+            createdAt: await this.timeNow(),
           },
         ],
       });
@@ -3481,7 +4297,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
             ...rest,
             dataStringify,
             id: String(ctx.nextSignatureTransactionId),
-            createdAt: Date.now(),
+            createdAt: await this.timeNow(),
           },
         ],
       });
@@ -3505,7 +4321,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
           {
             ...params,
             id: String(ctx.nextConnectedSiteId),
-            createdAt: Date.now(),
+            createdAt: await this.timeNow(),
           },
         ],
       });
@@ -3577,7 +4393,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       return {
         context: c,
         backupUUID: c.backupUUID,
-        recordPairs2: recordPairs2.map((r) => r[0]),
+        recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
       };
     });
 
@@ -3601,8 +4417,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       await this.txUpdateWallet({
         tx,
         walletId: WALLET_TYPE_WATCHING,
-        updater: (r) => {
-          r.name = `hello world: ${Date.now()}`;
+        updater: async (r) => {
+          r.name = `hello world: ${await this.timeNow()}`;
           return Promise.resolve(r);
         },
       });
@@ -3690,7 +4506,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Credential,
       });
       await Promise.all(
-        recordPairs.map((r) =>
+        recordPairs.filter(Boolean).map((r) =>
           this.txRemoveRecords({
             tx,
             name: ELocalDBStoreNames.Credential,
@@ -3704,8 +4520,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       });
 
       return {
-        recordPairs: recordPairs.map((r) => r[0]),
-        recordPairs2: recordPairs2.map((r) => r[0]),
+        recordPairs: recordPairs.filter(Boolean).map((r) => r[0]),
+        recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
         // c,
         // credential: c.credential,
       };
@@ -3723,7 +4539,7 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
         name: ELocalDBStoreNames.Credential,
       });
       await Promise.all(
-        recordPairs.map((r) =>
+        recordPairs.filter(Boolean).map((r) =>
           this.txUpdateRecords({
             tx,
             name: ELocalDBStoreNames.Credential,
@@ -3744,8 +4560,8 @@ export abstract class LocalDbBase extends LocalDbBaseContainer {
       // throw new Error('failed');
 
       return {
-        recordPairs: recordPairs.map((r) => r[0]),
-        recordPairs2: recordPairs2.map((r) => r[0]),
+        recordPairs: recordPairs.filter(Boolean).map((r) => r[0]),
+        recordPairs2: recordPairs2.filter(Boolean).map((r) => r[0]),
         // c,
         // credential: c.credential,
       };

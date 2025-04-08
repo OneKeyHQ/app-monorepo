@@ -22,10 +22,10 @@ export interface IDevSettings {
   disableSolanaPriorityFee?: boolean;
   disableAllShortcuts?: boolean;
   webviewDebuggingEnabled?: boolean;
+  allowAddSameHDWallet?: boolean;
   // show trading view
   showTradingView?: boolean;
   showPrimeTest?: boolean;
-  showOneKeyId?: boolean;
   usePrimeSandboxPayment?: boolean;
   // strict signature alert display
   strictSignatureAlert?: boolean;
@@ -55,10 +55,11 @@ export const {
       disableSolanaPriorityFee: false,
       disableAllShortcuts: false,
       webviewDebuggingEnabled: false,
-      showPrimeTest: false,
-      showOneKeyId: false,
-      usePrimeSandboxPayment: false,
       strictSignatureAlert: false,
+
+      showPrimeTest: true,
+      usePrimeSandboxPayment: platformEnv.isDev,
+
       autoNavigation: {
         enabled: false,
         selectedTab: ETabRoutes.Discovery,

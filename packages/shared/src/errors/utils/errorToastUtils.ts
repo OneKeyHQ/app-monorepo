@@ -22,10 +22,11 @@ function showToastOfError(error: IOneKeyError | unknown | undefined) {
     err?.className &&
     [
       // ignore auto toast errors
+      EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
+      EOneKeyErrorClassNames.PrimeLoginDialogCancelError,
+      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
       EOneKeyErrorClassNames.PasswordPromptDialogCancel,
       EOneKeyErrorClassNames.OneKeyErrorScanQrCodeCancel,
-      EOneKeyErrorClassNames.SecureQRCodeDialogCancel,
-      EOneKeyErrorClassNames.HardwareUserCancelFromOutside,
       EOneKeyErrorClassNames.FirmwareUpdateExit,
       EOneKeyErrorClassNames.FirmwareUpdateTasksClear,
       EOneKeyErrorClassNames.WebDeviceNotFoundOrNeedsPermission,

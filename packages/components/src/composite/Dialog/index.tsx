@@ -535,23 +535,27 @@ const dialogCancel = (props: IDialogCancelProps) =>
 const dialogDebugMessage = (
   props: IDialogShowProps & { debugMessage: any },
 ) => {
-  const dataContent = JSON.stringify(props.debugMessage, null, 2);
+  const dataContent = JSON.stringify(props.debugMessage, null, 4);
   console.log('dialogDebugMessage:', dataContent);
+  const copyContent = async () => {
+    await setStringAsync(dataContent);
+    Toast.success({
+      title: 'Copied',
+    });
+  };
   return dialogShow({
     title: 'DebugMessage',
-    showFooter: false,
-    showConfirmButton: false,
-    showCancelButton: false,
+    showFooter: true,
+    showConfirmButton: true,
+    showCancelButton: true,
+    onConfirmText: 'Copy',
+    onConfirm: async ({ preventClose }) => {
+      preventClose();
+      await copyContent();
+    },
     renderContent: (
       <ScrollView maxHeight="$48" nestedScrollEnabled>
-        <SizableText
-          onPress={async () => {
-            await setStringAsync(dataContent);
-            Toast.success({
-              title: 'Copied',
-            });
-          }}
-        >
+        <SizableText size="$bodySm" onPress={copyContent}>
           {dataContent}
         </SizableText>
       </ScrollView>

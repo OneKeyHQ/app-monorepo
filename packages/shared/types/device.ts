@@ -1,4 +1,7 @@
-import type { IDBDevice } from '@onekeyhq/kit-bg/src/dbs/local/types';
+import type {
+  IDBDevice,
+  IDBWallet,
+} from '@onekeyhq/kit-bg/src/dbs/local/types';
 import type { ILocaleSymbol } from '@onekeyhq/shared/src/locale';
 
 import type {
@@ -136,6 +139,7 @@ export enum EConfirmOnDeviceType {
 
 export type IDeviceSharedCallParams = {
   dbDevice: IDBDevice;
+  dbWallet?: IDBWallet;
   // type: 'SEARCH_ACCOUNTS' | 'ADD_ACCOUNTS'; // for hardware?
   confirmOnDevice?: EConfirmOnDeviceType;
   deviceCommonParams?: IDeviceCommonParams;

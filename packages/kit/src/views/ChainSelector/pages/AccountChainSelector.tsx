@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import type { IPageScreenProps } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -9,6 +9,10 @@ import {
   useAccountSelectorActions,
   useActiveAccount,
 } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import {
   EChainSelectorPages,
   type IChainSelectorParamList,
@@ -57,7 +61,7 @@ const EditableAccountChainSelector = ({
   onEditCustomNetwork,
 }: IAccountChainSelectorProps) => {
   const {
-    activeAccount: { network, account, wallet },
+    activeAccount: { network, account, wallet, indexedAccount },
   } = useActiveAccount({ num });
   const { result: chainSelectorNetworks, run: refreshLocalData } =
     usePromiseResult(
@@ -73,9 +77,22 @@ const EditableAccountChainSelector = ({
       { initResult: defaultChainSelectorNetworks },
     );
 
+  useEffect(() => {
+    const fn = async () => {
+      await refreshLocalData();
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
+    };
+  }, [refreshLocalData]);
+
   return (
     <EditableChainSelector
+      walletId={wallet?.id}
       networkId={network?.id}
+      accountId={account?.id}
+      indexedAccountId={indexedAccount?.id}
       mainnetItems={chainSelectorNetworks.mainnetItems}
       testnetItems={chainSelectorNetworks.testnetItems}
       unavailableItems={chainSelectorNetworks.unavailableItems}
@@ -180,7 +197,7 @@ const NotEditableAccountChainSelector = ({
   const {
     activeAccount: { network },
   } = useActiveAccount({ num });
-  const { result } = usePromiseResult(async () => {
+  const { result, run: refreshLocalData } = usePromiseResult(async () => {
     let networks: IServerNetwork[] = [];
     if (networkIds && networkIds.length > 0) {
       const resp = await backgroundApiProxy.serviceNetwork.getNetworksByIds({
@@ -193,6 +210,17 @@ const NotEditableAccountChainSelector = ({
     }
     return networks;
   }, [networkIds]);
+
+  useEffect(() => {
+    const fn = async () => {
+      await refreshLocalData();
+    };
+    appEventBus.on(EAppEventBusNames.AddedCustomNetwork, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AddedCustomNetwork, fn);
+    };
+  }, [refreshLocalData]);
+
   return (
     <PureChainSelector
       networkId={network?.id}

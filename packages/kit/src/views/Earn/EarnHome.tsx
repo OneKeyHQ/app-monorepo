@@ -918,11 +918,8 @@ function BasicEarnHome() {
   );
 
   const headerRight = useMemo(
-    () =>
-      devSettings.settings?.showOneKeyId
-        ? renderCustomHeaderRight()
-        : undefined,
-    [devSettings.settings?.showOneKeyId, renderCustomHeaderRight],
+    () => renderCustomHeaderRight(),
+    [renderCustomHeaderRight],
   );
 
   return (

@@ -149,6 +149,7 @@ const settings: IVaultSettings = {
     },
   },
   stakingResultPollingInterval: 60,
+  createAllDeriveTypeAccountsByDefault: true,
 };
 
 export default Object.freeze(settings);

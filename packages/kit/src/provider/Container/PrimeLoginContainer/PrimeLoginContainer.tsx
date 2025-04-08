@@ -14,9 +14,9 @@ import { EPrimePages } from '@onekeyhq/shared/src/routes/prime';
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
 import useAppNavigation from '../../../hooks/useAppNavigation';
 import { PrimeDeviceLogoutAlertDialog } from '../../../views/Prime/components/PrimeDeviceLogoutAlertDialog';
-// import { PrimeLoginEmailCodeDialog } from '../../../views/Prime/components/PrimeLoginEmailCodeDialog';
-// import { PrimeLoginEmailDialog } from '../../../views/Prime/components/PrimeLoginEmailDialog';
+import { PrimeForgetMasterPasswordDialog } from '../../../views/Prime/components/PrimeForgetMasterPasswordDialog';
 import { PrimeLoginPasswordDialog } from '../../../views/Prime/components/PrimeLoginPasswordDialog';
+import { PrimeMasterPasswordInvalidDialog } from '../../../views/Prime/components/PrimeMasterPasswordInvalidDialog';
 
 // TODO rename to PrimeDialogContainer
 export function PrimeLoginContainer() {
@@ -25,6 +25,7 @@ export function PrimeLoginContainer() {
       promptPrimeLoginEmailDialog,
       promptPrimeLoginPasswordDialog,
       promptPrimeLoginEmailCodeDialog,
+      promptForgetMasterPasswordDialog,
     },
   ] = usePrimeLoginDialogAtom();
   const navigation = useAppNavigation();
@@ -37,6 +38,9 @@ export function PrimeLoginContainer() {
   const emailDialogRef = useRef<IDialogInstance | undefined>(undefined);
   const passwordDialogRef = useRef<IDialogInstance | undefined>(undefined);
   const emailCodeDialogRef = useRef<IDialogInstance | undefined>(undefined);
+  const forgetMasterPasswordDialogRef = useRef<IDialogInstance | undefined>(
+    undefined,
+  );
 
   useEffect(() => {
     void (async () => {
@@ -65,6 +69,7 @@ export function PrimeLoginContainer() {
       if (promptPrimeLoginPasswordDialog?.promiseId) {
         await passwordDialogRef.current?.close();
         passwordDialogRef.current = Dialog.show({
+          dismissOnOverlayPress: false,
           renderContent: (
             <PrimeLoginPasswordDialog
               data={passwordDataRef.current}
@@ -83,6 +88,29 @@ export function PrimeLoginContainer() {
       }
     })();
   }, [promptPrimeLoginPasswordDialog?.promiseId]);
+
+  useEffect(() => {
+    void (async () => {
+      if (promptForgetMasterPasswordDialog?.promiseId) {
+        await forgetMasterPasswordDialogRef.current?.close();
+        forgetMasterPasswordDialogRef.current = Dialog.show({
+          renderContent: (
+            <PrimeForgetMasterPasswordDialog
+              promiseId={promptForgetMasterPasswordDialog?.promiseId}
+            />
+          ),
+          onClose: async () => {
+            await backgroundApiProxy.servicePrime.cancelPrimeLogin({
+              promiseId: promptForgetMasterPasswordDialog?.promiseId,
+              dialogType: 'promptForgetMasterPasswordDialog',
+            });
+          },
+        });
+      } else {
+        await forgetMasterPasswordDialogRef.current?.close();
+      }
+    })();
+  }, [promptForgetMasterPasswordDialog?.promiseId]);
 
   useEffect(() => {
     void (async () => {
@@ -132,6 +160,20 @@ export function PrimeLoginContainer() {
     appEventBus.on(EAppEventBusNames.PrimeDeviceLogout, fn);
     return () => {
       appEventBus.off(EAppEventBusNames.PrimeDeviceLogout, fn);
+    };
+  }, []);
+
+  useEffect(() => {
+    const fn = () => {
+      Dialog.show({
+        dismissOnOverlayPress: false,
+        disableDrag: true,
+        renderContent: <PrimeMasterPasswordInvalidDialog />,
+      });
+    };
+    appEventBus.on(EAppEventBusNames.PrimeMasterPasswordInvalid, fn);
+    return () => {
+      appEventBus.off(EAppEventBusNames.PrimeMasterPasswordInvalid, fn);
     };
   }, []);
 
