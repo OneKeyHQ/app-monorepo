@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 import BigNumber from 'bignumber.js';
 import { debounce } from 'lodash';
@@ -55,6 +55,7 @@ import {
 import { useSwapSlippagePercentageModeInfo } from '../../hooks/useSwapState';
 import { SwapProviderMirror } from '../SwapProviderMirror';
 
+import ProviderManageContainer from './ProviderManageContainer';
 import { SlippageInput } from './SwapSlippageContentContainer';
 
 const SwapSettingsCommonItem = ({
@@ -251,6 +252,7 @@ const SwapSettingsDialogContent = () => {
   const [{ swapBatchApproveAndSwap }, setPersistSettings] =
     useSettingsPersistAtom();
   const [swapTypeSwitch] = useSwapTypeSwitchAtom();
+  const [{ swapProviderManager }] = useInAppNotificationAtom();
   const rightTrigger = useMemo(
     () => (
       <SegmentControl
@@ -289,6 +291,7 @@ const SwapSettingsDialogContent = () => {
     ),
     [intl, setNoPersistSettings, slippageItem.key],
   );
+  const dialogRef = useRef<ReturnType<typeof Dialog.show> | null>(null);
   return (
     <YStack gap="$5">
       {swapTypeSwitch !== ESwapTabSwitchType.LIMIT ? (
@@ -353,13 +356,37 @@ const SwapSettingsDialogContent = () => {
           <SwapProviderSettingItem
             title="Enable dex aggregator"
             onPress={() => {
-              console.log('onPress');
+              dialogRef.current = Dialog.show({
+                title: 'Enable dex aggregator',
+                renderContent: (
+                  <ProviderManageContainer
+                    onSaved={() => {
+                      void dialogRef.current?.close();
+                    }}
+                    isBridge={false}
+                  />
+                ),
+                showConfirmButton: false,
+                showCancelButton: false,
+              });
             }}
           />
           <SwapProviderSettingItem
             title="Enable bridges"
             onPress={() => {
-              console.log('onPress');
+              dialogRef.current = Dialog.show({
+                title: 'Enable bridges',
+                renderContent: (
+                  <ProviderManageContainer
+                    onSaved={() => {
+                      void dialogRef.current?.close();
+                    }}
+                    isBridge
+                  />
+                ),
+                showConfirmButton: false,
+                showCancelButton: false,
+              });
             }}
           />
         </>

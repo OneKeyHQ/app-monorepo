@@ -246,6 +246,8 @@ export interface IFetchQuotesParams extends IFetchSwapQuoteBaseParams {
   kind?: ESwapQuoteKind;
   toTokenAmount?: string;
   userMarketPriceRate?: string;
+  denyCrossChainProvider?: string;
+  denySingleSwapProvider?: string;
 }
 interface ISocketAsset {
   address: string;
