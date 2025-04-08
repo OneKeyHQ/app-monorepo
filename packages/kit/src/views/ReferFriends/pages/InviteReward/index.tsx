@@ -14,6 +14,7 @@ import {
   Page,
   Popover,
   Progress,
+  ScrollView,
   SizableText,
   Spinner,
   Stack,
@@ -499,7 +500,7 @@ export default function InviteReward() {
     },
   );
   return (
-    <Page scrollEnabled>
+    <Page>
       <Page.Header
         title={intl.formatMessage({
           id: ETranslations.referral_title,
@@ -507,11 +508,23 @@ export default function InviteReward() {
       />
       <Page.Body>
         {!summaryInfo || isLoading ? (
-          <YStack flex={1} ai="center" jc="center">
-            <Spinner />
-          </YStack>
+          <Stack
+            bg="$bg"
+            position="absolute"
+            top={0}
+            left={0}
+            right={0}
+            bottom={0}
+            ai="center"
+            jc="center"
+            flex={1}
+          >
+            <Spinner size="large" />
+          </Stack>
         ) : (
-          <InviteRewardContent summaryInfo={summaryInfo} />
+          <ScrollView>
+            <InviteRewardContent summaryInfo={summaryInfo} />
+          </ScrollView>
         )}
       </Page.Body>
     </Page>
