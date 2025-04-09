@@ -40,7 +40,11 @@ const ProviderManageContainer = ({
       setProviderManageNewData(
         providerManageNewData.map((item) => {
           if (item.providerInfo.provider === provider) {
-            return { ...item, enable };
+            return {
+              ...item,
+              enable,
+              disableNetworks: enable ? [] : [...(item.supportNetworks ?? [])],
+            };
           }
           return item;
         }),
@@ -53,17 +57,39 @@ const ProviderManageContainer = ({
       setProviderManageNewData(
         providerManageNewData.map((item) => {
           if (item.providerInfo.provider === provider) {
-            return {
-              ...item,
-              supportNetworks: item.supportNetworks?.map((network) => {
-                if (
-                  network.networkId.split('--')[0] === networkId.split('--')[0]
-                ) {
-                  return { ...network, enable };
-                }
-                return network;
-              }),
-            };
+            if (enable) {
+              const disNetsEnable = item.supportNetworks?.filter(
+                (net) =>
+                  net.networkId.split('--')[0] === networkId.split('--')[0],
+              );
+              if (disNetsEnable?.length) {
+                return {
+                  ...item,
+                  disableNetworks: (item.disableNetworks ?? []).filter(
+                    (net) =>
+                      !disNetsEnable.find(
+                        (n) =>
+                          n.networkId.split('--')[0] ===
+                          net.networkId.split('--')[0],
+                      ),
+                  ),
+                };
+              }
+            } else {
+              const disNets = item.supportNetworks?.filter(
+                (net) =>
+                  net.networkId.split('--')[0] === networkId.split('--')[0],
+              );
+              if (disNets?.length) {
+                return {
+                  ...item,
+                  disableNetworks: [
+                    ...(item.disableNetworks ?? []),
+                    ...disNets,
+                  ],
+                };
+              }
+            }
           }
           return item;
         }),
@@ -100,6 +126,7 @@ const ProviderManageContainer = ({
               providerInfo={item.providerInfo}
               providerEnable={item.enable}
               serviceDisable={!!item.serviceDisable}
+              serviceDisableNetworks={item.serviceDisableNetworks ?? []}
               providerSupportNetworks={item.supportNetworks ?? []}
               providerDisableNetworks={item.disableNetworks ?? []}
               onProviderSwitchEnable={(enable) => {
