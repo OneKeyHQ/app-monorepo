@@ -8,9 +8,7 @@ import { HyperlinkText } from '@onekeyhq/kit/src/components/HyperlinkText';
 import type { IFirmwareUpdateRetry } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   EFirmwareUpdateSteps,
-  EHardwareUiStateAction,
   useFirmwareUpdateStepInfoAtom,
-  useHardwareUiStateAtom,
 } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import {
   ECustomOneKeyHardwareError,
@@ -194,7 +192,6 @@ export function FirmwareUpdateErrorV2({
 }) {
   const intl = useIntl();
   const [, setStepInfo] = useFirmwareUpdateStepInfoAtom();
-  const [, setHardwareUiStateAtom] = useHardwareUiStateAtom();
 
   const onRetry = useCallback(async () => {
     if (!retryInfo) {
@@ -203,13 +200,7 @@ export function FirmwareUpdateErrorV2({
     console.error('retry error', retryInfo?.error);
     // Call onRetryBefore before starting retry
     onRetryBefore?.();
-    setHardwareUiStateAtom({
-      action: EHardwareUiStateAction.FIRMWARE_TIP,
-      connectId: result?.originalConnectId ?? '',
-      payload: {
-        firmwareTipData: '',
-      } as any,
-    });
+    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
     // TODO move atom action to service
     setStepInfo({
       step: EFirmwareUpdateSteps.updateStart,
@@ -222,7 +213,7 @@ export function FirmwareUpdateErrorV2({
       connectId: result?.updatingConnectId,
       releaseResult: result,
     });
-  }, [result, retryInfo, setStepInfo, setHardwareUiStateAtom, onRetryBefore]);
+  }, [result, retryInfo, setStepInfo, onRetryBefore]);
 
   const { errorMessage } = useFirmwareUpdateErrors({
     error: retryInfo?.error,

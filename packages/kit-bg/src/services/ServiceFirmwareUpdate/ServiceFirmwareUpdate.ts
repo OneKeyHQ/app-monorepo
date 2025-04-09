@@ -58,9 +58,11 @@ import localDb from '../../dbs/local/localDb';
 import {
   EFirmwareUpdateSteps,
   EHardwareUiStateAction,
+  firmwareUpdateResultVerifyAtom,
   firmwareUpdateRetryAtom,
   firmwareUpdateStepInfoAtom,
   firmwareUpdateWorkflowRunningAtom,
+  hardwareUiStateAtom,
 } from '../../states/jotai/atoms';
 import ServiceBase from '../ServiceBase';
 import serviceHardwareUtils from '../ServiceHardware/serviceHardwareUtils';
@@ -77,7 +79,6 @@ import type {
   IPromiseContainerResolve,
 } from '../ServicePromise';
 import type {
-  BleReleaseInfoPayload,
   CoreApi,
   Success as CoreSuccess,
   DeviceUploadResourceParams,
@@ -104,6 +105,12 @@ export type IUpdateFirmwareTaskFn = ({
 }: {
   id: number;
 }) => Promise<Success | undefined>; // return Success | undefined go to next task, throw error to retry
+
+interface IFirmwareUpdateResult {
+  bleVersion?: string;
+  firmwareVersion?: string;
+  bootloaderVersion?: string;
+}
 
 @backgroundClass()
 class ServiceFirmwareUpdate extends ServiceBase {
@@ -1356,6 +1363,15 @@ class ServiceFirmwareUpdate extends ServiceBase {
   }
 
   @backgroundMethod()
+  async clearHardwareUiStateBeforeStartUpdateWorkflow() {
+    await hardwareUiStateAtom.set({
+      action: EHardwareUiStateAction.FIRMWARE_TIP,
+      connectId: '',
+      payload: {} as any,
+    });
+  }
+
+  @backgroundMethod()
   @toastIfError()
   async startUpdateWorkflowV2(params: IUpdateFirmwareWorkflowParams) {
     await this.backgroundApi.serviceHardwareUI.withHardwareProcessing(
@@ -1384,7 +1400,17 @@ class ServiceFirmwareUpdate extends ServiceBase {
           throw new Error('Do not support update firmware for this device');
         }
 
-        await this.startUpdateFirmwareTaskForNewBootVersion(params);
+        const updateResult =
+          await this.startUpdateFirmwareTaskForNewBootVersion(params);
+        await firmwareUpdateResultVerifyAtom.set({
+          finalBleVersion: updateResult?.bleVersion || '',
+          finalFirmwareVersion: updateResult?.firmwareVersion || '',
+          finalBootloaderVersion: updateResult?.bootloaderVersion || '',
+        });
+        console.log(
+          'startUpdateFirmwareTaskForNewBootVersion result: ===> ',
+          updateResult,
+        );
 
         serviceHardwareUtils.hardwareLog('startUpdateWorkflow DONE', params);
 
@@ -1402,6 +1428,8 @@ class ServiceFirmwareUpdate extends ServiceBase {
           );
           appEventBus.emit(EAppEventBusNames.FinishFirmwareUpdate, undefined);
         }
+        // wait verify
+        await timerUtils.wait(3000);
       },
       {
         deviceParams: {
@@ -1604,7 +1632,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
   async startUpdateFirmwareTaskForNewBootVersion(
     params: IUpdateFirmwareWorkflowParams,
-  ) {
+  ): Promise<IFirmwareUpdateResult> {
     const { releaseResult } = params;
     const { updateInfos } = releaseResult;
 
@@ -1622,7 +1650,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
     };
     return this.createRunTaskWithRetry({
       fn: async () => this.updatingFirmwareV3(updateParams),
-    });
+    }) as Promise<IFirmwareUpdateResult>;
   }
 
   async updatingFirmwareV3(
@@ -1652,7 +1680,6 @@ class ServiceFirmwareUpdate extends ServiceBase {
 
       try {
         const result = await convertDeviceResponse(async () =>
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-return, @typescript-eslint/no-unsafe-call
           hardwareSDK.firmwareUpdateV3(
             deviceUtils.getUpdatingConnectId({ connectId }),
             {
@@ -1665,7 +1692,7 @@ class ServiceFirmwareUpdate extends ServiceBase {
         );
 
         // 升级成功埋点数据
-        return result;
+        return { message: 'success', ...result };
       } catch (error) {
         // 埋点数据
         console.log('updatingFirmwareV3 error: ', error);

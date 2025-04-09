@@ -119,6 +119,7 @@ export function FirmwareUpdateCheckList({
                       features: result?.features,
                     });
                   if (useV2FirmwareUpdateFlow) {
+                    await backgroundApiProxy.serviceFirmwareUpdate.clearHardwareUiStateBeforeStartUpdateWorkflow();
                     navigation.navigate(EModalFirmwareUpdateRoutes.InstallV2, {
                       result,
                     });

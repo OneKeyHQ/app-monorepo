@@ -51,7 +51,6 @@ export function FirmwareInstallingViewBase({
           result={result}
           lastFirmwareTipMessage={tipMessage}
           onRetryBefore={() => {
-            // 只在点击 retry 时更新 resetKey
             setResetKey(Date.now());
           }}
         />
