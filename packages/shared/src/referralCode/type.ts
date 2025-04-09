@@ -41,7 +41,6 @@ export interface IInviteSummary {
       fiatValue: string;
     };
   };
-  rebateLevel: string;
   banners: any[];
 }
 
