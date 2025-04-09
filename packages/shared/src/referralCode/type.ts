@@ -48,7 +48,6 @@ interface IHardwareSalesRecordItem {
   side: string;
   subject: string;
   userId: string;
-  __v: number;
   amount: string;
   createdAt: string;
   effectiveTime: string | null;
