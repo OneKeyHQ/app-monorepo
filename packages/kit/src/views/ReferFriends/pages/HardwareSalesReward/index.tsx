@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -32,8 +32,37 @@ function ItemSeparatorComponent() {
   return <Stack h="$2.5" />;
 }
 
+const formatSections = (items: IHardwareSalesRecord['items']) => {
+  const groupedData: Record<string, IHardwareSalesRecord['items']> =
+    items.reduce<Record<string, any[]>>((acc, item) => {
+      const date = new Date(item.createdAt);
+      const year = date.getFullYear();
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      const dateKey = `${year}-${month.toString().padStart(2, '0')}-${day
+        .toString()
+        .padStart(2, '0')}`;
+
+      if (!acc[dateKey]) {
+        acc[dateKey] = [];
+      }
+
+      acc[dateKey].push(item);
+      return acc;
+    }, {} as Record<string, IHardwareSalesRecord['items']>);
+
+  return Object.keys(groupedData).map((dateKey) => {
+    const date = new Date(groupedData[dateKey][0].createdAt);
+    return {
+      title: formatRelativeDate(date),
+      data: groupedData[dateKey],
+    };
+  });
+};
+
 export default function HardwareSalesReward() {
   const [settings] = useSettingsPersistAtom();
+  const originalData = useRef<IHardwareSalesRecord['items']>([]);
 
   const [loading, setLoading] = useState(false);
   const [sections, setSections] = useState<
@@ -54,35 +83,9 @@ export default function HardwareSalesReward() {
         available: data.available.amount,
         pending: data.pending.amount,
       });
+      setSections(formatSections(data.items));
+      originalData.current.push(...data.items);
       setLoading(false);
-
-      const groupedData: Record<string, IHardwareSalesRecord['items']> =
-        data.items.reduce<Record<string, any[]>>((acc, item) => {
-          const date = new Date(item.createdAt);
-          const year = date.getFullYear();
-          const month = date.getMonth() + 1;
-          const day = date.getDate();
-          const dateKey = `${year}-${month.toString().padStart(2, '0')}-${day
-            .toString()
-            .padStart(2, '0')}`;
-
-          if (!acc[dateKey]) {
-            acc[dateKey] = [];
-          }
-
-          acc[dateKey].push(item);
-          return acc;
-        }, {} as Record<string, IHardwareSalesRecord['items']>);
-
-      const formattedSections = Object.keys(groupedData).map((dateKey) => {
-        const date = new Date(groupedData[dateKey][0].createdAt);
-        return {
-          title: formatRelativeDate(date),
-          data: groupedData[dateKey],
-        };
-      });
-
-      setSections(formattedSections);
     });
   }, [fetchSales]);
   const renderSectionHeader = useCallback(
@@ -93,11 +96,24 @@ export default function HardwareSalesReward() {
     },
     [],
   );
+
+  const fetchMore = useCallback(async () => {
+    if (originalData.current.length < 1) {
+      return;
+    }
+    const data = await fetchSales(
+      originalData.current[originalData.current.length - 1]._id,
+    );
+    if (data.items.length > 0) {
+      originalData.current.push(...data.items);
+      setSections(formatSections(originalData.current));
+    }
+  }, [fetchSales]);
+
   const intl = useIntl();
   const renderItem = useCallback(
     ({
       item,
-      section,
     }: {
       item: IHardwareSalesRecord['items'][0];
       section: ISectionListItem;
@@ -242,6 +258,7 @@ export default function HardwareSalesReward() {
             estimatedItemSize={44}
             renderItem={renderItem}
             ItemSeparatorComponent={ItemSeparatorComponent}
+            onEndReached={fetchMore}
           />
         )}
       </Page.Body>

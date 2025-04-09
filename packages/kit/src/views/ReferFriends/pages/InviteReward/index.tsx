@@ -509,7 +509,6 @@ export default function InviteReward() {
       <Page.Body>
         {!summaryInfo || isLoading ? (
           <Stack
-            bg="$bg"
             position="absolute"
             top={0}
             left={0}
