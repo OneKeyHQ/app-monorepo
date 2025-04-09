@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 import {
+  Alert,
   Divider,
   Empty,
   NumberSizeableText,
@@ -15,9 +16,11 @@ import {
   YStack,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
+import { useSpotlight } from '@onekeyhq/kit/src/components/Spotlight';
 import { useSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import type { IHardwareSalesRecord } from '@onekeyhq/shared/src/referralCode/type';
+import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 import {
   formatRelativeDate,
   formatTime,
@@ -63,6 +66,11 @@ const formatSections = (items: IHardwareSalesRecord['items']) => {
 export default function HardwareSalesReward() {
   const [settings] = useSettingsPersistAtom();
   const originalData = useRef<IHardwareSalesRecord['items']>([]);
+  const { tourTimes, tourVisited } = useSpotlight(
+    ESpotlightTour.hardwareSalesRewardAlert,
+  );
+
+  console.log('---tourTimes', tourTimes)
 
   const [loading, setLoading] = useState(false);
   const [sections, setSections] = useState<
@@ -198,6 +206,18 @@ export default function HardwareSalesReward() {
             }
             ListHeaderComponent={
               <YStack px="$5">
+                {tourTimes === 0 ? (
+                  <Alert
+                    closable
+                    description={intl.formatMessage({
+                      id: ETranslations.referral_sales_reward_tips,
+                    })}
+                    type="info"
+                    mx="$5"
+                    mb="$2.5"
+                    onClose={tourVisited}
+                  />
+                ) : null}
                 <SizableText size="$bodyLg">
                   {intl.formatMessage({
                     id: ETranslations.referral_reward_undistributed,
