@@ -36,6 +36,26 @@ export const useLoginOneKeyId = () => {
     });
   }, [navigation]);
 
+  const verifyOneKeyId = useCallback(async () => {
+    return new Promise<string>((resolve) => {
+      const loginDialog = Dialog.show({
+        renderContent: (
+          <PrimeLoginEmailDialogV2
+            title="Check Email"
+            description="Check Email by OTP Code"
+            onComplete={() => {
+              void loginDialog.close();
+            }}
+            onConfirm={async (code: string) => {
+              await timerUtils.wait(120);
+              resolve(code);
+            }}
+          />
+        ),
+      });
+    });
+  }, []);
+
   const loginOneKeyId = useCallback(
     async ({
       toOneKeyIdPageOnLoginSuccess,
@@ -75,5 +95,8 @@ export const useLoginOneKeyId = () => {
     },
     [intl, logout, toOneKeyIdPage],
   );
-  return useMemo(() => ({ loginOneKeyId }), [loginOneKeyId]);
+  return useMemo(
+    () => ({ verifyOneKeyId, loginOneKeyId }),
+    [loginOneKeyId, verifyOneKeyId],
+  );
 };

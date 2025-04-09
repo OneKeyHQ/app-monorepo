@@ -128,7 +128,7 @@ function AllNetworksManager() {
 
   const renderHeaderTitle = useCallback(() => {
     return (
-      <YStack alignItems="center" justifyContent="center">
+      <YStack>
         <SizableText size="$headingLg">
           {intl.formatMessage({ id: ETranslations.global_all_networks })}
         </SizableText>
@@ -281,10 +281,7 @@ function AllNetworksManager() {
   return (
     <AllNetworksManagerContext.Provider value={contextValue}>
       <Page safeAreaEnabled>
-        <Page.Header
-          headerTitle={renderHeaderTitle}
-          headerTitleAlign="center"
-        />
+        <Page.Header headerTitle={renderHeaderTitle} />
         <Page.Body>
           <NetworksSectionList />
         </Page.Body>

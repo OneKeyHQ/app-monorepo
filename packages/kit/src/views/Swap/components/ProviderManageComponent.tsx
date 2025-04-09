@@ -16,6 +16,7 @@ interface IProviderFoldProps {
   providerInfo: ISwapProviderInfo;
   providerEnable: boolean;
   serviceDisable: boolean;
+  serviceDisableNetworks: ISwapNetwork[];
   providerSupportNetworks: ISwapNetwork[];
   providerDisableNetworks: ISwapNetwork[];
   onProviderSwitchEnable: (enable: boolean) => void;
@@ -40,7 +41,7 @@ export const ProviderSwitch = ({
   openFold,
 }: IProviderSwitchProps) => {
   return (
-    <XStack justifyContent="space-between" mb={openFold ? '$2' : '$0'}>
+    <XStack justifyContent="space-between">
       <XStack alignItems="center" gap="$2">
         <Image
           source={{ uri: providerInfo.logo }}
@@ -59,6 +60,7 @@ export const ProviderSwitch = ({
               e.preventDefault();
               e.stopPropagation();
             }}
+            mr={withNetwork ? '$0' : '$7'}
           >
             <Switch
               value={serviceDisable ? false : providerEnable}
@@ -123,6 +125,7 @@ const ProviderFold = ({
   providerInfo,
   providerEnable,
   serviceDisable,
+  serviceDisableNetworks,
   providerDisableNetworks,
   providerSupportNetworks,
   onProviderSwitchEnable,
@@ -140,6 +143,7 @@ const ProviderFold = ({
       logo: n.logoURI,
       networkId: n.networkId,
       enable: true,
+      serviceDisable: false,
     }));
     if (evmNet?.length) {
       const ethNet = evmNet.find((n) => n.networkId === 'evm--1');
@@ -149,6 +153,7 @@ const ProviderFold = ({
           logo: ethNet?.logoURI,
           networkId: 'evm',
           enable: true,
+          serviceDisable: false,
         },
         ...res,
       ];
@@ -163,8 +168,23 @@ const ProviderFold = ({
       }
       return net;
     });
+    res = res.map((net) => {
+      const findServerDisNet = serviceDisableNetworks.find(
+        (disN) =>
+          net.networkId.split('--')[0] === disN.networkId.split('--')[0],
+      );
+      if (findServerDisNet) {
+        return { ...net, serviceDisable: true };
+      }
+      return net;
+    });
+
     return res;
-  }, [providerDisableNetworks, providerSupportNetworks]);
+  }, [
+    providerDisableNetworks,
+    providerSupportNetworks,
+    serviceDisableNetworks,
+  ]);
   return (
     <Accordion type="single" collapsible>
       <Accordion.Item value="1">
@@ -180,7 +200,9 @@ const ProviderFold = ({
             <ProviderSwitch
               providerEnable={providerEnable}
               providerInfo={providerInfo}
-              withNetwork={parsSupportNetwork?.length > 0}
+              withNetwork={
+                !!(parsSupportNetwork?.length > 0 && !serviceDisable)
+              }
               onProviderSwitchEnable={onProviderSwitchEnable}
               openFold={open}
               serviceDisable={serviceDisable}
@@ -189,7 +211,7 @@ const ProviderFold = ({
         </Accordion.Trigger>
         <Accordion.HeightAnimator animation="quick">
           <Accordion.Content
-            p="$0"
+            p="$2"
             animation="quick"
             gap="$2"
             enterStyle={{ opacity: 0 }}
@@ -201,6 +223,7 @@ const ProviderFold = ({
                 networkId={net.networkId}
                 enable={net.enable}
                 logo={net.logo}
+                serviceDisable={net.serviceDisable}
                 networkName={net.networkName}
                 onNetworkSwitch={onProviderNetworkEnable}
               />

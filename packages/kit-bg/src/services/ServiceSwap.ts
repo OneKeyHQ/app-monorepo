@@ -782,7 +782,6 @@ export default class ServiceSwap extends ServiceBase {
     const { swapProviderManager } = await inAppNotificationAtom.get();
     const denyDexs = swapProviderManager.filter((item) => !item.enable);
     let denyDexArr = denyDexs?.map((item) => item.providerInfo.provider);
-    console.log('swap__denyDexs', denyDexArr);
     const denyDexNetworks = swapProviderManager.filter((item) => {
       if (item.enable) {
         const netDisEnable = item.disableNetworks?.find(
@@ -801,7 +800,6 @@ export default class ServiceSwap extends ServiceBase {
         ...denyDexNetworks.map((item) => item.providerInfo.provider),
       ];
     }
-    console.log('swap__denyDexArr--1-', denyDexArr);
     return denyDexArr?.join(',');
   }
 
