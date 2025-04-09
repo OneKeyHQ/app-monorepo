@@ -8,6 +8,9 @@ export interface IInviteSummary {
   withdrawAddresses: string[];
   enabledNetworks: string[];
   totalRewards: string;
+  levelPercent: string;
+  rebateLevel: string;
+  nextRebateLevel: string;
   rebateConfig: {
     rebate: number;
     discount: number;
