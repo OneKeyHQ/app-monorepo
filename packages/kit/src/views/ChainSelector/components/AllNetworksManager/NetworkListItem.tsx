@@ -37,7 +37,7 @@ function NetworkListItem({ network }: { network: IServerNetworkMatch }) {
       testID={`all-networks-manager-item-${network.id}`}
     >
       <Switch
-        size="large"
+        size="small"
         value={isEnabledInAllNetworks}
         onChange={(value) => {
           setNetworksState((prev) => ({
