@@ -122,12 +122,8 @@ export function PrimeLoginEmailCodeDialogV2(props: {
             id: ETranslations.prime_enter_verification_code,
           })}
         </Dialog.Title>
-
         <Dialog.Description>
-          {`${intl.formatMessage(
-            { id: ETranslations.prime_sent_to },
-            { email },
-          )}`}
+          {intl.formatMessage({ id: ETranslations.prime_sent_to }, { email })}
         </Dialog.Description>
       </Dialog.Header>
 
