@@ -191,7 +191,6 @@ export default function HardwareSalesReward() {
     ),
     [intl, settings.currencyInfo.symbol],
   );
-  console.log('---aaa', platformEnv.isNative, isLoading);
   return (
     <Page>
       <Page.Header
