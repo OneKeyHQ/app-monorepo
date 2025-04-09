@@ -36,10 +36,8 @@ function HardwareSales() {
       },
     },
   );
-  const { total, items } = result;
-  return total === 0 && !isLoading ? (
-    <EmptyData />
-  ) : (
+  const { total = 0, items } = result;
+  return (
     <YStack pt="$5">
       <YStack px="$5">
         <SizableText size="$bodyLg">
@@ -49,16 +47,20 @@ function HardwareSales() {
         </SizableText>
         <SizableText size="$heading5xl">{total}</SizableText>
       </YStack>
-      <YStack px="$5" pt="$5">
-        {items.map((item, key) => (
-          <YStack key={key}>
-            <SizableText size="$bodyLgMedium">{item.title}</SizableText>
-            <SizableText size="$bodyMd" color="$textSubdued">
-              {formatDate(item.createdAt)}
-            </SizableText>
-          </YStack>
-        ))}
-      </YStack>
+      {total === 0 && !isLoading ? (
+        <EmptyData />
+      ) : (
+        <YStack px="$5" pt="$5">
+          {items.map((item, key) => (
+            <YStack key={key}>
+              <SizableText size="$bodyLgMedium">{item.title}</SizableText>
+              <SizableText size="$bodyMd" color="$textSubdued">
+                {formatDate(item.createdAt)}
+              </SizableText>
+            </YStack>
+          ))}
+        </YStack>
+      )}
     </YStack>
   );
 }
