@@ -110,7 +110,14 @@ class ServicePrime extends ServiceBase {
       await this.backgroundApi.simpleDb.prime.saveAuthToken('');
       const client = await this.getPrimeClient();
       try {
-        await client.post(
+        const response = await client.post<{
+          data: {
+            userId: string;
+            inviteCode: string;
+            emails: string[];
+            createdAt: string;
+          };
+        }>(
           '/prime/v1/user/login',
           {},
           {
@@ -121,7 +128,11 @@ class ServicePrime extends ServiceBase {
         );
         // only save authToken if api login success
         await this.backgroundApi.simpleDb.prime.saveAuthToken(accessToken);
-
+        if (response.data.data.inviteCode) {
+          await this.backgroundApi.serviceReferralCode.updateMyReferralCode(
+            response.data.data.inviteCode,
+          );
+        }
         await primePersistAtom.set((v) => ({
           ...v,
           isLoggedInOnServer: true,

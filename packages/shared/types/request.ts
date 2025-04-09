@@ -8,5 +8,6 @@ export type IOneKeyAPIBaseResponse<T = any> = {
   code: number;
   message: string;
   messageId?: string;
+  translatedMessage?: string;
   data: T;
 };
