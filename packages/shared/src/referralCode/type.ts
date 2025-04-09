@@ -41,3 +41,54 @@ export interface IInviteSummary {
   rebateLevel: string;
   banners: any[];
 }
+
+export interface IHardwareSalesRecord {
+  available: {
+    token: {
+      networkId: string;
+      address: string;
+      logoURI: string;
+      name: string;
+      symbol: string;
+    };
+    amount: string;
+    fiatValue: string;
+  };
+  pending: {
+    token: {
+      networkId: string;
+      address: string;
+      logoURI: string;
+      name: string;
+      symbol: string;
+    };
+    amount: string;
+    fiatValue: string;
+  };
+  items: Array<{
+    _id: string;
+    itemUniqueId: string;
+    side: string;
+    subject: string;
+    userId: string;
+    __v: number;
+    amount: string;
+    createdAt: string;
+    effectiveTime: string | null;
+    orderTotalAmount: string;
+    payReceipt: string | null;
+    payTime: string | null;
+    receivceAddress: string | null;
+    title: string;
+    token: {
+      networkId: string;
+      address: string;
+      logoURI: string;
+      name: string;
+      symbol: string;
+    };
+    updatedAt: string;
+    fiatValue: string;
+    status: string;
+  }>;
+}
