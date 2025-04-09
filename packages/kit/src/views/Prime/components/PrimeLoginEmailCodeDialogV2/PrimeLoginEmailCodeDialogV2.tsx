@@ -115,54 +115,54 @@ export function PrimeLoginEmailCodeDialogV2(props: {
 
   return (
     <Stack>
-      <Dialog.Icon icon="BarcodeSolid" />
-      <Dialog.Title>
-        {intl.formatMessage({
-          id: ETranslations.prime_enter_verification_code,
-        })}
-      </Dialog.Title>
+      <Dialog.Header>
+        <Dialog.Icon icon="BarcodeSolid" />
+        <Dialog.Title>
+          {intl.formatMessage({
+            id: ETranslations.prime_enter_verification_code,
+          })}
+        </Dialog.Title>
 
-      <SizableText size="$bodyLg" color="$text">
-        {`${intl.formatMessage(
-          { id: ETranslations.prime_sent_to },
-          { email },
-        )}`}
-      </SizableText>
+        <Dialog.Description>
+          {`${intl.formatMessage(
+            { id: ETranslations.prime_sent_to },
+            { email },
+          )}`}
+        </Dialog.Description>
+      </Dialog.Header>
 
-      <Stack pt="$4">
-        <YStack gap="$2">
-          <XStack>
-            <Button
-              width="auto"
-              size="small"
-              variant="tertiary"
-              disabled={countdown > 0 || isResending}
-              onPress={sendEmailVerificationCode}
-            >
-              {buttonText}
-            </Button>
-          </XStack>
+      <YStack gap="$2">
+        <XStack>
+          <Button
+            width="auto"
+            size="small"
+            variant="tertiary"
+            disabled={countdown > 0 || isResending}
+            onPress={sendEmailVerificationCode}
+          >
+            {buttonText}
+          </Button>
+        </XStack>
 
-          <OTPInput
-            autoFocus
-            status={state.status === 'error' ? 'error' : 'normal'}
-            numberOfDigits={6}
-            value={verificationCode}
-            onTextChange={(value) => {
-              setVerificationCode(value);
-              setState({ status: 'initial' });
-            }}
-          />
+        <OTPInput
+          autoFocus
+          status={state.status === 'error' ? 'error' : 'normal'}
+          numberOfDigits={6}
+          value={verificationCode}
+          onTextChange={(value) => {
+            setVerificationCode(value);
+            setState({ status: 'initial' });
+          }}
+        />
 
-          {state.status === 'error' ? (
-            <SizableText size="$bodyMd" color="$red9">
-              {intl.formatMessage({
-                id: ETranslations.prime_invalid_verification_code,
-              })}
-            </SizableText>
-          ) : null}
-        </YStack>
-      </Stack>
+        {state.status === 'error' ? (
+          <SizableText size="$bodyMd" color="$red9">
+            {intl.formatMessage({
+              id: ETranslations.prime_invalid_verification_code,
+            })}
+          </SizableText>
+        ) : null}
+      </YStack>
       <Dialog.Footer
         showCancelButton={false}
         confirmButtonProps={{
