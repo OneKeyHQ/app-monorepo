@@ -34,7 +34,7 @@ class ServiceReferralCode extends ServiceBase {
   }
 
   @backgroundMethod()
-  async bindAddressBook(networkId: string, address: string, emailOTP: string) {
+  async bindAddress(networkId: string, address: string, emailOTP: string) {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     await client.post('/rebate/v1/address', {
       address,
