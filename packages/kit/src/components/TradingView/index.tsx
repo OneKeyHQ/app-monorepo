@@ -22,7 +22,7 @@ interface IBaseTradingViewProps {
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 
-const EDGE_THRESHOLD = 50;
+const EDGE_THRESHOLD = 100;
 
 export function TradingView(props: ITradingViewProps & WebViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
