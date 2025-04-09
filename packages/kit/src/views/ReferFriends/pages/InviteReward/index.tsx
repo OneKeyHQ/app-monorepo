@@ -179,7 +179,7 @@ function Dashboard({
         networkId: string;
       }) => {
         const emailOTP = await verifyOneKeyId();
-        void backgroundApiProxy.serviceReferralCode.bindAddressBook(
+        void backgroundApiProxy.serviceReferralCode.bindAddress(
           networkId,
           address,
           emailOTP,

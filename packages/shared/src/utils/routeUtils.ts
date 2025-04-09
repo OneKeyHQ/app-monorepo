@@ -170,7 +170,6 @@ export const buildAllowList = (screens: IScreenPathConfig) => {
     //   showParams: true,
     // },
 
-
     [pagePath`${ERootRoutes.Modal}${EModalRoutes.SettingModal}${EModalSettingRoutes.SettingListModal}`]:
       {
         showUrl: true,
