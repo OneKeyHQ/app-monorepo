@@ -285,7 +285,7 @@ function Dashboard({
           <SizableText size="$headingMd">
             {intl.formatMessage({ id: ETranslations.referral_earn_reward })}
           </SizableText>
-          {/* <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" /> */}
+          <Icon size="$4.5" color="$iconSubdued" name="ChevronRightOutline" />
         </XStack>
         <SizableText mt="$0.5" size="$headingMd" color="$textSubdued">
           {intl.formatMessage({ id: ETranslations.referral_earn_reward_desc })}
