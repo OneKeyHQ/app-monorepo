@@ -2,7 +2,8 @@ import { useCallback, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
-import { ActionList, HeaderIconButton } from '@onekeyhq/components';
+import type { IActionListItemProps } from '@onekeyhq/components';
+import { ActionList, HeaderIconButton, useMedia } from '@onekeyhq/components';
 import useAppNavigation from '@onekeyhq/kit/src/hooks/useAppNavigation';
 import { useShowAddressBook } from '@onekeyhq/kit/src/hooks/useShowAddressBook';
 import { useActiveAccount } from '@onekeyhq/kit/src/states/jotai/contexts/accountSelector';
@@ -15,7 +16,6 @@ import {
   useToMyOneKeyModal,
 } from '@onekeyhq/kit/src/views/DeviceManagement/hooks/useToMyOneKeyModal';
 import { HomeTokenListProviderMirror } from '@onekeyhq/kit/src/views/Home/components/HomeTokenListProvider/HomeTokenListProviderMirror';
-import { useDevSettingsPersistAtom } from '@onekeyhq/kit-bg/src/states/jotai/atoms/devSettings';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { defaultLogger } from '@onekeyhq/shared/src/logger/logger';
 import platformEnv from '@onekeyhq/shared/src/platformEnv';
@@ -24,13 +24,13 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
 import { AccountSelectorProviderMirror } from '../AccountSelector';
 
 function MoreActionButtonCmp() {
-  const [devSettings] = useDevSettingsPersistAtom();
   const intl = useIntl();
   const navigation = useAppNavigation();
   const onLock = useOnLock();
@@ -91,6 +91,8 @@ function MoreActionButtonCmp() {
   );
 
   const { toReferFriendsPage } = useReferFriends();
+  const { loginOneKeyId } = useLoginOneKeyId();
+  const media = useMedia();
   const popupMenu = useMemo(() => {
     if (platformEnv.isExtensionUiPopup || platformEnv.isExtensionUiSidePanel) {
       const routeInfo = {
@@ -171,18 +173,30 @@ function MoreActionButtonCmp() {
           ].filter(Boolean),
         },
         {
-          items: !isShowMyOneKeyOnTabbar
-            ? [
-                {
+          items: [
+            media.md
+              ? {
+                  label: 'OneKey ID',
+                  icon: 'PeopleOutline',
+                  onPress: async () => {
+                    await loginOneKeyId({
+                      toOneKeyIdPageOnLoginSuccess: true,
+                    });
+                  },
+                  testID: 'onekey_id',
+                }
+              : null,
+            !isShowMyOneKeyOnTabbar
+              ? {
                   label: intl.formatMessage({
                     id: ETranslations.id_refer_a_friend,
                   }),
                   icon: 'GiftOutline',
                   onPress: toReferFriendsPage,
                   testID: 'refer-a-friend',
-                },
-              ]
-            : [],
+                }
+              : null,
+          ].filter(Boolean) as IActionListItemProps[],
         },
         {
           items: !isShowMyOneKeyOnTabbar
