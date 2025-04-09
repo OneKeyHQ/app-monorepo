@@ -89,18 +89,16 @@ export default function YourReferred() {
     [intl],
   );
 
-  const onRefresh = useCallback(() => {}, []);
   return (
     <Page scrollEnabled>
       <Page.Header
         title={intl.formatMessage({ id: ETranslations.referral_your_referred })}
       />
       <Page.Body>
-        <Tab
-          disableRefresh={!platformEnv.isNative}
+        <Tab.Page
           data={tabs}
+          initialScrollIndex={0}
           showsVerticalScrollIndicator={false}
-          onRefresh={onRefresh}
         />
       </Page.Body>
     </Page>
