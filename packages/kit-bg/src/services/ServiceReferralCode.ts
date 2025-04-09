@@ -2,7 +2,10 @@ import {
   backgroundClass,
   backgroundMethod,
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
-import type { IInviteSummary } from '@onekeyhq/shared/src/referralCode/type';
+import type {
+  IHardwareSalesRecord,
+  IInviteSummary,
+} from '@onekeyhq/shared/src/referralCode/type';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
 
 import ServiceBase from './ServiceBase';
@@ -17,7 +20,6 @@ class ServiceReferralCode extends ServiceBase {
   async getSummaryInfo() {
     const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
     const summary = await client.get<{
-      code: number;
       data: IInviteSummary;
     }>('/rebate/v1/invite/summary');
     return summary.data.data;
@@ -38,6 +40,24 @@ class ServiceReferralCode extends ServiceBase {
       networkId,
       emailOTP,
     });
+  }
+
+  @backgroundMethod()
+  async getHardwareSales(cursor?: string) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      subject: string;
+      cursor?: string;
+    } = {
+      subject: 'HardwareSales',
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    const response = await client.get<{
+      data: IHardwareSalesRecord;
+    }>('/rebate/v1/invite/records', { params });
+    return response.data.data;
   }
 
   @backgroundMethod()
