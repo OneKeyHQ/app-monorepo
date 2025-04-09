@@ -497,6 +497,8 @@ export default function InviteReward() {
     [],
     {
       initResult: undefined,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     },
   );
   return (
