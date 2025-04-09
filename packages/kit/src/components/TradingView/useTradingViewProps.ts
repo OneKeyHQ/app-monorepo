@@ -81,7 +81,7 @@ export const useTradingViewProps = ({
       'interval': '15',
       'allow_symbol_change': 'false',
       'save_image': 'false',
-      'withdateranges': 'false',
+      'withdateranges': 'true',
       'calendar': 'false',
       'hide_side_toolbar': '1',
       'support_host': 'https://www.tradingview.com',
