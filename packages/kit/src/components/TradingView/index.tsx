@@ -1,3 +1,8 @@
+import { useRef } from 'react';
+
+import { useNavigation } from '@react-navigation/native';
+import { PanResponder } from 'react-native';
+
 import { Stack, usePropsAndStyle } from '@onekeyhq/components';
 import type { IStackStyle } from '@onekeyhq/components';
 
@@ -26,8 +31,40 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
     identifier,
     baseToken,
   });
+
+  const navigation = useNavigation();
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (evt, gestureState) => {
+        // Only claim responder if touch starts near the left edge
+        return gestureState.x0 < 50;
+      },
+      onMoveShouldSetPanResponder: (evt, gestureState) => {
+        const { dx, dy, x0 } = gestureState;
+        return x0 < 50 && Math.abs(dx) > Math.abs(dy) && dx > 0;
+      },
+      onPanResponderGrant: (evt, gestureState) => {
+        const { x0 } = gestureState;
+        if (x0 < 50) {
+          navigation.setOptions({ gesturesEnabled: true });
+        }
+      },
+      onPanResponderMove: (evt, gestureState) => {
+        const { dx, dy, x0 } = gestureState;
+        if (x0 < 50 && Math.abs(dx) > Math.abs(dy) && dx > 0) {
+          navigation.setOptions({ gesturesEnabled: true });
+        } else {
+          navigation.setOptions({ gesturesEnabled: false });
+        }
+      },
+      onPanResponderRelease: () => {
+        navigation.setOptions({ gesturesEnabled: true });
+      },
+    }),
+  ).current;
+
   return (
-    <Stack bg="$bgApp" style={style as ViewStyle}>
+    <Stack {...panResponder.panHandlers} bg="$red5" style={style as ViewStyle}>
       <WebView
         tradingViewProps={tradingViewProps}
         style={{ flex: 1 }}
