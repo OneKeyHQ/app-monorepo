@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 
 import { useIntl } from 'react-intl';
 
@@ -9,11 +9,16 @@ import {
   SizableText,
   XStack,
 } from '@onekeyhq/components';
+import {
+  EAppEventBusNames,
+  appEventBus,
+} from '@onekeyhq/shared/src/eventBus/appEventBus';
 import { ETranslations } from '@onekeyhq/shared/src/locale';
 import { EShortcutEvents } from '@onekeyhq/shared/src/shortcuts/shortcuts.enum';
 import { useDebugComponentRemountLog } from '@onekeyhq/shared/src/utils/debug/debugUtils';
 
 import backgroundApiProxy from '../../../background/instance/backgroundApiProxy';
+import { useEnabledNetworksCompatibleWithWalletIdInAllNetworks } from '../../../hooks/useAllNetwork';
 import { usePromiseResult } from '../../../hooks/usePromiseResult';
 import { useShortcutsOnRouteFocused } from '../../../hooks/useShortcutsOnRouteFocused';
 import {
@@ -85,7 +90,7 @@ export const NetworkSelectorTriggerLegacy = memo(
 
 function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
   const {
-    activeAccount: { network },
+    activeAccount: { network, wallet },
     showChainSelector,
   } = useNetworkSelectorTrigger({ num });
 
@@ -97,6 +102,19 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
     EShortcutEvents.NetworkSelector,
     showChainSelector,
   );
+
+  const { enabledNetworksCompatibleWithWalletId, run } =
+    useEnabledNetworksCompatibleWithWalletIdInAllNetworks({
+      walletId: wallet?.id ?? '',
+      networkId: network?.id,
+    });
+
+  useEffect(() => {
+    appEventBus.on(EAppEventBusNames.AccountDataUpdate, run);
+    return () => {
+      appEventBus.off(EAppEventBusNames.AccountDataUpdate, run);
+    };
+  }, [run]);
 
   return (
     <XStack
@@ -132,7 +150,16 @@ function NetworkSelectorTriggerHomeCmp({ num }: { num: number }) {
         numberOfLines={1}
       >
         {network?.isAllNetworks
-          ? intl.formatMessage({ id: ETranslations.global_all_networks })
+          ? `${intl.formatMessage({
+              id: ETranslations.global_all_networks,
+            })}(${intl.formatMessage(
+              {
+                id: ETranslations.network_enabled_count,
+              },
+              {
+                'count': enabledNetworksCompatibleWithWalletId.length,
+              },
+            )})`
           : network?.name}
       </SizableText>
       <Icon

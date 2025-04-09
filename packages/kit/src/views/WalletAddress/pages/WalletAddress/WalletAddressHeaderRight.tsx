@@ -5,6 +5,7 @@ import { useIntl } from 'react-intl';
 import {
   Button,
   HeaderButtonGroup,
+  IconButton,
   Popover,
   Switch,
   YStack,
@@ -41,8 +42,14 @@ const Content = ({
         title={intl.formatMessage({
           id: ETranslations.network_show_enabled_only,
         })}
+        titleProps={{
+          $gtMd: {
+            size: '$bodyMdMedium',
+          },
+        }}
       >
         <Switch
+          size="small"
           value={showEnabledNetworksOnlyInCopyAddressPanel}
           onChange={(value) => {
             setAllNetworksPersist((v) => ({
@@ -56,6 +63,11 @@ const Content = ({
         title={intl.formatMessage({
           id: ETranslations.network_enable_more,
         })}
+        titleProps={{
+          $gtMd: {
+            size: '$bodyMdMedium',
+          },
+        }}
         onPress={async () => {
           await closePopover?.();
           navigation.pushModal(EModalRoutes.ChainSelectorModal, {
@@ -99,12 +111,7 @@ function WalletAddressHeaderRight({
       <Popover
         title={intl.formatMessage({ id: ETranslations.global_settings })}
         renderTrigger={
-          <Button
-            variant="tertiary"
-            icon="SliderHorOutline"
-            iconColor="$iconSubdued"
-            size="medium"
-          />
+          <IconButton variant="tertiary" icon="SliderHorOutline" />
         }
         renderContent={
           <Content

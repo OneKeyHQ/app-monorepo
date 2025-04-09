@@ -11,6 +11,7 @@ import {
   SizableText,
   XStack,
   YStack,
+  rootNavigationRef,
   useClipboard,
 } from '@onekeyhq/components';
 import backgroundApiProxy from '@onekeyhq/kit/src/background/instance/backgroundApiProxy';
@@ -20,6 +21,7 @@ import platformEnv from '@onekeyhq/shared/src/platformEnv';
 import {
   EModalReferFriendsRoutes,
   EModalRoutes,
+  ERootRoutes,
 } from '@onekeyhq/shared/src/routes';
 import { ESpotlightTour } from '@onekeyhq/shared/src/spotlight';
 
@@ -73,6 +75,24 @@ function InviteCode({
       />
     </YStack>
   );
+}
+
+// use rootNavigationRef to navigate
+export function useToReferFriendsModalByRootNavigation() {
+  return useCallback(async () => {
+    const isLogin = await backgroundApiProxy.servicePrime.isLoggedIn();
+
+    const screen = isLogin
+      ? EModalReferFriendsRoutes.InviteReward
+      : EModalReferFriendsRoutes.ReferAFriend;
+
+    rootNavigationRef.current?.navigate(ERootRoutes.Modal, {
+      screen: EModalRoutes.ReferFriendsModal,
+      params: {
+        screen,
+      },
+    });
+  }, []);
 }
 
 export const useReferFriends = () => {

@@ -100,12 +100,11 @@ function BookmarkListModal() {
                 required: {
                   value: true,
                   message: intl.formatMessage({
-                    id: ETranslations.global_name,
+                    id: ETranslations.explore_bookmark_at_least,
                   }),
                 },
               }}
             >
-              {/* <Input autoFocus flex={1} /> */}
               <RenameInputWithNameSelector
                 disabledMaxLengthLabel
                 nameHistoryInfo={{
