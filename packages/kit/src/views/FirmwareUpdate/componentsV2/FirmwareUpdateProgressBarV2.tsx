@@ -361,6 +361,11 @@ export function FirmwareUpdateProgressBarV2({
     }
   }, [isDone]);
 
+  useEffect(() => {
+    updateProgressRef.current('checking');
+    setDesc(defaultDesc());
+  }, [defaultDesc]);
+
   const installProgressList = useRef<string[]>([]);
   useEffect(() => {
     if (firmwareTipMessage) {

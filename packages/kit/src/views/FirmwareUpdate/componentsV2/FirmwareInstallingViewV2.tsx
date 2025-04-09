@@ -29,6 +29,8 @@ export function FirmwareInstallingViewBase({
   retryInfo?: IFirmwareUpdateRetry | undefined;
   progressBarKey?: number;
 }) {
+  const [resetKey, setResetKey] = useState(Date.now());
+
   const content = useMemo(() => {
     if (retryInfo) {
       console.log(
@@ -42,16 +44,20 @@ export function FirmwareInstallingViewBase({
           result={result}
           lastFirmwareTipMessage={tipMessage}
           isDone={isDone}
-          key={progressBarKey}
+          key={`${String(progressBarKey)}-${resetKey}`}
         />
         <FirmwareUpdateErrorV2
           retryInfo={retryInfo}
           result={result}
           lastFirmwareTipMessage={tipMessage}
+          onRetryBefore={() => {
+            // 只在点击 retry 时更新 resetKey
+            setResetKey(Date.now());
+          }}
         />
       </>
     );
-  }, [isDone, progressBarKey, result, retryInfo, tipMessage]);
+  }, [isDone, progressBarKey, resetKey, result, retryInfo, tipMessage]);
   return <Stack>{content}</Stack>;
 }
 
@@ -79,6 +85,10 @@ export function FirmwareInstallingViewV2({
 
   useEffect(() => {
     if (firmwareTipMessage) {
+      console.log(
+        'FirmwareInstallingViewV2 receive firmwareTipMessage: ',
+        firmwareTipMessage,
+      );
       setLastFirmwareTipMessage(firmwareTipMessage as any);
     }
   }, [firmwareTipMessage]);
