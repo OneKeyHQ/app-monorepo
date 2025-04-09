@@ -24,6 +24,7 @@ import extUtils from '@onekeyhq/shared/src/utils/extUtils';
 import { EAccountSelectorSceneName } from '@onekeyhq/shared/types';
 
 import backgroundApiProxy from '../../background/instance/backgroundApiProxy';
+import { useLoginOneKeyId } from '../../hooks/useLoginOneKeyId';
 import { useReferFriends } from '../../hooks/useReferFriends';
 import useScanQrCode from '../../views/ScanQrCode/hooks/useScanQrCode';
 import { useOnLock } from '../../views/Setting/pages/List/DefaultSection';
@@ -89,6 +90,7 @@ function MoreActionButtonCmp() {
     },
     [openAddressBook],
   );
+  const { loginOneKeyId } = useLoginOneKeyId();
 
   const { toReferFriendsPage } = useReferFriends();
   const popupMenu = useMemo(() => {

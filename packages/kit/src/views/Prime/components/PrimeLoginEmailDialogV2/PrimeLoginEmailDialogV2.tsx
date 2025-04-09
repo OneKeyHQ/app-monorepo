@@ -88,8 +88,8 @@ export function PrimeLoginEmailDialogV2(props: {
         });
 
         await pRetry(
-          async () => {
-            await sendCode({ email: data.email });
+          () => {
+            sendCode({ email: data.email });
           },
           {
             retries: 2,
@@ -103,7 +103,16 @@ export function PrimeLoginEmailDialogV2(props: {
         throw error;
       }
     },
-    [form, getAccessToken, loginWithCode, onComplete, onLoginSuccess, sendCode],
+    [
+      form,
+      getAccessToken,
+      loginWithCode,
+      onComplete,
+      onConfirm,
+      onLoginSuccess,
+      sendCode,
+      sendCodeInLogin,
+    ],
   );
 
   return (

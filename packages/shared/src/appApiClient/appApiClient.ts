@@ -44,7 +44,7 @@ const oneKeyIdAuthClients: Record<EServiceEndpointEnum, AxiosInstance | null> =
     [EServiceEndpointEnum.Lightning]: null,
     [EServiceEndpointEnum.Earn]: null,
     [EServiceEndpointEnum.Notification]: null,
-    [EServiceEndpointEnum.NotificationWebSocket]: null
+    [EServiceEndpointEnum.NotificationWebSocket]: null,
   };
 
 const getBasicClient = async ({
@@ -140,3 +140,7 @@ const appApiClient = {
   getOneKeyIdAuthClient,
 };
 export { appApiClient };
+
+export interface IAxiosResponse<T> extends AxiosResponse<T> {
+  $requestId?: string;
+}
