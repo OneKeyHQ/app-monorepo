@@ -37,6 +37,7 @@ function NetworkListHeader() {
             })}
           >
             <Switch
+              size="small"
               value={isAllNetworksEnabled}
               onChange={(value) => {
                 if (value) {

@@ -124,15 +124,14 @@ const ListHeaderComponent = ({
             isEditable={false}
             actions={[
               {
-                title: intl.formatMessage(
+                title: `${intl.formatMessage(
                   {
                     id: ETranslations.network_enabled_count,
                   },
                   {
                     'count': enabledNetworksCompatibleWithAccountId.length,
                   },
-                ),
-                trailingIcon: 'ChevronRightSmallOutline',
+                )} →`,
                 onPress: () => {
                   if (walletId) {
                     navigation.push(EChainSelectorPages.AllNetworksManager, {
