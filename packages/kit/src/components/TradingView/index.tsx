@@ -22,6 +22,8 @@ interface IBaseTradingViewProps {
 
 export type ITradingViewProps = IBaseTradingViewProps & IStackStyle;
 
+const EDGE_THRESHOLD = 50;
+
 export function TradingView(props: ITradingViewProps & WebViewProps) {
   const [restProps, style] = usePropsAndStyle(props);
   const { targetToken, identifier, baseToken, ...otherProps } =
@@ -35,23 +37,22 @@ export function TradingView(props: ITradingViewProps & WebViewProps) {
   const navigation = useNavigation();
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: (evt, gestureState) => {
-        // Only claim responder if touch starts near the left edge
-        return gestureState.x0 < 50;
+      onStartShouldSetPanResponder: (_, gestureState) => {
+        return gestureState.x0 < EDGE_THRESHOLD;
       },
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
+      onMoveShouldSetPanResponder: (_, gestureState) => {
         const { dx, dy, x0 } = gestureState;
-        return x0 < 50 && Math.abs(dx) > Math.abs(dy) && dx > 0;
+        return x0 < EDGE_THRESHOLD && Math.abs(dx) > Math.abs(dy) && dx > 0;
       },
-      onPanResponderGrant: (evt, gestureState) => {
+      onPanResponderGrant: (_, gestureState) => {
         const { x0 } = gestureState;
-        if (x0 < 50) {
+        if (x0 < EDGE_THRESHOLD) {
           navigation.setOptions({ gesturesEnabled: true });
         }
       },
-      onPanResponderMove: (evt, gestureState) => {
+      onPanResponderMove: (_, gestureState) => {
         const { dx, dy, x0 } = gestureState;
-        if (x0 < 50 && Math.abs(dx) > Math.abs(dy) && dx > 0) {
+        if (x0 < EDGE_THRESHOLD && Math.abs(dx) > Math.abs(dy) && dx > 0) {
           navigation.setOptions({ gesturesEnabled: true });
         } else {
           navigation.setOptions({ gesturesEnabled: false });
