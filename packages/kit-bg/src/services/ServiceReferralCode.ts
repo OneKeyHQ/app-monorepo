@@ -4,6 +4,7 @@ import {
 } from '@onekeyhq/shared/src/background/backgroundDecorators';
 import type {
   IHardwareSalesRecord,
+  IInviteHistory,
   IInviteSummary,
 } from '@onekeyhq/shared/src/referralCode/type';
 import { EServiceEndpointEnum } from '@onekeyhq/shared/types/endpoint';
@@ -40,6 +41,24 @@ class ServiceReferralCode extends ServiceBase {
       networkId,
       emailOTP,
     });
+  }
+
+  @backgroundMethod()
+  async getHardwareSalesReward(cursor?: string) {
+    const client = await this.getOneKeyIdClient(EServiceEndpointEnum.Rebate);
+    const params: {
+      subject: string;
+      cursor?: string;
+    } = {
+      subject: 'HardwareSales',
+    };
+    if (cursor) {
+      params.cursor = cursor;
+    }
+    const response = await client.get<{
+      data: IInviteHistory;
+    }>('/rebate/v1/invite/history', { params });
+    return response.data.data;
   }
 
   @backgroundMethod()
