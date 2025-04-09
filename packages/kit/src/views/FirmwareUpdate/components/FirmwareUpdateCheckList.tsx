@@ -122,7 +122,7 @@ export function FirmwareUpdateCheckList({
                     },
                   });
 
-                  defaultLogger.update.firmware.firmwareUpdateStartedT1({
+                  defaultLogger.update.firmware.firmwareUpdateStarted({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
                     updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
@@ -161,7 +161,7 @@ export function FirmwareUpdateCheckList({
                   //     result,
                   //   }),
                   // );
-                  defaultLogger.update.firmware.firmwareUpdateResultT1({
+                  defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
                     updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',
@@ -181,7 +181,7 @@ export function FirmwareUpdateCheckList({
                       error: err,
                     },
                   });
-                  defaultLogger.update.firmware.firmwareUpdateResultT1({
+                  defaultLogger.update.firmware.firmwareUpdateResult({
                     deviceType: result?.deviceType,
                     transportType: hardwareTransportType,
                     updateFlow: useV2FirmwareUpdateFlow ? 'v2' : 'v1',

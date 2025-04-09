@@ -55,22 +55,7 @@ export function parseFirmwareVersions(
 export class FirmwareScene extends BaseScene {
   @LogToServer()
   @LogToLocal()
-  public updateFirmware(params: {
-    updateType: 'firmware' | 'bootloader';
-    connectType: 'usb' | 'ble';
-    deviceType: string;
-    firmwareVersion: string;
-    targetVersion: string;
-    success: boolean;
-    errorCode?: string;
-    errorMessage?: string;
-  }) {
-    return params;
-  }
-
-  @LogToServer()
-  @LogToLocal()
-  public firmwareUpdateStartedT1(params: {
+  public firmwareUpdateStarted(params: {
     deviceType: IDeviceType | undefined;
     transportType: EHardwareTransportType | undefined;
     updateFlow: 'v1' | 'v2';
@@ -81,7 +66,7 @@ export class FirmwareScene extends BaseScene {
 
   @LogToServer()
   @LogToLocal()
-  public firmwareUpdateResultT1(params: {
+  public firmwareUpdateResult(params: {
     deviceType: IDeviceType | undefined;
     transportType: EHardwareTransportType | undefined;
     updateFlow: 'v1' | 'v2';

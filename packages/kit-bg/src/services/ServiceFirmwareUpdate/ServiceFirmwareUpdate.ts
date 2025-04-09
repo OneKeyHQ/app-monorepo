@@ -907,38 +907,13 @@ class ServiceFirmwareUpdate extends ServiceBase {
             },
           },
         });
-        try {
-          const result = convertDeviceResponse(async () =>
-            // TODO connectId can be undefined
-            hardwareSDK.deviceUpdateBootloader(
-              params.releaseResult.updatingConnectId as string,
-              {},
-            ),
-          );
-          defaultLogger.update.firmware.updateFirmware({
-            updateType: 'bootloader',
-            deviceType,
-            connectType: platformEnv.isNative ? 'ble' : 'usb',
-            firmwareVersion: updateInfo.fromVersion,
-            targetVersion: updateInfo.toVersion,
-            success: true,
-          });
-          return await result;
-        } catch (error) {
-          defaultLogger.update.firmware.updateFirmware({
-            updateType: 'bootloader',
-            deviceType,
-            connectType: platformEnv.isNative ? 'ble' : 'usb',
-            firmwareVersion: updateInfo.fromVersion,
-            targetVersion: updateInfo.toVersion,
-            success: false,
-            errorCode: (error as { payload?: { code?: string } })?.payload
-              ?.code,
-            errorMessage: (error as { payload?: { message?: string } })?.payload
-              ?.message,
-          });
-          throw error;
-        }
+        return convertDeviceResponse(async () =>
+          // TODO connectId can be undefined
+          hardwareSDK.deviceUpdateBootloader(
+            params.releaseResult.updatingConnectId as string,
+            {},
+          ),
+        );
       }
     });
   }
@@ -1029,52 +1004,29 @@ class ServiceFirmwareUpdate extends ServiceBase {
           },
         },
       });
-      try {
-        const result = await convertDeviceResponse(async () =>
-          hardwareSDK.firmwareUpdateV2(
-            deviceUtils.getUpdatingConnectId({ connectId }),
-            {
-              updateType: firmwareType as any,
-              // update res is always enabled when firmware version changed
-              // forcedUpdateRes for TEST only, means always update res even if firmware version is same (re-flash the same firmware)
-              forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
-              version: versionArr,
-              platform: platformEnv.symbol ?? 'web',
-            },
-          ),
-        );
-        if (
-          result &&
-          deviceType === EDeviceType.Touch &&
-          firmwareType === 'firmware'
-        ) {
-          // const updateBootRes = await this.updateBootloader(connectId);
-          // if (!updateBootRes.success) return updateBootRes;
-        }
-        // TODO handleErrors UpdatingModal
-        defaultLogger.update.firmware.updateFirmware({
-          updateType: 'firmware',
-          connectType: platformEnv.isNative ? 'ble' : 'usb',
-          deviceType: deviceType ?? 'unknown',
-          firmwareVersion: updateInfo.fromVersion,
-          targetVersion: version,
-          success: true,
-        });
-        return result;
-      } catch (error) {
-        defaultLogger.update.firmware.updateFirmware({
-          updateType: 'firmware',
-          connectType: platformEnv.isNative ? 'ble' : 'usb',
-          deviceType: deviceType ?? 'unknown',
-          firmwareVersion: updateInfo.fromVersion,
-          targetVersion: version,
-          success: false,
-          errorCode: (error as { payload?: { code?: string } })?.payload?.code,
-          errorMessage: (error as { payload?: { message?: string } })?.payload
-            ?.message,
-        });
-        throw error;
+      const result = await convertDeviceResponse(async () =>
+        hardwareSDK.firmwareUpdateV2(
+          deviceUtils.getUpdatingConnectId({ connectId }),
+          {
+            updateType: firmwareType as any,
+            // update res is always enabled when firmware version changed
+            // forcedUpdateRes for TEST only, means always update res even if firmware version is same (re-flash the same firmware)
+            forcedUpdateRes: forceUpdateResEvenIfSameVersion === true,
+            version: versionArr,
+            platform: platformEnv.symbol ?? 'web',
+          },
+        ),
+      );
+      if (
+        result &&
+        deviceType === EDeviceType.Touch &&
+        firmwareType === 'firmware'
+      ) {
+        // const updateBootRes = await this.updateBootloader(connectId);
+        // if (!updateBootRes.success) return updateBootRes;
       }
+      // TODO handleErrors UpdatingModal
+      return result;
     });
   }
 
